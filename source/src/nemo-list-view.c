@@ -83,6 +83,11 @@ struct NemoListViewDetails {
 	GtkTreeViewColumn   *file_name_column;
 	int file_name_column_num;
 
+	/* Nemo Anywhere's dim checkmarks. Column 0 under that model, and out
+	   of the tree view under the others, so their column numbers stay. */
+	GtkTreeViewColumn   *checkmark_column;
+	GtkCellRenderer     *checkmark_cell;
+
 	GtkCellRendererPixbuf *pixbuf_cell;
 	GtkCellRendererText   *file_name_cell;
 	GList *cells;
@@ -250,6 +255,7 @@ static GdkCursor *              hand_cursor = NULL;
 static GtkTargetList *          source_target_list = NULL;
 
 static void   resize_columns_soon                            (NemoListView *view);
+static gboolean checkmarks_shown                              (NemoListView *view);
 static void   forget_samples                                 (NemoListView *view);
 static void   remeasure_rows                                 (NemoListView *view);
 static void   style_metrics                                  (NemoListView *view);
@@ -2711,6 +2717,10 @@ column_header_menu_toggled (GtkCheckMenuItem *menu_item,
 
         const char *current_id = g_object_get_data (G_OBJECT (c), "column-id");
 
+        if (current_id == NULL) {
+            continue;
+        }
+
         if (g_strcmp0 (current_id, menu_item_column_id) == 0) {
             if (gtk_check_menu_item_get_active (menu_item)) {
                 list = g_list_prepend (list, g_strdup (current_id));
@@ -2836,6 +2846,11 @@ column_header_clicked (G_GNUC_UNUSED GtkWidget *column_button,
         GtkTreeViewColumn *c = GTK_TREE_VIEW_COLUMN (l->data);
 
         name = g_object_get_data (G_OBJECT (c), "column-id");
+
+        /* The checkmark column isn't the user's to hide. */
+        if (name == NULL) {
+            continue;
+        }
 
         if (!nemo_file_is_in_trash (file)) {
             if (g_strcmp0 (name, "trashed_on") == 0 ||
@@ -2981,7 +2996,8 @@ apply_columns_settings (NemoListView *list_view,
 	/* hide columns that are not present in the configuration */
 	old_view_columns = gtk_tree_view_get_columns (list_view->details->tree_view);
 	for (l = old_view_columns; l != NULL; l = l->next) {
-		if (g_list_find (view_columns, l->data) == NULL) {
+		if (l->data != list_view->details->checkmark_column &&
+		    g_list_find (view_columns, l->data) == NULL) {
 			gtk_tree_view_column_set_visible (l->data, FALSE);
 		}
 	}
@@ -3004,7 +3020,8 @@ apply_columns_settings (NemoListView *list_view,
     if (gtk_check_version (3, 22, 25) == NULL) {
         gint prev_view_column;
 
-        prev_view_column = 0;
+        /* After the checkmark column, which stays first. */
+        prev_view_column = checkmarks_shown (list_view) ? 1 : 0;
         for (l = view_columns; l != NULL; l = l->next) {
             g_signal_handlers_disconnect_by_func (gtk_tree_view_column_get_button (l->data),
                                                   column_header_clicked, list_view);
@@ -3029,7 +3046,7 @@ apply_columns_settings (NemoListView *list_view,
         }
 
         /* place columns in the correct order */
-        prev_view_column = NULL;
+        prev_view_column = checkmarks_shown (list_view) ? list_view->details->checkmark_column : NULL;
         for (l = view_columns; l != NULL; l = l->next) {
             gtk_tree_view_move_column_after (list_view->details->tree_view, l->data, prev_view_column);
             prev_view_column = l->data;
@@ -3037,6 +3054,12 @@ apply_columns_settings (NemoListView *list_view,
     }
 
     g_list_free (view_columns);
+
+    /* Taking Name out above dropped it as the expander column. */
+    if (checkmarks_shown (list_view)) {
+        gtk_tree_view_set_expander_column (list_view->details->tree_view,
+                                           list_view->details->file_name_column);
+    }
 
     /* A column arriving or leaving changes what the rest have to fit into, and a
        column that was hidden was never measured while it was. */
@@ -3135,6 +3158,85 @@ shade_row_cell_data_func (G_GNUC_UNUSED GtkTreeViewColumn *column,
     shade_row (view, renderer, model, iter);
 }
 
+#define CHECKMARK_TEXT "\u2713"
+
+/* With the affirmative switch off a mark is only ever a selected row's, so it
+   follows the selection. Dim is the cell's insensitive look. */
+static void
+checkmark_cell_data_func (GtkTreeViewColumn *column,
+                          GtkCellRenderer   *renderer,
+                          GtkTreeModel      *model,
+                          GtkTreeIter       *iter,
+                          NemoListView      *view)
+{
+    GtkTreeSelection *selection = gtk_tree_view_get_selection (view->details->tree_view);
+
+    g_object_set (renderer,
+                  "text", gtk_tree_selection_iter_is_selected (selection, iter) ? CHECKMARK_TEXT : "",
+                  NULL);
+    shade_row_cell_data_func (column, renderer, model, iter, view);
+}
+
+static void
+checkmark_column_fit (NemoListView *view)
+{
+    gint width = 0;
+
+    if (view->details->checkmark_cell == NULL) {
+        return;
+    }
+
+    g_object_set (view->details->checkmark_cell, "text", CHECKMARK_TEXT, NULL);
+    gtk_cell_renderer_get_preferred_width (view->details->checkmark_cell,
+                                           GTK_WIDGET (view->details->tree_view),
+                                           NULL, &width);
+    gtk_tree_view_column_set_fixed_width (view->details->checkmark_column, MAX (width, 1));
+}
+
+static gboolean
+checkmarks_shown (NemoListView *view)
+{
+    return view->details->checkmark_column != NULL &&
+           gtk_tree_view_column_get_tree_view (view->details->checkmark_column) ==
+           GTK_WIDGET (view->details->tree_view);
+}
+
+static void
+checkmark_column_update (NemoListView *view)
+{
+    gboolean shown = nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE;
+
+    if (checkmarks_shown (view) == shown) {
+        return;
+    }
+
+    if (shown) {
+        gtk_tree_view_insert_column (view->details->tree_view, view->details->checkmark_column, 0);
+        eel_gtk_widget_refuse_focus (gtk_tree_view_column_get_button (view->details->checkmark_column));
+        checkmark_column_fit (view);
+    } else {
+        gtk_tree_view_remove_column (view->details->tree_view, view->details->checkmark_column);
+    }
+    /* Left unset, the expanders would move into the new first column. */
+    gtk_tree_view_set_expander_column (view->details->tree_view,
+                                       shown ? view->details->file_name_column : NULL);
+    resize_columns_soon (view);
+}
+
+/* Nothing goes left of the checkmarks. */
+static gboolean
+column_drop_allowed (G_GNUC_UNUSED GtkTreeView       *tree_view,
+                     GtkTreeViewColumn *column,
+                     GtkTreeViewColumn *prev_column,
+                     G_GNUC_UNUSED GtkTreeViewColumn *next_column,
+                     gpointer           user_data)
+{
+    NemoListView *view = NEMO_LIST_VIEW (user_data);
+
+    return column != view->details->checkmark_column &&
+           (prev_column != NULL || !checkmarks_shown (view));
+}
+
 static void
 row_shading_changed_callback (NemoListView *view)
 {
@@ -3198,6 +3300,7 @@ tree_view_style_updated (NemoListView *view)
         g_free (id);
     }
 
+    checkmark_column_fit (view);
     row_shading_changed_callback (view);
 }
 
@@ -3912,7 +4015,16 @@ measure_columns (NemoListView *view)
 static void
 columns_changed_callback (NemoListView *view)
 {
+	GtkTreeViewColumn *checkmark = view->details->checkmark_column;
+
 	g_clear_pointer (&view->details->measure_columns, g_list_free);
+
+	/* Should anything put a column ahead of the checkmarks, they go back to
+	   the front. Moving them calls this again, as a no-op. */
+	if (checkmarks_shown (view) &&
+	    gtk_tree_view_get_column (view->details->tree_view, 0) != checkmark) {
+		gtk_tree_view_move_column_after (view->details->tree_view, checkmark, NULL);
+	}
 }
 
 /* One row through every visible column, folded into what each has seen. Called
@@ -4070,13 +4182,20 @@ layout_columns (NemoListView *view,
 	gint ellipsis;
 	gint narrow;
 	gint i = 0;
+	gint whole = available;
 
 	all = gtk_tree_view_get_columns (view->details->tree_view);
 
 	for (l = all; l != NULL; l = l->next) {
-		if (gtk_tree_view_column_get_visible (l->data)) {
-			n_columns++;
+		if (!gtk_tree_view_column_get_visible (l->data)) {
+			continue;
 		}
+		/* Its width never changes, so the rest share what's left. */
+		if (l->data == view->details->checkmark_column) {
+			available -= gtk_tree_view_column_get_fixed_width (l->data);
+			continue;
+		}
+		n_columns++;
 	}
 
 	if (n_columns == 0) {
@@ -4105,7 +4224,8 @@ layout_columns (NemoListView *view,
 		NemoColumnMeasure measure = { 0, 0, 0, 0 };
 		gpointer dragged;
 
-		if (!gtk_tree_view_column_get_visible (column)) {
+		if (!gtk_tree_view_column_get_visible (column) ||
+		    column == view->details->checkmark_column) {
 			continue;
 		}
 
@@ -4151,7 +4271,7 @@ layout_columns (NemoListView *view,
 	}
 	view->details->applying_layout = FALSE;
 
-	view->details->laid_out_width = available;
+	view->details->laid_out_width = whole;
 
 	g_free (items);
 	g_free (columns);
@@ -4848,6 +4968,24 @@ create_and_set_up_tree_view (NemoListView *view)
 
 	gtk_tree_selection_set_mode (gtk_tree_view_get_selection (view->details->tree_view), GTK_SELECTION_MULTIPLE);
 
+	/* No column-id: it isn't one of the user's columns. */
+	view->details->checkmark_cell = gtk_cell_renderer_text_new ();
+	g_object_set (view->details->checkmark_cell,
+		      "xalign", 0.5,
+		      "xpad", 2,
+		      "sensitive", FALSE,
+		      NULL);
+	view->details->checkmark_column = gtk_tree_view_column_new ();
+	g_object_ref_sink (view->details->checkmark_column);
+	gtk_tree_view_column_pack_start (view->details->checkmark_column,
+					 view->details->checkmark_cell, TRUE);
+	gtk_tree_view_column_set_cell_data_func (view->details->checkmark_column,
+						 view->details->checkmark_cell,
+						 (GtkTreeCellDataFunc) checkmark_cell_data_func,
+						 view, NULL);
+	gtk_tree_view_column_set_sizing (view->details->checkmark_column, GTK_TREE_VIEW_COLUMN_FIXED);
+	gtk_tree_view_set_column_drag_function (view->details->tree_view, column_drop_allowed, view, NULL);
+
 	nemo_columns = nemo_get_all_columns ();
 
 	for (l = nemo_columns; l != NULL; l = l->next) {
@@ -5020,6 +5158,12 @@ create_and_set_up_tree_view (NemoListView *view)
 	}
 
 	nemo_column_list_free (nemo_columns);
+
+	checkmark_column_update (view);
+	g_signal_connect_object (nemo_preferences,
+				 "changed::" NEMO_PREFERENCES_SELECTION_MODEL,
+				 G_CALLBACK (checkmark_column_update),
+				 view, G_CONNECT_SWAPPED);
 
 	default_visible_columns = nemo_config_get_strv (nemo_list_view_preferences,
 						       NEMO_PREFERENCES_LIST_VIEW_DEFAULT_VISIBLE_COLUMNS);
@@ -6536,6 +6680,8 @@ nemo_list_view_finalize (GObject *object)
 	list_view->details->original_name = NULL;
 
 	g_clear_object (&list_view->details->search_root);
+	list_view->details->checkmark_cell = NULL;
+	g_clear_object (&list_view->details->checkmark_column);
 
 	if (list_view->details->double_click_path[0]) {
 		gtk_tree_path_free (list_view->details->double_click_path[0]);

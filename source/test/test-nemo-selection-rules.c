@@ -207,7 +207,7 @@ main (int argc, char *argv[])
 		return 77;
 	}
 
-	run_view (argv[1], argv[2], model, "list-view", 10, 71);
+	run_view (argv[1], argv[2], model, "list-view", 10, 72);
 	run_view (argv[1], argv[2], model, "icon-view", 24, 75);
 	run_view (argv[1], argv[2], model, "compact-view", 60, 75);
 

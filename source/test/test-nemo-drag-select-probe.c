@@ -26,7 +26,8 @@
  * $NEMO_DRAG_VIEW, through GTK's own event path, and checks what each did to
  * the selection, whether a file drag began, and when a menu opened. In the
  * list view it also right-clicks a Places row, and in the others a row of the
- * tree pane. One "ok" or "FAIL" line per check goes to $NEMO_DRAG_OUT, and
+ * tree pane. Under Nemo Anywhere each list view check also looks at the
+ * checkmarks. One "ok" or "FAIL" line per check goes to $NEMO_DRAG_OUT, and
  * "done" at the end. Every file drag is canceled, so nothing moves. */
 
 #include <stdio.h>
@@ -42,6 +43,7 @@ static FILE           *out;
 static const char     *folder_name;
 static gboolean        list_mode;
 static gboolean        classic;
+static gboolean        anywhere;
 static GtkWidget      *window;
 static GtkWidget      *pane;
 static GdkWindow      *bin;
@@ -292,14 +294,59 @@ selected_list (void)
 	return g_string_free (list, FALSE);
 }
 
+/* Nemo Anywhere's checkmarks are the list view's first column, the one with
+   no column-id. */
+static GtkTreeViewColumn *
+checkmark_column (void)
+{
+	GtkTreeViewColumn *first = gtk_tree_view_get_column (GTK_TREE_VIEW (pane), 0);
+
+	return first != NULL && g_object_get_data (G_OBJECT (first), "column-id") == NULL ? first : NULL;
+}
+
+/* The rows with a mark, as selected_list puts them. */
+static char *
+marked_list (void)
+{
+	GtkTreeViewColumn *column = checkmark_column ();
+	GtkTreeModel *model = gtk_tree_view_get_model (GTK_TREE_VIEW (pane));
+	GString *list = g_string_new (NULL);
+	GtkTreeIter iter;
+	GList *cells;
+	int row = 0;
+
+	if (column == NULL || model == NULL || !gtk_tree_model_get_iter_first (model, &iter)) {
+		return g_string_free (list, FALSE);
+	}
+	cells = gtk_cell_layout_get_cells (GTK_CELL_LAYOUT (column));
+	do {
+		char *text = NULL;
+
+		gtk_tree_view_column_cell_set_cell_data (column, model, &iter, FALSE, FALSE);
+		g_object_get (cells->data, "text", &text, NULL);
+		if (text != NULL && text[0] != '\0') {
+			g_string_append_printf (list, "%s%d", list->len > 0 ? "," : "", row);
+		}
+		g_free (text);
+		row++;
+	} while (gtk_tree_model_iter_next (model, &iter));
+	g_list_free (cells);
+	return g_string_free (list, FALSE);
+}
+
 static void
 check_selection (const char *want, const char *what)
 {
 	char *got = selected_list ();
-	char *line = g_strdup_printf ("%s (selected %s, want %s)", what, got, want);
+	/* Under Nemo Anywhere the marks are part of every list view check. */
+	char *marked = anywhere && list_mode ? marked_list () : g_strdup (got);
+	char *line = anywhere && list_mode ?
+		g_strdup_printf ("%s (selected %s, marked %s, want %s)", what, got, marked, want) :
+		g_strdup_printf ("%s (selected %s, want %s)", what, got, want);
 
-	report (strcmp (got, want) == 0, line);
+	report (strcmp (got, want) == 0 && strcmp (marked, got) == 0, line);
 	g_free (line);
+	g_free (marked);
 	g_free (got);
 }
 
@@ -320,7 +367,8 @@ static double
 blank_x (void)
 {
 	GtkTreeView *tree_view = GTK_TREE_VIEW (pane);
-	GtkTreeViewColumn *column = gtk_tree_view_get_column (tree_view, 1);
+	/* Nemo Anywhere's checkmarks come ahead of Name. */
+	GtkTreeViewColumn *column = gtk_tree_view_get_column (tree_view, checkmark_column () != NULL ? 2 : 1);
 	GtkTreePath *path = gtk_tree_path_new_from_indices (0, -1);
 	GdkRectangle cell;
 
@@ -882,6 +930,7 @@ probe_start (void)
 	const char *view = g_getenv ("NEMO_DRAG_VIEW");
 
 	classic = g_strcmp0 (g_getenv ("NEMO_DRAG_MODEL"), "nemo-classic") == 0;
+	anywhere = g_strcmp0 (g_getenv ("NEMO_DRAG_MODEL"), "nemo-anywhere") == 0;
 	folder_name = g_getenv ("NEMO_DRAG_FOLDER");
 	if (path == NULL || view == NULL || folder_name == NULL) {
 		return;

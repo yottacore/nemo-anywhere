@@ -969,7 +969,8 @@ each_path_get_data_binder (NemoDragEachSelectedItemDataGet data_get,
 
 	g_return_if_fail (info->model->details->drag_view);
 
-	column = gtk_tree_view_get_column (info->model->details->drag_view, 0);
+	/* Name's, which isn't column 0 behind Nemo Anywhere's checkmarks. */
+	column = gtk_tree_view_get_expander_column (info->model->details->drag_view);
 
 	for (l = info->path_list; l != NULL; l = l->next) {
 		row = l->data;

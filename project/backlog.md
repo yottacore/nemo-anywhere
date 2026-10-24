@@ -377,6 +377,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 0dab690
 	- Test case: rjhvmm6f, Mapped drive not asked, new bin cases: a fixed drive's bin is asked, a removable one's only with a disk in it, an empty drive answers in under 2 s, and no share or optical drive is asked.
 
+- Nemo Anywhere dim checkmarks: the list view column.
+	- ID: 2026102411133409
+	- Type: Enhancement
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: no. Passed 20261024.
+	- Needs external testing: rm1sbxgy and rm1sbwdq natively on Windows and in the FreeBSD lane.
+	- Needs hand testing: how the dim mark looks on selected rows, in a light and a dark theme.
+	- Priority|Severity: High
+	- Opened: 20261024-111334
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515571
+	- Target OS: All
+	- Requirements:
+		- Only under Nemo Anywhere. A dim checkmark on every selected row, and none on the rest. The text doesn't change.
+		- A thin new column left of Name, with nothing else in it. It can't be hidden or moved, and isn't in the column chooser.
+		- It comes and goes with the selection model setting, live.
+		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
+	- Progress log:
+		- 20261024: opened.
+		- 20261024: a checkmark column, first in the list view under Nemo Anywhere, with a mark on each selected row. Under the other models it isn't in the tree view at all. It follows the setting live, can't be moved, and isn't in the column chooser. Name keeps the expanders.
+		- 20261024: rktkms8a, rktqpp37 and rm1sbxgy expect 72 list view results, up from 71, for the new check on the column.
+	- Decisions:
+		- The mark is a checkmark glyph (U+2713) in the selected row's text color, drawn with the theme's insensitive look. The selection color itself would vanish on the selection background, so this departs from the note on the parent until the per-theme color step.
+		- Under the other models the column is out of the tree view, so their column numbers don't move.
+		- Its width is the glyph's, taken off the row before the other columns share it.
+	- Not covered by a test yet: the column coming and going when the setting changes while the window is open.
+	- Swept: every walk of the list view's columns (the column chooser and its toggle, the saved order, applying the column settings, layout, measuring, the width drag), and every `gtk_tree_view_get_column (..., 0)` in the app and the tests. The list model's drag geometry now takes the expander column, which is Name.
+	- Branch: round1024b
+	- Test case: rm1sbxgy and rm1sbwdq, where every list view check also checks the marks, the bands included. rktkms8a, rktqpp37 and rm1sbxgy check the column is there only under Nemo Anywhere, thin, and without the expanders.
+	- Verified: 20261024, rm1sbxgy, rm1sbwdq, rktkms8a, rk7yvgse, rktqpp37 and rkts3far pass. The full Linux suite, 234 OK and 1 skipped. The build and the Windows cross build with warnings as errors, the C lint, and the test ID check pass.
+
 - rhr6ggmt can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
 	- Type: Bug
@@ -579,7 +611,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere: dim checkmarks that follow the selection, in all 3 views.
 	- ID: 2026102407515571
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Started
 	- Needs local test suite run?: Yes
 	- Priority|Severity: High
 	- Opened: 20261024-075155
@@ -597,6 +629,49 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Notes:
 		- Sorting on the column belongs with the affirmative half, since with the switch off it sorts on the selection.
 		- The color per bundled theme is its own roadmap step. Until then the mark takes the theme's selection color, dimmed.
+	- Progress log:
+		- 20261024: opened.
+		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
+	- Test case: one per child.
+
+- Nemo Anywhere dim checkmarks: the icon view.
+	- ID: 2026102411133414
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-111334
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515571
+	- Prereq IDs: 2026102411133409
+	- Target OS: All
+	- Requirements:
+		- Only under Nemo Anywhere. A dim checkmark on every selected icon, and none on the rest. The text doesn't change.
+		- In the top-left corner of the icon, on a small scrim that reads on any thumbnail.
+		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
+	- Progress log:
+		- 20261024: opened.
+	- Test case: none yet.
+
+- Nemo Anywhere dim checkmarks: the compact view.
+	- ID: 2026102411133419
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-111334
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515571
+	- Prereq IDs: 2026102411133414
+	- Target OS: All
+	- Requirements:
+		- Only under Nemo Anywhere. A dim checkmark on every selected item, and none on the rest. The text doesn't change.
+		- Left of the name text.
+		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
+	- Notes:
+		- Shares the icon container's drawing with the icon view, so it follows that child.
 	- Progress log:
 		- 20261024: opened.
 	- Test case: none yet.
