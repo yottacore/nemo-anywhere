@@ -494,16 +494,20 @@ resolve_w (const wchar_t *path, wchar_t out[FENCE_PATH])
 		return 0;
 	}
 	len = wcslen (full);
-	while (len > 3 && (full[len - 1] == L'\\' || full[len - 1] == L'/')) {
+	while (len > 3 && (full[len - 1] == L'\\' || full[len - 1] == L'/') && full[len - 2] != L':') {
 		full[--len] = L'\0';
 	}
 	cut = wcsrchr (full, L'\\');
-	if (cut == NULL) {
+	if (cut == NULL || cut[1] == L'\0') {
 		return final_path (full, out, FENCE_PATH);
 	}
 	name = cut + 1;
-	*cut = L'\0';
-	if (!final_path (full, dir, FENCE_PATH)) {
+	/* C: alone is the current folder on C:, not its root, so the parent of
+	   C:\x keeps its backslash. out holds it until the answer goes there. */
+	len = (size_t) (cut - full) + (cut > full && cut[-1] == L':' ? 1 : 0);
+	memcpy (out, full, len * sizeof (wchar_t));
+	out[len] = L'\0';
+	if (!final_path (out, dir, FENCE_PATH)) {
 		return 0;
 	}
 	len = wcslen (dir);

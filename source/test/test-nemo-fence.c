@@ -444,6 +444,30 @@ check_recycle_bin (void)
 }
 #endif
 
+/* A name right under the root is judged as that, not against the current
+   folder. On Windows C: alone is the current folder on C:, so a parent cut
+   down to it once let C:\x through from inside the test's own folder. */
+static void
+check_from_inside (void)
+{
+	g_autofree char *was = g_get_current_dir ();
+	g_autofree char *missing = NULL;
+	g_autofree char *drive = NULL;
+
+#ifdef G_OS_WIN32
+	drive = g_strdup_printf ("%c:\\", allowed[0]);
+#else
+	drive = g_strdup ("/");
+#endif
+	missing = g_build_filename (drive, "nemo-fence-not-there", NULL);
+	check (g_chdir (allowed) == 0);
+	check (!test_fence_allows (G_DIR_SEPARATOR_S));
+	check (!test_fence_allows (drive));
+	check (!test_fence_allows (missing));
+	check (test_fence_allows ("here.txt"));
+	check (g_chdir (was) == 0);
+}
+
 int
 main (int argc, char **argv)
 {
@@ -473,6 +497,7 @@ main (int argc, char **argv)
 	   system is not. */
 	check (test_fence_allows (allowed));
 	check (!test_fence_allows (G_DIR_SEPARATOR_S));
+	check_from_inside ();
 
 	check_refusals ();
 #ifndef G_OS_WIN32

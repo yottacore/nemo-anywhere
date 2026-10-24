@@ -178,22 +178,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261023: a delete right under a drive root is checked against the current folder instead, filed as 2026102320180998.
 
-- On Windows the fence checks a delete right under a drive root against the current folder.
-	- ID: 2026102320180998
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261023-201809
-	- Opened by: 2026102221362030
-	- Related IDs: 2026101715030680, 2026102219444112
-	- Target OS: Windows
-	- Steps to reproduce: run `test-nemo-fence.exe` natively from a folder inside `%TEMP%`, outside the jail.
-	- Incorrect behavior: `test_fence_allows ("\\")` says yes, so rknjd2qn fails at its check that the root is not the test's own. `resolve_w` takes `C:\x` apart into `C:` and `x`, and `C:` alone means the current folder on C:, not its root. So a delete of `C:\x` is checked as `<current folder>\x`, and let through when the current folder is the test's own.
-	- Expected behavior: `C:\x` is checked as `C:\x`, wherever the test runs from.
-	- Reproduced: 20261023 on vm925w as wintest, every run of rknjd2qn from `%TEMP%`. The suite runs it from the build folder, where it passes.
-	- Possible cause: the parent of an item right under a drive root should keep its backslash.
-	- Test case: rknjd2qn, once it runs a case from a current folder inside its own.
-
 - rk65m3m4 fails in the full Linux suite with "Header CRC error".
 	- ID: 2026102307150011
 	- Type: Bug
@@ -1691,6 +1675,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- On Windows the fence checks a delete right under a drive root against the current folder.
+	- ID: 2026102320180998
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261023-201809
+	- Opened by: 2026102221362030
+	- Related IDs: 2026101715030680, 2026102219444112
+	- Target OS: Windows
+	- Steps to reproduce: run `test-nemo-fence.exe` natively from a folder inside `%TEMP%`, outside the jail.
+	- Incorrect behavior: `test_fence_allows ("\\")` says yes, so rknjd2qn fails at its check that the root is not the test's own. `resolve_w` takes `C:\x` apart into `C:` and `x`, and `C:` alone means the current folder on C:, not its root. So a delete of `C:\x` is checked as `<current folder>\x`, and let through when the current folder is the test's own.
+	- Expected behavior: `C:\x` is checked as `C:\x`, wherever the test runs from.
+	- Reproduced: 20261023 on vm925w as wintest, every run of rknjd2qn from `%TEMP%`. The suite runs it from the build folder, where it passes.
+	- Possible cause: the parent of an item right under a drive root should keep its backslash.
+	- Actual cause: as above. `resolve_w` checks a path by its parent folder plus its name, and cut the parent of `C:\x` down to `C:`. The root itself, `C:\`, became `C:` with an empty name, so it was checked as the current folder.
+	- Actual fix: `source/test/test-fence.c`. A parent that ends at a drive's colon keeps its backslash, and a path that ends at the root is checked as the root.
+	- Test case: rknjd2qn, new case: from a current folder inside its own, `\`, the drive root and a name right under it are refused, and a bare name is let through.
+	- Verified: 20261023. rknjd2qn's new case fails 3 ways with the old fence and passes with the fix under wine. On vm925w as wintest in the desktop session, run from a folder in `%TEMP%`: the old fence failed 4 checks, the root check from the issue among them, and the fix passed 2 of 2. Linux gate 231 OK and 1 skipped, lint clean, Windows cross build clean.
+	- Swept: every place the fence splits a Windows path. `resolve_w` is the only one; `add_root_w` resolves the whole path, and the POSIX `resolve` already keeps `/` as the parent.
+	- Branch: round1023
+	- Closed: 20261023-204229
 
 - Carve out "Nemo Classic": upstream Nemo's exact selection and focus behavior, behind the selection model setting.
 	- ID: 2026102016594200
