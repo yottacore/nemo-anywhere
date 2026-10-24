@@ -151,7 +151,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rhtmbdmh.
 	- Progress log:
 		- 20261022: same 3 lines in the native gate on round1022 in the desktop session, and 5 of 5 alone there.
-		- 20261023: not reached; the time went to 2026102221362030.
+		- 20261023: all 3 lines follow from one number. "Holiday photos 2024" measured 108 px, under the 120 px lower limit of a 1200 px strip, so it's clamped to 120 (line 213), the fixture check fails (line 210), and the long title, 340 px, is under the new 30 percent (line 227). So the text was smaller in that run than in the runs that pass. wintest has no GTK `settings.ini`, and nothing in the tree changes a font or DPI outside its own process. Options: size the strip from the measured title instead of a fixed 1200 px, so the fixture holds at any font size. That hides what made the font smaller, so first find that.
 
 - rhtmbdmj crashed once in the native Windows suite.
 	- ID: 2026102221362030
