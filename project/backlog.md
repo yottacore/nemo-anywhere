@@ -1378,6 +1378,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026102218380002
 	- Requirements:
 		- Before the next cut.
+		- For "Nemo Anywhere" only. "Nemo Anywhere v1" keeps the previous behavior, F2 renaming the whole name.
 		- Shift+F2 renames the whole name, as F2 does today.
 	- Test case: none yet.
 
@@ -1391,6 +1392,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026102218380001
 	- Requirements:
 		- Before the next cut.
+		- For "Nemo Anywhere" only. "Nemo Anywhere v1" keeps the previous behavior.
 		- F2 selects the name without the extension, as upstream does.
 	- Test case: none yet.
 
@@ -1624,6 +1626,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Requirements:
 		- Before the next cut.
+		- For both "Nemo Anywhere" and "Nemo Anywhere v1".
 	- Test case: none yet.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
