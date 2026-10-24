@@ -8239,6 +8239,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: the Windows gate runs the suite natively, plus `cicd/win/gui-launch-smoke.ps1`; signing and the UAC prompt have none.
 
 - 🔘 Target: macOS
+	- Status: Stalled
+		- Held for the macOS port, which is planned and tracked elsewhere.
 	- Opened: 20260730-185314
 	- Test case: none yet, not started.
 
