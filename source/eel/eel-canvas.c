@@ -71,6 +71,7 @@
 #include <glib/gi18n-lib.h>
 #include <cairo-gobject.h>
 #include "eel-canvas.h"
+#include "eel-analyzer.h"
 
 static void eel_canvas_request_update (EelCanvas      *canvas);
 static void group_add                   (EelCanvasGroup *group,
@@ -519,7 +520,9 @@ put_item_after (GList *link, GList *before)
 		if (link == parent->item_list)
 			return FALSE;
 
+		EEL_ANALYZER_SKIP ("null-dereference") // in the list and not its head, so prev is set
 		link->prev->next = link->next;
+		EEL_ANALYZER_END
 
 		if (link->next)
 			link->next->prev = link->prev;
@@ -541,7 +544,9 @@ put_item_after (GList *link, GList *before)
 			link->prev->next = link->next;
 		else {
 			parent->item_list = link->next;
+			EEL_ANALYZER_SKIP ("null-dereference") // before is in the list too, so the head has a next
 			parent->item_list->prev = NULL;
+			EEL_ANALYZER_END
 		}
 
 		link->prev = before;
@@ -2242,7 +2247,9 @@ eel_canvas_class_init (EelCanvasClass *klass)
 static void
 panic_root_destroyed (GtkWidget *object, gpointer data)
 {
+	EEL_ANALYZER_SKIP ("infinite-loop") // g_error's for (;;) after a fatal g_log
 	g_error ("Eeeek, root item %p of canvas %p was destroyed!", object, data);
+	EEL_ANALYZER_END
 }
 
 /* Object initialization function for EelCanvas */
@@ -3512,7 +3519,7 @@ eel_canvas_update_now (EelCanvas *canvas)
 EelCanvasItem *
 eel_canvas_get_item_at (EelCanvas *canvas, double x, double y)
 {
-	EelCanvasItem *item;
+	EelCanvasItem *item = NULL;
 	double dist;
 	int cx, cy;
 

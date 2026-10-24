@@ -918,7 +918,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: fix or suppress the findings in inherited upstream code.
 	- ID: 2026102114400587
 	- Type: Task
-	- Status: Queued
+	- Status: Started
 	- Priority|Severity: Avg
 	- Opened: 20261021-144005
 	- Opened by: t00mietum
@@ -928,7 +928,37 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Each finding in a file that came with the 6.6.4 baseline is fixed, or suppressed at the line with a one-line reason, per the parent.
 		- Many are expected to be GLib ref-count false positives. Split this item by folder if it runs long.
 	- Estimated effort: High
+	- Progress log:
+		- 20261024: 57 unique findings in the full run of 2026-10-24 08:43 (gcc-linux 12, gcc-win 21, clang-linux 34 by lane). None are ref counts; most are null dereferences and dead stores. Split by folder: `2026102412254358` (eel, 4), `...4361` (libnemo-private, 19), `...4363` (src, 32).
 	- Test case: the gate in 2026102114400591, once live. A real bug fixed here gets its own test.
+
+- Static analyzers: inherited findings in `source/libnemo-private/`.
+	- ID: 2026102412254361
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261024-122543
+	- Opened by: t00mietum
+	- Parent ID: 2026102114400587
+	- Prereq IDs: 2026102412254358
+	- Requirements:
+		- The parent's requirements, for `source/libnemo-private/`.
+	- Estimated effort: Avg
+	- Test case: the gate in 2026102114400591, once live.
+
+- Static analyzers: inherited findings in `source/src/`.
+	- ID: 2026102412254363
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261024-122543
+	- Opened by: t00mietum
+	- Parent ID: 2026102114400587
+	- Prereq IDs: 2026102412254358
+	- Requirements:
+		- The parent's requirements, for `source/src/`.
+	- Estimated effort: Avg
+	- Test case: the gate in 2026102114400591, once live.
 
 - Static analyzers: fix or suppress the findings in our own code.
 	- ID: 2026102114400588
@@ -1424,6 +1454,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- Static analyzers: inherited findings in `source/eel/`.
+	- ID: 2026102412254358
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261024-122543
+	- Opened by: t00mietum
+	- Parent ID: 2026102114400587
+	- Requirements:
+		- The parent's requirements, for `source/eel/`, plus gcc's infinite-loop finding in GLib's `g_return_*` macro reached from `eel-canvas.c`.
+		- Sets the in-line suppression form the other children and `...588` and `...589` use.
+	- Estimated effort: Low
+	- Actual effort: Low
+	- Progress log:
+		- 20261024: `source/eel/eel-analyzer.h` has `EEL_ANALYZER_SKIP ("<gcc name>")` and `EEL_ANALYZER_END` around one statement, with the reason as a comment on the SKIP line. It's `[[clang::suppress]]` under the clang analyzer and a `GCC diagnostic` push, ignore and pop under gcc, and nothing in either compiler's plain build.
+		- Fixed: `eel_str_replace_substring` passed a NULL replacement to `memcpy` when the substring matched. `eel_canvas_get_item_at` could return `item` unset when the root has no point method.
+		- Suppressed: 2 in `put_item_after`, where list membership means the pointer is set, and gcc's infinite loop in `g_error`.
+	- Decisions:
+		- One macro pair for both analyzers, since 6 of the inherited findings are reported by both at the same line. A per-site `#pragma` would also warn in a clang build, and `[[clang::suppress]]` warns in a gcc one.
+	- Swept: every finding in `source/eel/` in the 3 lanes' logs. The other 2 `g_error` calls outside the tests aren't reported by either analyzer.
+	- Branch: round1024b
+	- Test case: rj46m24q (`test-eel-string`) checks a NULL replacement on a match. The gate in 2026102114400591 covers the rest, once live.
+	- Verified: 20261024, gcc and clang over `eel-canvas.c` and `eel-string.c` on the Linux list, and gcc over them on the Windows list: no findings. With the files as they were, the same runs gave all 7. rj46m24q fails in the sanitizer build without the `memcpy` guard and passes with it, and passes in the plain build. The C lint passes, and the build is clean with `-Werror`.
+	- Acceptance signoff: Self-closed: rj46m24q and the analyzer runs above.
+	- Closed: 20261024-123500
 
 - In a move to another drive, a new name typed in the conflict dialog is lost, and Replace then overwrites the file with the old name.
 	- ID: 2026101419104655
