@@ -2582,7 +2582,7 @@ button_press_callback (G_GNUC_UNUSED GtkWidget *widget, GdkEventFocus *event, gp
 
 /* The view's own selection and focus rules, on top of the container's, one
    set per selection model. See
-   design_docs/20261020-103804_checkmarked-selection.md, "The setting". */
+   design_docs/20261020-103804_behavior-models.md, "The setting". */
 typedef struct {
 	gboolean (*button_press) (GtkWidget *widget, GdkEventFocus *event, gpointer user_data);
 	gboolean (*focus_in) (GtkWidget *widget, GdkEventFocus *event, gpointer user_data);
@@ -2624,6 +2624,13 @@ static const IconViewRules rules_classic = {
 	.key_press = classic_key_press_event_callback,
 };
 
+/* Nemo Anywhere: v1's for now. */
+static const IconViewRules rules_anywhere = {
+	.button_press = button_press_callback,
+	.focus_in = focus_in_event_callback,
+	.key_press = key_press_event_callback,
+};
+
 static const IconViewRules *
 icon_view_rules (void)
 {
@@ -2632,6 +2639,8 @@ icon_view_rules (void)
 		return &rules_anywhere_v1;
 	case NEMO_SELECTION_MODEL_CLASSIC:
 		return &rules_classic;
+	case NEMO_SELECTION_MODEL_ANYWHERE:
+		return &rules_anywhere;
 	}
 	g_return_val_if_reached (&rules_anywhere_v1);
 }

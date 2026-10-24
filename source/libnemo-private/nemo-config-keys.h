@@ -67,10 +67,11 @@ static const NemoConfigEnumValue enum_PathSeparator[] = {
 	{ NULL, 0 }
 };
 
-/* Only the models that are built. See design_docs/20261020-103804_checkmarked-selection.md. */
+/* Built models, and nemo-anywhere while it's built. See design_docs/20261020-103804_behavior-models.md. */
 static const NemoConfigEnumValue enum_SelectionModel[] = {
 	{ "nemo-anywhere-v1", 0 },
 	{ "nemo-classic", 1 },
+	{ "nemo-anywhere", 2 },
 	{ NULL, 0 }
 };
 

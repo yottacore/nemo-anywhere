@@ -623,6 +623,13 @@ test_selection_model (GtkWidget *dialog)
 	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
 	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 1);
 	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE_V1);
+
+	/* Settable while it's built, so its tests can pick it, but not offered. */
+	nemo_config_set_string (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, "nemo-anywhere");
+	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE);
+	check (gtk_tree_model_iter_n_children (gtk_combo_box_get_model (GTK_COMBO_BOX (combo)), NULL) == 2);
+	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
+	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE_V1);
 }
 
 static void

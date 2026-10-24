@@ -31,7 +31,8 @@
  * test-nemo-drag-select-probe preloaded to press, drag and check. That is the
  * "Nemo Anywhere v1" selection model; argv[3] can name another. The
  * "nemo-classic" results are upstream 6.6.4's own, seen there, but for the
- * ones the probe marks (#2026102016594200).
+ * ones the probe marks (#2026102016594200). "nemo-anywhere" takes v1's
+ * results for now (#2026102019174440).
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Runs
  * on an X server of its own, since drags and menus take the pointer. Linux

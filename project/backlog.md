@@ -377,6 +377,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 0dab690
 	- Test case: rjhvmm6f, Mapped drive not asked, new bin cases: a fixed drive's bin is asked, a removable one's only with a disk in it, an empty drive answers in under 2 s, and no share or optical drive is asked.
 
+- Nemo Anywhere selection model: its setting value, and its own set in each rules table.
+	- ID: 2026102407515570
+	- Type: Task
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: Yes, the full Linux suite, which now has rm1sbxgy and rm1sbwdq.
+	- Needs external testing: rm1sbxgy and rm1sbwdq in the FreeBSD lane.
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Related IDs: 2026102016594100, 2026102016594200
+	- Target OS: All
+	- Requirements:
+		- `nemo-anywhere` as a value of `preferences.selection-model`, in the config keys, the enum and the schema.
+		- Its own set in each rules table: the icon container, the icon view, the list view, the tree pane, and the view's Select all and Invert. Each starts as v1's, so the later children change one table each.
+		- Not in the dropdown, and not the default, until the model is built. The last child adds both.
+		- rktkms8a's and rk7yvgse's checks run again under it.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "The setting" and "The affirmative switch".
+	- Progress log:
+		- 20261024: opened.
+		- 20261024: `nemo-anywhere` added to the key, the enum and the schema. Each of the 5 tables has a `rules_anywhere` set, the same as v1's, picked by its own case in the switch. The dropdown is unchanged, and the default stays `nemo-anywhere-v1`.
+	- Decisions:
+		- The value can be set in the settings file before the model is built, so its tests can pick it. Until then it behaves as v1, and the dropdown doesn't offer it.
+		- Each later child changes only Nemo Anywhere's own set, so v1 and Classic stay pinned by their tests.
+	- Swept: every switch on the model (icon container, icon view, list view, tree pane, the view's Select all and Invert), with no default case, so a missed one fails the build. The model is read nowhere else outside the tests.
+	- Branch: round1024
+	- Test case: rm1sbxgy, Selection rules test, Nemo Anywhere, and rm1sbwdq, Drag select test, Nemo Anywhere. rhtmbdmd checks the value is read and not offered.
+	- Verified: 20261024, rm1sbxgy, rm1sbwdq, rktkms8a, rktqpp37, rk7yvgse, rkts3far, rhtmbdmd, rf2w8yxr and rfazc870 pass. The build and the Windows cross build, both with warnings as errors, the C lint, and the test ID and UI case checks pass.
+
 - rhr6ggmt can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
 	- Type: Bug
@@ -540,7 +569,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Build the "Nemo Anywhere" selection model with the affirmative switch off.
 	- ID: 2026102019174440
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Started
 	- Needs local test suite run?: Yes
 	- Priority|Severity: High
 	- Opened: 20261020-191745
@@ -563,6 +592,126 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "The affirmative switch".
 	- Progress log:
 		- 20261020: opened.
+		- 20261024: split into children, worked in this order: 2026102407515570 (the setting value and rules tables), ...571 (dim checkmarks), ...572 (focus outline and keys), ...573 (mouse and drags), ...574 (tree view), ...575 (wording, keys, then the dropdown entry and the default).
+	- Test case: one per child.
+
+- Nemo Anywhere: dim checkmarks that follow the selection, in all 3 views.
+	- ID: 2026102407515571
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Prereq IDs: 2026102407515570
+	- Target OS: All
+	- Requirements:
+		- Only under Nemo Anywhere. A dim checkmark on every selected object, and none on the rest. The text doesn't change.
+		- List view: a thin new column left of Name, with nothing else in it. It can't be hidden or moved.
+		- Icon view: the top-left corner of the icon, on a small scrim that reads on any thumbnail.
+		- Compact view: left of the name text.
+		- A test per view that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
+	- Notes:
+		- Sorting on the column belongs with the affirmative half, since with the switch off it sorts on the selection.
+		- The color per bundled theme is its own roadmap step. Until then the mark takes the theme's selection color, dimmed.
+	- Progress log:
+		- 20261024: opened.
+	- Test case: none yet.
+
+- Nemo Anywhere: the focus outline and the keyboard rules, per view.
+	- ID: 2026102407515572
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Prereq IDs: 2026102407515570
+	- Target OS: All
+	- Requirements:
+		- No focus outline, except while a Ctrl+arrow move has put the focus on an object that isn't selected.
+		- Up, Down, Page Up and Page Down count from the range ends, and Left and Right too in the icon views. After a Ctrl+arrow move they count from the focus.
+		- Ctrl with an arrow moves the focus alone. Ctrl+Space adds or removes the focused object. Ctrl+Shift with an arrow adds the run from the anchor. Ctrl+Home and Ctrl+End are the same as the key alone.
+		- Escape clears the selection, the focus and the anchor. A second Escape does nothing, and the next arrow starts at the first object. An Escape that cancels something else does only that.
+		- Space previews, and never starts type-ahead on its own.
+		- rktkms8a's expectations under Nemo Anywhere change to match, with a check per key and view.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
+	- Progress log:
+		- 20261024: opened.
+	- Test case: none yet.
+
+- Nemo Anywhere: the mouse and drag rules, the list view drag rule among them.
+	- ID: 2026102407515573
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Prereq IDs: 2026102407515570, 2026102407515571
+	- Target OS: All
+	- Requirements:
+		- List view: a plain drag bands only from the checkmark column or the blank space below the rows. A plain drag from a row is a file drag.
+		- Ctrl, Shift, Ctrl+Shift and right drags from empty space, or from an object that isn't selected, band. Ctrl and Ctrl+Shift add, Shift and right replace. In list view from any column. From a selected object each is a file drag.
+		- A band moves the focus and the anchor to the last object it touched.
+		- The rest of the mouse rules stay as v1 has them, and are pinned under Nemo Anywhere.
+		- rk7yvgse's expectations under Nemo Anywhere change to match.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Mouse".
+	- Notes:
+		- v1 already has the plain drag rule and the Ctrl, Shift and right bands from a row (rk7yvgse). What's new is the band from the checkmark column, and where a band leaves the focus and the anchor.
+	- Progress log:
+		- 20261024: opened.
+	- Test case: none yet.
+
+- Nemo Anywhere: the tree view rules, less the affirmative parts.
+	- ID: 2026102407515574
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Prereq IDs: 2026102407515572, 2026102407515573
+	- Related IDs: 2026102018234903
+	- Target OS: All
+	- Requirements:
+		- The tree's own focus and anchor, under the mouse and keyboard rules of the content view.
+		- The dim checkmark, in an invisible column left of the tree.
+		- When the tree has the focus and the viewed folder is selected there, every object in the content view is drawn with the dim mark.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view".
+	- Notes:
+		- Needs more thought: whether the tree takes a multi-selection with the switch off, since its click opens the folder, and how much of 2026102018234903 that needs first.
+	- Progress log:
+		- 20261024: opened.
+	- Test case: none yet.
+
+- Nemo Anywhere: the switch-off wording and keys, then the dropdown entry and the default.
+	- ID: 2026102407515575
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Prereq IDs: 2026102407515571, 2026102407515572, 2026102407515573, 2026102407515574
+	- Target OS: All
+	- Requirements:
+		- The Edit menu has Select all, Select none and Invert selection, the "Switch off" column of the wording table.
+		- Ctrl+A selects all. Ctrl+I and Ctrl+Shift+I invert the selection. Properties keeps Alt+Enter. Nemo Anywhere v1 and Nemo Classic keep Ctrl+I as Properties.
+		- The status bar shows the selected count only, the doc's third line.
+		- "Nemo Anywhere" first in the dropdown, ahead of Nemo Classic and Nemo Anywhere v1, and `nemo-anywhere` becomes the default.
+		- Tests for the menu labels and keys per model, and the dropdown checks in rhtmbdmd and rf2w8yxr.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Menus", "Status bar and dialogs" and "The affirmative switch".
+	- Notes:
+		- A settings file with no model set moves from v1 to Nemo Anywhere at that point.
+	- Progress log:
+		- 20261024: opened.
 	- Test case: none yet.
 
 - Affirmative checkmarks: the switch and the places it will plug into, with no affirmative behavior yet.

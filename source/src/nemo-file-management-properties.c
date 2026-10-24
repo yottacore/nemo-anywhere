@@ -225,8 +225,8 @@ static const char * const executable_text_values[] = {
 	NULL
 };
 
-/* Only the models that are built, in the order design_docs/20261020-103804_checkmarked-selection.md
-   lists them. Labels match by index. */
+/* Only the models that are built, in the order design_docs/20261020-103804_behavior-models.md
+   lists them. Labels match by index. nemo-anywhere joins once it's built. */
 static const char * const selection_model_values[] = {
 	"nemo-classic",
 	"nemo-anywhere-v1",

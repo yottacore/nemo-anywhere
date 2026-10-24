@@ -1515,6 +1515,11 @@ if not is_windows
     args: [ nemo, drag_select_probe, 'nemo-classic' ],
     timeout: 240
   )
+  test('rm1sbwdq Drag select test, Nemo Anywhere',
+    drag_select,
+    args: [ nemo, drag_select_probe, 'nemo-anywhere' ],
+    timeout: 240
+  )
 
   # Preloaded too; it clicks and types from inside the program.
   selection_rules_probe = shared_module('test-nemo-selection-rules-probe',
@@ -1535,6 +1540,11 @@ if not is_windows
   test('rktqpp37 Selection rules test, Nemo Classic',
     selection_rules,
     args: [ nemo, selection_rules_probe, 'nemo-classic' ],
+    timeout: 300
+  )
+  test('rm1sbxgy Selection rules test, Nemo Anywhere',
+    selection_rules,
+    args: [ nemo, selection_rules_probe, 'nemo-anywhere' ],
     timeout: 300
   )
 

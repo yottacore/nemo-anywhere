@@ -4598,7 +4598,7 @@ classic_key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer call
 
 /* The list view's selection and focus rules, one set per selection model.
    GtkTreeView's own key and click handling is part of each set, through what
-   these let pass. See design_docs/20261020-103804_checkmarked-selection.md,
+   these let pass. See design_docs/20261020-103804_behavior-models.md,
    "The setting". */
 typedef struct {
 	gboolean (*button_press) (GtkWidget *widget, GdkEventButton *event, gpointer callback_data);
@@ -4627,6 +4627,17 @@ static const ListViewRules rules_classic = {
 	.gtk_bands = TRUE,
 };
 
+/* Nemo Anywhere starts from v1's set; the drag rule changes it
+   (2026102407515573). */
+static const ListViewRules rules_anywhere = {
+	.button_press = button_press_callback,
+	.button_release = button_release_callback,
+	.motion_notify = motion_notify_callback,
+	.key_press = key_press_callback,
+	.focus_in = focus_in_event_callback,
+	.gtk_bands = FALSE,
+};
+
 static const ListViewRules *
 list_view_rules (void)
 {
@@ -4635,6 +4646,8 @@ list_view_rules (void)
 		return &rules_anywhere_v1;
 	case NEMO_SELECTION_MODEL_CLASSIC:
 		return &rules_classic;
+	case NEMO_SELECTION_MODEL_ANYWHERE:
+		return &rules_anywhere;
 	}
 	g_return_val_if_reached (&rules_anywhere_v1);
 }
