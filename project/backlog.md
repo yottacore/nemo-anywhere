@@ -33,6 +33,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- rkbdyne7, rk96k9va and rj750n43 still fail in the sanitizer lane on a loaded box.
+	- ID: 2026102411433800
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261024-114338
+	- Opened by: t00mietum
+	- Related IDs: 2026101613310525, 2026101513290717
+	- Target OS: Linux
+	- Steps to reproduce: a full run's sanitizer stage while other builds load the cores. On 20261024 the load was 23 to 35 on 32 cores.
+	- Incorrect behavior: all 3 failed in one sanitizer stage, which stopped the full run there. Each passed 3 of 3 alone right after, at load 10.
+		- rkbdyne7: the quickest varied folder took 327 ms to show all rows and the quickest plain one 490 ms, against a 180 ms bar.
+		- rk96k9va: the first folder took 340 ms and the quickest 181 ms, against 180 ms.
+		- rj750n43: the wait for the program to exit ran out at `test-nemo-cache-quit.c:461`, after 181 s, and the journal was still there at line 463.
+	- Expected behavior: they pass under load, or a slow box makes them skip or retry rather than fail the stage.
+	- Reproduced: 20261024 on Linux, once, in the full run of round1024b at 196653ba.
+	- Possible cause: the time bars and the exit wait were last tuned at load 21. The sanitizer build is about 3 times slower, and a full run beside another project's pipeline goes well past that load.
+	- Test case: rkbdyne7, rk96k9va and rj750n43 themselves, in the sanitizer lane with the cores loaded.
+
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
