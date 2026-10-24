@@ -621,22 +621,26 @@ test('rhtmbdmb Escape forgets the cursor test',
   args: []
 )
 
+# Takes the foreground. Every test shares one desktop on Windows, so alone there.
 test('rgxy149r Focus guard test',
   executable('test-eel-focus-guard',
     [ 'test-eel-focus-guard.c' ],
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_fence ],
   ),
-  args: []
+  args: [],
+  is_parallel: not is_windows,
 )
 
+# Same, it takes the foreground.
 test('rk6narsh Tabs take no focus helper test',
   executable('test-eel-tab-keys',
     [ 'test-eel-tab-keys.c' ],
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_fence ],
   ),
-  args: []
+  args: [],
+  is_parallel: not is_windows,
 )
 
 test('rhnv1n88 Row hover tint test',
@@ -914,6 +918,7 @@ test('rkrqg9mg Template rename and add errors test',
   args: []
 )
 
+# Brings its dialog to the front, so alone on Windows too.
 test('rhtmbdmd Settings dialog test',
   executable('test-nemo-prefs-dialog',
     [ 'test-nemo-prefs-dialog.c', '../src/nemo-file-management-properties.c' ] + gresources,
@@ -921,7 +926,8 @@ test('rhtmbdmd Settings dialog test',
     dependencies: [ gtk, nemo_private, test_scratch ],
     c_args: nemo_definitions,
   ),
-  args: []
+  args: [],
+  is_parallel: not is_windows,
 )
 
 test('rhtmbdme Search box Enter test',
@@ -1048,7 +1054,8 @@ if is_windows
   )
 endif
 
-# Puts three windows on screen and needs the foreground, so it skips over ssh.
+# Puts three windows on screen and needs the foreground, so it skips over ssh,
+# and runs alone, since it takes the foreground from any test beside it.
 if is_windows
   test('rjf8db1q Tab move foreground right test',
     executable('test-nemo-raise-win32',
@@ -1056,7 +1063,8 @@ if is_windows
       include_directories: [ rootInclude, include_directories('../src') ],
       dependencies: [ gtk, test_fence ],
     ),
-    args: []
+    args: [],
+    is_parallel: false,
   )
 endif
 

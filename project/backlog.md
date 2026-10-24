@@ -403,6 +403,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the 15 archive tests pass in the jailed runner, rhr6ggmt with 316 runs.
 	- Verified: 20261022: rhr6ggmt passes in the full Linux suite, the sanitizer suite and the FreeBSD lane.
 
+- rhtmbdma fails in the native suite in vm925w's desktop session, and passes alone.
+	- ID: 2026102322330406
+	- Type: Bug
+	- Status: Waiting on automated testing
+	- Needs external testing: the native gate on vm925w as wintest in the desktop session, from a bundle of round1024. rhtmbdma passes, and so do the 4 tests that now run alone there.
+	- Priority|Severity: Low
+	- Opened: 20261023-223304
+	- Opened by: 2026102221362030
+	- Related IDs: 2026102219444662, 2026102219444332
+	- Target OS: Windows
+	- Test environment: vm925w, a fresh clone of round1023, as wintest in the desktop session.
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
+	- Incorrect behavior: Keyboard context menu test, `test-eel-context-menu.c` lines 243 and 246 in the first run, those and 251 and 254 in the second, and 251 and 254 in the third. `pop_up` gets no menu up, with "no trigger event for menu popup" from GTK.
+	- Expected behavior: passes, as it did in the round1022 native suite.
+	- Reproduced: 20261023, 3 of 3 native suite runs. The same build's exe run alone in the desktop session, outside the jail, passed 3 of 3.
+	- Possible cause: not known. New in round1023 are rm0d1tdd, which moves the focus between threads and other programs and runs near it in the suite, and the fence's load notice. Not looked into.
+	- Actual cause: another test taking the foreground while a menu is up. On Windows every test in the suite shares one desktop, and 4 of them bring their window to the front through GDK, which gets past Windows' foreground lock. The window losing the focus gets `WM_KILLFOCUS`, GDK breaks the keyboard grab, and GTK closes the menu, so `pop_up` finds none. rm0d1tdd runs alone, so the tests after it start together, and rgxy149r and rk6narsh come up in rhtmbdma's first second or two, when its first 2 pop-ups are.
+	- Actual fix: rgxy149r, rk6narsh, rhtmbdmd and rjf8db1q run alone on Windows. New C lint check rm1n4v1b fails when a test built for Windows calls `gtk_window_present`, `gdk_window_focus`, `SetForegroundWindow`, `SwitchToThisWindow` or `BringWindowToTop` in its own .c files and isn't alone there.
+	- Decisions:
+		- Alone on Windows only, where the tests share one desktop. Linux and FreeBSD still run them beside others, and no run there has failed this way.
+		- The native suite gets about 25 s longer, most of it rhtmbdmd's 21 s.
+	- Test case: rhtmbdma, and rm1n4v1b for the rule.
+	- Verified: 20261024 on vm925w as wintest in the desktop session: with rgxy149r and rk6narsh running over and over beside it, rhtmbdma failed lines 243, 246, 251 and 254, then 270 and 273, in the first of 4 runs. It passed 2 of 2 alone, 3 of 3 through MSYS2's bash and the jail, and 4 of 4 beside 3 copies of itself. rm1n4v1b fails on round1024's meson.build from before the change, naming the 4 tests, and passes after.
+	- Swept: every test built for Windows whose own .c files call one of those 5: the 4 above, and rm0d1tdd, already alone. The rest are in `if not is_windows` blocks.
+	- Branch: round1024
+	- Progress log:
+		- 20261023: passed in 1 native gate run from a clone of round1023-fix, whose changes don't touch it. Ruled out: another program's window up front when it starts, since alone in the desktop session with Notepad started just before, it passed 3 of 3 (whether Notepad held the front wasn't checked). The fence alone, since it's linked into the exe run alone too. GTK's "no trigger event" line comes in every passing run too, so it isn't the sign. Only the first 2 pop-ups have failed, the ones right after the window first shows, and the ones after them in the same run passed.
+		- 20261024: also ruled out, MSYS2's bash and the jail, and other test windows simply coming up beside it. Only a window that forces its way to the front breaks it.
+
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
 	- Type: Bug
@@ -1014,42 +1043,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- For "Nemo Anywhere" only. "Nemo Anywhere v1" keeps the previous behavior.
 		- F2 selects the name without the extension, as upstream does.
 	- Test case: none yet.
-
-- rhtmbdma fails in the native suite in vm925w's desktop session, and passes alone.
-	- ID: 2026102322330406
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261023-223304
-	- Opened by: 2026102221362030
-	- Related IDs: 2026102219444662, 2026102219444332
-	- Target OS: Windows
-	- Test environment: vm925w, a fresh clone of round1023, as wintest in the desktop session.
-	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
-	- Incorrect behavior: Keyboard context menu test, `test-eel-context-menu.c` lines 243 and 246 in the first run, those and 251 and 254 in the second, and 251 and 254 in the third. `pop_up` gets no menu up, with "no trigger event for menu popup" from GTK.
-	- Expected behavior: passes, as it did in the round1022 native suite.
-	- Reproduced: 20261023, 3 of 3 native suite runs. The same build's exe run alone in the desktop session, outside the jail, passed 3 of 3.
-	- Possible cause: not known. New in round1023 are rm0d1tdd, which moves the focus between threads and other programs and runs near it in the suite, and the fence's load notice. Not looked into.
-	- Test case: rhtmbdma.
-	- Progress log:
-		- 20261023: passed in 1 native gate run from a clone of round1023-fix, whose changes don't touch it. Ruled out: another program's window up front when it starts, since alone in the desktop session with Notepad started just before, it passed 3 of 3 (whether Notepad held the front wasn't checked). The fence alone, since it's linked into the exe run alone too. GTK's "no trigger event" line comes in every passing run too, so it isn't the sign. Only the first 2 pop-ups have failed, the ones right after the window first shows, and the ones after them in the same run passed.
-
-- rhtmbdmh fails in vm925w's desktop session.
-	- ID: 2026102219444662
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261022-194446
-	- Opened by: 2026101715030680
-	- Target OS: Windows
-	- Incorrect behavior: Tab strip test, `test-nemo-notebook.c` lines 210, 213 and 227: "strip 1200 px: min 120, max 300; tabs asked 120 120(108) 300 340". The medium tab isn't between the limits, and the long front tab isn't 30 percent.
-	- Expected behavior: passes in a desktop session as it does over ssh, where it passed the same day.
-	- Reproduced: 20261022 on vm925w, in the native suite run in wintest's desktop session.
-	- Possible cause: the session's display scale or font. Not looked into.
-	- Test case: rhtmbdmh.
-	- Progress log:
-		- 20261022: same 3 lines in the native gate on round1022 in the desktop session, and 5 of 5 alone there.
-		- 20261023: all 3 lines follow from one number. "Holiday photos 2024" measured 108 px, under the 120 px lower limit of a 1200 px strip, so it's clamped to 120 (line 213), the fixture check fails (line 210), and the long title, 340 px, is under the new 30 percent (line 227). So the text was smaller in that run than in the runs that pass. wintest has no GTK `settings.ini`, and nothing in the tree changes a font or DPI outside its own process. Options: size the strip from the measured title instead of a fixed 1200 px, so the fixture holds at any font size. That hides what made the font smaller, so first find that.
 
 - On Windows a shortcut named `x.LNK` is saved as `x.LNK.lnk`.
 	- ID: 2026102220565281
@@ -4035,6 +4028,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- rhtmbdmh fails in vm925w's desktop session.
+	- ID: 2026102219444662
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261022-194446
+	- Opened by: 2026101715030680
+	- Related IDs: 2026102322330406
+	- Target OS: Windows
+	- Incorrect behavior: Tab strip test, `test-nemo-notebook.c` lines 210, 213 and 227: "strip 1200 px: min 120, max 300; tabs asked 120 120(108) 300 340". The medium tab isn't between the limits, and the long front tab isn't 30 percent.
+	- Expected behavior: passes in a desktop session as it does over ssh, where it passed the same day.
+	- Reproduced: 20261022 on vm925w, in the native suite run in wintest's desktop session.
+		- 20261024, alone in the desktop session, 2 of 2, and 2 of 2 more with the jail's HOME, APPDATA and XDG dirs.
+	- Possible cause: the session's display scale or font. Not looked into.
+	- Actual cause: the fixture, not the font. The title measures 108 px in every session on vm925w, over ssh too. What differs is the strip: the full 1200 px in the desktop session, and 1028 px over ssh, where there's no monitor. At 1200 px, Segoe UI 9's title is under the 10 percent limit. A fixed 1200 px only held for a font as wide as Linux's, where the title is 134 px.
+	- Actual fix: the strip is 8 times the middle title's measured width, so that title sits at 12.5 percent and the long one near 40, at any font size. The width checks run again at Sans 7. A second fixture check holds the long title over 30 percent.
+	- Test case: rhtmbdmh.
+	- Verified: 20261024 on vm925w as wintest in the desktop session: the new exe passed 5 of 5, 3 alone and 2 through MSYS2's bash and the jail, where the old one failed 4 of 4. On Linux it passes, and with the fixed 1200 px put back, its Sans 7 run fails, as the desktop session did.
+	- Swept: the other tests that measure text don't size anything from a fixed width. This is the only one that measures with Pango.
+	- Branch: round1024
+	- Progress log:
+		- 20261022: same 3 lines in the native gate on round1022 in the desktop session, and 5 of 5 alone there.
+		- 20261023: all 3 lines follow from one number. "Holiday photos 2024" measured 108 px, under the 120 px lower limit of a 1200 px strip, so it's clamped to 120 (line 213), the fixture check fails (line 210), and the long title, 340 px, is under the new 30 percent (line 227). So the text was smaller in that run than in the runs that pass. wintest has no GTK `settings.ini`, and nothing in the tree changes a font or DPI outside its own process. Options: size the strip from the measured title instead of a fixed 1200 px, so the fixture holds at any font size. That hides what made the font smaller, so first find that.
+		- 20261024: nothing made it smaller, see Actual cause. Not known: why it passed 5 of 5 alone in the desktop session on 20261022. Likely the reason is because the window was narrower.
+	- Acceptance signoff: Self-closed: rhtmbdmh passes in the desktop session and on Linux, and its Sans 7 run pins the fixture on Linux too.
+	- Closed: 20261024-064500
 
 - rk65m3m4 fails in the full Linux suite with "Header CRC error".
 	- ID: 2026102307150011
