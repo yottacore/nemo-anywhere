@@ -1480,7 +1480,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: the other `nemo_get_mounts` callers. The side pane, path bar and tree want names, and still get them. The view's mount check and `get_mount_at` in `nemo-directory-async.c` want only locations, and gain as well. GLib's own `g_file_find_enclosing_mount` still names its mount through the shell, but the bookmark load doesn't ask for a mount.
 		- 20261023: `test_heap_growth` is the only place readings are taken, for every case in `test-nemo-leaks.c` and the list read check in `test-nemo-config.c`, so all of them get the 4 showings on Windows. No other count of showings in `source/test/`.
 	- Branch: round1021, round1023
-	- Commit: 2da98315
+	- Commit: 2da98315, 72c85e97
 	- Test case: rjbn328w on Windows, and rktexj0a, which checks that listing the drives asks the shell nothing until a name is wanted. rjcth67d checks that a planted leak still fails with 4 showings.
 	- Verified: 20261022, on vm925w: rjbn328w passes 7 runs of 7, 0 bytes over 64 rounds each, once after a 640-byte reading was taken again. rktexj0a passes natively over ssh and in the desktop session: no shell call for the list or the network check, 1 for the name.
 	- Verified: 20261023, on vm925w in the desktop session: rjbn328w failed 1 run of 6, with the heap 4368 bytes up over 64 rounds after the reading was taken again. So something else in the load still reaches COM now and then, and the fix above wasn't all of it.
