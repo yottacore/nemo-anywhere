@@ -406,6 +406,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rm1sbxgy, Selection rules test, Nemo Anywhere, and rm1sbwdq, Drag select test, Nemo Anywhere. rhtmbdmd checks the value is read and not offered.
 	- Verified: 20261024, rm1sbxgy, rm1sbwdq, rktkms8a, rktqpp37, rk7yvgse, rkts3far, rhtmbdmd, rf2w8yxr and rfazc870 pass. The build and the Windows cross build, both with warnings as errors, the C lint, and the test ID and UI case checks pass.
 
+- The analyzer stage checks a file once, even when 2 targets build it with different headers.
+	- ID: 2026102408163141
+	- Type: Bug
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: yes, the analyzer stage in one full run. None of the 4 `shcl-old` entries should be stale, and the stage time should be about what it was.
+	- Priority|Severity: Avg
+	- Opened: 20261024-081631
+	- Opened by: t00mietum
+	- Related IDs: 2026101619020505, 2026102114400586, 2026102114400591
+	- Target OS: Linux
+	- Incorrect behavior: `load_db` in `cicd/utility/analyze.py` keeps the first compile entry per file. `shcl-old-writer.c` is built once per old SHCL release, against `vendor/shcl-old/1.2.0/` and `2.0.0/`, so 2.0.0 is never analyzed. 24 files are in the Linux list more than once and 29 in the Windows one, most of them app files also built into a test.
+	- Expected behavior: each compile entry with its own flags is analyzed. A finding 2 entries reach still counts once.
+	- Reproduced: 20261024. The 2.0.0 entry run alone had 2 findings the full run's logs lack.
+	- Notes: 2 entries in `analyze-vendored.txt` show as stale until this is fixed, so the gate in 2026102114400591 waits on it.
+	- Actual cause: `load_db` was keyed by file alone.
+	- Actual fix: `load_db` gives one run per file and set of flags. The target's own `-I<target>.p` is left out of the key, since that folder holds only objects, so the 12 `fuzz-main.c` entries are 2 runs and not 12. A file with more than one run has its target in the log's `###` line, so a run that didn't compile is named by target. Findings were already counted once per log.
+		- Linux: 495 runs for 471 files. Windows: 468 for 439.
+	- Swept: both callers of `load_db` (`cmd_run`, `cmd_cover`), and `parse_log`, the only reader of the `###` lines. `analyze.bash` passes the log through as it is.
+	- Branch: round1024
+	- Test case: rktsh374 (`analyze.py --self-test`): a file built against 2 header folders runs twice, tagged; one whose entries differ only by the target's folder runs once; a finding both runs reach counts once; a failed run is named by its target.
+	- Verified: 20261024, rktsh374 fails with the old `load_db` and with the target's folder kept in the key, and passes as committed. rktsh3gd passes. `analyze.py cover` passes over both lists.
+		- Both writer entries, run with the stage's own code: clang on Linux and gcc on Windows each find the 2.0.0 finding, so all 4 `shcl-old` entries match and none is stale. The old `analyze.py` ran 1 entry and left the 2.0.0 one stale.
+		- clang over the whole Linux list took 128 s at 8 jobs (load 25), against 134 s on 20261021. 70 findings; the only one the first run per file misses is `shcl-old/2.0.0/shcl.h:3583`. gcc over the 27 Windows files with more than one run took 46 s at 8 jobs, and found nothing else new.
+		- Unverified: gcc over the whole Linux and Windows lists.
+
 - rhr6ggmt can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
 	- Type: Bug
@@ -481,6 +506,41 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every `.lnk` name check in `src`, `libnemo-private` and `eel`: following a shortcut, opening one, Edit link and its rename, the Shortcut properties page, the Windows open action. `nemo-file.c` goes through its own case-free extension check and was left. A shortcut made beside its original is `x.LNK - shortcut.lnk`, as before.
 	- Test case: rm1p3ner, Make link shortcut to an upper-case .LNK. Lint rm1p6hjv.
 	- Verified: 20261024, rm1p3ner fails before the fix and passes after, on Linux and under wine. rm1p6hjv fails on the old compare. The Windows cross build has no warnings. The merge gate passes, 232 of 233 with 1 skip.
+	- Branch: round1024
+
+- Under wine, rdcvb368 and rhn5ewrg fail.
+	- ID: 2026102407113294
+	- Type: Bug
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: no. On Linux only the Make link test changed, and its 4 shortcut modes pass.
+	- Needs external testing: rdcvb368, rhn5ewrg, rhnb1z7g, rhr6ggms and rfnmh050 natively on vm925w. The portable path now goes in only when the shell can follow it, and a start through Explorer counts only on S_OK.
+	- Priority|Severity: Low
+	- Opened: 20261024-071132
+	- Opened by: 2026102220565281
+	- Related IDs: 2026102220565281
+	- Target OS: Windows
+	- Test environment: cross-built, run under wine in `nemo-winbuild`.
+	- Steps to reproduce: run rdcvb368 (Shortcut win32 test) and rhn5ewrg (Make link shortcut) under wine, one at a time.
+	- Incorrect behavior: rdcvb368 fails its by-shell, dead shortcut and relative path checks. rhn5ewrg's shortcuts lead to the wrong target and have no relative path.
+	- Expected behavior: both pass, or skip with 77 where wine's shell can't do what they check. Both pass natively on vm925w.
+	- Reproduced: 20261024, on round1024 with and without the 2026102220565281 fix.
+	- Reproduced: 20261024, rhnb1z7g and rhr6ggms fail the same way under wine. rdcvb368 also fails its long path, shortcut launch and junction checks there.
+	- Actual cause: wine 10.0's shell does 6 things differently from Windows.
+		- A path with a variable in it, such as `%LOCALAPPDATA%\x`, is taken as a name in the working directory. So Make link's shortcuts led nowhere, and no variable is stored.
+		- The relative path is never flagged in the file, and holds the shortcut's own path.
+		- A shortcut with only a relative path is followed by the shell. When it leads nowhere, the shell hands back the relative path as the target.
+		- A target past 260 characters is taken, and the path kept is cut short.
+		- Explorer's ShellExecute passes the empty verb on as a verb named "", which fails for a shortcut, then answers S_FALSE. The app read S_FALSE as started.
+		- No junctions.
+	- Decisions:
+		- Where the app can still do the right thing under wine, it does. Where wine's shell can't write a part at all, the check skips under wine with a SKIP line. The check is for wine by name, so every check still runs on Windows.
+		- Neither test exits 77 under wine, since the rest of each still runs there.
+	- Actual fix: a portable path goes in only when the shell can follow it, and otherwise the absolute path alone. A target past 260 characters is refused before the shell is asked, in Edit link too. A relative path from the shell counts as no target. A start through Explorer counts only on S_OK, so a failed one falls back to the direct start.
+		- Tests: rdcvb368 skips the relative path, the variable, the "shell can't place it" answers and the junction under wine. The Make link test skips the relative and variable flags. A junction check reused an error left set by a failed create.
+	- Swept: every SetPath, GetPath and Explorer ShellExecute call. The Shortcut properties page shows the raw GetPath answer, and was left. rjnzpkk7 fails its 2 terminal checks under wine with or without this change.
+	- Note: wine patches are drafted, not filed: the relative path flag and its value, and the empty verb.
+	- Test case: rdcvb368, rhn5ewrg, rhnb1z7g, rhr6ggms.
+	- Verified: 20261024, under wine, rdcvb368, rhn5ewrg, rhnb1z7g, rhr6ggms, rm1p3ner, rj05egmb, rhnq7f38, rhqxx81r, rfnmh050 and rjp4ch0y pass, and rhr6ggmr skips. With the app half taken out, rdcvb368 fails its dead shortcut, portable target, long path and launch checks, and rhn5ewrg and rhnb1z7g their target check. The Windows cross build has no warnings, the C lint passes, and the Make link test passes on Linux.
 	- Branch: round1024
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
@@ -743,31 +803,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261020: opened.
 	- Test case: none yet.
-
-- The analyzer stage checks a file once, even when 2 targets build it with different headers.
-	- ID: 2026102408163141
-	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: yes, the analyzer stage in one full run. None of the 4 `shcl-old` entries should be stale, and the stage time should be about what it was.
-	- Priority|Severity: Avg
-	- Opened: 20261024-081631
-	- Opened by: t00mietum
-	- Related IDs: 2026101619020505, 2026102114400586, 2026102114400591
-	- Target OS: Linux
-	- Incorrect behavior: `load_db` in `cicd/utility/analyze.py` keeps the first compile entry per file. `shcl-old-writer.c` is built once per old SHCL release, against `vendor/shcl-old/1.2.0/` and `2.0.0/`, so 2.0.0 is never analyzed. 24 files are in the Linux list more than once and 29 in the Windows one, most of them app files also built into a test.
-	- Expected behavior: each compile entry with its own flags is analyzed. A finding 2 entries reach still counts once.
-	- Reproduced: 20261024. The 2.0.0 entry run alone had 2 findings the full run's logs lack.
-	- Notes: 2 entries in `analyze-vendored.txt` show as stale until this is fixed, so the gate in 2026102114400591 waits on it.
-	- Actual cause: `load_db` was keyed by file alone.
-	- Actual fix: `load_db` gives one run per file and set of flags. The target's own `-I<target>.p` is left out of the key, since that folder holds only objects, so the 12 `fuzz-main.c` entries are 2 runs and not 12. A file with more than one run has its target in the log's `###` line, so a run that didn't compile is named by target. Findings were already counted once per log.
-		- Linux: 495 runs for 471 files. Windows: 468 for 439.
-	- Swept: both callers of `load_db` (`cmd_run`, `cmd_cover`), and `parse_log`, the only reader of the `###` lines. `analyze.bash` passes the log through as it is.
-	- Branch: round1024
-	- Test case: rktsh374 (`analyze.py --self-test`): a file built against 2 header folders runs twice, tagged; one whose entries differ only by the target's folder runs once; a finding both runs reach counts once; a failed run is named by its target.
-	- Verified: 20261024, rktsh374 fails with the old `load_db` and with the target's folder kept in the key, and passes as committed. rktsh3gd passes. `analyze.py cover` passes over both lists.
-		- Both writer entries, run with the stage's own code: clang on Linux and gcc on Windows each find the 2.0.0 finding, so all 4 `shcl-old` entries match and none is stale. The old `analyze.py` ran 1 entry and left the 2.0.0 one stale.
-		- clang over the whole Linux list took 128 s at 8 jobs (load 25), against 134 s on 20261021. 70 findings; the only one the first run per file misses is `shcl-old/2.0.0/shcl.h:3583`. gcc over the 27 Windows files with more than one run took 46 s at 8 jobs, and found nothing else new.
-		- Unverified: gcc over the whole Linux and Windows lists.
 
 - Static analyzers: fix or suppress the findings in inherited upstream code.
 	- ID: 2026102114400587
@@ -1225,41 +1260,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- For "Nemo Anywhere" only. "Nemo Anywhere v1" keeps the previous behavior.
 		- F2 selects the name without the extension, as upstream does.
 	- Test case: none yet.
-
-- Under wine, rdcvb368 and rhn5ewrg fail.
-	- ID: 2026102407113294
-	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: no. On Linux only the Make link test changed, and its 4 shortcut modes pass.
-	- Needs external testing: rdcvb368, rhn5ewrg, rhnb1z7g, rhr6ggms and rfnmh050 natively on vm925w. The portable path now goes in only when the shell can follow it, and a start through Explorer counts only on S_OK.
-	- Priority|Severity: Low
-	- Opened: 20261024-071132
-	- Opened by: 2026102220565281
-	- Related IDs: 2026102220565281
-	- Target OS: Windows
-	- Test environment: cross-built, run under wine in `nemo-winbuild`.
-	- Steps to reproduce: run rdcvb368 (Shortcut win32 test) and rhn5ewrg (Make link shortcut) under wine, one at a time.
-	- Incorrect behavior: rdcvb368 fails its by-shell, dead shortcut and relative path checks. rhn5ewrg's shortcuts lead to the wrong target and have no relative path.
-	- Expected behavior: both pass, or skip with 77 where wine's shell can't do what they check. Both pass natively on vm925w.
-	- Reproduced: 20261024, on round1024 with and without the 2026102220565281 fix.
-	- Reproduced: 20261024, rhnb1z7g and rhr6ggms fail the same way under wine. rdcvb368 also fails its long path, shortcut launch and junction checks there.
-	- Actual cause: wine 10.0's shell does 6 things differently from Windows.
-		- A path with a variable in it, such as `%LOCALAPPDATA%\x`, is taken as a name in the working directory. So Make link's shortcuts led nowhere, and no variable is stored.
-		- The relative path is never flagged in the file, and holds the shortcut's own path.
-		- A shortcut with only a relative path is followed by the shell. When it leads nowhere, the shell hands back the relative path as the target.
-		- A target past 260 characters is taken, and the path kept is cut short.
-		- Explorer's ShellExecute passes the empty verb on as a verb named "", which fails for a shortcut, then answers S_FALSE. The app read S_FALSE as started.
-		- No junctions.
-	- Decisions:
-		- Where the app can still do the right thing under wine, it does. Where wine's shell can't write a part at all, the check skips under wine with a SKIP line. The check is for wine by name, so every check still runs on Windows.
-		- Neither test exits 77 under wine, since the rest of each still runs there.
-	- Actual fix: a portable path goes in only when the shell can follow it, and otherwise the absolute path alone. A target past 260 characters is refused before the shell is asked, in Edit link too. A relative path from the shell counts as no target. A start through Explorer counts only on S_OK, so a failed one falls back to the direct start.
-		- Tests: rdcvb368 skips the relative path, the variable, the "shell can't place it" answers and the junction under wine. The Make link test skips the relative and variable flags. A junction check reused an error left set by a failed create.
-	- Swept: every SetPath, GetPath and Explorer ShellExecute call. The Shortcut properties page shows the raw GetPath answer, and was left. rjnzpkk7 fails its 2 terminal checks under wine with or without this change.
-	- Note: wine patches are drafted, not filed: the relative path flag and its value, and the empty verb.
-	- Test case: rdcvb368, rhn5ewrg, rhnb1z7g, rhr6ggms.
-	- Verified: 20261024, under wine, rdcvb368, rhn5ewrg, rhnb1z7g, rhr6ggms, rm1p3ner, rj05egmb, rhnq7f38, rhqxx81r, rfnmh050 and rjp4ch0y pass, and rhr6ggmr skips. With the app half taken out, rdcvb368 fails its dead shortcut, portable target, long path and launch checks, and rhn5ewrg and rhnb1z7g their target check. The Windows cross build has no warnings, the C lint passes, and the Make link test passes on Linux.
-	- Branch: round1024
 
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066
