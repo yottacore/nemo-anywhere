@@ -4,8 +4,8 @@
 # cicd/utility/analyze.bash drives it; see there for the stage itself.
 #
 #   run      Inside a build container. Runs one analyzer over every C file in a
-#            compile_commands.json and prints each file's diagnostics, paths
-#            made relative to the repo.
+#            compile_commands.json, once per set of flags it's built with, and
+#            prints each run's diagnostics, paths made relative to the repo.
 #   cover    Fails when a tracked .c is in neither compile list, or when one
 #            under source/unused/, which nothing should build, is in one.
 #   count    Counts unique findings per area from run's logs. Vendored ones on
@@ -29,6 +29,7 @@
 #     https://mit-license.org/
 # SPDX-License-Identifier: MIT
 
+import collections
 import concurrent.futures
 import json
 import os
@@ -56,14 +57,30 @@ DROP_WITH_ARG = {"-o", "-MF", "-MQ", "-MT"}
 DROP = {"-MD", "-MMD", "-Werror", "-pipe"}
 
 
+def private_dir(entry):
+    out = entry.get("output")
+    if not out:
+        argv = entry.get("arguments") or shlex.split(entry["command"])
+        out = argv[argv.index("-o") + 1] if "-o" in argv else ""
+    return os.path.dirname(out)
+
+
+# (file, entry, tag) once per file and set of flags, since a file built into 2
+# targets can see different headers (2026102408163141). Meson gives each target
+# its own -I<target>.p, which holds only objects, so that one doesn't count.
+# The tag names the target when a file has more than one run.
 def load_db(path):
     with open(path) as f:
         entries = json.load(f)
-    seen = {}
+    runs = {}
     for e in entries:
         full = os.path.normpath(os.path.join(e["directory"], e["file"]))
-        seen.setdefault(full, e)
-    return seen
+        priv = private_dir(e)
+        flags = tuple(a for a in analyzer_argv(e, "gcc", None) if a != "-I" + priv)
+        runs.setdefault((full, e["directory"], flags), (full, e, priv))
+    per_file = collections.Counter(full for full, _, _ in runs.values())
+    return sorted(((full, e, priv if per_file[full] > 1 else "") for full, e, priv in runs.values()),
+                  key=lambda r: (r[0], r[2]))
 
 
 def analyzer_argv(entry, tool, clang):
@@ -94,7 +111,7 @@ def rel(directory, path):
     return full[len(SRC):] if full.startswith(SRC) else full
 
 
-def run_one(full, entry, tool, clang):
+def run_one(full, entry, tool, clang, tag=""):
     argv = analyzer_argv(entry, tool, clang)
     # Its own group, so a timeout takes cc1 down too, not just the driver.
     p = subprocess.Popen(argv, cwd=entry["directory"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
@@ -112,7 +129,8 @@ def run_one(full, entry, tool, clang):
         if m:
             line = rel(entry["directory"], m.group(1)) + line[len(m.group(1)):]
         lines.append(line)
-    return "### %s rc=%d\n%s" % (rel("/", full), rc, "\n".join(lines) + ("\n" if lines else ""))
+    name = rel("/", full) + (" [%s]" % tag if tag else "")
+    return "### %s rc=%d\n%s" % (name, rc, "\n".join(lines) + ("\n" if lines else ""))
 
 
 def cmd_run(args):
@@ -125,9 +143,9 @@ def cmd_run(args):
         if not clang:
             print("### SKIP no clang in this container")
             return 77
-    entries = sorted((f, e) for f, e in load_db(db).items() if f.startswith(SRC) and f.endswith(".c"))
+    runs = [r for r in load_db(db) if r[0].startswith(SRC) and r[0].endswith(".c")]
     with concurrent.futures.ThreadPoolExecutor(jobs) as pool:
-        for block in pool.map(lambda fe: run_one(fe[0], fe[1], tool, clang), entries):
+        for block in pool.map(lambda r: run_one(r[0], r[1], tool, clang, r[2]), runs):
             sys.stdout.write(block)
             sys.stdout.flush()
     return 0
@@ -182,7 +200,7 @@ def cmd_cover(args):
                                  capture_output=True, text=True).stdout.split())
     built = set()
     for db in dbs:
-        built |= {f[len(SRC):] for f in load_db(db) if f.startswith(SRC)}
+        built |= {f[len(SRC):] for f, _, _ in load_db(db) if f.startswith(SRC)}
     problems = check_cover(tracked, built)
     for p in problems:
         print("[ FAILED: %s ]" % p)
@@ -346,6 +364,38 @@ def self_test():
     want_p = ["in neither compile list: c.c", "built from %s: %se.c" % (UNUSED, UNUSED)]
     if sorted(got) != sorted(want_p):
         bad.append("cover %r" % got)
+
+    # w.c against 2 header folders runs twice; t.c, whose 3 entries differ only by
+    # the target's own folder, runs once.
+    def entry(src, target, *extra):
+        out = "%s.p/%s.o" % (target, os.path.basename(src))
+        return {"directory": "/build", "file": "../src/" + src, "output": out,
+                "command": "cc -I%s.p %s -MD -MF %s.d -o %s -c ../src/%s" % (target, " ".join(extra), out, out, src)}
+    db = [entry("source/test/w.c", "test/w-1", "-I../src/vendor/old/1"), entry("source/test/w.c", "test/w-2", "-I../src/vendor/old/2"),
+          entry("source/test/t.c", "test/a", "-Itest"), entry("source/test/t.c", "test/b", "-Itest"),
+          entry("source/test/t.c", "test/c", "-Itest"), entry("source/src/s.c", "src/app")]
+    with tempfile.TemporaryDirectory() as tmp:
+        with open(os.path.join(tmp, "compile_commands.json"), "w") as f:
+            json.dump(db, f)
+        got = [(full, tag) for full, _, tag in load_db(os.path.join(tmp, "compile_commands.json"))]
+    want_r = [("/src/source/src/s.c", ""), ("/src/source/test/t.c", ""),
+              ("/src/source/test/w.c", "test/w-1.p"), ("/src/source/test/w.c", "test/w-2.p")]
+    if got != want_r:
+        bad.append("runs %r, want %r" % (got, want_r))
+    # A finding both runs reach counts once, and a run that didn't compile is named by its target.
+    log = "\n".join([
+        "### source/test/w.c [test/w-1.p] rc=0",
+        "vendor/old/1/h.h:5:3: warning: leak of 'p' [CWE-401] [-Wanalyzer-malloc-leak]",
+        "source/test/w.c:8:3: warning: leak of 'q' [CWE-401] [-Wanalyzer-malloc-leak]",
+        "### source/test/w.c [test/w-2.p] rc=1",
+        "source/test/w.c:8:3: warning: leak of 'q' [CWE-401] [-Wanalyzer-malloc-leak]",
+        "source/test/w.c:1:10: fatal error: h.h: No such file or directory",
+    ])
+    table, failed, _ = count({"gcc-linux": log}, set())
+    if (table["gcc-linux"]["vendored"], table["gcc-linux"]["tests"]) != (1, 1):
+        bad.append("2 runs counted %r, want vendored 1, tests 1" % table["gcc-linux"])
+    if failed["gcc-linux"] != ["source/test/w.c [test/w-2.p]"]:
+        bad.append("not analyzed %r, want the w-2 run" % failed["gcc-linux"])
     for b in bad:
         print("[ FAILED: %s ]" % b)
     print("[ %s ]" % ("FAILED" if bad else "OK: analyze.py self-test"))

@@ -747,7 +747,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The analyzer stage checks a file once, even when 2 targets build it with different headers.
 	- ID: 2026102408163141
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: yes, the analyzer stage in one full run. None of the 4 `shcl-old` entries should be stale, and the stage time should be about what it was.
 	- Priority|Severity: Avg
 	- Opened: 20261024-081631
 	- Opened by: t00mietum
@@ -757,7 +758,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: each compile entry with its own flags is analyzed. A finding 2 entries reach still counts once.
 	- Reproduced: 20261024. The 2.0.0 entry run alone had 2 findings the full run's logs lack.
 	- Notes: 2 entries in `analyze-vendored.txt` show as stale until this is fixed, so the gate in 2026102114400591 waits on it.
-	- Test case: none yet.
+	- Actual cause: `load_db` was keyed by file alone.
+	- Actual fix: `load_db` gives one run per file and set of flags. The target's own `-I<target>.p` is left out of the key, since that folder holds only objects, so the 12 `fuzz-main.c` entries are 2 runs and not 12. A file with more than one run has its target in the log's `###` line, so a run that didn't compile is named by target. Findings were already counted once per log.
+		- Linux: 495 runs for 471 files. Windows: 468 for 439.
+	- Swept: both callers of `load_db` (`cmd_run`, `cmd_cover`), and `parse_log`, the only reader of the `###` lines. `analyze.bash` passes the log through as it is.
+	- Branch: round1024
+	- Test case: rktsh374 (`analyze.py --self-test`): a file built against 2 header folders runs twice, tagged; one whose entries differ only by the target's folder runs once; a finding both runs reach counts once; a failed run is named by its target.
+	- Verified: 20261024, rktsh374 fails with the old `load_db` and with the target's folder kept in the key, and passes as committed. rktsh3gd passes. `analyze.py cover` passes over both lists.
+		- Both writer entries, run with the stage's own code: clang on Linux and gcc on Windows each find the 2.0.0 finding, so all 4 `shcl-old` entries match and none is stale. The old `analyze.py` ran 1 entry and left the 2.0.0 one stale.
+		- clang over the whole Linux list took 128 s at 8 jobs (load 25), against 134 s on 20261021. 70 findings; the only one the first run per file misses is `shcl-old/2.0.0/shcl.h:3583`. gcc over the 27 Windows files with more than one run took 46 s at 8 jobs, and found nothing else new.
+		- Unverified: gcc over the whole Linux and Windows lists.
 
 - Static analyzers: fix or suppress the findings in inherited upstream code.
 	- ID: 2026102114400587
