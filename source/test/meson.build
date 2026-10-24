@@ -576,13 +576,16 @@ test('rhtmbdm9 Clipped cell text test',
   args: []
 )
 
+# Holds a menu open. On Windows any test's window coming up beside it takes the
+# focus, and the menu closes with it, so alone there.
 test('rhtmbdma Keyboard context menu test',
   executable('test-eel-context-menu',
     [ 'test-eel-context-menu.c' ],
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch ],
   ),
-  args: []
+  args: [],
+  is_parallel: not is_windows,
 )
 
 test('rjes67yy Rename field accessible test',

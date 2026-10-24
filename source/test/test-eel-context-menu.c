@@ -74,13 +74,29 @@ screen_origin (GtkWidget *widget, int *x, int *y)
 	*y += wy;
 }
 
+static gboolean
+count_event (G_GNUC_UNUSED GtkWidget *widget, G_GNUC_UNUSED GdkEvent *event, gpointer data)
+{
+	(*(int *) data)++;
+	return FALSE;
+}
+
 /* Pops the menu with no event and reports where its window opened. */
 static gboolean
 pop_up_at_item (GtkWidget *view, const GdkRectangle *item, int *x, int *y)
 {
 	GtkWidget *menu = new_menu ();
+	GtkWidget *toplevel = gtk_widget_get_toplevel (view);
 	GtkWidget *menu_window;
-	gboolean shown;
+	gboolean shown, active;
+	int focus_lost = 0, grab_broken = 0;
+	gulong focus_id, grab_id;
+
+	/* A menu closes when its window loses the focus, which a window coming
+	   up in a test beside this one can take. Said when the menu isn't up. */
+	active = gtk_window_is_active (GTK_WINDOW (toplevel));
+	focus_id = g_signal_connect (toplevel, "focus-out-event", G_CALLBACK (count_event), &focus_lost);
+	grab_id = g_signal_connect (menu, "grab-broken-event", G_CALLBACK (count_event), &grab_broken);
 
 	g_object_ref_sink (menu);
 	if (item != NULL) {
@@ -94,7 +110,12 @@ pop_up_at_item (GtkWidget *view, const GdkRectangle *item, int *x, int *y)
 	shown = gtk_widget_get_mapped (menu);
 	if (shown) {
 		gdk_window_get_origin (gtk_widget_get_window (menu_window), x, y);
+	} else {
+		g_print ("menu not up: window %s, then lost the focus %d time(s), grab broken %d time(s)\n",
+			 active ? "active" : "not active", focus_lost, grab_broken);
 	}
+	g_signal_handler_disconnect (toplevel, focus_id);
+	g_signal_handler_disconnect (menu, grab_id);
 	gtk_menu_popdown (GTK_MENU (menu));
 	settle ();
 	gtk_widget_destroy (menu);

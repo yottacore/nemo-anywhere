@@ -403,6 +403,67 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the 15 archive tests pass in the jailed runner, rhr6ggmt with 316 runs.
 	- Verified: 20261022: rhr6ggmt passes in the full Linux suite, the sanitizer suite and the FreeBSD lane.
 
+- rhtmbdma fails in the native suite in vm925w's desktop session, and passes alone.
+	- ID: 2026102322330406
+	- Type: Bug
+	- Status: Waiting on automated testing
+	- Needs external testing: the native gate on vm925w as wintest in the desktop session, with 2026102409082700's fix. rhtmbdma passes there.
+	- Priority|Severity: Low
+	- Opened: 20261023-223304
+	- Opened by: 2026102221362030
+	- Related IDs: 2026102219444662, 2026102219444332
+	- Target OS: Windows
+	- Test environment: vm925w, a fresh clone of round1023, as wintest in the desktop session.
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
+	- Incorrect behavior: Keyboard context menu test, `test-eel-context-menu.c` lines 243 and 246 in the first run, those and 251 and 254 in the second, and 251 and 254 in the third. `pop_up` gets no menu up, with "no trigger event for menu popup" from GTK.
+	- Expected behavior: passes, as it did in the round1022 native suite.
+	- Reproduced: 20261023, 3 of 3 native suite runs. The same build's exe run alone in the desktop session, outside the jail, passed 3 of 3.
+	- Possible cause: not known. New in round1023 are rm0d1tdd, which moves the focus between threads and other programs and runs near it in the suite, and the fence's load notice. Not looked into.
+	- Actual cause: another test taking the foreground while a menu is up. On Windows every test in the suite shares one desktop, and 4 of them bring their window to the front through GDK, which gets past Windows' foreground lock. The window losing the focus gets `WM_KILLFOCUS`, GDK breaks the keyboard grab, and GTK closes the menu, so `pop_up` finds none. rm0d1tdd runs alone, so the tests after it start together, and rgxy149r and rk6narsh come up in rhtmbdma's first second or two, when its first 2 pop-ups are.
+		- 20261024: only part of it. Any test's window coming up beside it takes the focus, see 2026102409082700.
+	- Actual fix: rgxy149r, rk6narsh, rhtmbdmd and rjf8db1q run alone on Windows. New C lint check rm1n4v1b fails when a test built for Windows calls `gtk_window_present`, `gdk_window_focus`, `SetForegroundWindow`, `SwitchToThisWindow` or `BringWindowToTop` in its own .c files and isn't alone there.
+	- Decisions:
+		- Alone on Windows only, where the tests share one desktop. Linux and FreeBSD still run them beside others, and no run there has failed this way.
+		- The native suite gets about 25 s longer, most of it rhtmbdmd's 21 s.
+	- Test case: rhtmbdma, and rm1n4v1b for the rule.
+	- Verified: 20261024 on vm925w as wintest in the desktop session: with rgxy149r and rk6narsh running over and over beside it, rhtmbdma failed lines 243, 246, 251 and 254, then 270 and 273, in the first of 4 runs. It passed 2 of 2 alone, 3 of 3 through MSYS2's bash and the jail, and 4 of 4 beside 3 copies of itself. rm1n4v1b fails on round1024's meson.build from before the change, naming the 4 tests, and passes after.
+	- Swept: every test built for Windows whose own .c files call one of those 5: the 4 above, and rm0d1tdd, already alone. The rest are in `if not is_windows` blocks.
+	- Branch: round1024
+	- Progress log:
+		- 20261023: passed in 1 native gate run from a clone of round1023-fix, whose changes don't touch it. Ruled out: another program's window up front when it starts, since alone in the desktop session with Notepad started just before, it passed 3 of 3 (whether Notepad held the front wasn't checked). The fence alone, since it's linked into the exe run alone too. GTK's "no trigger event" line comes in every passing run too, so it isn't the sign. Only the first 2 pop-ups have failed, the ones right after the window first shows, and the ones after them in the same run passed.
+		- 20261024: also ruled out, MSYS2's bash and the jail, and other test windows simply coming up beside it. Only a window that forces its way to the front breaks it.
+		- 20261024: the fix didn't hold. In the native gate on vm925w from a bundle of round1024 (`6e3974d0`), rhtmbdma failed lines 243 and 246 again, the first pop-up: 204 OK, 7 skipped, 1 failed. The 4 tests that now run alone ran after it, each alone. Beside it were 6 eel tests that only show a plain window: rffw4xdg, rjes67yy, rhtmbdm9, rjew8g59, rhtmbdmb and rk520jh7. So a window forcing its way to the front isn't the whole cause. Not checked: whether its own window gets the front at all when another test's window came up just before it. Not rerun alone, since vm925w went off right after the run.
+			- Filed as 2026102409082700. Left for a later round.
+		- 20261024: second fix for the same failure, on 2026102409082700. The first rested on a cause seen only with windows that force their way to the front.
+
+- The round1024 fix for rhtmbdma didn't hold in the native suite.
+	- ID: 2026102409082700
+	- Type: Bug
+	- Status: Waiting on automated testing
+	- Needs external testing: the native gate on vm925w as wintest in the desktop session, from a bundle of round1024b. rhtmbdma passes there, run alone.
+	- Priority|Severity: Low
+	- Opened: 20261024-090827
+	- Opened by: 2026102322330406
+	- Related IDs: 2026102322330406
+	- Target OS: Windows
+	- Test environment: vm925w, a bundle of round1024 `6e3974d0`, as wintest in the desktop session.
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
+	- Incorrect behavior: rhtmbdma fails lines 243 and 246, the first pop-up, though the 4 tests that bring their window to the front now run alone. Only 6 eel tests that show a plain window ran beside it: rffw4xdg, rjes67yy, rhtmbdm9, rjew8g59, rhtmbdmb and rk520jh7.
+	- Expected behavior: rhtmbdma passes in the native suite.
+	- Tried: running rgxy149r, rk6narsh, rhtmbdmd and rjf8db1q alone on Windows, plus lint rm1n4v1b. That fixed the case it reproduced, a forced foreground window beside it, but not this one.
+	- Reproduced: 20261024, 1 of 1 native gate runs. Not rerun alone, since vm925w was off right after.
+		- 20261024 on vm925w as wintest in the desktop session, with the 7 eel tests started in suite order 4 at a time after rm0d1tdd, as the native gate runs them: the first pop-up failed in 4 of 5 rounds. Started all 7 at once, it passed 3 rounds, likely since every window was up before its first pop-up.
+	- Actual cause: any test's window coming up on Windows takes the focus, not only one that forces its way to the front. The native gate runs 4 tests at a time, so after rm0d1tdd the last 3 of these eel tests start as earlier ones end, in rhtmbdma's first second or two, when its first pop-ups are. Losing the focus breaks the menu's keyboard grab, and GTK closes the menu. Each failed pop-up had its grab broken 3 or 4 times.
+	- Actual fix: rhtmbdma runs alone on Windows. rm1n4v1b now also fails for a test built for Windows whose own .c files pop up a menu (`gtk_menu_popup`, the eel pop-up helpers, the drop menu, a popover or a combo box) and isn't alone there. A pop-up that doesn't come up now prints whether the window had the focus, and how often the focus and the grab were lost.
+	- Decisions:
+		- Alone, not a retry in the test. A window from any test can take the focus again, and a menu that closes when its window loses the focus is right.
+		- Alone on Windows only, as for the round1024 four. Linux and FreeBSD still run it beside others, and no run there has failed this way.
+		- The native suite gets a few seconds longer. rhtmbdma takes about 4 s on Linux.
+	- Test case: rhtmbdma, and rm1n4v1b for the rule.
+	- Verified: 20261024 on vm925w as wintest in the desktop session: run alone ahead of the other 6, then those 4 at a time, rhtmbdma passed 9 of 9, and so did the 6. rm1n4v1b fails on round1024b's meson.build from before the change, naming rhtmbdma, and passes after. On Linux rhtmbdma passes in a build with warnings as errors, and the lint stage passes.
+	- Swept: every test file in `source/test` that pops up a menu, a popover or a combo box: only `test-eel-context-menu.c`. A test that opens a menu through the app's own code isn't seen by the rule, as with the foreground calls.
+	- Branch: round1024b
+
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
 	- Type: Bug
@@ -1120,54 +1181,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- For "Nemo Anywhere" only. "Nemo Anywhere v1" keeps the previous behavior.
 		- F2 selects the name without the extension, as upstream does.
 	- Test case: none yet.
-
-- rhtmbdma fails in the native suite in vm925w's desktop session, and passes alone.
-	- ID: 2026102322330406
-	- Type: Bug
-	- Status: Queued
-	- Needs external testing: the native gate on vm925w as wintest in the desktop session, once there's a new fix. rhtmbdma passes there.
-	- Priority|Severity: Low
-	- Opened: 20261023-223304
-	- Opened by: 2026102221362030
-	- Related IDs: 2026102219444662, 2026102219444332
-	- Target OS: Windows
-	- Test environment: vm925w, a fresh clone of round1023, as wintest in the desktop session.
-	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
-	- Incorrect behavior: Keyboard context menu test, `test-eel-context-menu.c` lines 243 and 246 in the first run, those and 251 and 254 in the second, and 251 and 254 in the third. `pop_up` gets no menu up, with "no trigger event for menu popup" from GTK.
-	- Expected behavior: passes, as it did in the round1022 native suite.
-	- Reproduced: 20261023, 3 of 3 native suite runs. The same build's exe run alone in the desktop session, outside the jail, passed 3 of 3.
-	- Possible cause: not known. New in round1023 are rm0d1tdd, which moves the focus between threads and other programs and runs near it in the suite, and the fence's load notice. Not looked into.
-	- Actual cause: another test taking the foreground while a menu is up. On Windows every test in the suite shares one desktop, and 4 of them bring their window to the front through GDK, which gets past Windows' foreground lock. The window losing the focus gets `WM_KILLFOCUS`, GDK breaks the keyboard grab, and GTK closes the menu, so `pop_up` finds none. rm0d1tdd runs alone, so the tests after it start together, and rgxy149r and rk6narsh come up in rhtmbdma's first second or two, when its first 2 pop-ups are.
-	- Actual fix: rgxy149r, rk6narsh, rhtmbdmd and rjf8db1q run alone on Windows. New C lint check rm1n4v1b fails when a test built for Windows calls `gtk_window_present`, `gdk_window_focus`, `SetForegroundWindow`, `SwitchToThisWindow` or `BringWindowToTop` in its own .c files and isn't alone there.
-	- Decisions:
-		- Alone on Windows only, where the tests share one desktop. Linux and FreeBSD still run them beside others, and no run there has failed this way.
-		- The native suite gets about 25 s longer, most of it rhtmbdmd's 21 s.
-	- Test case: rhtmbdma, and rm1n4v1b for the rule.
-	- Verified: 20261024 on vm925w as wintest in the desktop session: with rgxy149r and rk6narsh running over and over beside it, rhtmbdma failed lines 243, 246, 251 and 254, then 270 and 273, in the first of 4 runs. It passed 2 of 2 alone, 3 of 3 through MSYS2's bash and the jail, and 4 of 4 beside 3 copies of itself. rm1n4v1b fails on round1024's meson.build from before the change, naming the 4 tests, and passes after.
-	- Swept: every test built for Windows whose own .c files call one of those 5: the 4 above, and rm0d1tdd, already alone. The rest are in `if not is_windows` blocks.
-	- Branch: round1024
-	- Progress log:
-		- 20261023: passed in 1 native gate run from a clone of round1023-fix, whose changes don't touch it. Ruled out: another program's window up front when it starts, since alone in the desktop session with Notepad started just before, it passed 3 of 3 (whether Notepad held the front wasn't checked). The fence alone, since it's linked into the exe run alone too. GTK's "no trigger event" line comes in every passing run too, so it isn't the sign. Only the first 2 pop-ups have failed, the ones right after the window first shows, and the ones after them in the same run passed.
-		- 20261024: also ruled out, MSYS2's bash and the jail, and other test windows simply coming up beside it. Only a window that forces its way to the front breaks it.
-		- 20261024: the fix didn't hold. In the native gate on vm925w from a bundle of round1024 (`6e3974d0`), rhtmbdma failed lines 243 and 246 again, the first pop-up: 204 OK, 7 skipped, 1 failed. The 4 tests that now run alone ran after it, each alone. Beside it were 6 eel tests that only show a plain window: rffw4xdg, rjes67yy, rhtmbdm9, rjew8g59, rhtmbdmb and rk520jh7. So a window forcing its way to the front isn't the whole cause. Not checked: whether its own window gets the front at all when another test's window came up just before it. Not rerun alone, since vm925w went off right after the run.
-			- Filed as 2026102409082700. Left for a later round.
-
-- The round1024 fix for rhtmbdma didn't hold in the native suite.
-	- ID: 2026102409082700
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261024-090827
-	- Opened by: 2026102322330406
-	- Related IDs: 2026102322330406
-	- Target OS: Windows
-	- Test environment: vm925w, a bundle of round1024 `6e3974d0`, as wintest in the desktop session.
-	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
-	- Incorrect behavior: rhtmbdma fails lines 243 and 246, the first pop-up, though the 4 tests that bring their window to the front now run alone. Only 6 eel tests that show a plain window ran beside it: rffw4xdg, rjes67yy, rhtmbdm9, rjew8g59, rhtmbdmb and rk520jh7.
-	- Expected behavior: rhtmbdma passes in the native suite.
-	- Tried: running rgxy149r, rk6narsh, rhtmbdmd and rjf8db1q alone on Windows, plus lint rm1n4v1b. That fixed the case it reproduced, a forced foreground window beside it, but not this one.
-	- Reproduced: 20261024, 1 of 1 native gate runs. Not rerun alone, since vm925w was off right after.
-	- Test case: rhtmbdma.
 
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066
