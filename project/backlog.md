@@ -36,7 +36,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Need to come up with a consistent design for copying or moving files when a folder is selected:
 	- ID: 2026101816495200
 	- Type: Task
-	- Status: Open
+	- Status: Done
+		- Implement "Nemo Anywhere" model of '20261020-103804_behavior-models.md'.
 	- Priority|Severity: Avg
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
@@ -65,7 +66,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The separate highlight and selection is causing too many problems. Need to rethink how to multi-select with keyboard without the "selection", or do without it.
 	- ID: 2026101816495208
 	- Type: Enhancement
-	- Status: Open
+	- Status: Done
+		- Implement "Nemo Anywhere" model of '20261020-103804_behavior-models.md'.
 	- Priority|Severity: Avg
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
