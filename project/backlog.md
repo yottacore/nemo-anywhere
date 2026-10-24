@@ -1455,8 +1455,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, the bookmarks file leak case can't tell a leak from what COM does on its own.
 	- ID: 2026101913541101
 	- Type: Bug
-	- Status: Queued
-	- Needs external testing: rjbn328w natively, several runs, on vm925w or b29w.
+	- Status: Waiting on automated testing
+	- Needs external testing: the native gate on vm925w, since every leak case there now reads again until growth shows 4 times.
 	- Priority|Severity: Low
 	- Opened: 20261019-135411
 	- Opened by: t00mietum
@@ -1466,16 +1466,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: rjbn328w runs on Windows and passes every time.
 	- Actual cause: each bookmark's exists check calls `nemo_location_is_network_safe`, which lists the mounts to find the one the bookmark is on. The Windows drive list named every drive as it was made, and naming a local drive goes through the shell's namespace (`SHGetDesktopFolder`, `ParseDisplayName`). That consults the shell's namespace extensions, the WSL one among them, which is a packaged app. Likely the COM traffic seen, not confirmed natively.
 		- The same check runs for every bookmark on each rebuild of the side pane, so that paid one shell trip per drive per bookmark too.
+		- 20261023: what was left isn't the load. GIO starts a scan of the installed apps from its DllMain, on a worker thread, in every process. Its package walk asks each package for its install folder, which brings Windows' `windows.storage` and `Windows.FileExplorer.Common` into the process about 1 s after start. From then on COM calls come into that code from outside, the first about 5 s after it loads, and each takes or gives back a 4 KB buffer in the process heap. Nothing in the counted rounds calls into COM, from the app, GLib or GTK.
 	- Actual fix: a drive's name is made the first time it is asked for. A list for its roots alone no longer asks the shell anything.
+		- 20261023: on Windows a leak case reads again until growth has shown 4 times, not 2. A leak grows the heap in every reading. The COM traffic was seen to grow 2 readings in a row, then give it back.
+	- Decisions:
+		- Nothing to do in the app, since GIO starts the scan when it loads.
+		- Read again, rather than leave out the process heap or blocks of that size, which would hide a real leak there.
+		- Against: winleak tried a third reading on Windows and dropped it on 20261019, since it still flaked. That was before the drive name fix took the shell trip per bookmark away.
 	- Progress log:
 		- 20261021: rjbn328w no longer answers 77 on Windows. Under wine it still answers 77, since the heap can't be read there.
 		- 20261021: rktexj0a counts the shell calls. It fails before the fix, 2 calls for the list and 4 by the end of the network check, and passes after with 0, then 1 for the name. rjhvmm6f still passes. The leak cases pass on Linux.
+		- 20261023: back from Queued, after 1 failure in 6 runs on vm925w. Cause found, fix above.
 	- Swept: the other `nemo_get_mounts` callers. The side pane, path bar and tree want names, and still get them. The view's mount check and `get_mount_at` in `nemo-directory-async.c` want only locations, and gain as well. GLib's own `g_file_find_enclosing_mount` still names its mount through the shell, but the bookmark load doesn't ask for a mount.
-	- Branch: round1021
+		- 20261023: `test_heap_growth` is the only place readings are taken, for every case in `test-nemo-leaks.c` and the list read check in `test-nemo-config.c`, so all of them get the 4 showings on Windows. No other count of showings in `source/test/`.
+	- Branch: round1021, round1023
 	- Commit: 2da98315
-	- Test case: rjbn328w on Windows, and rktexj0a, which checks that listing the drives asks the shell nothing until a name is wanted.
+	- Test case: rjbn328w on Windows, and rktexj0a, which checks that listing the drives asks the shell nothing until a name is wanted. rjcth67d checks that a planted leak still fails with 4 showings.
 	- Verified: 20261022, on vm925w: rjbn328w passes 7 runs of 7, 0 bytes over 64 rounds each, once after a 640-byte reading was taken again. rktexj0a passes natively over ssh and in the desktop session: no shell call for the list or the network check, 1 for the name.
 	- Verified: 20261023, on vm925w in the desktop session: rjbn328w failed 1 run of 6, with the heap 4368 bytes up over 64 rounds after the reading was taken again. So something else in the load still reaches COM now and then, and the fix above wasn't all of it.
+	- Verified: 20261023 evening, on vm925w in the desktop session: rjbn328w with 4 showings passed 6 runs of 6. In one, 2 readings in a row grew, 4912 and 4368 bytes, before one read 0, which the old rule fails. A batch of 6 the same evening with the old rule failed once, 8736 then 4368 bytes. rjcth67d still reads its planted 2048 bytes and passes. On Linux rjbn328w, rjbn19rn, rkneydzr and rjcth67d still pass, with 2 showings.
 
 - rhr6ggmt can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
