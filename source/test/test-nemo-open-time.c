@@ -47,6 +47,8 @@
  * sub-folder in each of LEVELS, since the counts no longer get a head start on
  * the rows.
  *
+ * A sanitizer build checks all but the time bars (TEST_TIME_BARS_HOLD).
+ *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Linux
  * and FreeBSD only, since it works by LD_PRELOAD. */
 
@@ -344,7 +346,9 @@ main (int argc, char *argv[])
 		g_printerr ("FAIL: %d item counts read, expected %d\n", counts, 2 * LEVELS + PLAIN + 2);
 		failures++;
 	}
-	if (done) {
+	if (done && !TEST_TIME_BARS_HOLD) {
+		g_print ("time bars not held in a sanitizer build\n");
+	} else if (done) {
 		check_bar ("the quickest of the varied folders to show all its rows", levels_all);
 		check_bar ("the quickest of the plain folders to show all its rows", plain_all);
 		check_bar ("the slow folder with pictures to show a row", slow_pictures_first);

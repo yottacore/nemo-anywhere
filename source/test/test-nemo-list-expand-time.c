@@ -36,6 +36,8 @@
  * - SLOW folders listed a second per batch, like a share might be: the best
  *   time to the first row has to be under the bar, so they show what they have.
  *
+ * A sanitizer build checks all but the time bars (TEST_TIME_BARS_HOLD).
+ *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Linux
  * and FreeBSD only, since it works by LD_PRELOAD. */
 
@@ -309,7 +311,7 @@ main (int argc, char *argv[])
 		int before = failures;
 
 		open_all (argv[1], envp, root, run, top, out, &best_all, &best_first, &first_folder_all);
-		if (failures > before ||
+		if (failures > before || !TEST_TIME_BARS_HOLD ||
 		    (best_all < BAR_MS && first_folder_all < BAR_MS && best_first < BAR_MS)) {
 			break;
 		}
@@ -317,20 +319,24 @@ main (int argc, char *argv[])
 			g_print ("over the bar on run %d of %d, once more\n", run, RUNS);
 		}
 	}
-	if (best_all >= BAR_MS) {
-		g_printerr ("FAIL: the quickest folder took %.1f ms to show all its rows, the bar is %.0f ms\n",
-			    best_all, BAR_MS);
-		failures++;
-	}
-	if (first_folder_all >= BAR_MS) {
-		g_printerr ("FAIL: the first folder took %.1f ms to show all its rows, the bar is %.0f ms\n",
-			    first_folder_all, BAR_MS);
-		failures++;
-	}
-	if (best_first >= BAR_MS) {
-		g_printerr ("FAIL: the quickest slow folder took %.1f ms to show a row, the bar is %.0f ms\n",
-			    best_first, BAR_MS);
-		failures++;
+	if (!TEST_TIME_BARS_HOLD) {
+		g_print ("time bars not held in a sanitizer build\n");
+	} else {
+		if (best_all >= BAR_MS) {
+			g_printerr ("FAIL: the quickest folder took %.1f ms to show all its rows, the bar is %.0f ms\n",
+				    best_all, BAR_MS);
+			failures++;
+		}
+		if (first_folder_all >= BAR_MS) {
+			g_printerr ("FAIL: the first folder took %.1f ms to show all its rows, the bar is %.0f ms\n",
+				    first_folder_all, BAR_MS);
+			failures++;
+		}
+		if (best_first >= BAR_MS) {
+			g_printerr ("FAIL: the quickest slow folder took %.1f ms to show a row, the bar is %.0f ms\n",
+				    best_first, BAR_MS);
+			failures++;
+		}
 	}
 
 	g_strfreev (envp);

@@ -36,7 +36,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - rkbdyne7, rk96k9va and rj750n43 still fail in the sanitizer lane on a loaded box.
 	- ID: 2026102411433800
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: a full run's sanitizer stage on a loaded box, beside another pipeline. If rj750n43 hangs at quit again, its log now has the stuck copy's threads and stacks.
 	- Priority|Severity: Low
 	- Opened: 20261024-114338
 	- Opened by: t00mietum
@@ -50,7 +51,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: they pass under load, or a slow box makes them skip or retry rather than fail the stage.
 	- Reproduced: 20261024 on Linux, once, in the full run of round1024b at 196653ba.
 	- Possible cause: the time bars and the exit wait were last tuned at load 21. The sanitizer build is about 3 times slower, and a full run beside another project's pipeline goes well past that load.
+	- Actual cause:
+		- rkbdyne7 and rk96k9va: a 180 ms bar is there to tell the old 200 ms timer from a fixed build, so it can't be scaled for a slow box (2026101613310525). A sanitizer build on a loaded box goes past it with the fix in.
+		- rj750n43: not found. The close of the busy folder took 0.5 to 2.9 s in 30 quits at load 21 to 30, against more than 156 s in the failed run. So it hung, and a longer wait isn't the fix.
+	- Progress log:
+		- 20261024: rkbdyne7, 4 at once at load about 22 in a sanitizer build: the quickest varied folder took 172 to 224 ms, so 3 of 4 were over the bar.
+		- 20261024: rj750n43, 6 at once at load 21 to 30, and in the whole sanitizer suite at 8 jobs: no hang.
+	- Decisions:
+		- The sanitizer lane runs both timed tests for the memory checks and the item counts, and leaves their time bars to the plain suite, which every gate runs.
+		- rk96k9va and rj750n43 were each closed once before for the same failure under load (2026101613310525, 2026101513290717). So rj750n43's wait isn't raised again until its cause is known.
+	- Actual fix:
+		- A sanitizer build doesn't hold the time bars of rkbdyne7 and rk96k9va (`TEST_TIME_BARS_HOLD` in `test-scratch.h`), and rk96k9va runs once there.
+		- rj750n43 prints how long each quit took. A copy that doesn't quit in time has its threads listed, with their stacks when gdb is there, and is killed, so it no longer runs on into the next run.
+	- Swept: every test with a fixed time bar; only these two have one. Every exit wait in rj750n43, the `--quit` copy's included, goes through the same report.
+	- Branch: round1024b
 	- Test case: rkbdyne7, rk96k9va and rj750n43 themselves, in the sanitizer lane with the cores loaded.
+	- Verified: 20261024, the 3 tests pass in a sanitizer build, and so does the whole sanitizer suite, 220 OK and 15 skipped, at load about 15. rkbdyne7 passes 4 of 4 at once at load about 22, where 3 of 4 were over its bar. In a plain build the 3 pass with the bars held. A copy held past rj750n43's exit wait was listed with its threads and stacks and killed, and the test went on through its other runs. C lint clean, and the test ID check passes.
 
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
