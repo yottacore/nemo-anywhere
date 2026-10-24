@@ -65,6 +65,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- rj750n43 prints how long each quit took. A copy that doesn't quit in time has its threads listed, with their stacks when gdb is there, and is killed, so it no longer runs on into the next run.
 	- Swept: every test with a fixed time bar; only these two have one. Every exit wait in rj750n43, the `--quit` copy's included, goes through the same report.
 	- Branch: round1024b
+	- Commit: ac5d30ac
 	- Test case: rkbdyne7, rk96k9va and rj750n43 themselves, in the sanitizer lane with the cores loaded.
 	- Verified: 20261024, the 3 tests pass in a sanitizer build, and so does the whole sanitizer suite, 220 OK and 15 skipped, at load about 15. rkbdyne7 passes 4 of 4 at once at load about 22, where 3 of 4 were over its bar. In a plain build the 3 pass with the bars held. A copy held past rj750n43's exit wait was listed with its threads and stacks and killed, and the test went on through its other runs. C lint clean, and the test ID check passes.
 
