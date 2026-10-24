@@ -14,3 +14,5 @@ option('fuzzing', type : 'boolean', value : false,
        description: 'Build the fuzz targets against libFuzzer (needs clang; cicd/linux/fuzz.bash adds the coverage flags). Off: they replay their seed corpus as ordinary tests')
 option('extension_library', type : 'combo', choices : ['shared', 'static'], value : 'shared',
        description: 'Linux only. static folds the extension API into the executable, which then exports it to extensions itself, so the prefix needs no lib folder. Windows is always static')
+option('release', type : 'boolean', value : false,
+       description: 'A build to publish. Off: the version line also shows the build date')

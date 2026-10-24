@@ -26,7 +26,7 @@
  *                           split into separate file just for convenience.
  */
 #include <config.h>
-#include <nemo-build-number.h>
+#include <libnemo-private/nemo-version.h>
 
 #include <locale.h>
 
@@ -380,7 +380,7 @@ action_about_nemo_callback (G_GNUC_UNUSED GtkAction *action,
 
 	about = g_object_new (GTK_TYPE_ABOUT_DIALOG,
 			       "program-name", _("Nemo Anywhere"),
-			       "version", NEMO_VERSION_STRING,
+			       "version", nemo_version_string (),
 			       "copyright", "Copyright \xc2\xa9 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)\n"
 					    "Upstream code Copyrights \xc2\xa9 Nemo authors",
 			       "website", "https://github.com/yottacore/nemo-anywhere",

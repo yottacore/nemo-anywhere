@@ -2,7 +2,8 @@
 """Print the build number: minutes since the start of 2000, rounded, Crockford base32,
 lower case. Taken from SOURCE_DATE_EPOCH when set, so a release build stamps the
 commit rather than the clock and stays reproducible; otherwise from HEAD's
-commit date, and only failing that from now."""
+commit date, and only failing that from now. --epoch adds the Unix time of that
+same minute, so the app can show its local date."""
 
 import os
 import subprocess
@@ -44,4 +45,8 @@ def crockford(n):
     return out
 
 
-sys.stdout.write(crockford((stamp() - EPOCH_2000 + 30) // 60))
+minutes = (stamp() - EPOCH_2000 + 30) // 60
+out = crockford(minutes)
+if "--epoch" in sys.argv[1:]:
+    out += " %d" % (EPOCH_2000 + minutes * 60)
+sys.stdout.write(out)

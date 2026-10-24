@@ -23,8 +23,8 @@
 /* glib before the guard: G_OS_WIN32 comes from glibconfig.h, not config.h, so
  * guarding on it without this compiles the whole file away and the link fails. */
 #include <config.h>
-#include <nemo-build-number.h>
 #include <glib.h>
+#include <libnemo-private/nemo-version.h>
 
 #include "nemo-splash.h"
 
@@ -395,7 +395,7 @@ splash_main (G_GNUC_UNUSED LPVOID data)
 	dark = windows_prefers_dark ();
 	make_fonts ();
 
-	MultiByteToWideChar (CP_UTF8, 0, NEMO_VERSION_STRING, -1, version_text,
+	MultiByteToWideChar (CP_UTF8, 0, nemo_version_string (), -1, version_text,
 			     (int) G_N_ELEMENTS (version_text));
 
 	memset (&cls, 0, sizeof (cls));

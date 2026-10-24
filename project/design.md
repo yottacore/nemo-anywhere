@@ -819,6 +819,7 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 - Every build also carries a build number: minutes elapsed since the start of 2000, in lower-cased Crockford base32, which drops i, l, o and u so nothing reads as a digit by mistake. Five characters until 2063, six after. It sits beside the version in `--version`, `--about`, Help > About, the Windows splash screen and the release notes, so a bug report names not just which release but which build of it.
 	- It is worked out at configure time from `SOURCE_DATE_EPOCH`, so two builds of one commit carry the same number. Without it the number comes from the commit date of HEAD, and only failing that from the clock.
 	- It lives in a generated header of its own rather than in `config.h`, because the number moves on every reconfigure and a change in `config.h` rebuilds the whole tree.
+	- A build that isn't for a release adds the build date after the number, as `build dbsv0 (2026-08-27)`. It's the day of that same minute in the viewer's own time zone, so it's worked out when shown, not at build time. The release lanes configure with `-Drelease=true` and leave it off, and so does the hosted Windows build when it runs on a tag. Crash reports keep the plain line.
 
 ### The pipeline
 

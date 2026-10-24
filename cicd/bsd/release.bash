@@ -86,7 +86,7 @@ if [[ -e "$BUILD" ]]; then
 	[[ -d "${BUILD}/meson-private" ]] || fDie "${BUILD} is not a meson build dir; not clearing it"
 	rm -rf "$BUILD"
 fi
-meson setup --buildtype=release -Dstrip=true -Db_lto=true -Dextension_library=static -Dwerror=true \
+meson setup --buildtype=release -Dstrip=true -Db_lto=true -Dextension_library=static -Dwerror=true -Drelease=true \
 	"-Dprefix=${APP_DIR}" "$BUILD" "${ROOT}/source" >/dev/null
 bash "${ROOT}/cicd/utility/check-werror.bash" "$BUILD"
 ninja -C "$BUILD" -j "$jobs" | tail -1
