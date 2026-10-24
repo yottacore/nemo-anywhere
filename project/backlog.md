@@ -489,7 +489,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Build the "Nemo Anywhere" selection model with the affirmative switch off.
 	- ID: 2026102019174440
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Started
 	- Needs local test suite run?: Yes
 	- Priority|Severity: High
 	- Opened: 20261020-191745
@@ -512,6 +512,126 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "The affirmative switch".
 	- Progress log:
 		- 20261020: opened.
+		- 20261024: split into children, worked in this order: 2026102407515570 (the setting value and rules tables), ...571 (dim checkmarks), ...572 (focus outline and keys), ...573 (mouse and drags), ...574 (tree view), ...575 (wording, keys, then the dropdown entry and the default).
+	- Test case: one per child.
+
+- Nemo Anywhere: dim checkmarks that follow the selection, in all 3 views.
+	- ID: 2026102407515571
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Prereq IDs: 2026102407515570
+	- Target OS: All
+	- Requirements:
+		- Only under Nemo Anywhere. A dim checkmark on every selected object, and none on the rest. The text doesn't change.
+		- List view: a thin new column left of Name, with nothing else in it. It can't be hidden or moved.
+		- Icon view: the top-left corner of the icon, on a small scrim that reads on any thumbnail.
+		- Compact view: left of the name text.
+		- A test per view that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
+	- Notes:
+		- Sorting on the column belongs with the affirmative half, since with the switch off it sorts on the selection.
+		- The color per bundled theme is its own roadmap step. Until then the mark takes the theme's selection color, dimmed.
+	- Progress log:
+		- 20261024: opened.
+	- Test case: none yet.
+
+- Nemo Anywhere: the focus outline and the keyboard rules, per view.
+	- ID: 2026102407515572
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Prereq IDs: 2026102407515570
+	- Target OS: All
+	- Requirements:
+		- No focus outline, except while a Ctrl+arrow move has put the focus on an object that isn't selected.
+		- Up, Down, Page Up and Page Down count from the range ends, and Left and Right too in the icon views. After a Ctrl+arrow move they count from the focus.
+		- Ctrl with an arrow moves the focus alone. Ctrl+Space adds or removes the focused object. Ctrl+Shift with an arrow adds the run from the anchor. Ctrl+Home and Ctrl+End are the same as the key alone.
+		- Escape clears the selection, the focus and the anchor. A second Escape does nothing, and the next arrow starts at the first object. An Escape that cancels something else does only that.
+		- Space previews, and never starts type-ahead on its own.
+		- rktkms8a's expectations under Nemo Anywhere change to match, with a check per key and view.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
+	- Progress log:
+		- 20261024: opened.
+	- Test case: none yet.
+
+- Nemo Anywhere: the mouse and drag rules, the list view drag rule among them.
+	- ID: 2026102407515573
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Prereq IDs: 2026102407515570, 2026102407515571
+	- Target OS: All
+	- Requirements:
+		- List view: a plain drag bands only from the checkmark column or the blank space below the rows. A plain drag from a row is a file drag.
+		- Ctrl, Shift, Ctrl+Shift and right drags from empty space, or from an object that isn't selected, band. Ctrl and Ctrl+Shift add, Shift and right replace. In list view from any column. From a selected object each is a file drag.
+		- A band moves the focus and the anchor to the last object it touched.
+		- The rest of the mouse rules stay as v1 has them, and are pinned under Nemo Anywhere.
+		- rk7yvgse's expectations under Nemo Anywhere change to match.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Mouse".
+	- Notes:
+		- v1 already has the plain drag rule and the Ctrl, Shift and right bands from a row (rk7yvgse). What's new is the band from the checkmark column, and where a band leaves the focus and the anchor.
+	- Progress log:
+		- 20261024: opened.
+	- Test case: none yet.
+
+- Nemo Anywhere: the tree view rules, less the affirmative parts.
+	- ID: 2026102407515574
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Prereq IDs: 2026102407515572, 2026102407515573
+	- Related IDs: 2026102018234903
+	- Target OS: All
+	- Requirements:
+		- The tree's own focus and anchor, under the mouse and keyboard rules of the content view.
+		- The dim checkmark, in an invisible column left of the tree.
+		- When the tree has the focus and the viewed folder is selected there, every object in the content view is drawn with the dim mark.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view".
+	- Notes:
+		- Needs more thought: whether the tree takes a multi-selection with the switch off, since its click opens the folder, and how much of 2026102018234903 that needs first.
+	- Progress log:
+		- 20261024: opened.
+	- Test case: none yet.
+
+- Nemo Anywhere: the switch-off wording and keys, then the dropdown entry and the default.
+	- ID: 2026102407515575
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Prereq IDs: 2026102407515571, 2026102407515572, 2026102407515573, 2026102407515574
+	- Target OS: All
+	- Requirements:
+		- The Edit menu has Select all, Select none and Invert selection, the "Switch off" column of the wording table.
+		- Ctrl+A selects all. Ctrl+I and Ctrl+Shift+I invert the selection. Properties keeps Alt+Enter. Nemo Anywhere v1 and Nemo Classic keep Ctrl+I as Properties.
+		- The status bar shows the selected count only, the doc's third line.
+		- "Nemo Anywhere" first in the dropdown, ahead of Nemo Classic and Nemo Anywhere v1, and `nemo-anywhere` becomes the default.
+		- Tests for the menu labels and keys per model, and the dropdown checks in rhtmbdmd and rf2w8yxr.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Menus", "Status bar and dialogs" and "The affirmative switch".
+	- Notes:
+		- A settings file with no model set moves from v1 to Nemo Anywhere at that point.
+	- Progress log:
+		- 20261024: opened.
 	- Test case: none yet.
 
 - Affirmative checkmarks: the switch and the places it will plug into, with no affirmative behavior yet.
@@ -543,21 +663,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261020: opened.
 	- Test case: none yet.
-
-- Static analyzers: vendored findings go in a suppression list outside the files.
-	- ID: 2026102114400586
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261021-144005
-	- Opened by: t00mietum
-	- Parent ID: 2026101619020505
-	- Prereq IDs: 2026102114400584
-	- Requirements:
-		- Every finding in `vendor/` and `source/cut-n-paste-code/` gets a line in the list, with a one-line reason, per the parent. The files stay as they came.
-		- A real bug goes to its upstream, with the link beside its line.
-	- Estimated effort: Avg
-	- Test case: the gate in 2026102114400591, once live.
 
 - Static analyzers: fix or suppress the findings in inherited upstream code.
 	- ID: 2026102114400587
@@ -610,7 +715,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261021-144005
 	- Opened by: t00mietum
 	- Parent ID: 2026101619020505
-	- Prereq IDs: 2026102114400584, 2026102114400586, 2026102114400587, 2026102114400588, 2026102114400589
+	- Prereq IDs: 2026102114400584, 2026102114400586, 2026102114400587, 2026102114400588, 2026102114400589, 2026102408163141
+		- `...163141` first, since until then the `shcl-old/2.0.0` suppressions read as stale and would fail the gate.
 	- Requirements:
 		- Any finding that isn't suppressed fails the stage, per the parent. No baseline file.
 		- A suppression that no longer matches a finding fails too, so the list can't go stale.
@@ -1019,6 +1125,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026102322330406
 	- Type: Bug
 	- Status: Queued
+	- Needs external testing: the native gate on vm925w as wintest in the desktop session, once there's a new fix. rhtmbdma passes there.
 	- Priority|Severity: Low
 	- Opened: 20261023-223304
 	- Opened by: 2026102221362030
@@ -1030,41 +1137,37 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: passes, as it did in the round1022 native suite.
 	- Reproduced: 20261023, 3 of 3 native suite runs. The same build's exe run alone in the desktop session, outside the jail, passed 3 of 3.
 	- Possible cause: not known. New in round1023 are rm0d1tdd, which moves the focus between threads and other programs and runs near it in the suite, and the fence's load notice. Not looked into.
-	- Test case: rhtmbdma.
+	- Actual cause: another test taking the foreground while a menu is up. On Windows every test in the suite shares one desktop, and 4 of them bring their window to the front through GDK, which gets past Windows' foreground lock. The window losing the focus gets `WM_KILLFOCUS`, GDK breaks the keyboard grab, and GTK closes the menu, so `pop_up` finds none. rm0d1tdd runs alone, so the tests after it start together, and rgxy149r and rk6narsh come up in rhtmbdma's first second or two, when its first 2 pop-ups are.
+	- Actual fix: rgxy149r, rk6narsh, rhtmbdmd and rjf8db1q run alone on Windows. New C lint check rm1n4v1b fails when a test built for Windows calls `gtk_window_present`, `gdk_window_focus`, `SetForegroundWindow`, `SwitchToThisWindow` or `BringWindowToTop` in its own .c files and isn't alone there.
+	- Decisions:
+		- Alone on Windows only, where the tests share one desktop. Linux and FreeBSD still run them beside others, and no run there has failed this way.
+		- The native suite gets about 25 s longer, most of it rhtmbdmd's 21 s.
+	- Test case: rhtmbdma, and rm1n4v1b for the rule.
+	- Verified: 20261024 on vm925w as wintest in the desktop session: with rgxy149r and rk6narsh running over and over beside it, rhtmbdma failed lines 243, 246, 251 and 254, then 270 and 273, in the first of 4 runs. It passed 2 of 2 alone, 3 of 3 through MSYS2's bash and the jail, and 4 of 4 beside 3 copies of itself. rm1n4v1b fails on round1024's meson.build from before the change, naming the 4 tests, and passes after.
+	- Swept: every test built for Windows whose own .c files call one of those 5: the 4 above, and rm0d1tdd, already alone. The rest are in `if not is_windows` blocks.
+	- Branch: round1024
 	- Progress log:
 		- 20261023: passed in 1 native gate run from a clone of round1023-fix, whose changes don't touch it. Ruled out: another program's window up front when it starts, since alone in the desktop session with Notepad started just before, it passed 3 of 3 (whether Notepad held the front wasn't checked). The fence alone, since it's linked into the exe run alone too. GTK's "no trigger event" line comes in every passing run too, so it isn't the sign. Only the first 2 pop-ups have failed, the ones right after the window first shows, and the ones after them in the same run passed.
+		- 20261024: also ruled out, MSYS2's bash and the jail, and other test windows simply coming up beside it. Only a window that forces its way to the front breaks it.
+		- 20261024: the fix didn't hold. In the native gate on vm925w from a bundle of round1024 (`6e3974d0`), rhtmbdma failed lines 243 and 246 again, the first pop-up: 204 OK, 7 skipped, 1 failed. The 4 tests that now run alone ran after it, each alone. Beside it were 6 eel tests that only show a plain window: rffw4xdg, rjes67yy, rhtmbdm9, rjew8g59, rhtmbdmb and rk520jh7. So a window forcing its way to the front isn't the whole cause. Not checked: whether its own window gets the front at all when another test's window came up just before it. Not rerun alone, since vm925w went off right after the run.
+			- Filed as 2026102409082700. Left for a later round.
 
-- rhtmbdmh fails in vm925w's desktop session.
-	- ID: 2026102219444662
+- The round1024 fix for rhtmbdma didn't hold in the native suite.
+	- ID: 2026102409082700
 	- Type: Bug
 	- Status: Queued
 	- Priority|Severity: Low
-	- Opened: 20261022-194446
-	- Opened by: 2026101715030680
+	- Opened: 20261024-090827
+	- Opened by: 2026102322330406
+	- Related IDs: 2026102322330406
 	- Target OS: Windows
-	- Incorrect behavior: Tab strip test, `test-nemo-notebook.c` lines 210, 213 and 227: "strip 1200 px: min 120, max 300; tabs asked 120 120(108) 300 340". The medium tab isn't between the limits, and the long front tab isn't 30 percent.
-	- Expected behavior: passes in a desktop session as it does over ssh, where it passed the same day.
-	- Reproduced: 20261022 on vm925w, in the native suite run in wintest's desktop session.
-	- Possible cause: the session's display scale or font. Not looked into.
-	- Test case: rhtmbdmh.
-	- Progress log:
-		- 20261022: same 3 lines in the native gate on round1022 in the desktop session, and 5 of 5 alone there.
-		- 20261023: all 3 lines follow from one number. "Holiday photos 2024" measured 108 px, under the 120 px lower limit of a 1200 px strip, so it's clamped to 120 (line 213), the fixture check fails (line 210), and the long title, 340 px, is under the new 30 percent (line 227). So the text was smaller in that run than in the runs that pass. wintest has no GTK `settings.ini`, and nothing in the tree changes a font or DPI outside its own process. Options: size the strip from the measured title instead of a fixed 1200 px, so the fixture holds at any font size. That hides what made the font smaller, so first find that.
-
-- On Windows a shortcut named `x.LNK` is saved as `x.LNK.lnk`.
-	- ID: 2026102220565281
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261022-205652
-	- Opened by: 2026102219444442
-	- Related IDs: 2026102219444442
-	- Target OS: Windows
-	- Steps to reproduce: make a shortcut and give it a name ending in `.LNK`, upper case.
-	- Incorrect behavior: `create_lnk` in `nemo-file-operations.c` checks for `.lnk` case-sensitively, so another `.lnk` goes on the end.
-	- Expected behavior: a name already ending in `.lnk` in any case is kept.
-	- Reproduced: No, read from the code.
-	- Test case: none yet.
+	- Test environment: vm925w, a bundle of round1024 `6e3974d0`, as wintest in the desktop session.
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
+	- Incorrect behavior: rhtmbdma fails lines 243 and 246, the first pop-up, though the 4 tests that bring their window to the front now run alone. Only 6 eel tests that show a plain window ran beside it: rffw4xdg, rjes67yy, rhtmbdm9, rjew8g59, rhtmbdmb and rk520jh7.
+	- Expected behavior: rhtmbdma passes in the native suite.
+	- Tried: running rgxy149r, rk6narsh, rhtmbdmd and rjf8db1q alone on Windows, plus lint rm1n4v1b. That fixed the case it reproduced, a forced foreground window beside it, but not this one.
+	- Reproduced: 20261024, 1 of 1 native gate runs. Not rerun alone, since vm925w was off right after.
+	- Test case: rhtmbdma.
 
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066
@@ -1329,6 +1432,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. rj043mnp covers it.
 	- Closed: 20261003-112426
 
+- Nemo Anywhere selection model: its setting value, and its own set in each rules table.
+	- ID: 2026102407515570
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: no. Passed 20261024.
+	- Needs external testing: no. Passed 20261024.
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Related IDs: 2026102016594100, 2026102016594200
+	- Target OS: All
+	- Requirements:
+		- `nemo-anywhere` as a value of `preferences.selection-model`, in the config keys, the enum and the schema.
+		- Its own set in each rules table: the icon container, the icon view, the list view, the tree pane, and the view's Select all and Invert. Each starts as v1's, so the later children change one table each.
+		- Not in the dropdown, and not the default, until the model is built. The last child adds both.
+		- rktkms8a's and rk7yvgse's checks run again under it.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "The setting" and "The affirmative switch".
+	- Progress log:
+		- 20261024: opened.
+		- 20261024: `nemo-anywhere` added to the key, the enum and the schema. Each of the 5 tables has a `rules_anywhere` set, the same as v1's, picked by its own case in the switch. The dropdown is unchanged, and the default stays `nemo-anywhere-v1`.
+	- Decisions:
+		- The value can be set in the settings file before the model is built, so its tests can pick it. Until then it behaves as v1, and the dropdown doesn't offer it.
+		- Each later child changes only Nemo Anywhere's own set, so v1 and Classic stay pinned by their tests.
+	- Swept: every switch on the model (icon container, icon view, list view, tree pane, the view's Select all and Invert), with no default case, so a missed one fails the build. The model is read nowhere else outside the tests.
+	- Branch: round1024
+	- Test case: rm1sbxgy, Selection rules test, Nemo Anywhere, and rm1sbwdq, Drag select test, Nemo Anywhere. rhtmbdmd checks the value is read and not offered.
+	- Verified: 20261024, rm1sbxgy, rm1sbwdq, rktkms8a, rktqpp37, rk7yvgse, rkts3far, rhtmbdmd, rf2w8yxr and rfazc870 pass. The build and the Windows cross build, both with warnings as errors, the C lint, and the test ID and UI case checks pass.
+	- Verified: 20261024, round1024: the full Linux suite in the merge gate, 234 OK and 1 skipped, rm1sbxgy and rm1sbwdq among them. FreeBSD lane as `bsdtest`: rm1sbxgy and rm1sbwdq pass.
+	- Acceptance signoff: Self-closed: rm1sbxgy and rm1sbwdq on Linux and FreeBSD, and rhtmbdmd for the dropdown.
+	- Closed: 20261024-090625
+
 - Carve out "Nemo Anywhere v1": the app's current selection and focus behavior, behind a selection model setting.
 	- ID: 2026102016594100
 	- Type: Task
@@ -1514,6 +1649,34 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261022, round1022: the full Linux suite, 231 OK. FreeBSD lane as `bsdtest`, 212 OK and 20 skipped, rktqpp37, rkts3far, rktkms8a, rk7yvgse and rhtmbdmd among them.
 	- Closed: 20261022-214700
 	- Verified: 20261021, rktqpp37, rkts3far, rktkms8a and rk7yvgse pass in all 3 views. rhtmbdmd, rf2w8yxr, rfazc870 and rg6a49ar pass. The build has no warnings, the Windows cross build with warnings as errors is clean, and the UI case and test ID checks pass.
+
+- The analyzer stage checks a file once, even when 2 targets build it with different headers.
+	- ID: 2026102408163141
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The analyzer stage passed 20261024.
+	- Priority|Severity: Avg
+	- Opened: 20261024-081631
+	- Opened by: t00mietum
+	- Related IDs: 2026101619020505, 2026102114400586, 2026102114400591
+	- Target OS: Linux
+	- Incorrect behavior: `load_db` in `cicd/utility/analyze.py` keeps the first compile entry per file. `shcl-old-writer.c` is built once per old SHCL release, against `vendor/shcl-old/1.2.0/` and `2.0.0/`, so 2.0.0 is never analyzed. 24 files are in the Linux list more than once and 29 in the Windows one, most of them app files also built into a test.
+	- Expected behavior: each compile entry with its own flags is analyzed. A finding 2 entries reach still counts once.
+	- Reproduced: 20261024. The 2.0.0 entry run alone had 2 findings the full run's logs lack.
+	- Notes: 2 entries in `analyze-vendored.txt` show as stale until this is fixed, so the gate in 2026102114400591 waits on it.
+	- Actual cause: `load_db` was keyed by file alone.
+	- Actual fix: `load_db` gives one run per file and set of flags. The target's own `-I<target>.p` is left out of the key, since that folder holds only objects, so the 12 `fuzz-main.c` entries are 2 runs and not 12. A file with more than one run has its target in the log's `###` line, so a run that didn't compile is named by target. Findings were already counted once per log.
+		- Linux: 495 runs for 471 files. Windows: 468 for 439.
+	- Swept: both callers of `load_db` (`cmd_run`, `cmd_cover`), and `parse_log`, the only reader of the `###` lines. `analyze.bash` passes the log through as it is.
+	- Branch: round1024
+	- Test case: rktsh374 (`analyze.py --self-test`): a file built against 2 header folders runs twice, tagged; one whose entries differ only by the target's folder runs once; a finding both runs reach counts once; a failed run is named by its target.
+	- Verified: 20261024, rktsh374 fails with the old `load_db` and with the target's folder kept in the key, and passes as committed. rktsh3gd passes. `analyze.py cover` passes over both lists.
+		- Both writer entries, run with the stage's own code: clang on Linux and gcc on Windows each find the 2.0.0 finding, so all 4 `shcl-old` entries match and none is stale. The old `analyze.py` ran 1 entry and left the 2.0.0 one stale.
+		- clang over the whole Linux list took 128 s at 8 jobs (load 25), against 134 s on 20261021. 70 findings; the only one the first run per file misses is `shcl-old/2.0.0/shcl.h:3583`. gcc over the 27 Windows files with more than one run took 46 s at 8 jobs, and found nothing else new.
+		- Unverified: gcc over the whole Linux and Windows lists.
+	- Verified: 20261024, round1024, the whole analyzer stage over both lists: rktsh374 and rktsh3gd pass, `shcl-old-writer.c` ran once per release in all 3 lanes, and no suppression is stale. Findings gcc-linux 20, gcc-win 37, clang-linux 66, with 2, 4 and 4 suppressed, so gcc-win and clang-linux each have the 1 more from 2.0.0. The stage took 22 min 16 s at load 40, against 21 min 36 s on 20261023, nearly all of it the same 3 files at gcc-linux's cap.
+	- Acceptance signoff: Self-closed: rktsh374, and the stage run above.
+	- Closed: 20261024-090625
 
 - On Windows, the first Delete after closing Windows properties is still ignored.
 	- ID: 2026102219444332
@@ -3194,6 +3357,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: rkbdyne7 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
 
+- Static analyzers: vendored findings go in a suppression list outside the files.
+	- ID: 2026102114400586
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026102114400584
+	- Requirements:
+		- Every finding in `vendor/` and `source/cut-n-paste-code/` gets a line in the list, with a one-line reason, per the parent. The files stay as they came.
+		- A real bug goes to its upstream, with the link beside its line.
+	- Estimated effort: Avg
+	- Actual effort: Low
+	- Progress log:
+		- 20261024: the list is `cicd/utility/analyze-vendored.txt`, one finding per line by path, line and checker, with why it's safe. `analyze.py count` counts a listed finding as suppressed, not vendored, and names an entry that matches nothing as stale. It fails on a malformed entry or one outside the vendored folders. Stale entries are report only until the gate.
+		- 10 findings, all in SHCL: 6 in `vendor/shcl/` and 4 in `vendor/shcl-old/`. None is a real bug, so nothing went upstream. blake3 and `source/cut-n-paste-code/` had none.
+		- The 2 in `vendor/shcl-old/2.0.0/` never show in a full run, since the stage analyzes a file once even when 2 targets build it with different headers (2026102408163141). They came from that build's entry run alone, and show as stale until that's fixed.
+		- Not covered yet: clang over the Windows list, and gcc over blake3's AVX2 and SSE4.1 files and `nemo-config.c` on the Linux list, which hit the per-file cap. Anything those add shows unsuppressed once they run.
+	- Decisions:
+		- Matched by line, not by function or message. A vendor bump moves the lines, the old entries go stale, and the bump's findings get looked at again.
+		- clang's 2 at `shcl.h:764` and `:6222` are there only because `arena_panic` isn't marked noreturn. Options: `_Noreturn` on it in SHCL would drop both. Not a bug, so not drafted.
+	- Swept: every vendored finding in the 3 lanes' logs, and `vendor/shcl-old/2.0.0` run alone. The `sb_put` null-argument false positive is in both `vendor/shcl/` and 2.0.0; 1.2.0 has the same code and no finding. The only callers of `count` are `cmd_count` and the self-test, and nothing reads `counts_*.txt`.
+	- Branch: round1024
+	- Test case: rktsh374 (`analyze.py --self-test`) checks the match, stale entries, bad lines, and that the list itself parses. The gate in 2026102114400591, once live, fails on a vendored finding that isn't listed.
+	- Verified: 20261024, `analyze.py count` over the logs of the full run of dev `e2dfe883` plus the 2.0.0 entry: vendored 0 in every lane that ran, 10 suppressed, none stale. rktsh374 fails with the match keyed on column in place of line, with stale entries dropped, and with the listed-twice check off, and passes as committed. rktsh3gd passes. A non-vendored entry makes `count` exit 1.
+	- Acceptance signoff: Self-closed: rktsh374 and the counts above.
+	- Closed: 20261024-081711
+
 - Need to come up with a consistent design for copying or moving files when a folder is selected:
 	- ID: 2026101816495200
 	- Type: Task
@@ -4035,6 +4227,96 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjcev513 Config old formats test.
 	- Acceptance signoff: Self-closed: rjcev513 is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- On Windows a shortcut named `x.LNK` is saved as `x.LNK.lnk`.
+	- ID: 2026102220565281
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: no. Passed 20261024.
+	- Priority|Severity: Low
+	- Opened: 20261022-205652
+	- Opened by: 2026102219444442
+	- Related IDs: 2026102219444442, 2026102407113294
+	- Target OS: Windows
+	- Steps to reproduce: make a shortcut and give it a name ending in `.LNK`, upper case.
+	- Incorrect behavior: `create_lnk` in `nemo-file-operations.c` checks for `.lnk` case-sensitively, so another `.lnk` goes on the end.
+	- Expected behavior: a name already ending in `.lnk` in any case is kept.
+	- Reproduced: No, read from the code.
+	- Reproduced: 20261024, Make link to the shortcuts `notes.LNK` and `old.Lnk` in another folder made `notes.LNK.lnk` and `old.Lnk.lnk`. On Linux too, since Make link writes shortcuts on every platform.
+	- Actual cause: `create_lnk` compared the name with `.lnk` case-sensitively. Four other copies of the same check already ignored case.
+	- Actual fix: one shared check, `nemo_lnk_has_extension`, ignores case. `create_lnk` and the four copies all use it. A C lint check fails on a case-sensitive `.lnk` compare.
+	- Swept: every `.lnk` name check in `src`, `libnemo-private` and `eel`: following a shortcut, opening one, Edit link and its rename, the Shortcut properties page, the Windows open action. `nemo-file.c` goes through its own case-free extension check and was left. A shortcut made beside its original is `x.LNK - shortcut.lnk`, as before.
+	- Test case: rm1p3ner, Make link shortcut to an upper-case .LNK. Lint rm1p6hjv.
+	- Verified: 20261024, rm1p3ner fails before the fix and passes after, on Linux and under wine. rm1p6hjv fails on the old compare. The Windows cross build has no warnings. The merge gate passes, 232 of 233 with 1 skip.
+	- Verified: 20261024, round1024: rm1p3ner passes in the native gate on vm925w as wintest in the desktop session.
+	- Branch: round1024
+	- Acceptance signoff: Self-closed: rm1p3ner on Linux, under wine and natively, and lint rm1p6hjv.
+	- Closed: 20261024-090625
+
+- Under wine, rdcvb368 and rhn5ewrg fail.
+	- ID: 2026102407113294
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. On Linux only the Make link test changed, and its 4 shortcut modes pass.
+	- Needs external testing: no. Passed 20261024.
+	- Priority|Severity: Low
+	- Opened: 20261024-071132
+	- Opened by: 2026102220565281
+	- Related IDs: 2026102220565281
+	- Target OS: Windows
+	- Test environment: cross-built, run under wine in `nemo-winbuild`.
+	- Steps to reproduce: run rdcvb368 (Shortcut win32 test) and rhn5ewrg (Make link shortcut) under wine, one at a time.
+	- Incorrect behavior: rdcvb368 fails its by-shell, dead shortcut and relative path checks. rhn5ewrg's shortcuts lead to the wrong target and have no relative path.
+	- Expected behavior: both pass, or skip with 77 where wine's shell can't do what they check. Both pass natively on vm925w.
+	- Reproduced: 20261024, on round1024 with and without the 2026102220565281 fix.
+	- Reproduced: 20261024, rhnb1z7g and rhr6ggms fail the same way under wine. rdcvb368 also fails its long path, shortcut launch and junction checks there.
+	- Actual cause: wine 10.0's shell does 6 things differently from Windows.
+		- A path with a variable in it, such as `%LOCALAPPDATA%\x`, is taken as a name in the working directory. So Make link's shortcuts led nowhere, and no variable is stored.
+		- The relative path is never flagged in the file, and holds the shortcut's own path.
+		- A shortcut with only a relative path is followed by the shell. When it leads nowhere, the shell hands back the relative path as the target.
+		- A target past 260 characters is taken, and the path kept is cut short.
+		- Explorer's ShellExecute passes the empty verb on as a verb named "", which fails for a shortcut, then answers S_FALSE. The app read S_FALSE as started.
+		- No junctions.
+	- Decisions:
+		- Where the app can still do the right thing under wine, it does. Where wine's shell can't write a part at all, the check skips under wine with a SKIP line. The check is for wine by name, so every check still runs on Windows.
+		- Neither test exits 77 under wine, since the rest of each still runs there.
+	- Actual fix: a portable path goes in only when the shell can follow it, and otherwise the absolute path alone. A target past 260 characters is refused before the shell is asked, in Edit link too. A relative path from the shell counts as no target. A start through Explorer counts only on S_OK, so a failed one falls back to the direct start.
+		- Tests: rdcvb368 skips the relative path, the variable, the "shell can't place it" answers and the junction under wine. The Make link test skips the relative and variable flags. A junction check reused an error left set by a failed create.
+	- Swept: every SetPath, GetPath and Explorer ShellExecute call. The Shortcut properties page shows the raw GetPath answer, and was left. rjnzpkk7 fails its 2 terminal checks under wine with or without this change.
+	- Note: wine patches are drafted, not filed: the relative path flag and its value, and the empty verb.
+	- Test case: rdcvb368, rhn5ewrg, rhnb1z7g, rhr6ggms.
+	- Verified: 20261024, under wine, rdcvb368, rhn5ewrg, rhnb1z7g, rhr6ggms, rm1p3ner, rj05egmb, rhnq7f38, rhqxx81r, rfnmh050 and rjp4ch0y pass, and rhr6ggmr skips. With the app half taken out, rdcvb368 fails its dead shortcut, portable target, long path and launch checks, and rhn5ewrg and rhnb1z7g their target check. The Windows cross build has no warnings, the C lint passes, and the Make link test passes on Linux.
+	- Verified: 20261024, round1024: rdcvb368, rhn5ewrg, rhnb1z7g, rhr6ggms and rfnmh050 pass in the native gate on vm925w as wintest in the desktop session.
+	- Branch: round1024
+	- Acceptance signoff: Self-closed: the 4 test cases pass under wine and natively.
+	- Closed: 20261024-090625
+
+- rhtmbdmh fails in vm925w's desktop session.
+	- ID: 2026102219444662
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261022-194446
+	- Opened by: 2026101715030680
+	- Related IDs: 2026102322330406
+	- Target OS: Windows
+	- Incorrect behavior: Tab strip test, `test-nemo-notebook.c` lines 210, 213 and 227: "strip 1200 px: min 120, max 300; tabs asked 120 120(108) 300 340". The medium tab isn't between the limits, and the long front tab isn't 30 percent.
+	- Expected behavior: passes in a desktop session as it does over ssh, where it passed the same day.
+	- Reproduced: 20261022 on vm925w, in the native suite run in wintest's desktop session.
+		- 20261024, alone in the desktop session, 2 of 2, and 2 of 2 more with the jail's HOME, APPDATA and XDG dirs.
+	- Possible cause: the session's display scale or font. Not looked into.
+	- Actual cause: the fixture, not the font. The title measures 108 px in every session on vm925w, over ssh too. What differs is the strip: the full 1200 px in the desktop session, and 1028 px over ssh, where there's no monitor. At 1200 px, Segoe UI 9's title is under the 10 percent limit. A fixed 1200 px only held for a font as wide as Linux's, where the title is 134 px.
+	- Actual fix: the strip is 8 times the middle title's measured width, so that title sits at 12.5 percent and the long one near 40, at any font size. The width checks run again at Sans 7. A second fixture check holds the long title over 30 percent.
+	- Test case: rhtmbdmh.
+	- Verified: 20261024 on vm925w as wintest in the desktop session: the new exe passed 5 of 5, 3 alone and 2 through MSYS2's bash and the jail, where the old one failed 4 of 4. On Linux it passes, and with the fixed 1200 px put back, its Sans 7 run fails, as the desktop session did.
+	- Swept: the other tests that measure text don't size anything from a fixed width. This is the only one that measures with Pango.
+	- Branch: round1024
+	- Progress log:
+		- 20261022: same 3 lines in the native gate on round1022 in the desktop session, and 5 of 5 alone there.
+		- 20261023: all 3 lines follow from one number. "Holiday photos 2024" measured 108 px, under the 120 px lower limit of a 1200 px strip, so it's clamped to 120 (line 213), the fixture check fails (line 210), and the long title, 340 px, is under the new 30 percent (line 227). So the text was smaller in that run than in the runs that pass. wintest has no GTK `settings.ini`, and nothing in the tree changes a font or DPI outside its own process. Options: size the strip from the measured title instead of a fixed 1200 px, so the fixture holds at any font size. That hides what made the font smaller, so first find that.
+		- 20261024: nothing made it smaller, see Actual cause. Not known: why it passed 5 of 5 alone in the desktop session on 20261022. Likely the reason is because the window was narrower.
+	- Acceptance signoff: Self-closed: rhtmbdmh passes in the desktop session and on Linux, and its Sans 7 run pins the fixture on Linux too.
+	- Closed: 20261024-064500
 
 - rk65m3m4 fails in the full Linux suite with "Header CRC error".
 	- ID: 2026102307150011

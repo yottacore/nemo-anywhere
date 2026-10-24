@@ -24,7 +24,9 @@
  * unless always-show-tabs says otherwise, and that has to hold after closing
  * down to one tab too, which once went by the tab count alone. Each tab is as
  * wide as its title, held between the two percentages of the strip, except
- * the one in front, which may go past the upper one. */
+ * the one in front, which may go past the upper one. The strip is sized from
+ * the middle title, so the fixture holds at any font size, and it runs again at
+ * a small one. */
 
 #include <config.h>
 
@@ -168,13 +170,18 @@ requested (GtkWidget *label)
 }
 
 static void
-test_widths (void)
+test_widths (const char *font)
 {
+	GtkSettings *settings = gtk_settings_get_default ();
 	GtkWidget *window, *notebook;
 	GtkWidget *tiny, *medium, *long_back, *long_front;
 	GtkAllocation allocation;
 	GString *long_text;
 	int min_px, max_px, medium_width, i;
+
+	if (font != NULL) {
+		g_object_set (settings, "gtk-font-name", font, NULL);
+	}
 
 	nemo_config_set_int (nemo_preferences, NEMO_PREFERENCES_TAB_WIDTH_MIN_PERCENT, 10);
 	nemo_config_set_int (nemo_preferences, NEMO_PREFERENCES_TAB_WIDTH_MAX_PERCENT, 25);
@@ -185,7 +192,6 @@ test_widths (void)
 	}
 
 	window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-	gtk_window_set_default_size (GTK_WINDOW (window), 1200, 300);
 	notebook = g_object_new (NEMO_TYPE_NOTEBOOK, NULL);
 	gtk_container_add (GTK_CONTAINER (window), notebook);
 
@@ -195,6 +201,10 @@ test_widths (void)
 	add_page (GTK_NOTEBOOK (notebook), long_text->str, &long_front);
 	gtk_notebook_set_current_page (GTK_NOTEBOOK (notebook), 3);
 
+	/* Middle title at 12.5 percent, long ones near 40. A fixed 1200 px put
+	   Segoe UI 9's middle title under the lower limit. */
+	gtk_window_set_default_size (GTK_WINDOW (window), text_width (medium) * 8, 300);
+
 	gtk_widget_show_all (window);
 	settle ();
 
@@ -202,12 +212,15 @@ test_widths (void)
 	min_px = allocation.width * 10 / 100;
 	max_px = allocation.width * 25 / 100;
 	medium_width = text_width (medium);
-	g_print ("strip %d px: min %d, max %d; tabs asked %d %d(%d) %d %d\n",
-		 allocation.width, min_px, max_px, requested (tiny), requested (medium),
-		 medium_width, requested (long_back), requested (long_front));
+	g_print ("%s font, strip %d px: min %d, max %d; tabs asked %d %d(%d) %d %d\n",
+		 font != NULL ? font : "default", allocation.width, min_px, max_px,
+		 requested (tiny), requested (medium), medium_width, requested (long_back),
+		 requested (long_front));
 
-	/* The fixture only means something if the middle title falls between. */
+	/* The fixture only means something if the middle title falls between,
+	   and the long one is past the 30 percent the limit goes to below. */
 	check (medium_width > min_px && medium_width < max_px);
+	check (text_width (long_front) > allocation.width * 30 / 100);
 
 	check (requested (tiny) == min_px);
 	check (requested (medium) == medium_width);
@@ -230,6 +243,9 @@ test_widths (void)
 	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_TAB_WIDTH_MAX_PERCENT);
 	gtk_widget_destroy (window);
 	g_string_free (long_text, TRUE);
+	if (font != NULL) {
+		gtk_settings_reset_property (settings, "gtk-font-name");
+	}
 }
 
 int
@@ -248,7 +264,8 @@ main (int argc, char *argv[])
 	nemo_global_preferences_init ();
 
 	test_visibility ();
-	test_widths ();
+	test_widths (NULL);
+	test_widths ("Sans 7");
 
 	g_free (tmp);
 

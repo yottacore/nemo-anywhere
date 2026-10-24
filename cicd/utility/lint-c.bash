@@ -1203,6 +1203,62 @@ fCheckTestFence(){
 }
 fRun fCheckTestFence
 
+## A test that takes the foreground runs alone on Windows, where every test
+## shares one desktop. Taking it from a test beside it closes that test's menu
+## mid-check (rhtmbdma, 2026102322330406). Only a test's own .c files are read.
+## Test ID: rm1n4v1b
+fCheckForegroundAlone(){
+	local build='source/test/meson.build'
+	local takes='gtk_window_present|gdk_window_focus|SetForegroundWindow|SwitchToThisWindow|BringWindowToTop'
+	local line name files f bad=""
+
+	[[ -f "$build" ]] || return 0
+
+	## One row per test built on Windows and not alone there: line, name, its files.
+	while IFS='|' read -r line name files; do
+		for f in $files; do
+			[[ -f "source/test/${f}" ]] || continue
+			if grep -qE "$takes" "source/test/${f}"; then
+				bad+="${line}: ${name} (${f})"$'\n'
+				break
+			fi
+		done
+	done < <(awk '
+		function count(s, c,   n, i) { n = 0; for (i = 1; i <= length(s); i++) if (substr(s, i, 1) == c) n++; return n }
+		function side(s){ return s ~ /not[[:space:]]+is_windows/ ? -1 : (s ~ /is_windows/ ? 1 : 0) }
+		/^[[:space:]]*#/ { next }
+		/^[[:space:]]*if[[:space:]]/ { w[++n] = side($0); next }
+		/^[[:space:]]*elif[[:space:]]/ { w[n] = side($0); next }
+		/^[[:space:]]*else/ { w[n] = -w[n]; next }
+		/^[[:space:]]*endif/ { n--; next }
+		!inside && match($0, /test\(.[^'\'']*/) {
+			inside = 1; depth = 0; alone = 0; files = ""; start = FNR
+			name = substr($0, RSTART + 6, RLENGTH - 6)
+			onwin = 1
+			for (i = 1; i <= n; i++) if (w[i] == -1) onwin = 0
+		}
+		inside {
+			if ($0 ~ /is_parallel:[[:space:]]*(false|not[[:space:]]+is_windows)/) alone = 1
+			rest = $0
+			while (match(rest, /'\''[a-z0-9_-]+\.c'\''/)) {
+				files = files " " substr(rest, RSTART + 1, RLENGTH - 2)
+				rest = substr(rest, RSTART + RLENGTH)
+			}
+			depth += count($0, "(") - count($0, ")")
+			if (depth <= 0) {
+				inside = 0
+				if (onwin && !alone) print start "|" name "|" files
+			}
+		}
+	' "$build")
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: ${build}: a test that takes the foreground runs beside others on Windows; give it is_parallel: not is_windows"
+		printf '%s' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckForegroundAlone
+
 ## Taking the focus off the path entry puts the buttons back, not only Escape.
 ## Switching to another program does not, so a half-typed path survives it.
 ## Test ID: rhtg2yem
@@ -1446,6 +1502,22 @@ fCheckUserText(){
 	fi
 }
 fRun fCheckUserText
+
+## Windows takes x.LNK as a shortcut too, and a case-sensitive compare once
+## saved one as x.LNK.lnk. Names go through nemo_lnk_has_extension.
+## Test ID: rm1p6hjv
+fCheckLnkCase(){
+	local bad
+
+	bad="$(grep -rn -E '(^|[^A-Za-z0-9_])(g_str_has_suffix|g_str_has_prefix|g_strcmp0|strn?cmp|g_str_equal|strr?str|g_strrstr|memcmp)[[:space:]]*\([^;]*"\.[lL][nN][kK]"' \
+		source/src source/libnemo-private source/eel --include='*.c' --include='*.h' || true)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a case-sensitive .lnk name check; use nemo_lnk_has_extension"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckLnkCase
 
 ## The archive core links nothing of the app, so it could leave for a project
 ## of its own, and it never deletes, walks a folder, starts a program or reads

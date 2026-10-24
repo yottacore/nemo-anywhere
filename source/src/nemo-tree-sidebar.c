@@ -1531,7 +1531,7 @@ icon_data_func (G_GNUC_UNUSED GtkTreeViewColumn *tree_column,
 
 /* The tree pane's selection and focus rules, one set per selection model.
    GtkTreeView's own key and click handling is part of each set, through what
-   these let pass. See design_docs/20261020-103804_checkmarked-selection.md,
+   these let pass. See design_docs/20261020-103804_behavior-models.md,
    "The setting". */
 typedef struct {
 	void (*selection_changed) (GtkTreeSelection *selection, FMTreeView *view);
@@ -1579,6 +1579,14 @@ static const TreeRules rules_classic = {
 	.key_press = key_press_callback,
 };
 
+/* Nemo Anywhere: v1's until the tree rules go in (2026102407515574). */
+static const TreeRules rules_anywhere = {
+	.selection_changed = selection_changed_callback,
+	.button_press = button_pressed_callback,
+	.button_release = button_released_callback,
+	.key_press = key_press_callback,
+};
+
 static const TreeRules *
 tree_rules (void)
 {
@@ -1587,6 +1595,8 @@ tree_rules (void)
 		return &rules_anywhere_v1;
 	case NEMO_SELECTION_MODEL_CLASSIC:
 		return &rules_classic;
+	case NEMO_SELECTION_MODEL_ANYWHERE:
+		return &rules_anywhere;
 	}
 	g_return_val_if_reached (&rules_anywhere_v1);
 }

@@ -24,6 +24,7 @@
 #include <windows.h>
 #include <shlobj.h>
 #include <shellapi.h>
+#include <shlwapi.h>
 #include <objidl.h>
 
 /* CoInitialize on this thread; returns TRUE if the caller must CoUninitialize. */
@@ -48,8 +49,41 @@ to_utf16 (const char *s)
 	return g_utf8_to_utf16 (s, -1, NULL, NULL, NULL);
 }
 
+/* Whether the shell can follow what was just handed to SetPath. */
+static gboolean
+shell_places_target (IShellLinkW *link)
+{
+	wchar_t buf[MAX_PATH];
+
+	buf[0] = L'\0';
+	return IShellLinkW_GetPath (link, buf, G_N_ELEMENTS (buf), NULL, 0) == S_OK &&
+	       buf[0] != L'\0' && GetFileAttributesW (buf) != INVALID_FILE_ATTRIBUTES;
+}
+
+/* SetPath is MAX_PATH-bound and the shell refuses a longer target. Wine's
+ * takes one and keeps a path cut short, so it's refused here for every shell.
+ * Ignoring the refusal once saved a shortcut with no target at all and called
+ * it a success. */
+static gboolean
+target_too_long (const gunichar2 *w_target,
+                 const char      *target_path,
+                 GError         **error)
+{
+	if (w_target == NULL || wcslen ((const wchar_t *) w_target) < MAX_PATH) {
+		return FALSE;
+	}
+	g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
+		     _("A Windows shortcut can't point at \"%s\": the path is too long."),
+		     target_path);
+	return TRUE;
+}
+
+/* With a portable_path, that goes in, and target_path is kept for a shell
+ * that can't expand the variable in it. Wine's shell takes it as a name in
+ * the working directory, which leads nowhere. */
 static gboolean
 create_shortcut (const char  *target_path,
+                 const char  *portable_path,
                  const char  *lnk_path,
                  const char  *working_dir,
                  const char  *arguments,
@@ -59,7 +93,8 @@ create_shortcut (const char  *target_path,
 {
 	IShellLinkW *link = NULL;
 	IPersistFile *pf = NULL;
-	gunichar2 *w_target = NULL, *w_lnk = NULL, *w_dir = NULL, *w_args = NULL, *w_desc = NULL;
+	gunichar2 *w_target = NULL, *w_portable = NULL, *w_lnk = NULL, *w_dir = NULL, *w_args = NULL,
+		  *w_desc = NULL;
 	gboolean did_init = FALSE;
 	gboolean ok = FALSE;
 	HRESULT hr;
@@ -80,9 +115,16 @@ create_shortcut (const char  *target_path,
 
 	w_target = to_utf16 (target_path);
 	w_lnk    = to_utf16 (lnk_path);
+	if (portable_path != NULL) {
+		w_portable = to_utf16 (portable_path);
+	}
 	if (w_target == NULL || w_lnk == NULL) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
 				     _("Couldn't encode the shortcut path."));
+		goto out;
+	}
+
+	if (target_too_long (w_target, target_path, error)) {
 		goto out;
 	}
 
@@ -96,20 +138,20 @@ create_shortcut (const char  *target_path,
 		goto uninit;
 	}
 
-	/* SetPath is MAX_PATH-bound and refuses a longer target outright. Ignoring
-	 * that saved a shortcut with no target at all and called it a success, so
-	 * "Make Link" produced a dead link with nothing said. */
-	hr = IShellLinkW_SetPath (link, w_target);
-	if (FAILED (hr)) {
-		if (wcslen ((const wchar_t *) w_target) >= MAX_PATH) {
-			g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
-				     _("A Windows shortcut can't point at \"%s\": the path is too long."),
-				     target_path);
-		} else {
-			g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
-				     _("A Windows shortcut can't point at \"%s\"."),
-				     target_path);
+	hr = E_FAIL;
+	if (w_portable != NULL) {
+		hr = IShellLinkW_SetPath (link, w_portable);
+		if (SUCCEEDED (hr) && !shell_places_target (link)) {
+			hr = E_FAIL;
 		}
+	}
+	if (FAILED (hr)) {
+		hr = IShellLinkW_SetPath (link, w_target);
+	}
+	if (FAILED (hr)) {
+		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
+			     _("A Windows shortcut can't point at \"%s\"."),
+			     target_path);
 		goto release;
 	}
 
@@ -157,6 +199,7 @@ uninit:
 	}
 out:
 	g_free (w_target);
+	g_free (w_portable);
 	g_free (w_lnk);
 	g_free (w_dir);
 	g_free (w_args);
@@ -172,7 +215,7 @@ nemo_shortcut_win32_create (const char  *target_path,
                             const char  *description,
                             GError     **error)
 {
-	return create_shortcut (target_path, lnk_path, working_dir, arguments, description,
+	return create_shortcut (target_path, NULL, lnk_path, working_dir, arguments, description,
 				FALSE, error);
 }
 
@@ -194,8 +237,7 @@ nemo_shortcut_win32_create_paths (const char  *target_path,
 	if (portable != NULL && g_utf8_strlen (portable, -1) >= MAX_PATH) {
 		g_clear_pointer (&portable, g_free);
 	}
-	ok = create_shortcut (portable != NULL ? portable : target_path, lnk_path,
-			      NULL, NULL, NULL, TRUE, error);
+	ok = create_shortcut (target_path, portable, lnk_path, NULL, NULL, NULL, TRUE, error);
 	g_free (portable);
 
 	return ok;
@@ -326,6 +368,12 @@ nemo_shortcut_win32_read_target (const char  *lnk_path,
 		if (hr != S_OK || GetFileAttributesW (buf) == INVALID_FILE_ATTRIBUTES) {
 			buf[0] = L'\0';
 		}
+	}
+	/* Wine's shell hands back the stored relative path as it is when it
+	 * leads nowhere. Opened from here, that would be read against the
+	 * working directory. */
+	if (buf[0] != L'\0' && PathIsRelativeW (buf)) {
+		buf[0] = L'\0';
 	}
 	if (buf[0] == L'\0') {
 		*target_path = target_without_shell (lnk_path);
@@ -582,6 +630,9 @@ nemo_shortcut_win32_update (const char             *lnk_path,
 	w_desc   = to_utf16 (info->description != NULL ? info->description : "");
 	w_lnk    = to_utf16 (lnk_path);
 
+	if (target_too_long (w_target, info->target != NULL ? info->target : "", error)) {
+		goto out;
+	}
 	hr = IShellLinkW_SetPath (link, w_target);
 	if (FAILED (hr)) {
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_INVALID_FILENAME,
@@ -618,14 +669,6 @@ out:
 	return ok;
 }
 
-static gboolean
-is_lnk (const char *path)
-{
-	gsize len = path != NULL ? strlen (path) : 0;
-
-	return len > 4 && g_ascii_strcasecmp (path + len - 4, ".lnk") == 0;
-}
-
 NemoShortcutOpen
 nemo_shortcut_win32_open_action (const char  *path,
                                  char       **target_path)
@@ -640,7 +683,7 @@ nemo_shortcut_win32_open_action (const char  *path,
 	g_return_val_if_fail (target_path != NULL, NEMO_SHORTCUT_OPEN_NOT_A_SHORTCUT);
 	*target_path = NULL;
 
-	if (!is_lnk (path)) {
+	if (!nemo_lnk_has_extension (path)) {
 		return NEMO_SHORTCUT_OPEN_NOT_A_SHORTCUT;
 	}
 
@@ -652,7 +695,7 @@ nemo_shortcut_win32_open_action (const char  *path,
 		char *target = NULL;
 		gboolean hop_by_shell = TRUE;
 
-		if (!is_lnk (current)) {
+		if (!nemo_lnk_has_extension (current)) {
 			break;
 		}
 		if (g_hash_table_contains (seen, current)) {
@@ -678,7 +721,7 @@ nemo_shortcut_win32_open_action (const char  *path,
 	 * here again, and again. */
 	if (final != NULL &&
 	    (g_file_test (final, G_FILE_TEST_IS_DIR) ||
-	     (!by_shell && !is_lnk (final) && g_file_test (final, G_FILE_TEST_EXISTS)))) {
+	     (!by_shell && !nemo_lnk_has_extension (final) && g_file_test (final, G_FILE_TEST_EXISTS)))) {
 		*target_path = final;
 		return NEMO_SHORTCUT_OPEN_HERE;
 	}

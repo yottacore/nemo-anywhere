@@ -1771,7 +1771,7 @@ action_invert_selection_callback (G_GNUC_UNUSED GtkAction *action,
 }
 
 /* Select all and Invert selection, one pair per selection model. See
-   design_docs/20261020-103804_checkmarked-selection.md, "The setting". */
+   design_docs/20261020-103804_behavior-models.md, "The setting". */
 typedef struct {
 	void (*select_all) (GtkAction *action, gpointer callback_data);
 	void (*invert_selection) (GtkAction *action, gpointer callback_data);
@@ -1788,6 +1788,12 @@ static const ViewSelectRules rules_classic = {
 	.invert_selection = action_invert_selection_callback,
 };
 
+/* Nemo Anywhere's two are v1's while its switch is off. */
+static const ViewSelectRules rules_anywhere = {
+	.select_all = action_select_all_callback,
+	.invert_selection = action_invert_selection_callback,
+};
+
 static const ViewSelectRules *
 view_select_rules (void)
 {
@@ -1796,6 +1802,8 @@ view_select_rules (void)
 		return &rules_anywhere_v1;
 	case NEMO_SELECTION_MODEL_CLASSIC:
 		return &rules_classic;
+	case NEMO_SELECTION_MODEL_ANYWHERE:
+		return &rules_anywhere;
 	}
 	g_return_val_if_reached (&rules_anywhere_v1);
 }

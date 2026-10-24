@@ -5,10 +5,13 @@
 ##	  nemo-winbuild's /build-win, which has the Windows-only files. Run on the
 ##	  host, after the cross build, so both lists are current.
 ##	- Report only for now (backlog 2026102114400584): findings are counted per
-##	  area and kept, and don't fail the run. The stage fails when a tracked .c
-##	  outside source/unused/ is in neither list, when one under it is in either,
-##	  when an analyzer misses the planted leak or null dereference, or when a run
-##	  itself fails.
+##	  area and kept, and don't fail the run. Vendored findings are listed in
+##	  analyze-vendored.txt, each with why it's safe, and count as suppressed; an
+##	  entry there that matches nothing shows as stale.
+##	- The stage fails when a tracked .c outside source/unused/ is in neither
+##	  list, when one under it is in either, when an analyzer misses the planted
+##	  leak or null dereference, when a run itself fails, or on a malformed entry
+##	  in analyze-vendored.txt.
 ##	- The last run's logs are in cicd/artifacts/analyze/last/. Each run also keeps
 ##	  counts_<stamp>.txt and findings_<stamp>.tgz there, GFS-rotated.
 ##	- An analyzer missing from its container shows as "not run" in the counts.
@@ -101,7 +104,7 @@ for i in "${!pids[@]}"; do
 done
 fEcho "analyzers took $(( SECONDS - t0 )) s"
 
-python3 "${root}/cicd/utility/analyze.py" count "${root}" "${last}"/{gcc,clang}-{linux,win}.log | tee "${out}/counts_${stamp}.txt"
+python3 "${root}/cicd/utility/analyze.py" count "${root}" "${last}"/{gcc,clang}-{linux,win}.log | tee "${out}/counts_${stamp}.txt" || failed=1
 tar -C "${last}" -czf "${out}/findings_${stamp}.tgz" gcc-linux.log clang-linux.log gcc-win.log clang-win.log
 gfs_rotate "${out}" counts txt   >/dev/null 2>&1 || true
 gfs_rotate "${out}" findings tgz >/dev/null 2>&1 || true
@@ -111,3 +114,4 @@ fEcho "OK: analyzer stage (report only)"
 
 ##	History:
 ##		- 2026-10-21: First version, report only.
+##		- 2026-10-24: Vendored suppression list.

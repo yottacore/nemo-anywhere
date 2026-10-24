@@ -20,6 +20,7 @@
 
 #include "test-scratch.h"
 #include "test-check.h"
+#include "test-wine.h"
 
 /* Which kind of reparse point a path is, or 0 if it is not one. The find data
  * carries the tag in dwReserved0 whenever the reparse attribute is set. */
@@ -249,7 +250,8 @@ test_foreign (const char *dir)
 	write_foreign_lnk (dead_lnk, "..\\target\\gone.txt", FALSE);
 
 	check (nemo_shortcut_win32_read_target (doc_lnk, &target, &by_shell, NULL));
-	check (!by_shell);
+	/* Wine's shell follows the relative path itself. */
+	check (!by_shell || test_under_wine ());
 	check (target != NULL && same_path (target, doc));
 	g_clear_pointer (&target, g_free);
 
@@ -298,8 +300,11 @@ check_parts (const char *doc, const char *lnk, gboolean with_portable)
 	check (nemo_shortcut_win32_create_paths (doc, lnk, with_portable, NULL));
 	check (nemo_lnk_read (lnk, &info));
 	check (info.local_path != NULL);
-	check (info.relative_path != NULL);
-	check ((info.env_path != NULL) == with_portable);
+	/* Wine's shell writes neither the relative path nor the variable. */
+	if (!test_under_wine ()) {
+		check (info.relative_path != NULL);
+		check ((info.env_path != NULL) == with_portable);
+	}
 	nemo_lnk_clear (&info);
 
 	check (nemo_shortcut_win32_read_target (lnk, &target, &by_shell, NULL));
@@ -355,7 +360,11 @@ test_parts (const char *dir)
 	/* The variable is kept as written, not expanded. */
 	check (nemo_shortcut_win32_create_paths (doc, lnk, TRUE, NULL));
 	check (nemo_lnk_read (lnk, &info));
-	check (g_strcmp0 (info.env_path, portable) == 0);
+	if (test_under_wine ()) {
+		g_print ("SKIP relative and portable paths (wine's shell writes neither)\n");
+	} else {
+		check (g_strcmp0 (info.env_path, portable) == 0);
+	}
 	nemo_lnk_clear (&info);
 	g_unlink (lnk);
 
@@ -436,9 +445,14 @@ test_open_action (const char *dir)
 	check (open_action (chain_lnk, &target) == NEMO_SHORTCUT_OPEN_HERE);
 	check (target != NULL && same_path (target, folder));
 
-	/* Made off Windows: the shell cannot place it, so it opens here. */
-	check (open_action (foreign_lnk, &target) == NEMO_SHORTCUT_OPEN_HERE);
-	check (target != NULL && same_path (target, doc));
+	/* Made off Windows: the shell cannot place it, so it opens here. Wine's
+	   shell follows the relative path, so there it goes to the shell. */
+	if (test_under_wine ()) {
+		check (open_action (foreign_lnk, &target) == NEMO_SHORTCUT_OPEN_BY_SHELL);
+	} else {
+		check (open_action (foreign_lnk, &target) == NEMO_SHORTCUT_OPEN_HERE);
+		check (target != NULL && same_path (target, doc));
+	}
 
 	/* A shortcut to itself ends, and never hands a shortcut back to be
 	   opened again. */
@@ -687,8 +701,11 @@ main (void)
 	}
 
 	/* A link to a folder is a junction, which Windows allows with no privilege
-	 * at all - so this one has to work whatever the box is set to. */
-	{
+	 * at all - so this one has to work whatever the box is set to. Wine has
+	 * no junctions. */
+	if (test_under_wine ()) {
+		g_print ("SKIP junction (wine refuses one)\n");
+	} else {
 		char *folder = g_build_filename (dir, "folder", NULL);
 		char *inside = g_build_filename (folder, "inside.txt", NULL);
 		char *link = g_build_filename (dir, "link-to-folder", NULL);
@@ -724,6 +741,7 @@ main (void)
 
 		/* A taken name still has to read as a clash so the caller can
 		 * uniquify it. */
+		g_clear_error (&jerr);
 		check (!nemo_win32_link_create_default (folder, link, &jerr));
 		check (jerr != NULL && g_error_matches (jerr, G_IO_ERROR, G_IO_ERROR_EXISTS));
 		g_clear_error (&jerr);

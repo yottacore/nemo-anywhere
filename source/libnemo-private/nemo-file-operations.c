@@ -6464,7 +6464,7 @@ create_lnk (GFile **dest, const char *target_path, gboolean with_portable, GErro
 	gboolean ok;
 
 	base = g_file_get_basename (*dest);
-	if (g_str_has_suffix (base, ".lnk")) {
+	if (nemo_lnk_has_extension (base)) {
 		lnk_base = g_strdup (base);
 	} else {
 		lnk_base = g_strconcat (base, ".lnk", NULL);

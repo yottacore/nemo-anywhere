@@ -5607,7 +5607,7 @@ classic_button_press_event (GtkWidget *widget,
 }
 
 /* The selection and focus rules for icon and compact views, one set per
-   selection model. See design_docs/20261020-103804_checkmarked-selection.md,
+   selection model. See design_docs/20261020-103804_behavior-models.md,
    "The setting". */
 typedef struct {
 	gboolean (*button_press) (GtkWidget *widget, GdkEventButton *event);
@@ -5644,6 +5644,18 @@ static const ContainerRules rules_classic = {
 	.band_flips = TRUE,
 };
 
+/* Nemo Anywhere, switch off. v1's rules until its own go in
+   (2026102019174440). */
+static const ContainerRules rules_anywhere = {
+	.button_press = button_press_event,
+	.button_release = button_release_event,
+	.motion_notify = motion_notify_event,
+	.key_press = key_press_event,
+	.search_key_press = nemo_icon_container_search_key_press_event,
+	.item_event = item_event_callback,
+	.band_flips = FALSE,
+};
+
 static const ContainerRules *
 container_rules (void)
 {
@@ -5652,6 +5664,8 @@ container_rules (void)
 		return &rules_anywhere_v1;
 	case NEMO_SELECTION_MODEL_CLASSIC:
 		return &rules_classic;
+	case NEMO_SELECTION_MODEL_ANYWHERE:
+		return &rules_anywhere;
 	}
 	g_return_val_if_reached (&rules_anywhere_v1);
 }

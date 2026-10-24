@@ -276,14 +276,16 @@ typedef enum
 /* File size unit prefix */
 #define NEMO_PREFERENCES_SIZE_PREFIXES			"size-prefixes"
 
-/* Which rules clicks and keys select and focus by. Only built models are
-   listed. See design_docs/20261020-103804_checkmarked-selection.md. */
+/* Which rules clicks and keys select and focus by. Only built models and
+   the one being built are listed. See design_docs/20261020-103804_behavior-models.md. */
 #define NEMO_PREFERENCES_SELECTION_MODEL		"selection-model"
 
 typedef enum
 {
 	NEMO_SELECTION_MODEL_ANYWHERE_V1,
-	NEMO_SELECTION_MODEL_CLASSIC
+	NEMO_SELECTION_MODEL_CLASSIC,
+	/* Affirmative switch off. Not in the dropdown until built (2026102019174440). */
+	NEMO_SELECTION_MODEL_ANYWHERE
 } NemoSelectionModel;
 
 /* media handling */

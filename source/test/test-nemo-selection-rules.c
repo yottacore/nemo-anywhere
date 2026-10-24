@@ -28,7 +28,8 @@
  * test-nemo-selection-rules-probe preloaded to click, type and check. Drags
  * are test-nemo-drag-select's. The "nemo-classic" results are upstream
  * 6.6.4's own, seen there, but for the ones the probe marks
- * (#2026102016594200).
+ * (#2026102016594200). "nemo-anywhere" expects v1's results until its own
+ * rules go in (#2026102019174440).
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Runs
  * on an X server of its own, since menus take the pointer. Linux and FreeBSD

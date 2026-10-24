@@ -17,6 +17,7 @@
 #include <glib/gi18n.h>
 #include <eel/eel-stock-dialogs.h>
 #include <libnemo-private/nemo-file.h>
+#include <libnemo-private/nemo-lnk.h>
 #include <libnemo-private/nemo-shortcut-win32.h>
 
 enum {
@@ -158,13 +159,7 @@ nemo_shortcut_properties_should_show (GList *files)
 	}
 
 	name = nemo_file_get_name (file);
-	show = name != NULL && g_str_has_suffix (name, ".lnk");
-	if (!show && name != NULL) {
-		char *lower = g_ascii_strdown (name, -1);
-
-		show = g_str_has_suffix (lower, ".lnk");
-		g_free (lower);
-	}
+	show = nemo_lnk_has_extension (name);
 
 	g_free (name);
 	return show;
