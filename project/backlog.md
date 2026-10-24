@@ -445,6 +445,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rm1sbxgy and rm1sbwdq, where every list view check also checks the marks, the bands included. rktkms8a, rktqpp37 and rm1sbxgy check the column is there only under Nemo Anywhere, thin, and without the expanders.
 	- Verified: 20261024, rm1sbxgy, rm1sbwdq, rktkms8a, rk7yvgse, rktqpp37 and rkts3far pass. The full Linux suite, 234 OK and 1 skipped. The build and the Windows cross build with warnings as errors, the C lint, and the test ID check pass.
 
+- Nemo Anywhere focus outline and keys: the list view.
+	- ID: 2026102412041967
+	- Type: Enhancement
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: no. Passed 20261024.
+	- Needs external testing: rm1sbxgy in the FreeBSD lane.
+	- Priority|Severity: High
+	- Opened: 20261024-120419
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515572
+	- Target OS: All
+	- Requirements:
+		- Only under Nemo Anywhere. No focus outline, except while a Ctrl+arrow move has put the focus on a row that isn't selected.
+		- Up, Down, Page Up and Page Down count from the range ends. After a Ctrl+arrow move they count from the focus.
+		- Ctrl+Up and Ctrl+Down move the focus alone. Ctrl+Space adds or removes the focused row. Ctrl+Shift+Up and Ctrl+Shift+Down add the run from the anchor. Ctrl+Home and Ctrl+End are the same as the key alone.
+		- Escape clears the selection, the focus and the anchor. A second Escape does nothing, and the next arrow starts at the first row. An Escape that cancels something else does only that.
+		- Space previews, and never starts type-ahead on its own.
+		- rm1sbxgy checks each key in the list view.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
+	- Progress log:
+		- 20261024: opened.
+		- 20261024: the list view has its own key and press handlers under Nemo Anywhere. Plain Up, Down, Page Up and Page Down move the cursor to the first or last selected row before the tree view moves it. Ctrl+Home and Ctrl+End drop the Ctrl. Ctrl+Shift+Up and Down run Shift's range and keep what was selected. The cursor outline is hidden by a style class, except after a Ctrl+Up or Ctrl+Down while the cursor is on a row not selected.
+		- 20261024: Escape, the second Escape, Ctrl+Space, Space and type-ahead were already right in v1's handlers, so they only got checks.
+		- 20261024: rm1sbxgy expects 87 list view results, up from 72. rktkms8a and rktqpp37 stay at 72.
+	- Decisions:
+		- One flag, set by Ctrl+Up and Ctrl+Down and cleared by a click, a plain key or Escape, decides both the outline and where the plain keys count from. The rest is read from the cursor and the selection.
+		- Ctrl+Shift+Home and Ctrl+Shift+End are Shift+Home and Shift+End, following the Ctrl+Home rule. Ctrl with Page Up or Page Down is left alone, since it switches tabs.
+		- A Down past the last row with several selected leaves the last one selected alone.
+	- Not covered by a test yet: Page Up and Page Down from the range ends, since every row is in sight in the test, and the outline as drawn on screen.
+	- Swept: every key the design doc's "Keyboard" names, in the list view's key handler and in the Escape, Ctrl+A and invert paths that change the selection without its signal. The icon container's key handler is the same rule's twin, in 2026102412041969.
+	- Branch: round1024b
+	- Test case: rm1sbxgy, Selection rules test, Nemo Anywhere: the list view's key checks, the outline among them.
+	- Verified: 20261024, rm1sbxgy fails 10 checks with the new handlers bypassed and passes with them. rktkms8a, rktqpp37, rk7yvgse and rm1sbwdq pass. The full Linux suite, 234 OK and 1 skipped. The build and the Windows cross build with warnings as errors, the C lint and the test ID check pass.
+
 - rhr6ggmt can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
 	- Type: Bug
@@ -731,6 +765,51 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Space previews, and never starts type-ahead on its own.
 		- rktkms8a's expectations under Nemo Anywhere change to match, with a check per key and view.
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
+	- Progress log:
+		- 20261024: opened.
+		- 20261024: split into children, one per view: 2026102412041967 (list view), ...969 (icon view), ...971 (compact view).
+	- Test case: one per child.
+
+- Nemo Anywhere focus outline and keys: the icon view.
+	- ID: 2026102412041969
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-120419
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515572
+	- Prereq IDs: 2026102412041967
+	- Target OS: All
+	- Requirements:
+		- Only under Nemo Anywhere. No focus outline, except while a Ctrl+arrow move has put the focus on an icon that isn't selected.
+		- Up, Down, Left, Right, Page Up and Page Down count from the range ends. After a Ctrl+arrow move they count from the focus.
+		- Ctrl with an arrow moves the focus alone. Ctrl+Space adds or removes the focused icon. Ctrl+Shift with an arrow adds the run from the anchor. Ctrl+Home and Ctrl+End are the same as the key alone.
+		- Escape clears the selection, the focus and the anchor. A second Escape does nothing, and the next arrow starts at the first icon. An Escape that cancels something else does only that.
+		- Space previews, and never starts type-ahead on its own.
+		- rm1sbxgy checks each key in the icon view.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
+	- Progress log:
+		- 20261024: opened.
+	- Test case: none yet.
+
+- Nemo Anywhere focus outline and keys: the compact view.
+	- ID: 2026102412041971
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-120419
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515572
+	- Prereq IDs: 2026102412041969
+	- Target OS: All
+	- Requirements:
+		- The icon view's rules, in the compact view's layout, where Up and Down run down a column and Left and Right go across.
+		- rm1sbxgy checks each key in the compact view.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
+	- Notes:
+		- Shares the icon container's key handling with the icon view, so it follows that child.
 	- Progress log:
 		- 20261024: opened.
 	- Test case: none yet.

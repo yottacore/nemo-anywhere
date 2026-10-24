@@ -141,6 +141,11 @@ struct NemoListViewDetails {
 	   since GTK has no way to take the cursor away. */
 	gboolean cursor_forgotten;
 
+	/* Nemo Anywhere: Ctrl+Up or Ctrl+Down moved the cursor on its own. While
+	   it sits on a row not selected, it has an outline and the plain keys
+	   count from it. */
+	gboolean focus_adrift;
+
 	GHashTable *columns;
 	GtkWidget *column_editor;
 
@@ -537,6 +542,7 @@ forget_cursor (NemoListView *view)
 
 	eel_gtk_tree_view_forget_cursor (tree_view);
 
+	view->details->focus_adrift = FALSE;
 	view->details->cursor_forgotten = TRUE;
 	gtk_style_context_add_class (gtk_widget_get_style_context (GTK_WIDGET (tree_view)),
 				     "nemo-cursor-forgotten");
@@ -576,10 +582,61 @@ start_cursor_over (NemoListView *view, GdkEventKey *event)
 	return TRUE;
 }
 
+static gboolean
+cursor_on_selection (NemoListView *view)
+{
+	GtkTreePath *path;
+	gboolean on;
+
+	gtk_tree_view_get_cursor (view->details->tree_view, &path, NULL);
+	if (path == NULL) {
+		return TRUE;
+	}
+	on = gtk_tree_selection_path_is_selected (gtk_tree_view_get_selection (view->details->tree_view), path);
+	gtk_tree_path_free (path);
+
+	return on;
+}
+
+static void
+focus_outline_update (NemoListView *view)
+{
+	GtkStyleContext *context = gtk_widget_get_style_context (GTK_WIDGET (view->details->tree_view));
+	gboolean quiet = nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE &&
+			 !(view->details->focus_adrift && !cursor_on_selection (view));
+
+	if (quiet == gtk_style_context_has_class (context, "nemo-focus-quiet")) {
+		return;
+	}
+	if (quiet) {
+		gtk_style_context_add_class (context, "nemo-focus-quiet");
+	} else {
+		gtk_style_context_remove_class (context, "nemo-focus-quiet");
+	}
+}
+
+/* Nemo Anywhere counts Up and Down from the selection's ends. Setting the
+   cursor selects its row alone, which the key replaces anyway. */
+static void
+cursor_to_range_end (NemoListView *view, gboolean first)
+{
+	GtkTreeSelection *selection = gtk_tree_view_get_selection (view->details->tree_view);
+	GList *rows = gtk_tree_selection_get_selected_rows (selection, NULL);
+
+	if (rows == NULL) {
+		return;
+	}
+	gtk_tree_view_set_cursor (view->details->tree_view,
+				  first ? rows->data : g_list_last (rows)->data,
+				  NULL, FALSE);
+	g_list_free_full (rows, (GDestroyNotify) gtk_tree_path_free);
+}
+
 static void
 cursor_changed_callback (G_GNUC_UNUSED GtkTreeView *tree_view, gpointer user_data)
 {
 	remember_cursor (NEMO_LIST_VIEW (user_data));
+	focus_outline_update (NEMO_LIST_VIEW (user_data));
 }
 
 static void
@@ -595,6 +652,7 @@ list_selection_changed_callback (GtkTreeSelection *selection, gpointer user_data
 		remember_cursor (NEMO_LIST_VIEW (view));
 	}
 
+	focus_outline_update (NEMO_LIST_VIEW (view));
 	nemo_view_notify_selection_changed (view);
 }
 
@@ -4716,6 +4774,107 @@ classic_key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer call
 	return key_press_callback (widget, event, callback_data);
 }
 
+/* GtkTreeView's Ctrl+Shift moves only the cursor. Here it runs Shift's range
+   from the anchor and keeps what was selected. */
+static gboolean
+add_run_from_anchor (NemoListView *view, GtkWidget *widget, GdkEventKey *event)
+{
+	GtkTreeSelection *selection = gtk_tree_view_get_selection (view->details->tree_view);
+	GList *kept = gtk_tree_selection_get_selected_rows (selection, NULL);
+	GList *l;
+
+	g_signal_handlers_block_by_func (selection, list_selection_changed_callback, view);
+	event->state &= ~GDK_CONTROL_MASK;
+	gtk_bindings_activate_event (G_OBJECT (widget), event);
+	for (l = kept; l != NULL; l = l->next) {
+		gtk_tree_selection_select_path (selection, l->data);
+	}
+	g_signal_handlers_unblock_by_func (selection, list_selection_changed_callback, view);
+	g_list_free_full (kept, (GDestroyNotify) gtk_tree_path_free);
+	list_selection_changed_callback (selection, view);
+
+	return GDK_EVENT_STOP;
+}
+
+/* See the design doc's "Keyboard". What isn't here is v1's. */
+static gboolean
+anywhere_key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer callback_data)
+{
+	NemoListView *view = NEMO_LIST_VIEW (callback_data);
+	gboolean ctrl = (event->state & GDK_CONTROL_MASK) != 0;
+	gboolean shift = (event->state & GDK_SHIFT_MASK) != 0;
+	gboolean up = FALSE;
+	gboolean page = FALSE;
+	gboolean handled;
+
+	switch (event->keyval) {
+	case GDK_KEY_Home:
+	case GDK_KEY_KP_Home:
+	case GDK_KEY_End:
+	case GDK_KEY_KP_End:
+		event->state &= ~GDK_CONTROL_MASK;
+		view->details->focus_adrift = FALSE;
+		handled = key_press_callback (widget, event, callback_data);
+		focus_outline_update (view);
+		return handled;
+	case GDK_KEY_Page_Up:
+	case GDK_KEY_KP_Page_Up:
+		up = TRUE;
+		page = TRUE;
+		break;
+	case GDK_KEY_Page_Down:
+	case GDK_KEY_KP_Page_Down:
+		page = TRUE;
+		break;
+	case GDK_KEY_Up:
+	case GDK_KEY_KP_Up:
+		up = TRUE;
+		break;
+	case GDK_KEY_Down:
+	case GDK_KEY_KP_Down:
+		break;
+	default:
+		return key_press_callback (widget, event, callback_data);
+	}
+
+	if (ctrl && page) {
+		return key_press_callback (widget, event, callback_data);
+	}
+	if (view->details->cursor_forgotten) {
+		view->details->focus_adrift = ctrl && !shift;
+		handled = key_press_callback (widget, event, callback_data);
+		focus_outline_update (view);
+		return handled;
+	}
+	if (ctrl && shift) {
+		view->details->focus_adrift = FALSE;
+		return add_run_from_anchor (view, widget, event);
+	}
+	if (ctrl) {
+		view->details->focus_adrift = TRUE;
+		handled = key_press_callback (widget, event, callback_data);
+		focus_outline_update (view);
+		return handled;
+	}
+	if (!shift && !(view->details->focus_adrift && !cursor_on_selection (view))) {
+		cursor_to_range_end (view, up);
+	}
+	view->details->focus_adrift = FALSE;
+	handled = key_press_callback (widget, event, callback_data);
+	focus_outline_update (view);
+
+	return handled;
+}
+
+static gboolean
+anywhere_button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callback_data)
+{
+	NEMO_LIST_VIEW (callback_data)->details->focus_adrift = FALSE;
+	focus_outline_update (NEMO_LIST_VIEW (callback_data));
+
+	return button_press_callback (widget, event, callback_data);
+}
+
 /* The list view's selection and focus rules, one set per selection model.
    GtkTreeView's own key and click handling is part of each set, through what
    these let pass. See design_docs/20261020-103804_behavior-models.md,
@@ -4747,13 +4906,13 @@ static const ListViewRules rules_classic = {
 	.gtk_bands = TRUE,
 };
 
-/* Nemo Anywhere starts from v1's set; the drag rule changes it
-   (2026102407515573). */
+/* Nemo Anywhere starts from v1's set, with its own keys. The drag rule changes
+   it next (2026102407515573). */
 static const ListViewRules rules_anywhere = {
-	.button_press = button_press_callback,
+	.button_press = anywhere_button_press_callback,
 	.button_release = button_release_callback,
 	.motion_notify = motion_notify_callback,
-	.key_press = key_press_callback,
+	.key_press = anywhere_key_press_callback,
 	.focus_in = focus_in_event_callback,
 	.gtk_bands = FALSE,
 };
@@ -5164,6 +5323,11 @@ create_and_set_up_tree_view (NemoListView *view)
 				 "changed::" NEMO_PREFERENCES_SELECTION_MODEL,
 				 G_CALLBACK (checkmark_column_update),
 				 view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_preferences,
+				 "changed::" NEMO_PREFERENCES_SELECTION_MODEL,
+				 G_CALLBACK (focus_outline_update),
+				 view, G_CONNECT_SWAPPED);
+	focus_outline_update (view);
 
 	default_visible_columns = nemo_config_get_strv (nemo_list_view_preferences,
 						       NEMO_PREFERENCES_LIST_VIEW_DEFAULT_VISIBLE_COLUMNS);
@@ -6016,6 +6180,7 @@ nemo_list_view_set_selection (NemoView *view, GList *selection)
 	}
 
 	g_signal_handlers_unblock_by_func (tree_selection, list_selection_changed_callback, view);
+	focus_outline_update (list_view);
 	nemo_view_notify_selection_changed (view);
 }
 
@@ -6053,6 +6218,7 @@ nemo_list_view_invert_selection (NemoView *view)
 	g_list_free (selection);
 
 	g_signal_handlers_unblock_by_func (tree_selection, list_selection_changed_callback, view);
+	focus_outline_update (list_view);
 	nemo_view_notify_selection_changed (view);
 }
 

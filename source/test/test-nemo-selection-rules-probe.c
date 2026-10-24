@@ -635,6 +635,71 @@ note_title (void)
 static const char *const typed = "file-07";
 
 /* Each step waits on what the one before set going, up to ten seconds. */
+/* The list hides its cursor's outline with these. */
+static gboolean
+outline_shown (void)
+{
+	GtkStyleContext *context = gtk_widget_get_style_context (pane);
+
+	return !gtk_style_context_has_class (context, "nemo-focus-quiet") &&
+	       !gtk_style_context_has_class (context, "nemo-cursor-forgotten");
+}
+
+static gboolean
+typeahead_shown (void)
+{
+	GtkEntry *entry = gtk_tree_view_get_search_entry (GTK_TREE_VIEW (pane));
+
+	return entry != NULL && gtk_widget_get_mapped (GTK_WIDGET (entry));
+}
+
+/* Nemo Anywhere's own list keys (#2026102412041967). */
+static void
+anywhere_list_keys (void)
+{
+	click (2, 0);
+	report (!outline_shown (), "a click shows no focus outline");
+	key (GDK_KEY_Down, GDK_SHIFT_MASK);
+	key (GDK_KEY_Down, GDK_SHIFT_MASK);
+	key (GDK_KEY_Up, 0);
+	want (items (1, -1), "Up counts from the first item of a run");
+	click (4, 0);
+	key (GDK_KEY_Up, GDK_SHIFT_MASK);
+	key (GDK_KEY_Up, GDK_SHIFT_MASK);
+	key (GDK_KEY_Down, 0);
+	want (items (5, -1), "and Down from the last");
+
+	click (2, 0);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	want (items (2, -1), "Ctrl+Down twice leaves the selection alone");
+	report (outline_shown (), "and the focus outline shows on the row it went to");
+	key (GDK_KEY_Down, 0);
+	want (items (5, -1), "Down then counts from the focus");
+	report (!outline_shown (), "and the outline goes");
+
+	click (5, 0);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	report (!outline_shown (), "the outline goes once Ctrl+Space selects the focused row");
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
+	want (items (5, 6, 7, 8, -1), "Ctrl+Shift+Down adds the run from the Ctrl+Space row and keeps the rest");
+
+	key (GDK_KEY_Escape, 0);
+	want (g_strdup (""), "Escape clears the selection");
+	report (!outline_shown (), "and shows no focus outline");
+	key (GDK_KEY_Escape, 0);
+	want (g_strdup (""), "a second Escape changes nothing");
+	key (GDK_KEY_Down, 0);
+	want (items (0, -1), "and Down then starts at the first item");
+
+	click (3, 0);
+	key (GDK_KEY_space, 0);
+	want (items (3, -1), "Space leaves the selection alone");
+	report (!typeahead_shown (), "and starts no type-ahead");
+}
+
 static gboolean
 rules_tick (void)
 {
@@ -800,10 +865,11 @@ rules_tick (void)
 		click (1, 0);
 		want (items (1, -1), "a click on one item of a selection selects it alone");
 		key (GDK_KEY_Down, 0);
-		/* The list's keyboard cursor stays on the row Shift+Down reached. */
-		want (items (list_mode ? 4 : next_item (1, 0, 1), -1),
-		      list_mode ? "and Down then counts from where Shift+Down left the cursor" :
-				  "and Down then counts from the clicked item");
+		/* v1's list keeps its keyboard cursor on the row Shift+Down reached.
+		   Nemo Anywhere counts from the selection. */
+		want (items (list_mode && !anywhere ? 4 : next_item (1, 0, 1), -1),
+		      list_mode && !anywhere ? "and Down then counts from where Shift+Down left the cursor" :
+					       "and Down then counts from the clicked item");
 		break;
 	case 24:
 		key (GDK_KEY_a, GDK_CONTROL_MASK);
@@ -828,15 +894,21 @@ rules_tick (void)
 		want (items (0, -1), "and Shift+Home takes it back to the first");
 		click (3, 0);
 		key (GDK_KEY_End, GDK_CONTROL_MASK);
-		want (items (3, -1), "Ctrl+End leaves the selection alone");
-		key (GDK_KEY_space, GDK_CONTROL_MASK);
-		want (items (3, last, -1), "and Ctrl+Space then adds the last item");
+		if (anywhere && list_mode) {
+			want (items (last, -1), "Ctrl+End selects the last item alone, as End does");
+			key (GDK_KEY_space, GDK_CONTROL_MASK);
+			want (g_strdup (""), "and Ctrl+Space then takes it out");
+		} else {
+			want (items (3, -1), "Ctrl+End leaves the selection alone");
+			key (GDK_KEY_space, GDK_CONTROL_MASK);
+			want (items (3, last, -1), "and Ctrl+Space then adds the last item");
+		}
 		click (1, 0);
 		key (GDK_KEY_Down, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
 		/* Upstream's keyboard band flips what it crosses against what
 		   was selected when the last mouse band began, item 1 here
 		   (step 7). */
-		if (list_mode) {
+		if (list_mode && !anywhere) {
 			want (items (1, -1), "Ctrl+Shift+Down leaves the list's selection alone");
 		} else if (classic) {
 			want (items (next_item (1, 0, 1), -1),
@@ -852,9 +924,15 @@ rules_tick (void)
 				  "Page Down leaves the selection alone");
 		click (3, 0);
 		key (GDK_KEY_Home, GDK_CONTROL_MASK);
-		want (items (3, -1), "Ctrl+Home leaves the selection alone");
-		key (GDK_KEY_space, GDK_CONTROL_MASK);
-		want (items (0, 3, -1), "and Ctrl+Space then adds the first item");
+		if (anywhere && list_mode) {
+			want (items (0, -1), "Ctrl+Home selects the first item alone, as Home does");
+			key (GDK_KEY_space, GDK_CONTROL_MASK);
+			want (g_strdup (""), "and Ctrl+Space then takes it out");
+		} else {
+			want (items (3, -1), "Ctrl+Home leaves the selection alone");
+			key (GDK_KEY_space, GDK_CONTROL_MASK);
+			want (items (0, 3, -1), "and Ctrl+Space then adds the first item");
+		}
 		if (!list_mode) {
 			click (2, 0);
 			key (GDK_KEY_Right, GDK_CONTROL_MASK);
@@ -881,6 +959,9 @@ rules_tick (void)
 			want (run_of (2, next_item (2, 1, 0), -1), "Shift+Right selects the run to the next item over");
 			key (GDK_KEY_Left, GDK_SHIFT_MASK);
 			want (items (2, -1), "and Shift+Left takes it back");
+		}
+		if (anywhere && list_mode) {
+			anywhere_list_keys ();
 		}
 		break;
 	case 27:
