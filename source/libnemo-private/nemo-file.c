@@ -55,6 +55,7 @@
 #include <eel/eel-gtk-extensions.h>
 #include <eel/eel-vfs-extensions.h>
 #include <eel/eel-string.h>
+#include <eel/eel-analyzer.h>
 #include <libnemo-private/nemo-posix-compat.h>
 #ifdef G_OS_WIN32
 #include <libnemo-private/nemo-link-win32.h>
@@ -3517,7 +3518,6 @@ get_time (NemoFile *file,
 		return UNKNOWN;
 	}
 
-	time = 0;
 	switch (type) {
 	case NEMO_DATE_TYPE_MODIFIED:
 		time = file->details->mtime;
@@ -9981,10 +9981,12 @@ nemo_file_list_call_when_ready (GList *file_list,
 		file = NEMO_FILE (l->data);
 		/* Need to do this here, as the list can be modified by this call */
 		l = l->next;
+		EEL_ANALYZER_SKIP ("use-after-free") // remaining_files holds the files still ahead, so data isn't freed yet
 		nemo_file_call_when_ready (file,
 					       attributes,
 					       file_list_file_ready_callback,
 					       data);
+		EEL_ANALYZER_END
 	}
 }
 
@@ -10407,6 +10409,7 @@ nemo_self_check_file (void)
 
 	file_1 = nemo_file_get_by_uri ("file:///home/");
 
+	g_assert (file_1 != NULL);
 	EEL_CHECK_INTEGER_RESULT (G_OBJECT (file_1)->ref_count, 1);
 	EEL_CHECK_INTEGER_RESULT (G_OBJECT (file_1->details->directory)->ref_count, 1);
         EEL_CHECK_INTEGER_RESULT (nemo_directory_number_outstanding (), 1);

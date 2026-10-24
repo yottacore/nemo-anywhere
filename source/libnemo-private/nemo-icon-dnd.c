@@ -904,9 +904,6 @@ handle_local_move (NemoIconContainer *container,
     for (p = container->details->dnd_info->drag_info.selection_list; p != NULL; p = p->next) {
         item = p->data;
 
-        icon = nemo_icon_container_get_icon_by_uri
-            (container, item->uri);
-
         icon = get_icon_from_drag_info (container, item, now, monitor);
 
         file = NEMO_FILE (icon->data);

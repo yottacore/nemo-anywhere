@@ -29,9 +29,10 @@
  *	link->prev->next = link->next;
  *	EEL_ANALYZER_END
  *
- * The argument is gcc's -Wanalyzer- name. clang skips the one statement after
- * it whatever the name, so give a clang-only finding gcc's nearest one. Both
- * compilers' plain builds see nothing. */
+ * The argument is gcc's -Wanalyzer- name, and has to be a real one, or gcc
+ * warns about the pragma. clang skips the one statement after it whatever the
+ * name, so give a clang-only finding gcc's nearest one. Both compilers' plain
+ * builds see nothing. */
 
 #if defined(__clang_analyzer__)
 #define EEL_ANALYZER_SKIP(gcc_name) [[clang::suppress]]

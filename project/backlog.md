@@ -929,22 +929,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Many are expected to be GLib ref-count false positives. Split this item by folder if it runs long.
 	- Estimated effort: High
 	- Progress log:
-		- 20261024: 57 unique findings in the full run of 2026-10-24 08:43 (gcc-linux 12, gcc-win 21, clang-linux 34 by lane). None are ref counts; most are null dereferences and dead stores. Split by folder: `2026102412254358` (eel, 4), `...4361` (libnemo-private, 19), `...4363` (src, 32).
+		- 20261024: 57 unique findings in the full run of 2026-10-24 08:43 (gcc-linux 12, gcc-win 21, clang-linux 34 by lane). None are ref counts; most are null dereferences and dead stores. Split by folder: `2026102412254358` (eel, 6), `...4361` (libnemo-private, 18), `...4363` (src, 33).
 	- Test case: the gate in 2026102114400591, once live. A real bug fixed here gets its own test.
-
-- Static analyzers: inherited findings in `source/libnemo-private/`.
-	- ID: 2026102412254361
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261024-122543
-	- Opened by: t00mietum
-	- Parent ID: 2026102114400587
-	- Prereq IDs: 2026102412254358
-	- Requirements:
-		- The parent's requirements, for `source/libnemo-private/`.
-	- Estimated effort: Avg
-	- Test case: the gate in 2026102114400591, once live.
 
 - Static analyzers: inherited findings in `source/src/`.
 	- ID: 2026102412254363
@@ -1454,6 +1440,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- Static analyzers: inherited findings in `source/libnemo-private/`.
+	- ID: 2026102412254361
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261024-122543
+	- Opened by: t00mietum
+	- Parent ID: 2026102114400587
+	- Prereq IDs: 2026102412254358
+	- Requirements:
+		- The parent's requirements, for `source/libnemo-private/`.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261024: 18 findings, 16 fixed and 2 suppressed.
+		- Fixed, real bugs: a drop with no files crashed `nemo_file_operations_copy_move` in every action (3 findings), and now reports back as a link drop with no folder does. A name that isn't UTF-8 crashed the name matcher in search. The tree's direct save leaked its file name and drop folder. `icon_removed` was sent with the freed icon, where its handlers take the icon's data.
+		- Fixed, the rest: 6 dead stores gone, one a full lookup per dragged icon. A one-item check and the action conditions test the list's head, not its length. `nemo_should_use_templates_directory` compares with `g_strcmp0`. The file self-check asserts it got a file.
+		- Suppressed: the use after free in `nemo_file_list_call_when_ready`, since the files still ahead keep the data alive, and a NULL MIME type on Windows, which can't happen.
+		- `.cppcheck-macros.h` has the 2 macros, for files that include the header as `<eel/...>`.
+	- Swept: every `g_list_length (selection) > 0` in `nemo-action.c` (7, all now `selection != NULL`). The icon view's direct save already frees both strings. Every caller of `get_drop_target_uri_at_pos` frees its result.
+	- Branch: round1024b
+	- Test case: rhtq57n1 (`test-nemo-drop-cancel`, an empty drop in each action) and rek3gd31 (`test-nemo-search-regex`, a name that isn't UTF-8 in both modes). The gate in 2026102114400591 covers the rest, once live.
+	- Verified: 20261024, gcc and clang over the 8 changed files on the Linux list, and gcc over them on the Windows list: no findings. rhtq57n1 and rek3gd31 crash with SIGSEGV without their fixes and pass with them. The C lint passes, and the build is clean with `-Werror`.
+	- Acceptance signoff: Self-closed: rhtq57n1, rek3gd31 and the analyzer runs above.
+	- Closed: 20261024-124700
 
 - Static analyzers: inherited findings in `source/eel/`.
 	- ID: 2026102412254358

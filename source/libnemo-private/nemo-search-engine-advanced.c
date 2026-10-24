@@ -243,13 +243,11 @@ process_search_helper_file (const gchar *path)
         helper->exec_format = g_strdup (exec_format);
         helper->priority = priority;
 
-        existing = g_hash_table_lookup (search_helpers, mime_type);
-
-        if (!existing) {
-            existing = g_list_append (NULL, helper);
+        /* Appending never moves the head of a list that isn't empty, so only
+         * a new one goes in the table. */
+        existing = g_list_append (g_hash_table_lookup (search_helpers, mime_type), helper);
+        if (existing->next == NULL) {
             g_hash_table_replace (search_helpers, g_strdup (mime_type), existing);
-        } else {
-            existing = g_list_append (existing, helper);
         }
     }
 
@@ -519,6 +517,11 @@ nemo_search_name_matcher_matches (NemoSearchNameMatcher *matcher,
 {
     gchar *normalized = g_utf8_normalize (display_name, -1, G_NORMALIZE_NFD);
     gboolean hit;
+
+    /* NULL for a name that isn't UTF-8. Match nothing, as for a bad regex. */
+    if (normalized == NULL) {
+        return FALSE;
+    }
 
     if (matcher->use_regex) {
         GMatchInfo *match_info = NULL;

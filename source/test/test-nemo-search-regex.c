@@ -33,6 +33,28 @@ finished_cb (G_GNUC_UNUSED NemoSearchEngine *engine, G_GNUC_UNUSED gpointer data
 	done = TRUE;
 }
 
+/* A name that isn't UTF-8 matches nothing, in either mode, rather than
+ * crashing the search. */
+static gboolean
+bad_name_misses (gboolean regex)
+{
+	NemoQuery *query = nemo_query_new ();
+	NemoSearchNameMatcher *matcher;
+	gboolean hit;
+
+	nemo_query_set_use_file_regex (query, regex);
+	nemo_query_set_file_pattern (query, "file");
+	matcher = nemo_search_name_matcher_new (query);
+	hit = nemo_search_name_matcher_matches (matcher, "some\xff" "file");
+	nemo_search_name_matcher_free (matcher);
+	g_object_unref (query);
+
+	if (hit) {
+		g_printerr ("FAIL: a name that isn't UTF-8 matched (regex %d)\n", regex);
+	}
+	return !hit;
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -75,6 +97,9 @@ main (int argc, char *argv[])
 
 	if (!done) {
 		g_printerr ("FAIL: search never finished\n");
+		return 1;
+	}
+	if (!bad_name_misses (FALSE) || !bad_name_misses (TRUE)) {
 		return 1;
 	}
 	g_print ("nemo-search-regex: all checks passed\n");

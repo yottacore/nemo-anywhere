@@ -246,6 +246,25 @@ check_link_nowhere (const char *tmp)
 	g_free (from);
 }
 
+/* A drop with nothing in it ends there, and still reports back. */
+static void
+check_empty (const char *tmp)
+{
+	const GdkDragAction actions[] = { GDK_ACTION_COPY, GDK_ACTION_MOVE, GDK_ACTION_LINK };
+	char *target = g_filename_to_uri (tmp, NULL, NULL);
+
+	for (gsize i = 0; i < G_N_ELEMENTS (actions); i++) {
+		Drop drop = { NULL, 0, FALSE, FALSE, FALSE, NULL };
+
+		drop.loop = g_main_loop_new (NULL, FALSE);
+		nemo_file_operations_copy_move (NULL, NULL, target, actions[i], NULL, drop_done, &drop);
+		check (drop.done);
+		check (!drop.success);
+		g_main_loop_unref (drop.loop);
+	}
+	g_free (target);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -270,6 +289,7 @@ main (int argc, char *argv[])
 	check_move (tmp);
 	check_link (tmp);
 	check_link_nowhere (tmp);
+	check_empty (tmp);
 
 	g_object_unref (manager);
 	g_free (tmp);
