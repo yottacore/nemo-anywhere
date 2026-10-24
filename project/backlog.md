@@ -33,42 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- rkbdyne7, rk96k9va and rj750n43 still fail in the sanitizer lane on a loaded box.
-	- ID: 2026102411433800
-	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: a full run's sanitizer stage on a loaded box, beside another pipeline. If rj750n43 hangs at quit again, its log now has the stuck copy's threads and stacks.
-	- Priority|Severity: Low
-	- Opened: 20261024-114338
-	- Opened by: t00mietum
-	- Related IDs: 2026101613310525, 2026101513290717
-	- Target OS: Linux
-	- Steps to reproduce: a full run's sanitizer stage while other builds load the cores. On 20261024 the load was 23 to 35 on 32 cores.
-	- Incorrect behavior: all 3 failed in one sanitizer stage, which stopped the full run there. Each passed 3 of 3 alone right after, at load 10.
-		- rkbdyne7: the quickest varied folder took 327 ms to show all rows and the quickest plain one 490 ms, against a 180 ms bar.
-		- rk96k9va: the first folder took 340 ms and the quickest 181 ms, against 180 ms.
-		- rj750n43: the wait for the program to exit ran out at `test-nemo-cache-quit.c:461`, after 181 s, and the journal was still there at line 463.
-	- Expected behavior: they pass under load, or a slow box makes them skip or retry rather than fail the stage.
-	- Reproduced: 20261024 on Linux, once, in the full run of round1024b at 196653ba.
-	- Possible cause: the time bars and the exit wait were last tuned at load 21. The sanitizer build is about 3 times slower, and a full run beside another project's pipeline goes well past that load.
-	- Actual cause:
-		- rkbdyne7 and rk96k9va: a 180 ms bar is there to tell the old 200 ms timer from a fixed build, so it can't be scaled for a slow box (2026101613310525). A sanitizer build on a loaded box goes past it with the fix in.
-		- rj750n43: not found. The close of the busy folder took 0.5 to 2.9 s in 30 quits at load 21 to 30, against more than 156 s in the failed run. So it hung, and a longer wait isn't the fix.
-	- Progress log:
-		- 20261024: rkbdyne7, 4 at once at load about 22 in a sanitizer build: the quickest varied folder took 172 to 224 ms, so 3 of 4 were over the bar.
-		- 20261024: rj750n43, 6 at once at load 21 to 30, and in the whole sanitizer suite at 8 jobs: no hang.
-	- Decisions:
-		- The sanitizer lane runs both timed tests for the memory checks and the item counts, and leaves their time bars to the plain suite, which every gate runs.
-		- rk96k9va and rj750n43 were each closed once before for the same failure under load (2026101613310525, 2026101513290717). So rj750n43's wait isn't raised again until its cause is known.
-	- Actual fix:
-		- A sanitizer build doesn't hold the time bars of rkbdyne7 and rk96k9va (`TEST_TIME_BARS_HOLD` in `test-scratch.h`), and rk96k9va runs once there.
-		- rj750n43 prints how long each quit took. A copy that doesn't quit in time has its threads listed, with their stacks when gdb is there, and is killed, so it no longer runs on into the next run.
-	- Swept: every test with a fixed time bar; only these two have one. Every exit wait in rj750n43, the `--quit` copy's included, goes through the same report.
-	- Branch: round1024b
-	- Commit: ac5d30ac
-	- Test case: rkbdyne7, rk96k9va and rj750n43 themselves, in the sanitizer lane with the cores loaded.
-	- Verified: 20261024, the 3 tests pass in a sanitizer build, and so does the whole sanitizer suite, 220 OK and 15 skipped, at load about 15. rkbdyne7 passes 4 of 4 at once at load about 22, where 3 of 4 were over its bar. In a plain build the 3 pass with the bars held. A copy held past rj750n43's exit wait was listed with its threads and stacks and killed, and the test went on through its other runs. C lint clean, and the test ID check passes.
-
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
@@ -478,6 +442,42 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: round1024b
 	- Test case: rm1sbxgy, Selection rules test, Nemo Anywhere: the list view's key checks, the outline among them.
 	- Verified: 20261024, rm1sbxgy fails 10 checks with the new handlers bypassed and passes with them. rktkms8a, rktqpp37, rk7yvgse and rm1sbwdq pass. The full Linux suite, 234 OK and 1 skipped. The build and the Windows cross build with warnings as errors, the C lint and the test ID check pass.
+
+- rkbdyne7, rk96k9va and rj750n43 still fail in the sanitizer lane on a loaded box.
+	- ID: 2026102411433800
+	- Type: Bug
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: a full run's sanitizer stage on a loaded box, beside another pipeline. If rj750n43 hangs at quit again, its log now has the stuck copy's threads and stacks.
+	- Priority|Severity: Low
+	- Opened: 20261024-114338
+	- Opened by: t00mietum
+	- Related IDs: 2026101613310525, 2026101513290717
+	- Target OS: Linux
+	- Steps to reproduce: a full run's sanitizer stage while other builds load the cores. On 20261024 the load was 23 to 35 on 32 cores.
+	- Incorrect behavior: all 3 failed in one sanitizer stage, which stopped the full run there. Each passed 3 of 3 alone right after, at load 10.
+		- rkbdyne7: the quickest varied folder took 327 ms to show all rows and the quickest plain one 490 ms, against a 180 ms bar.
+		- rk96k9va: the first folder took 340 ms and the quickest 181 ms, against 180 ms.
+		- rj750n43: the wait for the program to exit ran out at `test-nemo-cache-quit.c:461`, after 181 s, and the journal was still there at line 463.
+	- Expected behavior: they pass under load, or a slow box makes them skip or retry rather than fail the stage.
+	- Reproduced: 20261024 on Linux, once, in the full run of round1024b at 196653ba.
+	- Possible cause: the time bars and the exit wait were last tuned at load 21. The sanitizer build is about 3 times slower, and a full run beside another project's pipeline goes well past that load.
+	- Actual cause:
+		- rkbdyne7 and rk96k9va: a 180 ms bar is there to tell the old 200 ms timer from a fixed build, so it can't be scaled for a slow box (2026101613310525). A sanitizer build on a loaded box goes past it with the fix in.
+		- rj750n43: not found. The close of the busy folder took 0.5 to 2.9 s in 30 quits at load 21 to 30, against more than 156 s in the failed run. So it hung, and a longer wait isn't the fix.
+	- Progress log:
+		- 20261024: rkbdyne7, 4 at once at load about 22 in a sanitizer build: the quickest varied folder took 172 to 224 ms, so 3 of 4 were over the bar.
+		- 20261024: rj750n43, 6 at once at load 21 to 30, and in the whole sanitizer suite at 8 jobs: no hang.
+	- Decisions:
+		- The sanitizer lane runs both timed tests for the memory checks and the item counts, and leaves their time bars to the plain suite, which every gate runs.
+		- rk96k9va and rj750n43 were each closed once before for the same failure under load (2026101613310525, 2026101513290717). So rj750n43's wait isn't raised again until its cause is known.
+	- Actual fix:
+		- A sanitizer build doesn't hold the time bars of rkbdyne7 and rk96k9va (`TEST_TIME_BARS_HOLD` in `test-scratch.h`), and rk96k9va runs once there.
+		- rj750n43 prints how long each quit took. A copy that doesn't quit in time has its threads listed, with their stacks when gdb is there, and is killed, so it no longer runs on into the next run.
+	- Swept: every test with a fixed time bar; only these two have one. Every exit wait in rj750n43, the `--quit` copy's included, goes through the same report.
+	- Branch: round1024b
+	- Commit: ac5d30ac
+	- Test case: rkbdyne7, rk96k9va and rj750n43 themselves, in the sanitizer lane with the cores loaded.
+	- Verified: 20261024, the 3 tests pass in a sanitizer build, and so does the whole sanitizer suite, 220 OK and 15 skipped, at load about 15. rkbdyne7 passes 4 of 4 at once at load about 22, where 3 of 4 were over its bar. In a plain build the 3 pass with the bars held. A copy held past rj750n43's exit wait was listed with its threads and stacks and killed, and the test went on through its other runs. C lint clean, and the test ID check passes.
 
 - rhr6ggmt can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
@@ -1426,108 +1426,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
-
-- Static analyzers: fix or suppress the findings in inherited upstream code.
-	- ID: 2026102114400587
-	- Type: Task
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261021-144005
-	- Opened by: t00mietum
-	- Parent ID: 2026101619020505
-	- Prereq IDs: 2026102114400584
-	- Requirements:
-		- Each finding in a file that came with the 6.6.4 baseline is fixed, or suppressed at the line with a one-line reason, per the parent.
-		- Many are expected to be GLib ref-count false positives. Split this item by folder if it runs long.
-	- Estimated effort: High
-	- Progress log:
-		- 20261024: 57 unique findings in the full run of 2026-10-24 08:43 (gcc-linux 12, gcc-win 21, clang-linux 34 by lane). None are ref counts; most are null dereferences and dead stores. Split by folder: `2026102412254358` (eel, 6), `...4361` (libnemo-private, 18), `...4363` (src, 33).
-		- 20261024: all 3 children done. 45 fixed and 12 suppressed with `EEL_ANALYZER_SKIP`, each with its reason on the line. 6 were real bugs. The 3 crashes have tests. The direct save leak, the freed icon sent with `icon_removed` and the canvas's unset return have none, since no test can reach them as they stand.
-		- Not covered yet: clang over the Windows list, which `...591` adds. Inherited lines inside `G_OS_WIN32` blocks get their first clang look then.
-	- Decisions:
-		- Some findings are fixed by an assert, not suppressed, where a suppression would only move the finding to the next line. See `...4363`.
-	- Test case: the gate in 2026102114400591, once live. A real bug fixed here gets its own test: rj46m24q, rhtq57n1 and rek3gd31.
-	- Verified: 20261024, each child's changed files analyzed in both lanes with no findings left, and the full Linux suite passes on the round branch with all 3 in.
-	- Acceptance signoff: Self-closed: per child.
-	- Closed: 20261024-130000
-
-- Static analyzers: inherited findings in `source/src/`.
-	- ID: 2026102412254363
-	- Type: Task
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261024-122543
-	- Opened by: t00mietum
-	- Parent ID: 2026102114400587
-	- Prereq IDs: 2026102412254358
-	- Requirements:
-		- The parent's requirements, for `source/src/`.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261024: 33 findings, 26 fixed and 7 suppressed. None was a crash anyone could reach.
-		- Fixed: 10 dead stores gone. `nemo-window.c` asserts the active slot where it needs one, and a view of no slot is skipped in `nemo_window_connect_content_view`. One more such slot, in `nemo_window_new_tab`, showed up once those were in, and got the same. The path bar asserts its search found a button, the query editor that it has itself, and the sorted image list that its head is still the caller's. A drop's empty title is tested as `title == NULL`, the theme combo compares with `g_strcmp0`, and the x-content bar won't take a NULL type.
-		- Suppressed: the empty-folder row's parent, `files` in the startup open, the paste menu's one-item selection, the error message when there's no error, and a child's parent while a tree node's children go.
-	- Decisions:
-		- An assert where code needs something that can't be missing, such as a window's active slot. Suppressing the one line leaves the rest of the path, and the next use gets reported instead, as the file self-check did.
-	- Swept: `nemo_window_disconnect_content_view` has the same slot test as connect but uses no slot, so it's left as it was. The other 15 `nemo_window_get_active_slot` calls in `nemo-window.c` aren't reported.
-	- Branch: round1024b
-	- Test case: none new, since nothing here changes what the app does. The gate in 2026102114400591 covers it, once live.
-	- Verified: 20261024, gcc and clang over the 17 changed files on the Linux list, and gcc over them on the Windows list: no findings. `nemo-main-application.c` with its old text gives its finding again on the Windows list. The full Linux suite passes (234, 1 skipped), the C lint passes, and the Windows release build is clean with `-Werror`.
-	- Acceptance signoff: Self-closed: the analyzer runs and the suite above.
-	- Closed: 20261024-125900
-
-- Static analyzers: inherited findings in `source/libnemo-private/`.
-	- ID: 2026102412254361
-	- Type: Task
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261024-122543
-	- Opened by: t00mietum
-	- Parent ID: 2026102114400587
-	- Prereq IDs: 2026102412254358
-	- Requirements:
-		- The parent's requirements, for `source/libnemo-private/`.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261024: 18 findings, 16 fixed and 2 suppressed.
-		- Fixed, real bugs: a drop with no files crashed `nemo_file_operations_copy_move` in every action (3 findings), and now reports back as a link drop with no folder does. A name that isn't UTF-8 crashed the name matcher in search. The tree's direct save leaked its file name and drop folder. `icon_removed` was sent with the freed icon, where its handlers take the icon's data.
-		- Fixed, the rest: 6 dead stores gone, one a full lookup per dragged icon. A one-item check and the action conditions test the list's head, not its length. `nemo_should_use_templates_directory` compares with `g_strcmp0`. The file self-check asserts it got a file.
-		- Suppressed: the use after free in `nemo_file_list_call_when_ready`, since the files still ahead keep the data alive, and a NULL MIME type on Windows, which can't happen.
-		- `.cppcheck-macros.h` has the 2 macros, for files that include the header as `<eel/...>`.
-	- Swept: every `g_list_length (selection) > 0` in `nemo-action.c` (7, all now `selection != NULL`). The icon view's direct save already frees both strings. Every caller of `get_drop_target_uri_at_pos` frees its result.
-	- Branch: round1024b
-	- Test case: rhtq57n1 (`test-nemo-drop-cancel`, an empty drop in each action) and rek3gd31 (`test-nemo-search-regex`, a name that isn't UTF-8 in both modes). The gate in 2026102114400591 covers the rest, once live.
-	- Verified: 20261024, gcc and clang over the 8 changed files on the Linux list, and gcc over them on the Windows list: no findings. rhtq57n1 and rek3gd31 crash with SIGSEGV without their fixes and pass with them. The C lint passes, and the build is clean with `-Werror`.
-	- Acceptance signoff: Self-closed: rhtq57n1, rek3gd31 and the analyzer runs above.
-	- Closed: 20261024-124700
-
-- Static analyzers: inherited findings in `source/eel/`.
-	- ID: 2026102412254358
-	- Type: Task
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261024-122543
-	- Opened by: t00mietum
-	- Parent ID: 2026102114400587
-	- Requirements:
-		- The parent's requirements, for `source/eel/`, plus gcc's infinite-loop finding in GLib's `g_return_*` macro reached from `eel-canvas.c`.
-		- Sets the in-line suppression form the other children and `...588` and `...589` use.
-	- Estimated effort: Low
-	- Actual effort: Low
-	- Progress log:
-		- 20261024: `source/eel/eel-analyzer.h` has `EEL_ANALYZER_SKIP ("<gcc name>")` and `EEL_ANALYZER_END` around one statement, with the reason as a comment on the SKIP line. It's `[[clang::suppress]]` under the clang analyzer and a `GCC diagnostic` push, ignore and pop under gcc, and nothing in either compiler's plain build.
-		- Fixed: `eel_str_replace_substring` passed a NULL replacement to `memcpy` when the substring matched. `eel_canvas_get_item_at` could return `item` unset when the root has no point method.
-		- Suppressed: 2 in `put_item_after`, where list membership means the pointer is set, and gcc's infinite loop in `g_error`.
-	- Decisions:
-		- One macro pair for both analyzers, since 6 of the inherited findings are reported by both at the same line. A per-site `#pragma` would also warn in a clang build, and `[[clang::suppress]]` warns in a gcc one.
-	- Swept: every finding in `source/eel/` in the 3 lanes' logs. The other 2 `g_error` calls outside the tests aren't reported by either analyzer.
-	- Branch: round1024b
-	- Test case: rj46m24q (`test-eel-string`) checks a NULL replacement on a match. The gate in 2026102114400591 covers the rest, once live.
-	- Verified: 20261024, gcc and clang over `eel-canvas.c` and `eel-string.c` on the Linux list, and gcc over them on the Windows list: no findings. With the files as they were, the same runs gave all 7. rj46m24q fails in the sanitizer build without the `memcpy` guard and passes with it, and passes in the plain build. The C lint passes, and the build is clean with `-Werror`.
-	- Acceptance signoff: Self-closed: rj46m24q and the analyzer runs above.
-	- Closed: 20261024-123500
 
 - In a move to another drive, a new name typed in the conflict dialog is lost, and Replace then overwrites the file with the old name.
 	- ID: 2026101419104655
@@ -3663,6 +3561,108 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rkbdyne7, Folder open time test. Goes into 9 folders of 120 from the list view, and back up after each. 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
 	- Acceptance signoff: Self-closed: rkbdyne7 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
+
+- Static analyzers: fix or suppress the findings in inherited upstream code.
+	- ID: 2026102114400587
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026102114400584
+	- Requirements:
+		- Each finding in a file that came with the 6.6.4 baseline is fixed, or suppressed at the line with a one-line reason, per the parent.
+		- Many are expected to be GLib ref-count false positives. Split this item by folder if it runs long.
+	- Estimated effort: High
+	- Progress log:
+		- 20261024: 57 unique findings in the full run of 2026-10-24 08:43 (gcc-linux 12, gcc-win 21, clang-linux 34 by lane). None are ref counts; most are null dereferences and dead stores. Split by folder: `2026102412254358` (eel, 6), `...4361` (libnemo-private, 18), `...4363` (src, 33).
+		- 20261024: all 3 children done. 45 fixed and 12 suppressed with `EEL_ANALYZER_SKIP`, each with its reason on the line. 6 were real bugs. The 3 crashes have tests. The direct save leak, the freed icon sent with `icon_removed` and the canvas's unset return have none, since no test can reach them as they stand.
+		- Not covered yet: clang over the Windows list, which `...591` adds. Inherited lines inside `G_OS_WIN32` blocks get their first clang look then.
+	- Decisions:
+		- Some findings are fixed by an assert, not suppressed, where a suppression would only move the finding to the next line. See `...4363`.
+	- Test case: the gate in 2026102114400591, once live. A real bug fixed here gets its own test: rj46m24q, rhtq57n1 and rek3gd31.
+	- Verified: 20261024, each child's changed files analyzed in both lanes with no findings left, and the full Linux suite passes on the round branch with all 3 in.
+	- Acceptance signoff: Self-closed: per child.
+	- Closed: 20261024-130000
+
+- Static analyzers: inherited findings in `source/src/`.
+	- ID: 2026102412254363
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261024-122543
+	- Opened by: t00mietum
+	- Parent ID: 2026102114400587
+	- Prereq IDs: 2026102412254358
+	- Requirements:
+		- The parent's requirements, for `source/src/`.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261024: 33 findings, 26 fixed and 7 suppressed. None was a crash anyone could reach.
+		- Fixed: 10 dead stores gone. `nemo-window.c` asserts the active slot where it needs one, and a view of no slot is skipped in `nemo_window_connect_content_view`. One more such slot, in `nemo_window_new_tab`, showed up once those were in, and got the same. The path bar asserts its search found a button, the query editor that it has itself, and the sorted image list that its head is still the caller's. A drop's empty title is tested as `title == NULL`, the theme combo compares with `g_strcmp0`, and the x-content bar won't take a NULL type.
+		- Suppressed: the empty-folder row's parent, `files` in the startup open, the paste menu's one-item selection, the error message when there's no error, and a child's parent while a tree node's children go.
+	- Decisions:
+		- An assert where code needs something that can't be missing, such as a window's active slot. Suppressing the one line leaves the rest of the path, and the next use gets reported instead, as the file self-check did.
+	- Swept: `nemo_window_disconnect_content_view` has the same slot test as connect but uses no slot, so it's left as it was. The other 15 `nemo_window_get_active_slot` calls in `nemo-window.c` aren't reported.
+	- Branch: round1024b
+	- Test case: none new, since nothing here changes what the app does. The gate in 2026102114400591 covers it, once live.
+	- Verified: 20261024, gcc and clang over the 17 changed files on the Linux list, and gcc over them on the Windows list: no findings. `nemo-main-application.c` with its old text gives its finding again on the Windows list. The full Linux suite passes (234, 1 skipped), the C lint passes, and the Windows release build is clean with `-Werror`.
+	- Acceptance signoff: Self-closed: the analyzer runs and the suite above.
+	- Closed: 20261024-125900
+
+- Static analyzers: inherited findings in `source/libnemo-private/`.
+	- ID: 2026102412254361
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261024-122543
+	- Opened by: t00mietum
+	- Parent ID: 2026102114400587
+	- Prereq IDs: 2026102412254358
+	- Requirements:
+		- The parent's requirements, for `source/libnemo-private/`.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261024: 18 findings, 16 fixed and 2 suppressed.
+		- Fixed, real bugs: a drop with no files crashed `nemo_file_operations_copy_move` in every action (3 findings), and now reports back as a link drop with no folder does. A name that isn't UTF-8 crashed the name matcher in search. The tree's direct save leaked its file name and drop folder. `icon_removed` was sent with the freed icon, where its handlers take the icon's data.
+		- Fixed, the rest: 6 dead stores gone, one a full lookup per dragged icon. A one-item check and the action conditions test the list's head, not its length. `nemo_should_use_templates_directory` compares with `g_strcmp0`. The file self-check asserts it got a file.
+		- Suppressed: the use after free in `nemo_file_list_call_when_ready`, since the files still ahead keep the data alive, and a NULL MIME type on Windows, which can't happen.
+		- `.cppcheck-macros.h` has the 2 macros, for files that include the header as `<eel/...>`.
+	- Swept: every `g_list_length (selection) > 0` in `nemo-action.c` (7, all now `selection != NULL`). The icon view's direct save already frees both strings. Every caller of `get_drop_target_uri_at_pos` frees its result.
+	- Branch: round1024b
+	- Test case: rhtq57n1 (`test-nemo-drop-cancel`, an empty drop in each action) and rek3gd31 (`test-nemo-search-regex`, a name that isn't UTF-8 in both modes). The gate in 2026102114400591 covers the rest, once live.
+	- Verified: 20261024, gcc and clang over the 8 changed files on the Linux list, and gcc over them on the Windows list: no findings. rhtq57n1 and rek3gd31 crash with SIGSEGV without their fixes and pass with them. The C lint passes, and the build is clean with `-Werror`.
+	- Acceptance signoff: Self-closed: rhtq57n1, rek3gd31 and the analyzer runs above.
+	- Closed: 20261024-124700
+
+- Static analyzers: inherited findings in `source/eel/`.
+	- ID: 2026102412254358
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261024-122543
+	- Opened by: t00mietum
+	- Parent ID: 2026102114400587
+	- Requirements:
+		- The parent's requirements, for `source/eel/`, plus gcc's infinite-loop finding in GLib's `g_return_*` macro reached from `eel-canvas.c`.
+		- Sets the in-line suppression form the other children and `...588` and `...589` use.
+	- Estimated effort: Low
+	- Actual effort: Low
+	- Progress log:
+		- 20261024: `source/eel/eel-analyzer.h` has `EEL_ANALYZER_SKIP ("<gcc name>")` and `EEL_ANALYZER_END` around one statement, with the reason as a comment on the SKIP line. It's `[[clang::suppress]]` under the clang analyzer and a `GCC diagnostic` push, ignore and pop under gcc, and nothing in either compiler's plain build.
+		- Fixed: `eel_str_replace_substring` passed a NULL replacement to `memcpy` when the substring matched. `eel_canvas_get_item_at` could return `item` unset when the root has no point method.
+		- Suppressed: 2 in `put_item_after`, where list membership means the pointer is set, and gcc's infinite loop in `g_error`.
+	- Decisions:
+		- One macro pair for both analyzers, since 6 of the inherited findings are reported by both at the same line. A per-site `#pragma` would also warn in a clang build, and `[[clang::suppress]]` warns in a gcc one.
+	- Swept: every finding in `source/eel/` in the 3 lanes' logs. The other 2 `g_error` calls outside the tests aren't reported by either analyzer.
+	- Branch: round1024b
+	- Test case: rj46m24q (`test-eel-string`) checks a NULL replacement on a match. The gate in 2026102114400591 covers the rest, once live.
+	- Verified: 20261024, gcc and clang over `eel-canvas.c` and `eel-string.c` on the Linux list, and gcc over them on the Windows list: no findings. With the files as they were, the same runs gave all 7. rj46m24q fails in the sanitizer build without the `memcpy` guard and passes with it, and passes in the plain build. The C lint passes, and the build is clean with `-Werror`.
+	- Acceptance signoff: Self-closed: rj46m24q and the analyzer runs above.
+	- Closed: 20261024-123500
 
 - Static analyzers: vendored findings go in a suppression list outside the files.
 	- ID: 2026102114400586
