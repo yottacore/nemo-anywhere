@@ -32,7 +32,7 @@
  * How the reader goes wrong rides on the bytes after the link. Now and then
  * it hands the link back whole and fails on the next header instead
  * (2026102307150011), so one more rar is written from files with pinned
- * times that rar 7.20 turns into that case. */
+ * times that rar 7.20 turns into that case under libarchive 3.7.x. */
 
 #include "test.h"
 
@@ -258,6 +258,16 @@ make_files (const char *dir,
 	}
 }
 
+/* Whether the loaded libarchive is a release seen handing the long link back
+   now and then, rather than always stopping at it. */
+static gboolean
+handback_seen_in_reader (void)
+{
+	int version = archive_version_number ();
+
+	return version >= 3007000 && version < 3008000;
+}
+
 /* Whether the reader hands the long link back as an entry of its own. */
 static gboolean
 link_handed_back (const char *archive_path)
@@ -410,10 +420,17 @@ main (int argc, char *argv[])
 	pinned_rar = g_build_filename (pinned_work, "long.rar", NULL);
 
 	/* Another rar may write other bytes, and then this case goes quietly
-	   untested. */
-	if (arc_rar_target_unreadable (TARGET_BYTES) && !link_handed_back (pinned_rar)) {
-		g_printerr ("FAIL: the reader no longer hands back the link in the pinned rar; pick another PINNED_NSEC\n");
-		failures++;
+	   untested. Only 3.7.x has been seen handing the link back; 3.8.7 stops
+	   at it whatever the bytes after it, so the pinned rar is then just one
+	   more stop (2026102307150011). */
+	if (handback_seen_in_reader ()) {
+		if (!link_handed_back (pinned_rar)) {
+			g_printerr ("FAIL: the reader no longer hands back the link in the pinned rar; pick another PINNED_NSEC\n");
+			failures++;
+		}
+	} else if (arc_rar_target_unreadable (TARGET_BYTES)) {
+		g_print ("note: %s isn't one seen handing the link back, so the pinned rar isn't checked for it\n",
+			 archive_version_string ());
 	}
 
 	window = test_window_new ("rar links test", 5);

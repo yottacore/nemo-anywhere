@@ -239,19 +239,36 @@ leaks = executable('test-nemo-leaks',
   c_args: nemo_definitions,
 )
 
-test('rjbkzvdv Job progress leak test', leaks, args: [ 'progress' ])
-test('rjbkzwe7 Move job leak test', leaks, args: [ 'move' ])
-test('rjbmdd0s Clipboard drag check leak test', leaks, args: [ 'clipboard' ])
-test('rjbmh7g1 Stopped zip leak test', leaks, args: [ 'zip-cancel' ])
-test('rjbn18rq Search query leak test', leaks, args: [ 'query-editor' ])
-test('rjbn19rn Bookmarks load leak test', leaks, args: [ 'bookmarks' ])
-test('rjbn328w Bookmarks file load leak test', leaks, args: [ 'bookmarks-file' ])
-test('rjbpmcxy Extract job leak test', leaks, args: [ 'extract' ])
-test('rjbqagjf Stopped tar.gz leak test', leaks, args: [ 'tar.gz-cancel' ])
-test('rjbw0rkq Stopped 7z leak test', leaks, args: [ '7z-cancel' ])
-test('rjcth67d Leak test self-check', leaks, args: [ 'self-check' ])
-test('rkneydx6 Settings save and reload leak test', leaks, args: [ 'settings' ])
-test('rkneydzr File checksum leak test', leaks, args: [ 'checksum' ])
+# On Windows each reading waits for the heap to sit still, COM traffic from
+# outside can keep it moving, and growth has to show 4 times there, so a case
+# can take twice its usual 15 s (2026101913541101).
+leakTimeout = is_windows ? 90 : 30
+test('rjbkzvdv Job progress leak test', leaks, args: [ 'progress' ],
+  timeout: leakTimeout)
+test('rjbkzwe7 Move job leak test', leaks, args: [ 'move' ],
+  timeout: leakTimeout)
+test('rjbmdd0s Clipboard drag check leak test', leaks, args: [ 'clipboard' ],
+  timeout: leakTimeout)
+test('rjbmh7g1 Stopped zip leak test', leaks, args: [ 'zip-cancel' ],
+  timeout: leakTimeout)
+test('rjbn18rq Search query leak test', leaks, args: [ 'query-editor' ],
+  timeout: leakTimeout)
+test('rjbn19rn Bookmarks load leak test', leaks, args: [ 'bookmarks' ],
+  timeout: leakTimeout)
+test('rjbn328w Bookmarks file load leak test', leaks, args: [ 'bookmarks-file' ],
+  timeout: leakTimeout)
+test('rjbpmcxy Extract job leak test', leaks, args: [ 'extract' ],
+  timeout: leakTimeout)
+test('rjbqagjf Stopped tar.gz leak test', leaks, args: [ 'tar.gz-cancel' ],
+  timeout: leakTimeout)
+test('rjbw0rkq Stopped 7z leak test', leaks, args: [ '7z-cancel' ],
+  timeout: leakTimeout)
+test('rjcth67d Leak test self-check', leaks, args: [ 'self-check' ],
+  timeout: leakTimeout)
+test('rkneydx6 Settings save and reload leak test', leaks, args: [ 'settings' ],
+  timeout: leakTimeout)
+test('rkneydzr File checksum leak test', leaks, args: [ 'checksum' ],
+  timeout: leakTimeout)
 test('rkneye2c Multi-row drag leak test', leaks, args: [ 'drag' ],
   timeout: 180)       # every round waits out GDK's snap-back, about half a second
 

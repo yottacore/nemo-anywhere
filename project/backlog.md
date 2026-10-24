@@ -407,31 +407,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261022, on vm925w in the desktop session with the single exe: after Properties (Ctrl+Enter) closed with Escape, and again with the title bar's close button, the first Delete brought up the delete question. After switching to another program and back, a Delete at once was ignored, and one 1.5 s later asked. rkmsgs9m passes in the FreeBSD lane.
 	- Verified: 20261023, on vm925w in the desktop session with the single exe packed from round1023: after Windows properties (Alt+Enter) closed with Escape, and again with the title bar's close button, the first Delete brought up the delete question. After switching to another program and back, a Delete at once was ignored, and one 1.5 s later asked.
 
-- rk65m3m4 fails in the full Linux suite with "Header CRC error".
-	- ID: 2026102307150011
-	- Type: Bug
-	- Status: Queued
-	- Needs external testing: rk65m3m4 in the FreeBSD lane again, once its pinned rar check is fixed as in the progress log.
-	- Priority|Severity: Low
-	- Opened: 20261023-071500
-	- Opened by: t00mietum
-	- Related IDs: 2026101916300276, 2026101312094706
-	- Target OS: Linux
-	- Steps to reproduce: `cicd/cicd.bash -y --no-sync --no-dogfood --no-publish` on dev `4b5a9b75`, load about 8, 20 GB of swap in use.
-	- Incorrect behavior: the long, head and 7z archives couldn't be read, "Header CRC error", so `z.txt` wasn't unpacked from any of them. The check added in 2026101916300276 for an archive written short didn't fire.
-	- Expected behavior: passes in the suite, as it does alone.
-	- Reproduced: once, 20261023. Alone in the same container right after, it passed 6 of 6.
-		- 20261023: 2 of 400 writes of the same 3 files did it, with libarchive 3.7.4 and rar 7.20. Every write did it with the file times pinned to one of those 2.
-	- Possible cause: not known. The archives were whole enough to list but not to unpack, so it's not the short write seen before.
-	- Actual cause: not load. After a long rar link target, libarchive 3.8.9 and older reads on one byte off, and what it does next rides on the bytes after the link, which change with the file times. Mostly it stops at the link, which extracting catches. About 1 time in 200 it hands the link back whole and fails on the next header, with the link gone from the entry. That read as a plain read error, so neither rar nor 7-Zip got the archive. tail.rar never does it, since what follows its link is always the same.
-	- Actual fix: a long rar link handed back by an affected libarchive is a stop too. The link isn't placed, and rar or 7-Zip takes the archive over as for the usual stop. The check before a delete counts such a link as unreadable whether it was listed or not. It refused the delete before too, with a less clear reason.
-	- Swept: every libarchive reader. The check before a delete is fixed as above, and `nemo-office.c` reads zip only.
-	- Test case: rk65m3m4, with a fourth rar written from files with pinned times that rar 7.20 turns into this case, unpacked with rar, with only 7-Zip and with neither. It fails too if the affected reader stops handing back the link in that rar.
-	- Verified: 20261023: rk65m3m4 failed on the old extract code with the pinned rar, with the same rows and messages as in the suite, and passed 3 of 3 after. The pinned rar's check fails with the time 2 ns off. rhr6ggmt, rewygsbg, reww9h2s, reww9h2r, rjq9mv0w and rk6704r8 pass. The gate passed, 231 OK and 1 skipped.
-	- Progress log:
-		- 20261023: back to Queued. In the FreeBSD lane on round1023 (libarchive 3.8.7, rar 7.23) rk65m3m4 fails only its own pin check, "the reader no longer hands back the link in the pinned rar". Every unpack row passed. No time can fix that there: 3.8.7 never hands the link back. It stopped at the link in 300 of 300 rars written with other times, and the pinned rar written by rar 7.20, which 3.7.4 hands back, stops 3.8.7 at the link with "unsupported structure of file header extra data". So the check should ask for the hand-back only from a reader seen doing it, such as 3.7.x, and say it's left out elsewhere.
-	- Branch: round1023
-
 - rhtmbdmj crashed once in the native Windows suite.
 	- ID: 2026102221362030
 	- Type: Bug
@@ -459,42 +434,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261023, the native suite on vm925w as wintest in the desktop session, from a fresh clone of round1023, 3 runs: no crash and no 0xb00 in any. 201, 202 and 202 OK. rhtmbdmj, rjnzpkk7 and rknjd2qn passed in all 3. What did fail is on other items: rhtmbdmh in all 3 (2026102219444662), rhtmbdma in all 3 (2026102322330406), and rjbmh7g1 timed out once (2026101913541101).
 	- Acceptance signoff: Self-closed: 3 native suite runs with no crash, where every run before the fix had one, and rknjd2qn pins the load race.
 	- Closed: 20261023-223600
-
-- On Windows, the bookmarks file leak case can't tell a leak from what COM does on its own.
-	- ID: 2026101913541101
-	- Type: Bug
-	- Status: Queued
-	- Needs external testing: the native gate on vm925w again, once the time limit below is settled.
-	- Priority|Severity: Low
-	- Opened: 20261019-135411
-	- Opened by: t00mietum
-	- Related IDs: 2026101715252260
-	- Target OS: Windows
-	- Incorrect behavior: while a bookmark loads, the process heap moves by a few 4 KB COM buffers either way. Over a reading that is more than a leak of a block a round would add, so rjbn328w fails now and then with no leak. The buffers name an app package, so something asks Windows about apps or folders, but what makes the call wasn't found.
-	- Expected behavior: rjbn328w runs on Windows and passes every time.
-	- Actual cause: each bookmark's exists check calls `nemo_location_is_network_safe`, which lists the mounts to find the one the bookmark is on. The Windows drive list named every drive as it was made, and naming a local drive goes through the shell's namespace (`SHGetDesktopFolder`, `ParseDisplayName`). That consults the shell's namespace extensions, the WSL one among them, which is a packaged app. Likely the COM traffic seen, not confirmed natively.
-		- The same check runs for every bookmark on each rebuild of the side pane, so that paid one shell trip per drive per bookmark too.
-		- 20261023: what was left isn't the load. GIO starts a scan of the installed apps from its DllMain, on a worker thread, in every process. Its package walk asks each package for its install folder, which brings Windows' `windows.storage` and `Windows.FileExplorer.Common` into the process about 1 s after start. From then on COM calls come into that code from outside, the first about 5 s after it loads, and each takes or gives back a 4 KB buffer in the process heap. Nothing in the counted rounds calls into COM, from the app, GLib or GTK.
-	- Actual fix: a drive's name is made the first time it is asked for. A list for its roots alone no longer asks the shell anything.
-		- 20261023: on Windows a leak case reads again until growth has shown 4 times, not 2. A leak grows the heap in every reading. The COM traffic was seen to grow 2 readings in a row, then give it back.
-	- Decisions:
-		- Nothing to do in the app, since GIO starts the scan when it loads.
-		- Read again, rather than leave out the process heap or blocks of that size, which would hide a real leak there.
-		- Against: winleak tried a third reading on Windows and dropped it on 20261019, since it still flaked. That was before the drive name fix took the shell trip per bookmark away.
-	- Progress log:
-		- 20261021: rjbn328w no longer answers 77 on Windows. Under wine it still answers 77, since the heap can't be read there.
-		- 20261021: rktexj0a counts the shell calls. It fails before the fix, 2 calls for the list and 4 by the end of the network check, and passes after with 0, then 1 for the name. rjhvmm6f still passes. The leak cases pass on Linux.
-		- 20261023: back from Queued, after 1 failure in 6 runs on vm925w. Cause found, fix above.
-		- 20261023: back to Queued. In the first of those 3 runs rjbmh7g1 (Stopped zip leak test) timed out at 31.3 s, past meson's default 30 s. It took 15.0 and 15.1 s in the other 2. Likely the 4 showings: a case that sees the COM noise reads again, each reading waits for the heap to sit still, and the leak cases keep the default limit. Options: a longer limit for the leak cases on Windows, or fewer rounds there. Not looked into further.
-	- Swept: the other `nemo_get_mounts` callers. The side pane, path bar and tree want names, and still get them. The view's mount check and `get_mount_at` in `nemo-directory-async.c` want only locations, and gain as well. GLib's own `g_file_find_enclosing_mount` still names its mount through the shell, but the bookmark load doesn't ask for a mount.
-		- 20261023: `test_heap_growth` is the only place readings are taken, for every case in `test-nemo-leaks.c` and the list read check in `test-nemo-config.c`, so all of them get the 4 showings on Windows. No other count of showings in `source/test/`.
-	- Branch: round1021, round1023
-	- Commit: 2da98315, 72c85e97
-	- Test case: rjbn328w on Windows, and rktexj0a, which checks that listing the drives asks the shell nothing until a name is wanted. rjcth67d checks that a planted leak still fails with 4 showings.
-	- Verified: 20261022, on vm925w: rjbn328w passes 7 runs of 7, 0 bytes over 64 rounds each, once after a 640-byte reading was taken again. rktexj0a passes natively over ssh and in the desktop session: no shell call for the list or the network check, 1 for the name.
-	- Verified: 20261023, on vm925w in the desktop session: rjbn328w failed 1 run of 6, with the heap 4368 bytes up over 64 rounds after the reading was taken again. So something else in the load still reaches COM now and then, and the fix above wasn't all of it.
-	- Verified: 20261023 evening, on vm925w in the desktop session: rjbn328w with 4 showings passed 6 runs of 6. In one, 2 readings in a row grew, 4912 and 4368 bytes, before one read 0, which the old rule fails. A batch of 6 the same evening with the old rule failed once, 8736 then 4368 bytes. rjcth67d still reads its planted 2048 bytes and passes. On Linux rjbn328w, rjbn19rn, rkneydzr and rjcth67d still pass, with 2 showings.
-	- Verified: 20261023, 3 native suite runs on vm925w as wintest in the desktop session, from a fresh clone of round1023: rjbn328w passed 3 of 3 (13.7, 10.8 and 20.8 s), and rjcth67d 3 of 3.
 
 - rhr6ggmt can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
@@ -662,22 +601,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261020: opened.
 	- Test case: none yet.
-
-- On Windows the native stage step fails: the stripped exe is over the size check's ceiling.
-	- ID: 2026102322240701
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261023-222407
-	- Opened by: 2026102221362030
-	- Target OS: Windows
-	- Test environment: vm925w, a fresh clone of round1023, native build from `cicd-win.ps1 -Gate`.
-	- Steps to reproduce: `bash cicd/win/stage-native.bash cicd/artifacts/build-win cicd/artifacts/win-run` in MSYS2's mingw64 shell after a native build, or a `cicd-win.ps1` run that gets to stage 4.
-	- Incorrect behavior: rh8vbs38 (`check-win-build-flags.bash --shipped`) fails, "12583016 bytes, over the 12582912 ceiling - this is a debug link", and staging stops. The bundle is all there, so `pack-portable.ps1` run on its own still packs it. A full native run, and the Windows dogfood stage, stop at stage 4.
-	- Expected behavior: a stripped native build stages and packs.
-	- Reproduced: 20261023 on vm925w, round1023 at `55d21116`. Over by 104 bytes.
-	- Possible cause: the stripped native exe grew past 12 MiB with this round's code. The ceiling is there to catch a debug link, and the native build is a debug build, stripped. The cross build's exe is checked against the same ceiling, and passes.
-	- Test case: rh8vbs38 itself, on the native stage.
 
 - Static analyzers: vendored findings go in a suppression list outside the files.
 	- ID: 2026102114400586
@@ -1166,6 +1089,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261023, 3 of 3 native suite runs. The same build's exe run alone in the desktop session, outside the jail, passed 3 of 3.
 	- Possible cause: not known. New in round1023 are rm0d1tdd, which moves the focus between threads and other programs and runs near it in the suite, and the fence's load notice. Not looked into.
 	- Test case: rhtmbdma.
+	- Progress log:
+		- 20261023: passed in 1 native gate run from a clone of round1023-fix, whose changes don't touch it. Ruled out: another program's window up front when it starts, since alone in the desktop session with Notepad started just before, it passed 3 of 3 (whether Notepad held the front wasn't checked). The fence alone, since it's linked into the exe run alone too. GTK's "no trigger event" line comes in every passing run too, so it isn't the sign. Only the first 2 pop-ups have failed, the ones right after the window first shows, and the ones after them in the same run passed.
 
 - rhtmbdmh fails in vm925w's desktop session.
 	- ID: 2026102219444662
@@ -1251,6 +1176,104 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- On Windows the native stage step fails: the stripped exe is over the size check's ceiling.
+	- ID: 2026102322240701
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261023-222407
+	- Opened by: 2026102221362030
+	- Target OS: Windows
+	- Test environment: vm925w, a fresh clone of round1023, native build from `cicd-win.ps1 -Gate`.
+	- Steps to reproduce: `bash cicd/win/stage-native.bash cicd/artifacts/build-win cicd/artifacts/win-run` in MSYS2's mingw64 shell after a native build, or a `cicd-win.ps1` run that gets to stage 4.
+	- Incorrect behavior: rh8vbs38 (`check-win-build-flags.bash --shipped`) fails, "12583016 bytes, over the 12582912 ceiling - this is a debug link", and staging stops. The bundle is all there, so `pack-portable.ps1` run on its own still packs it. A full native run, and the Windows dogfood stage, stop at stage 4.
+	- Expected behavior: a stripped native build stages and packs.
+	- Reproduced: 20261023 on vm925w, round1023 at `55d21116`. Over by 104 bytes.
+	- Possible cause: the stripped native exe grew past 12 MiB with this round's code. The ceiling is there to catch a debug link, and the native build is a debug build, stripped. The cross build's exe is checked against the same ceiling, and passes.
+	- Actual cause: not this round's code. Debug cross builds of dev `5ecf9226` and of `55d21116`, stripped as the stage strips them, differ by 1077 bytes, so dev's native exe was already about 1 KB under the ceiling. The native lane stages its debug build, stripped, and that grew past 12 MiB with the code. The ceiling was set when a stripped release was 8.3 MB. On 20261023 a stripped release is 10.8 MB, and a debug link 21.0 MB.
+	- Actual fix: the ceiling is 16 MiB, about midway between the native exe's 12.6 MB and a debug link's 21.0 MB, with those sizes beside it. The `--shipped` count of debug sections is still the main check.
+	- Decisions:
+		- A higher ceiling, rather than a release build in the native lane, since that lane stages the build its suite tested.
+	- Swept: the size check has 2 callers, `build-cross.bash` (release, 10.8 MB) and `stage-native.bash`.
+	- Branch: round1023-fix
+	- Commit: e8ce691c
+	- Test case: rh8vbs38 itself, on the native stage.
+	- Verified: 20261023, the check passes a file of 12583016 bytes and fails the 21.0 MB debug link. On vm925w the native stage and pack passed from a clone of round1023-fix: rh8vbs38 OK, the staged exe 12583016 bytes, the single exe packed and its smoke run passed.
+	- Acceptance signoff: Self-closed: the stage runs again, and the check still fails a debug link.
+	- Closed: 20261023-230148
+
+- rk65m3m4 fails in the full Linux suite with "Header CRC error".
+	- ID: 2026102307150011
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: done 20261023, see below.
+	- Priority|Severity: Low
+	- Opened: 20261023-071500
+	- Opened by: t00mietum
+	- Related IDs: 2026101916300276, 2026101312094706
+	- Target OS: Linux
+	- Steps to reproduce: `cicd/cicd.bash -y --no-sync --no-dogfood --no-publish` on dev `4b5a9b75`, load about 8, 20 GB of swap in use.
+	- Incorrect behavior: the long, head and 7z archives couldn't be read, "Header CRC error", so `z.txt` wasn't unpacked from any of them. The check added in 2026101916300276 for an archive written short didn't fire.
+	- Expected behavior: passes in the suite, as it does alone.
+	- Reproduced: once, 20261023. Alone in the same container right after, it passed 6 of 6.
+		- 20261023: 2 of 400 writes of the same 3 files did it, with libarchive 3.7.4 and rar 7.20. Every write did it with the file times pinned to one of those 2.
+	- Possible cause: not known. The archives were whole enough to list but not to unpack, so it's not the short write seen before.
+	- Actual cause: not load. After a long rar link target, libarchive 3.8.9 and older reads on one byte off, and what it does next rides on the bytes after the link, which change with the file times. Mostly it stops at the link, which extracting catches. About 1 time in 200 it hands the link back whole and fails on the next header, with the link gone from the entry. That read as a plain read error, so neither rar nor 7-Zip got the archive. tail.rar never does it, since what follows its link is always the same.
+	- Actual fix: a long rar link handed back by an affected libarchive is a stop too. The link isn't placed, and rar or 7-Zip takes the archive over as for the usual stop. The check before a delete counts such a link as unreadable whether it was listed or not. It refused the delete before too, with a less clear reason.
+	- Swept: every libarchive reader. The check before a delete is fixed as above, and `nemo-office.c` reads zip only.
+	- Test case: rk65m3m4, with a fourth rar written from files with pinned times that rar 7.20 turns into this case, unpacked with rar, with only 7-Zip and with neither. It fails too if the affected reader stops handing back the link in that rar.
+	- Verified: 20261023: rk65m3m4 failed on the old extract code with the pinned rar, with the same rows and messages as in the suite, and passed 3 of 3 after. The pinned rar's check fails with the time 2 ns off. rhr6ggmt, rewygsbg, reww9h2s, reww9h2r, rjq9mv0w and rk6704r8 pass. The gate passed, 231 OK and 1 skipped.
+	- Progress log:
+		- 20261023: back to Queued. In the FreeBSD lane on round1023 (libarchive 3.8.7, rar 7.23) rk65m3m4 fails only its own pin check, "the reader no longer hands back the link in the pinned rar". Every unpack row passed. No time can fix that there: 3.8.7 never hands the link back. It stopped at the link in 300 of 300 rars written with other times, and the pinned rar written by rar 7.20, which 3.7.4 hands back, stops 3.8.7 at the link with "unsupported structure of file header extra data". So the check should ask for the hand-back only from a reader seen doing it, such as 3.7.x, and say it's left out elsewhere.
+		- 20261023: done. The pin check asks for the hand-back only from libarchive 3.7.x, and elsewhere prints a note that it's left out.
+	- Branch: round1023, round1023-fix
+	- Commit: e8ce691c
+	- Verified: 20261023, rk65m3m4 passes on vmFreeBSD (libarchive 3.8.7, rar 7.23), with the note that the pin check is left out, and in `nemo-build` (3.7.4), where the check still runs. The Linux gate passed, 231 OK and 1 skipped.
+	- Acceptance signoff: Self-closed: a fix to a test, and every unpack row passes on both readers.
+	- Closed: 20261023-230148
+
+- On Windows, the bookmarks file leak case can't tell a leak from what COM does on its own.
+	- ID: 2026101913541101
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: done 20261023, see below.
+	- Priority|Severity: Low
+	- Opened: 20261019-135411
+	- Opened by: t00mietum
+	- Related IDs: 2026101715252260
+	- Target OS: Windows
+	- Incorrect behavior: while a bookmark loads, the process heap moves by a few 4 KB COM buffers either way. Over a reading that is more than a leak of a block a round would add, so rjbn328w fails now and then with no leak. The buffers name an app package, so something asks Windows about apps or folders, but what makes the call wasn't found.
+	- Expected behavior: rjbn328w runs on Windows and passes every time.
+	- Actual cause: each bookmark's exists check calls `nemo_location_is_network_safe`, which lists the mounts to find the one the bookmark is on. The Windows drive list named every drive as it was made, and naming a local drive goes through the shell's namespace (`SHGetDesktopFolder`, `ParseDisplayName`). That consults the shell's namespace extensions, the WSL one among them, which is a packaged app. Likely the COM traffic seen, not confirmed natively.
+		- The same check runs for every bookmark on each rebuild of the side pane, so that paid one shell trip per drive per bookmark too.
+		- 20261023: what was left isn't the load. GIO starts a scan of the installed apps from its DllMain, on a worker thread, in every process. Its package walk asks each package for its install folder, which brings Windows' `windows.storage` and `Windows.FileExplorer.Common` into the process about 1 s after start. From then on COM calls come into that code from outside, the first about 5 s after it loads, and each takes or gives back a 4 KB buffer in the process heap. Nothing in the counted rounds calls into COM, from the app, GLib or GTK.
+	- Actual fix: a drive's name is made the first time it is asked for. A list for its roots alone no longer asks the shell anything.
+		- 20261023: on Windows a leak case reads again until growth has shown 4 times, not 2. A leak grows the heap in every reading. The COM traffic was seen to grow 2 readings in a row, then give it back.
+	- Decisions:
+		- Nothing to do in the app, since GIO starts the scan when it loads.
+		- Read again, rather than leave out the process heap or blocks of that size, which would hide a real leak there.
+		- A longer time limit on Windows, rather than fewer rounds, which would shrink what a reading can see.
+		- Against: winleak tried a third reading on Windows and dropped it on 20261019, since it still flaked. That was before the drive name fix took the shell trip per bookmark away.
+	- Progress log:
+		- 20261021: rjbn328w no longer answers 77 on Windows. Under wine it still answers 77, since the heap can't be read there.
+		- 20261021: rktexj0a counts the shell calls. It fails before the fix, 2 calls for the list and 4 by the end of the network check, and passes after with 0, then 1 for the name. rjhvmm6f still passes. The leak cases pass on Linux.
+		- 20261023: back from Queued, after 1 failure in 6 runs on vm925w. Cause found, fix above.
+		- 20261023: back to Queued. In the first of those 3 runs rjbmh7g1 (Stopped zip leak test) timed out at 31.3 s, past meson's default 30 s. It took 15.0 and 15.1 s in the other 2. Likely the 4 showings: a case that sees the COM noise reads again, each reading waits for the heap to sit still, and the leak cases keep the default limit. Options: a longer limit for the leak cases on Windows, or fewer rounds there. Not looked into further.
+		- 20261023: the leak cases get 90 s on Windows and keep meson's 30 s elsewhere. rkneye2c keeps its 180 s.
+	- Swept: the other `nemo_get_mounts` callers. The side pane, path bar and tree want names, and still get them. The view's mount check and `get_mount_at` in `nemo-directory-async.c` want only locations, and gain as well. GLib's own `g_file_find_enclosing_mount` still names its mount through the shell, but the bookmark load doesn't ask for a mount.
+		- 20261023: `test_heap_growth` is the only place readings are taken, for every case in `test-nemo-leaks.c` and the list read check in `test-nemo-config.c`, so all of them get the 4 showings on Windows. No other count of showings in `source/test/`.
+		- 20261023: the time limit covers all 13 cases in `test-nemo-leaks.c`. rdjjz89r, the config test with the list read check, already has 90 s.
+	- Branch: round1021, round1023, round1023-fix
+	- Commit: 2da98315, 72c85e97, e8ce691c
+	- Test case: rjbn328w on Windows, and rktexj0a, which checks that listing the drives asks the shell nothing until a name is wanted. rjcth67d checks that a planted leak still fails with 4 showings.
+	- Verified: 20261022, on vm925w: rjbn328w passes 7 runs of 7, 0 bytes over 64 rounds each, once after a 640-byte reading was taken again. rktexj0a passes natively over ssh and in the desktop session: no shell call for the list or the network check, 1 for the name.
+	- Verified: 20261023, on vm925w in the desktop session: rjbn328w failed 1 run of 6, with the heap 4368 bytes up over 64 rounds after the reading was taken again. So something else in the load still reaches COM now and then, and the fix above wasn't all of it.
+	- Verified: 20261023 evening, on vm925w in the desktop session: rjbn328w with 4 showings passed 6 runs of 6. In one, 2 readings in a row grew, 4912 and 4368 bytes, before one read 0, which the old rule fails. A batch of 6 the same evening with the old rule failed once, 8736 then 4368 bytes. rjcth67d still reads its planted 2048 bytes and passes. On Linux rjbn328w, rjbn19rn, rkneydzr and rjcth67d still pass, with 2 showings.
+	- Verified: 20261023, 3 native suite runs on vm925w as wintest in the desktop session, from a fresh clone of round1023: rjbn328w passed 3 of 3 (13.7, 10.8 and 20.8 s), and rjcth67d 3 of 3.
+	- Verified: 20261023, the native gate on vm925w as wintest in the desktop session, from a clone of round1023-fix: every leak case passed, rjbmh7g1 in 14.9 s and rjbn328w in 10.6 s, apart from rkneydx6, which answers 77 there as before.
+	- Acceptance signoff: Self-closed: rjbn328w passed 10 native runs in a row with 4 showings, and the leak cases now have room for them.
+	- Closed: 20261023-230148
 
 - In a move to another drive, a new name typed in the conflict dialog is lost, and Replace then overwrites the file with the old name.
 	- ID: 2026101419104655
