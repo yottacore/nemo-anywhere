@@ -174,9 +174,12 @@ static gboolean
 check_entry_text (NemoQueryEditor *editor)
 {
     GError *error = NULL;
-    NemoQuery *query = nemo_query_editor_get_query (editor);
+    NemoQuery *query;
     gboolean filename_ok = FALSE;
     gboolean content_ok = FALSE;
+
+    g_assert (editor != NULL);
+    query = nemo_query_editor_get_query (editor);
 
     if (!nemo_search_engine_check_filename_pattern (query, &error) && error != NULL) {
         gtk_widget_set_tooltip_text (editor->priv->file_entry, error->message);

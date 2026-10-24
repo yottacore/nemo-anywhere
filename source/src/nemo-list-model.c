@@ -36,6 +36,7 @@
 
 #include <libegg/eggtreemultidnd.h>
 #include <eel/eel-graphic-effects.h>
+#include <eel/eel-analyzer.h>
 #include <libnemo-private/nemo-dnd.h>
 #include <libnemo-private/nemo-file-utilities.h>
 
@@ -517,11 +518,13 @@ nemo_list_model_get_value (GtkTreeModel *tree_model, GtkTreeIter *iter, int colu
                 }
 				g_value_take_string (value, str);
 			} else if (attribute == attribute_name_q) {
+				EEL_ANALYZER_SKIP ("null-dereference") // a row with no file is a folder's placeholder, so it has a parent
 				if (file_entry->parent->loaded) {
 					g_value_set_string (value, _("(Empty)"));
 				} else {
 					g_value_set_string (value, _("Loading..."));
 				}
+				EEL_ANALYZER_END
 			}
 		} else {
 			g_assert_not_reached ();

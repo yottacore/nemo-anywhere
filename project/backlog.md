@@ -915,37 +915,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: opened.
 	- Test case: none yet.
 
-- Static analyzers: fix or suppress the findings in inherited upstream code.
-	- ID: 2026102114400587
-	- Type: Task
-	- Status: Started
-	- Priority|Severity: Avg
-	- Opened: 20261021-144005
-	- Opened by: t00mietum
-	- Parent ID: 2026101619020505
-	- Prereq IDs: 2026102114400584
-	- Requirements:
-		- Each finding in a file that came with the 6.6.4 baseline is fixed, or suppressed at the line with a one-line reason, per the parent.
-		- Many are expected to be GLib ref-count false positives. Split this item by folder if it runs long.
-	- Estimated effort: High
-	- Progress log:
-		- 20261024: 57 unique findings in the full run of 2026-10-24 08:43 (gcc-linux 12, gcc-win 21, clang-linux 34 by lane). None are ref counts; most are null dereferences and dead stores. Split by folder: `2026102412254358` (eel, 6), `...4361` (libnemo-private, 18), `...4363` (src, 33).
-	- Test case: the gate in 2026102114400591, once live. A real bug fixed here gets its own test.
-
-- Static analyzers: inherited findings in `source/src/`.
-	- ID: 2026102412254363
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261024-122543
-	- Opened by: t00mietum
-	- Parent ID: 2026102114400587
-	- Prereq IDs: 2026102412254358
-	- Requirements:
-		- The parent's requirements, for `source/src/`.
-	- Estimated effort: Avg
-	- Test case: the gate in 2026102114400591, once live.
-
 - Static analyzers: fix or suppress the findings in our own code.
 	- ID: 2026102114400588
 	- Type: Task
@@ -1388,6 +1357,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- F2 selects the name without the extension, as upstream does.
 	- Test case: none yet.
 
+- In the icon views, removing an icon never tells the accessibility tree.
+	- ID: 2026102412590587
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261024-125905
+	- Opened by: t00mietum
+	- Related IDs: 2026102412254361
+	- Steps to reproduce [Bug]:
+		- With a screen reader or an accessibility inspector on, delete or move a file out of a folder shown in an icon view.
+	- Incorrect behavior [Bug]: no `children_changed::remove` is sent for the icon.
+	- Expected behavior [Bug]: the accessible parent says which child went.
+	- Reproduced [Bug]: No. Read from the code only.
+	- Possible cause [Bug]: `nemo_icon_container_accessible_icon_removed_cb` looks the icon up in `icon_set`, but `icon_removed` is sent after `icon_destroy` has taken it out, so the lookup always misses. Until `...4361` the signal was also sent the icon in place of its data, the wrong key.
+	- Estimated effort: Low
+	- Test case: none yet.
+
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066
 	- Type: Enhancement
@@ -1440,6 +1426,56 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- Static analyzers: fix or suppress the findings in inherited upstream code.
+	- ID: 2026102114400587
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026102114400584
+	- Requirements:
+		- Each finding in a file that came with the 6.6.4 baseline is fixed, or suppressed at the line with a one-line reason, per the parent.
+		- Many are expected to be GLib ref-count false positives. Split this item by folder if it runs long.
+	- Estimated effort: High
+	- Progress log:
+		- 20261024: 57 unique findings in the full run of 2026-10-24 08:43 (gcc-linux 12, gcc-win 21, clang-linux 34 by lane). None are ref counts; most are null dereferences and dead stores. Split by folder: `2026102412254358` (eel, 6), `...4361` (libnemo-private, 18), `...4363` (src, 33).
+		- 20261024: all 3 children done. 45 fixed and 12 suppressed with `EEL_ANALYZER_SKIP`, each with its reason on the line. 6 were real bugs. The 3 crashes have tests. The direct save leak, the freed icon sent with `icon_removed` and the canvas's unset return have none, since no test can reach them as they stand.
+		- Not covered yet: clang over the Windows list, which `...591` adds. Inherited lines inside `G_OS_WIN32` blocks get their first clang look then.
+	- Decisions:
+		- Some findings are fixed by an assert, not suppressed, where a suppression would only move the finding to the next line. See `...4363`.
+	- Test case: the gate in 2026102114400591, once live. A real bug fixed here gets its own test: rj46m24q, rhtq57n1 and rek3gd31.
+	- Verified: 20261024, each child's changed files analyzed in both lanes with no findings left, and the full Linux suite passes on the round branch with all 3 in.
+	- Acceptance signoff: Self-closed: per child.
+	- Closed: 20261024-130000
+
+- Static analyzers: inherited findings in `source/src/`.
+	- ID: 2026102412254363
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261024-122543
+	- Opened by: t00mietum
+	- Parent ID: 2026102114400587
+	- Prereq IDs: 2026102412254358
+	- Requirements:
+		- The parent's requirements, for `source/src/`.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261024: 33 findings, 26 fixed and 7 suppressed. None was a crash anyone could reach.
+		- Fixed: 10 dead stores gone. `nemo-window.c` asserts the active slot where it needs one, and a view of no slot is skipped in `nemo_window_connect_content_view`. One more such slot, in `nemo_window_new_tab`, showed up once those were in, and got the same. The path bar asserts its search found a button, the query editor that it has itself, and the sorted image list that its head is still the caller's. A drop's empty title is tested as `title == NULL`, the theme combo compares with `g_strcmp0`, and the x-content bar won't take a NULL type.
+		- Suppressed: the empty-folder row's parent, `files` in the startup open, the paste menu's one-item selection, the error message when there's no error, and a child's parent while a tree node's children go.
+	- Decisions:
+		- An assert where code needs something that can't be missing, such as a window's active slot. Suppressing the one line leaves the rest of the path, and the next use gets reported instead, as the file self-check did.
+	- Swept: `nemo_window_disconnect_content_view` has the same slot test as connect but uses no slot, so it's left as it was. The other 15 `nemo_window_get_active_slot` calls in `nemo-window.c` aren't reported.
+	- Branch: round1024b
+	- Test case: none new, since nothing here changes what the app does. The gate in 2026102114400591 covers it, once live.
+	- Verified: 20261024, gcc and clang over the 17 changed files on the Linux list, and gcc over them on the Windows list: no findings. `nemo-main-application.c` with its old text gives its finding again on the Windows list. The full Linux suite passes (234, 1 skipped), the C lint passes, and the Windows release build is clean with `-Werror`.
+	- Acceptance signoff: Self-closed: the analyzer runs and the suite above.
+	- Closed: 20261024-125900
 
 - Static analyzers: inherited findings in `source/libnemo-private/`.
 	- ID: 2026102412254361

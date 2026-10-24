@@ -1113,12 +1113,12 @@ update_places (NemoPlacesSidebar *sidebar)
     if (eel_vfs_supports_uri_scheme("trash")) {
         mount_uri = (char *)"trash:///"; /* No need to strdup */
         icon = nemo_trash_monitor_get_symbolic_icon_name ();
-        cat_iter = add_place (sidebar, PLACES_BUILT_IN,
-                               SECTION_COMPUTER,
-                               _("Trash"), icon, mount_uri,
-                               NULL, NULL, NULL, 0,
-                               _("Open the trash"), 0, FALSE,
-                               cat_iter);
+        add_place (sidebar, PLACES_BUILT_IN,
+                    SECTION_COMPUTER,
+                    _("Trash"), icon, mount_uri,
+                    NULL, NULL, NULL, 0,
+                    _("Open the trash"), 0, FALSE,
+                    cat_iter);
         g_free (icon);
     }
 
@@ -1525,12 +1525,12 @@ update_places (NemoPlacesSidebar *sidebar)
 	if (eel_vfs_supports_uri_scheme ("network")) {
 		mount_uri = (char *)"network:///"; /* No need to strdup */
 		icon = NEMO_ICON_SYMBOLIC_NETWORK;
-		cat_iter = add_place (sidebar, PLACES_BUILT_IN,
-				      SECTION_NETWORK,
-				      _("Network"), icon,
-				      mount_uri, NULL, NULL, NULL, 0,
-				      _("Browse the contents of the network"), 0, FALSE,
-				      cat_iter);
+		add_place (sidebar, PLACES_BUILT_IN,
+			   SECTION_NETWORK,
+			   _("Network"), icon,
+			   mount_uri, NULL, NULL, NULL, 0,
+			   _("Browse the contents of the network"), 0, FALSE,
+			   cat_iter);
 	}
 
 	/* restore selection */

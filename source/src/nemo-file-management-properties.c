@@ -615,7 +615,7 @@ fill_appearance_combo (GtkComboBoxText *combo,
 						info->style != NULL ? info->style : info->display);
 		g_ptr_array_add (names, g_strdup (info->name));
 
-		if (resolved != NULL && strcmp (resolved, info->name) == 0) {
+		if (resolved != NULL && g_strcmp0 (resolved, info->name) == 0) {
 			active = row;
 		}
 	}

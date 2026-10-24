@@ -42,6 +42,7 @@
 #include "nemo-interesting-folder-bar.h"
 #include "nemo-thumbnail-problem-bar.h"
 #include <eel/eel-accessibility.h>
+#include <eel/eel-analyzer.h>
 #include <eel/eel-debug.h>
 #include <eel/eel-glib-extensions.h>
 #include <eel/eel-stock-dialogs.h>
@@ -1878,7 +1879,9 @@ display_view_selection_failure (G_GNUC_UNUSED NemoWindow *window, NemoFile *file
 	if (error_message == NULL) {
 		error_message = g_strdup_printf (_("Couldn't display \"%s\"."),
 						 uri_for_display);
+		EEL_ANALYZER_SKIP ("null-dereference") // every path with no error set error_message already
 		detail_message = g_strdup_printf (_("Error: %s\nPlease select another viewer and try again."), error->message);
+		EEL_ANALYZER_END
 	}
 
 	eel_show_error_dialog (error_message, detail_message, NULL);

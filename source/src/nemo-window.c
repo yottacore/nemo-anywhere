@@ -226,6 +226,7 @@ nemo_window_new_tab (NemoWindow *window)
 	char *scheme;
 
 	current_slot = nemo_window_get_active_slot (window);
+	g_assert (current_slot != NULL);
 	location = nemo_window_slot_get_location (current_slot);
 
 	if (location != NULL) {
@@ -1210,6 +1211,7 @@ nemo_window_view_visible (NemoWindow *window,
 	g_return_if_fail (NEMO_IS_WINDOW (window));
 
 	slot = nemo_window_get_slot_for_view (window, view);
+	g_assert (slot != NULL);
 
 	if (slot->visible) {
 		return;
@@ -1556,6 +1558,7 @@ nemo_window_key_press_event (GtkWidget *widget,
 	window = NEMO_WINDOW (widget);
 
 	active_slot = nemo_window_get_active_slot (window);
+	g_assert (active_slot != NULL);
 	view = active_slot->content_view;
 
 	/* Ahead of the focus widget, the accelerators and the menu bar. */
@@ -1747,6 +1750,7 @@ nemo_window_sync_view_type (NemoWindow *window)
     attributes = nemo_mime_actions_get_required_file_attributes ();
 
     slot = nemo_window_get_active_slot (window);
+    g_assert (slot != NULL);
 
     cancel_sync_view_type_callback (slot);
     nemo_file_call_when_ready (slot->viewed_file,
@@ -1884,6 +1888,7 @@ nemo_window_sync_zoom_widgets (NemoWindow *window)
 	gint icon_size;
 
 	slot = nemo_window_get_active_slot (window);
+	g_assert (slot != NULL);
 	view = slot->content_view;
 
 	if (view != NULL) {
@@ -1987,6 +1992,7 @@ nemo_window_sync_thumbnail_action (NemoWindow *window)
     attributes = nemo_mime_actions_get_required_file_attributes ();
 
     slot = nemo_window_get_active_slot (window);
+    g_assert (slot != NULL);
 
     cancel_sync_show_thumbnail_callback (slot);
     nemo_file_call_when_ready (slot->viewed_file,
@@ -2002,6 +2008,7 @@ nemo_window_sync_create_folder_button (NemoWindow *window)
     gboolean allow;
 
     slot = nemo_window_get_active_slot (window);
+    g_assert (slot != NULL);
 
     allow = nemo_file_can_write (slot->viewed_file) &&
             !nemo_file_is_in_favorites (slot->viewed_file) &&
@@ -2040,7 +2047,7 @@ nemo_window_connect_content_view (NemoWindow *window,
 
 	slot = nemo_window_get_slot_for_view (window, view);
 
-	if (slot != nemo_window_get_active_slot (window)) {
+	if (slot == NULL || slot != nemo_window_get_active_slot (window)) {
 		return;
 	}
 

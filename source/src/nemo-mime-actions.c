@@ -1562,6 +1562,8 @@ add_sorted_view_uris (GList *uris,
 	if (found_selected_uri) {
 		l = uris; // This will become the last list link.
 		uris = g_list_reverse (uris);
+		// The caller's link was last, so it leads now, and the caller's list is whole.
+		g_assert (uris->data == selected_uri);
 		if (prior_uris != NULL) {
 			prior_uris = g_list_reverse (prior_uris);
 			// Connect the lists.

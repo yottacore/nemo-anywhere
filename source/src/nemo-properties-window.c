@@ -4306,13 +4306,13 @@ create_permission_checkboxes (NemoPropertiesWindow *window,
 				      owner_perm_label,
 				      is_folder);
 
-	w = add_permissions_checkbox (window,
-				      check_button_grid,
-				      w,
-				      PERMISSIONS_CHECKBOXES_EXECUTE,
-				      UNIX_PERM_USER_EXEC,
-				      owner_perm_label,
-				      is_folder);
+	add_permissions_checkbox (window,
+				  check_button_grid,
+				  w,
+				  PERMISSIONS_CHECKBOXES_EXECUTE,
+				  UNIX_PERM_USER_EXEC,
+				  owner_perm_label,
+				  is_folder);
 
 	w = add_permissions_checkbox (window,
 				      check_button_grid,
@@ -4330,13 +4330,13 @@ create_permission_checkboxes (NemoPropertiesWindow *window,
 				      group_perm_label,
 				      is_folder);
 
-	w = add_permissions_checkbox (window,
-				      check_button_grid,
-				      w,
-				      PERMISSIONS_CHECKBOXES_EXECUTE,
-				      UNIX_PERM_GROUP_EXEC,
-				      group_perm_label,
-				      is_folder);
+	add_permissions_checkbox (window,
+				  check_button_grid,
+				  w,
+				  PERMISSIONS_CHECKBOXES_EXECUTE,
+				  UNIX_PERM_GROUP_EXEC,
+				  group_perm_label,
+				  is_folder);
 
 	w = add_permissions_checkbox (window,
 				      check_button_grid,
