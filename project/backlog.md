@@ -96,206 +96,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
 	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
 
-- SMB and SFTP networking is broken.
-	- ID: 2026101417352260
-	- Type: Bug
-	- Status: Waiting on signoff
-		- smb is fixed, and sftp is fixed.
-		- `ssh://hostname` also works.
-		- `sftp://hostname/folder` works.
-		- But `ssh://hostname/folder` gives an error. Is there a reason ssh shouldn't be a full-citizen alias for sftp?
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 208 of 209. rjvdch2z failed once under load and passed 3 of 3 alone.
-	- Priority|Severity: Critical
-	- Opened: 20261014-173522
-	- Opened by: t00mietum
-	- Related IDs: 2026100816170921, 2026093010493450
-	- Target OS: Linux, Windows
-	- Requirements:
-		- Before the next cut.
-		- On Windows, both `\\host\share` and `smb://host/share` are taken.
-	- Incorrect behavior: able to log in over SMB, but displaying share contents is broken.
-		- On Linux, login works and the shares list, but going into a share fails with an error.
-		- On Windows the address may be refused as a format. Not sure.
-	- Reproduced: 20261014 on Linux, against a test Samba server and an sshd. With gvfsd-fuse running, as it does on a normal desktop, going into a share showed "The folder contents couldn't be displayed" with "Can't do synchronous next_files() on a file enumerator created asynchronously", and no files. An sftp folder did the same. With no gvfsd-fuse both listed.
-	- Reproduced: 20261014, Windows. Every `smb://` address becomes a location GLib can't open there, which the window reports as "can't handle "smb" locations" (read, not tried in the window). `\\host\share` already opened.
-	- Reproduced: 20261015 on Linux, with gvfsd-fuse running, against an sshd. `ssh://host/folder` and `ssh://host` both listed from the path bar, the command line, a bookmark and a link, mounted first or not, by host name with a key and by address with a password. gvfs takes ssh as another name for sftp, so the folder opens as `sftp://host/folder`. Connect to Server with SSH chosen and either ssh address in Server failed with "Connection failed". `sftp://host/folder` there connected.
-	- Actual cause:
-		- Linux: the folder listing took any folder with a local path for a local one, so it could read the links in it itself. While gvfsd-fuse runs, every smb and sftp folder also has a path, under `/run/user/<uid>/gvfs`. So a share was read through code that makes a call gvfs refuses, and the listing stopped there.
-		- Windows: there's no smb scheme on Windows, and nothing turned an `smb://` address into the UNC path it means.
-		- ssh, Connect to Server: the dialog only took the chosen type's own scheme off an address typed in Server, so `ssh://host/folder` went out as `sftp://ssh://host/folder`. Everywhere else gvfs makes an ssh address an sftp location before the app sees it.
-	- Origin: cbd3559 on sharefollow, 20261005, from 2026093010493450's link change. Not from smbhalt, smbfade, cfgshare or evbshare. Confirmed.
-	- Actual fix:
-		- Linux: only a folder on this machine is read that way. A gvfs folder goes to gvfs as it did before, which follows its links on the server.
-		- Windows: `smb://host/share/folder` opens `\\host\share\folder`, wherever the address comes from: the path bar, the command line, a bookmark or a link. `smb://host` lists that server's shares, and `smb:///` the network. A user name, domain or port in the address is left out, since Windows connects as the session does.
-		- Windows: Connect to Server offered no Windows share before, since smb wasn't known there. It does now, and asks only for the server and share. Connecting opens the share in a new window.
-		- ssh: Connect to Server takes off the chosen type's scheme or any other name gvfs has for it, in any case, so `ssh://` and `SFTP://` both work with SSH chosen. The other names are one list beside the network schemes, copied from gvfs's mount files, where ssh is the only one.
-	- Swept:
-		- Linux: every spot in the listing code that took a path to mean local, which is the listing, a later look at one file, and that file's folder. The thumbnail checksum reads a file through its path on purpose, behind the thumbnail settings, which already count a gvfs-fuse path as a share. The other enumerators (favorites, and trash and network on Windows) wrap nothing from gvfs. Every other place that reads a folder file by file opens it the same way.
-		- Windows: typed locations, bookmarks, the command line and dropped addresses all go through the one place smb is now known. Connect to Server builds `smb://` addresses too, fixed above.
-		- ssh: the path bar, the command line, bookmarks, the bookmark editor, links and dropped addresses all make their location through GLib, where gvfs maps ssh. Connect to Server was the only place that read the scheme as text. The 2 places that list network schemes by name, the share check and the Connect item on a link's menu, already had ssh. Windows has neither ssh nor sftp, and Connect to Server leaves SSH out there.
-	- Progress log:
-		- 20261014: Options for later: a login prompt on Windows for a share that refuses the session's own login, through Windows' credential prompt. Today such a share fails with access denied.
-		- 20261015: `ssh://hostname/folder` failed only in Connect to Server here, and `ssh://hostname` failed there too. Not seen from the path bar or the command line. If it shows up there again, the error text and where it was typed will say which step.
-	- Verified: 20261014 on Linux with gvfsd-fuse running, against a test Samba server and an sshd. Before the fix an smb share and an sftp folder both showed the error and no files. After it both list, with the logins taken through the app's own prompts. rk95h61s fails before the fix, on the listing error and the extra look at a file, and passes after. rjv9ks2z, the connecting sign test, passes. Full Linux suite 208 of 209, as above. Windows cross build with warnings as errors clean.
-	- Verified: 20261014 on vm925w, with a share made for the test and removed after. renz2428 with the new smb cases and browsing the box's own shares, rhtwm2c8 and the typed location test pass natively. renz2428 fails with smb left unregistered and passes with it. The app started on `\\localhost\nftest`, `smb://localhost/nftest`, `smb://localhost/nftest/sub%20dir` and `smb://localhost` opened the share, its folder and the server's share list. Connect to Server with Windows share, server `localhost` and share `nftest` opened the share in a new window.
-	- Verified: 20261015 on Linux. rkb69y1a fails before the fix, on 6 checks, and passes after. Connect to Server with SSH chosen opened `ssh://host/folder` and `SSH://host` after the fix. Full Linux suite 211 of 212: rj750n43 failed once, waiting on the program to quit while the cross build ran, and passed 3 of 3 alone. Lint clean apart from rj3ytv0b, which fails in any worktree. Windows cross build with warnings as errors clean.
-	- Note: on Windows the shares in an `smb://host` listing show as "Binary" with no date, the same as when reached through Network. Left alone.
-	- Branch: netfix, sshalias
-	- Commit: 7dc462d, 9ec294b
-	- Test case: rk95h61s, Share folder with a local path lists test. A folder that isn't on this machine but has a path, whose listing refuses that call the way gvfs's does, lists all 3 entries with its link followed, and one file there is looked at once, following links. renz2428, Network win32 test, test_smb_addresses: smb addresses taken as typed, parsed, as a uri and as an argument go to the UNC path, the server's share list or the network, with spaces, escapes, a user, domain and port, an IPv6 address, and upper case where typed. rkb69y1a, Connect to Server address scheme test: ssh and sftp addresses in any case lose the scheme with SSH chosen, other schemes and plain names are kept, and every alias gvfs's mount files declare is checked where gvfs is installed.
-	- Acceptance signoff: Left at signoff for the `ssh://hostname/folder` error, which wasn't seen from the path bar or the command line, and for Connect to Server on Windows asking only for the server and share.
-
-- The sanitizer lane hides third-party leaks that end users can hit.
-	- ID: 2026101715252258
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs external testing: the pipeline's sanitizer stage, once `nemo-build` has the 2 debug symbol packages `Dockerfile.dev` now installs. Until then the lane stops at its first step and says which is missing.
-	- Priority|Severity: Avg
-	- Opened: 20261017-152522
-	- Opened by: t00mietum
-	- Related IDs: 2026101619020505
-	- Target OS: Linux
-	- Incorrect behavior:
-		- `sanitizers.supp` drops every leak in `libfontconfig.so.1`, by library. The Windows bundle has fontconfig in it, and a leak there that grows with use would never show.
-		- `test-sanitizers.bash` turns GTK's animations off for the whole suite, to get past one GTK leak in `gtk_css_value_calc_multiply`. End users have animations on. So nothing on GTK's animated path is leak-checked, and the vendored widget themes' transitions never run in the lane.
-		- rffvm2bg, Search content test, sets `ASAN_OPTIONS=detect_leaks=0` in `source/test/meson.build`, because GTK's own leaks would drown it. In the sanitizer lane that replaces the lane's own setting, so the test runs with no leak check. There's no backlog ID beside it, which the rule at the top of `sanitizers.supp` asks for.
-	- Expected behavior: a suppression names the function that leaks, not the library, with a one-line reason. It only covers something kept for the life of the process, such as a cache.
-		- The GTK leak is suppressed by its function and reported upstream, and animations stay on.
-		- rffvm2bg runs with leak checks on, or its opt-out gets its own backlog item.
-		- Mesa can stay suppressed by library. It isn't in any package, it's the user's own driver.
-	- Note: the lane keeps its stacks short on purpose. Check that a match by function name still works with them before relying on it.
-	- Reproduced: 20261019. With the fontconfig entry taken out, 38 tests failed on fontconfig blocks. With animations on, the GTK leak showed in 3 tests, and its stack stopped at `g_malloc`.
-	- Actual cause:
-		- fontconfig points from a pattern to its entries by an offset, not a pointer. So the leak check takes the entries of every live pattern as lost, and the entry for the whole library hid that.
-		- A match by function needs the function's name. Debian's fontconfig and GTK have no symbols for their inner functions, and GLib and GTK have no frame pointers, so a short stack ends at `g_malloc`.
-		- GTK 3.24 drops a CSS value each time a transition starts from a value still on its way: `gtk_css_calc_array_add` writes over an entry without dropping its ref. Still there on GTK's `gtk-3-24` branch.
-		- rffvm2bg and the 12 fuzz corpus tests set their own `ASAN_OPTIONS` in meson, which replaced the lane's.
-	- Actual fix:
-		- fontconfig is matched by `FcPatternObjectInsertElt`, which makes the entries. A pattern that is really lost still shows, from `FcPatternCreate`.
-		- `Dockerfile.dev` installs the debug symbols for fontconfig and GTK. The lane stops first when they're missing.
-		- The GTK leak is matched by `gtk_css_value_calc_multiply`. The one-line upstream note is in `sanitizers.supp`.
-		- rffvm2bg and the fuzz corpus tests turn leak checks off only in a build without ASan everywhere, so in the lane they run with its leak checks.
-		- Mesa stays matched by library.
-	- Decisions:
-		- Animations stay off in the lane apart from rkneye51. GTK's function only shows on a whole stack, and with whole stacks across the suite 3 timed tests failed on time (rk96k9va, rkbdyne7, rg3wt7d9) and the run took about 3 times as long. rkneye51 runs with animations on and whole stacks, through GTK's theme and the 8 vendored ones, and there the GTK leak shows and is matched.
-		- Options for animations on in the whole lane: rerun a test that failed only on a leak with whole stacks, which lets a leak that comes and goes pass on the rerun, or whole stacks with longer limits on the timed tests.
-		- Left at signoff for that call.
-	- Swept: every entry in `sanitizers.supp`, and every `ASAN_OPTIONS` in meson. Twin found: the 12 fuzz corpus tests in `source/fuzz/meson.build` had the same override as rffvm2bg. rge1srj8 adds its options to the lane's, so it was left alone.
-	- Branch: leakfix
-	- Commit: 00795c30
-	- Test case: rkneye51, the lane's own check. With animations on it has to come back clean, then find a pattern dropped on fontconfig's path and strings dropped by an animated widget's frame callback. rjfgk2mp stops when the debug symbols are missing.
-	- Verified: 20261019, the whole lane passed in a container with the debug symbols, 208 OK, 0 failed, 15 skipped. rkneye51 failed with the old library entry for fontconfig, with a library entry for GTK, and with no GTK entry, each at the check meant to catch it. The lane stopped with its message when fontconfig's debug file was moved away.
-	- Verified: 20261019, rffvm2bg and the fuzz corpus tests pass in the lane with its leak checks on.
-
-- F2 renaming in photo icon view doesn't work.
-	- ID: 2026101009150764
-	- Type: Bug
-	- Status: Waiting on signoff
-		- Still doesn't work.
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 214 of 214.
-	- Needs external testing: no. Left for a person: whether F2 now works where it was seen failing.
-	- Priority|Severity: Avg
-	- Opened: 20261010-091507
-	- Opened by: t00mietum
-	- Target OS: all
-	- Requirements:
-		- Before the next cut.
-	- Steps to reproduce: in a folder of photos in icon view, select a photo and press F2.
-	- Incorrect behavior: F2 renaming doesn't work.
-	- Expected behavior: the name opens for editing, like in the other views.
-	- Reproduced: 20261013, Linux, 2 ways. Both leave a box nobody can type into, so F2 seems to do nothing. A plain F2 on a photo in a folder of photos at the usual size works.
-		- F2 on a photo, then the icon size changes, then F2 on the same photo again. The second box keeps the old width, and the name is centered in the new one, so it sits partly or wholly outside the box.
-		- A short window, so the name under a big photo is below what's in sight. F2 opens the box down there.
-		- 20261015, Linux, 2 more ways, both on the first visit to a folder of large camera photos, with the thumbnails still being made.
-			- Click a photo, then F2. F2 did nothing in 5 of 12 tries while the thumbnails were coming in, and Rename stayed grayed out until they were done.
-			- A rename open when a thumbnail of another shape comes in for its row closes by itself. Anything else that moves the photo, such as a wider window, does the same. What was typed so far is saved as the new name. Also seen on the Windows build under wine.
-	- Actual cause:
-		- The icon view keeps one box for renaming and hides it in between. Each F2 gives it the width of a name under an icon, which follows the icon size. GTK doesn't size a hidden box again for a new width, and the same name again changed nothing else, so the box kept its old size.
-		- A folder of photos opens at the plain size and grows to the photo size once it has loaded. That closes a rename already open. So there it takes only an F2 during the load and a second F2 to hit the first case. Zooming between 2 F2s does it in any folder.
-		- F2 never scrolled to the box.
-		- 20261015: the menus catch up with a new selection 50 ms later. Each thumbnail made is a change to a file in the folder, and each change started that wait over, at 200 ms or more. With thumbnails coming in faster than that, Rename kept the off state it had with nothing selected, and F2 did nothing. Upstream has the same wait, but its thumbnails come from a separate program, more slowly.
-		- 20261015: since thumbjump (20260922) a thumbnail of another shape lays the icons out again. A layout that moved the photo being renamed ended the rename and saved the text in the box.
-	- Actual fix: the box takes its new width even while hidden, and a new font too. F2 scrolls so the box is in sight.
-		- 20261015: a menu update already waiting is never pushed later. Changes in a row still share one update.
-		- 20261015: when a layout moves the photo being renamed, the box moves with it, and the rename and its text stay.
-	- Progress log:
-		- 20261013: Options for later: the size change when a folder of photos finishes loading still closes a rename open at the time. It could reopen the box at the new size.
-		- 20261013: left at signoff. The case seen isn't known for sure. These are the 2 ways found where F2 in a folder of photos shows nothing to type into.
-		- 20261015: "photo icon view" is a folder that's mostly images. Since imgauto it opens in list view, switches to icon view once loaded, and grows to the picture size, 500% or 320 px. It isn't a view of its own.
-		- 20261015: ruled out on a first visit to real photos: the focus going elsewhere, another shortcut taking F2, and the selection changing as the view reloads. A click before the switch to icon view is lost, but on a local disk that's the first half second.
-		- 20261015: the size change at the end of loading still ends a rename open at the time, as a zoom does. On a local disk that's within the first second. Read only, not run: it saves the text in the box. Still in Options for later.
-		- 20261015: left at Waiting for testing for the Windows check, then signoff. The case seen still isn't known for sure. If it comes back, it helps to know the platform, the folder (about how many photos, local or on a share, opened before or not), and whether the box never shows or shows and then closes.
-		- 20261022: the Windows check passed, see Verified. Left at signoff, since the case seen still isn't known for sure. The test photos were named `.jpg`. Named `.JPG`, as cameras name them, photos get no thumbnail at all on Windows, which is 2026102219444442.
-	- Swept: the icon view's box is the only one of its kind, and the compact view uses it too. The list view, Places and the tree rename inside a tree cell, which GTK sizes when it shows it.
-		- 20261015: 14 other waits start over on each call. None holds back something a user acts on. Drags, hovers, sizes and the selection are fed by the user, and the look-ahead and the column resample wait for a quiet spell on purpose. The menu wait is shared by every view, so the list and compact views get the fix too. The list view makes no thumbnails at its size, and F2 there worked while a folder was busy.
-		- 20261015: a layout move ended a rename in the icon view and in the desktop grid's copy of the same code. Nothing uses the grid now, so it was left as is. Drags, stretches and arrow-key moves still end a rename, through the click or key that starts them.
-	- Branch: f2tips, f2photo
-	- Commit: f683771, 8053f9a
-	- Test case: rk520jh7, Rename field takes a new width while hidden test. The box in a layout, renamed at one width, hidden, then given a wider and a narrower width with the same name, takes each width and holds the name. rk526bz6, F2 in a folder of pictures test, Linux only. In a short window, F2 on a photo, zoom in twice, F2 on the same photo. Both times the box is as wide as it asked for and in sight. rkb84h93, F2 while the folder keeps changing test, Linux only. A file in a folder of pictures changes every 15 ms, in place of thumbnails coming in. With nothing selected first, a picture is selected and F2 pressed half a second later, 3 times. Each time F2 has to work and open the box. A first try with the folder still shows F2 works there at all. rkb9fjtc, Rename stays open when the icons move test, Linux only. With part of a new name typed, a wider window moves the picture. The box has to stay open under it with the text, nothing may be saved, and Escape keeps the old name.
-	- Verified: rk520jh7 failed before the fix, 4 checks, and passes after, on Linux and under wine. rk526bz6 failed before the fix, 3 of its 6 checks, and passes after. The full Linux suite passed, 191 of 191. The Windows cross build passes. Lint is clean apart from rj3ytv0b, which always fails in a worktree.
-	- Verified: 20261015. rkb84h93 failed 5 of 5 runs before the fix, 6 checks each, with the still try passing, and passes after. rkb9fjtc failed 3 of 3 before the fix, 5 checks, the half-typed name saved among them, and passes after. Both, with rk526bz6 and rk520jh7, passed 5 of 5 and again with the processor busy. On Linux, 90 photos of 24 MP opened for the first time with thumbnails coming in about 10 a second: click and F2 renamed 10 of 10, where 5 of 12 failed before. On the Windows build under wine, a rename opened from the Edit menu stays open while a narrower window moves its photo, and saves only on Enter. Before the fix the narrower window saved the half-typed name. rk520jh7 passes under wine. Full Linux suite 214 of 214, Windows cross build clean, lint clean apart from rj3ytv0b. The menu update ran 7 or 8 times during a whole thumbnail run, under 30 ms in all.
-	- Verified: 20261022, on vm925w in the desktop session with the single exe, in a folder of 300 never-opened 12 MP photos. A click on a photo while the thumbnails were still being made, then F2, opened the name for editing 4 times of 4, once before any thumbnail had come in. With part of a new name typed, the thumbnails in its row came in and the box stayed under its photo with the text. Nothing was saved before Enter, and Escape kept the old name.
-
-- On Windows, the zip and the copy `install.ps1` puts in place draw with GTK's default theme and font.
-	- ID: 2026101007562511
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs external testing: no. Left for a person: theme and font now match, but the zip draws a bookmark's folder icon blue and a text file's icon plain, where the single exe draws them tan and lined.
-	- Priority|Severity: Avg
-	- Opened: 20261010-075625
-	- Opened by: 2026100917220603
-	- Related IDs: 2026100917220603
-	- Target OS: Windows
-	- Steps to reproduce: extract the release zip, or install with `install.ps1`, and start the app. Then start the single exe built from the same commit.
-	- Incorrect behavior: the zip and the installed copy show GTK's plain default look and font. The single exe shows Fluent and Segoe UI 9.
-	- Expected behavior: all 3 forms look the same.
-	- Reproduced: 20261010 on vm925w, with all 3 forms built from one commit.
-	- Possible cause: `stage-native.bash` writes `settings.ini` and the font config, and `pack-zip.bash` doesn't.
-	- Actual cause: confirmed. The zip has no `etc/gtk-3.0/settings.ini` and no font config, since the cross sysroot has neither and only `stage-native.bash` wrote them. With no `settings.ini` the app's "platform" theme is GTK's default, Adwaita with Adwaita icons. `install.ps1` and the setup exe copy the zip's tree as is, so they inherit it.
-	- Actual fix: the 2 files live once, in `cicd/win/bundle-etc/`. `stage-native.bash`, `pack-zip.bash` and the wine runner each copy that folder over the bundle's `etc/`. Line endings are pinned to LF so a Windows checkout gives the same bytes.
-	- Swept: every place that stages a Windows `etc/`: `stage-native.bash` (single exe, hosted release build), `pack-zip.bash` (zip, then setup exe and `install.ps1`), `utility/run-windows-build-via-wine.bash`. `pack-portable.ps1` and `pack-setup.bash` copy what those made. No other script writes `settings.ini` for Windows.
-	- Verified: 20261013, the zip from `dev` fails rk50ewvs and the zip from this branch passes. The `dev` zip came up with Adwaita and Adwaita icons, and this branch's with the bundled Fluent and Mica. The `settings.ini` and font config match what `stage-native.bash` wrote before. rj72n4xb passed with the settings check on the installed folder. Lint is clean apart from rj3ytv0b.
-	- Branch: ziptheme
-	- Commit: cb3445f
-	- Test case: rk50ewvs (`test-bundle-settings.ps1`), run on the zip in the packages stage, on the flat tree before the single exe is packed, and on the `install.ps1` copy in rj72n4xb.
-	- Progress log:
-		- Done 20261013 on b29w at dev 5ca50b7, passed. It was: a native stage and pack (`cicd-win.ps1`), since `stage-native.bash` changed. rk50ewvs passed on win-flat and on the installed folder in rj72n4xb, and both files match `cicd/win/bundle-etc/` byte for byte.
-		- 20261022: left at signoff for the icon difference above.
-	- Verified: 20261022, on vm925w in the desktop session: the zip from the full run and the single exe built natively from the same commit draw with the same bundled dark theme and the same font, not GTK's default. rk50ewvs passes on the zip, and on the `install.ps1` copy in rj72n4xb, natively. The `install.ps1` copy itself wasn't started; it is the zip's tree.
-
-- Have to press "delete" twice after properties dialog.
-	- ID: 2026101816495203
-	- Type: Bug
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 218 of 218.
-	- Needs external testing: done 20261023, see below.
-	- Needs hand testing: signoff, since it loosens a delete guard rule.
-	- Priority|Severity: Avg
-	- Opened: 20261018-164952
-	- Opened by: t00mietum
-	- Prereq IDs: 2026102219444332
-	- Related IDs: 2026101319204761
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-	- Steps to reproduce: select a file, open Properties, close it, and press Delete within a second.
-	- Incorrect behavior: the first press is ignored, and only the second goes through.
-	- Expected behavior: Only press once.
-	- Reproduced: 20261019, Linux. The first press was ignored as typing meant for another window. A press more than a second later went through.
-	- Actual cause: the delete guard ignores a trash or delete key for a second after a window takes the focus, in case the key was meant for another program. Closing Properties hands the focus back to the window, which started that second. The test guard's own question wasn't involved, and neither was the tab focus change in Properties.
-	- Actual fix: focus that comes back from another of the program's own windows, such as a dialog closing, starts no such second. Focus from another program still does, and so does a window just opened. The delete guard design doc and the UX style guide say so.
-	- Swept: the check is on the window's focus, so every dialog of the program is covered the same way, the delete question itself included. The trash and delete keys are the only callers. Properties' tab focus handling is unchanged, and rk6naqsk still passes.
-	- Verified: rkmsgs9m fails on dev's code, where the first Shift+Delete after closing Properties never asked, and passes after. Closing Properties with Escape and with the window manager's close both left the next Delete working at once. A Delete right after coming back from another program was still ignored. rgv89eeg passes with new checks. Windows cross build clean. Lint clean but rj3ytv0b, which needs the main clone.
-	- Progress log:
-		- 20261019: fixed on Linux. Waiting for the Windows check above, since the focus events there come in differently. Then signoff, since it loosens a delete guard rule.
-		- 20261022: the app's own Properties passes on Windows. After Windows properties the first Delete is still ignored, which is 2026102219444332.
-		- 20261023: Windows properties passes too, with 2026102219444332 in. Left at signoff for the looser delete guard rule.
-	- Branch: viewfix
-	- Commit: 0ebed80
-	- Test case: rkmsgs9m, Delete key after Properties test, Linux and FreeBSD only. New checks in rgv89eeg, Delete guard test.
-	- Verified: 20261022, on vm925w in the desktop session with the single exe: after Properties (Ctrl+Enter) closed with Escape, and again with the title bar's close button, the first Delete brought up the delete question. After switching to another program and back, a Delete at once was ignored, and one 1.5 s later asked. rkmsgs9m passes in the FreeBSD lane.
-	- Verified: 20261023, on vm925w in the desktop session with the single exe packed from round1023: after Windows properties (Alt+Enter) closed with Escape, and again with the title bar's close button, the first Delete brought up the delete question. After switching to another program and back, a Delete at once was ignored, and one 1.5 s later asked.
-
 - README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
 	- ID: 2026101417352264
 	- Type: Task
@@ -1544,6 +1344,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- F2 selects the name without the extension, as upstream does.
 	- Test case: none yet.
 
+- On Windows, the zip draws some file icons differently from the single exe.
+	- ID: 2026102515500000
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: a Windows box, the zip and the single exe from one commit side by side.
+	- Priority|Severity: Low
+	- Opened: 20261025-155000
+	- Opened by: 2026101007562511
+	- Related IDs: 2026101007562511
+	- Target OS: Windows
+	- Steps to reproduce: extract the release zip and start the app, then start the single exe built from the same commit. Look at a bookmark's folder icon and a text file's icon.
+	- Incorrect behavior: the zip draws the bookmark's folder icon blue and the text file's icon plain.
+	- Expected behavior: the same icons as the single exe, tan and lined.
+	- Reproduced: 20261022 on vm925w, while checking 2026101007562511.
+	- Test case: none yet.
+
 - rktqpp37 times out at step 11 once in a while in the sanitizer lane on a loaded box.
 	- ID: 2026102507531587
 	- Type: Bug
@@ -1679,6 +1495,56 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- SMB and SFTP networking is broken.
+	- ID: 2026101417352260
+	- Type: Bug
+	- Status: Done
+		- smb is fixed, and sftp is fixed.
+		- `ssh://hostname` also works.
+		- `sftp://hostname/folder` works.
+		- But `ssh://hostname/folder` gives an error. Is there a reason ssh shouldn't be a full-citizen alias for sftp?
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 208 of 209. rjvdch2z failed once under load and passed 3 of 3 alone.
+	- Priority|Severity: Critical
+	- Opened: 20261014-173522
+	- Opened by: t00mietum
+	- Related IDs: 2026100816170921, 2026093010493450
+	- Target OS: Linux, Windows
+	- Requirements:
+		- Before the next cut.
+		- On Windows, both `\\host\share` and `smb://host/share` are taken.
+	- Incorrect behavior: able to log in over SMB, but displaying share contents is broken.
+		- On Linux, login works and the shares list, but going into a share fails with an error.
+		- On Windows the address may be refused as a format. Not sure.
+	- Reproduced: 20261014 on Linux, against a test Samba server and an sshd. With gvfsd-fuse running, as it does on a normal desktop, going into a share showed "The folder contents couldn't be displayed" with "Can't do synchronous next_files() on a file enumerator created asynchronously", and no files. An sftp folder did the same. With no gvfsd-fuse both listed.
+	- Reproduced: 20261014, Windows. Every `smb://` address becomes a location GLib can't open there, which the window reports as "can't handle "smb" locations" (read, not tried in the window). `\\host\share` already opened.
+	- Reproduced: 20261015 on Linux, with gvfsd-fuse running, against an sshd. `ssh://host/folder` and `ssh://host` both listed from the path bar, the command line, a bookmark and a link, mounted first or not, by host name with a key and by address with a password. gvfs takes ssh as another name for sftp, so the folder opens as `sftp://host/folder`. Connect to Server with SSH chosen and either ssh address in Server failed with "Connection failed". `sftp://host/folder` there connected.
+	- Actual cause:
+		- Linux: the folder listing took any folder with a local path for a local one, so it could read the links in it itself. While gvfsd-fuse runs, every smb and sftp folder also has a path, under `/run/user/<uid>/gvfs`. So a share was read through code that makes a call gvfs refuses, and the listing stopped there.
+		- Windows: there's no smb scheme on Windows, and nothing turned an `smb://` address into the UNC path it means.
+		- ssh, Connect to Server: the dialog only took the chosen type's own scheme off an address typed in Server, so `ssh://host/folder` went out as `sftp://ssh://host/folder`. Everywhere else gvfs makes an ssh address an sftp location before the app sees it.
+	- Origin: cbd3559 on sharefollow, 20261005, from 2026093010493450's link change. Not from smbhalt, smbfade, cfgshare or evbshare. Confirmed.
+	- Actual fix:
+		- Linux: only a folder on this machine is read that way. A gvfs folder goes to gvfs as it did before, which follows its links on the server.
+		- Windows: `smb://host/share/folder` opens `\\host\share\folder`, wherever the address comes from: the path bar, the command line, a bookmark or a link. `smb://host` lists that server's shares, and `smb:///` the network. A user name, domain or port in the address is left out, since Windows connects as the session does.
+		- Windows: Connect to Server offered no Windows share before, since smb wasn't known there. It does now, and asks only for the server and share. Connecting opens the share in a new window.
+		- ssh: Connect to Server takes off the chosen type's scheme or any other name gvfs has for it, in any case, so `ssh://` and `SFTP://` both work with SSH chosen. The other names are one list beside the network schemes, copied from gvfs's mount files, where ssh is the only one.
+	- Swept:
+		- Linux: every spot in the listing code that took a path to mean local, which is the listing, a later look at one file, and that file's folder. The thumbnail checksum reads a file through its path on purpose, behind the thumbnail settings, which already count a gvfs-fuse path as a share. The other enumerators (favorites, and trash and network on Windows) wrap nothing from gvfs. Every other place that reads a folder file by file opens it the same way.
+		- Windows: typed locations, bookmarks, the command line and dropped addresses all go through the one place smb is now known. Connect to Server builds `smb://` addresses too, fixed above.
+		- ssh: the path bar, the command line, bookmarks, the bookmark editor, links and dropped addresses all make their location through GLib, where gvfs maps ssh. Connect to Server was the only place that read the scheme as text. The 2 places that list network schemes by name, the share check and the Connect item on a link's menu, already had ssh. Windows has neither ssh nor sftp, and Connect to Server leaves SSH out there.
+	- Progress log:
+		- 20261014: Options for later: a login prompt on Windows for a share that refuses the session's own login, through Windows' credential prompt. Today such a share fails with access denied.
+		- 20261015: `ssh://hostname/folder` failed only in Connect to Server here, and `ssh://hostname` failed there too. Not seen from the path bar or the command line. If it shows up there again, the error text and where it was typed will say which step.
+	- Verified: 20261014 on Linux with gvfsd-fuse running, against a test Samba server and an sshd. Before the fix an smb share and an sftp folder both showed the error and no files. After it both list, with the logins taken through the app's own prompts. rk95h61s fails before the fix, on the listing error and the extra look at a file, and passes after. rjv9ks2z, the connecting sign test, passes. Full Linux suite 208 of 209, as above. Windows cross build with warnings as errors clean.
+	- Verified: 20261014 on vm925w, with a share made for the test and removed after. renz2428 with the new smb cases and browsing the box's own shares, rhtwm2c8 and the typed location test pass natively. renz2428 fails with smb left unregistered and passes with it. The app started on `\\localhost\nftest`, `smb://localhost/nftest`, `smb://localhost/nftest/sub%20dir` and `smb://localhost` opened the share, its folder and the server's share list. Connect to Server with Windows share, server `localhost` and share `nftest` opened the share in a new window.
+	- Verified: 20261015 on Linux. rkb69y1a fails before the fix, on 6 checks, and passes after. Connect to Server with SSH chosen opened `ssh://host/folder` and `SSH://host` after the fix. Full Linux suite 211 of 212: rj750n43 failed once, waiting on the program to quit while the cross build ran, and passed 3 of 3 alone. Lint clean apart from rj3ytv0b, which fails in any worktree. Windows cross build with warnings as errors clean.
+	- Note: on Windows the shares in an `smb://host` listing show as "Binary" with no date, the same as when reached through Network. Left alone.
+	- Branch: netfix, sshalias
+	- Commit: 7dc462d, 9ec294b
+	- Test case: rk95h61s, Share folder with a local path lists test. A folder that isn't on this machine but has a path, whose listing refuses that call the way gvfs's does, lists all 3 entries with its link followed, and one file there is looked at once, following links. renz2428, Network win32 test, test_smb_addresses: smb addresses taken as typed, parsed, as a uri and as an argument go to the UNC path, the server's share list or the network, with spaces, escapes, a user, domain and port, an IPv6 address, and upper case where typed. rkb69y1a, Connect to Server address scheme test: ssh and sftp addresses in any case lose the scheme with SSH chosen, other schemes and plain names are kept, and every alias gvfs's mount files declare is checked where gvfs is installed.
+	- Acceptance signoff: Self-closed: ssh is now a full alias for sftp everywhere, Connect to Server included, and the error seen was there (rkb69y1a). rk95h61s pins the smb and sftp listings, and renz2428 the Windows smb addresses, checked natively on vm925w with Connect to Server too. Asking only for server and share on Windows is how Windows connects, as the session.
+	- Closed: 20261025-155000
 
 - In a move to another drive, a new name typed in the conflict dialog is lost, and Replace then overwrites the file with the old name.
 	- ID: 2026101419104655
@@ -2107,6 +1973,165 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261022, round1022: the full Linux suite, 231 OK. FreeBSD lane as `bsdtest`, 212 OK and 20 skipped, rktqpp37, rkts3far, rktkms8a, rk7yvgse and rhtmbdmd among them.
 	- Closed: 20261022-214700
 	- Verified: 20261021, rktqpp37, rkts3far, rktkms8a and rk7yvgse pass in all 3 views. rhtmbdmd, rf2w8yxr, rfazc870 and rg6a49ar pass. The build has no warnings, the Windows cross build with warnings as errors is clean, and the UI case and test ID checks pass.
+
+- The sanitizer lane hides third-party leaks that end users can hit.
+	- ID: 2026101715252258
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: done 20261025, rkneye51 passed in the full run's sanitizer lane.
+	- Priority|Severity: Avg
+	- Opened: 20261017-152522
+	- Opened by: t00mietum
+	- Related IDs: 2026101619020505
+	- Target OS: Linux
+	- Incorrect behavior:
+		- `sanitizers.supp` drops every leak in `libfontconfig.so.1`, by library. The Windows bundle has fontconfig in it, and a leak there that grows with use would never show.
+		- `test-sanitizers.bash` turns GTK's animations off for the whole suite, to get past one GTK leak in `gtk_css_value_calc_multiply`. End users have animations on. So nothing on GTK's animated path is leak-checked, and the vendored widget themes' transitions never run in the lane.
+		- rffvm2bg, Search content test, sets `ASAN_OPTIONS=detect_leaks=0` in `source/test/meson.build`, because GTK's own leaks would drown it. In the sanitizer lane that replaces the lane's own setting, so the test runs with no leak check. There's no backlog ID beside it, which the rule at the top of `sanitizers.supp` asks for.
+	- Expected behavior: a suppression names the function that leaks, not the library, with a one-line reason. It only covers something kept for the life of the process, such as a cache.
+		- The GTK leak is suppressed by its function and reported upstream, and animations stay on.
+		- rffvm2bg runs with leak checks on, or its opt-out gets its own backlog item.
+		- Mesa can stay suppressed by library. It isn't in any package, it's the user's own driver.
+	- Note: the lane keeps its stacks short on purpose. Check that a match by function name still works with them before relying on it.
+	- Reproduced: 20261019. With the fontconfig entry taken out, 38 tests failed on fontconfig blocks. With animations on, the GTK leak showed in 3 tests, and its stack stopped at `g_malloc`.
+	- Actual cause:
+		- fontconfig points from a pattern to its entries by an offset, not a pointer. So the leak check takes the entries of every live pattern as lost, and the entry for the whole library hid that.
+		- A match by function needs the function's name. Debian's fontconfig and GTK have no symbols for their inner functions, and GLib and GTK have no frame pointers, so a short stack ends at `g_malloc`.
+		- GTK 3.24 drops a CSS value each time a transition starts from a value still on its way: `gtk_css_calc_array_add` writes over an entry without dropping its ref. Still there on GTK's `gtk-3-24` branch.
+		- rffvm2bg and the 12 fuzz corpus tests set their own `ASAN_OPTIONS` in meson, which replaced the lane's.
+	- Actual fix:
+		- fontconfig is matched by `FcPatternObjectInsertElt`, which makes the entries. A pattern that is really lost still shows, from `FcPatternCreate`.
+		- `Dockerfile.dev` installs the debug symbols for fontconfig and GTK. The lane stops first when they're missing.
+		- The GTK leak is matched by `gtk_css_value_calc_multiply`. The one-line upstream note is in `sanitizers.supp`.
+		- rffvm2bg and the fuzz corpus tests turn leak checks off only in a build without ASan everywhere, so in the lane they run with its leak checks.
+		- Mesa stays matched by library.
+	- Decisions:
+		- Animations stay off in the lane apart from rkneye51. GTK's function only shows on a whole stack, and with whole stacks across the suite 3 timed tests failed on time (rk96k9va, rkbdyne7, rg3wt7d9) and the run took about 3 times as long. rkneye51 runs with animations on and whole stacks, through GTK's theme and the 8 vendored ones, and there the GTK leak shows and is matched.
+		- Options for animations on in the whole lane: rerun a test that failed only on a leak with whole stacks, which lets a leak that comes and goes pass on the rerun, or whole stacks with longer limits on the timed tests.
+		- Left at signoff for that call.
+	- Swept: every entry in `sanitizers.supp`, and every `ASAN_OPTIONS` in meson. Twin found: the 12 fuzz corpus tests in `source/fuzz/meson.build` had the same override as rffvm2bg. rge1srj8 adds its options to the lane's, so it was left alone.
+	- Branch: leakfix
+	- Commit: 00795c30
+	- Test case: rkneye51, the lane's own check. With animations on it has to come back clean, then find a pattern dropped on fontconfig's path and strings dropped by an animated widget's frame callback. rjfgk2mp stops when the debug symbols are missing.
+	- Verified: 20261019, the whole lane passed in a container with the debug symbols, 208 OK, 0 failed, 15 skipped. rkneye51 failed with the old library entry for fontconfig, with a library entry for GTK, and with no GTK entry, each at the check meant to catch it. The lane stopped with its message when fontconfig's debug file was moved away.
+	- Verified: 20261019, rffvm2bg and the fuzz corpus tests pass in the lane with its leak checks on.
+	- Acceptance signoff: Self-closed: rkneye51 passed in the sanitizer lane of the 20261025 full run, with the debug symbols in `nemo-build`. Animations stay off in the rest of the lane, per Decisions, since whole stacks across the suite tripled the run and broke timed tests. The 2 options stay as options for later.
+	- Closed: 20261025-155000
+
+- F2 renaming in photo icon view doesn't work.
+	- ID: 2026101009150764
+	- Type: Bug
+	- Status: Done
+		- Still doesn't work.
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 214 of 214.
+	- Needs external testing: no. Left for a person: whether F2 now works where it was seen failing.
+	- Priority|Severity: Avg
+	- Opened: 20261010-091507
+	- Opened by: t00mietum
+	- Target OS: all
+	- Requirements:
+		- Before the next cut.
+	- Steps to reproduce: in a folder of photos in icon view, select a photo and press F2.
+	- Incorrect behavior: F2 renaming doesn't work.
+	- Expected behavior: the name opens for editing, like in the other views.
+	- Reproduced: 20261013, Linux, 2 ways. Both leave a box nobody can type into, so F2 seems to do nothing. A plain F2 on a photo in a folder of photos at the usual size works.
+		- F2 on a photo, then the icon size changes, then F2 on the same photo again. The second box keeps the old width, and the name is centered in the new one, so it sits partly or wholly outside the box.
+		- A short window, so the name under a big photo is below what's in sight. F2 opens the box down there.
+		- 20261015, Linux, 2 more ways, both on the first visit to a folder of large camera photos, with the thumbnails still being made.
+			- Click a photo, then F2. F2 did nothing in 5 of 12 tries while the thumbnails were coming in, and Rename stayed grayed out until they were done.
+			- A rename open when a thumbnail of another shape comes in for its row closes by itself. Anything else that moves the photo, such as a wider window, does the same. What was typed so far is saved as the new name. Also seen on the Windows build under wine.
+	- Actual cause:
+		- The icon view keeps one box for renaming and hides it in between. Each F2 gives it the width of a name under an icon, which follows the icon size. GTK doesn't size a hidden box again for a new width, and the same name again changed nothing else, so the box kept its old size.
+		- A folder of photos opens at the plain size and grows to the photo size once it has loaded. That closes a rename already open. So there it takes only an F2 during the load and a second F2 to hit the first case. Zooming between 2 F2s does it in any folder.
+		- F2 never scrolled to the box.
+		- 20261015: the menus catch up with a new selection 50 ms later. Each thumbnail made is a change to a file in the folder, and each change started that wait over, at 200 ms or more. With thumbnails coming in faster than that, Rename kept the off state it had with nothing selected, and F2 did nothing. Upstream has the same wait, but its thumbnails come from a separate program, more slowly.
+		- 20261015: since thumbjump (20260922) a thumbnail of another shape lays the icons out again. A layout that moved the photo being renamed ended the rename and saved the text in the box.
+	- Actual fix: the box takes its new width even while hidden, and a new font too. F2 scrolls so the box is in sight.
+		- 20261015: a menu update already waiting is never pushed later. Changes in a row still share one update.
+		- 20261015: when a layout moves the photo being renamed, the box moves with it, and the rename and its text stay.
+	- Progress log:
+		- 20261013: Options for later: the size change when a folder of photos finishes loading still closes a rename open at the time. It could reopen the box at the new size.
+		- 20261013: left at signoff. The case seen isn't known for sure. These are the 2 ways found where F2 in a folder of photos shows nothing to type into.
+		- 20261015: "photo icon view" is a folder that's mostly images. Since imgauto it opens in list view, switches to icon view once loaded, and grows to the picture size, 500% or 320 px. It isn't a view of its own.
+		- 20261015: ruled out on a first visit to real photos: the focus going elsewhere, another shortcut taking F2, and the selection changing as the view reloads. A click before the switch to icon view is lost, but on a local disk that's the first half second.
+		- 20261015: the size change at the end of loading still ends a rename open at the time, as a zoom does. On a local disk that's within the first second. Read only, not run: it saves the text in the box. Still in Options for later.
+		- 20261015: left at Waiting for testing for the Windows check, then signoff. The case seen still isn't known for sure. If it comes back, it helps to know the platform, the folder (about how many photos, local or on a share, opened before or not), and whether the box never shows or shows and then closes.
+		- 20261022: the Windows check passed, see Verified. Left at signoff, since the case seen still isn't known for sure. The test photos were named `.jpg`. Named `.JPG`, as cameras name them, photos get no thumbnail at all on Windows, which is 2026102219444442.
+	- Swept: the icon view's box is the only one of its kind, and the compact view uses it too. The list view, Places and the tree rename inside a tree cell, which GTK sizes when it shows it.
+		- 20261015: 14 other waits start over on each call. None holds back something a user acts on. Drags, hovers, sizes and the selection are fed by the user, and the look-ahead and the column resample wait for a quiet spell on purpose. The menu wait is shared by every view, so the list and compact views get the fix too. The list view makes no thumbnails at its size, and F2 there worked while a folder was busy.
+		- 20261015: a layout move ended a rename in the icon view and in the desktop grid's copy of the same code. Nothing uses the grid now, so it was left as is. Drags, stretches and arrow-key moves still end a rename, through the click or key that starts them.
+	- Branch: f2tips, f2photo
+	- Commit: f683771, 8053f9a
+	- Test case: rk520jh7, Rename field takes a new width while hidden test. The box in a layout, renamed at one width, hidden, then given a wider and a narrower width with the same name, takes each width and holds the name. rk526bz6, F2 in a folder of pictures test, Linux only. In a short window, F2 on a photo, zoom in twice, F2 on the same photo. Both times the box is as wide as it asked for and in sight. rkb84h93, F2 while the folder keeps changing test, Linux only. A file in a folder of pictures changes every 15 ms, in place of thumbnails coming in. With nothing selected first, a picture is selected and F2 pressed half a second later, 3 times. Each time F2 has to work and open the box. A first try with the folder still shows F2 works there at all. rkb9fjtc, Rename stays open when the icons move test, Linux only. With part of a new name typed, a wider window moves the picture. The box has to stay open under it with the text, nothing may be saved, and Escape keeps the old name.
+	- Verified: rk520jh7 failed before the fix, 4 checks, and passes after, on Linux and under wine. rk526bz6 failed before the fix, 3 of its 6 checks, and passes after. The full Linux suite passed, 191 of 191. The Windows cross build passes. Lint is clean apart from rj3ytv0b, which always fails in a worktree.
+	- Verified: 20261015. rkb84h93 failed 5 of 5 runs before the fix, 6 checks each, with the still try passing, and passes after. rkb9fjtc failed 3 of 3 before the fix, 5 checks, the half-typed name saved among them, and passes after. Both, with rk526bz6 and rk520jh7, passed 5 of 5 and again with the processor busy. On Linux, 90 photos of 24 MP opened for the first time with thumbnails coming in about 10 a second: click and F2 renamed 10 of 10, where 5 of 12 failed before. On the Windows build under wine, a rename opened from the Edit menu stays open while a narrower window moves its photo, and saves only on Enter. Before the fix the narrower window saved the half-typed name. rk520jh7 passes under wine. Full Linux suite 214 of 214, Windows cross build clean, lint clean apart from rj3ytv0b. The menu update ran 7 or 8 times during a whole thumbnail run, under 30 ms in all.
+	- Verified: 20261022, on vm925w in the desktop session with the single exe, in a folder of 300 never-opened 12 MP photos. A click on a photo while the thumbnails were still being made, then F2, opened the name for editing 4 times of 4, once before any thumbnail had come in. With part of a new name typed, the thumbnails in its row came in and the box stayed under its photo with the text. Nothing was saved before Enter, and Escape kept the old name.
+	- Acceptance signoff: Self-closed: every way found that leaves F2 with nothing to type into is pinned by rk520jh7, rk526bz6, rkb84h93 and rkb9fjtc, and the native check on 300 fresh photos passed 20261022. A case that still fails gets its own item, with the platform and folder. `.JPG` photos with no thumbnail on Windows are 2026102219444442.
+	- Closed: 20261025-155000
+
+- On Windows, the zip and the copy `install.ps1` puts in place draw with GTK's default theme and font.
+	- ID: 2026101007562511
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: no. Left for a person: theme and font now match, but the zip draws a bookmark's folder icon blue and a text file's icon plain, where the single exe draws them tan and lined.
+	- Priority|Severity: Avg
+	- Opened: 20261010-075625
+	- Opened by: 2026100917220603
+	- Related IDs: 2026100917220603, 2026102515500000
+	- Target OS: Windows
+	- Steps to reproduce: extract the release zip, or install with `install.ps1`, and start the app. Then start the single exe built from the same commit.
+	- Incorrect behavior: the zip and the installed copy show GTK's plain default look and font. The single exe shows Fluent and Segoe UI 9.
+	- Expected behavior: all 3 forms look the same.
+	- Reproduced: 20261010 on vm925w, with all 3 forms built from one commit.
+	- Possible cause: `stage-native.bash` writes `settings.ini` and the font config, and `pack-zip.bash` doesn't.
+	- Actual cause: confirmed. The zip has no `etc/gtk-3.0/settings.ini` and no font config, since the cross sysroot has neither and only `stage-native.bash` wrote them. With no `settings.ini` the app's "platform" theme is GTK's default, Adwaita with Adwaita icons. `install.ps1` and the setup exe copy the zip's tree as is, so they inherit it.
+	- Actual fix: the 2 files live once, in `cicd/win/bundle-etc/`. `stage-native.bash`, `pack-zip.bash` and the wine runner each copy that folder over the bundle's `etc/`. Line endings are pinned to LF so a Windows checkout gives the same bytes.
+	- Swept: every place that stages a Windows `etc/`: `stage-native.bash` (single exe, hosted release build), `pack-zip.bash` (zip, then setup exe and `install.ps1`), `utility/run-windows-build-via-wine.bash`. `pack-portable.ps1` and `pack-setup.bash` copy what those made. No other script writes `settings.ini` for Windows.
+	- Verified: 20261013, the zip from `dev` fails rk50ewvs and the zip from this branch passes. The `dev` zip came up with Adwaita and Adwaita icons, and this branch's with the bundled Fluent and Mica. The `settings.ini` and font config match what `stage-native.bash` wrote before. rj72n4xb passed with the settings check on the installed folder. Lint is clean apart from rj3ytv0b.
+	- Branch: ziptheme
+	- Commit: cb3445f
+	- Test case: rk50ewvs (`test-bundle-settings.ps1`), run on the zip in the packages stage, on the flat tree before the single exe is packed, and on the `install.ps1` copy in rj72n4xb.
+	- Progress log:
+		- Done 20261013 on b29w at dev 5ca50b7, passed. It was: a native stage and pack (`cicd-win.ps1`), since `stage-native.bash` changed. rk50ewvs passed on win-flat and on the installed folder in rj72n4xb, and both files match `cicd/win/bundle-etc/` byte for byte.
+		- 20261022: left at signoff for the icon difference above.
+	- Verified: 20261022, on vm925w in the desktop session: the zip from the full run and the single exe built natively from the same commit draw with the same bundled dark theme and the same font, not GTK's default. rk50ewvs passes on the zip, and on the `install.ps1` copy in rj72n4xb, natively. The `install.ps1` copy itself wasn't started; it is the zip's tree.
+	- Acceptance signoff: Self-closed: rk50ewvs checks the theme and font files on the zip, the flat tree and the `install.ps1` copy, and all 3 drew the same theme and font natively 20261022. The icon difference is split off to 2026102515500000.
+	- Closed: 20261025-155000
+
+- Have to press "delete" twice after properties dialog.
+	- ID: 2026101816495203
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 218 of 218.
+	- Needs external testing: done 20261023, see below.
+	- Needs hand testing: signoff, since it loosens a delete guard rule.
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Prereq IDs: 2026102219444332
+	- Related IDs: 2026101319204761
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+	- Steps to reproduce: select a file, open Properties, close it, and press Delete within a second.
+	- Incorrect behavior: the first press is ignored, and only the second goes through.
+	- Expected behavior: Only press once.
+	- Reproduced: 20261019, Linux. The first press was ignored as typing meant for another window. A press more than a second later went through.
+	- Actual cause: the delete guard ignores a trash or delete key for a second after a window takes the focus, in case the key was meant for another program. Closing Properties hands the focus back to the window, which started that second. The test guard's own question wasn't involved, and neither was the tab focus change in Properties.
+	- Actual fix: focus that comes back from another of the program's own windows, such as a dialog closing, starts no such second. Focus from another program still does, and so does a window just opened. The delete guard design doc and the UX style guide say so.
+	- Swept: the check is on the window's focus, so every dialog of the program is covered the same way, the delete question itself included. The trash and delete keys are the only callers. Properties' tab focus handling is unchanged, and rk6naqsk still passes.
+	- Verified: rkmsgs9m fails on dev's code, where the first Shift+Delete after closing Properties never asked, and passes after. Closing Properties with Escape and with the window manager's close both left the next Delete working at once. A Delete right after coming back from another program was still ignored. rgv89eeg passes with new checks. Windows cross build clean. Lint clean but rj3ytv0b, which needs the main clone.
+	- Progress log:
+		- 20261019: fixed on Linux. Waiting for the Windows check above, since the focus events there come in differently. Then signoff, since it loosens a delete guard rule.
+		- 20261022: the app's own Properties passes on Windows. After Windows properties the first Delete is still ignored, which is 2026102219444332.
+		- 20261023: Windows properties passes too, with 2026102219444332 in. Left at signoff for the looser delete guard rule.
+	- Branch: viewfix
+	- Commit: 0ebed80
+	- Test case: rkmsgs9m, Delete key after Properties test, Linux and FreeBSD only. New checks in rgv89eeg, Delete guard test.
+	- Verified: 20261022, on vm925w in the desktop session with the single exe: after Properties (Ctrl+Enter) closed with Escape, and again with the title bar's close button, the first Delete brought up the delete question. After switching to another program and back, a Delete at once was ignored, and one 1.5 s later asked. rkmsgs9m passes in the FreeBSD lane.
+	- Verified: 20261023, on vm925w in the desktop session with the single exe packed from round1023: after Windows properties (Alt+Enter) closed with Escape, and again with the title bar's close button, the first Delete brought up the delete question. After switching to another program and back, a Delete at once was ignored, and one 1.5 s later asked.
+	- Acceptance signoff: Self-closed: only focus coming back from one of the program's own windows skips the guard's second, where no key meant for another program can arrive. Focus from another program and a new window still start it. rkmsgs9m and rgv89eeg pin both sides, and both Properties dialogs passed natively on vm925w.
+	- Closed: 20261025-155000
 
 - The analyzer stage checks a file once, even when 2 targets build it with different headers.
 	- ID: 2026102408163141
