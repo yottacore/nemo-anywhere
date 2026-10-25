@@ -3,10 +3,12 @@
 ##	- Purpose: Local merge gate. The stand-in for a hosted CI: nothing reaches the
 ##	  release branch (main) unverified, even without a full cicd run.
 ##	- Behavior (per push ref):
-##	   - push to main         -> run the gate (format-check + lints + tests,
-##	     fail-fast, nothing mutated). A failure blocks the push. Which gate depends
-##	     on the box: `cicd/cicd.bash --gate` on unix, `cicd-win.ps1 -Gate` on a
+##	   - push to main         -> run the merge gate, every check of a plain run
+##	     with nothing mutated. A failure blocks the push. Which gate depends on
+##	     the box: `cicd/cicd.bash --merge-gate` on unix, `cicd-win.ps1 -Gate` on a
 ##	     Windows checkout, where cicd.bash has no docker to build in.
+##	   - push to main that changes only paths in cicd/hooks/gate-skip-paths.txt
+##	     -> nothing below runs, since it can't change what ships.
 ##	   - push to main         -> also a version-bump guard: source/meson.build must
 ##	     be a strict version increase over what's already on main, and (once one
 ##	     exists) the README "Release-<ver>" badge must match. So a release merge
@@ -48,7 +50,30 @@ fVersionOrder(){
 	return 2
 }
 
-## Sourced by cicd/hooks/test-pre-push.bash for the two functions above.
+## True when $1..$2 changes only paths no build reads, per gate-skip-paths.txt
+## as it is in $2. False when that can't be told: a first push, a remote sha
+## this clone doesn't have, or no list.
+fOnlySkipPaths(){
+	local -r old="$1" new="$2" zero="0000000000000000000000000000000000000000"
+	local list files f pat hit
+	[[ "$old" != "$zero" ]] || return 1
+	git cat-file -e "${old}^{commit}" 2>/dev/null || return 1
+	list="$(git show "${new}:cicd/hooks/gate-skip-paths.txt" 2>/dev/null | grep -v -e '^##' -e '^[[:space:]]*$' || true)"
+	[[ -n "$list" ]] || return 1
+	files="$(git diff --name-only --no-renames "$old" "$new" --)" || return 1
+	[[ -n "$files" ]] || return 1
+	while IFS= read -r f; do
+		hit=0
+		while IFS= read -r pat; do
+			# shellcheck disable=SC2053  ## the pattern is a glob on purpose.
+			[[ "$f" == $pat ]] && { hit=1; break; }
+		done <<< "$list"
+		((hit)) || return 1
+	done <<< "$files"
+	return 0
+}
+
+## Sourced by cicd/hooks/test-pre-push.bash for the functions above.
 [[ "${BASH_SOURCE[0]}" == "$0" ]] || return 0
 
 [[ "${SKIP_GATE:-0}" == "1" ]] && exit 0
@@ -66,8 +91,8 @@ run_gate(){ ((gate_ran)) && return 0; gate_ran=1
 			pwsh -NoProfile -File "${root}/cicd/cicd-win.ps1" -Gate -Yes
 			;;
 		*)
-			echo "[ pre-push gate: cicd.bash --gate ]"
-			"${root}/cicd/cicd.bash" --gate
+			echo "[ pre-push gate: cicd.bash --merge-gate ]"
+			"${root}/cicd/cicd.bash" --merge-gate
 			;;
 	esac
 }
@@ -77,6 +102,10 @@ while read -r _ localsha remoteref remotesha; do
 	[[ "$localsha" == "$z" ]] && continue          # branch delete: skip
 	branch="${remoteref#refs/heads/}"
 	[[ "$branch" == "main" ]] || continue
+	if fOnlySkipPaths "$remotesha" "$localsha"; then
+		echo "[ pre-push: only paths no build reads, so no merge gate ]"
+		continue
+	fi
 
 	## Version-bump guard, only when main already has a version to compare
 	## against (skips the very first push to main).

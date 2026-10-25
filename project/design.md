@@ -798,11 +798,15 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 
 - Feature branches merge `--no-ff` into `dev`, the integration target. `main` is release-only, and merging dev into main is what cuts a release. Nothing is committed directly on either.
 
-- The merge gate is `cicd.bash --gate` running as the `pre-push` hook, for pushes to main only. A push to dev isn't gated, since each chunk is built and tested before it is merged there. It is the local stand-in for a hosted CI workflow: lints, then a container build, then the test suite, then a headless launch smoke test. Install it per clone with `cicd/hooks/install.bash`; override a run with `git push --no-verify` or `SKIP_GATE=1`.
+- The merge gate is `cicd.bash --merge-gate` running as the `pre-push` hook, for pushes to main only. A push to dev isn't gated, since each chunk is built and tested before it is merged there. It is the local stand-in for a hosted CI workflow: every check of a plain run, other boxes included, with nothing changed. Install it per clone with `cicd/hooks/install.bash`; override a run with `git push --no-verify` or `SKIP_GATE=1`.
 
-- The Windows gate runs the same lints, build, test suite and smoke test.
+- A push to main whose commits change only paths listed in `cicd/hooks/gate-skip-paths.txt`, docs and the like, skips the gate and both guards below, since it can't change what ships.
+
+- The Windows gate runs the lints, build, test suite and smoke test.
 
 - With no options a run does everything but the arm64 release build, to stay near an hour. `--long`, or `--slow`, adds it. `--quick` runs only the steps that are quick and need no other box: the build, the full suite, lints, the sanitizer suite, the profiler, the native and Windows release builds, and local dogfood. It skips fuzzing, packages, arm64, the FreeBSD lane, the Windows dogfood refresh, screenshots and the demo. `--include-arm` and `--include-bsd` bring arm64 and FreeBSD back. On Windows `-Quick` changes nothing yet, since none of those run there.
+
+- `--backlog-run-quick` runs the format check, lints and the test suite, in about 4 minutes, or only the areas named: `format`, `lint` and `tests`. `--backlog-run-full` and `--merge-gate` run every check a plain run does, other boxes included. None of the 3 syncs, formats in place, dogfoods, installs, publishes, commits, pushes or prompts, and they leave out screenshots and the demo. `--gate` and `--ci` are other names for `--backlog-run-quick` and `--merge-gate`, and say so when used.
 
 - The FreeBSD lane runs the build and suite on the FreeBSD box in the test stage, and its tarball and pkg in the release stage. It runs on every full run. `--no-bsd` leaves it out, and `--include-bsd` brings it back under `--quick`.
 
@@ -825,7 +829,7 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 
 Stages, in order, each self-skipping when unconfigured: remote sync, format, debug build, tests and lints with fuzzing and the sanitizer suite, profiler, release build, packages, dogfood, backup and publish. Disabled on purpose today are the format stage, since there is no in-place C formatter worth running, and the engine's own release collector, because the per-platform release lanes write those artifacts themselves.
 
-- Remote sync runs first for a reason. The publish stage pulls at the end, so without it a change merged remotely mid-run would be pushed having never been built or tested. It fast-forwards when the branch is only behind and stops the run outright when it has diverged. It is skipped in gate mode, since a pre-push hook must not rewrite the tree underneath the push that called it.
+- Remote sync runs first for a reason. The publish stage pulls at the end, so without it a change merged remotely mid-run would be pushed having never been built or tested. It fast-forwards when the branch is only behind and stops the run outright when it has diverged. It is skipped by `--backlog-run-quick`, `--backlog-run-full` and `--merge-gate`, since a pre-push hook must not rewrite the tree underneath the push that called it.
 
 - No stage is allowed all the cores. Build parallelism is capped at half of them, so a full run leaves the machine usable.
 

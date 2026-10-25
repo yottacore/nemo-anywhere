@@ -2,11 +2,14 @@
 
 ##	- Purpose: Check which steps a cicd.bash run reaches with no options, with
 ##	  --long and --slow, with --quick, with --quick plus --include-arm or
-##	  --include-bsd, and with --gate. No options runs every step but arm64, and
-##	  --long or --slow every step. --quick runs the quick ones on this box and
-##	  skips fuzzing, packages and every step that needs another box. A copy of
-##	  cicd.bash runs in a scratch git repo with every step a stand-in that
-##	  leaves a marker file.
+##	  --include-bsd, with --backlog-run-quick and its areas, with
+##	  --backlog-run-full and --merge-gate, and with the other names --gate and
+##	  --ci. No options runs every step but arm64, and --long or --slow every
+##	  step. --quick runs the quick ones on this box and skips fuzzing, packages
+##	  and every step that needs another box. --backlog-run-full and
+##	  --merge-gate run every check a plain run does, and never sync, format in
+##	  place, dogfood or publish. A copy of cicd.bash runs in a scratch git repo
+##	  with every step a stand-in that leaves a marker file.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-quick.bash
 ##	- Test ID: rkmqprx6
@@ -24,6 +27,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "${here}/../.." && pwd)"
 
 failures=0
+lastOut=""
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/cicd-quick-check.XXXXXX")"
@@ -42,11 +46,16 @@ for stub in private publish scroll; do
 	printf '#!/usr/bin/env bash\nmkdir -p "%s/out" && touch "%s/out/%s"\n' "$scratch" "$scratch" "$stub" > "${scratch}/${stub}.bash"
 	chmod +x "${scratch}/${stub}.bash"
 done
+## Screenshots and the demo video are found by path, not by setting.
+printf '#!/usr/bin/env bash\nmkdir -p "%s/out" && touch "%s/out/shots"\n' "$scratch" "$scratch" > "${scratch}/cicd/utility/screenshots.bash"
+chmod +x "${scratch}/cicd/utility/screenshots.bash"
+mkdir -p "${scratch}/cicd/utility/demo-video"
+printf 'import pathlib\npathlib.Path("%s/out/demo").touch()\n' "$scratch" > "${scratch}/cicd/utility/demo-video/demo-video.py"
 cat > "${scratch}/cicd/config.bash" <<-EOF
 	APP_NAME="App"
 	EXE_NAME="app"
-	FMT_CMD=()
-	FMT_CHECK_CMD=()
+	FMT_CMD=(bash -c '$(mark fmt)')
+	FMT_CHECK_CMD=(bash -c '$(mark fmt-check)')
 	CICD_CONTAINERS=()
 	DEBUG_BUILD_CMD=(bash -c '$(mark build)')
 	TEST_CMD=(bash -c '$(mark tests)')
@@ -102,7 +111,7 @@ git -C "$scratch" init -q
 git -C "$scratch" add -A
 git -C "$scratch" -c user.name=check -c user.email=check@example.invalid -c commit.gpgsign=false commit -q -m init
 
-allSteps=(build tests lint fuzz sanitize scroll bsd-tests profile native windows arm64 bsd-release analyze packages package-check private dogfood dogfood-hook remote-dogfood publish)
+allSteps=(fmt fmt-check build tests lint fuzz sanitize scroll bsd-tests profile native windows arm64 bsd-release analyze packages package-check private dogfood dogfood-hook remote-dogfood shots demo publish)
 
 ## $1 the steps that must run, space separated, rest the options. Every other
 ## step must not.
@@ -112,6 +121,7 @@ fRun(){
 	rm -rf "${scratch}/out" "${scratch}/native.bin"
 	mkdir -p "${scratch}/out"
 	out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y "$@" 2>&1 </dev/null)" || rc=$?
+	lastOut="$out"
 	if [[ "$rc" != 0 ]]; then
 		fFail "[$*]: the run failed (exit ${rc}): $(tail -5 <<< "$out")"
 		return 0
@@ -128,6 +138,7 @@ fRun(){
 			((! ran)) || fFail "[${*:-no options}]: ${step} ran"
 		fi
 	done
+	[[ -z "$(git -C "$scratch" status --porcelain)" ]] || fFail "[${*:-no options}]: the run changed the tree"
 	if [[ "$want" == *" sync "* ]]; then
 		[[ "$out" == *"nothing to sync"* ]] || fFail "[${*:-no options}]: remote sync did not run"
 	else
@@ -135,18 +146,54 @@ fRun(){
 	fi
 }
 
-quickSteps="sync build tests lint sanitize profile native windows dogfood dogfood-hook publish"
+fullSteps="fmt build tests lint fuzz sanitize scroll bsd-tests profile native windows arm64 bsd-release analyze packages package-check private dogfood dogfood-hook remote-dogfood publish"
+quickSteps="sync fmt build tests lint sanitize profile native windows dogfood dogfood-hook publish"
+## Every check of a plain run, with the format check in place of the formatter.
+checkSteps="fmt-check build tests lint fuzz sanitize scroll bsd-tests profile native windows bsd-release analyze packages package-check private"
 ## A plain run leaves arm64 out since 2026-10-24, to stay near an hour.
-fRun "sync ${allSteps[*]/arm64}"
-fRun "sync ${allSteps[*]}"               --long
-fRun "sync ${allSteps[*]}"               --slow
+fRun "sync ${fullSteps/ arm64 / }"
+fRun "sync ${fullSteps}"                 --long
+fRun "sync ${fullSteps}"                 --slow
+fRun "sync ${fullSteps/ arm64 / } shots demo" --shots --demo
 fRun "${quickSteps}"                     --quick
 fRun "${quickSteps} arm64"               --quick --include-arm
 fRun "${quickSteps} bsd-tests bsd-release" --quick --include-bsd
-fRun "tests lint"                        --gate
+
+## $1 the other name, or empty: the run says so in one line, and only then.
+fNote(){
+	local n
+	n="$(grep -c 'is another name for' <<< "$lastOut" || true)"
+	if [[ -n "$1" ]]; then
+		[[ "$n" == 1 && "$lastOut" == *"[ $1 is another name for $2 ]"* ]] || fFail "[$1]: no one-line note that it is another name for $2"
+	else
+		[[ "$n" == 0 ]] || fFail "[$2]: says it is another name"
+	fi
+}
+fRun "fmt-check tests lint"              --backlog-run-quick;       fNote "" --backlog-run-quick
+fRun "fmt-check tests lint"              --gate;                    fNote --gate --backlog-run-quick
+fRun "lint"                              --backlog-run-quick lint
+fRun "tests lint"                        --backlog-run-quick tests lint
+fRun "fmt-check"                         --gate format
+fRun "lint"                              --backlog-run-quick lint --no-sanitize
+fRun "${checkSteps}"                     --backlog-run-full;        fNote "" --backlog-run-full
+fRun "${checkSteps}"                     --merge-gate;              fNote "" --merge-gate
+fRun "${checkSteps}"                     --ci;                      fNote --ci --merge-gate
+fRun "${checkSteps} arm64"               --merge-gate --long
+## Nothing named after the mode turns a step that changes things back on.
+fRun "${checkSteps}"                     --merge-gate --shots --demo --allow-dirty
+## The last mode named wins.
+fRun "${checkSteps}"                     --gate --merge-gate
+fRun "fmt-check tests lint"              --backlog-run-full --backlog-run-quick
+rc=0
+out="$(cd "$scratch" && CICD_CPU_CAPPED=1 bash cicd/cicd.bash --backlog-run-quick lint nosuch 2>&1 </dev/null)" || rc=$?
+[[ "$rc" == 2 && "$out" == *"unknown area: nosuch"* && "$out" == *"format lint tests"* ]] || fFail "[--backlog-run-quick lint nosuch]: exit ${rc}, not 2 with the areas listed: ${out}"
+help="$(bash "${root}/cicd/cicd.bash" --help)"
+for name in --backlog-run-quick --backlog-run-full --merge-gate --gate --ci "format, lint, tests"; do
+	grep -q -F -- "$name" <<< "$help" || fFail "--help does not name ${name}"
+done
 
 if ((failures)); then
 	fEcho "FAILED: step selection, ${failures} problem(s)"
 	exit 1
 fi
-fEcho "OK: no options runs every step but arm64, --long all, --quick the quick local ones, --gate tests and lints"
+fEcho "OK: no options runs every step but arm64, --long all, --quick the quick local ones, --backlog-run-quick its areas, --backlog-run-full and --merge-gate the checks only"

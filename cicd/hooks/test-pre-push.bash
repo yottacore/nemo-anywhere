@@ -6,7 +6,9 @@
 ##	  once refused. First the compare on its own, then the whole hook run
 ##	  against a throwaway repo, with a stand-in for the gate it calls. The
 ##	  version and badge come from the commit pushed, never the working tree,
-##	  and the gate is refused when the tree is not that commit.
+##	  and the gate is refused when the tree is not that commit. The gate is
+##	  cicd.bash --merge-gate, and a push that changes only paths in
+##	  gate-skip-paths.txt skips the gate and both guards.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/hooks/test-pre-push.bash
 ##	- Test ID: rhtrxr80
@@ -70,8 +72,10 @@ got="$(_ver_from "${scratch}/meson.build" || true)"
 ## A repo whose gate always passes, so only the version guard can refuse. The
 ## hook picks the PowerShell gate on a Windows checkout.
 repo="${scratch}/repo"
-mkdir -p "${repo}/source" "${repo}/cicd"
-printf '#!/usr/bin/env bash\nexit 0\n' > "${repo}/cicd/cicd.bash"
+mkdir -p "${repo}/source" "${repo}/cicd/hooks"
+cp "${here}/gate-skip-paths.txt" "${repo}/cicd/hooks/"
+calls="${scratch}/gate-calls"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "%s"\n' "$calls" > "${repo}/cicd/cicd.bash"
 chmod +x "${repo}/cicd/cicd.bash"
 printf 'exit 0\n' > "${repo}/cicd/cicd-win.ps1"
 ## The lint stage runs under MSYS2 on Windows, where pwsh is not on PATH. The
@@ -165,8 +169,53 @@ printf '![Release](https://img.shields.io/badge/Release-2.0.2-blue)\n' > "${repo
 fPushMain "badge right only in the tree" 1 "README release badge"
 git -C "$repo" checkout -q -- README.md
 
+## A release push runs the merge gate.
+git -C "$repo" rm -q README.md
+oldsha="$(fCommitVersion 3.0.0)"
+newsha="$(fCommitVersion 3.0.1)"
+rm -f "$calls"
+fPushMain "release push" 0 ""
+if [[ "$(uname -s)" != MINGW* && "$(uname -s)" != MSYS* ]]; then
+	[[ "$(cat "$calls" 2>/dev/null)" == "--merge-gate" ]] || fFail "hook, release push: gate called as '$(cat "$calls" 2>/dev/null)', not --merge-gate"
+fi
+
+## $1 label, then files to write; commits them with no version bump.
+fCommitFiles(){
+	local f
+	shift
+	for f in "$@"; do mkdir -p "$(dirname "${repo}/${f}")"; echo "$RANDOM" >> "${repo}/${f}"; done
+	git -C "$repo" add -A
+	git -C "$repo" commit -q -m files
+	git -C "$repo" rev-parse HEAD
+}
+
+## Docs only: no bump and another commit checked out, and still nothing runs.
+oldsha="$newsha"
+newsha="$(fCommitFiles docs guide.md project/notes.txt source/readme.md)"
+git -C "$repo" checkout -q "$oldsha"
+rm -f "$calls"
+fPushMain "docs only" 0 "only paths no build reads"
+[[ ! -e "$calls" ]] || fFail "hook, docs only: the gate ran"
+git -C "$repo" checkout -q "$newsha"
+
+## Docs plus one file a build reads: the guards and the gate are back.
+oldsha="$newsha"
+newsha="$(fCommitFiles mixed guide.md source/x.c)"
+fPushMain "docs and source" 1 "does not bump"
+
+## The list itself isn't on the list.
+newsha="$(fCommitFiles list cicd/hooks/gate-skip-paths.txt)"
+fPushMain "skip list changed" 1 "does not bump"
+
+## A first push can't be compared, so the gate runs.
+oldsha="0000000000000000000000000000000000000000"
+newsha="$(fCommitFiles first guide.md)"
+rm -f "$calls"
+fPushMain "first push, docs only" 0 ""
+[[ -n "$(cat "$calls" 2>/dev/null)" ]] || fFail "hook, first push: the gate did not run"
+
 if ((failures)); then
 	fEcho "FAILED: pre-push version guard, ${failures} problem(s)"
 	exit 1
 fi
-fEcho "OK: pre-push version guard (${#cases[@]} compares, $(( ${#hookCases[@]} + 7 )) hook runs)"
+fEcho "OK: pre-push version guard (${#cases[@]} compares, $(( ${#hookCases[@]} + 12 )) hook runs)"

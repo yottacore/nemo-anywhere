@@ -61,8 +61,19 @@
 ##	   --long              everything, the arm64 release build included, which
 ##	                       a plain run leaves out to stay near an hour
 ##	   --slow              same as --long
-##	   --gate              merge gate only: format-check + lints + tests, then exit
-##	                       (fast local stand-in for hosted CI; the pre-push hook runs it)
+##	   --backlog-run-quick [<area>...]
+##	                       what a backlog worker runs before a commit, about 4
+##	                       minutes: format check, lints and the test suite,
+##	                       then exit. Name areas to run only those. Areas:
+##	                       format, lint, tests
+##	   --backlog-run-full  what a backlog round runs once at its end: every
+##	                       check of a plain run, other boxes included
+##	   --merge-gate        the same checks, before a merge to main
+##	   --gate              same as --backlog-run-quick
+##	   --ci                same as --merge-gate
+##	                       None of these 3 syncs, formats in place, dogfoods,
+##	                       installs, publishes, commits, pushes or prompts.
+##	                       They leave out screenshots and the demo video too
 ## - Reuse: copy the cicd/ directory into another project and edit config.bash.
 
 ##	History: At bottom of script.
@@ -137,10 +148,25 @@ fSetSourceDate "${root}"
 ## Parse options.
 include_bsd=""; no_bsd=0                                          ## empty = whatever --quick says
 assume_yes=0; quick=0; long=0; gate=0; no_arm=0; include_arm=""; no_sync=0; allow_dirty=0; cli_message=""
+## checks_only: --backlog-run-full or --merge-gate. run_mode names the one given,
+## for the plan and the last line.
+checks_only=0; run_mode=""; alias_note=""; areas=()
+known_areas="format lint tests"
 while (($#)); do case "$1" in
 	-y|--yes)                 assume_yes=1; shift ;;
 	-q|--quiet)               assume_yes=1; shift ;;            ## publish runs quiet whatever this says
-	--gate)                   gate=1; shift ;;                  ## merge gate only, then exit
+	## Of these 3 modes the last one named wins.
+	--backlog-run-quick|--gate)
+		alias_note=""; [[ "$1" == "--gate" ]] && alias_note="--gate is another name for --backlog-run-quick"
+		gate=1; checks_only=0; run_mode="--backlog-run-quick"; areas=(); shift
+		while (($#)) && [[ "$1" != -* ]]; do
+			[[ " ${known_areas} " == *" $1 "* ]] || { echo "unknown area: $1 (areas: ${known_areas})" >&2; exit 2; }
+			areas+=("$1"); shift
+		done ;;
+	--backlog-run-full)       gate=0; checks_only=1; run_mode="$1"; alias_note=""; shift ;;
+	--merge-gate|--ci)
+		alias_note=""; [[ "$1" == "--ci" ]] && alias_note="--ci is another name for --merge-gate"
+		gate=0; checks_only=1; run_mode="--merge-gate"; shift ;;
 	--no-sync)                no_sync=1; shift ;;
 	--no-fmt)                 FMT_CMD=(); shift ;;
 	--no-cross)               BUILD_CROSS=0; shift ;;
@@ -164,6 +190,19 @@ while (($#)); do case "$1" in
 	-h|--help)                sed -n '/^##	- Purpose:/,/^##	History:/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##	\{0,1\}//'; exit 0 ;;
 	*) echo "unknown option: $1 (try --help)" >&2; exit 2 ;;
 esac; done
+[[ -z "$alias_note" ]] || echo "[ ${alias_note} ]"
+
+## Checks only: a round or the pre-push hook runs these, so nothing may change
+## the tree, the box or the remote, and nobody is there to answer a prompt.
+## After the loop, so no later option can turn a step back on.
+if ((checks_only)); then
+	assume_yes=1; no_sync=1
+	FMT_CMD=()                                                    ## stage 1 runs FMT_CHECK_CMD instead
+	DOGFOOD_FIXED_DESTS=(); DOGFOOD_ROTATING_DESTS=(); DOGFOOD_CROSS_DESTS=(); DOGFOOD_HOOK=(); DOGFOOD_REMOTE=()
+	PRIVATE_DOGFOOD=()
+	GIT_PUBLISH=()
+	SHOTS_ENABLE=0; DEMO_ENABLE=0                                 ## both rewrite tracked files
+fi
 
 ## FreeBSD runs unless --quick, and arm64 only with --long, since its emulated box
 ## takes about 98 of a plain run's 152 minutes. Naming either one beats both flags.
@@ -369,32 +408,39 @@ if declare -p TOOL_PINS &>/dev/null; then
 	done
 fi
 
-## Gate mode: the local merge gate (what a bare-bones hosted CI would run).
-## format-check + lints + tests, fail-fast, no artifacts/log-tee/publish. Wired as
-## the pre-push hook for main, so nothing reaches the release branch unverified
-## even outside a full run. The test stage builds first, since there is
-## no build stage here - so what is compiled is the working tree rather than the
-## sha being pushed. The hook refuses a push where the two differ. Source tree
+## --backlog-run-quick: format check + lints + tests, fail-fast, no
+## artifacts/log-tee/publish. The test stage builds first, since there is no
+## build stage here - so what is compiled is the working tree. Source tree
 ## untouched, build directory written to.
+## True when the area was named, or when none were.
+fArea(){ ((${#areas[@]} == 0)) || [[ " ${areas[*]} " == *" $1 "* ]]; }
 if ((gate)); then
-	fSection "Gate 1/3  Format check"
-	if declare -p FMT_CHECK_CMD &>/dev/null && ((${#FMT_CHECK_CMD[@]})); then
+	fSection "Backlog run quick 1/3  Format check"
+	if ! fArea format; then
+		fEcho_Clean "format check skipped (area not named)"
+	elif declare -p FMT_CHECK_CMD &>/dev/null && ((${#FMT_CHECK_CMD[@]})); then
 		"${FMT_CHECK_CMD[@]}" || fDie "format check failed (run: ${FMT_CMD[*]:-cargo fmt})"
 		fEcho "OK: formatting clean"
 	else
 		fEcho_Clean "format check skipped (no FMT_CHECK_CMD)"
 	fi
-	fSection "Gate 2/3  Lints"
-	if [[ -n "${LINT_CMD+x}" ]] && ((${#LINT_CMD[@]})) && "${LINT_PROBE[@]}" >/dev/null 2>&1; then
+	fSection "Backlog run quick 2/3  Lints"
+	if ! fArea lint; then
+		fEcho_Clean "lints skipped (area not named)"
+	elif [[ -n "${LINT_CMD+x}" ]] && ((${#LINT_CMD[@]})) && "${LINT_PROBE[@]}" >/dev/null 2>&1; then
 		"${LINT_CMD[@]}"
 		fEcho "OK: lints clean"
 	else
 		fEcho_Clean "lints skipped (no lint stage configured)"
 	fi
-	fSection "Gate 3/3  Tests"
-	"${TEST_CMD[@]}"
-	fEcho "OK: tests passed"
-	fSection "${APP_NAME} gate: PASSED."
+	fSection "Backlog run quick 3/3  Tests"
+	if ! fArea tests; then
+		fEcho_Clean "tests skipped (area not named)"
+	else
+		"${TEST_CMD[@]}"
+		fEcho "OK: tests passed"
+	fi
+	fSection "${APP_NAME} backlog-run-quick${areas[*]:+ ${areas[*]}}: PASSED."
 	fEcho_Clean
 	exit 0
 fi
@@ -421,10 +467,16 @@ fEcho_Clean
 fEcho_Clean "${APP_NAME} local CI/CD"
 fEcho_Clean
 fEcho_Clean "Repo root ...........: ${root}"
-fEcho_Clean "Remote sync .........: $( ((no_sync)) && echo '(skipped --no-sync)' || echo 'fetch + fast-forward before building' )"
+((checks_only)) && fEcho_Clean "Mode ................: ${run_mode}, checks only: no sync, in-place format, dogfood, publish, screenshots, demo or prompt"
+sync_why="--no-sync"; ((checks_only)) && sync_why="${run_mode}"
+fEcho_Clean "Remote sync .........: $( ((no_sync)) && echo "(skipped ${sync_why})" || echo 'fetch + fast-forward before building' )"
 fEcho_Clean "Build jobs ..........: ${CICD_MAX_JOBS} (half of ${cores} cores)"
 fEcho_Clean "CPU cap .............: $( [[ -n "${CICD_CPU_CAPPED:-}" ]] && echo "$(( cores * 50 ))% (user scope)" || echo 'job counts only (no user systemd)' )"
-fEcho_Clean "Format ..............: ${FMT_CMD[*]:-(skipped)}"
+if ((checks_only)); then
+	fEcho_Clean "Format check ........: ${FMT_CHECK_CMD[*]:-(skipped)}"
+else
+	fEcho_Clean "Format ..............: ${FMT_CMD[*]:-(skipped)}"
+fi
 fEcho_Clean "Debug build .........: ${DEBUG_BUILD_CMD[*]}"
 fEcho_Clean "Tests ...............: ${TEST_CMD[*]}"
 if [[ -n "${SANITIZE_CMD+x}" ]] && ((${#SANITIZE_CMD[@]})); then
@@ -543,14 +595,17 @@ fi
 ## Stage 0: remote sync.
 fSection "0/8  Remote sync"
 if ((no_sync)); then
-	fEcho_Clean "remote sync skipped (--no-sync)"
+	fEcho_Clean "remote sync skipped (${sync_why})"
 else
 	remote_sync
 fi
 
 ## Stage 1: format.
 fSection "1/8  Format"
-if ((${#FMT_CMD[@]} == 0)); then
+if ((checks_only)) && declare -p FMT_CHECK_CMD &>/dev/null && ((${#FMT_CHECK_CMD[@]})); then
+	"${FMT_CHECK_CMD[@]}" || fDie "format check failed"
+	fEcho "OK: formatting clean"
+elif ((${#FMT_CMD[@]} == 0)); then
 	fEcho_Clean "format skipped"
 else
 	"${FMT_CMD[@]}"
@@ -1028,7 +1083,7 @@ else
 	fEcho "OK: published"
 fi
 
-fSection "${APP_NAME} CI/CD: done."
+fSection "${APP_NAME} CI/CD${run_mode:+ ${run_mode}}: done."
 fEcho_Clean
 
 
@@ -1039,3 +1094,5 @@ fEcho_Clean
 ##		  build; --include-arm works under --quick.
 ##		- 2026-10-21: static analyzer stage after the cross build, report only.
 ##		- 2026-10-24: --long (or --slow) adds arm64, now off in a plain run.
+##		- 2026-10-25: --backlog-run-quick, --backlog-run-full and --merge-gate;
+##		  --gate and --ci are other names for the first and last.

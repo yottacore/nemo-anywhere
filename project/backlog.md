@@ -273,6 +273,30 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261024, rm1sbxgy fails 10 checks with the new handlers bypassed and passes with them. rktkms8a, rktqpp37, rk7yvgse and rm1sbwdq pass. The full Linux suite, 234 OK and 1 skipped. The build and the Windows cross build with warnings as errors, the C lint and the test ID check pass.
 	- Verified: 20261024, rm1sbxgy passes in the FreeBSD lane at c7194950.
 
+- CICD flags: `--backlog-run-quick`, `--backlog-run-full` and `--merge-gate`.
+	- ID: 2026102516165473
+	- Type: Task
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: yes. One `cicd/cicd.bash --backlog-run-full`, end to end. Its plan should say checks only, and `git status` should be the same after it.
+	- Priority|Severity: High
+	- Opened: 20261025-161654
+	- Opened by: 2026102416300004
+	- Parent ID: 2026102416300004
+	- Requirements:
+		- `cicd.bash` takes `--backlog-run-quick [<area>...]`, `--backlog-run-full` and `--merge-gate`. `--help` lists the areas.
+		- `--gate` and `--ci` become other names for `--backlog-run-quick` and `--merge-gate`, and say so in one line when used.
+		- The 3 never dogfood, publish, commit, push, install, sync, rewrite a tracked file, or prompt.
+	- Decisions:
+		- The areas are the quick run's 3 steps: `format`, `lint` and `tests`. The suite has no meson suites to split it by.
+		- `--backlog-run-full` and `--merge-gate` run the same steps: every check of a plain run, other boxes included. Sync, the in-place formatter, every dogfood step, publish, screenshots and the demo are off, and the format check runs in place of the formatter. No later option turns those back on.
+		- Of the 3 modes, the last one named wins.
+	- Progress log:
+		- 20261025: in `cicd.bash`, with help, design.md and building.md. The pre-push hook moved to `--merge-gate` in 2026102516165475.
+	- Swept: every doc and script that names `--gate`. The hook is 2026102516165475, `cicd-win.ps1` is 2026102516165482, and the private round settings' gate and full run lines are left for the round.
+	- Branch: round1025b
+	- Test case: rkmqprx6, `test-cicd-quick.bash`. It gained a formatter, format check, screenshot and demo stand-in, and checks the steps each mode runs, the areas, the one-line note for `--gate` and `--ci`, a bad area, that nothing changes the tree, and that `--help` names them.
+	- Verified: 20261025. rkmqprx6 passes, and fails 20 checks on the old `cicd.bash`. It also fails with publish, dogfood, sync, or screenshots and the demo left on under `--merge-gate`. `cicd/cicd.bash --gate` passed for real on round1025b: lint, then the suite with 235 OK and 1 skipped. rj9v18rx and rjph39cv pass.
+
 - The native gate on vm925w stops on scratch folders 7 tests leave behind.
 	- ID: 2026102413432225
 	- Type: Bug
@@ -824,6 +848,46 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- The pre-push hook runs `--merge-gate` on a push to main, and skips it when the commits change only docs and other paths no build reads, listed in one place. A push to dev stays ungated.
 			- `cicd-win.ps1` takes the same flags.
 		- Overrides: 2026101816495201's decision that `--gate` stays the merge gate, design.md, "Branches and the merge gate", and the gate and full run lines in the private round settings.
+	- Progress log:
+		- 20261025: split into children 2026102516165473 to 2026102516165482, one per part. `--long` and `--slow` were already in.
+	- Test case: none yet.
+
+- CICD flags: `--no-container`, `--no-remote`, `--keep-temp` and `--list`.
+	- ID: 2026102516165477
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-161654
+	- Opened by: 2026102416300004
+	- Parent ID: 2026102416300004
+	- Requirements:
+		- Per the shared CICD style guide: `--no-container` runs on the host, `--no-remote` skips the other hosts and VMs, `--keep-temp` keeps the run's temp folder and containers and prints where they are, and `--list` prints the steps and test IDs the other flags would run, and runs nothing.
+	- Test case: none yet.
+
+- CICD flags: run lengths.
+	- ID: 2026102516165479
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-161654
+	- Opened by: 2026102416300004
+	- Parent ID: 2026102416300004
+	- Requirements:
+		- The default run fits in about an hour. Time it, and move the slowest steps to `--long` if it doesn't.
+		- `--quick` keeps to about 10 minutes, with fuzzing at a short budget in it.
+	- Test case: none yet.
+
+- CICD flags: `cicd-win.ps1` takes the same flags.
+	- ID: 2026102516165482
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-161654
+	- Opened by: 2026102416300004
+	- Parent ID: 2026102416300004
+	- Prereq IDs: 2026102516165473, 2026102516165477
+	- Requirements:
+		- `cicd-win.ps1` takes the same flags as `cicd.bash`, in its own form where PowerShell needs one.
 	- Test case: none yet.
 
 - CICD reset: step output.
@@ -1500,6 +1564,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- CICD flags: the pre-push hook runs `--merge-gate`.
+	- ID: 2026102516165475
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261025-161654
+	- Opened by: 2026102416300004
+	- Parent ID: 2026102416300004
+	- Prereq IDs: 2026102516165473
+	- Requirements:
+		- The pre-push hook runs `--merge-gate` on a push to main, and skips it when the commits change only docs and other paths no build reads, listed in one place. A push to dev stays ungated.
+	- Decisions:
+		- The list is `cicd/hooks/gate-skip-paths.txt`, read from the commit pushed: `*.md` and `project/*` for now. The list itself isn't on it.
+		- A push that changes only those paths skips the version guard and the clean tree check too, since a docs push to main never bumps the version.
+		- A first push, or a remote sha this clone doesn't have, can't be compared, so it gets the gate.
+		- On Windows the hook still runs `cicd-win.ps1 -Gate` until 2026102516165482.
+	- Swept: design.md's merge gate lines. Each clone needs `cicd/hooks/install.bash` again to pick the hook up.
+	- Branch: round1025b
+	- Test case: rhtrxr80, `test-pre-push.bash`. It checks that a release push calls `--merge-gate`, that a docs-only push skips everything, and that docs plus a source file, a change to the list, and a first push don't.
+	- Verified: 20261025. rhtrxr80 passes, and fails on the old hook (`--gate`, docs push refused) and with the skip taken out.
+	- Acceptance signoff: Self-closed: rhtrxr80 pins it.
+	- Closed: 20261025-163200
 
 - rjph39cv and rkmqprx6 still expect arm64 in a plain run, so lint fails.
 	- ID: 2026102509133500

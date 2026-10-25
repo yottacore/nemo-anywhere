@@ -1,0 +1,6 @@
+## Paths no build reads. A push to main whose commits change only these skips
+## the merge gate, the version guard and the clean tree check, since it can't
+## change what ships. Read by the pre-push hook from the commit pushed. One
+## shell glob per line, matched against the whole path, where * also matches /.
+*.md
+project/*
