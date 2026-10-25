@@ -6,7 +6,8 @@
 G_BEGIN_DECLS
 
 /* Same contract as g_dir_make_tmp. The directory is removed when the test
-   exits, however it exits short of a crash. */
+   exits, however it exits short of a crash or a kill. A current directory
+   inside one is left, and a file cache inside one is closed, first. */
 char *test_scratch_dir     (const char  *tmpl,
 			    GError     **error);
 
@@ -42,7 +43,9 @@ void  test_own_display (int argc, char **argv, const char *screen);
 /* How many times slower this box is than the one the suite's time limits
    were set on, measured once per process and never below 1. A limit
    multiplied by it still fails a real slowdown on a normal box, and stops
-   failing on an emulated one that is slow at everything. */
+   failing on an emulated one that is slow at everything. Measuring makes a
+   scratch directory, so a copy of the test that may be killed takes its
+   parent's answer from NEMO_TEST_SLOWNESS instead, or the directory stays. */
 double test_slowness (void);
 
 /* A bar set to tell the old 200 ms view timer from a fixed build can't be

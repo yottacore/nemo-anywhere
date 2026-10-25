@@ -152,6 +152,7 @@ main (int argc, char *argv[])
 	g_autofree char *scratch = NULL, *work = NULL, *cwd_line = NULL;
 	g_autofree char *quiet = NULL, *console = NULL, *viacmd = NULL, *batch = NULL, *batch2 = NULL;
 	g_autofree char *quoted = NULL;
+	g_autofree char *was = g_get_current_dir ();
 	const char *names[] = { "two words", "C:\\plain\\path", "R&D %PATH% 100%", "it's", NULL };
 	GdkScreen *screen;
 
@@ -266,7 +267,9 @@ main (int argc, char *argv[])
 		g_clear_pointer (&quoted, g_free);
 	}
 
-	g_chdir (scratch);
+	/* Windows can't remove a process's current directory, so not back into
+	   the scratch one. */
+	g_chdir (was);
 	g_free (self_name);
 	g_free (dir);
 

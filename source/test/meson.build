@@ -516,6 +516,15 @@ if not is_windows
   )
 endif
 
+test('rm494xfp Scratch cleanup of held folders test',
+  executable('test-nemo-scratch-held',
+    [ 'test-nemo-scratch-held.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('rknjd2qn Delete fence test',
   executable('test-nemo-fence',
     [ 'test-nemo-fence.c' ],
@@ -1883,7 +1892,7 @@ if not is_windows
       executable('test-nemo-held-view',
         [ 'test-nemo-held-view.c' ],
         include_directories: [ rootInclude, shclInclude, ],
-        dependencies: [ glib, x11, xtst, math, test_scratch ],
+        dependencies: [ glib, x11, xtst, math, nemo_private, test_scratch ],
       ),
       args: [ nemo, held_view_hooks ],
       timeout: 180

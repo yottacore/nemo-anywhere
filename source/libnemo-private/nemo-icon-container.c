@@ -1311,10 +1311,10 @@ rubberband_select (NemoIconContainer *container,
 	}
 }
 
-static int
-rubberband_timeout_callback (gpointer data)
+/* The band follows the pointer on a timer, not on motion events. */
+static void
+rubberband_update (NemoIconContainer *container)
 {
-	NemoIconContainer *container;
 	GtkWidget *widget;
 	NemoIconRubberbandInfo *band_info;
 	int x, y;
@@ -1327,8 +1327,7 @@ rubberband_timeout_callback (gpointer data)
 
 	EelDRect selection_rect;
 
-	widget = GTK_WIDGET (data);
-	container = NEMO_ICON_CONTAINER (data);
+	widget = GTK_WIDGET (container);
 	band_info = &container->details->rubberband_info;
 
 	g_assert (band_info->timer_id != 0);
@@ -1376,7 +1375,7 @@ rubberband_timeout_callback (gpointer data)
 
 	if (y_scroll == 0 && x_scroll == 0
 	    && (int) band_info->prev_x == x && (int) band_info->prev_y == y && !adj_changed) {
-		return TRUE;
+		return;
 	}
 
 	nemo_icon_container_scroll (container, x_scroll, y_scroll);
@@ -1430,7 +1429,12 @@ rubberband_timeout_callback (gpointer data)
 	band_info->prev_y = y;
 
 	band_info->prev_rect = selection_rect;
+}
 
+static int
+rubberband_timeout_callback (gpointer data)
+{
+	rubberband_update (NEMO_ICON_CONTAINER (data));
 	return TRUE;
 }
 
@@ -3612,6 +3616,9 @@ button_release_event (GtkWidget *widget,
 	if (details->rubberband_info.active && event->button == details->rubberband_info.button) {
 		details->band_pending = 0;
 		eel_menu_press_end (&details->menu_press, widget, event->button, event->x, event->y);
+		/* A busy main loop can bring the release before the band's
+		   timer has run, so it would select nothing. */
+		rubberband_update (container);
 		stop_rubberbanding (container, event->time);
         return GTK_WIDGET_CLASS (nemo_icon_container_parent_class)->button_release_event (widget, event);
 	}

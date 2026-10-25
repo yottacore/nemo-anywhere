@@ -287,6 +287,7 @@ main (int argc, char *argv[])
 	g_autoptr(GError) error = NULL;
 	g_autofree char *scratch = NULL;
 	g_autofree char *tool_path = NULL;
+	char slowness[G_ASCII_DTOSTR_BUF_SIZE];
 
 	if (argc == 4 && strcmp (argv[1], "--app") == 0) {
 		tool = argv[3];
@@ -310,6 +311,9 @@ main (int argc, char *argv[])
 	}
 	g_setenv ("NEMO_FAKE_TOOL_DIR", scratch, TRUE);
 	g_setenv ("NEMO_FAKE_TOOL_SLEEP", "1", TRUE);
+	/* An app copy that is killed never removes its own scratch, so it takes
+	 * this measure rather than making one. */
+	g_setenv ("NEMO_TEST_SLOWNESS", g_ascii_dtostr (slowness, sizeof slowness, test_slowness ()), TRUE);
 
 	check_ends ("pipe", TRUE);
 	check_ends ("pipe", FALSE);

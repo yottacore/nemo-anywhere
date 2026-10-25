@@ -60,7 +60,7 @@
 #include <X11/keysym.h>
 #include <X11/extensions/XTest.h>
 
-#define SHCL_IMPLEMENTATION
+/* The settings code has the one copy of the library. */
 #include "shcl.h"
 
 #include "test-scratch.h"
