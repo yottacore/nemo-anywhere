@@ -1503,6 +1503,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026102413432024
 	- Type: Bug
 	- Status: Waiting on automated testing
+	- Needs local test suite run?: a full run's sanitizer stage on a loaded box.
 	- Priority|Severity: Low
 	- Opened: 20261024-134320
 	- Opened by: 2026102411433800
@@ -1522,7 +1523,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261025: reproduced with the cores and the disk loaded, at load 50 to 60. rm1sbxgy failed 12 of 12, with step 38 timeouts and the Down misses in all 3 views, and rktqpp37 failed 4 of 12. In each step 38 timeout the grab was still there at the click, and in none of the passes.
 		- 20261025: after the fix, at the same load: rm1sbxgy 12 of 12, rktqpp37 19 of 20 and rktkms8a 8 of 8 pass. The one failure was a timeout at step 11, where the menu never opened. Filed as 2026102507531587.
 	- Swept: every step that follows a closed menu in this test goes through the same check. test-nemo-drag-select has the same wait and the same menu steps, but holds the button across steps for its bands, so it can't take the check as is. Filed as 2026102507531487. The other tests that close a menu don't wait on a tick for the next event.
-	- Needs local test suite run?: a full run's sanitizer stage on a loaded box.
 	- Branch: round1025
 	- Commit: 8e35f6b8
 	- Test case: rktkms8a, rktqpp37 and rm1sbxgy themselves, in the sanitizer lane with the cores loaded.
