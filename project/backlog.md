@@ -859,6 +859,152 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: opened.
 	- Test case: none yet.
 
+- Builds clean up stale artifacts and side-effects.
+	- ID: 2026101910075400
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261019-100754
+	- Opened by: t00mietum
+	- Related IDs: 2026102416300000, 2026102416300002
+	- Requirements:
+		- Before the next cut.
+		- Verify or ensure that builds clean up stale artifacts and side-effects when done: caches, container cruft, tmp files, etc.
+		- 2026-10-24: this is the CICD reset's container cleanup item, per the container bullets in the cleanup section of the shared CICD rules. High now.
+			- Every container, image and volume the pipeline makes gets `dev.project` and `dev.run` labels. Containers are named `<project>-<run folder>-<step>` and run with `--rm`, unless `--keep-temp`.
+			- At the end of a run, on failure and Ctrl+C too, the run's containers go by label, then the project's dangling images and its older tags past the current one and the one before, then `docker builder prune -f --filter until=168h`.
+			- Cache volumes stay under 2 GB. Nothing without the project's label is touched, and never `docker rmi -f` or `docker system prune`.
+			- What the pipeline made before it had labels gets one cleanup pass by hand, by ID.
+			- One line at the end says what was removed and about what it freed, from `docker system df` before and after. Checked with 2 runs, one killed partway.
+			- Temp folders are 2026102416300002.
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- Overrides: the list of images to keep, in the private notes under the dev and test boxes.
+	- Test case: none yet.
+
+- CICD reset: containers.
+	- ID: 2026102416300000
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261024-163000
+	- Opened by: t00mietum
+	- Related IDs: 2026101910075400
+	- Requirements:
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- Per the containers section of the shared CICD rules. Build and test already run in containers. What's left:
+			- Every image comes from a pinned recipe in the repo. The day-to-day and cross build images are hand-made snapshots today, and 2 recipes start from a base with no digest.
+			- Fall back to the host, with one line saying so, when docker is missing or the image can't be built. Today the step is skipped instead.
+			- `--no-container` runs on the host on purpose.
+			- Tests whose point is the real desktop, GPU or another platform stay on the host or a test box.
+		- File list in the private notes.
+	- Test case: none yet.
+
+- CICD reset: other hosts and VMs.
+	- ID: 2026102416300001
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261024-163000
+	- Opened by: t00mietum
+	- Requirements:
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- Per the other hosts and VMs section of the shared CICD rules. The FreeBSD lane, the arm64 release and the Windows dogfood refresh already hold their box through the shared host lock. What's left:
+			- The native Windows gate is part of the default run. It favors b29w, and goes to vm925w for GPU or timed work, and for a check that puts a window on screen. b29w can still run a windowed check unattended under its test account. `--no-remote` skips every box.
+			- A box or VM that isn't there shows as `SKIP` in its step line and the summary, and the run goes on. Today the FreeBSD and arm64 lanes stop the run.
+			- Each VM is put back the way it was found, paused, off or running, through the VM state helper.
+			- Each box gets the project's own work folder under its temp root.
+			- The Windows dogfood refresh names `b29w`, never `b29w-wif`.
+		- Overrides: the native Windows step in the private round settings, run by hand. The rule sending windowed checks to vm925w stays.
+	- Test case: none yet.
+
+- CICD reset: CPU and priority.
+	- ID: 2026102416300003
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261024-163000
+	- Opened by: t00mietum
+	- Requirements:
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- Per the machine use section of the shared CICD rules. Half the cores is already the cap for job counts, for the run's own CPU quota and for the build containers. What's left:
+			- A quarter on a busy box, where the 1-minute load is over half the CPU count, checked at the start and before each step.
+			- A quarter for the hard steps, busy or not: the sanitizer suite, fuzzing, the analyzers and the leak checks.
+			- The counts are worked out in one place and passed to every tool that runs in parallel. A few scripts still work out their own half.
+			- `nice -n 19` plus `ionice -c 3` on Linux, `nice -n 19` on FreeBSD, and `BelowNormal`, or `Idle` for the hard steps, at the top of `cicd-win.ps1`.
+			- Each container gets `--cpus <jobs>`, `--cpu-shares 256`, and `nice` inside it.
+			- The same rules on the other boxes, with their own CPU count and load.
+		- Overrides: design.md, "The pipeline", on half the cores, and the Done item "No step in CICD should consume more than 50% CPU."
+	- Test case: none yet.
+
+- CICD reset: standard flags.
+	- ID: 2026102416300004
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261024-163000
+	- Opened by: t00mietum
+	- Related IDs: 2026101911105600
+	- Requirements:
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- Per the flags in the shared CICD style guide, and its merge gate section. What's left:
+			- New flags: `--long`, with `--slow` as another name, `--backlog-run-quick [<area>...]`, `--backlog-run-full`, `--merge-gate`, `--no-container`, `--no-remote`, `--keep-temp` and `--list`. `--help` lists the areas.
+			- `--gate` and `--ci` become other names for `--backlog-run-quick` and `--merge-gate`, and say so in one line when used.
+			- `--leakcheck` and `--no-leakcheck` are 2026101911105600.
+			- The default run fits in about an hour. A full run took 2 h 32 min on 20261023, so the slowest steps move to `--long`.
+				- 20261024: `--long`, and `--slow` as another name, now add the arm64 release, about 98 of those minutes. A plain run leaves it out, and `--include-arm` still adds it alone. The rest should come to about 55 minutes, not yet timed.
+			- `--quick` keeps to about 10 minutes, with fuzzing at a short budget in it.
+			- The 2 backlog-run flags and `--merge-gate` never dogfood, publish, commit, push, install, sync, rewrite a tracked file, or prompt. A round never dogfoods.
+			- The pre-push hook runs `--merge-gate` on a push to main, and skips it when the commits change only docs and other paths no build reads, listed in one place. A push to dev stays ungated.
+			- `cicd-win.ps1` takes the same flags.
+		- Overrides: 2026101816495201's decision that `--gate` stays the merge gate, design.md, "Branches and the merge gate", and the gate and full run lines in the private round settings.
+	- Test case: none yet.
+
+- CICD reset: step output.
+	- ID: 2026102416300005
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261024-163000
+	- Opened by: t00mietum
+	- Requirements:
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- Per the step lines in the shared CICD style guide. What's left:
+			- Each step opens with `[ YYYYmmDD-HHMMSS.NN: Step N of M; Starting <name> ]` and closes the same way with `PASS` or `FAIL`, in local time.
+			- The rule above each step is 79 dots. Today it's 74.
+			- A step that's turned off isn't counted, and the first section lists those with the flag or reason for each.
+			- The gate, `cicd-win.ps1` and the lanes on the other boxes print the same form.
+	- Test case: none yet.
+
+- CICD reset: a test for every Done item.
+	- ID: 2026102416300006
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261024-163000
+	- Opened by: t00mietum
+	- Requirements:
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- Per the regression bullet in the testing section of the shared CICD rules. Every item in the new format has a test case row. What's left:
+			- The 347 Done items in the old format each name their test's ID, or say in a few words why there's none.
+			- A test is added where one is missing and would make sense.
+	- Test case: none yet.
+
+- CICD reset: test IDs.
+	- ID: 2026102416300007
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261024-163000
+	- Opened by: t00mietum
+	- Requirements:
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- Per the test ID and per-test line bullets in the testing section of the shared CICD rules. Every test already has an ID, checked in the lint stage. What's left:
+			- IDs move from milliseconds and 8 digits to whole minutes since 2000-01-01 00:00 UTC, in lower-case Crockford base 32, as in `decp8`. When 2 come out the same, the newer one takes the next free minute.
+			- Every existing ID is converted once, from the same time, along with the backlog rows, docs and lints that name it.
+			- The run prints one `PASS`, `FAIL` or `SKIP` line per regression and fuzz test, with its ID and name.
+		- Overrides: the test ID rule in the private project rules, in milliseconds.
+	- Test case: none yet.
+
 - The native gate on vm925w stops on scratch folders 7 tests leave behind.
 	- ID: 2026102413432225
 	- Type: Bug
@@ -876,6 +1022,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261024 at c7194950, 1 of 1. An earlier native run on 20261023 at 22:54 left the same 7, in a `nemo-suite-*` folder still in wintest's TEMP.
 	- Possible cause: a file still open when the test removes its folder, such as the cache database or a program the test started, which Windows won't delete. Not looked into.
 	- Test case: the gate's own leftover check in `cicd-win.ps1`.
+
+- CICD reset: temp files and safe removal.
+	- ID: 2026102416300002
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261024-163000
+	- Opened by: t00mietum
+	- Related IDs: 2026101910075400
+	- Requirements:
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- Per the temp files and safe removal sections of the shared CICD rules. Not done yet:
+			- Every run works in `${HOST_TEMP}/nemo-anywhere/<YYYYmmDD-HHMMSS>_<NNN>/`, points `TMPDIR`, `TEMP` and `TMP` at it, and writes `run.pid` there.
+			- A trap removes it at the end, on failure and Ctrl+C too. `--keep-temp` keeps it and prints its path.
+			- Each run also removes the project's own run folders older than 2 days with no live process.
+			- Every recursive removal goes through a repo copy of the guard. 93 `rm -r` lines in 47 scripts and 29 `Remove-Item -Recurse` lines in 14 PowerShell scripts don't yet. File list in the private notes.
+			- The same on the Windows boxes and the test VMs.
+	- Test case: none yet.
+
+- CICD reset: CICD process gaps.
+	- ID: 2026102416300008
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261024-163000
+	- Opened by: t00mietum
+	- Requirements:
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- What else in the shared CICD rules the pipeline doesn't do yet:
+			- A lint `--check` gate that reports only output not seen before, run beside the profiler's.
+			- The hosted Windows build installs whatever MSYS2 packages are current, so its exe can't be reproduced. Pin them.
+	- Test case: none yet.
 
 - Static analyzers: fix or suppress the findings in our own code.
 	- ID: 2026102114400588
@@ -954,18 +1132,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- It fails on a planted loop that grows the heap first.
 	- Estimated effort: Avg
 	- Test case: rktsh3da, with a planted heap growth.
-
-- Builds clean up stale artifacts and side-effects.
-	- ID: 2026101910075400
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261019-100754
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut.
-		- Verify or ensure that builds clean up stale artifacts and side-effects when done: caches, container cruft, tmp files, etc.
-	- Test case: none yet.
 
 - Settings: search.
 	- ID: 2026101417352263

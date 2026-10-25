@@ -28,10 +28,10 @@
 ##	   --no-sync           skip the remote sync stage
 ##	   --no-fmt            skip the formatter stage
 ##	   --no-cross          skip cross-target release builds, arm64 included
-##	   --include-arm       run the arm64 release build even with --quick (on by
-##	                       default). It runs on another box and takes about an
-##	                       hour. --no-cross still leaves it out, and its
-##	                       packages come only when the packages stage runs
+##	   --include-arm       run the arm64 release build without --long, even
+##	                       with --quick. It runs on another box and takes about
+##	                       an hour and a half. --no-cross still leaves it out,
+##	                       and its packages come only when the packages stage runs
 ##	   --no-arm            leave the arm64 build and its packages out, even
 ##	                       with --include-arm
 ##	   --no-package        skip the packages stage (.deb/.rpm/installer)
@@ -58,6 +58,9 @@
 ##	                       scroll harness, screenshots, demo video. arm64 and
 ##	                       FreeBSD come back with --include-arm and
 ##	                       --include-bsd
+##	   --long              everything, the arm64 release build included, which
+##	                       a plain run leaves out to stay near an hour
+##	   --slow              same as --long
 ##	   --gate              merge gate only: format-check + lints + tests, then exit
 ##	                       (fast local stand-in for hosted CI; the pre-push hook runs it)
 ## - Reuse: copy the cicd/ directory into another project and edit config.bash.
@@ -133,7 +136,7 @@ fSetSourceDate "${root}"
 
 ## Parse options.
 include_bsd=""; no_bsd=0                                          ## empty = whatever --quick says
-assume_yes=0; quick=0; gate=0; no_arm=0; include_arm=""; no_sync=0; allow_dirty=0; cli_message=""
+assume_yes=0; quick=0; long=0; gate=0; no_arm=0; include_arm=""; no_sync=0; allow_dirty=0; cli_message=""
 while (($#)); do case "$1" in
 	-y|--yes)                 assume_yes=1; shift ;;
 	-q|--quiet)               assume_yes=1; shift ;;            ## publish runs quiet whatever this says
@@ -155,15 +158,16 @@ while (($#)); do case "$1" in
 	--include-bsd)            include_bsd=1; shift ;;
 	--no-bsd)                 no_bsd=1; shift ;;                ## wins over --include-bsd
 	--quick)                  quick=1; PACKAGE_ENABLE=0; shift ;;   ## the quick local steps only
+	--long|--slow)            long=1; shift ;;                  ## adds the arm64 lane
 	--message=*|--msg=*|-m=*) cli_message="${1#*=}"; shift ;;
 	-m|--message|--msg)       cli_message="${2-}"; shift; (($#)) && shift ;;
 	-h|--help)                sed -n '/^##	- Purpose:/,/^##	History:/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##	\{0,1\}//'; exit 0 ;;
 	*) echo "unknown option: $1 (try --help)" >&2; exit 2 ;;
 esac; done
 
-## arm64 and FreeBSD run unless --quick, and naming one beats --quick. Both need
-## another box, and arm64 takes about an hour.
-[[ -n "$include_arm" ]] || include_arm=$((! quick))
+## FreeBSD runs unless --quick, and arm64 only with --long, since its emulated box
+## takes about 98 of a plain run's 152 minutes. Naming either one beats both flags.
+[[ -n "$include_arm" ]] || include_arm=$((long))
 [[ -n "$include_bsd" ]] || include_bsd=$((! quick))
 ((! no_bsd)) || include_bsd=0
 declare -p BSD_TEST_CMD &>/dev/null || BSD_TEST_CMD=()           ## a config with no FreeBSD box
@@ -178,7 +182,8 @@ if ((! include_arm || no_arm)) && declare -p CROSS_TARGETS &>/dev/null; then
 	for t in "${CROSS_TARGETS[@]}"; do case "$t" in *arm64*|*aarch64*) arm_note=" (no arm64)" ;; *) kept+=("$t") ;; esac; done
 	CROSS_TARGETS=("${kept[@]}")
 	if ((no_arm)) && [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --no-arm)"
-	elif ((quick)) && [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --quick)"; fi
+	elif ((quick)) && [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --quick)"
+	elif [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --long adds it)"; fi
 fi
 ## arm64 packages and their checks are made from this run's arm64 build, so they
 ## go wherever it goes.
@@ -1033,3 +1038,4 @@ fEcho_Clean
 ##		- 2026-10-19: --quick keeps the sanitizers, profiler and Windows cross
 ##		  build; --include-arm works under --quick.
 ##		- 2026-10-21: static analyzer stage after the cross build, report only.
+##		- 2026-10-24: --long (or --slow) adds arm64, now off in a plain run.
