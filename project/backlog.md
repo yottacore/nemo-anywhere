@@ -1573,7 +1573,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261025, once in 20 runs at load about 58, after the fix in 2026102413432024. Before that fix, 3 of 36 views of rm1sbxgy timed out there too, most with the right-click itself lost.
 	- Possible cause: not known. In 36 views checked after the fix, the right-click had always selected the item and opened the menu by the time it was sent.
 	- Progress log:
-		- 20261025: not reproduced in 60 more runs at load 50 to 75, with each grab logged. Every menu took 2 grabs at the server's current time, and both were granted every time. The test's own event times run about 14 s ahead of the clock, from its 1 s jumps before each right-click, but the menu grabs don't use them. Still open: whether the failing run's menu grab was refused.
+		- 20261025: not reproduced in 120 more runs at load 50 to 84, with each grab logged. Every menu took 2 grabs at the server's current time, and both were granted every time. The test's own event times run about 14 s ahead of the clock, from its 1 s jumps before each right-click, but the menu grabs don't use them. Still open: whether the failing run's menu grab was refused.
+		- 20261025: read only, not run: the press pops the menu up at once, with the press's own time. So the release 20 ms later can't close it through GTK's rule that a release more than 500 ms after the popup closes the menu.
 		- 20261025: rk7yvgse had the same shape once in 72 loaded runs, before the fix in 2026102507531487: "list-view: FAIL timed out at step 9" under Nemo Anywhere v1, waiting for the menu from the right-click at steps 7 and 8.
 	- Test case: rktqpp37 itself, in the sanitizer lane with the cores loaded.
 
