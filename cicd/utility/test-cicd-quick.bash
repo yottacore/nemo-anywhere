@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: Check which steps a cicd.bash run reaches with no options, with
-##	  --quick, with --quick plus --include-arm or --include-bsd, and with --gate.
-##	  No options runs every step. --quick runs the quick ones on this box and
+##	  --long and --slow, with --quick, with --quick plus --include-arm or
+##	  --include-bsd, and with --gate. No options runs every step but arm64, and
+##	  --long or --slow every step. --quick runs the quick ones on this box and
 ##	  skips fuzzing, packages and every step that needs another box. A copy of
 ##	  cicd.bash runs in a scratch git repo with every step a stand-in that
 ##	  leaves a marker file.
@@ -135,7 +136,10 @@ fRun(){
 }
 
 quickSteps="sync build tests lint sanitize profile native windows dogfood dogfood-hook publish"
-fRun "sync ${allSteps[*]}"
+## A plain run leaves arm64 out since 2026-10-24, to stay near an hour.
+fRun "sync ${allSteps[*]/arm64}"
+fRun "sync ${allSteps[*]}"               --long
+fRun "sync ${allSteps[*]}"               --slow
 fRun "${quickSteps}"                     --quick
 fRun "${quickSteps} arm64"               --quick --include-arm
 fRun "${quickSteps} bsd-tests bsd-release" --quick --include-bsd
@@ -145,4 +149,4 @@ if ((failures)); then
 	fEcho "FAILED: step selection, ${failures} problem(s)"
 	exit 1
 fi
-fEcho "OK: no options runs every step, --quick the quick local ones, --gate tests and lints"
+fEcho "OK: no options runs every step but arm64, --long all, --quick the quick local ones, --gate tests and lints"

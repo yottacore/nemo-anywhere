@@ -177,6 +177,30 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 0dab690
 	- Test case: rjhvmm6f, Mapped drive not asked, new bin cases: a fixed drive's bin is asked, a removable one's only with a disk in it, an empty drive answers in under 2 s, and no share or optical drive is asked.
 
+- The Linux release build fails on `EEL_ANALYZER_SKIP ("infinite-loop")` in jammy's gcc 11.
+	- ID: 2026102510323600
+	- Type: Bug
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: a full run at round1025b's fix or later, for its native release build stage. The arm64 lane builds with the same gcc 11, so it needs no run of its own.
+	- Priority|Severity: High
+	- Opened: 20261025-103236
+	- Opened by: t00mietum
+	- Related IDs: 2026102412254358
+	- Target OS: Linux
+	- Steps to reproduce: a full run's native release build stage, `cicd/linux/release.bash`, at dev 88eb2f9d or later.
+	- Incorrect behavior: `eel-canvas.c` fails to compile in `nemo-build-jammy`, "eel-analyzer.h:41:35: error: unknown option after '#pragma GCC diagnostic' kind [-Werror=pragmas]", at line 2250, `EEL_ANALYZER_SKIP ("infinite-loop")`. The stage stops the full run, and nothing after it runs.
+	- Expected behavior: the release build compiles on every gcc the lanes use. A suppression for a warning an older gcc lacks does nothing there.
+	- Reproduced: 20261025 on Linux, in round1025's third full run. The round didn't touch `source/eel/`.
+	- Possible cause: `-Wanalyzer-infinite-loop` is newer than gcc 11.4, the jammy image's compiler. The other names in use (null-argument, null-dereference, use-after-free) compiled there.
+	- Note: the arm64 and FreeBSD lanes build with other compilers, so they may hit the same.
+	- Actual cause: as above. `-Wanalyzer-infinite-loop` is new in gcc 14. Before that, gcc warns about a `GCC diagnostic` pragma with a name it doesn't know, and `-Werror` makes that fatal.
+	- Decisions:
+		- Under gcc before 14, `EEL_ANALYZER_SKIP` also ignores `-Wpragmas` inside its push, so a name that gcc lacks does nothing there. gcc 14 and later still warn on a bad name, and the analyzer stage runs gcc 14, so a typo is still caught there.
+	- Actual fix: `source/eel/eel-analyzer.h`.
+	- Swept: all 10 `EEL_ANALYZER_SKIP` sites in 8 files. Only infinite-loop is newer than gcc 10. The arm64 lane is jammy's gcc 11 on aarch64, so the same fix covers it. FreeBSD builds with base clang, where the macro is empty.
+	- Test case: a release build in `nemo-build-jammy` with `-Werror`, which the full run already does.
+	- Verified: 20261025. In `nemo-build-jammy`'s release build (gcc 11.4, `-Werror`), `eel-canvas.c` fails at line 2250 as reported with the old header, and builds with the new one. All 8 files that use the macro build there. Under gcc 14 in `nemo-build` and MinGW gcc 14 in `nemo-winbuild`, the same files build with `-Werror`, and a bad name still fails. gcc 14's `-fanalyzer` on `eel-canvas.c` reports the infinite loop with the suppression taken out, and nothing with the new header. `cicd/cicd.bash --gate` passed with it, C lint included.
+
 - Nemo Anywhere dim checkmarks: the list view column.
 	- ID: 2026102411133409
 	- Type: Enhancement
@@ -490,40 +514,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: opened.
 		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
 	- Test case: one per child.
-
-- The Linux release build fails on `EEL_ANALYZER_SKIP ("infinite-loop")` in jammy's gcc 11.
-	- ID: 2026102510323600
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261025-103236
-	- Opened by: t00mietum
-	- Related IDs: 2026102412254358
-	- Target OS: Linux
-	- Steps to reproduce: a full run's native release build stage, `cicd/linux/release.bash`, at dev 88eb2f9d or later.
-	- Incorrect behavior: `eel-canvas.c` fails to compile in `nemo-build-jammy`, "eel-analyzer.h:41:35: error: unknown option after '#pragma GCC diagnostic' kind [-Werror=pragmas]", at line 2250, `EEL_ANALYZER_SKIP ("infinite-loop")`. The stage stops the full run, and nothing after it runs.
-	- Expected behavior: the release build compiles on every gcc the lanes use. A suppression for a warning an older gcc lacks does nothing there.
-	- Reproduced: 20261025 on Linux, in round1025's third full run. The round didn't touch `source/eel/`.
-	- Possible cause: `-Wanalyzer-infinite-loop` is newer than gcc 11.4, the jammy image's compiler. The other names in use (null-argument, null-dereference, use-after-free) compiled there.
-	- Note: the arm64 and FreeBSD lanes build with other compilers, so they may hit the same.
-	- Test case: a release build in `nemo-build-jammy` with `-Werror`, which the full run already does.
-
-- rjph39cv and rkmqprx6 still expect arm64 in a plain run, so lint fails.
-	- ID: 2026102509133500
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261025-091335
-	- Opened by: t00mietum
-	- Related IDs: 2026102416300004
-	- Target OS: Linux
-	- Steps to reproduce: `cicd/cicd.bash --gate` on dev at 88eb2f9d.
-	- Incorrect behavior: the lint stage stops at rjph39cv, `test-cicd-arm.bash`, with "the arm64 build did not run" and 3 more problems. With that one left out, rkmqprx6, `test-cicd-quick.bash`, fails on "[no options]: arm64 did not run". So every gate and every full run stops in lint, and the stages after it never run.
-	- Expected behavior: both tests match the new default, where a plain run leaves arm64 out and `--long` or `--slow` brings it back.
-	- Reproduced: 20261025 on Linux, in round1025's gate step. Fails the same on dev, since the round didn't touch `cicd/`.
-	- Possible cause: 88eb2f9d moved arm64 behind `--long` in `cicd.bash`, and the 2 tests weren't updated with it.
-	- Note: with both tests left out of a copy of `lint.bash`, the rest of lint passed on the round branch.
-	- Test case: rjph39cv and rkmqprx6 themselves, plus a `--long` case in rjph39cv.
 
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
@@ -1426,6 +1416,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: a step after a closed menu waits until no pointer or keyboard grab is on record.
 	- Test case: the tests above themselves, with the X server held up after each menu closes.
 
+- rhd1cv38 read fewer than 3 draws once in the gate's suite, in the timed draw count case.
+	- ID: 2026102516081782
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261025-160817
+	- Opened by: 2026102510323600
+	- Target OS: Linux
+	- Steps to reproduce: `cicd/cicd.bash --gate` at load about 10.
+	- Incorrect behavior: "FAIL ../src/source/test/test-nemo-cache-db.c:592: renders == 3", in `check_draws_written_off_window`.
+	- Expected behavior: passes.
+	- Reproduced: once, 20261025 on round1025b, with an uncommitted header change that only touches compile-time pragmas. It passed 20 of 20 alone right after, in the same build.
+	- Possible cause: the case notes 3 draws, then waits for the count to go out after a 200 ms draw wait, and stops at the first count that isn't 0. A write that goes out between the notes would give 1 or 2. Not looked into.
+	- Test case: rhd1cv38 itself, beside the full suite.
+
 - In the icon views, removing an icon never tells the accessibility tree.
 	- ID: 2026102412590587
 	- Type: Bug
@@ -1495,6 +1500,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- rjph39cv and rkmqprx6 still expect arm64 in a plain run, so lint fails.
+	- ID: 2026102509133500
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261025-091335
+	- Opened by: t00mietum
+	- Related IDs: 2026102416300004
+	- Target OS: Linux
+	- Steps to reproduce: `cicd/cicd.bash --gate` on dev at 88eb2f9d.
+	- Incorrect behavior: the lint stage stops at rjph39cv, `test-cicd-arm.bash`, with "the arm64 build did not run" and 3 more problems. With that one left out, rkmqprx6, `test-cicd-quick.bash`, fails on "[no options]: arm64 did not run". So every gate and every full run stops in lint, and the stages after it never run.
+	- Expected behavior: both tests match the new default, where a plain run leaves arm64 out and `--long` or `--slow` brings it back.
+	- Reproduced: 20261025 on Linux, in round1025's gate step. Fails the same on dev, since the round didn't touch `cicd/`.
+	- Possible cause: 88eb2f9d moved arm64 behind `--long` in `cicd.bash`, and the 2 tests weren't updated with it.
+	- Note: with both tests left out of a copy of `lint.bash`, the rest of lint passed on the round branch.
+	- Actual cause: as above.
+	- Actual fix: `cicd/utility/test-cicd-arm.bash` and `test-cicd-quick.bash` expect no arm64 in a plain run, and arm64 with `--long` and with `--slow`. rjph39cv also checks `--long --no-arm`, the plan's "(no arm64, --long adds it)", and that `--help` names both flags. design.md's 2 lines that said a plain run builds arm64 now say `--long` adds it.
+	- Swept: every doc and script that says when arm64 runs. `cicd.bash` itself was already right. `cicd-win.ps1` has no arm64 lane.
+	- Test case: rjph39cv and rkmqprx6.
+	- Verified: 20261025. The old tests fail on the current `cicd.bash` with the reported problems, and the new ones pass. The new ones fail on `cicd.bash` from before 88eb2f9d, 10 and 3 problems. `cicd/cicd.bash --gate` passed on round1025b with the fix, both tests in its lint stage.
+	- Acceptance signoff: Self-closed: rjph39cv and rkmqprx6 pin the new default.
+	- Closed: 20261025-161204
 
 - SMB and SFTP networking is broken.
 	- ID: 2026101417352260
