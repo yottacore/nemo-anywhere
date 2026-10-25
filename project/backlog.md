@@ -33,6 +33,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- CICD flags: `--no-container`.
+	- ID: 2026102516295605
+	- Type: Task
+	- Status: Waiting for answers
+		- Waits on the `--no-container` question in questions.md.
+	- Priority|Severity: High
+	- Opened: 20261025-162956
+	- Opened by: 2026102516165477
+	- Parent ID: 2026102416300004
+	- Requirements:
+		- `--no-container` runs on the host, per the shared CICD style guide.
+		- The GTK dev stack never goes on the host here, so the build and test steps can't run there.
+	- Test case: none yet.
+
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
@@ -288,14 +302,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The 3 never dogfood, publish, commit, push, install, sync, rewrite a tracked file, or prompt.
 	- Decisions:
 		- The areas are the quick run's 3 steps: `format`, `lint` and `tests`. The suite has no meson suites to split it by.
-		- `--backlog-run-full` and `--merge-gate` run the same steps: every check of a plain run, other boxes included. Sync, the in-place formatter, every dogfood step, publish, screenshots and the demo are off, and the format check runs in place of the formatter. No later option turns those back on.
+		- `--backlog-run-full` and `--merge-gate` run the same steps: every check of a plain run, other boxes included. Sync, the in-place formatter, every dogfood step, publish, the README images and the demo are off, and the format check runs in place of the formatter. No later option turns those back on.
 		- Of the 3 modes, the last one named wins.
 	- Progress log:
 		- 20261025: in `cicd.bash`, with help, design.md and building.md. The pre-push hook moved to `--merge-gate` in 2026102516165475.
 	- Swept: every doc and script that names `--gate`. The hook is 2026102516165475, `cicd-win.ps1` is 2026102516165482, and the private round settings' gate and full run lines are left for the round.
 	- Branch: round1025b
-	- Test case: rkmqprx6, `test-cicd-quick.bash`. It gained a formatter, format check, screenshot and demo stand-in, and checks the steps each mode runs, the areas, the one-line note for `--gate` and `--ci`, a bad area, that nothing changes the tree, and that `--help` names them.
-	- Verified: 20261025. rkmqprx6 passes, and fails 20 checks on the old `cicd.bash`. It also fails with publish, dogfood, sync, or screenshots and the demo left on under `--merge-gate`. `cicd/cicd.bash --gate` passed for real on round1025b: lint, then the suite with 235 OK and 1 skipped. rj9v18rx and rjph39cv pass.
+	- Test case: rkmqprx6, `test-cicd-quick.bash`. It gained a formatter, format check, README image and demo stand-in, and checks the steps each mode runs, the areas, the one-line note for `--gate` and `--ci`, a bad area, that nothing changes the tree, and that `--help` names them.
+	- Verified: 20261025. rkmqprx6 passes, and fails 20 checks on the old `cicd.bash`. It also fails with publish, dogfood, sync, or the README images and the demo left on under `--merge-gate`. `cicd/cicd.bash --gate` passed for real on round1025b: lint, then the suite with 235 OK and 1 skipped. rj9v18rx and rjph39cv pass.
 
 - The native gate on vm925w stops on scratch folders 7 tests leave behind.
 	- ID: 2026102413432225
@@ -849,7 +863,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- `cicd-win.ps1` takes the same flags.
 		- Overrides: 2026101816495201's decision that `--gate` stays the merge gate, design.md, "Branches and the merge gate", and the gate and full run lines in the private round settings.
 	- Progress log:
-		- 20261025: split into children 2026102516165473 to 2026102516165482, one per part. `--long` and `--slow` were already in.
+		- 20261025: split into children 2026102516165473 to 2026102516165482, one per part. `--long` and `--slow` were already in. 2026102516295605 split from 2026102516165477 later.
 	- Test case: none yet.
 
 - CICD flags: `--no-container`, `--no-remote`, `--keep-temp` and `--list`.
@@ -860,9 +874,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261025-161654
 	- Opened by: 2026102416300004
 	- Parent ID: 2026102416300004
+	- Prereq IDs: 2026102416300000, 2026102416300002
 	- Requirements:
 		- Per the shared CICD style guide: `--no-container` runs on the host, `--no-remote` skips the other hosts and VMs, `--keep-temp` keeps the run's temp folder and containers and prints where they are, and `--list` prints the steps and test IDs the other flags would run, and runs nothing.
-	- Test case: none yet.
+	- Progress log:
+		- 20261025: `--no-remote` is in `cicd.bash`. It leaves out arm64, the FreeBSD lane, the private runner and remote dogfood, and wins over `--include-arm` and `--include-bsd`. `--no-container` split to 2026102516295605. Left: `--keep-temp`, which needs the run's own temp folder and containers from 2026102416300002 and 2026102416300000, and `--list`.
+	- Test case: rkmqprx6 for `--no-remote`: a plain run, `--long` with both includes, and `--backlog-run-full`, each with it.
+	- Verified: 20261025, `--no-remote`: rkmqprx6 passes, and fails on `cicd.bash` without it, and with the private runner and remote dogfood left on under it.
 
 - CICD flags: run lengths.
 	- ID: 2026102516165479

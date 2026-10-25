@@ -808,6 +808,8 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 
 - `--backlog-run-quick` runs the format check, lints and the test suite, in about 4 minutes, or only the areas named: `format`, `lint` and `tests`. `--backlog-run-full` and `--merge-gate` run every check a plain run does, other boxes included. None of the 3 syncs, formats in place, dogfoods, installs, publishes, commits, pushes or prompts, and they leave out screenshots and the demo. `--gate` and `--ci` are other names for `--backlog-run-quick` and `--merge-gate`, and say so when used.
 
+- `--no-remote` leaves out every step on another box, such as arm64, the FreeBSD lane and the Windows dogfood refresh. It wins over `--include-arm` and `--include-bsd`.
+
 - The FreeBSD lane runs the build and suite on the FreeBSD box in the test stage, and its tarball and pkg in the release stage. It runs on every full run. `--no-bsd` leaves it out, and `--include-bsd` brings it back under `--quick`.
 
 - The same hook blocks a push to main unless `source/meson.build` is a strict version increase over what is already there.

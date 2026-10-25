@@ -36,6 +36,9 @@
 ##	                       with --include-arm
 ##	   --no-package        skip the packages stage (.deb/.rpm/installer)
 ##	   --no-private        skip the private runner (PRIVATE_RUNNER in config.bash)
+##	   --no-remote         skip every step on another box: arm64, the FreeBSD
+##	                       lane, the private runner and remote dogfood, even
+##	                       with --include-arm or --include-bsd
 ##	   --no-profile        skip the profiler stage
 ##	   --no-sanitize       skip the test suite built with the address and
 ##	                       undefined behavior sanitizers
@@ -150,7 +153,7 @@ include_bsd=""; no_bsd=0                                          ## empty = wha
 assume_yes=0; quick=0; long=0; gate=0; no_arm=0; include_arm=""; no_sync=0; allow_dirty=0; cli_message=""
 ## checks_only: --backlog-run-full or --merge-gate. run_mode names the one given,
 ## for the plan and the last line.
-checks_only=0; run_mode=""; alias_note=""; areas=()
+checks_only=0; run_mode=""; alias_note=""; areas=(); no_remote=0
 known_areas="format lint tests"
 while (($#)); do case "$1" in
 	-y|--yes)                 assume_yes=1; shift ;;
@@ -174,6 +177,7 @@ while (($#)); do case "$1" in
 	--no-arm)                 no_arm=1; shift ;;                ## wins over --include-arm
 	--no-package)             PACKAGE_ENABLE=0; shift ;;
 	--no-private)             PRIVATE_RUNNER=""; shift ;;
+	--no-remote)              no_remote=1; shift ;;             ## wins over --include-arm and --include-bsd
 	--no-profile)             PROFILE_ENABLE=0; shift ;;
 	--no-sanitize)            SANITIZE_CMD=(); shift ;;
 	--no-dogfood)             DOGFOOD_FIXED_DESTS=(); DOGFOOD_ROTATING_DESTS=(); DOGFOOD_CROSS_DESTS=(); DOGFOOD_HOOK=(); DOGFOOD_REMOTE=(); shift ;;
@@ -203,6 +207,11 @@ if ((checks_only)); then
 	GIT_PUBLISH=()
 	SHOTS_ENABLE=0; DEMO_ENABLE=0                                 ## both rewrite tracked files
 fi
+## Nothing on another box. Each step's own off switch, so the rest below reads
+## them as before.
+if ((no_remote)); then
+	no_arm=1; no_bsd=1; PRIVATE_RUNNER=""; DOGFOOD_REMOTE=()
+fi
 
 ## FreeBSD runs unless --quick, and arm64 only with --long, since its emulated box
 ## takes about 98 of a plain run's 152 minutes. Naming either one beats both flags.
@@ -220,7 +229,8 @@ if ((! include_arm || no_arm)) && declare -p CROSS_TARGETS &>/dev/null; then
 	kept=()
 	for t in "${CROSS_TARGETS[@]}"; do case "$t" in *arm64*|*aarch64*) arm_note=" (no arm64)" ;; *) kept+=("$t") ;; esac; done
 	CROSS_TARGETS=("${kept[@]}")
-	if ((no_arm)) && [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --no-arm)"
+	if ((no_remote)) && [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --no-remote)"
+	elif ((no_arm)) && [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --no-arm)"
 	elif ((quick)) && [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --quick)"
 	elif [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --long adds it)"; fi
 fi
@@ -492,7 +502,7 @@ fi
 if ((include_bsd)); then
 	fEcho_Clean "FreeBSD .............: ${BSD_TEST_CMD[*]:-(no tests)}, then ${BSD_RELEASE_CMD[*]:-(no release)}"
 elif ((no_bsd)); then
-	fEcho_Clean "FreeBSD .............: (skipped --no-bsd)"
+	fEcho_Clean "FreeBSD .............: (skipped $( ((no_remote)) && echo --no-remote || echo --no-bsd))"
 elif ((quick)); then
 	fEcho_Clean "FreeBSD .............: (skipped --quick)"
 else
@@ -522,6 +532,8 @@ else
 fi
 if ((quick)); then
 	fEcho_Clean "Private runner ......: (skipped --quick)"
+elif ((no_remote)); then
+	fEcho_Clean "Private runner ......: (skipped --no-remote)"
 elif [[ -n "${PRIVATE_RUNNER:-}" && -x "${PRIVATE_RUNNER}" ]]; then
 	fEcho_Clean "Private runner ......: ${PRIVATE_RUNNER}"
 else
@@ -849,6 +861,8 @@ fi
 priv_dogfood=()
 if ((quick)); then
 	fEcho_Clean "private runner skipped (--quick)"
+elif ((no_remote)); then
+	fEcho_Clean "private runner skipped (--no-remote)"
 elif [[ -n "${PRIVATE_RUNNER:-}" && -x "${PRIVATE_RUNNER}" ]]; then
 	fEcho_Clean "private runner ..."
 	priv_start="$(mktemp)"
@@ -1095,4 +1109,4 @@ fEcho_Clean
 ##		- 2026-10-21: static analyzer stage after the cross build, report only.
 ##		- 2026-10-24: --long (or --slow) adds arm64, now off in a plain run.
 ##		- 2026-10-25: --backlog-run-quick, --backlog-run-full and --merge-gate;
-##		  --gate and --ci are other names for the first and last.
+##		  --gate and --ci are other names for the first and last. --no-remote.

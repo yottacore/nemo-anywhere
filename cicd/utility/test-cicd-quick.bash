@@ -8,7 +8,8 @@
 ##	  step. --quick runs the quick ones on this box and skips fuzzing, packages
 ##	  and every step that needs another box. --backlog-run-full and
 ##	  --merge-gate run every check a plain run does, and never sync, format in
-##	  place, dogfood or publish. A copy of cicd.bash runs in a scratch git repo
+##	  place, dogfood or publish. --no-remote leaves out every step on another
+##	  box. A copy of cicd.bash runs in a scratch git repo
 ##	  with every step a stand-in that leaves a marker file.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-quick.bash
@@ -158,6 +159,13 @@ fRun "sync ${fullSteps/ arm64 / } shots demo" --shots --demo
 fRun "${quickSteps}"                     --quick
 fRun "${quickSteps} arm64"               --quick --include-arm
 fRun "${quickSteps} bsd-tests bsd-release" --quick --include-bsd
+## --no-remote: nothing on another box, whatever else is named.
+remoteSteps=" arm64 bsd-tests bsd-release private remote-dogfood "
+localSteps=" ${fullSteps} "
+for step in $remoteSteps; do localSteps="${localSteps/ ${step} / }"; done
+fRun "sync ${localSteps}"                --no-remote
+fRun "sync ${localSteps}"                --long --include-arm --include-bsd --no-remote
+fRun "sync ${localSteps}"                --no-remote --include-arm --include-bsd
 
 ## $1 the other name, or empty: the run says so in one line, and only then.
 fNote(){
@@ -179,6 +187,7 @@ fRun "${checkSteps}"                     --backlog-run-full;        fNote "" --b
 fRun "${checkSteps}"                     --merge-gate;              fNote "" --merge-gate
 fRun "${checkSteps}"                     --ci;                      fNote --ci --merge-gate
 fRun "${checkSteps} arm64"               --merge-gate --long
+fRun "fmt-check build tests lint fuzz sanitize scroll profile native windows analyze packages package-check" --backlog-run-full --no-remote
 ## Nothing named after the mode turns a step that changes things back on.
 fRun "${checkSteps}"                     --merge-gate --shots --demo --allow-dirty
 ## The last mode named wins.
@@ -188,7 +197,7 @@ rc=0
 out="$(cd "$scratch" && CICD_CPU_CAPPED=1 bash cicd/cicd.bash --backlog-run-quick lint nosuch 2>&1 </dev/null)" || rc=$?
 [[ "$rc" == 2 && "$out" == *"unknown area: nosuch"* && "$out" == *"format lint tests"* ]] || fFail "[--backlog-run-quick lint nosuch]: exit ${rc}, not 2 with the areas listed: ${out}"
 help="$(bash "${root}/cicd/cicd.bash" --help)"
-for name in --backlog-run-quick --backlog-run-full --merge-gate --gate --ci "format, lint, tests"; do
+for name in --backlog-run-quick --backlog-run-full --merge-gate --gate --ci --no-remote "format, lint, tests"; do
 	grep -q -F -- "$name" <<< "$help" || fFail "--help does not name ${name}"
 done
 
@@ -196,4 +205,4 @@ if ((failures)); then
 	fEcho "FAILED: step selection, ${failures} problem(s)"
 	exit 1
 fi
-fEcho "OK: no options runs every step but arm64, --long all, --quick the quick local ones, --backlog-run-quick its areas, --backlog-run-full and --merge-gate the checks only"
+fEcho "OK: no options runs every step but arm64, --long all, --quick the quick local ones, --backlog-run-quick its areas, --backlog-run-full and --merge-gate the checks only, --no-remote no other box"
