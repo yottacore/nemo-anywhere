@@ -810,6 +810,8 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 
 - `--no-remote` leaves out every step on another box, such as arm64, the FreeBSD lane and the Windows dogfood refresh. It wins over `--include-arm` and `--include-bsd`.
 
+- Each run works in a folder of its own, `<temp>/nemo-anywhere/<YYYYmmDD-HHMMSS>_<NNN>/`, where `<temp>` is `HOST_TEMP`, or `TMPDIR` when that isn't set. `TMPDIR`, `TEMP` and `TMP` point at it, and its `run.pid` names the run. It's removed at the end, on a failure or Ctrl+C too. `--keep-temp` keeps it and prints where it is. A run also removes the run folders older than 2 days whose process is gone.
+
 - The FreeBSD lane runs the build and suite on the FreeBSD box in the test stage, and its tarball and pkg in the release stage. It runs on every full run. `--no-bsd` leaves it out, and `--include-bsd` brings it back under `--quick`.
 
 - The same hook blocks a push to main unless `source/meson.build` is a strict version increase over what is already there.

@@ -52,6 +52,7 @@ bash "${here}/test-lint-image.bash"
 bash "${here}/test-cicd-help.bash"
 bash "${here}/test-cicd-arm.bash"
 bash "${here}/test-cicd-quick.bash"
+bash "${here}/test-cicd-temp.bash"
 bash "${here}/test-werror.bash"
 bash "${here}/test-thumbnailers.bash"
 fTest bash "${here}/test-bundle-left-out.bash" --self-test

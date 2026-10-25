@@ -784,6 +784,53 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Temp folders are 2026102416300002.
 		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
 		- Overrides: the list of images to keep, in the private notes under the dev and test boxes.
+	- Progress log:
+		- 20261025: split into children 2026102516403487 (labels and the sweep at the end of a run), 2026102516403492 (a container per step) and 2026102516403497 (one pass over what came before labels).
+	- Test case: none yet.
+
+- Container cleanup: labels, and the sweep at the end of a run.
+	- ID: 2026102516403487
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-164035
+	- Opened by: 2026101910075400
+	- Parent ID: 2026101910075400
+	- Prereq IDs: 2026102516403466
+	- Requirements:
+		- Every container, image and volume the pipeline makes gets `dev.project` and `dev.run` labels. `dev.run` is the run folder's name.
+		- At the end of a run, on failure and Ctrl+C too, from the run folder's trap: the run's containers by label, then the project's dangling images and its older tags past the current one and the one before, then `docker builder prune -f --filter until=168h`.
+		- Nothing without the project's label is touched. Never `docker rmi -f` or `docker system prune`.
+		- One line at the end says what was removed and about what it freed, from `docker system df` before and after.
+		- Checked with 2 runs, one killed partway.
+	- Test case: none yet.
+
+- Container cleanup: a container per step.
+	- ID: 2026102516403492
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-164035
+	- Opened by: 2026101910075400
+	- Parent ID: 2026101910075400
+	- Prereq IDs: 2026102516403487
+	- Related IDs: 2026102416300000
+	- Requirements:
+		- Containers are named `<project>-<run folder>-<step>` and run with `--rm`, unless `--keep-temp`. Today the build and test steps run in the long-lived `nemo-build`, `nemo-winbuild` and `nemo-build-jammy`.
+		- Cache volumes stay under 2 GB.
+	- Test case: none yet.
+
+- Container cleanup: one pass over what came before labels.
+	- ID: 2026102516403497
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-164035
+	- Opened by: 2026101910075400
+	- Parent ID: 2026101910075400
+	- Prereq IDs: 2026102516403487
+	- Requirements:
+		- What the pipeline made before it had labels gets one cleanup pass by hand, by ID. Images still in use stay.
 	- Test case: none yet.
 
 - CICD reset: containers.
@@ -970,6 +1017,72 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Each run also removes the project's own run folders older than 2 days with no live process.
 			- Every recursive removal goes through a repo copy of the guard. 93 `rm -r` lines in 47 scripts and 29 `Remove-Item -Recurse` lines in 14 PowerShell scripts don't yet. File list in the private notes.
 			- The same on the Windows boxes and the test VMs.
+	- Progress log:
+		- 20261025: split into children 2026102516403466 (the run folder in `cicd.bash`), 2026102516403471 (the bash scripts), 2026102516403476 (`cicd-win.ps1` and the PowerShell scripts) and 2026102516403481 (the test VMs).
+	- Test case: none yet.
+
+- Temp files: the run folder in `cicd.bash`.
+	- ID: 2026102516403466
+	- Type: Task
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: `cicd/cicd.bash --backlog-run-full` once. Every host-side step now gets the run folder as `TMPDIR`; the run should pass and leave nothing in `<temp>/nemo-anywhere/`.
+	- Needs external testing: the native gate's lint on vm925w, where rm5a3ej9, rkmqprx6 and rjph39cv run under MSYS2.
+	- Priority|Severity: Avg
+	- Opened: 20261025-164035
+	- Opened by: 2026102416300002
+	- Parent ID: 2026102416300002
+	- Requirements:
+		- Every run works in `${HOST_TEMP}/nemo-anywhere/<YYYYmmDD-HHMMSS>_<NNN>/`, points `TMPDIR`, `TEMP` and `TMP` at it, and writes `run.pid` there.
+		- A trap removes it at the end, on failure and Ctrl+C too. `--keep-temp` keeps it and prints its path.
+		- Each run also removes the project's own run folders older than 2 days with no live process.
+		- The removals go through a repo copy of the guard, which the other children use too.
+	- Progress log:
+		- 20261025: `cicd/utility/include/run-temp.bash` has the run folder, the stale sweep and `fSafeRm`, the repo copy of the guard. `cicd.bash` makes the folder right after its error trap, for every mode, and removes it from an EXIT trap. INT, TERM and HUP exit through it. `--keep-temp` keeps it, and the plan names it.
+	- Decisions:
+		- The sweep goes by the stamp in the folder's name, and leaves a folder with no `run.pid`, since hand-made temp folders share the parent.
+		- `<temp>` is `HOST_TEMP`, then `TMPDIR`, then `/tmp`, resolved once.
+	- Test case: rm5a3ej9 (run folder, signals, `--keep-temp`, stale sweep, the guard's refusals), and rkmqprx6 checks no run leaves its folder and the plan names it.
+	- Verified: 20261025, rm5a3ej9, rkmqprx6, rjph39cv and rj9v18rx pass. `--backlog-run-quick` passes, format, lint and tests, and leaves nothing in `<temp>/nemo-anywhere/`.
+
+- Temp files: bash scripts remove through the guard.
+	- ID: 2026102516403471
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261025-164035
+	- Opened by: 2026102416300002
+	- Parent ID: 2026102416300002
+	- Prereq IDs: 2026102516403466
+	- Requirements:
+		- The 93 `rm -r` lines in 47 scripts go through the repo copy of the guard, or a guard of the same kind that names the one parent it may remove under. File list in the private notes.
+	- Test case: none yet.
+
+- Temp files: `cicd-win.ps1` and the PowerShell scripts.
+	- ID: 2026102516403476
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261025-164035
+	- Opened by: 2026102416300002
+	- Parent ID: 2026102416300002
+	- Prereq IDs: 2026102516403466
+	- Requirements:
+		- `cicd-win.ps1` gets the same run folder, `run.pid`, removal at the end, keep switch and stale sweep as `cicd.bash`, on the Windows boxes.
+		- A PowerShell copy of the guard. The 29 `Remove-Item -Recurse` lines in 14 scripts go through it. File list in the private notes.
+	- Test case: none yet.
+
+- Temp files: the same on the test VMs.
+	- ID: 2026102516403481
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261025-164035
+	- Opened by: 2026102416300002
+	- Parent ID: 2026102416300002
+	- Prereq IDs: 2026102516403466
+	- Related IDs: 2026102416300001
+	- Requirements:
+		- The FreeBSD lane and the arm64 release work in a run folder under that box's temp root, write `run.pid` there, and remove it at the end through the guard, failure included.
 	- Test case: none yet.
 
 - CICD reset: CICD process gaps.

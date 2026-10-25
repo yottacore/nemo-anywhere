@@ -33,10 +33,13 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/cicd-quick-check.XXXXXX")"
 trap 'rm -rf "${scratch}"' EXIT
+## Run folders go in the scratch dir, not the box's own temp root.
+export HOST_TEMP="${scratch}/host-temp"
+mkdir -p "${HOST_TEMP}"
 
 mkdir -p "${scratch}/cicd/utility/include"
 cp "${root}/cicd/cicd.bash" "${scratch}/cicd/"
-for inc in gfs-rotate source-date; do
+for inc in gfs-rotate source-date run-temp; do
 	cp "${root}/cicd/utility/include/${inc}.bash" "${scratch}/cicd/utility/include/"
 done
 printf "project('app', 'c', version: '1.2.3')\n" > "${scratch}/meson.build"
@@ -107,7 +110,7 @@ cat > "${scratch}/cicd/config.bash" <<-EOF
 EOF
 ## A repo with no upstream, so the sync stage runs and finds nothing to do, and
 ## a clean tree, so publish goes ahead.
-printf '/out/\n/native.bin\n' > "${scratch}/.gitignore"
+printf '/out/\n/native.bin\n/host-temp/\n' > "${scratch}/.gitignore"
 git -C "$scratch" init -q
 git -C "$scratch" add -A
 git -C "$scratch" -c user.name=check -c user.email=check@example.invalid -c commit.gpgsign=false commit -q -m init
@@ -200,6 +203,11 @@ help="$(bash "${root}/cicd/cicd.bash" --help)"
 for name in --backlog-run-quick --backlog-run-full --merge-gate --gate --ci --no-remote "format, lint, tests"; do
 	grep -q -F -- "$name" <<< "$help" || fFail "--help does not name ${name}"
 done
+
+## Each run removed its run folder, and a plain run's plan names it.
+[[ -z "$(ls -A "${HOST_TEMP}/app" 2>/dev/null)" ]] || fFail "runs left these behind: $(ls -A "${HOST_TEMP}/app")"
+out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --quick --no-publish 2>&1 </dev/null)" || true
+grep -q -E "^Run folder \.+: ${HOST_TEMP}/app/[0-9]{8}-[0-9]{6}_[0-9]{3}$" <<< "$out" || fFail "the plan does not name the run folder"
 
 if ((failures)); then
 	fEcho "FAILED: step selection, ${failures} problem(s)"

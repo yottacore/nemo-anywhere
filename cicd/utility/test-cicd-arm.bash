@@ -31,11 +31,14 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/cicd-arm-check.XXXXXX")"
 trap 'rm -rf "${scratch}"' EXIT
+## Run folders go in the scratch dir, not the box's own temp root.
+export HOST_TEMP="${scratch}/host-temp"
+mkdir -p "${HOST_TEMP}"
 
 ver="4.5.6"
 mkdir -p "${scratch}/cicd/utility/include"
 cp "${root}/cicd/cicd.bash" "${scratch}/cicd/"
-for inc in gfs-rotate source-date; do
+for inc in gfs-rotate source-date run-temp; do
 	cp "${root}/cicd/utility/include/${inc}.bash" "${scratch}/cicd/utility/include/"
 done
 printf "project('app', 'c', version: '%s')\n" "$ver" > "${scratch}/meson.build"

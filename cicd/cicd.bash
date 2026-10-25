@@ -46,6 +46,10 @@
 ##	   --no-publish        skip the git backup + publish stage
 ##	   --allow-dirty       let publish commit an uncommitted working tree (it
 ##	                       refuses one by default)
+##	   --keep-temp         keep the run's temp folder and print where it is.
+##	                       Each run works in its own folder under HOST_TEMP
+##	                       (or TMPDIR), removed at the end, failure and Ctrl+C
+##	                       included
 ##	   --shots             refresh README screenshots (off by default)
 ##	   --demo              re-record the demo video (off by default)
 ##	   --include-bsd       run the FreeBSD lane even with --quick (on by
@@ -135,6 +139,7 @@ for ctr in "${CICD_CONTAINERS[@]}"; do
 done
 source "${here}/utility/include/gfs-rotate.bash"                  ## gfs_rotate() for the profiler artifacts
 source "${here}/utility/include/source-date.bash"                 ## fSetSourceDate() for reproducible builds
+source "${here}/utility/include/run-temp.bash"                    ## the run folder, and fSafeRm()
 declare -p FMT_CMD &>/dev/null || FMT_CMD=()                      ## tolerate a config without the fmt stage
 ## NOT-READY (Rust origin): the source pipeline also exported CARGO_BUILD_JOBS and
 ## RUST_TEST_THREADS here to bound cargo's jobserver and the test run. No cargo in a
@@ -183,6 +188,7 @@ while (($#)); do case "$1" in
 	--no-dogfood)             DOGFOOD_FIXED_DESTS=(); DOGFOOD_ROTATING_DESTS=(); DOGFOOD_CROSS_DESTS=(); DOGFOOD_HOOK=(); DOGFOOD_REMOTE=(); shift ;;
 	--no-publish)             GIT_PUBLISH=(); shift ;;
 	--allow-dirty)            allow_dirty=1; shift ;;
+	--keep-temp)              runTempKeep=1; shift ;;
 	--shots)                  SHOTS_ENABLE=1; shift ;;
 	--demo)                   DEMO_ENABLE=1; shift ;;
 	--include-bsd)            include_bsd=1; shift ;;
@@ -403,6 +409,14 @@ remote_sync(){
 # shellcheck disable=SC2154  ## rc is assigned in the trap body, which shellcheck reads as a plain string.
 trap 'rc=$?; printf "\n[ CICD ABORTED (exit %s) at line %s: %s ]\n" "$rc" "$LINENO" "$BASH_COMMAND" >&2; exit $rc' ERR
 
+## Everything the run writes to a temp folder goes in its own run folder, which
+## is removed at the end whatever the outcome. The signal traps turn Ctrl+C into an
+## exit, so the EXIT trap runs.
+fRunTemp_Make "${EXE_NAME}" "${stamp}" || fDie "could not make a run folder under ${HOST_TEMP:-${TMPDIR:-/tmp}}/${EXE_NAME}"
+trap fRunTemp_Done EXIT
+trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 129' HUP
+fRunTemp_Sweep
+
 ## Warn (non-gating) when a pinned helper tool has drifted from TOOL_PINS, so a
 ## box update can't silently change pipeline results. Before the gate, so the
 ## pre-push run sees it too.
@@ -477,6 +491,7 @@ fEcho_Clean
 fEcho_Clean "${APP_NAME} local CI/CD"
 fEcho_Clean
 fEcho_Clean "Repo root ...........: ${root}"
+fEcho_Clean "Run folder ..........: ${runTempDir}$( ((runTempKeep)) && echo '  (kept, --keep-temp)')"
 ((checks_only)) && fEcho_Clean "Mode ................: ${run_mode}, checks only: no sync, in-place format, dogfood, publish, screenshots, demo or prompt"
 sync_why="--no-sync"; ((checks_only)) && sync_why="${run_mode}"
 fEcho_Clean "Remote sync .........: $( ((no_sync)) && echo "(skipped ${sync_why})" || echo 'fetch + fast-forward before building' )"
@@ -1110,3 +1125,4 @@ fEcho_Clean
 ##		- 2026-10-24: --long (or --slow) adds arm64, now off in a plain run.
 ##		- 2026-10-25: --backlog-run-quick, --backlog-run-full and --merge-gate;
 ##		  --gate and --ci are other names for the first and last. --no-remote.
+##		- 2026-10-25: each run works in its own temp folder; --keep-temp.
