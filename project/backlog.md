@@ -542,6 +542,96 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the 15 archive tests pass in the jailed runner, rhr6ggmt with 316 runs.
 	- Verified: 20261022: rhr6ggmt passes in the full Linux suite, the sanitizer suite and the FreeBSD lane.
 
+- rktkms8a, rktqpp37 and rm1sbxgy time out in the sanitizer lane on a loaded box.
+	- ID: 2026102413432024
+	- Type: Bug
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: a full run's sanitizer stage on a loaded box.
+	- Priority|Severity: Low
+	- Opened: 20261024-134320
+	- Opened by: 2026102411433800
+	- Related IDs: 2026102411433800
+	- Target OS: Linux
+	- Steps to reproduce: the sanitizer suite at 16 jobs while other work loads the cores.
+	- Incorrect behavior:
+		- At load about 15, at c7194950: rktqpp37 and rm1sbxgy each had "icon-view: FAIL timed out at step 38" and "icon-view: 67 results, expected 75". Step 38 waits for Enter to open the selected folder.
+		- At load 50 to 60, at c7194950: all 3 failed. rktqpp37 timed out at step 38 in the compact view, rm1sbxgy had 13 of 75 icon view results, and the list view had "Down selects the next item down alone (selected 2, want 3)", 64 of 72 and 79 of 87 results.
+	- Expected behavior: they pass under load, or a slow box makes them wait longer rather than fail.
+	- Reproduced: twice on 20261024, in the 2 runs above. Each passed 3 of 3 alone right after, at load about 8, and rktkms8a passed in the first run.
+	- Possible cause: a step gets 100 ticks of 100 ms, 10 s in all, which an ASan build on a loaded box can pass. Same class as 2026102411433800. Not looked into.
+	- Actual cause: the test sent its click or key while the menu it had just closed still held the pointer and keyboard. That grab lasts until the X server answers the ungrab, and on a busy box that took long enough for the next step's events to go to the grab, not the view. The step only waited on GTK's own grab. So the click on "data" at step 37 was lost, the folder just left stayed selected, and Enter did nothing. The Down, Up, Right and Left misses at step 12 came the same way, after the menu at step 11.
+		- Ruled out: the 10 s step budget. With the cores loaded alone, at load about 48, step 38 took 0.9 to 1.0 s and nothing failed. Also ruled out: the folder still loading at step 37.
+	- Actual fix: a step after a closed menu also waits until no pointer or keyboard grab is left.
+	- Progress log:
+		- 20261025: reproduced with the cores and the disk loaded, at load 50 to 60. rm1sbxgy failed 12 of 12, with step 38 timeouts and the Down misses in all 3 views, and rktqpp37 failed 4 of 12. In the 4 step 38 timeouts of one run the grab was still there at the click, and in none of its 20 passes.
+		- 20261025: after the fix, at the same load: rm1sbxgy 12 of 12, rktqpp37 19 of 20 and rktkms8a 8 of 8 pass. The one failure was a timeout at step 11, where the menu never opened. Filed as 2026102507531587.
+	- Swept: every step that follows a closed menu in this test goes through the same check. test-nemo-drag-select has the same wait and the same menu steps, but holds the button across steps for its bands, so it can't take the check as is. Filed as 2026102507531487. Not checked yet: the 7 other tests that close a menu, the menu key, tab move, Places focus, long press, find history, entry menu and eel context menu tests.
+	- Branch: round1025
+	- Commit: 8e35f6b8
+	- Test case: rktkms8a, rktqpp37 and rm1sbxgy themselves, in the sanitizer lane with the cores loaded.
+	- Verified: 20261025, the 3 pass in the sanitizer build with the cores and the disk loaded, as in Progress log, and in the plain build. C lint clean, and the test ID check passes.
+
+- test-nemo-drag-select sends its next click right after closing a menu.
+	- ID: 2026102507531487
+	- Type: Bug
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: a full run's sanitizer stage on a loaded box.
+	- Priority|Severity: Low
+	- Opened: 20261025-075314
+	- Opened by: 2026102413432024
+	- Related IDs: 2026102413432024, 2026102508301150
+	- Target OS: Linux
+	- Steps to reproduce: rk7yvgse, rkts3far or rm1sbwdq on a busy box.
+	- Incorrect behavior: not seen. Its steps after a closed menu wait only on GTK's own grab, as the selection rules test's did, so a click sent before the X server answers the ungrab can be lost.
+		- 20261025: seen once in rk7yvgse at load 32 to 60, "list-view: FAIL and bands (selected , want 1,2,3)", the right drag at step 10 just after the menu closed at step 9.
+	- Expected behavior: the next step waits until the menu's pointer and keyboard grab is gone.
+	- Reproduced: 20261025, with the X server held up for 1.5 s after each menu closes, so the ungrab is answered late. rkts3far failed 3 of 3: the right press in Places or the tree after a closed menu opened no menu.
+	- Possible cause: as in 2026102413432024. The band steps hold the button from one step to the next, so the check there has to leave a band's own grab alone.
+	- Actual cause: GDK keeps a closed menu's grab on record until the X server has answered the ungrab. While it is on record, GTK sends each click to the menu's window, not the view. The step only waited on GTK's own grab, which goes at once.
+		- A round trip to the server isn't enough. After one, the grab was still on record at the next step.
+		- Only the menus Nemo Classic opens on the press leave a grab on record here. Under Nemo Anywhere v1 a menu opened on the release had none, even while it was up.
+	- Actual fix: a step after a closed menu also waits until GDK has no pointer or keyboard grab on record, unless the test is holding a button down, as it does for a band from one step to the next. A band's grab sends nothing elsewhere.
+	- Progress log:
+		- 20261025: rk7yvgse passed 46 of 48 runs after the fix, with the cores and the disk loaded. Both failures were bands under Nemo Anywhere v1, where there is no grab to wait for. Filed as 2026102508301150, with the band sighting above. A step 9 timeout seen once in the same runs went on 2026102507531587.
+	- Decisions:
+		- The test keeps track of the buttons it holds down, rather than telling a band's grab from a menu's.
+	- Swept: every step of the test that follows a closed menu goes through the same check, in all 3 views. The selection rules test has the same check since 8e35f6b8, and holds no button across steps. Not checked: the 7 other tests that close a menu, as listed on 2026102413432024.
+	- Branch: round1025
+	- Test case: rk7yvgse, rkts3far and rm1sbwdq themselves. With the X server held up after each menu closes, rkts3far failed 3 of 3 before the fix and passed 3 of 3 after.
+	- Verified: 20261025, rkts3far fails 3 of 3 before the fix and passes 3 of 3 after, with the X server held up after each menu closes.
+	- Verified: 20261025, in the sanitizer build with the cores and the disk loaded, at load 33 to 100: rkts3far 36 of 36 and rm1sbwdq 36 of 36. In the plain build, rk7yvgse, rkts3far and rm1sbwdq 4 of 4 each. C lint clean, and gcc's analyzer finds nothing in the probe.
+
+- rk7yvgse's bands miss now and then on a loaded box.
+	- ID: 2026102508301150
+	- Type: Bug
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: the plain suite, as the round's gate runs it. The icon container change reaches every icon and compact view test.
+	- Priority|Severity: Low
+	- Opened: 20261025-083011
+	- Opened by: 2026102507531487
+	- Related IDs: 2026102507531487, 2026102507531587
+	- Target OS: Linux
+	- Steps to reproduce: rk7yvgse in a sanitizer build, 12 at once, with the cores and the disk loaded.
+	- Incorrect behavior: 3 times in 72 runs at load 33 to 100, all under Nemo Anywhere v1.
+		- "list-view: FAIL and bands (selected , want 1,2,3)", the right drag at step 10 just after a menu closed at step 9. Before the fix in 2026102507531487.
+		- "compact-view: FAIL and the band replaces the selection", the right drag from the background at steps 10 and 11, just after a menu closed at step 9. After that fix.
+		- "icon-view: FAIL and the band adds to the selection", the Ctrl band at steps 4 and 5, with no menu before it, at load 80 to 100.
+	- Expected behavior: the band selects what it covers.
+	- Reproduced: 20261025, the right drag from the background in the icon and compact views, in 6 of 6 runs with the X server held up for 1.5 s after each menu closes, with or without that fix.
+		- 20261025: every band in the icon and compact views, under Nemo Anywhere v1 and Nemo Anywhere, in 2 of 2 runs each, with the main loop held for 150 ms after each step that ends with a button down. The list view and Nemo Classic passed.
+	- Possible cause: not known. Under Nemo Anywhere v1 the menu opens on the release and leaves no grab on record, so the wait in 2026102507531487 has nothing to wait for. rkts3far and rm1sbwdq passed all of the same runs.
+	- Actual cause: the icon views' band follows the pointer on a 10 ms timer, never on a motion, and the release stopped the band without one last update. When the main loop was busy past the test's next 100 ms tick, the tick came first, since it is the older timer, and released before the band had moved once. So the band selected nothing, or kept the selection it started with. A user on a busy box gets the same from a quick band.
+		- Not a menu grab. The Ctrl band at step 4 has no menu before it. Likely the same for the X server hold-up above, which holds the main loop too.
+		- The list view's band is our own and moves on each motion, so it can't miss this way. Its sighting came before the fix in 2026102507531487.
+	- Progress log:
+		- 20261025: found with the main loop held after a band's press and move. The hold is now part of the test, at the Ctrl band in the icon views only, so the other bands still go through the timer.
+	- Actual fix: the release runs the band's update once before it stops the band, so the band selects what it covers at the release.
+	- Swept: the icon container's band is the only one on a timer. Its 3 models share one release handler. The other 2 stops, a long press opening the menu and a dialog taking the grab, cancel the band and don't update it. The list view's band, and GTK's that Nemo Classic uses there, move on each motion, and our band's timer only scrolls. Under Nemo Classic the update can't flip an icon twice, since it works from the selection before the band.
+	- Branch: round1025
+	- Test case: rk7yvgse and rm1sbwdq. Their Ctrl band in the icon and compact views holds the main loop past the next tick, so the release comes before the band's timer.
+	- Verified: 20261025, rk7yvgse and rm1sbwdq fail 2 of 2 before the fix, at the Ctrl band in both icon views, and pass 2 of 2 after. rkts3far passes both ways.
+	- Verified: 20261025, in the sanitizer build with the cores and the disk loaded, at load 55 to 72: 72 of 72 runs pass, 36 under Nemo Anywhere v1 and 36 under Nemo Anywhere. Through the suite runner: rk7yvgse, rkts3far, rm1sbwdq, rktkms8a, rm1sbxgy and rk80w1ds pass. C lint clean, gcc's analyzer finds nothing in the 2 files, the Windows cross build is clean, and the test ID check passes.
+
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
 	- Type: Bug
@@ -1499,65 +1589,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- F2 selects the name without the extension, as upstream does.
 	- Test case: none yet.
 
-- rktkms8a, rktqpp37 and rm1sbxgy time out in the sanitizer lane on a loaded box.
-	- ID: 2026102413432024
-	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: a full run's sanitizer stage on a loaded box.
-	- Priority|Severity: Low
-	- Opened: 20261024-134320
-	- Opened by: 2026102411433800
-	- Related IDs: 2026102411433800
-	- Target OS: Linux
-	- Steps to reproduce: the sanitizer suite at 16 jobs while other work loads the cores.
-	- Incorrect behavior:
-		- At load about 15, at c7194950: rktqpp37 and rm1sbxgy each had "icon-view: FAIL timed out at step 38" and "icon-view: 67 results, expected 75". Step 38 waits for Enter to open the selected folder.
-		- At load 50 to 60, at c7194950: all 3 failed. rktqpp37 timed out at step 38 in the compact view, rm1sbxgy had 13 of 75 icon view results, and the list view had "Down selects the next item down alone (selected 2, want 3)", 64 of 72 and 79 of 87 results.
-	- Expected behavior: they pass under load, or a slow box makes them wait longer rather than fail.
-	- Reproduced: twice on 20261024, in the 2 runs above. Each passed 3 of 3 alone right after, at load about 8, and rktkms8a passed in the first run.
-	- Possible cause: a step gets 100 ticks of 100 ms, 10 s in all, which an ASan build on a loaded box can pass. Same class as 2026102411433800. Not looked into.
-	- Actual cause: the test sent its click or key while the menu it had just closed still held the pointer and keyboard. That grab lasts until the X server answers the ungrab, and on a busy box that took long enough for the next step's events to go to the grab, not the view. The step only waited on GTK's own grab. So the click on "data" at step 37 was lost, the folder just left stayed selected, and Enter did nothing. The Down, Up, Right and Left misses at step 12 came the same way, after the menu at step 11.
-		- Ruled out: the 10 s step budget. With the cores loaded alone, at load about 48, step 38 took 0.9 to 1.0 s and nothing failed. Also ruled out: the folder still loading at step 37.
-	- Actual fix: a step after a closed menu also waits until no pointer or keyboard grab is left.
-	- Progress log:
-		- 20261025: reproduced with the cores and the disk loaded, at load 50 to 60. rm1sbxgy failed 12 of 12, with step 38 timeouts and the Down misses in all 3 views, and rktqpp37 failed 4 of 12. In the 4 step 38 timeouts of one run the grab was still there at the click, and in none of its 20 passes.
-		- 20261025: after the fix, at the same load: rm1sbxgy 12 of 12, rktqpp37 19 of 20 and rktkms8a 8 of 8 pass. The one failure was a timeout at step 11, where the menu never opened. Filed as 2026102507531587.
-	- Swept: every step that follows a closed menu in this test goes through the same check. test-nemo-drag-select has the same wait and the same menu steps, but holds the button across steps for its bands, so it can't take the check as is. Filed as 2026102507531487. Not checked yet: the 7 other tests that close a menu, the menu key, tab move, Places focus, long press, find history, entry menu and eel context menu tests.
-	- Branch: round1025
-	- Commit: 8e35f6b8
-	- Test case: rktkms8a, rktqpp37 and rm1sbxgy themselves, in the sanitizer lane with the cores loaded.
-	- Verified: 20261025, the 3 pass in the sanitizer build with the cores and the disk loaded, as in Progress log, and in the plain build. C lint clean, and the test ID check passes.
-
-- test-nemo-drag-select sends its next click right after closing a menu.
-	- ID: 2026102507531487
-	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: a full run's sanitizer stage on a loaded box.
-	- Priority|Severity: Low
-	- Opened: 20261025-075314
-	- Opened by: 2026102413432024
-	- Related IDs: 2026102413432024, 2026102508301150
-	- Target OS: Linux
-	- Steps to reproduce: rk7yvgse, rkts3far or rm1sbwdq on a busy box.
-	- Incorrect behavior: not seen. Its steps after a closed menu wait only on GTK's own grab, as the selection rules test's did, so a click sent before the X server answers the ungrab can be lost.
-		- 20261025: seen once in rk7yvgse at load 32 to 60, "list-view: FAIL and bands (selected , want 1,2,3)", the right drag at step 10 just after the menu closed at step 9.
-	- Expected behavior: the next step waits until the menu's pointer and keyboard grab is gone.
-	- Reproduced: 20261025, with the X server held up for 1.5 s after each menu closes, so the ungrab is answered late. rkts3far failed 3 of 3: the right press in Places or the tree after a closed menu opened no menu.
-	- Possible cause: as in 2026102413432024. The band steps hold the button from one step to the next, so the check there has to leave a band's own grab alone.
-	- Actual cause: GDK keeps a closed menu's grab on record until the X server has answered the ungrab. While it is on record, GTK sends each click to the menu's window, not the view. The step only waited on GTK's own grab, which goes at once.
-		- A round trip to the server isn't enough. After one, the grab was still on record at the next step.
-		- Only the menus Nemo Classic opens on the press leave a grab on record here. Under Nemo Anywhere v1 a menu opened on the release had none, even while it was up.
-	- Actual fix: a step after a closed menu also waits until GDK has no pointer or keyboard grab on record, unless the test is holding a button down, as it does for a band from one step to the next. A band's grab sends nothing elsewhere.
-	- Progress log:
-		- 20261025: rk7yvgse passed 46 of 48 runs after the fix, with the cores and the disk loaded. Both failures were bands under Nemo Anywhere v1, where there is no grab to wait for. Filed as 2026102508301150, with the band sighting above. A step 9 timeout seen once in the same runs went on 2026102507531587.
-	- Decisions:
-		- The test keeps track of the buttons it holds down, rather than telling a band's grab from a menu's.
-	- Swept: every step of the test that follows a closed menu goes through the same check, in all 3 views. The selection rules test has the same check since 8e35f6b8, and holds no button across steps. Not checked: the 7 other tests that close a menu, as listed on 2026102413432024.
-	- Branch: round1025
-	- Test case: rk7yvgse, rkts3far and rm1sbwdq themselves. With the X server held up after each menu closes, rkts3far failed 3 of 3 before the fix and passed 3 of 3 after.
-	- Verified: 20261025, rkts3far fails 3 of 3 before the fix and passes 3 of 3 after, with the X server held up after each menu closes.
-	- Verified: 20261025, in the sanitizer build with the cores and the disk loaded, at load 33 to 100: rkts3far 36 of 36 and rm1sbwdq 36 of 36. In the plain build, rk7yvgse, rkts3far and rm1sbwdq 4 of 4 each. C lint clean, and gcc's analyzer finds nothing in the probe.
-
 - rktqpp37 times out at step 11 once in a while in the sanitizer lane on a loaded box.
 	- ID: 2026102507531587
 	- Type: Bug
@@ -1577,37 +1608,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261025: read only, not run: the press pops the menu up at once, with the press's own time. So the release 20 ms later can't close it through GTK's rule that a release more than 500 ms after the popup closes the menu.
 		- 20261025: rk7yvgse had the same shape once in 72 loaded runs, before the fix in 2026102507531487: "list-view: FAIL timed out at step 9" under Nemo Anywhere v1, waiting for the menu from the right-click at steps 7 and 8.
 	- Test case: rktqpp37 itself, in the sanitizer lane with the cores loaded.
-
-- rk7yvgse's bands miss now and then on a loaded box.
-	- ID: 2026102508301150
-	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: the plain suite, as the round's gate runs it. The icon container change reaches every icon and compact view test.
-	- Priority|Severity: Low
-	- Opened: 20261025-083011
-	- Opened by: 2026102507531487
-	- Related IDs: 2026102507531487, 2026102507531587
-	- Target OS: Linux
-	- Steps to reproduce: rk7yvgse in a sanitizer build, 12 at once, with the cores and the disk loaded.
-	- Incorrect behavior: 3 times in 72 runs at load 33 to 100, all under Nemo Anywhere v1.
-		- "list-view: FAIL and bands (selected , want 1,2,3)", the right drag at step 10 just after a menu closed at step 9. Before the fix in 2026102507531487.
-		- "compact-view: FAIL and the band replaces the selection", the right drag from the background at steps 10 and 11, just after a menu closed at step 9. After that fix.
-		- "icon-view: FAIL and the band adds to the selection", the Ctrl band at steps 4 and 5, with no menu before it, at load 80 to 100.
-	- Expected behavior: the band selects what it covers.
-	- Reproduced: 20261025, the right drag from the background in the icon and compact views, in 6 of 6 runs with the X server held up for 1.5 s after each menu closes, with or without that fix.
-		- 20261025: every band in the icon and compact views, under Nemo Anywhere v1 and Nemo Anywhere, in 2 of 2 runs each, with the main loop held for 150 ms after each step that ends with a button down. The list view and Nemo Classic passed.
-	- Possible cause: not known. Under Nemo Anywhere v1 the menu opens on the release and leaves no grab on record, so the wait in 2026102507531487 has nothing to wait for. rkts3far and rm1sbwdq passed all of the same runs.
-	- Actual cause: the icon views' band follows the pointer on a 10 ms timer, never on a motion, and the release stopped the band without one last update. When the main loop was busy past the test's next 100 ms tick, the tick came first, since it is the older timer, and released before the band had moved once. So the band selected nothing, or kept the selection it started with. A user on a busy box gets the same from a quick band.
-		- Not a menu grab. The Ctrl band at step 4 has no menu before it. Likely the same for the X server hold-up above, which holds the main loop too.
-		- The list view's band is our own and moves on each motion, so it can't miss this way. Its sighting came before the fix in 2026102507531487.
-	- Progress log:
-		- 20261025: found with the main loop held after a band's press and move. The hold is now part of the test, at the Ctrl band in the icon views only, so the other bands still go through the timer.
-	- Actual fix: the release runs the band's update once before it stops the band, so the band selects what it covers at the release.
-	- Swept: the icon container's band is the only one on a timer. Its 3 models share one release handler. The other 2 stops, a long press opening the menu and a dialog taking the grab, cancel the band and don't update it. The list view's band, and GTK's that Nemo Classic uses there, move on each motion, and our band's timer only scrolls. Under Nemo Classic the update can't flip an icon twice, since it works from the selection before the band.
-	- Branch: round1025
-	- Test case: rk7yvgse and rm1sbwdq. Their Ctrl band in the icon and compact views holds the main loop past the next tick, so the release comes before the band's timer.
-	- Verified: 20261025, rk7yvgse and rm1sbwdq fail 2 of 2 before the fix, at the Ctrl band in both icon views, and pass 2 of 2 after. rkts3far passes both ways.
-	- Verified: 20261025, in the sanitizer build with the cores and the disk loaded, at load 55 to 72: 72 of 72 runs pass, 36 under Nemo Anywhere v1 and 36 under Nemo Anywhere. Through the suite runner: rk7yvgse, rkts3far, rm1sbwdq, rktkms8a, rm1sbxgy and rk80w1ds pass. C lint clean, gcc's analyzer finds nothing in the 2 files, the Windows cross build is clean, and the test ID check passes.
 
 - rkrqg9mg leaked 48 bytes once in the sanitizer lane.
 	- ID: 2026102413432124
