@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <gio/gio.h>
+#include <glib/gstdio.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <pango/pangocairo.h>
 
@@ -23,7 +24,9 @@
 #include <unistd.h>
 #endif
 
+#include <libnemo-private/nemo-cache-db.h>
 #include <libnemo-private/nemo-dir-enum.h>
+#include <libnemo-private/nemo-file-utilities.h>
 
 #include "test-fence.h"
 #include "test-scratch.h"
@@ -173,6 +176,46 @@ inside_a_made_dir (const char *canon)
 	return FALSE;
 }
 
+/* Which made directory canon is, or sits in, or -1. */
+static int
+made_dir_holding (const char *canon)
+{
+	guint i;
+
+	for (i = 0; made != NULL && i < made->len; i++) {
+		const char *root = g_ptr_array_index (made, i);
+		gsize len = strlen (root);
+
+		if (strncmp (canon, root, len) == 0 &&
+		    (canon[len] == '\0' || G_IS_DIR_SEPARATOR (canon[len]))) {
+			return (int) i;
+		}
+	}
+	return -1;
+}
+
+/* Windows removes neither an open file nor a process's current directory, and
+   the file cache keeps its database open until the process ends. So both are
+   let go of first, or the test leaves its scratch directory behind. */
+static void
+let_go_of_made_dirs (void)
+{
+	g_autofree char *cwd = g_get_current_dir ();
+	g_autofree char *cwd_canon = g_canonicalize_filename (cwd, NULL);
+	g_autofree char *cache_canon = g_canonicalize_filename (nemo_get_user_cache_root (), NULL);
+	int holding = made_dir_holding (cwd_canon);
+
+	if (holding >= 0) {
+		g_chdir (g_ptr_array_index (made_in, holding));
+	}
+
+	/* Only a store inside a scratch directory. Elsewhere it is in nobody's
+	   way, and a worker still busy at exit could be using it. */
+	if (made_dir_holding (cache_canon) >= 0) {
+		nemo_cache_db_close ();
+	}
+}
+
 gboolean
 test_scratch_remove_tree (const char *path)
 {
@@ -221,6 +264,7 @@ test_scratch_cleanup (void)
 #endif
 
 	wait_for_font_setup ();
+	let_go_of_made_dirs ();
 	for (i = 0; i < made->len; i++) {
 		remove_made (g_ptr_array_index (made, i), g_ptr_array_index (made_in, i));
 	}
@@ -338,6 +382,7 @@ test_slowness (void)
 	g_autofree guint8 *bytes = NULL;
 	g_autoptr (GFile) file = NULL;
 	g_autoptr (GFileInputStream) in = NULL;
+	const char *handed = g_getenv ("NEMO_TEST_SLOWNESS");
 	double runs[3];
 	guint32 next = 1;
 	guint i, j;
@@ -346,6 +391,11 @@ test_slowness (void)
 		return slowness;
 	}
 	slowness = 1;
+
+	if (handed != NULL) {
+		slowness = MAX (1.0, g_ascii_strtod (handed, NULL));
+		return slowness;
+	}
 
 	dir = test_scratch_dir ("nemo-slowness-XXXXXX", NULL);
 	if (dir == NULL) {

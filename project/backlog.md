@@ -447,6 +447,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261024, rm1sbxgy fails 10 checks with the new handlers bypassed and passes with them. rktkms8a, rktqpp37, rk7yvgse and rm1sbwdq pass. The full Linux suite, 234 OK and 1 skipped. The build and the Windows cross build with warnings as errors, the C lint and the test ID check pass.
 	- Verified: 20261024, rm1sbxgy passes in the FreeBSD lane at c7194950.
 
+- The native gate on vm925w stops on scratch folders 7 tests leave behind.
+	- ID: 2026102413432225
+	- Type: Bug
+	- Status: Waiting on automated testing
+	- Needs external testing: the native gate on vm925w as wintest in the desktop session, `pwsh cicd/cicd-win.ps1 -Gate -Yes` from a bundle of round1025. It should pass with nothing left behind, rm494xfp included.
+	- Priority|Severity: Avg
+	- Opened: 20261024-134322
+	- Opened by: 2026102409082700
+	- Target OS: Windows
+	- Test environment: vm925w, as wintest in the desktop session.
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
+	- Incorrect behavior: every test passes, 205 OK and 7 skipped, then the gate fails with "tests left these behind" for test-nemo-command-launch-win32, test-nemo-helper-end-win32 and test-nemo-thumbnail-edited, -future, -hold, -order and -stop.
+		- The 5 thumbnail folders still hold the file cache, `files.db` with its `-wal` and `-shm`.
+		- helper-end leaves 2 `nemo-slowness-*` folders, each with a 64 KB `yardstick`. command-launch leaves one `nemo-command-launch-*` folder.
+	- Expected behavior: nothing left behind, and the gate passes.
+	- Reproduced: 20261024 at c7194950, 1 of 1. An earlier native run on 20261023 at 22:54 left the same 7, in a `nemo-suite-*` folder still in wintest's TEMP.
+		- 20261025 under wine: the same 7, with the same contents.
+	- Possible cause: a file still open when the test removes its folder, such as the cache database or a program the test started, which Windows won't delete. Not looked into.
+	- Actual cause: 3 things Windows won't remove while they're held, where Linux removes them anyway.
+		- The 5 thumbnail tests point the file cache at their scratch folder, and the cache keeps its database open until the process ends. The exit cleanup runs before that.
+		- helper-end's app copies measure the box's slowness, which makes a scratch folder. 2 of the copies are killed, so their cleanup never runs.
+		- command-launch went back into its scratch folder at the end, so it was the current folder when the cleanup ran.
+	- Actual fix: in the scratch cleanup every test shares, `source/test/test-scratch.c`.
+		- Before removing anything, it leaves a current folder that sits in a scratch folder, and closes a file cache that sits in one. A cache elsewhere is left open, since a worker still busy at exit could be using it.
+		- `test_slowness` takes `NEMO_TEST_SLOWNESS` when it's set, and makes no folder then. helper-end sets it for its copies.
+		- command-launch goes back to the folder it started in.
+		- The held view test now uses the settings code's copy of SHCL. The scratch library brings in the cache, and with it a second copy.
+	- Test case: rm494xfp, the cleanup removes a scratch folder that is the current folder and one holding an open file cache, and takes a handed slowness as is. The gate's leftover check covers the 7.
+	- Verified: 20261025. rm494xfp fails all 3 checks without the fix under wine, and passes with it. Under wine without the fix, command-launch left its folder and helper-end 2 `nemo-slowness-*` folders. With it, neither leaves any. Linux in the jail: rm494xfp, rjahhesy, rgy4vnf1, rjprhm52 and the 5 thumbnail tests. The sanitizer build: rm494xfp, rgy4vnf1 and the 5 thumbnail tests. Windows cross build, C lint and the test ID check.
+		- Under wine the 5 thumbnail tests no longer leave the cache, but each still leaves its scratch folder there, empty. Not looked into. Wine keeps the `nemo-leaks-*` folders the same way. The native gate shows whether Windows does too.
+	- Swept: every test that points the cache at a scratch folder goes through the shared cleanup. config-share and thumbnail-stop also kill copies of themselves, and neither copy makes a scratch folder. command-launch was the only test left in its scratch folder; the fence test goes back to where it was.
+
 - rkbdyne7, rk96k9va and rj750n43 still fail in the sanitizer lane on a loaded box.
 	- ID: 2026102411433800
 	- Type: Bug
@@ -1004,24 +1036,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- The run prints one `PASS`, `FAIL` or `SKIP` line per regression and fuzz test, with its ID and name.
 		- Overrides: the test ID rule in the private project rules, in milliseconds.
 	- Test case: none yet.
-
-- The native gate on vm925w stops on scratch folders 7 tests leave behind.
-	- ID: 2026102413432225
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261024-134322
-	- Opened by: 2026102409082700
-	- Target OS: Windows
-	- Test environment: vm925w, as wintest in the desktop session.
-	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
-	- Incorrect behavior: every test passes, 205 OK and 7 skipped, then the gate fails with "tests left these behind" for test-nemo-command-launch-win32, test-nemo-helper-end-win32 and test-nemo-thumbnail-edited, -future, -hold, -order and -stop.
-		- The 5 thumbnail folders still hold the file cache, `files.db` with its `-wal` and `-shm`.
-		- helper-end leaves 2 `nemo-slowness-*` folders, each with a 64 KB `yardstick`. command-launch leaves one `nemo-command-launch-*` folder.
-	- Expected behavior: nothing left behind, and the gate passes.
-	- Reproduced: 20261024 at c7194950, 1 of 1. An earlier native run on 20261023 at 22:54 left the same 7, in a `nemo-suite-*` folder still in wintest's TEMP.
-	- Possible cause: a file still open when the test removes its folder, such as the cache database or a program the test started, which Windows won't delete. Not looked into.
-	- Test case: the gate's own leftover check in `cicd-win.ps1`.
 
 - CICD reset: temp files and safe removal.
 	- ID: 2026102416300002
