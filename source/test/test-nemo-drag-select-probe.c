@@ -794,6 +794,11 @@ icon_tick (void)
 		icon_center (4, &x0, &y0);
 		icon_center (6, &x1, &y1);
 		press_and_move (bin, 1, GDK_CONTROL_MASK, x0, y0, x1, y1);
+		/* Held past the next tick, which is older than the band's timer
+		   and so goes first. The release then comes before the band has
+		   moved, as on a busy box (#2026102508301150). The other bands
+		   get their timer. */
+		g_usleep (150 * 1000);
 		break;
 	case 5:
 		release (bin, 1, GDK_CONTROL_MASK, x1, y1);

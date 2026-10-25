@@ -1581,7 +1581,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - rk7yvgse's bands miss now and then on a loaded box.
 	- ID: 2026102508301150
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: the plain suite, as the round's gate runs it. The icon container change reaches every icon and compact view test.
 	- Priority|Severity: Low
 	- Opened: 20261025-083011
 	- Opened by: 2026102507531487
@@ -1594,8 +1595,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- "icon-view: FAIL and the band adds to the selection", the Ctrl band at steps 4 and 5, with no menu before it, at load 80 to 100.
 	- Expected behavior: the band selects what it covers.
 	- Reproduced: 20261025, the right drag from the background in the icon and compact views, in 6 of 6 runs with the X server held up for 1.5 s after each menu closes, with or without that fix.
+		- 20261025: every band in the icon and compact views, under Nemo Anywhere v1 and Nemo Anywhere, in 2 of 2 runs each, with the main loop held for 150 ms after each step that ends with a button down. The list view and Nemo Classic passed.
 	- Possible cause: not known. Under Nemo Anywhere v1 the menu opens on the release and leaves no grab on record, so the wait in 2026102507531487 has nothing to wait for. rkts3far and rm1sbwdq passed all of the same runs.
-	- Test case: rk7yvgse itself, with the cores and the disk loaded.
+	- Actual cause: the icon views' band follows the pointer on a 10 ms timer, never on a motion, and the release stopped the band without one last update. When the main loop was busy past the test's next 100 ms tick, the tick came first, since it is the older timer, and released before the band had moved once. So the band selected nothing, or kept the selection it started with. A user on a busy box gets the same from a quick band.
+		- Not a menu grab. The Ctrl band at step 4 has no menu before it. Likely the same for the X server hold-up above, which holds the main loop too.
+		- The list view's band is our own and moves on each motion, so it can't miss this way. Its sighting came before the fix in 2026102507531487.
+	- Progress log:
+		- 20261025: found with the main loop held after a band's press and move. The hold is now part of the test, at the Ctrl band in the icon views only, so the other bands still go through the timer.
+	- Actual fix: the release runs the band's update once before it stops the band, so the band selects what it covers at the release.
+	- Swept: the icon container's band is the only one on a timer. Its 3 models share one release handler. The other 2 stops, a long press opening the menu and a dialog taking the grab, cancel the band and don't update it. The list view's band, and GTK's that Nemo Classic uses there, move on each motion, and our band's timer only scrolls. Under Nemo Classic the update can't flip an icon twice, since it works from the selection before the band.
+	- Branch: round1025
+	- Test case: rk7yvgse and rm1sbwdq. Their Ctrl band in the icon and compact views holds the main loop past the next tick, so the release comes before the band's timer.
+	- Verified: 20261025, rk7yvgse and rm1sbwdq fail 2 of 2 before the fix, at the Ctrl band in both icon views, and pass 2 of 2 after. rkts3far passes both ways.
+	- Verified: 20261025, in the sanitizer build with the cores and the disk loaded, at load 55 to 72: 72 of 72 runs pass, 36 under Nemo Anywhere v1 and 36 under Nemo Anywhere. Through the suite runner: rk7yvgse, rkts3far, rm1sbwdq, rktkms8a, rm1sbxgy and rk80w1ds pass. C lint clean, gcc's analyzer finds nothing in the 2 files, the Windows cross build is clean, and the test ID check passes.
 
 - rkrqg9mg leaked 48 bytes once in the sanitizer lane.
 	- ID: 2026102413432124
