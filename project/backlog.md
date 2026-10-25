@@ -451,10 +451,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026102413432225
 	- Type: Bug
 	- Status: Waiting on automated testing
-	- Needs external testing: the native gate on vm925w as wintest in the desktop session, `pwsh cicd/cicd-win.ps1 -Gate -Yes` from a bundle of round1025. It should pass with nothing left behind, rm494xfp included.
+	- Needs external testing: the native gate on vm925w as wintest in the desktop session, `pwsh cicd/cicd-win.ps1 -Gate -Yes -NoFmt` from a bundle of round1025, since lint stops on 2026102509133500 until that's fixed. It should pass with nothing left behind, rm494xfp included.
 	- Priority|Severity: Avg
 	- Opened: 20261024-134322
 	- Opened by: 2026102409082700
+	- Related IDs: 2026102509133500
 	- Target OS: Windows
 	- Test environment: vm925w, as wintest in the desktop session.
 	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
@@ -469,6 +470,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The 5 thumbnail tests point the file cache at their scratch folder, and the cache keeps its database open until the process ends. The exit cleanup runs before that.
 		- helper-end's app copies measure the box's slowness, which makes a scratch folder. 2 of the copies are killed, so their cleanup never runs.
 		- command-launch went back into its scratch folder at the end, so it was the current folder when the cleanup ran.
+	- Progress log:
+		- 20261025: the native gate at bbcf7c9c stopped in lint after 4 minutes, at rjph39cv, "the arm64 build did not run". That's 2026102509133500, the same on dev at 88eb2f9d, since `cicd/` is the same in both. No test ran, so this fix wasn't reached.
 	- Actual fix: in the scratch cleanup every test shares, `source/test/test-scratch.c`.
 		- Before removing anything, it leaves a current folder that sits in a scratch folder, and closes a file cache that sits in one. A cache elsewhere is left open, since a worker still busy at exit could be using it.
 		- `test_slowness` takes `NEMO_TEST_SLOWNESS` when it's set, and makes no folder then. helper-end sets it for its copies.
