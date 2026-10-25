@@ -53,6 +53,7 @@ static int             drags;
 static gboolean        dragging;
 static int             bands;
 static GdkDragContext *drag_context;
+static guint           held;
 static guint32         stamp;
 static gboolean        finished;
 
@@ -169,8 +170,30 @@ send (GdkWindow *window_for, GdkEventType type, guint button, double x, double y
 		event->button.state = state;
 	}
 	gdk_event_set_device (event, gdk_seat_get_pointer (seat));
+	if (type == GDK_BUTTON_PRESS) {
+		held |= BUTTON_MASK (button);
+	} else if (type == GDK_BUTTON_RELEASE) {
+		held &= ~BUTTON_MASK (button);
+	}
 	gtk_main_do_event (event);
 	gdk_event_free (event);
+}
+
+/* GDK keeps a closed menu's grab on record until the X server has answered
+   the ungrab, and until then GTK sends each click to the menu's window, not
+   the view (#2026102413432024). A band's grab lasts while the button is down
+   from one step to the next and sends nothing elsewhere, so it is left alone
+   (#2026102507531487). */
+static gboolean
+grab_held (void)
+{
+	GdkDisplay *display = gtk_widget_get_display (window);
+	GdkSeat *seat = gdk_display_get_default_seat (display);
+
+	return gtk_grab_get_current () != NULL ||
+	       (held == 0 &&
+		(gdk_display_device_is_grabbed (display, gdk_seat_get_pointer (seat)) ||
+		 gdk_display_device_is_grabbed (display, gdk_seat_get_keyboard (seat))));
 }
 
 /* The icon view sends a press to the item the pointer last moved over, as
@@ -908,8 +931,8 @@ tick (G_GNUC_UNUSED gpointer data)
 		}
 		gtk_widget_grab_focus (pane);
 	} else if (shown_menu () == NULL && drag_context == NULL &&
-		   (dragging || gtk_grab_get_current () != NULL)) {
-		/* A canceled drag takes a moment to let go. */
+		   (dragging || grab_held ())) {
+		/* A canceled drag takes a moment to let go, and so does a menu. */
 		return G_SOURCE_CONTINUE;
 	} else if (!(list_mode ? list_tick () : icon_tick ())) {
 		return G_SOURCE_CONTINUE;
