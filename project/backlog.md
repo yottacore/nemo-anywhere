@@ -1520,9 +1520,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Ruled out: the 10 s step budget. With the cores loaded alone, at load about 48, step 38 took 0.9 to 1.0 s and nothing failed. Also ruled out: the folder still loading at step 37.
 	- Actual fix: a step after a closed menu also waits until no pointer or keyboard grab is left.
 	- Progress log:
-		- 20261025: reproduced with the cores and the disk loaded, at load 50 to 60. rm1sbxgy failed 12 of 12, with step 38 timeouts and the Down misses in all 3 views, and rktqpp37 failed 4 of 12. In each step 38 timeout the grab was still there at the click, and in none of the passes.
+		- 20261025: reproduced with the cores and the disk loaded, at load 50 to 60. rm1sbxgy failed 12 of 12, with step 38 timeouts and the Down misses in all 3 views, and rktqpp37 failed 4 of 12. In the 4 step 38 timeouts of one run the grab was still there at the click, and in none of its 20 passes.
 		- 20261025: after the fix, at the same load: rm1sbxgy 12 of 12, rktqpp37 19 of 20 and rktkms8a 8 of 8 pass. The one failure was a timeout at step 11, where the menu never opened. Filed as 2026102507531587.
-	- Swept: every step that follows a closed menu in this test goes through the same check. test-nemo-drag-select has the same wait and the same menu steps, but holds the button across steps for its bands, so it can't take the check as is. Filed as 2026102507531487. The other tests that close a menu don't wait on a tick for the next event.
+	- Swept: every step that follows a closed menu in this test goes through the same check. test-nemo-drag-select has the same wait and the same menu steps, but holds the button across steps for its bands, so it can't take the check as is. Filed as 2026102507531487. Not checked yet: the 6 other tests that close a menu, the menu key, tab move, Places focus, long press, find history and entry menu tests.
 	- Branch: round1025
 	- Commit: 8e35f6b8
 	- Test case: rktkms8a, rktqpp37 and rm1sbxgy themselves, in the sanitizer lane with the cores loaded.
