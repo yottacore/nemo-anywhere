@@ -472,6 +472,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- command-launch went back into its scratch folder at the end, so it was the current folder when the cleanup ran.
 	- Progress log:
 		- 20261025: the native gate at bbcf7c9c stopped in lint after 4 minutes, at rjph39cv, "the arm64 build did not run". That's 2026102509133500, the same on dev at 88eb2f9d, since `cicd/` is the same in both. No test ran, so this fix wasn't reached.
+		- 20261025: the rerun with `-NoFmt` didn't start. vm925w failed to boot with "Failed to reserve port 5900", since vmKt6m was up for other work and held the SPICE port. Left for the next batch.
 	- Actual fix: in the scratch cleanup every test shares, `source/test/test-scratch.c`.
 		- Before removing anything, it leaves a current folder that sits in a scratch folder, and closes a file cache that sits in one. A cache elsewhere is left open, since a worker still busy at exit could be using it.
 		- `test_slowness` takes `NEMO_TEST_SLOWNESS` when it's set, and makes no folder then. helper-end sets it for its copies.
