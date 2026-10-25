@@ -770,6 +770,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
 	- Test case: one per child.
 
+- rjph39cv and rkmqprx6 still expect arm64 in a plain run, so lint fails.
+	- ID: 2026102509133500
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-091335
+	- Opened by: t00mietum
+	- Related IDs: 2026102416300004
+	- Target OS: Linux
+	- Steps to reproduce: `cicd/cicd.bash --gate` on dev at 88eb2f9d.
+	- Incorrect behavior: the lint stage stops at rjph39cv, `test-cicd-arm.bash`, with "the arm64 build did not run" and 3 more problems. With that one left out, rkmqprx6, `test-cicd-quick.bash`, fails on "[no options]: arm64 did not run". So every gate and every full run stops in lint, and the stages after it never run.
+	- Expected behavior: both tests match the new default, where a plain run leaves arm64 out and `--long` or `--slow` brings it back.
+	- Reproduced: 20261025 on Linux, in round1025's gate step. Fails the same on dev, since the round didn't touch `cicd/`.
+	- Possible cause: 88eb2f9d moved arm64 behind `--long` in `cicd.bash`, and the 2 tests weren't updated with it.
+	- Note: with both tests left out of a copy of `lint.bash`, the rest of lint passed on the round branch.
+	- Test case: rjph39cv and rkmqprx6 themselves, plus a `--long` case in rjph39cv.
+
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
 	- Type: Enhancement
