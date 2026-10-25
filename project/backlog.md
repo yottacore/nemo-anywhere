@@ -1524,6 +1524,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every step that follows a closed menu in this test goes through the same check. test-nemo-drag-select has the same wait and the same menu steps, but holds the button across steps for its bands, so it can't take the check as is. Filed as 2026102507531487. The other tests that close a menu don't wait on a tick for the next event.
 	- Needs local test suite run?: a full run's sanitizer stage on a loaded box.
 	- Branch: round1025
+	- Commit: 8e35f6b8
 	- Test case: rktkms8a, rktqpp37 and rm1sbxgy themselves, in the sanitizer lane with the cores loaded.
 	- Verified: 20261025, the 3 pass in the sanitizer build with the cores and the disk loaded, as in Progress log, and in the plain build. C lint clean, and the test ID check passes.
 
