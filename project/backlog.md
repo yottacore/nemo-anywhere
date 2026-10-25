@@ -1502,7 +1502,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - rktkms8a, rktqpp37 and rm1sbxgy time out in the sanitizer lane on a loaded box.
 	- ID: 2026102413432024
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on automated testing
 	- Priority|Severity: Low
 	- Opened: 20261024-134320
 	- Opened by: 2026102411433800
@@ -1515,7 +1515,48 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: they pass under load, or a slow box makes them wait longer rather than fail.
 	- Reproduced: twice on 20261024, in the 2 runs above. Each passed 3 of 3 alone right after, at load about 8, and rktkms8a passed in the first run.
 	- Possible cause: a step gets 100 ticks of 100 ms, 10 s in all, which an ASan build on a loaded box can pass. Same class as 2026102411433800. Not looked into.
+	- Actual cause: the test sent its click or key while the menu it had just closed still held the pointer and keyboard. That grab lasts until the X server answers the ungrab, and on a busy box that took long enough for the next step's events to go to the grab, not the view. The step only waited on GTK's own grab. So the click on "data" at step 37 was lost, the folder just left stayed selected, and Enter did nothing. The Down, Up, Right and Left misses at step 12 came the same way, after the menu at step 11.
+		- Ruled out: the 10 s step budget. With the cores loaded alone, at load about 48, step 38 took 0.9 to 1.0 s and nothing failed. Also ruled out: the folder still loading at step 37.
+	- Actual fix: a step after a closed menu also waits until no pointer or keyboard grab is left.
+	- Progress log:
+		- 20261025: reproduced with the cores and the disk loaded, at load 50 to 60. rm1sbxgy failed 12 of 12, with step 38 timeouts and the Down misses in all 3 views, and rktqpp37 failed 4 of 12. In each step 38 timeout the grab was still there at the click, and in none of the passes.
+		- 20261025: after the fix, at the same load: rm1sbxgy 12 of 12, rktqpp37 19 of 20 and rktkms8a 8 of 8 pass. The one failure was a timeout at step 11, where the menu never opened. Filed as 2026102507531587.
+	- Swept: every step that follows a closed menu in this test goes through the same check. test-nemo-drag-select has the same wait and the same menu steps, but holds the button across steps for its bands, so it can't take the check as is. Filed as 2026102507531487. The other tests that close a menu don't wait on a tick for the next event.
+	- Needs local test suite run?: a full run's sanitizer stage on a loaded box.
+	- Branch: round1025
 	- Test case: rktkms8a, rktqpp37 and rm1sbxgy themselves, in the sanitizer lane with the cores loaded.
+	- Verified: 20261025, the 3 pass in the sanitizer build with the cores and the disk loaded, as in Progress log, and in the plain build. C lint clean, and the test ID check passes.
+
+- rktqpp37 times out at step 11 once in a while in the sanitizer lane on a loaded box.
+	- ID: 2026102507531587
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261025-075315
+	- Opened by: 2026102413432024
+	- Related IDs: 2026102413432024
+	- Target OS: Linux
+	- Steps to reproduce: rktqpp37 in a sanitizer build, many at once, with the cores and the disk loaded.
+	- Incorrect behavior: "list-view: FAIL timed out at step 11" and "14 results, expected 72". Step 11 waits for the menu from the right-click on an item at step 10.
+	- Expected behavior: the menu opens, and the test goes on.
+	- Reproduced: 20261025, once in 20 runs at load about 58, after the fix in 2026102413432024. Before that fix, 3 of 36 views of rm1sbxgy timed out there too, most with the right-click itself lost.
+	- Possible cause: not known. In 36 views checked after the fix, the right-click had always selected the item and opened the menu by the time it was sent.
+	- Test case: rktqpp37 itself, in the sanitizer lane with the cores loaded.
+
+- test-nemo-drag-select sends its next click right after closing a menu.
+	- ID: 2026102507531487
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261025-075314
+	- Opened by: 2026102413432024
+	- Related IDs: 2026102413432024
+	- Target OS: Linux
+	- Steps to reproduce: rk7yvgse, rkts3far or rm1sbwdq on a busy box.
+	- Incorrect behavior: not seen. Its steps after a closed menu wait only on GTK's own grab, as the selection rules test's did, so a click sent before the X server answers the ungrab can be lost.
+	- Expected behavior: the next step waits until the menu's pointer and keyboard grab is gone.
+	- Possible cause: as in 2026102413432024. The band steps hold the button from one step to the next, so the check there has to leave a band's own grab alone.
+	- Test case: rk7yvgse, rkts3far and rm1sbwdq themselves, with the cores and the disk loaded.
 
 - rkrqg9mg leaked 48 bytes once in the sanitizer lane.
 	- ID: 2026102413432124

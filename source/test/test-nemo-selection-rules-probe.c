@@ -153,6 +153,20 @@ close_menu (void)
 	}
 }
 
+/* A closed menu's pointer and keyboard grab lasts until the X server has
+   answered the ungrab. On a busy box that can take a while, and a click or
+   key sent before then never reaches the view (#2026102413432024). */
+static gboolean
+grab_held (void)
+{
+	GdkDisplay *display = gtk_widget_get_display (window);
+	GdkSeat *seat = gdk_display_get_default_seat (display);
+
+	return gtk_grab_get_current () != NULL ||
+	       gdk_display_device_is_grabbed (display, gdk_seat_get_pointer (seat)) ||
+	       gdk_display_device_is_grabbed (display, gdk_seat_get_keyboard (seat));
+}
+
 static void
 send (GdkWindow *window_for, GdkEventType type, guint button, double x, double y, guint state)
 {
@@ -1200,7 +1214,7 @@ tick (G_GNUC_UNUSED gpointer data)
 			return G_SOURCE_CONTINUE;
 		}
 		gtk_widget_grab_focus (pane);
-	} else if (shown_menu () == NULL && gtk_grab_get_current () != NULL) {
+	} else if (shown_menu () == NULL && grab_held ()) {
 		return G_SOURCE_CONTINUE;
 	} else if (!rules_tick ()) {
 		return G_SOURCE_CONTINUE;
