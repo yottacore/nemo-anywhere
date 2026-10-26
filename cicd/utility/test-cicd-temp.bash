@@ -45,7 +45,7 @@ hostTemp="${scratch}/host-temp"
 seen="${scratch}/seen"
 mkdir -p "${repo}/cicd/utility/include" "${hostTemp}"
 cp "${root}/cicd/cicd.bash" "${repo}/cicd/"
-for inc in gfs-rotate source-date run-temp; do
+for inc in gfs-rotate source-date run-temp docker-sweep; do
 	cp "${root}/cicd/utility/include/${inc}.bash" "${repo}/cicd/utility/include/"
 done
 printf "project('app', 'c', version: '1.2.3')\n" > "${repo}/meson.build"

@@ -84,7 +84,7 @@ fCase "image there" "$want" STUB_HAVE="$want"
 grep -q '^build' "$log" && fFail "image there: built anyway"
 
 fCase "first run builds" "$want" STUB_IMAGES="nemo-lint:0ld0ld0ld0ld ${want}"
-grep -q "^build -q -t ${want} -" "$log" || fFail "first run builds: no build of ${want}"
+grep -q -E "^build -q -t ${want} --label dev\.project=nemo-anywhere --label dev\.run=[^ ]+ -" "$log" || fFail "first run builds: no labeled build of ${want}"
 grep -q '^rmi nemo-lint:0ld0ld0ld0ld$' "$log" || fFail "first run builds: old tag left"
 grep -q "^rmi ${want}$" "$log" && fFail "first run builds: removed the new tag"
 grep -q '^rmi -f' "$log" && fFail "first run builds: forced removal"

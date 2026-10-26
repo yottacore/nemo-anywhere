@@ -74,11 +74,12 @@ if ! grep -qx "$container" <<<"$names"; then
 	repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 	if ! docker image inspect nemo-build-deps:latest >/dev/null 2>&1; then
 		fEcho "building image nemo-build-deps (first run only, takes a few minutes)"
-		docker build -t nemo-build-deps:latest -f "${repo}/cicd/linux/Dockerfile.dev" "${repo}/cicd/linux/" >/dev/null \
+		docker build --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" -t nemo-build-deps:latest -f "${repo}/cicd/linux/Dockerfile.dev" "${repo}/cicd/linux/" >/dev/null \
 			|| skip_or_die "could not build image nemo-build-deps"
 	fi
 	fEcho "creating container ${container}"
 	docker run -d --init --ulimit core=0 --shm-size=2g --cpus "$(( $(nproc) / 2 ))" --name "$container" \
+		--label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" \
 		--security-opt seccomp=unconfined --security-opt apparmor=unconfined \
 		-v "${repo}:/src" nemo-build-deps:latest sleep infinity >/dev/null \
 		|| skip_or_die "could not create container '${container}'"

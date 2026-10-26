@@ -46,10 +46,10 @@
 ##	   --no-publish        skip the git backup + publish stage
 ##	   --allow-dirty       let publish commit an uncommitted working tree (it
 ##	                       refuses one by default)
-##	   --keep-temp         keep the run's temp folder and print where it is.
-##	                       Each run works in its own folder under HOST_TEMP
-##	                       (or TMPDIR), removed at the end, failure and Ctrl+C
-##	                       included
+##	   --keep-temp         keep the run's temp folder and containers, and
+##	                       print where the folder is. Each run works in its
+##	                       own folder under HOST_TEMP (or TMPDIR), removed at
+##	                       the end, failure and Ctrl+C included
 ##	   --shots             refresh README screenshots (off by default)
 ##	   --demo              re-record the demo video (off by default)
 ##	   --include-bsd       run the FreeBSD lane even with --quick (on by
@@ -140,6 +140,7 @@ done
 source "${here}/utility/include/gfs-rotate.bash"                  ## gfs_rotate() for the profiler artifacts
 source "${here}/utility/include/source-date.bash"                 ## fSetSourceDate() for reproducible builds
 source "${here}/utility/include/run-temp.bash"                    ## the run folder, and fSafeRm()
+source "${here}/utility/include/docker-sweep.bash"                ## fDockerSweep() at the end of a run
 declare -p FMT_CMD &>/dev/null || FMT_CMD=()                      ## tolerate a config without the fmt stage
 ## NOT-READY (Rust origin): the source pipeline also exported CARGO_BUILD_JOBS and
 ## RUST_TEST_THREADS here to bound cargo's jobserver and the test run. No cargo in a
@@ -410,10 +411,16 @@ remote_sync(){
 trap 'rc=$?; printf "\n[ CICD ABORTED (exit %s) at line %s: %s ]\n" "$rc" "$LINENO" "$BASH_COMMAND" >&2; exit $rc' ERR
 
 ## Everything the run writes to a temp folder goes in its own run folder, which
-## is removed at the end whatever the outcome. The signal traps turn Ctrl+C into an
-## exit, so the EXIT trap runs.
+## is removed at the end whatever the outcome, along with the run's containers
+## when DOCKER_SWEEP is on. The signal traps turn Ctrl+C into an exit, so the
+## EXIT trap runs.
 fRunTemp_Make "${EXE_NAME}" "${stamp}" || fDie "could not make a run folder under ${HOST_TEMP:-${TMPDIR:-/tmp}}/${EXE_NAME}"
-trap fRunTemp_Done EXIT
+fRunEnd(){
+	## || true: a docker hiccup here must not keep the folder from going.
+	if ((${DOCKER_SWEEP:-0})); then fDockerSweep "${CICD_CONTAINERS[@]}" || true; fi
+	fRunTemp_Done || true
+}
+trap fRunEnd EXIT
 trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 129' HUP
 fRunTemp_Sweep
 
@@ -1125,4 +1132,5 @@ fEcho_Clean
 ##		- 2026-10-24: --long (or --slow) adds arm64, now off in a plain run.
 ##		- 2026-10-25: --backlog-run-quick, --backlog-run-full and --merge-gate;
 ##		  --gate and --ci are other names for the first and last. --no-remote.
-##		- 2026-10-25: each run works in its own temp folder; --keep-temp.
+##		- 2026-10-25: each run works in its own temp folder; --keep-temp. The
+##		  run's labeled containers and the project's old images go at the end.

@@ -791,7 +791,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Container cleanup: labels, and the sweep at the end of a run.
 	- ID: 2026102516403487
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: `cicd/cicd.bash --backlog-run-full` once. It should end with the docker line, and `docker ps -a --filter label=dev.project=nemo-anywhere` should list nothing after it.
 	- Priority|Severity: High
 	- Opened: 20261025-164035
 	- Opened by: 2026101910075400
@@ -803,7 +804,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Nothing without the project's label is touched. Never `docker rmi -f` or `docker system prune`.
 		- One line at the end says what was removed and about what it freed, from `docker system df` before and after.
 		- Checked with 2 runs, one killed partway.
-	- Test case: none yet.
+	- Progress log:
+		- 20261025: `cicd/utility/include/docker-sweep.bash` has `fDockerSweep`, which `cicd.bash` runs from the run folder's EXIT trap when `DOCKER_SWEEP` is on in `config.bash`. The long-lived boxes in `CICD_CONTAINERS` are left out until 2026102516403492. `--keep-temp` keeps the run's containers. The labels are on every `docker build` and `docker run` in `docker-run.bash`, `build-cross.bash`, `release.bash`, `lint-image.bash` and `test-release-setup.bash`. `dev.run` is the run folder's name, or `none` outside a run.
+		- 20261025: the daemon refuses a second `docker system df` while one runs, which stopped the EXIT trap before the run folder went. Now the size reads "size not known" then, and the folder is removed whatever the docker part does.
+		- 20261025: rjxyddbk's build check now wants the 2 labels after the tag: `build -q -t <tag> -` became `build -q -t <tag> --label dev.project=nemo-anywhere --label dev.run=<run> -`.
+	- Decisions:
+		- "The current one and the one before" is the newest 2 tags of each labeled repository, by creation.
+		- The `:init` snapshots predate the labels, so the sweep never touches them. A snapshot committed later from a labeled container takes its labels, and counts as one of its repository's tags.
+	- Test case: rm5b2v7n (which containers and images go, the keep list, `--keep-temp`, a failed step, SIGTERM, a refused df, docker down, `DOCKER_SWEEP` off, never `rmi -f` or another prune), rjxyddbk (labeled lint image build).
+	- Verified: 20261025, rm5b2v7n, rm5a3ej9, rjxyddbk, rkmqprx6, rjph39cv and rj3ytv0b pass. Two `--backlog-run-quick format lint` runs: one passed and printed the docker line; one got Ctrl+C while its labeled lint container ran, and exited 130 with no labeled container and no run folder left. A stand-in run that started a labeled container that outlives its step had it removed.
+	- Swept: every `docker build`, `docker run` and `docker create` under `cicd/`, `utility/` and `install.bash`. The arm64 lane builds on its own box, where `release.bash` labels with `dev.run=none`; that box's cleanup is 2026102516403481.
 
 - Container cleanup: a container per step.
 	- ID: 2026102516403492

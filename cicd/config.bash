@@ -93,6 +93,9 @@ TEST_CMD=(bash "${DOCKER_RUN}" "tests" "NEMO_TEST_JOBS=${CICD_MAX_JOBS:-2} bash 
 ## Held to CICD_MAX_JOBS cores each, since the run's own CPU cap cannot reach
 ## inside them.
 CICD_CONTAINERS=(nemo-build nemo-build-jammy nemo-winbuild)
+## At the end of a run, remove the run's labeled containers, other than the ones
+## above, the project's dangling and older images, and week-old build cache.
+DOCKER_SWEEP=1
 
 ## Stage 3 (after tests): lints - READY. cicd/utility/lint.bash runs the C check
 ## (the changed C files on a feature branch, the whole tree on dev and main) and

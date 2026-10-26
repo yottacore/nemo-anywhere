@@ -812,6 +812,8 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 
 - Each run works in a folder of its own, `<temp>/nemo-anywhere/<YYYYmmDD-HHMMSS>_<NNN>/`, where `<temp>` is `HOST_TEMP`, or `TMPDIR` when that isn't set. `TMPDIR`, `TEMP` and `TMP` point at it, and its `run.pid` names the run. It's removed at the end, on a failure or Ctrl+C too. `--keep-temp` keeps it and prints where it is. A run also removes the run folders older than 2 days whose process is gone.
 
+- Every container and image the pipeline makes has `dev.project` and `dev.run` labels. At the end of a run, failure and Ctrl+C included, the run's own containers go, then the project's dangling images and its tags past the newest 2, then build cache over a week old. One line says what went and about what it freed. Nothing without the project's label is touched. The long-lived build containers stay, and `--keep-temp` keeps the run's containers too.
+
 - The FreeBSD lane runs the build and suite on the FreeBSD box in the test stage, and its tarball and pkg in the release stage. It runs on every full run. `--no-bsd` leaves it out, and `--include-bsd` brings it back under `--quick`.
 
 - The same hook blocks a push to main unless `source/meson.build` is a strict version increase over what is already there.

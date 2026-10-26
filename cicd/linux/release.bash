@@ -68,7 +68,7 @@ docker info >/dev/null 2>&1 || fDie "docker daemon is not reachable"
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
 	fEcho_Clean "building image ${IMAGE}"
-	docker build -t "$IMAGE" "${ROOT}/cicd/linux/" >/dev/null
+	docker build --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" -t "$IMAGE" "${ROOT}/cicd/linux/" >/dev/null
 fi
 if ! docker exec "$CONTAINER" true 2>/dev/null; then
 	fEcho_Clean "starting container ${CONTAINER}"
@@ -76,6 +76,7 @@ if ! docker exec "$CONTAINER" true 2>/dev/null; then
 	## --init reaps orphans; --ulimit core=0 keeps crash dumps out of the mounted tree.
 	## The --security-opt pair lets the test's jail start (jail.bash).
 	docker run -d --init --ulimit core=0 --name "$CONTAINER" --shm-size=2g \
+		--label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" \
 		--security-opt seccomp=unconfined --security-opt apparmor=unconfined \
 		-v "${ROOT}:/src" "$IMAGE" sleep infinity >/dev/null
 fi

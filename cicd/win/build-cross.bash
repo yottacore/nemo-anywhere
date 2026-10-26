@@ -48,10 +48,11 @@ names="$(docker ps -a --format '{{.Names}}' 2>/dev/null || true)"
 if ! grep -qx "$CONTAINER" <<<"$names"; then
 	if ! docker image inspect nemo-winbuild-deps:latest >/dev/null 2>&1; then
 		fEcho "building image nemo-winbuild-deps (first run only, takes a while)"
-		docker build -t nemo-winbuild-deps:latest "${ROOT}/cicd/win/" >/dev/null || fDie "could not build image nemo-winbuild-deps"
+		docker build --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" -t nemo-winbuild-deps:latest "${ROOT}/cicd/win/" >/dev/null || fDie "could not build image nemo-winbuild-deps"
 	fi
 	fEcho "creating container ${CONTAINER}"
 	docker run -d --init --ulimit core=0 --shm-size=2g --cpus "$(( $(nproc) / 2 ))" --name "$CONTAINER" \
+		--label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" \
 		-v "${ROOT}:/src" nemo-winbuild-deps:latest sleep infinity >/dev/null || fDie "could not create container '${CONTAINER}'"
 fi
 ## A reboot leaves it stopped, with no restart policy.

@@ -4,8 +4,9 @@
 ##	  recursive removal goes through.
 ##	- fRunTemp_Make <project> <YYYYmmDD-HHMMSS> -> makes
 ##	  ${HOST_TEMP}/<project>/<stamp>_<NNN>/, writes run.pid there, and points
-##	  TMPDIR, TEMP and TMP at it. Sets runTempDir. HOST_TEMP falls back to
-##	  TMPDIR, then /tmp.
+##	  TMPDIR, TEMP and TMP at it. Sets runTempDir, and exports CICD_PROJECT
+##	  and CICD_RUN (the folder's name) for docker labels. HOST_TEMP falls back
+##	  to TMPDIR, then /tmp.
 ##	- fRunTemp_Sweep -> removes the project's run folders older than 2 days
 ##	  whose run.pid names no live process. A folder with no run.pid wasn't made
 ##	  by a run, so it stays.
@@ -59,6 +60,7 @@ fRunTemp_Make(){
 	printf '%s\n' "$$" > "${dir}/run.pid" || return 1
 	runTempDir="${dir}"
 	export TMPDIR="${dir}" TEMP="${dir}" TMP="${dir}"
+	export CICD_PROJECT="${projectName}" CICD_RUN="${dir##*/}"
 }
 
 fRunTemp_Sweep(){
