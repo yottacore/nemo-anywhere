@@ -32,6 +32,8 @@ CROSS="${NEMO_WIN_CROSSFILE:-/src/cicd/win/win64.cross.txt}"
 source "${ROOT}/cicd/utility/include/echo.bash"
 # shellcheck source=../utility/include/source-date.bash
 source "${ROOT}/cicd/utility/include/source-date.bash"
+# shellcheck source=../utility/include/jobs.bash
+source "${ROOT}/cicd/utility/include/jobs.bash"
 
 clean=0
 case "${1:-}" in
@@ -51,7 +53,7 @@ if ! grep -qx "$CONTAINER" <<<"$names"; then
 		docker build --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" -t nemo-winbuild-deps:latest "${ROOT}/cicd/win/" >/dev/null || fDie "could not build image nemo-winbuild-deps"
 	fi
 	fEcho "creating container ${CONTAINER}"
-	docker run -d --init --ulimit core=0 --shm-size=2g --cpus "$(( $(nproc) / 2 ))" --name "$CONTAINER" \
+	docker run -d --init --ulimit core=0 --shm-size=2g --cpus "$(fJobs_Default; echo "${CICD_MAX_JOBS}")" --cpu-shares 256 --name "$CONTAINER" \
 		--label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" \
 		-v "${ROOT}:/src" nemo-winbuild-deps:latest sleep infinity >/dev/null || fDie "could not create container '${CONTAINER}'"
 fi
@@ -62,9 +64,8 @@ docker exec "$CONTAINER" true 2>/dev/null || fDie "cross-build container '${CONT
 fSetSourceDate "$ROOT"
 fWarnIfSourceDateIsAGuess "$ROOT"
 
-cores="$(nproc 2>/dev/null || echo 2)"
-jobs="${CICD_MAX_JOBS:-$(( cores / 2 ))}"
-(( jobs >= 1 )) || jobs=1
+fJobs_Default
+jobs="${CICD_MAX_JOBS}"
 
 ## The build log used to go straight into `tail -1`, which threw away every
 ## warning on the way past. This is the one release-flags build that runs on an
@@ -77,8 +78,9 @@ fBuild(){
 	local log unused serial
 	log="$(mktemp)"
 
-	if ! docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" sh -c "
+	if ! docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" nice -n 19 sh -c "
 		set -e
+		ionice -c 3 -p \$\$ 2>/dev/null || true
 		bash /src/cicd/utility/meson-setup.bash ${BUILD} /src/source --cross-file ${CROSS} --buildtype=release -Dstrip=true -Db_lto=true -Db_lto_threads=4 -Dxmp=false -Dwerror=true >/dev/null
 		bash /src/cicd/utility/check-werror.bash ${BUILD}
 		ninja -C ${BUILD} -j ${jobs}" >"$log" 2>&1

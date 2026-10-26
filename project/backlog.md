@@ -287,6 +287,52 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261024, rm1sbxgy fails 10 checks with the new handlers bypassed and passes with them. rktkms8a, rktqpp37, rk7yvgse and rm1sbwdq pass. The full Linux suite, 234 OK and 1 skipped. The build and the Windows cross build with warnings as errors, the C lint and the test ID check pass.
 	- Verified: 20261024, rm1sbxgy passes in the FreeBSD lane at c7194950.
 
+- CICD CPU: `cicd.bash` and the scripts it runs.
+	- ID: 2026102517333352
+	- Type: Task
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: yes. One `cicd/cicd.bash --backlog-run-full`. Each step's `jobs` line should give half the cores, or a quarter on a busy box and for the sanitizer suite, fuzzing and the analyzers, and the debug build, the Windows cross build, the release build and the analyzers should build with that count.
+	- Priority|Severity: High
+	- Opened: 20261025-173333
+	- Opened by: 2026102416300003
+	- Parent ID: 2026102416300003
+	- Requirements:
+		- Half the cores, a quarter on a busy box or for a hard step, checked at the start and before each step. Worked out in one place and passed to every tool that runs in parallel.
+		- `nice -n 19` and `ionice -c 3` for the run. Each container gets `--cpus <jobs>`, `--cpu-shares 256` and `nice` inside it.
+	- Decisions:
+		- The counts are worked out in `cicd/utility/include/jobs.bash`. `cicd.bash`, `docker-run.bash`, `build-cross.bash`, `linux/release.bash`, `analyze.bash` and `lint-c.bash` take them from there, and a script run alone works them out the same way.
+		- Busy is checked before each step, and the build containers get that step's count. The container commands in `config.bash` read the count when the step runs, not when the file is read.
+		- The hard steps are the sanitizer suite, fuzzing and the analyzers. The leak checks join them when 2026101911105600 adds them.
+		- A `CICD_MAX_JOBS` set before the run still pins the count, as before.
+		- The run's own CPU quota stays at half the cores. Busy and hard steps only lower the job counts.
+		- In the containers, `nice` covers the commands that build or test: the build, suite, fuzzing and sanitizer runs, the cross and release builds, and the analyzers. The short ones, such as the smoke checks and packing, are held only by the container's CPU cap and share.
+	- Swept: every `nproc` and half-the-cores line under `cicd/`. `analyze.py` keeps its own half for when it's run by hand with no `--jobs`; `analyze.bash` always passes one. `bsd/release.bash` and the arm64 lane take theirs from the lane scripts, in 2026102517333362.
+	- Test case: rm5cn5p8 (job counts, one place works them out, the containers read them per step under nice). rkmqprx6 checks a hard step gets a quarter.
+	- Verified: 20261025, rm5cn5p8 and rkmqprx6 pass, and each fails on a planted fault: a count of 0, a script working out its own half, a count expanded when `config.bash` is read, and the sanitizer suite not marked hard. In the build container, a command run the new way runs at nice 19 and idle I/O and reads the step's count. rj3ytv0b, rjph39cv, rm5a3ej9 and rm5b2v7n pass.
+
+- CICD step output: `cicd.bash`.
+	- ID: 2026102517333367
+	- Type: Task
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: yes. One `cicd/cicd.bash --backlog-run-full`, read for its step lines: every step opens and closes, numbered out of the steps that run, and the plan lists the rest.
+	- Priority|Severity: High
+	- Opened: 20261025-173333
+	- Opened by: 2026102416300005
+	- Parent ID: 2026102416300005
+	- Requirements:
+		- Each step opens with `[ YYYYmmDD-HHMMSS.NN: Step N of M; Starting <name> ]` and closes the same way with `PASS` or `FAIL`, in local time, under a rule of 79 dots.
+		- A step that's turned off isn't counted, and the first section lists those with the flag or reason for each. The same in `--backlog-run-quick`.
+	- Decisions:
+		- The plan is made before the run starts, from the same switches the steps read, so M is known at step 1.
+		- Steps are split finer than the old 8 stages: tests, lints, fuzzing, the sanitizer suite and the FreeBSD suite are each a step, and so is each cross build. The package checks stay inside the packages step, and the dogfood hook inside dogfood.
+		- The old inline "skipped" lines are gone, since the plan lists those steps.
+		- A step left open when the run stops, by a failure or Ctrl+C, closes as `FAIL`.
+		- Each step prints its job count and the load under its opening line.
+	- Test case: rkmqprx6 checks the step lines of every run it makes, a failing step, and the turned-off list. rj9v18rx now reads the steps `--quick` turns off from the plan.
+	- Verified: 20261025, rkmqprx6 and rj9v18rx pass. rkmqprx6 fails with a 76-dot rule, with the last step left open, with a step left out of the plan, and with no `FAIL` on a failed step. rj9v18rx fails with fuzzing left out of the `--quick` help.
+	- Progress log:
+		- 20261025: rj9v18rx used to grep `cicd.bash` for "skipped (--quick)" lines, which are gone. It now runs a copy with every step set up and reads the plan's turned-off list. What it checks is the same.
+
 - CICD flags: `--backlog-run-quick`, `--backlog-run-full` and `--merge-gate`.
 	- ID: 2026102516165473
 	- Type: Task
@@ -896,6 +942,34 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Each container gets `--cpus <jobs>`, `--cpu-shares 256`, and `nice` inside it.
 			- The same rules on the other boxes, with their own CPU count and load.
 		- Overrides: design.md, "The pipeline", on half the cores, and the Done item "No step in CICD should consume more than 50% CPU."
+	- Progress log:
+		- 20261025: split into children 2026102517333352 (`cicd.bash` and its scripts), 2026102517333357 (`cicd-win.ps1`) and 2026102517333362 (the other boxes).
+	- Test case: none yet.
+
+- CICD CPU: `cicd-win.ps1`.
+	- ID: 2026102517333357
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-173333
+	- Opened by: 2026102416300003
+	- Parent ID: 2026102416300003
+	- Requirements:
+		- `BelowNormal` priority at the top of `cicd-win.ps1`, or `Idle` for the hard steps, set on its own process so its children get it.
+		- Half the logical CPUs, a quarter when busy or for a hard step, worked out once and passed to every tool that runs in parallel. Busy needs a load figure Windows doesn't have; the processor queue length or CPU use over a short sample are the options.
+	- Test case: none yet.
+
+- CICD CPU: the FreeBSD and arm64 lanes and the private runner.
+	- ID: 2026102517333362
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-173333
+	- Opened by: 2026102416300003
+	- Parent ID: 2026102416300003
+	- Requirements:
+		- The same rules on each box, with its own CPU count and load: `nice -n 19` on FreeBSD, `nice` and `ionice` on the arm64 box, and its containers capped as on this box.
+		- `bsd/release.bash` and `bsd/lane.bash` take a fixed 4 jobs today, and the arm64 lane `NEMO_ARM_JOBS`, 4 by default. `include/jobs.bash` already reads FreeBSD's load.
 	- Test case: none yet.
 
 - CICD reset: standard flags.
@@ -979,6 +1053,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- The rule above each step is 79 dots. Today it's 74.
 			- A step that's turned off isn't counted, and the first section lists those with the flag or reason for each.
 			- The gate, `cicd-win.ps1` and the lanes on the other boxes print the same form.
+	- Progress log:
+		- 20261025: split into children 2026102517333367 (`cicd.bash`, the gate included) and 2026102517333373 (`cicd-win.ps1` and the other boxes).
+	- Test case: none yet.
+
+- CICD step output: `cicd-win.ps1` and the lanes on other boxes.
+	- ID: 2026102517333373
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-173333
+	- Opened by: 2026102416300005
+	- Parent ID: 2026102416300005
+	- Requirements:
+		- `cicd-win.ps1`, its gate included, prints the same step lines as `cicd.bash`: the 79-dot rule, `Step N of M; Starting`, then `PASS` or `FAIL`, with local time to the hundredth, and the plan lists what's turned off.
+		- The FreeBSD and arm64 lanes and the private runner print the same form for their own steps.
 	- Test case: none yet.
 
 - CICD reset: a test for every Done item.

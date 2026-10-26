@@ -37,6 +37,8 @@ source "${ROOT}/cicd/utility/include/echo.bash"
 source "${ROOT}/cicd/utility/include/source-date.bash"
 # shellcheck source=../utility/include/release-files.bash
 source "${ROOT}/cicd/utility/include/release-files.bash"
+# shellcheck source=../utility/include/jobs.bash
+source "${ROOT}/cicd/utility/include/jobs.bash"
 
 case "${1:-}" in
 	--clean) ;;	# every build is clean now; still taken so old command lines run
@@ -52,11 +54,10 @@ ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "${ROOT}/source/meson.
 fSetSourceDate "$ROOT"
 fWarnIfSourceDateIsAGuess "$ROOT"
 
-## At most half the cores, matching the pipeline engine - a release build should
-## not make the box unusable either. Inherited from cicd.bash when called from it.
-cores="$(nproc 2>/dev/null || echo 2)"
-jobs="${CICD_MAX_JOBS:-$(( cores / 2 ))}"
-(( jobs >= 1 )) || jobs=1
+## The pipeline's job count, from cicd.bash, or worked out the same way when run
+## alone - a release build should not make the box unusable either.
+fJobs_Default
+jobs="${CICD_MAX_JOBS}"
 
 
 #••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
@@ -86,7 +87,7 @@ docker exec "$CONTAINER" bash /src/cicd/linux/jail.bash --check >/dev/null \
 ## -j alone does not hold the build to that many cores: every LTO link runs 4
 ## jobs of its own, and ninja runs several links at once. Same cap the engine
 ## puts on its containers.
-docker update --cpus "$jobs" "$CONTAINER" >/dev/null 2>&1 || true
+docker update --cpus "$jobs" --cpu-shares 256 "$CONTAINER" >/dev/null 2>&1 || true
 fEcho_Clean "$(docker exec "$CONTAINER" sh -c '. /etc/os-release; printf "%s, glibc %s, gtk %s" "$PRETTY_NAME" "$(ldd --version | head -1 | grep -oE "[0-9]+\.[0-9]+$")" "$(pkg-config --modversion gtk+-3.0)"')"
 
 ## The asset name says arm64 where the kernel says aarch64.
@@ -101,7 +102,7 @@ fEcho_Clean ""
 fEcho "Building ${SLUG} ${ver} (linux-${arch})"
 docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" bash /src/cicd/linux/release-setup.bash "$BUILD" /src/source "/opt/${SLUG}" \
 	|| fDie "could not set up ${BUILD} in ${CONTAINER}"
-docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" ninja -C "$BUILD" -j "$jobs" | tail -1
+docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" nice -n 19 ninja -C "$BUILD" -j "$jobs" | tail -1
 
 fEcho_Clean ""
 fEcho "Smoke test"

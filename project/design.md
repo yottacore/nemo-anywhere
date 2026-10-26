@@ -837,7 +837,9 @@ Stages, in order, each self-skipping when unconfigured: remote sync, format, deb
 
 - Remote sync runs first for a reason. The publish stage pulls at the end, so without it a change merged remotely mid-run would be pushed having never been built or tested. It fast-forwards when the branch is only behind and stops the run outright when it has diverged. It is skipped by `--backlog-run-quick`, `--backlog-run-full` and `--merge-gate`, since a pre-push hook must not rewrite the tree underneath the push that called it.
 
-- No stage is allowed all the cores. Build parallelism is capped at half of them, so a full run leaves the machine usable.
+- No stage is allowed all the cores. Job counts are half of them, and a quarter when the box is busy or for the steps that are hard on it: the sanitizer suite, fuzzing and the analyzers. Busy means a 1-minute load over half the core count, checked again before each step. Everything runs at the lowest CPU and disk priority, and each build container is held to the step's count with a low CPU share, so a full run leaves the machine usable.
+
+- Each step opens and closes with a line giving the local time, its number out of the steps that run, and PASS or FAIL. The plan at the top lists the steps turned off, with the flag or reason for each.
 
 - The publish stage refuses a dirty tree, checked once at preflight and again before it runs. It commits everything it finds, and nothing there can tell work in progress from a finished change.
 

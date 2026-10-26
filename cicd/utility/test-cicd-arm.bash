@@ -38,7 +38,7 @@ mkdir -p "${HOST_TEMP}"
 ver="4.5.6"
 mkdir -p "${scratch}/cicd/utility/include"
 cp "${root}/cicd/cicd.bash" "${scratch}/cicd/"
-for inc in gfs-rotate source-date run-temp docker-sweep; do
+for inc in gfs-rotate source-date run-temp docker-sweep jobs; do
 	cp "${root}/cicd/utility/include/${inc}.bash" "${scratch}/cicd/utility/include/"
 done
 printf "project('app', 'c', version: '%s')\n" "$ver" > "${scratch}/meson.build"

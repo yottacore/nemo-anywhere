@@ -107,14 +107,10 @@ root="$(cd "${here}/.." && pwd)"   # the git repo root (cicd/..)
 ## otherwise silently skip the lints (cppcheck) and the profiler (the cargo-installed
 ## inferno-flamegraph). Cargo's goes last so its toolchain shadows nothing.
 export PATH="${HOME}/.local/bin:${PATH}:${HOME}/.cargo/bin"
-## Cap build parallelism to at most half the cores so a pipeline run doesn't peg
-## every CPU and leaves the machine usable. Computed BEFORE config.bash is read,
-## so the build commands there can interpolate it (ninja -j "${CICD_MAX_JOBS}");
-## ninja on its own would take cores+2. Override by exporting it beforehand.
+## Low priority for everything the run starts, CPU and disk both.
+renice -n 19 -p $$ >/dev/null 2>&1 || true
+command -v ionice >/dev/null 2>&1 && { ionice -c 3 -p $$ 2>/dev/null || true; }
 cores="$(nproc 2>/dev/null || echo 2)"
-: "${CICD_MAX_JOBS:=$(( cores / 2 ))}"
-(( CICD_MAX_JOBS >= 1 )) || CICD_MAX_JOBS=1
-export CICD_MAX_JOBS
 
 ## Job counts alone do not hold a run to half the machine: link-time optimization
 ## runs threads of its own under each ninja job, and rar uses every core. So the
@@ -126,22 +122,41 @@ if [[ -z "${CICD_CPU_CAPPED:-}" ]] && command -v systemd-run >/dev/null 2>&1 \
 	exec systemd-run --user --scope -q -p "CPUQuota=$(( cores * 50 ))%" bash "${BASH_SOURCE[0]}" "${@}"
 fi
 
+## Job counts: half the cores, a quarter on a busy box or for a hard step,
+## checked again before each step (fStep). Worked out before config.bash is
+## read, since a few of its lines use CICD_MAX_JOBS; the commands it hands to
+## the containers read it there at run time. A CICD_MAX_JOBS exported beforehand
+## pins the count.
+source "${here}/utility/include/jobs.bash"
+: "${CICD_JOBS_PIN:=${CICD_MAX_JOBS:-}}"
+fJobs
+
 source "${here}/config.bash"
 
 ## A container's processes sit in docker's cgroup, not in this run's scope, so
-## each gets the same cap directly. It sticks to the container, which is the
-## point: a build run by hand in there is held to it too.
+## each gets the step's cap directly, and a low share of the CPU when others
+## want it. It sticks to the container, so a build run by hand in there is held
+## to it too.
 declare -p CICD_CONTAINERS &>/dev/null || CICD_CONTAINERS=()
-for ctr in "${CICD_CONTAINERS[@]}"; do
-	if docker inspect "$ctr" >/dev/null 2>&1; then
-		docker update --cpus "${CICD_MAX_JOBS}" "$ctr" >/dev/null 2>&1 || true
-	fi
-done
+ctrJobs=""
+fCapContainers(){
+	[[ "${ctrJobs}" != "${CICD_MAX_JOBS}" ]] || return 0
+	ctrJobs="${CICD_MAX_JOBS}"
+	local ctr
+	for ctr in "${CICD_CONTAINERS[@]}"; do
+		docker update --cpus "${CICD_MAX_JOBS}" --cpu-shares 256 "$ctr" >/dev/null 2>&1 || true
+	done
+}
+fCapContainers
 source "${here}/utility/include/gfs-rotate.bash"                  ## gfs_rotate() for the profiler artifacts
 source "${here}/utility/include/source-date.bash"                 ## fSetSourceDate() for reproducible builds
 source "${here}/utility/include/run-temp.bash"                    ## the run folder, and fSafeRm()
 source "${here}/utility/include/docker-sweep.bash"                ## fDockerSweep() at the end of a run
 declare -p FMT_CMD &>/dev/null || FMT_CMD=()                      ## tolerate a config without the fmt stage
+declare -p FMT_CHECK_CMD &>/dev/null || FMT_CHECK_CMD=()
+for v in LINT_CMD FUZZ_CMD SANITIZE_CMD ANALYZE_CMD DENY_CMD SCROLL_HARNESS; do
+	declare -p "$v" &>/dev/null || declare -a "$v=()"
+done
 ## NOT-READY (Rust origin): the source pipeline also exported CARGO_BUILD_JOBS and
 ## RUST_TEST_THREADS here to bound cargo's jobserver and the test run. No cargo in a
 ## meson/ninja build - parallelism is bounded inside the build command instead.
@@ -156,11 +171,13 @@ fSetSourceDate "${root}"
 
 ## Parse options.
 include_bsd=""; no_bsd=0                                          ## empty = whatever --quick says
-assume_yes=0; quick=0; long=0; gate=0; no_arm=0; include_arm=""; no_sync=0; allow_dirty=0; cli_message=""
+assume_yes=0; quick=0; long=0; gate=0; no_arm=0; no_fmt=0; include_arm=""; no_sync=0; allow_dirty=0; cli_message=""
 ## checks_only: --backlog-run-full or --merge-gate. run_mode names the one given,
 ## for the plan and the last line.
 checks_only=0; run_mode=""; alias_note=""; areas=(); no_remote=0
 known_areas="format lint tests"
+## Whether the config has a remote dogfood at all, before any flag empties it.
+had_remote_df=0; declare -p DOGFOOD_REMOTE &>/dev/null && ((${#DOGFOOD_REMOTE[@]})) && had_remote_df=1
 while (($#)); do case "$1" in
 	-y|--yes)                 assume_yes=1; shift ;;
 	-q|--quiet)               assume_yes=1; shift ;;            ## publish runs quiet whatever this says
@@ -177,7 +194,7 @@ while (($#)); do case "$1" in
 		alias_note=""; [[ "$1" == "--ci" ]] && alias_note="--ci is another name for --merge-gate"
 		gate=0; checks_only=1; run_mode="--merge-gate"; shift ;;
 	--no-sync)                no_sync=1; shift ;;
-	--no-fmt)                 FMT_CMD=(); shift ;;
+	--no-fmt)                 FMT_CMD=(); no_fmt=1; shift ;;
 	--no-cross)               BUILD_CROSS=0; shift ;;
 	--include-arm)            include_arm=1; shift ;;
 	--no-arm)                 no_arm=1; shift ;;                ## wins over --include-arm
@@ -231,15 +248,17 @@ declare -p BSD_RELEASE_CMD &>/dev/null || BSD_RELEASE_CMD=()
 
 ## The arm64 box here is emulated and takes about an hour. Native x86_64 is
 ## untouched; the Windows/Linux x86_64 crosses stay.
-arm_note=""
+arm_note=""; arm_label=""; arm_why=""
 if ((! include_arm || no_arm)) && declare -p CROSS_TARGETS &>/dev/null; then
 	kept=()
-	for t in "${CROSS_TARGETS[@]}"; do case "$t" in *arm64*|*aarch64*) arm_note=" (no arm64)" ;; *) kept+=("$t") ;; esac; done
+	for t in "${CROSS_TARGETS[@]}"; do case "$t" in *arm64*|*aarch64*) arm_label="${t%%|*}" ;; *) kept+=("$t") ;; esac; done
 	CROSS_TARGETS=("${kept[@]}")
-	if ((no_remote)) && [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --no-remote)"
-	elif ((no_arm)) && [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --no-arm)"
-	elif ((quick)) && [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --quick)"
-	elif [[ -n "$arm_note" ]]; then arm_note=" (no arm64, --long adds it)"; fi
+	if   [[ -z "$arm_label" ]]; then :
+	elif ((no_remote));         then arm_why="--no-remote"
+	elif ((no_arm));            then arm_why="--no-arm"
+	elif ((quick));             then arm_why="--quick"
+	else                             arm_why="--long adds it"; fi
+	[[ -z "$arm_why" ]] || arm_note=" (no arm64, ${arm_why})"
 fi
 ## arm64 packages and their checks are made from this run's arm64 build, so they
 ## go wherever it goes.
@@ -282,9 +301,52 @@ fEcho_ResetBlankCounter(){ _wasLastEchoBlank=0; }
 fEcho_Clean(){ if [[ -n "${1:-}" ]]; then echo -e "$*"; _wasLastEchoBlank=0; elif [[ $_wasLastEchoBlank -eq 0 ]] && echo; then _wasLastEchoBlank=1; fi; }
 fEcho(){       if [[ -n "$*"     ]]; then fEcho_Clean "[ $* ]"; else fEcho_Clean ""; fi; }
 fEcho_Force(){ fEcho_ResetBlankCounter; fEcho "$*"; }
-_letterbox="••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
+_letterbox="•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
 fSection(){ fEcho_Clean; fEcho_Clean "${_letterbox}"; fEcho "$*"; }
 fDie(){ { fEcho_Force "FAILED: $*"; } >&2; exit 1; }
+## Local time to the hundredth, as YYYYmmDD-HHMMSS.NN.
+fStamp(){
+	local t="${EPOCHREALTIME:-}" frac
+	if [[ -n "$t" ]]; then
+		t="${t/,/.}"; frac="${t#*.}"
+		printf '%(%Y%m%d-%H%M%S)T.%s' "${t%.*}" "${frac:0:2}"
+	else
+		printf '%s.00' "$(date +%Y%m%d-%H%M%S)"
+	fi
+}
+## Steps. The plan is made first, so each header can say "Step N of M": fPlan
+## <on> <name> <why off>. A step that's off isn't counted, and the plan lists it
+## with its flag or reason. fStep <name> [hard] closes the step before it as
+## PASS, checks the load again for the job count, and opens this one. The EXIT
+## trap closes an open step as FAIL.
+stepList=(); stepOff=(); stepNow=0; stepOpen=""
+fPlan(){ if (($1)); then stepList+=("$2"); else stepOff+=("$2 (${3})"); fi; }
+fStep_Close(){
+	[[ -n "$stepOpen" ]] || return 0
+	fEcho_Force "$(fStamp): Step ${stepNow} of ${#stepList[@]}; $1 ${stepOpen}"
+	stepOpen=""
+}
+fStep(){
+	local why=""
+	fStep_Close PASS
+	stepNow=$((stepNow + 1)); stepOpen="$1"
+	fJobs "${2:-}"; fCapContainers
+	fEcho_Clean; fEcho_Clean "${_letterbox}"
+	fEcho "$(fStamp): Step ${stepNow} of ${#stepList[@]}; Starting ${stepOpen}"
+	[[ "${stepList[stepNow - 1]:-}" == "$1" ]] || fEcho "WARNING: the plan has step ${stepNow} as '${stepList[stepNow - 1]:-none}'"
+	if   [[ -n "${CICD_JOBS_PIN:-}" ]]; then why="pinned"
+	elif [[ -n "${2:-}" ]];             then why="hard step"
+	elif ((jobsBusy));                  then why="busy box"; fi
+	[[ -z "$why" ]] || why="${why}, "
+	fEcho_Clean "jobs ${CICD_MAX_JOBS} (${why}load ${jobsLoad} on ${jobsCpus} cpus)"
+}
+fPlan_Show(){
+	local x
+	fEcho_Clean "Steps ...............: ${#stepList[@]}"
+	((${#stepOff[@]})) || return 0
+	fEcho_Clean "Turned off ..........:"
+	for x in "${stepOff[@]}"; do fEcho_Clean "    - ${x}"; done
+}
 ## Git that talks to the remote goes through gitsby where it is installed, so the
 ## fetch and pull use the key and account this repo belongs to. A fresh clone
 ## without it gets plain git.
@@ -416,6 +478,8 @@ trap 'rc=$?; printf "\n[ CICD ABORTED (exit %s) at line %s: %s ]\n" "$rc" "$LINE
 ## EXIT trap runs.
 fRunTemp_Make "${EXE_NAME}" "${stamp}" || fDie "could not make a run folder under ${HOST_TEMP:-${TMPDIR:-/tmp}}/${EXE_NAME}"
 fRunEnd(){
+	local rc=$?
+	if ((rc)) && [[ -n "$stepOpen" ]]; then fStep_Close FAIL; fEcho_Clean; fi
 	## || true: a docker hiccup here must not keep the folder from going.
 	if ((${DOCKER_SWEEP:-0})); then fDockerSweep "${CICD_CONTAINERS[@]}" || true; fi
 	fRunTemp_Done || true
@@ -446,31 +510,36 @@ fi
 ## True when the area was named, or when none were.
 fArea(){ ((${#areas[@]} == 0)) || [[ " ${areas[*]} " == *" $1 "* ]]; }
 if ((gate)); then
-	fSection "Backlog run quick 1/3  Format check"
-	if ! fArea format; then
-		fEcho_Clean "format check skipped (area not named)"
-	elif declare -p FMT_CHECK_CMD &>/dev/null && ((${#FMT_CHECK_CMD[@]})); then
+	gate_fmt=0; gate_fmt_why="area not named"
+	if fArea format; then gate_fmt=$((${#FMT_CHECK_CMD[@]} > 0)); gate_fmt_why="no format check set up"; fi
+	gate_lint=0; gate_lint_why="area not named"
+	if fArea lint; then gate_lint=$((${#LINT_CMD[@]} > 0)); gate_lint_why="no lint stage set up"; fi
+	gate_tests=0; fArea tests && gate_tests=1
+	fPlan "$gate_fmt"   "Format check" "$gate_fmt_why"
+	fPlan "$gate_lint"  "Lints"        "$gate_lint_why"
+	fPlan "$gate_tests" "Tests"        "area not named"
+	fSection "${APP_NAME} backlog-run-quick${areas[*]:+ ${areas[*]}}"
+	fPlan_Show
+	if ((gate_fmt)); then
+		fStep "Format check"
 		"${FMT_CHECK_CMD[@]}" || fDie "format check failed (run: ${FMT_CMD[*]:-cargo fmt})"
 		fEcho "OK: formatting clean"
-	else
-		fEcho_Clean "format check skipped (no FMT_CHECK_CMD)"
 	fi
-	fSection "Backlog run quick 2/3  Lints"
-	if ! fArea lint; then
-		fEcho_Clean "lints skipped (area not named)"
-	elif [[ -n "${LINT_CMD+x}" ]] && ((${#LINT_CMD[@]})) && "${LINT_PROBE[@]}" >/dev/null 2>&1; then
-		"${LINT_CMD[@]}"
-		fEcho "OK: lints clean"
-	else
-		fEcho_Clean "lints skipped (no lint stage configured)"
+	if ((gate_lint)); then
+		fStep "Lints"
+		if "${LINT_PROBE[@]}" >/dev/null 2>&1; then
+			"${LINT_CMD[@]}"
+			fEcho "OK: lints clean"
+		else
+			fEcho "WARNING: lints skipped: ${LINT_PROBE[*]} failed (component not installed?)"
+		fi
 	fi
-	fSection "Backlog run quick 3/3  Tests"
-	if ! fArea tests; then
-		fEcho_Clean "tests skipped (area not named)"
-	else
+	if ((gate_tests)); then
+		fStep "Tests"
 		"${TEST_CMD[@]}"
 		fEcho "OK: tests passed"
 	fi
+	fStep_Close PASS
 	fSection "${APP_NAME} backlog-run-quick${areas[*]:+ ${areas[*]}}: PASSED."
 	fEcho_Clean
 	exit 0
@@ -487,6 +556,61 @@ if [[ -n "${RELEASE_ARTIFACT_DIR:-}" ]]; then
 	sums="${EXE_NAME}-${ver}-sha256sums.txt"
 fi
 
+## The steps this run takes, in order, and the ones turned off with why.
+sync_why="--no-sync"; ((checks_only)) && sync_why="${run_mode}"
+mode_or(){ if ((checks_only)); then printf '%s' "${run_mode}"; else printf '%s' "$1"; fi; }
+quick_or(){ if ((quick)); then printf '%s' --quick; else mode_or "$1"; fi; }
+remote_why(){ if ((no_remote)); then echo --no-remote; elif ((quick)); then echo --quick; else echo "$1"; fi; }
+fmt_step="Format"; fmt_why="no formatter set up"
+if ((checks_only)); then fmt_step="Format check"; fmt_why="no format check set up"; fi
+((no_fmt)) && ((! checks_only)) && fmt_why="--no-fmt"
+run_fmt=0
+if ((checks_only)); then run_fmt=$((${#FMT_CHECK_CMD[@]} > 0)); else run_fmt=$((${#FMT_CMD[@]} > 0)); fi
+run_release=$((${RELEASE_ENABLE:-1}))
+run_cross=$((run_release && BUILD_CROSS && ${#CROSS_TARGETS[@]} > 0))
+run_bsd_tests=$((include_bsd && ${#BSD_TEST_CMD[@]} > 0))
+run_bsd_release=$((run_release && include_bsd && ${#BSD_RELEASE_CMD[@]} > 0))
+bsd_why="$(remote_why "not set up")"; ((no_bsd && ! no_remote)) && bsd_why="--no-bsd"
+run_private=0; priv_why="not checked out"
+if   ((quick));     then priv_why="--quick"
+elif ((no_remote)); then priv_why="--no-remote"
+elif [[ -n "${PRIVATE_RUNNER:-}" && -x "${PRIVATE_RUNNER}" ]]; then run_private=1
+elif [[ -z "${PRIVATE_RUNNER:-}" ]]; then priv_why="--no-private"; fi
+run_dogfood=$(( ${#DOGFOOD_FIXED_DESTS[@]} + ${#DOGFOOD_ROTATING_DESTS[@]} + ${#DOGFOOD_CROSS_DESTS[@]} + ${#DOGFOOD_HOOK[@]} > 0 ))
+dogfood_why="$(mode_or --no-dogfood)"
+run_remote_df=$((! quick && ${#DOGFOOD_REMOTE[@]} > 0))
+shots_hook="${root}/cicd/utility/screenshots.bash"
+demo_hook="${root}/cicd/utility/demo-video/demo-video.py"
+
+fPlan "$((! no_sync))"                  "Remote sync"           "${sync_why}"
+fPlan "$run_fmt"                        "$fmt_step"             "$fmt_why"
+fPlan 1                                 "Build (debug)"         ""
+fPlan 1                                 "Tests"                 ""
+fPlan "$((${#LINT_CMD[@]} > 0))"        "Lints"                 "no lint stage set up"
+((${#FUZZ_CMD[@]})) && fPlan "$((! quick))" "Fuzzing"           "--quick"
+fPlan "$((${#SANITIZE_CMD[@]} > 0))"    "Sanitizer suite"       "--no-sanitize"
+((${#BSD_TEST_CMD[@]})) && fPlan "$run_bsd_tests" "FreeBSD suite" "$bsd_why"
+((${#DENY_CMD[@]})) && fPlan 1          "Dependency check"      ""
+((${#SCROLL_HARNESS[@]})) && fPlan "$((! quick))" "Scroll harness" "--quick"
+fPlan "$((PROFILE_ENABLE))"             "Profiler"              "--no-profile"
+fPlan "$run_release"                    "Release build (native)" "RELEASE_ENABLE=0"
+if ((run_cross)); then
+	for t in "${CROSS_TARGETS[@]}"; do fPlan 1 "Release build: ${t%%|*}" ""; done
+elif ((run_release)) && ((! BUILD_CROSS)); then
+	fPlan 0 "Release builds (cross)" "--no-cross"
+fi
+[[ -z "$arm_why" ]] || ((! (run_release && BUILD_CROSS) )) || fPlan 0 "Release build: ${arm_label}" "$arm_why"
+((${#BSD_RELEASE_CMD[@]})) && fPlan "$run_bsd_release" "Release build: FreeBSD" "$bsd_why"
+((${#ANALYZE_CMD[@]})) && fPlan "$((! quick))" "Static analyzers" "--quick"
+pkg_why="--no-package"; ((quick)) && pkg_why="--quick"
+fPlan "$((PACKAGE_ENABLE && ! quick))"  "Packages"              "$pkg_why"
+fPlan "$run_private"                    "Private runner"        "$priv_why"
+fPlan "$run_dogfood"                    "Dogfood"               "$dogfood_why"
+((had_remote_df)) && fPlan "$run_remote_df" "Dogfood (remote)" "$(remote_why "$(mode_or --no-dogfood)")"
+[[ ! -x "$shots_hook" ]] || fPlan "$((SHOTS_ENABLE && ! quick))" "Screenshots" "$(quick_or "--shots turns it on")"
+[[ ! -f "$demo_hook" ]] || fPlan "$((${DEMO_ENABLE:-0} && ! quick))" "Demo video" "$(quick_or "--demo turns it on")"
+fPlan "$((${#GIT_PUBLISH[@]} > 0))"     "Publish"               "$(mode_or --no-publish)"
+
 ## Preflight: show the plan with resolved paths, then confirm.
 profile_dir="$(cd "${root}" && mkdir -p "${PROFILE_OUT_DIR}" 2>/dev/null; cd "${PROFILE_OUT_DIR}" 2>/dev/null && pwd || echo "${root}/${PROFILE_OUT_DIR}")"
 fixed_dest=""; for d in "${DOGFOOD_FIXED_DESTS[@]:-}"; do [[ -d "$d" && -w "$d" ]] && { fixed_dest="$d"; break; }; done
@@ -500,9 +624,9 @@ fEcho_Clean
 fEcho_Clean "Repo root ...........: ${root}"
 fEcho_Clean "Run folder ..........: ${runTempDir}$( ((runTempKeep)) && echo '  (kept, --keep-temp)')"
 ((checks_only)) && fEcho_Clean "Mode ................: ${run_mode}, checks only: no sync, in-place format, dogfood, publish, screenshots, demo or prompt"
-sync_why="--no-sync"; ((checks_only)) && sync_why="${run_mode}"
 fEcho_Clean "Remote sync .........: $( ((no_sync)) && echo "(skipped ${sync_why})" || echo 'fetch + fast-forward before building' )"
-fEcho_Clean "Build jobs ..........: ${CICD_MAX_JOBS} (half of ${cores} cores)"
+fEcho_Clean "Build jobs ..........: $( [[ -n "${CICD_JOBS_PIN:-}" ]] && echo "${CICD_JOBS_PIN} (pinned)" || echo "half of ${cores} cores, a quarter on a busy box or for a hard step; ${CICD_MAX_JOBS} now, load ${jobsLoad}" )"
+fEcho_Clean "Priority ............: nice 19$(command -v ionice >/dev/null 2>&1 && echo ', ionice idle'); containers get --cpu-shares 256 and nice 19 inside"
 fEcho_Clean "CPU cap .............: $( [[ -n "${CICD_CPU_CAPPED:-}" ]] && echo "$(( cores * 50 ))% (user scope)" || echo 'job counts only (no user systemd)' )"
 if ((checks_only)); then
 	fEcho_Clean "Format check ........: ${FMT_CHECK_CMD[*]:-(skipped)}"
@@ -595,6 +719,8 @@ else
 fi
 ((${#GIT_PUBLISH[@]})) && fEcho_Clean "  working tree ......: $( ((allow_dirty)) && echo 'committed as-is (--allow-dirty)' || echo 'must be clean' )"
 fEcho_Clean
+fPlan_Show
+fEcho_Clean
 fEcho_Clean "Fail-fast: any error aborts before the next stage."
 fEcho_Clean
 
@@ -627,34 +753,34 @@ if [[ -n "${LINT_LOG_DIR:-}" ]] && mkdir -p "${root}/${LINT_LOG_DIR}" 2>/dev/nul
 fi
 
 ## Stage 0: remote sync.
-fSection "0/8  Remote sync"
-if ((no_sync)); then
-	fEcho_Clean "remote sync skipped (${sync_why})"
-else
+if ((! no_sync)); then
+	fStep "Remote sync"
 	remote_sync
 fi
 
 ## Stage 1: format.
-fSection "1/8  Format"
-if ((checks_only)) && declare -p FMT_CHECK_CMD &>/dev/null && ((${#FMT_CHECK_CMD[@]})); then
+if ((run_fmt)) && ((checks_only)); then
+	fStep "$fmt_step"
 	"${FMT_CHECK_CMD[@]}" || fDie "format check failed"
 	fEcho "OK: formatting clean"
-elif ((${#FMT_CMD[@]} == 0)); then
-	fEcho_Clean "format skipped"
-else
+elif ((run_fmt)); then
+	fStep "$fmt_step"
 	"${FMT_CMD[@]}"
 	fEcho "OK: formatted (${FMT_CMD[*]})"
 fi
 
 ## Stage 2: debug build.
-fSection "2/8  Debug build"
+fStep "Build (debug)"
 "${DEBUG_BUILD_CMD[@]}"
 fEcho "OK: debug build"
 
-## Stage 3: regression tests.
-fSection "3/8  Regression tests"
+## Stage 3: regression tests, lints, fuzzing, the sanitizer suite and the
+## FreeBSD suite.
+fStep "Tests"
 "${TEST_CMD[@]}"
-if [[ -n "${LINT_CMD+x}" ]] && ((${#LINT_CMD[@]})); then
+fEcho "OK: tests passed"
+if ((${#LINT_CMD[@]})); then
+	fStep "Lints"
 	if "${LINT_PROBE[@]}" >/dev/null 2>&1; then
 		"${LINT_CMD[@]}"
 		fEcho "OK: lints clean"
@@ -664,31 +790,31 @@ if [[ -n "${LINT_CMD+x}" ]] && ((${#LINT_CMD[@]})); then
 fi
 ## Bounded fuzzing of the parsers that read outside input. Slow by design, so it
 ## is left out of --quick; the gate never runs it at all.
-if ((! quick)) && [[ -n "${FUZZ_CMD+x}" ]] && ((${#FUZZ_CMD[@]})); then
+if ((! quick)) && ((${#FUZZ_CMD[@]})); then
+	fStep "Fuzzing" hard
 	if "${FUZZ_PROBE[@]}" >/dev/null 2>&1; then
 		"${FUZZ_CMD[@]}"
 		fEcho "OK: fuzz targets clean"
 	else
 		fEcho "WARNING: fuzz skipped: no clang or no libFuzzer runtime in the build container"
 	fi
-elif ((quick)); then
-	fEcho_Clean "fuzz skipped (--quick)"
 fi
 ## The suite again on a build with the address and undefined behavior
 ## sanitizers. It has a build of its own, so the gate leaves it out. --quick
 ## keeps it, since a warm run takes about as long as the plain suite.
-if [[ -n "${SANITIZE_CMD+x}" ]] && ((${#SANITIZE_CMD[@]})); then
+if ((${#SANITIZE_CMD[@]})); then
+	fStep "Sanitizer suite" hard
 	"${SANITIZE_CMD[@]}"
 	fEcho "OK: sanitizer suite clean"
 fi
 ## The same build and suite on the FreeBSD box.
-if ((include_bsd)) && ((${#BSD_TEST_CMD[@]})); then
+if ((run_bsd_tests)); then
+	fStep "FreeBSD suite"
 	"${BSD_TEST_CMD[@]}"
 	fEcho "OK: FreeBSD suite"
-elif ((quick)) && ((! no_bsd)); then
-	fEcho_Clean "freebsd lane skipped (--quick)"
 fi
-if [[ -n "${DENY_CMD+x}" ]] && ((${#DENY_CMD[@]})); then
+if ((${#DENY_CMD[@]})); then
+	fStep "Dependency check"
 	if "${DENY_PROBE[@]}" >/dev/null 2>&1; then
 		## Advisory-only for now: report license/advisory/duplicate findings
 		## without failing the pipeline (tighten to gating once tuned).
@@ -700,7 +826,8 @@ fi
 ## Headless scroll regression harness (slow; skipped under --quick). It skips itself
 ## on an environment miss (no Xvfb/binary) and exits non-zero only on a measured
 ## regression - which aborts here.
-if ((! quick)) && [[ -n "${SCROLL_HARNESS+x}" ]] && ((${#SCROLL_HARNESS[@]})); then
+if ((! quick)) && ((${#SCROLL_HARNESS[@]})); then
+	fStep "Scroll harness"
 	fEcho_Clean "scroll regression harness (headless, X11) ..."
 	if "${root}/${SCROLL_HARNESS[0]}" "${SCROLL_HARNESS[@]:1}"; then
 		fEcho "OK: scroll harness (X11)"
@@ -715,10 +842,7 @@ if ((! quick)) && [[ -n "${SCROLL_HARNESS+x}" ]] && ((${#SCROLL_HARNESS[@]})); t
 			fDie "scroll regression harness reported a regression (Wayland)"
 		fi
 	fi
-elif ((quick)); then
-	fEcho_Clean "scroll harness skipped (--quick)"
 fi
-fEcho "OK: tests passed"
 
 ## Stage 4: profiler (non-gating artifact; failures classified below).
 run_profiler(){
@@ -771,23 +895,25 @@ run_profiler(){
 		python3 "$report" --dir "${profile_dir}" 2>/dev/null || fEcho_Clean "hot spots: (report unavailable)"
 	fi
 }
-fSection "4/8  Profiler"
-run_profiler
+if ((PROFILE_ENABLE)); then
+	fStep "Profiler"
+	run_profiler
+fi
 
 ## Stage 5: release builds. Guarded like stages 4/6 so a project without a release
 ## path yet (RELEASE_ENABLE=0) still completes a clean run.
 built_arts=()
-fSection "5/8  Release build (native)"
-if ((${RELEASE_ENABLE:-1})); then
+if ((run_release)); then
+fStep "Release build (native)"
 "${RELEASE_NATIVE_CMD[@]}"
 [[ -f "${RELEASE_NATIVE_BIN}" ]] || fDie "native release binary missing: ${RELEASE_NATIVE_BIN}"
 fEcho "OK: native release: ${RELEASE_NATIVE_BIN} ($(du -h "${RELEASE_NATIVE_BIN}" | cut -f1))"
 built_arts=("${RELEASE_NATIVE_OSARCH:-native}|${RELEASE_NATIVE_BIN}")
-if ((BUILD_CROSS)) && ((${#CROSS_TARGETS[@]})); then
+if ((run_cross)); then
 	for t in "${CROSS_TARGETS[@]}"; do
 		local_label="${t%%|*}"; rest="${t#*|}"; osarch="${rest%%|*}"; rest="${rest#*|}"; art="${rest%%|*}"; cmd="${rest#*|}"
 		art="${art//@VER@/${ver}}"   ## for a lane that puts the version in the file name
-		fSection "5/8  Release build: ${local_label}"
+		fStep "Release build: ${local_label}"
 		eval "${cmd}"
 		[[ -f "${art}" ]] || fDie "missing artifact for ${local_label}: ${art}"
 		fEcho "OK: ${local_label}: ${art} ($(du -h "${art}" | cut -f1))"
@@ -795,8 +921,8 @@ if ((BUILD_CROSS)) && ((${#CROSS_TARGETS[@]})); then
 	done
 fi
 
-if ((include_bsd)) && ((${#BSD_RELEASE_CMD[@]})); then
-	fSection "5/8  Release build: FreeBSD"
+if ((run_bsd_release)); then
+	fStep "Release build: FreeBSD"
 	"${BSD_RELEASE_CMD[@]}"
 	fEcho "OK: FreeBSD tarball and pkg"
 fi
@@ -815,16 +941,12 @@ if [[ -n "${RELEASE_ARTIFACT_DIR:-}" ]] && ((${RELEASE_COLLECT:-1})); then
 	fEcho "OK: ${#built_arts[@]} release artifact(s) + ${sums} -> ${RELEASE_ARTIFACT_DIR}/"
 	((BUILD_CROSS)) || fEcho_Clean "note: cross targets skipped - artifact set is partial (native only)"
 fi
-else
-	fEcho_Clean "release build disabled (RELEASE_ENABLE=0)"
 fi
 
 ## After the cross build, so the Windows compile list is current. Slow, so not
 ## under --quick.
-if ((quick)); then
-	fEcho_Clean "static analyzers skipped (--quick)"
-elif [[ -n "${ANALYZE_CMD+x}" ]] && ((${#ANALYZE_CMD[@]})); then
-	fSection "5/8  Static analyzers"
+if ((! quick)) && ((${#ANALYZE_CMD[@]})); then
+	fStep "Static analyzers" hard
 	"${ANALYZE_CMD[@]}"
 fi
 
@@ -871,22 +993,16 @@ run_package_checks(){
 		esac
 	done
 }
-fSection "6/8  Packages"
-if ((quick)); then
-	fEcho_Clean "packages skipped (--quick)"
-else
+if ((PACKAGE_ENABLE && ! quick)); then
+	fStep "Packages"
 	build_packages
 	run_package_checks
 fi
 ## The private runner builds on boxes that are often off or busy, so it skips
 ## those itself and says so. Only a job that ran and failed stops the run.
 priv_dogfood=()
-if ((quick)); then
-	fEcho_Clean "private runner skipped (--quick)"
-elif ((no_remote)); then
-	fEcho_Clean "private runner skipped (--no-remote)"
-elif [[ -n "${PRIVATE_RUNNER:-}" && -x "${PRIVATE_RUNNER}" ]]; then
-	fEcho_Clean "private runner ..."
+if ((run_private)); then
+	fStep "Private runner"
 	priv_start="$(mktemp)"
 	## The Store bundle is made from this run's Windows zip. With no packages
 	## stage, the zip there is an older run's.
@@ -905,13 +1021,11 @@ elif [[ -n "${PRIVATE_RUNNER:-}" && -x "${PRIVATE_RUNNER}" ]]; then
 		fi
 	done
 	rm -f "$priv_start"
-else
-	fEcho_Clean "private runner not checked out; skipped"
 fi
 
 ## Stage 7: dogfood. Three independent installs: fixed name, rotating dated copy,
 ## and cross-built binaries for a box that cannot build its own.
-fSection "7/8  Dogfood (install native release locally)"
+((run_dogfood)) && fStep "Dogfood"
 df_did=0
 
 ## What gets installed. DOGFOOD_PREFIX_SRC means the app is a relocatable tree
@@ -1034,7 +1148,7 @@ if ((${#DOGFOOD_FIXED_DESTS[@]})); then
 	done
 fi
 
-if ((! df_did)); then fEcho_Clean "dogfood disabled"; fi
+if ((run_dogfood && ! df_did)); then fEcho_Clean "no dogfood dest set up"; fi
 
 ## 7d. Whatever else this project wants kept in step with a dogfood drop. Never
 ## fatal - a launcher that didn't get updated is not a reason to fail a build.
@@ -1046,24 +1160,16 @@ fi
 
 ## 7e. A dogfood drop only another box can build, such as a packed Windows exe.
 ## Slow, so skipped under --quick, and never fatal for the same reason as 7d.
-if ((! ${#DOGFOOD_REMOTE[@]})); then
-	:
-elif ((quick)); then
-	fEcho_Clean "remote dogfood skipped (--quick)"
-elif ! (cd "${root}" && "${DOGFOOD_REMOTE[@]}"); then
-	fEcho "WARNING: remote dogfood failed (${DOGFOOD_REMOTE[*]})"
+if ((run_remote_df)); then
+	fStep "Dogfood (remote)"
+	(cd "${root}" && "${DOGFOOD_REMOTE[@]}") || fEcho "WARNING: remote dogfood failed (${DOGFOOD_REMOTE[*]})"
 fi
 
 ## Refresh README screenshots (skipped under --quick; non-fatal - a miss never
 ## aborts). Runs before publish so changed images get committed; rendering needs
 ## a headless X + magick, so a failure just warns.
-shots_hook="${root}/cicd/utility/screenshots.bash"
-if ((! SHOTS_ENABLE)); then
-	fEcho_Clean "screenshots disabled"
-elif ((quick)); then
-	fEcho_Clean "screenshots skipped (--quick)"
-elif [[ -x "$shots_hook" ]]; then
-	fEcho_Clean "refreshing README screenshots ..."
+if ((SHOTS_ENABLE && ! quick)) && [[ -x "$shots_hook" ]]; then
+	fStep "Screenshots"
 	if NEMO_BIN="${root}/${DOGFOOD_PREFIX_SRC}/bin/${EXE_NAME}" "$shots_hook" "${root}"; then
 		fEcho "OK: screenshots"
 	else
@@ -1077,13 +1183,8 @@ fi
 ## assets/demo.gif. It runs on a private Xvfb, so nothing shows up on whatever
 ## display this was started from. It needs the release build, so it goes after
 ## stage 5.
-demo_hook="${root}/cicd/utility/demo-video/demo-video.py"
-if ((! ${DEMO_ENABLE:-0})); then
-	fEcho_Clean "demo video disabled"
-elif ((quick)); then
-	fEcho_Clean "demo video skipped (--quick)"
-elif [[ -f "$demo_hook" ]]; then
-	fEcho_Clean "recording demo video ..."
+if ((${DEMO_ENABLE:-0} && ! quick)) && [[ -f "$demo_hook" ]]; then
+	fStep "Demo video"
 	if NEMO_BIN="${root}/${RELEASE_NATIVE_BIN}" python3 "$demo_hook"; then
 		fEcho "OK: demo video"
 	else
@@ -1092,7 +1193,7 @@ elif [[ -f "$demo_hook" ]]; then
 fi
 
 ## Stage 8: backup + publish.
-fSection "8/8  Backup + publish"
+((${#GIT_PUBLISH[@]})) && fStep "Publish"
 ## Again: preflight cleared the tree, but a stage since then may have written to it
 ## (an in-place formatter is the obvious one).
 require_clean_tree_for_publish
@@ -1100,7 +1201,7 @@ require_clean_tree_for_publish
 ## its redundant continue-prompt. With no message it still lets git open the editor.
 pub_flags=(--quiet)
 if ((${#GIT_PUBLISH[@]} == 0)); then
-	fEcho_Clean "publish disabled"
+	:
 elif [[ -n "$publish_msg" ]]; then
 	## Hands-off: quiet env skips the script's continue-prompt; the GIT_EDITOR
 	## helper fills the empty commit message so `git commit` won't open an editor.
@@ -1119,6 +1220,7 @@ else
 	fEcho "OK: published"
 fi
 
+fStep_Close PASS
 fSection "${APP_NAME} CI/CD${run_mode:+ ${run_mode}}: done."
 fEcho_Clean
 
@@ -1134,3 +1236,7 @@ fEcho_Clean
 ##		  --gate and --ci are other names for the first and last. --no-remote.
 ##		- 2026-10-25: each run works in its own temp folder; --keep-temp. The
 ##		  run's labeled containers and the project's old images go at the end.
+##		- 2026-10-25: job counts from include/jobs.bash, a quarter on a busy box
+##		  or for a hard step, checked before each step; nice and ionice, and a
+##		  low CPU share for the containers. Each step opens and closes with a
+##		  timestamped "Step N of M" line; the plan lists the steps turned off.

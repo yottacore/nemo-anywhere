@@ -40,7 +40,7 @@ repo="${scratch}/repo"
 log="${scratch}/docker.log"
 mkdir -p "${repo}/cicd/utility/include" "${scratch}/bin" "${scratch}/host-temp"
 cp "${root}/cicd/cicd.bash" "${repo}/cicd/"
-for inc in gfs-rotate source-date run-temp docker-sweep; do
+for inc in gfs-rotate source-date run-temp docker-sweep jobs; do
 	cp "${root}/cicd/utility/include/${inc}.bash" "${repo}/cicd/utility/include/"
 done
 printf "project('app', 'c', version: '1.2.3')\n" > "${repo}/meson.build"

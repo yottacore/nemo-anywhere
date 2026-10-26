@@ -9,7 +9,10 @@
 ##	  and every step that needs another box. --backlog-run-full and
 ##	  --merge-gate run every check a plain run does, and never sync, format in
 ##	  place, dogfood or publish. --no-remote leaves out every step on another
-##	  box. A copy of cicd.bash runs in a scratch git repo
+##	  box. Each step opens with a Starting line and closes with PASS, or FAIL
+##	  for one that fails, numbered out of the steps that run, under a rule of
+##	  79 dots. The plan lists what's turned off, and a hard step gets a quarter
+##	  of the cpus. A copy of cicd.bash runs in a scratch git repo
 ##	  with every step a stand-in that leaves a marker file.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-quick.bash
@@ -39,7 +42,7 @@ mkdir -p "${HOST_TEMP}"
 
 mkdir -p "${scratch}/cicd/utility/include"
 cp "${root}/cicd/cicd.bash" "${scratch}/cicd/"
-for inc in gfs-rotate source-date run-temp docker-sweep; do
+for inc in gfs-rotate source-date run-temp docker-sweep jobs; do
 	cp "${root}/cicd/utility/include/${inc}.bash" "${scratch}/cicd/utility/include/"
 done
 printf "project('app', 'c', version: '1.2.3')\n" > "${scratch}/meson.build"
@@ -62,7 +65,7 @@ cat > "${scratch}/cicd/config.bash" <<-EOF
 	FMT_CHECK_CMD=(bash -c '$(mark fmt-check)')
 	CICD_CONTAINERS=()
 	DEBUG_BUILD_CMD=(bash -c '$(mark build)')
-	TEST_CMD=(bash -c '$(mark tests)')
+	TEST_CMD=(bash -c '[ -z "\${CHECK_FAIL_TESTS:-}" ] || exit 3; $(mark tests)')
 	LINT_PROBE=(true)
 	LINT_CMD=(bash -c '$(mark lint)')
 	FUZZ_PROBE=(true)
@@ -117,6 +120,42 @@ git -C "$scratch" -c user.name=check -c user.email=check@example.invalid -c comm
 
 allSteps=(fmt fmt-check build tests lint fuzz sanitize scroll bsd-tests profile native windows arm64 bsd-release analyze packages package-check private dogfood dogfood-hook remote-dogfood shots demo publish)
 
+## The step lines of a run: each step opens with Starting and closes with PASS,
+## or FAIL for the last one when $3 is 1, numbered 1 to M with M the same on
+## every line, under a rule of 79 dots, and with local time to the hundredth.
+## M counts only the steps that run, and $2 is how many must have.
+rule="$(printf '•%.0s' {1..79})"
+fSteps(){
+	local out="$1" want="$2" failed="${3:-0}" label="$4" line n=0 total="" state="" name="" re
+	re='^\[ ([0-9]{8}-[0-9]{6}\.[0-9]{2}): Step ([0-9]+) of ([0-9]+); (Starting|PASS|FAIL) (.+) \]$'
+	while IFS= read -r line; do
+		if [[ "$line" == •* ]]; then
+			[[ "$line" == "$rule" ]] || { fFail "[${label}]: a rule that isn't 79 dots: ${line}"; return 0; }
+			continue
+		fi
+		[[ "$line" =~ $re ]] || continue
+		total="${total:-${BASH_REMATCH[3]}}"
+		[[ "${BASH_REMATCH[3]}" == "$total" ]] || { fFail "[${label}]: step totals differ: ${line}"; return 0; }
+		case "${BASH_REMATCH[4]}" in
+			Starting)
+				[[ "$state" != open ]] || { fFail "[${label}]: step ${n} never closed"; return 0; }
+				n=$((n + 1)); name="${BASH_REMATCH[5]}"; state=open
+				[[ "${BASH_REMATCH[2]}" == "$n" ]] || { fFail "[${label}]: step ${BASH_REMATCH[2]} where ${n} was due"; return 0; } ;;
+			*)
+				[[ "$state" == open && "${BASH_REMATCH[2]}" == "$n" && "${BASH_REMATCH[5]}" == "$name" ]] \
+					|| { fFail "[${label}]: closed a step that wasn't open: ${line}"; return 0; }
+				state="${BASH_REMATCH[4]}" ;;
+		esac
+	done <<< "$out"
+	if ((failed)); then
+		[[ "$state" == FAIL ]] || fFail "[${label}]: the failed step didn't close as FAIL (${state:-none})"
+	else
+		[[ "$state" == PASS && "$n" == "$total" ]] || fFail "[${label}]: ran ${n} of ${total:-?} steps, last ${state:-none}"
+		[[ "$total" == "$want" ]] || fFail "[${label}]: counted ${total:-no} steps, want ${want}"
+	fi
+	! grep -q -E 'Step [0-9]+ of [0-9]+; FAIL' <<< "$out" || ((failed)) || fFail "[${label}]: a step failed"
+}
+
 ## $1 the steps that must run, space separated, rest the options. Every other
 ## step must not.
 fRun(){
@@ -124,12 +163,17 @@ fRun(){
 	shift
 	rm -rf "${scratch}/out" "${scratch}/native.bin"
 	mkdir -p "${scratch}/out"
-	out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y "$@" 2>&1 </dev/null)" || rc=$?
+	out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 env -u CICD_MAX_JOBS bash cicd/cicd.bash -y "$@" 2>&1 </dev/null)" || rc=$?
 	lastOut="$out"
 	if [[ "$rc" != 0 ]]; then
 		fFail "[$*]: the run failed (exit ${rc}): $(tail -5 <<< "$out")"
 		return 0
 	fi
+	## A step per marker, less the ones that share a step: the package check
+	## with packages, the hook with dogfood, and sync, which leaves no marker.
+	local steps=0 w
+	for w in $want; do case "$w" in package-check|dogfood-hook) ;; *) steps=$((steps + 1)) ;; esac; done
+	fSteps "$out" "$steps" 0 "${*:-no options}"
 	for step in "${allSteps[@]}"; do
 		ran=0
 		case "$step" in
@@ -203,6 +247,26 @@ help="$(bash "${root}/cicd/cicd.bash" --help)"
 for name in --backlog-run-quick --backlog-run-full --merge-gate --gate --ci --no-remote "format, lint, tests"; do
 	grep -q -F -- "$name" <<< "$help" || fFail "--help does not name ${name}"
 done
+
+## A failed step closes as FAIL, and the plan lists what's turned off with why.
+rc=0
+out="$(cd "$scratch" && CHECK_FAIL_TESTS=1 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 env -u CICD_MAX_JOBS bash cicd/cicd.bash -y --quick 2>&1 </dev/null)" || rc=$?
+[[ "$rc" != 0 ]] || fFail "[failing tests]: the run passed"
+fSteps "$out" 0 1 "failing tests"
+grep -q -E '; FAIL Tests \]$' <<< "$out" || fFail "[failing tests]: no FAIL line for Tests"
+for off in "Fuzzing (--quick)" "Static analyzers (--quick)" "Release build: Linux arm64 (stand-in) (--quick)" "Packages (--quick)"; do
+	grep -q -x -F -- "    - ${off}" <<< "$out" || fFail "[--quick]: the plan doesn't list ${off} as turned off"
+done
+## A hard step gets a quarter of the cpus, busy or not.
+# shellcheck source=include/jobs.bash
+source "${here}/include/jobs.bash"
+quarter="$(unset CICD_MAX_JOBS CICD_JOBS_PIN; fJobs hard; echo "${CICD_MAX_JOBS}")"
+fRun "${quickSteps}" --quick
+sanJobs="$(grep -A1 -F 'Starting Sanitizer suite' <<< "$lastOut" | tail -1)"
+[[ "$sanJobs" == "jobs ${quarter} (hard step,"* ]] || fFail "[--quick]: the sanitizer suite didn't get ${quarter} jobs as a hard step"
+fRun "fmt-check tests lint" --gate
+grep -q -x -F -- "    - Format check (area not named)" <<< "$(cd "$scratch" && CICD_CPU_CAPPED=1 bash cicd/cicd.bash --gate lint 2>&1 </dev/null)" \
+	|| fFail "[--gate lint]: the plan doesn't list the format check as turned off"
 
 ## Each run removed its run folder, and a plain run's plan names it.
 [[ -z "$(ls -A "${HOST_TEMP}/app" 2>/dev/null)" ]] || fFail "runs left these behind: $(ls -A "${HOST_TEMP}/app")"

@@ -37,6 +37,10 @@ fEcho(){ echo "[ $* ]"; }
 # shellcheck source=include/source-date.bash
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/include/source-date.bash"
 fSetSourceDate "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+## The job count the command reads, as cicd.bash set it for this step.
+# shellcheck source=include/jobs.bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/include/jobs.bash"
+fJobs_Default
 
 ## Environmental miss: skip (exit 0) so a push isn't blocked, unless strict.
 skip_or_die(){
@@ -78,7 +82,7 @@ if ! grep -qx "$container" <<<"$names"; then
 			|| skip_or_die "could not build image nemo-build-deps"
 	fi
 	fEcho "creating container ${container}"
-	docker run -d --init --ulimit core=0 --shm-size=2g --cpus "$(( $(nproc) / 2 ))" --name "$container" \
+	docker run -d --init --ulimit core=0 --shm-size=2g --cpus "${CICD_MAX_JOBS}" --cpu-shares 256 --name "$container" \
 		--label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" \
 		--security-opt seccomp=unconfined --security-opt apparmor=unconfined \
 		-v "${repo}:/src" nemo-build-deps:latest sleep infinity >/dev/null \
@@ -100,5 +104,7 @@ fi
 ## core_pattern is a bare relative name, so a crash here drops a root-owned core.<pid>
 ## into the tree - unreadable to the host user, and enough to abort the next backup.
 ## SOURCE_DATE_EPOCH has to be handed across explicitly - docker exec starts with
-## the container's environment, not ours - or the linker stamps the clock.
-exec docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-0}" "$container" sh -c "ulimit -c 0; $cmd"
+## the container's environment, not ours - or the linker stamps the clock. Same
+## for the job count, and for nice: docker exec doesn't inherit ours.
+exec docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-0}" -e "CICD_MAX_JOBS=${CICD_MAX_JOBS}" "$container" \
+	nice -n 19 sh -c "ulimit -c 0; ionice -c 3 -p \$\$ 2>/dev/null; $cmd"
