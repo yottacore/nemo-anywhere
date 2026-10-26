@@ -307,6 +307,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The run's own CPU quota stays at half the cores. Busy and hard steps only lower the job counts.
 		- In the containers, `nice` covers the commands that build or test: the build, suite, fuzzing and sanitizer runs, the cross and release builds, and the analyzers. The short ones, such as the smoke checks and packing, are held only by the container's CPU cap and share.
 	- Swept: every `nproc` and half-the-cores line under `cicd/`. `analyze.py` keeps its own half for when it's run by hand with no `--jobs`; `analyze.bash` always passes one. `bsd/release.bash` and the arm64 lane take theirs from the lane scripts, in 2026102517333362.
+	- Branch: round1025b
+	- Commit: f8524717
 	- Test case: rm5cn5p8 (job counts, one place works them out, the containers read them per step under nice). rkmqprx6 checks a hard step gets a quarter.
 	- Verified: 20261025, rm5cn5p8 and rkmqprx6 pass, and each fails on a planted fault: a count of 0, a script working out its own half, a count expanded when `config.bash` is read, and the sanitizer suite not marked hard. In the build container, a command run the new way runs at nice 19 and idle I/O and reads the step's count. rj3ytv0b, rjph39cv, rm5a3ej9 and rm5b2v7n pass.
 
@@ -328,6 +330,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The old inline "skipped" lines are gone, since the plan lists those steps.
 		- A step left open when the run stops, by a failure or Ctrl+C, closes as `FAIL`.
 		- Each step prints its job count and the load under its opening line.
+	- Branch: round1025b
+	- Commit: f8524717
 	- Test case: rkmqprx6 checks the step lines of every run it makes, a failing step, and the turned-off list. rj9v18rx now reads the steps `--quick` turns off from the plan.
 	- Verified: 20261025, rkmqprx6 and rj9v18rx pass. rkmqprx6 fails with a 76-dot rule, with the last step left open, with a step left out of the plan, and with no `FAIL` on a failed step. rj9v18rx fails with fuzzing left out of the `--quick` help.
 	- Progress log:
