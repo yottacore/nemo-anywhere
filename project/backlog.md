@@ -131,13 +131,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: instdocs
 	- Commit: c5eb2000
 	- Test case: none new, docs only. The lint stage passes, and its prose check now reads install.md and building.md.
+	- Stand-in: none. File names, layout and the license line are calls for a person.
 
 - Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
 	- ID: 2026100516274646
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Waiting on automated testing
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
-	- Needs external testing: the dialog on a real Windows desktop, opening by itself on a short screen. Under wine it opened and reset with neither 7-Zip nor rar.
+	- Needs external testing: rhtmbdmj on vm925w with wintest's screen at a lower resolution, so the dialog opens by itself on a short screen. Under wine it opened and reset with neither 7-Zip nor rar.
+	- Needs hand testing: the Reset button's look beside Options on a real desktop.
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -166,13 +168,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: optreset
 	- Commit: c0a7ede
 	- Test case: rhtmbdmj, Compress dialog height test: closed with Reset grayed at the defaults, Reset lit by a change and by a password alone, Reset clearing them and closing Options, opening by itself for remembered choices with the buttons on screen, Reset dropping them from the settings file, and a remembered lock the format can't do opening Options, shown off and grayed, and back on with rar. rhae85g0, Archive settings test, test_choices: the defaults match the settings table, each choice off its default counts, a forced off shows off and leaves the choice, saving keeps it with a preset as its size, and the reset drops every key under Options and nothing else.
+	- Stand-in: 20261025 on vm925w at a61c4f91: rhtmbdmj passes on the real desktop, with a 1392 px work area. Options opened by itself and the 787 px dialog stayed on screen. The lower resolution for a short screen didn't take, so that part is still to run.
 
 - On Windows, the trash icon leaves out removable drives.
 	- ID: 2026100708294146
 	- Type: Bug
-	- Status: Waiting on UAT
+	- Status: Done
 	- Needs local test suite run?: no. Windows only. The full Linux suite passed on the branch, 174 of 174, before this change.
-	- Needs external testing: a real removable drive, which neither box has. On 20261022 vm925w had C: and K: fixed and D: optical, and b29w was off the network. A USB stick under the `RecycleBinDrives` policy with an item in its bin: the trash icon shows full. An empty USB card reader that keeps its drive letter: no insert-disk prompt, and nothing waits.
+	- Needs external testing: done 20261025 on vm925w, as in Stand-in.
 	- Priority|Severity: Low
 	- Opened: 20261007-082941
 	- Opened by: 2026100613231440
@@ -191,6 +194,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: winlow
 	- Commit: 0dab690
 	- Test case: rjhvmm6f, Mapped drive not asked, new bin cases: a fixed drive's bin is asked, a removable one's only with a disk in it, an empty drive answers in under 2 s, and no share or optical drive is asked.
+	- Stand-in: 20261025 on vm925w at a61c4f91, a USB disk as removable drive E:, with the `RecycleBinDrives` policy on for wintest. A file recycled there put 1 item in E:'s bin, the only bin with anything in it. rjhvmm6f found E: removable with a disk in and its bin asked, and passed. The empty card reader was stood in by the empty optical drive D: again, which answered empty in 1 ms with no prompt, since ejecting the USB disk's medium didn't take.
+	- Acceptance signoff: Self-closed: rjhvmm6f on a removable drive natively.
+	- Closed: 20261025-194200
 
 - The Linux release build fails on `EEL_ANALYZER_SKIP ("infinite-loop")` in jammy's gcc 11.
 	- ID: 2026102510323600
@@ -365,8 +371,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The native gate on vm925w stops on scratch folders 7 tests leave behind.
 	- ID: 2026102413432225
 	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs external testing: the native gate on vm925w as wintest in the desktop session, `pwsh cicd/cicd-win.ps1 -Gate -Yes -NoFmt` from a bundle of round1025, since lint stops on 2026102509133500 until that's fixed. It should pass with nothing left behind, rm494xfp included.
+	- Status: Done
+	- Needs external testing: done 20261025 on vm925w, as in Verified.
 	- Priority|Severity: Avg
 	- Opened: 20261024-134322
 	- Opened by: 2026102409082700
@@ -388,6 +394,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261025: the native gate at bbcf7c9c stopped in lint after 4 minutes, at rjph39cv, "the arm64 build did not run". That's 2026102509133500, the same on dev at 88eb2f9d, since `cicd/` is the same in both. No test ran, so this fix wasn't reached.
 		- 20261025: the rerun with `-NoFmt` didn't start. vm925w failed to boot with "Failed to reserve port 5900", since vmKt6m was up for other work and held the SPICE port. Left for the next batch.
+		- 20261025: the native gate at a61c4f91 stopped in lint at rhtrxr80, filed as 2026102519212960. The rerun with `-NoFmt` passed.
 	- Actual fix: in the scratch cleanup every test shares, `source/test/test-scratch.c`.
 		- Before removing anything, it leaves a current folder that sits in a scratch folder, and closes a file cache that sits in one. A cache elsewhere is left open, since a worker still busy at exit could be using it.
 		- `test_slowness` takes `NEMO_TEST_SLOWNESS` when it's set, and makes no folder then. helper-end sets it for its copies.
@@ -396,7 +403,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rm494xfp, the cleanup removes a scratch folder that is the current folder and one holding an open file cache, and takes a handed slowness as is. The gate's leftover check covers the 7.
 	- Verified: 20261025. rm494xfp fails all 3 checks without the fix under wine, and passes with it. Under wine without the fix, command-launch left its folder and helper-end 2 `nemo-slowness-*` folders. With it, neither leaves any. Linux in the jail: rm494xfp, rjahhesy, rgy4vnf1, rjprhm52 and the 5 thumbnail tests. The sanitizer build: rm494xfp, rgy4vnf1 and the 5 thumbnail tests. Windows cross build, C lint and the test ID check.
 		- Under wine the 5 thumbnail tests no longer leave the cache, but each still leaves its scratch folder there, empty. Not looked into. Wine keeps the `nemo-leaks-*` folders the same way. The native gate shows whether Windows does too.
+		- 20261025, natively: the gate on vm925w as wintest in the desktop session, `-NoFmt`, from a bundle of round1025b at a61c4f91. 206 OK, 7 skipped, none failed, and it passed with nothing left behind. rm494xfp, the 5 thumbnail tests, helper-end and command-launch pass there. wintest's TEMP held no `nemo-*` folder after, so Windows doesn't keep the empty thumbnail folders that wine does.
 	- Swept: every test that points the cache at a scratch folder goes through the shared cleanup. config-share and thumbnail-stop also kill copies of themselves, and neither copy makes a scratch folder. command-launch was the only test left in its scratch folder; the fence test goes back to where it was.
+	- Closed: 20261025-193943
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
@@ -603,6 +612,41 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: opened.
 		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
 	- Test case: one per child.
+
+- On Windows, rhtrxr80 fails its first push case, so the native gate stops in lint.
+	- ID: 2026102519212960
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-192129
+	- Opened by: 2026102413432225
+	- Related IDs: 2026102516165475, 2026102516403466
+	- Target OS: Windows
+	- Test environment: vm925w, as wintest in the desktop session.
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes` from a bundle of round1025b at a61c4f91.
+	- Incorrect behavior: lint stops after 4 minutes at rhtrxr80 with "hook, first push: the gate did not run" and "pre-push version guard, 1 problem(s)". No test runs.
+	- Expected behavior: rhtrxr80 passes under MSYS2, as on Linux.
+	- Reproduced: 20261025 at a61c4f91, 1 of 1.
+	- Possible cause: the first push case from 2026102516165475 reads a call log that only the test's `cicd.bash` stand-in writes. On Windows the hook runs `pwsh cicd-win.ps1 -Gate` instead, and the `pwsh` stand-in exits 0 with no log. So the docs only case's "the gate ran" check can't fail there either.
+	- Test case: rhtrxr80.
+
+- On Windows, rkmqprx6 fails its `--shots --demo` case.
+	- ID: 2026102519402235
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-194022
+	- Opened by: 2026102516403466
+	- Prereq IDs: 2026102519212960
+	- Related IDs: 2026102516403466
+	- Target OS: Windows
+	- Test environment: vm925w, as wintest in the desktop session, MSYS2 MINGW64.
+	- Steps to reproduce: `bash cicd/utility/test-cicd-quick.bash` from a bundle of round1025b at a61c4f91.
+	- Incorrect behavior: "[--shots --demo]: demo did not run", then "step selection, 1 problem(s)". The native lint runs it right after rhtrxr80, so it stops the gate there once that's fixed.
+	- Expected behavior: rkmqprx6 passes under MSYS2, as on Linux.
+	- Reproduced: 20261025 at a61c4f91, 1 of 1.
+	- Possible cause: the case came in with 7b6c5e07. Its demo stand-in is a `.py` file the demo step runs with `python3`, which may not be what MSYS2 finds there. Not looked into.
+	- Test case: rkmqprx6.
 
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
@@ -1130,7 +1174,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Type: Task
 	- Status: Waiting on automated testing
 	- Needs local test suite run?: `cicd/cicd.bash --backlog-run-full` once. Every host-side step now gets the run folder as `TMPDIR`; the run should pass and leave nothing in `<temp>/nemo-anywhere/`.
-	- Needs external testing: the native gate's lint on vm925w, where rm5a3ej9, rkmqprx6 and rjph39cv run under MSYS2.
+	- Needs external testing: rkmqprx6 under MSYS2 on vm925w, once 2026102519402235 is fixed.
 	- Priority|Severity: Avg
 	- Opened: 20261025-164035
 	- Opened by: 2026102416300002
@@ -1142,6 +1186,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The removals go through a repo copy of the guard, which the other children use too.
 	- Progress log:
 		- 20261025: `cicd/utility/include/run-temp.bash` has the run folder, the stale sweep and `fSafeRm`, the repo copy of the guard. `cicd.bash` makes the folder right after its error trap, for every mode, and removes it from an EXIT trap. INT, TERM and HUP exit through it. `--keep-temp` keeps it, and the plan names it.
+		- 20261025: on vm925w the native lint stopped at rhtrxr80 (2026102519212960) before these, so they ran alone under MSYS2 in the desktop session, from a bundle at a61c4f91. rm5a3ej9 and rjph39cv pass; rm5a3ej9 skips its link cases there. rkmqprx6 fails its `--shots --demo` case, filed as 2026102519402235.
 	- Decisions:
 		- The sweep goes by the stamp in the folder's name, and leaves a folder with no `run.pid`, since hand-made temp folders share the parent.
 		- `<temp>` is `HOST_TEMP`, then `TMPDIR`, then `/tmp`, resolved once.
@@ -9355,6 +9400,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Filed 20261006: a link drop moves the files instead of opening Make link (2026100610503900). ImageMagick thumbnails open a console window each, and the packed exe makes none (2026100610503901). Also 2026100610503902 and 2026100610503903, both Low.
 	- Note 20261006: left here are signing and the UAC prompt, which need a release tag with secrets and a person at the screen.
 	- Test case: the Windows gate runs the suite natively, plus `cicd/win/gui-launch-smoke.ps1`; signing and the UAC prompt have none.
+	- Stand-in: none. Signing runs only in the hosted release workflow on a tag, with secrets the repo doesn't have, and the consent prompt needs a person at the screen.
 
 - 🔘 Target: macOS
 	- Status: Stalled
