@@ -1730,6 +1730,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: the case notes 3 draws, then waits for the count to go out after a 200 ms draw wait, and stops at the first count that isn't 0. A write that goes out between the notes would give 1 or 2. Not looked into.
 	- Test case: rhd1cv38 itself, beside the full suite.
 
+- rjbmh7g1 failed once in a full run's suite on a loaded box, the heap growing 1600 bytes over 64 rounds.
+	- ID: 2026102518200000
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261025-182000
+	- Opened by: t00mietum
+	- Target OS: Linux
+	- Steps to reproduce: `cicd/cicd.bash --backlog-run-full --no-sanitize` at load about 30 on 32 cores.
+	- Incorrect behavior: "zip-cancel: the heap grew 1600 bytes over 64 rounds", then "FAIL ../src/source/test/test-nemo-leaks.c:1187: growth < (gint64) COUNTED_ROUNDS * limit". The log also said a thread started or ended, so the reading was taken again.
+	- Expected behavior: passes.
+	- Reproduced: once, 20261025 on round1025b at e1159615. It passed in the run before at the same code, and 3 of 3 alone right after.
+	- Possible cause: a worker thread still winding down from a stopped zip job at the reading. Not looked into.
+	- Test case: rjbmh7g1 itself, beside the full suite.
+
 - In the icon views, removing an icon never tells the accessibility tree.
 	- ID: 2026102412590587
 	- Type: Bug
