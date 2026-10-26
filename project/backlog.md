@@ -36,7 +36,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD flags: `--no-container`.
 	- ID: 2026102516295605
 	- Type: Task
-	- Status: Waiting for answers
+	- Status: Queued
 		- Waits on the `--no-container` question in questions.md.
 	- Priority|Severity: High
 	- Opened: 20261025-162956
@@ -46,6 +46,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- `--no-container` runs on the host, per the shared CICD style guide.
 		- The GTK dev stack never goes on the host here, so the build and test steps can't run there.
 	- Test case: none yet.
+	- Decided: (a). Lints run on the host, and the run stops with one clear line at the first step that needs a container.
 
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
