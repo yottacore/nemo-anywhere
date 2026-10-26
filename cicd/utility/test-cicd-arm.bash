@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 
-##	- Purpose: Check that the arm64 release build and the FreeBSD lane run by
-##	  default, that --quick, --no-arm and --no-bsd leave them out, and that the
-##	  engine finds an artifact whose name has the version in it. The arm64
-##	  packages and their check run only when the arm64 build did. --include-bsd
-##	  brings FreeBSD back under --quick. A copy of cicd.bash runs a whole pipeline
-##	  in a scratch dir, every stage a stand-in, with one arm64 and one other
-##	  cross target, packager and check. Then the real config.bash is read: its
-##	  arm64 entry has to name release-arm64.bash and the tarball that script
-##	  writes, and its arm64 packager and check have to ask for arm64.
+##	- Purpose: Check that the FreeBSD lane runs by default and the arm64 release
+##	  build only with --long, --slow or --include-arm, that --quick, --no-arm and
+##	  --no-bsd leave them out, and that the engine finds an artifact whose name
+##	  has the version in it. The arm64 packages and their check run only when the
+##	  arm64 build did. --include-bsd brings FreeBSD back under --quick. A copy
+##	  of cicd.bash runs a whole pipeline in a scratch dir, every stage a
+##	  stand-in, with one arm64 and one other cross target, packager and check.
+##	  Then the real config.bash is read: its arm64 entry has to name
+##	  release-arm64.bash and the tarball that script writes, and its arm64
+##	  packager and check have to ask for arm64.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-arm.bash
 ##	- Test ID: rjph39cv
@@ -30,11 +31,14 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/cicd-arm-check.XXXXXX")"
 trap 'rm -rf "${scratch}"' EXIT
+## Run folders go in the scratch dir, not the box's own temp root.
+export HOST_TEMP="${scratch}/host-temp"
+mkdir -p "${HOST_TEMP}"
 
 ver="4.5.6"
 mkdir -p "${scratch}/cicd/utility/include"
 cp "${root}/cicd/cicd.bash" "${scratch}/cicd/"
-for inc in gfs-rotate source-date; do
+for inc in gfs-rotate source-date run-temp docker-sweep jobs; do
 	cp "${root}/cicd/utility/include/${inc}.bash" "${scratch}/cicd/utility/include/"
 done
 printf "project('app', 'c', version: '%s')\n" "$ver" > "${scratch}/meson.build"
@@ -117,8 +121,12 @@ fPipeline(){
 	[[ -z "$text" || "$out" == *"$text"* ]] || fFail "[$*]: no '${text}' in the plan"
 }
 
-fPipeline arm      ""
+## A plain run leaves arm64 out since 2026-10-24, to stay near an hour.
+fPipeline "no arm" "(no arm64, --long adds it)"
+fPipeline arm      ""                                   --long
+fPipeline arm      ""                                   --slow
 fPipeline arm      ""                                   --include-arm
+fPipeline "no arm" "(no arm64, --no-arm)"               --long --no-arm
 fPipeline "no arm" "(no arm64, --no-arm)"               --include-arm --no-arm
 fPipeline "no arm" "(no arm64, --no-arm)"               --no-arm --include-arm
 fPipeline "no arm" "(no arm64, --no-arm)"               --no-arm
@@ -164,7 +172,7 @@ out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd
 [[ ! -e "${scratch}/out/app-${ver}-linux-arm64.tar.gz" && ! -e "${scratch}/out/pkg-arm64" ]] || fFail "--quick built arm64"
 
 help="$(bash "${root}/cicd/cicd.bash" --help)"
-for opt in --include-arm --no-arm --include-bsd --no-bsd; do
+for opt in --include-arm --no-arm --include-bsd --no-bsd --long --slow; do
 	grep -qE "^ +${opt} " <<< "$help" || fFail "--help has no ${opt}"
 done
 
@@ -201,4 +209,4 @@ if ((failures)); then
 	fEcho "FAILED: arm64 in the pipeline, ${failures} problem(s)"
 	exit 1
 fi
-fEcho "OK: arm64 and FreeBSD run by default, and not under --quick"
+fEcho "OK: FreeBSD runs by default and arm64 with --long, neither under --quick"

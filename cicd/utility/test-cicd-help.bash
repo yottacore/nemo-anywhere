@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: Check that cicd.bash --help names every stage --quick skips.
-##	  The list is read from the run itself: the stages that report "skipped
-##	  (--quick)" and the switches the --quick option turns off.
+##	  The list is read from the run itself: the steps its plan lists as turned
+##	  off by --quick, with every step set up, and the switches the --quick
+##	  option turns off.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-help.bash
 ##	- Test ID: rj9v18rx
@@ -34,8 +35,40 @@ fi
 ## What the switches --quick turns off are called in the help.
 declare -A switchNames=([BUILD_CROSS]="cross" [PROFILE_ENABLE]="profiler" [PACKAGE_ENABLE]="packages")
 
+## A copy with every step set up, and a debug build that fails, so the run
+## stops right after its plan.
+scratch="$(mktemp -d "${TMPDIR:-/tmp}/cicd-help-check.XXXXXX")"
+trap 'rm -rf "${scratch}"' EXIT
+export HOST_TEMP="${scratch}/host-temp"
+mkdir -p "${HOST_TEMP}" "${scratch}/cicd/utility/include" "${scratch}/cicd/utility/demo-video"
+cp "$cicd" "${scratch}/cicd/"
+for inc in gfs-rotate source-date run-temp docker-sweep jobs; do
+	cp "${here}/include/${inc}.bash" "${scratch}/cicd/utility/include/"
+done
+printf '#!/usr/bin/env bash\n' > "${scratch}/cicd/utility/screenshots.bash"
+chmod +x "${scratch}/cicd/utility/screenshots.bash"
+: > "${scratch}/cicd/utility/demo-video/demo-video.py"
+printf '#!/usr/bin/env bash\n' > "${scratch}/private.bash"; chmod +x "${scratch}/private.bash"
+cat > "${scratch}/cicd/config.bash" <<-CFG
+	APP_NAME="App"; EXE_NAME="app"; CICD_CONTAINERS=()
+	FMT_CMD=(true); FMT_CHECK_CMD=(true); DEBUG_BUILD_CMD=(false); TEST_CMD=(true)
+	LINT_PROBE=(true); LINT_CMD=(true); FUZZ_PROBE=(true); FUZZ_CMD=(true); SANITIZE_CMD=(true); ANALYZE_CMD=(true)
+	SCROLL_HARNESS=(true); BSD_TEST_CMD=(true); BSD_RELEASE_CMD=(true)
+	PROFILE_ENABLE=1; PROFILE_SECS=1; PROFILE_CMD=(true); PROFILE_OUT_DIR="out"; PROFILE_STRICT=0
+	RELEASE_ENABLE=1; RELEASE_NATIVE_CMD=(true); RELEASE_NATIVE_BIN="x"; BUILD_CROSS=1
+	CROSS_TARGETS=("Windows (stand-in)|windows|x|true" "Linux arm64 (stand-in)|linux-arm64|x|true")
+	VERSION_MANIFEST="meson.build"; PACKAGE_ENABLE=1; PACKAGE_CMDS=("p|true"); PACKAGE_CHECKS=()
+	PRIVATE_RUNNER="${scratch}/private.bash"; PRIVATE_DOGFOOD=(); SHOTS_ENABLE=1; DEMO_ENABLE=1; LINT_LOG_DIR=""
+	DOGFOOD_FIXED_DESTS=("${scratch}"); DOGFOOD_ROTATING_DESTS=(); DOGFOOD_CROSS_DESTS=(); DOGFOOD_HOOK=(true)
+	DOGFOOD_REMOTE=(true); GIT_PUBLISH=(true); PUBLISH_AUTO_MESSAGE="unused"
+CFG
+plan="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --quick --no-sync 2>&1 </dev/null || true)"
+## Plan names that the help calls something else.
+declare -A helpNames=(["FreeBSD suite"]="FreeBSD" ["Release build: FreeBSD"]="FreeBSD" ["Dogfood (remote)"]="remote dogfood" ["Release build: Linux arm64 (stand-in)"]="arm64")
 skipped=()
-while IFS= read -r what; do skipped+=("$what"); done < <(grep -o -E '"[a-z][a-z ]*[a-z] skipped \(--quick\)"' "$cicd" | sed 's/^"//; s/ skipped (--quick)"$//' | sort -u)
+while IFS= read -r what; do
+	[[ -n "$what" ]] && skipped+=("${helpNames[$what]:-${what}}")
+done < <(sed -n 's/^    - \(.*\) (--quick)$/\1/p' <<< "$plan" | sort -u)
 optLine="$(grep -E '^[[:space:]]+--quick\)' "$cicd" || true)"
 while IFS= read -r var; do
 	[[ -n "$var" ]] || continue

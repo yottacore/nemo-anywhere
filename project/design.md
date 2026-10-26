@@ -798,11 +798,21 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 
 - Feature branches merge `--no-ff` into `dev`, the integration target. `main` is release-only, and merging dev into main is what cuts a release. Nothing is committed directly on either.
 
-- The merge gate is `cicd.bash --gate` running as the `pre-push` hook, for pushes to main only. A push to dev isn't gated, since each chunk is built and tested before it is merged there. It is the local stand-in for a hosted CI workflow: lints, then a container build, then the test suite, then a headless launch smoke test. Install it per clone with `cicd/hooks/install.bash`; override a run with `git push --no-verify` or `SKIP_GATE=1`.
+- The merge gate is `cicd.bash --merge-gate` running as the `pre-push` hook, for pushes to main only. A push to dev isn't gated, since each chunk is built and tested before it is merged there. It is the local stand-in for a hosted CI workflow: every check of a plain run, other boxes included, with nothing changed. Install it per clone with `cicd/hooks/install.bash`; override a run with `git push --no-verify` or `SKIP_GATE=1`.
 
-- The Windows gate runs the same lints, build, test suite and smoke test.
+- A push to main whose commits change only paths listed in `cicd/hooks/gate-skip-paths.txt`, docs and the like, skips the gate and both guards below, since it can't change what ships.
 
-- With no options a run does everything. `--quick` runs only the steps that are quick and need no other box: the build, the full suite, lints, the sanitizer suite, the profiler, the native and Windows release builds, and local dogfood. It skips fuzzing, packages, arm64, the FreeBSD lane, the Windows dogfood refresh, screenshots and the demo. `--include-arm` and `--include-bsd` bring arm64 and FreeBSD back. On Windows `-Quick` changes nothing yet, since none of those run there.
+- The Windows gate runs the lints, build, test suite and smoke test.
+
+- With no options a run does everything but the arm64 release build, to stay near an hour. `--long`, or `--slow`, adds it. `--quick` runs only the steps that are quick and need no other box: the build, the full suite, lints, the sanitizer suite, the profiler, the native and Windows release builds, and local dogfood. It skips fuzzing, packages, arm64, the FreeBSD lane, the Windows dogfood refresh, screenshots and the demo. `--include-arm` and `--include-bsd` bring arm64 and FreeBSD back. On Windows `-Quick` changes nothing yet, since none of those run there.
+
+- `--backlog-run-quick` runs the format check, lints and the test suite, in about 4 minutes, or only the areas named: `format`, `lint` and `tests`. `--backlog-run-full` and `--merge-gate` run every check a plain run does, other boxes included. None of the 3 syncs, formats in place, dogfoods, installs, publishes, commits, pushes or prompts, and they leave out screenshots and the demo. `--gate` and `--ci` are other names for `--backlog-run-quick` and `--merge-gate`, and say so when used.
+
+- `--no-remote` leaves out every step on another box, such as arm64, the FreeBSD lane and the Windows dogfood refresh. It wins over `--include-arm` and `--include-bsd`.
+
+- Each run works in a folder of its own, `<temp>/nemo-anywhere/<YYYYmmDD-HHMMSS>_<NNN>/`, where `<temp>` is `HOST_TEMP`, or `TMPDIR` when that isn't set. `TMPDIR`, `TEMP` and `TMP` point at it, and its `run.pid` names the run. It's removed at the end, on a failure or Ctrl+C too. `--keep-temp` keeps it and prints where it is. A run also removes the run folders older than 2 days whose process is gone.
+
+- Every container and image the pipeline makes has `dev.project` and `dev.run` labels. At the end of a run, failure and Ctrl+C included, the run's own containers go, then the project's dangling images and its tags past the newest 2, then build cache over a week old. One line says what went and about what it freed. Nothing without the project's label is touched. The long-lived build containers stay, and `--keep-temp` keeps the run's containers too.
 
 - The FreeBSD lane runs the build and suite on the FreeBSD box in the test stage, and its tarball and pkg in the release stage. It runs on every full run. `--no-bsd` leaves it out, and `--include-bsd` brings it back under `--quick`.
 
@@ -825,9 +835,11 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 
 Stages, in order, each self-skipping when unconfigured: remote sync, format, debug build, tests and lints with fuzzing and the sanitizer suite, profiler, release build, packages, dogfood, backup and publish. Disabled on purpose today are the format stage, since there is no in-place C formatter worth running, and the engine's own release collector, because the per-platform release lanes write those artifacts themselves.
 
-- Remote sync runs first for a reason. The publish stage pulls at the end, so without it a change merged remotely mid-run would be pushed having never been built or tested. It fast-forwards when the branch is only behind and stops the run outright when it has diverged. It is skipped in gate mode, since a pre-push hook must not rewrite the tree underneath the push that called it.
+- Remote sync runs first for a reason. The publish stage pulls at the end, so without it a change merged remotely mid-run would be pushed having never been built or tested. It fast-forwards when the branch is only behind and stops the run outright when it has diverged. It is skipped by `--backlog-run-quick`, `--backlog-run-full` and `--merge-gate`, since a pre-push hook must not rewrite the tree underneath the push that called it.
 
-- No stage is allowed all the cores. Build parallelism is capped at half of them, so a full run leaves the machine usable.
+- No stage is allowed all the cores. Job counts are half of them, and a quarter when the box is busy or for the steps that are hard on it: the sanitizer suite, fuzzing and the analyzers. Busy means a 1-minute load over half the core count, checked again before each step. Everything runs at the lowest CPU and disk priority, and each build container is held to the step's count with a low CPU share, so a full run leaves the machine usable.
+
+- Each step opens and closes with a line giving the local time, its number out of the steps that run, and PASS or FAIL. The plan at the top lists the steps turned off, with the flag or reason for each.
 
 - The publish stage refuses a dirty tree, checked once at preflight and again before it runs. It commits everything it finds, and nothing there can tell work in progress from a finished change.
 
@@ -863,7 +875,7 @@ Linux is a thin relocatable prefix of a couple of MB that uses the distro's own 
 
 - It is built in an Ubuntu 22.04 container, never the day-to-day Debian 13 one. A binary's glibc floor is whatever it was built against, so a release built on Debian 13 would refuse to start on anything older than 2025. The floor is therefore glibc 2.35 and GTK 3.24.33, which reaches Ubuntu 22.04, Debian 12, Mint 21 and Fedora 36 onward.
 
-- The arm64 tarball is built the same way, on an arm64 Linux box with docker, from the same image file, so it has the same floor and the same library versions. Nothing here cross-builds GTK. `cicd/linux/release-arm64.bash` sends the working tree to that box, runs the same release script there, and brings the tarball back. The release script names it `arm64`, the name the installers ask for, where the kernel says `aarch64`. On an emulated box a build takes about an hour, so `--quick` leaves it out unless `--include-arm` is given. Its `.deb` and `.rpm` come with it, and only then.
+- The arm64 tarball is built the same way, on an arm64 Linux box with docker, from the same image file, so it has the same floor and the same library versions. Nothing here cross-builds GTK. `cicd/linux/release-arm64.bash` sends the working tree to that box, runs the same release script there, and brings the tarball back. The release script names it `arm64`, the name the installers ask for, where the kernel says `aarch64`. On an emulated box a build takes about an hour and a half, so only `--long`, `--slow` or `--include-arm` brings it in. Its `.deb` and `.rpm` come with it, and only then.
 
 - What makes it relocatable: the program works out where it is and points `XDG_DATA_DIRS` and `PATH` at the folder it sits in, at startup, before anything reads them. The extension API is inside the program, so there is no `lib/` folder to find. Everything looked up through the XDG data dirs - actions, search helpers, icons, mime info - then resolves wherever the folder was installed. There used to be a shell wrapper in `bin/` doing that with the real binary hidden in `libexec/`; two files where one would do, so it went.
 	- Those folders are for the program itself. A program it starts for the user, such as an Open With choice, an action, a terminal or a link, gets the lists as they were before it started. Its own helpers keep them, and a new window starts from the user's lists and adds the folders again. The install's own menu entry names the program bare, so opening something with it runs this copy by its full path.

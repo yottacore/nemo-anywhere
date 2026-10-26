@@ -78,9 +78,11 @@ TOOL_PINS=(
 ## against.
 ## -j is not optional: left alone ninja takes cores+2, and the engine's whole
 ## point in computing CICD_MAX_JOBS is that a pipeline run leaves the box usable.
+## It's escaped so the container reads it when the step runs, since the count
+## is checked again before each step.
 ## Warnings are errors in every pipeline build; linux/run-tests.bash says why.
 DEBUG_BUILD_CMD=(bash "${DOCKER_RUN}" "debug build" "
-	bash /src/cicd/utility/meson-setup.bash /build /src/source -Dwerror=true && bash /src/cicd/utility/check-werror.bash /build && ninja -C /build -j ${CICD_MAX_JOBS:-2}
+	bash /src/cicd/utility/meson-setup.bash /build /src/source -Dwerror=true && bash /src/cicd/utility/check-werror.bash /build && ninja -C /build -j \${CICD_MAX_JOBS:-2}
 ")
 
 ## Stage 3: regression tests - READY. The meson suite, then a headless launch and
@@ -89,10 +91,13 @@ DEBUG_BUILD_CMD=(bash "${DOCKER_RUN}" "debug build" "
 ## stage of its own and would otherwise test whatever was last left in /build.
 ## -j is passed through for the same reason it is above. Same wrapper, so a
 ## down/absent daemon skips-with-warning instead of aborting the gate.
-TEST_CMD=(bash "${DOCKER_RUN}" "tests" "NEMO_TEST_JOBS=${CICD_MAX_JOBS:-2} bash /src/cicd/linux/run-tests.bash")
-## Held to CICD_MAX_JOBS cores each, since the run's own CPU cap cannot reach
-## inside them.
+TEST_CMD=(bash "${DOCKER_RUN}" "tests" "NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash /src/cicd/linux/run-tests.bash")
+## Held to CICD_MAX_JOBS cores each, with a low CPU share, since the run's own
+## CPU cap and nice cannot reach inside them.
 CICD_CONTAINERS=(nemo-build nemo-build-jammy nemo-winbuild)
+## At the end of a run, remove the run's labeled containers, other than the ones
+## above, the project's dangling and older images, and week-old build cache.
+DOCKER_SWEEP=1
 
 ## Stage 3 (after tests): lints - READY. cicd/utility/lint.bash runs the C check
 ## (the changed C files on a feature branch, the whole tree on dev and main) and
@@ -114,14 +119,14 @@ LINT_CMD=(bash cicd/utility/lint.bash)
 ## where three minutes of searching does not belong.
 FUZZ_SECS=60
 FUZZ_PROBE=(bash "${DOCKER_RUN}" "fuzz probe" "bash /src/cicd/linux/fuzz.bash --probe")
-FUZZ_CMD=(bash "${DOCKER_RUN}" "fuzz" "FUZZ_SECS=${FUZZ_SECS} NEMO_TEST_JOBS=${CICD_MAX_JOBS:-2} bash /src/cicd/linux/fuzz.bash")
+FUZZ_CMD=(bash "${DOCKER_RUN}" "fuzz" "FUZZ_SECS=${FUZZ_SECS} NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash /src/cicd/linux/fuzz.bash")
 
 ## Stage 3 (after fuzzing): the suite again, built with the address and undefined
 ## behavior sanitizers, leak checks on - READY. It builds into a directory of its
 ## own, so /build is left alone. About a minute cold at 16 jobs and half that
 ## warm. --quick keeps it and the gate leaves it out; --no-sanitize skips it. Leaks in the
 ## libraries under GTK are listed in linux/sanitizers.supp.
-SANITIZE_CMD=(bash "${DOCKER_RUN}" "sanitizers" "NEMO_TEST_JOBS=${CICD_MAX_JOBS:-2} bash /src/cicd/linux/test-sanitizers.bash")
+SANITIZE_CMD=(bash "${DOCKER_RUN}" "sanitizers" "NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash /src/cicd/linux/test-sanitizers.bash")
 
 ## Stage 5 (after the cross build): gcc's -fanalyzer and the clang analyzer over
 ## both compile lists - READY, report only for now. Fails on a tracked .c that

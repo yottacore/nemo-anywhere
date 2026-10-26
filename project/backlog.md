@@ -33,6 +33,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- CICD flags: `--no-container`.
+	- ID: 2026102516295605
+	- Type: Task
+	- Status: Queued
+		- Waits on the `--no-container` question in questions.md.
+	- Priority|Severity: High
+	- Opened: 20261025-162956
+	- Opened by: 2026102516165477
+	- Parent ID: 2026102416300004
+	- Requirements:
+		- `--no-container` runs on the host, per the shared CICD style guide.
+		- The GTK dev stack never goes on the host here, so the build and test steps can't run there.
+	- Test case: none yet.
+	- Decided: (a). Lints run on the host, and the run stops with one clear line at the first step that needs a container.
+
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
@@ -116,13 +131,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: instdocs
 	- Commit: c5eb2000
 	- Test case: none new, docs only. The lint stage passes, and its prose check now reads install.md and building.md.
+	- Stand-in: none. File names, layout and the license line are calls for a person.
 
 - Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
 	- ID: 2026100516274646
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Waiting on automated testing
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
-	- Needs external testing: the dialog on a real Windows desktop, opening by itself on a short screen. Under wine it opened and reset with neither 7-Zip nor rar.
+	- Needs external testing: rhtmbdmj on vm925w with wintest's screen at a lower resolution, so the dialog opens by itself on a short screen. Under wine it opened and reset with neither 7-Zip nor rar.
+	- Needs hand testing: the Reset button's look beside Options on a real desktop.
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -151,13 +168,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: optreset
 	- Commit: c0a7ede
 	- Test case: rhtmbdmj, Compress dialog height test: closed with Reset grayed at the defaults, Reset lit by a change and by a password alone, Reset clearing them and closing Options, opening by itself for remembered choices with the buttons on screen, Reset dropping them from the settings file, and a remembered lock the format can't do opening Options, shown off and grayed, and back on with rar. rhae85g0, Archive settings test, test_choices: the defaults match the settings table, each choice off its default counts, a forced off shows off and leaves the choice, saving keeps it with a preset as its size, and the reset drops every key under Options and nothing else.
+	- Stand-in: 20261025 on vm925w at a61c4f91: rhtmbdmj passes on the real desktop, with a 1392 px work area. Options opened by itself and the 787 px dialog stayed on screen. The lower resolution for a short screen didn't take, so that part is still to run.
 
 - On Windows, the trash icon leaves out removable drives.
 	- ID: 2026100708294146
 	- Type: Bug
-	- Status: Waiting on UAT
+	- Status: Done
 	- Needs local test suite run?: no. Windows only. The full Linux suite passed on the branch, 174 of 174, before this change.
-	- Needs external testing: a real removable drive, which neither box has. On 20261022 vm925w had C: and K: fixed and D: optical, and b29w was off the network. A USB stick under the `RecycleBinDrives` policy with an item in its bin: the trash icon shows full. An empty USB card reader that keeps its drive letter: no insert-disk prompt, and nothing waits.
+	- Needs external testing: done 20261025 on vm925w, as in Stand-in.
 	- Priority|Severity: Low
 	- Opened: 20261007-082941
 	- Opened by: 2026100613231440
@@ -176,6 +194,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: winlow
 	- Commit: 0dab690
 	- Test case: rjhvmm6f, Mapped drive not asked, new bin cases: a fixed drive's bin is asked, a removable one's only with a disk in it, an empty drive answers in under 2 s, and no share or optical drive is asked.
+	- Stand-in: 20261025 on vm925w at a61c4f91, a USB disk as removable drive E:, with the `RecycleBinDrives` policy on for wintest. A file recycled there put 1 item in E:'s bin, the only bin with anything in it. rjhvmm6f found E: removable with a disk in and its bin asked, and passed. The empty card reader was stood in by the empty optical drive D: again, which answered empty in 1 ms with no prompt, since ejecting the USB disk's medium didn't take.
+	- Acceptance signoff: Self-closed: rjhvmm6f on a removable drive natively.
+	- Closed: 20261025-194200
+
+- The Linux release build fails on `EEL_ANALYZER_SKIP ("infinite-loop")` in jammy's gcc 11.
+	- ID: 2026102510323600
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: none
+	- Priority|Severity: High
+	- Opened: 20261025-103236
+	- Opened by: t00mietum
+	- Related IDs: 2026102412254358
+	- Target OS: Linux
+	- Steps to reproduce: a full run's native release build stage, `cicd/linux/release.bash`, at dev 88eb2f9d or later.
+	- Incorrect behavior: `eel-canvas.c` fails to compile in `nemo-build-jammy`, "eel-analyzer.h:41:35: error: unknown option after '#pragma GCC diagnostic' kind [-Werror=pragmas]", at line 2250, `EEL_ANALYZER_SKIP ("infinite-loop")`. The stage stops the full run, and nothing after it runs.
+	- Expected behavior: the release build compiles on every gcc the lanes use. A suppression for a warning an older gcc lacks does nothing there.
+	- Reproduced: 20261025 on Linux, in round1025's third full run. The round didn't touch `source/eel/`.
+	- Possible cause: `-Wanalyzer-infinite-loop` is newer than gcc 11.4, the jammy image's compiler. The other names in use (null-argument, null-dereference, use-after-free) compiled there.
+	- Note: the arm64 and FreeBSD lanes build with other compilers, so they may hit the same.
+	- Actual cause: as above. `-Wanalyzer-infinite-loop` is new in gcc 14. Before that, gcc warns about a `GCC diagnostic` pragma with a name it doesn't know, and `-Werror` makes that fatal.
+	- Decisions:
+		- Under gcc before 14, `EEL_ANALYZER_SKIP` also ignores `-Wpragmas` inside its push, so a name that gcc lacks does nothing there. gcc 14 and later still warn on a bad name, and the analyzer stage runs gcc 14, so a typo is still caught there.
+	- Actual fix: `source/eel/eel-analyzer.h`.
+	- Swept: all 10 `EEL_ANALYZER_SKIP` sites in 8 files. Only infinite-loop is newer than gcc 10. The arm64 lane is jammy's gcc 11 on aarch64, so the same fix covers it. FreeBSD builds with base clang, where the macro is empty.
+	- Test case: a release build in `nemo-build-jammy` with `-Werror`, which the full run already does.
+	- Verified: 20261025. In `nemo-build-jammy`'s release build (gcc 11.4, `-Werror`), `eel-canvas.c` fails at line 2250 as reported with the old header, and builds with the new one. All 8 files that use the macro build there. Under gcc 14 in `nemo-build` and MinGW gcc 14 in `nemo-winbuild`, the same files build with `-Werror`, and a bad name still fails. gcc 14's `-fanalyzer` on `eel-canvas.c` reports the infinite loop with the suppression taken out, and nothing with the new header. `cicd/cicd.bash --gate` passed with it, C lint included.
+	- Closed: 20261025
+	- Verified: 20261025, full run `cicd/cicd.bash --backlog-run-full --no-sanitize --no-bsd` at a61c4f91 passed all 10 steps; the sanitizer suite passed in the run before it at the same code. The native release build in nemo-build-jammy (gcc 11, -Werror) passed.
 
 - Nemo Anywhere dim checkmarks: the list view column.
 	- ID: 2026102411133409
@@ -249,11 +296,91 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261024, rm1sbxgy fails 10 checks with the new handlers bypassed and passes with them. rktkms8a, rktqpp37, rk7yvgse and rm1sbwdq pass. The full Linux suite, 234 OK and 1 skipped. The build and the Windows cross build with warnings as errors, the C lint and the test ID check pass.
 	- Verified: 20261024, rm1sbxgy passes in the FreeBSD lane at c7194950.
 
+- CICD CPU: `cicd.bash` and the scripts it runs.
+	- ID: 2026102517333352
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: none
+	- Priority|Severity: High
+	- Opened: 20261025-173333
+	- Opened by: 2026102416300003
+	- Parent ID: 2026102416300003
+	- Requirements:
+		- Half the cores, a quarter on a busy box or for a hard step, checked at the start and before each step. Worked out in one place and passed to every tool that runs in parallel.
+		- `nice -n 19` and `ionice -c 3` for the run. Each container gets `--cpus <jobs>`, `--cpu-shares 256` and `nice` inside it.
+	- Decisions:
+		- The counts are worked out in `cicd/utility/include/jobs.bash`. `cicd.bash`, `docker-run.bash`, `build-cross.bash`, `linux/release.bash`, `analyze.bash` and `lint-c.bash` take them from there, and a script run alone works them out the same way.
+		- Busy is checked before each step, and the build containers get that step's count. The container commands in `config.bash` read the count when the step runs, not when the file is read.
+		- The hard steps are the sanitizer suite, fuzzing and the analyzers. The leak checks join them when 2026101911105600 adds them.
+		- A `CICD_MAX_JOBS` set before the run still pins the count, as before.
+		- The run's own CPU quota stays at half the cores. Busy and hard steps only lower the job counts.
+		- In the containers, `nice` covers the commands that build or test: the build, suite, fuzzing and sanitizer runs, the cross and release builds, and the analyzers. The short ones, such as the smoke checks and packing, are held only by the container's CPU cap and share.
+	- Swept: every `nproc` and half-the-cores line under `cicd/`. `analyze.py` keeps its own half for when it's run by hand with no `--jobs`; `analyze.bash` always passes one. `bsd/release.bash` and the arm64 lane take theirs from the lane scripts, in 2026102517333362.
+	- Branch: round1025b
+	- Commit: f8524717
+	- Test case: rm5cn5p8 (job counts, one place works them out, the containers read them per step under nice). rkmqprx6 checks a hard step gets a quarter.
+	- Verified: 20261025, rm5cn5p8 and rkmqprx6 pass, and each fails on a planted fault: a count of 0, a script working out its own half, a count expanded when `config.bash` is read, and the sanitizer suite not marked hard. In the build container, a command run the new way runs at nice 19 and idle I/O and reads the step's count. rj3ytv0b, rjph39cv, rm5a3ej9 and rm5b2v7n pass.
+	- Closed: 20261025
+	- Verified: 20261025, full run `cicd/cicd.bash --backlog-run-full --no-sanitize --no-bsd` at a61c4f91 passed all 10 steps; the sanitizer suite passed in the run before it at the same code. Every step printed its jobs line: 16 at load 16, 8 on a busy box, 8 for the hard steps (fuzzing, analyzers). The analyzers took 39 min at 8 jobs.
+
+- CICD step output: `cicd.bash`.
+	- ID: 2026102517333367
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: none
+	- Priority|Severity: High
+	- Opened: 20261025-173333
+	- Opened by: 2026102416300005
+	- Parent ID: 2026102416300005
+	- Requirements:
+		- Each step opens with `[ YYYYmmDD-HHMMSS.NN: Step N of M; Starting <name> ]` and closes the same way with `PASS` or `FAIL`, in local time, under a rule of 79 dots.
+		- A step that's turned off isn't counted, and the first section lists those with the flag or reason for each. The same in `--backlog-run-quick`.
+	- Decisions:
+		- The plan is made before the run starts, from the same switches the steps read, so M is known at step 1.
+		- Steps are split finer than the old 8 stages: tests, lints, fuzzing, the sanitizer suite and the FreeBSD suite are each a step, and so is each cross build. The package checks stay inside the packages step, and the dogfood hook inside dogfood.
+		- The old inline "skipped" lines are gone, since the plan lists those steps.
+		- A step left open when the run stops, by a failure or Ctrl+C, closes as `FAIL`.
+		- Each step prints its job count and the load under its opening line.
+	- Branch: round1025b
+	- Commit: f8524717
+	- Test case: rkmqprx6 checks the step lines of every run it makes, a failing step, and the turned-off list. rj9v18rx now reads the steps `--quick` turns off from the plan.
+	- Verified: 20261025, rkmqprx6 and rj9v18rx pass. rkmqprx6 fails with a 76-dot rule, with the last step left open, with a step left out of the plan, and with no `FAIL` on a failed step. rj9v18rx fails with fuzzing left out of the `--quick` help.
+	- Progress log:
+	- Closed: 20261025
+		- 20261025: rj9v18rx used to grep `cicd.bash` for "skipped (--quick)" lines, which are gone. It now runs a copy with every step set up and reads the plan's turned-off list. What it checks is the same.
+	- Verified: 20261025, full run `cicd/cicd.bash --backlog-run-full --no-sanitize --no-bsd` at a61c4f91 passed all 10 steps; the sanitizer suite passed in the run before it at the same code. Every step opened and closed, numbered out of 10, and the plan listed the turned-off steps with their flags. The last step's PASS line printed twice, filed as 2026102520100000.
+
+- CICD flags: `--backlog-run-quick`, `--backlog-run-full` and `--merge-gate`.
+	- ID: 2026102516165473
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: none
+	- Priority|Severity: High
+	- Opened: 20261025-161654
+	- Opened by: 2026102416300004
+	- Parent ID: 2026102416300004
+	- Requirements:
+		- `cicd.bash` takes `--backlog-run-quick [<area>...]`, `--backlog-run-full` and `--merge-gate`. `--help` lists the areas.
+		- `--gate` and `--ci` become other names for `--backlog-run-quick` and `--merge-gate`, and say so in one line when used.
+		- The 3 never dogfood, publish, commit, push, install, sync, rewrite a tracked file, or prompt.
+	- Decisions:
+		- The areas are the quick run's 3 steps: `format`, `lint` and `tests`. The suite has no meson suites to split it by.
+		- `--backlog-run-full` and `--merge-gate` run the same steps: every check of a plain run, other boxes included. Sync, the in-place formatter, every dogfood step, publish, the README images and the demo are off, and the format check runs in place of the formatter. No later option turns those back on.
+		- Of the 3 modes, the last one named wins.
+	- Progress log:
+		- 20261025: in `cicd.bash`, with help, design.md and building.md. The pre-push hook moved to `--merge-gate` in 2026102516165475.
+	- Swept: every doc and script that names `--gate`. The hook is 2026102516165475, `cicd-win.ps1` is 2026102516165482, and the private round settings' gate and full run lines are left for the round.
+	- Branch: round1025b
+	- Test case: rkmqprx6, `test-cicd-quick.bash`. It gained a formatter, format check, README image and demo stand-in, and checks the steps each mode runs, the areas, the one-line note for `--gate` and `--ci`, a bad area, that nothing changes the tree, and that `--help` names them.
+	- Verified: 20261025. rkmqprx6 passes, and fails 20 checks on the old `cicd.bash`. It also fails with publish, dogfood, sync, or the README images and the demo left on under `--merge-gate`. `cicd/cicd.bash --gate` passed for real on round1025b: lint, then the suite with 235 OK and 1 skipped. rj9v18rx and rjph39cv pass.
+	- Closed: 20261025
+	- Verified: 20261025, full run `cicd/cicd.bash --backlog-run-full --no-sanitize --no-bsd` at a61c4f91 passed all 10 steps; the sanitizer suite passed in the run before it at the same code. The plan said checks only, and git status was the same after it.
+
 - The native gate on vm925w stops on scratch folders 7 tests leave behind.
 	- ID: 2026102413432225
 	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs external testing: the native gate on vm925w as wintest in the desktop session, `pwsh cicd/cicd-win.ps1 -Gate -Yes -NoFmt` from a bundle of round1025, since lint stops on 2026102509133500 until that's fixed. It should pass with nothing left behind, rm494xfp included.
+	- Status: Done
+	- Needs external testing: done 20261025 on vm925w, as in Verified.
 	- Priority|Severity: Avg
 	- Opened: 20261024-134322
 	- Opened by: 2026102409082700
@@ -275,6 +402,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261025: the native gate at bbcf7c9c stopped in lint after 4 minutes, at rjph39cv, "the arm64 build did not run". That's 2026102509133500, the same on dev at 88eb2f9d, since `cicd/` is the same in both. No test ran, so this fix wasn't reached.
 		- 20261025: the rerun with `-NoFmt` didn't start. vm925w failed to boot with "Failed to reserve port 5900", since vmKt6m was up for other work and held the SPICE port. Left for the next batch.
+		- 20261025: the native gate at a61c4f91 stopped in lint at rhtrxr80, filed as 2026102519212960. The rerun with `-NoFmt` passed.
 	- Actual fix: in the scratch cleanup every test shares, `source/test/test-scratch.c`.
 		- Before removing anything, it leaves a current folder that sits in a scratch folder, and closes a file cache that sits in one. A cache elsewhere is left open, since a worker still busy at exit could be using it.
 		- `test_slowness` takes `NEMO_TEST_SLOWNESS` when it's set, and makes no folder then. helper-end sets it for its copies.
@@ -283,7 +411,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rm494xfp, the cleanup removes a scratch folder that is the current folder and one holding an open file cache, and takes a handed slowness as is. The gate's leftover check covers the 7.
 	- Verified: 20261025. rm494xfp fails all 3 checks without the fix under wine, and passes with it. Under wine without the fix, command-launch left its folder and helper-end 2 `nemo-slowness-*` folders. With it, neither leaves any. Linux in the jail: rm494xfp, rjahhesy, rgy4vnf1, rjprhm52 and the 5 thumbnail tests. The sanitizer build: rm494xfp, rgy4vnf1 and the 5 thumbnail tests. Windows cross build, C lint and the test ID check.
 		- Under wine the 5 thumbnail tests no longer leave the cache, but each still leaves its scratch folder there, empty. Not looked into. Wine keeps the `nemo-leaks-*` folders the same way. The native gate shows whether Windows does too.
+		- 20261025, natively: the gate on vm925w as wintest in the desktop session, `-NoFmt`, from a bundle of round1025b at a61c4f91. 206 OK, 7 skipped, none failed, and it passed with nothing left behind. rm494xfp, the 5 thumbnail tests, helper-end and command-launch pass there. wintest's TEMP held no `nemo-*` folder after, so Windows doesn't keep the empty thumbnail folders that wine does.
 	- Swept: every test that points the cache at a scratch folder goes through the shared cleanup. config-share and thumbnail-stop also kill copies of themselves, and neither copy makes a scratch folder. command-launch was the only test left in its scratch folder; the fence test goes back to where it was.
+	- Closed: 20261025-193943
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
@@ -490,40 +620,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: opened.
 		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
 	- Test case: one per child.
-
-- The Linux release build fails on `EEL_ANALYZER_SKIP ("infinite-loop")` in jammy's gcc 11.
-	- ID: 2026102510323600
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261025-103236
-	- Opened by: t00mietum
-	- Related IDs: 2026102412254358
-	- Target OS: Linux
-	- Steps to reproduce: a full run's native release build stage, `cicd/linux/release.bash`, at dev 88eb2f9d or later.
-	- Incorrect behavior: `eel-canvas.c` fails to compile in `nemo-build-jammy`, "eel-analyzer.h:41:35: error: unknown option after '#pragma GCC diagnostic' kind [-Werror=pragmas]", at line 2250, `EEL_ANALYZER_SKIP ("infinite-loop")`. The stage stops the full run, and nothing after it runs.
-	- Expected behavior: the release build compiles on every gcc the lanes use. A suppression for a warning an older gcc lacks does nothing there.
-	- Reproduced: 20261025 on Linux, in round1025's third full run. The round didn't touch `source/eel/`.
-	- Possible cause: `-Wanalyzer-infinite-loop` is newer than gcc 11.4, the jammy image's compiler. The other names in use (null-argument, null-dereference, use-after-free) compiled there.
-	- Note: the arm64 and FreeBSD lanes build with other compilers, so they may hit the same.
-	- Test case: a release build in `nemo-build-jammy` with `-Werror`, which the full run already does.
-
-- rjph39cv and rkmqprx6 still expect arm64 in a plain run, so lint fails.
-	- ID: 2026102509133500
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261025-091335
-	- Opened by: t00mietum
-	- Related IDs: 2026102416300004
-	- Target OS: Linux
-	- Steps to reproduce: `cicd/cicd.bash --gate` on dev at 88eb2f9d.
-	- Incorrect behavior: the lint stage stops at rjph39cv, `test-cicd-arm.bash`, with "the arm64 build did not run" and 3 more problems. With that one left out, rkmqprx6, `test-cicd-quick.bash`, fails on "[no options]: arm64 did not run". So every gate and every full run stops in lint, and the stages after it never run.
-	- Expected behavior: both tests match the new default, where a plain run leaves arm64 out and `--long` or `--slow` brings it back.
-	- Reproduced: 20261025 on Linux, in round1025's gate step. Fails the same on dev, since the round didn't touch `cicd/`.
-	- Possible cause: 88eb2f9d moved arm64 behind `--long` in `cicd.bash`, and the 2 tests weren't updated with it.
-	- Note: with both tests left out of a copy of `lint.bash`, the rest of lint passed on the round branch.
-	- Test case: rjph39cv and rkmqprx6 themselves, plus a `--long` case in rjph39cv.
 
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
@@ -756,6 +852,63 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Temp folders are 2026102416300002.
 		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
 		- Overrides: the list of images to keep, in the private notes under the dev and test boxes.
+	- Progress log:
+		- 20261025: split into children 2026102516403487 (labels and the sweep at the end of a run), 2026102516403492 (a container per step) and 2026102516403497 (one pass over what came before labels).
+	- Test case: none yet.
+
+- Container cleanup: labels, and the sweep at the end of a run.
+	- ID: 2026102516403487
+	- Type: Task
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: `cicd/cicd.bash --backlog-run-full` once. It should end with the docker line, and `docker ps -a --filter label=dev.project=nemo-anywhere` should list nothing after it.
+	- Priority|Severity: High
+	- Opened: 20261025-164035
+	- Opened by: 2026101910075400
+	- Parent ID: 2026101910075400
+	- Prereq IDs: 2026102516403466
+	- Requirements:
+		- Every container, image and volume the pipeline makes gets `dev.project` and `dev.run` labels. `dev.run` is the run folder's name.
+		- At the end of a run, on failure and Ctrl+C too, from the run folder's trap: the run's containers by label, then the project's dangling images and its older tags past the current one and the one before, then `docker builder prune -f --filter until=168h`.
+		- Nothing without the project's label is touched. Never `docker rmi -f` or `docker system prune`.
+		- One line at the end says what was removed and about what it freed, from `docker system df` before and after.
+		- Checked with 2 runs, one killed partway.
+	- Progress log:
+		- 20261025: `cicd/utility/include/docker-sweep.bash` has `fDockerSweep`, which `cicd.bash` runs from the run folder's EXIT trap when `DOCKER_SWEEP` is on in `config.bash`. The long-lived boxes in `CICD_CONTAINERS` are left out until 2026102516403492. `--keep-temp` keeps the run's containers. The labels are on every `docker build` and `docker run` in `docker-run.bash`, `build-cross.bash`, `release.bash`, `lint-image.bash` and `test-release-setup.bash`. `dev.run` is the run folder's name, or `none` outside a run.
+		- 20261025: the daemon refuses a second `docker system df` while one runs, which stopped the EXIT trap before the run folder went. Now the size reads "size not known" then, and the folder is removed whatever the docker part does.
+		- 20261025: rjxyddbk's build check now wants the 2 labels after the tag: `build -q -t <tag> -` became `build -q -t <tag> --label dev.project=nemo-anywhere --label dev.run=<run> -`.
+	- Decisions:
+		- "The current one and the one before" is the newest 2 tags of each labeled repository, by creation.
+		- The `:init` snapshots predate the labels, so the sweep never touches them. A snapshot committed later from a labeled container takes its labels, and counts as one of its repository's tags.
+	- Test case: rm5b2v7n (which containers and images go, the keep list, `--keep-temp`, a failed step, SIGTERM, a refused df, docker down, `DOCKER_SWEEP` off, never `rmi -f` or another prune), rjxyddbk (labeled lint image build).
+	- Verified: 20261025, rm5b2v7n, rm5a3ej9, rjxyddbk, rkmqprx6, rjph39cv and rj3ytv0b pass. Two `--backlog-run-quick format lint` runs: one passed and printed the docker line; one got Ctrl+C while its labeled lint container ran, and exited 130 with no labeled container and no run folder left. A stand-in run that started a labeled container that outlives its step had it removed.
+	- Swept: every `docker build`, `docker run` and `docker create` under `cicd/`, `utility/` and `install.bash`. The arm64 lane builds on its own box, where `release.bash` labels with `dev.run=none`; that box's cleanup is 2026102516403481.
+
+- Container cleanup: a container per step.
+	- ID: 2026102516403492
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-164035
+	- Opened by: 2026101910075400
+	- Parent ID: 2026101910075400
+	- Prereq IDs: 2026102516403487
+	- Related IDs: 2026102416300000
+	- Requirements:
+		- Containers are named `<project>-<run folder>-<step>` and run with `--rm`, unless `--keep-temp`. Today the build and test steps run in the long-lived `nemo-build`, `nemo-winbuild` and `nemo-build-jammy`.
+		- Cache volumes stay under 2 GB.
+	- Test case: none yet.
+
+- Container cleanup: one pass over what came before labels.
+	- ID: 2026102516403497
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-164035
+	- Opened by: 2026101910075400
+	- Parent ID: 2026101910075400
+	- Prereq IDs: 2026102516403487
+	- Requirements:
+		- What the pipeline made before it had labels gets one cleanup pass by hand, by ID. Images still in use stay.
 	- Test case: none yet.
 
 - CICD reset: containers.
@@ -811,6 +964,34 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Each container gets `--cpus <jobs>`, `--cpu-shares 256`, and `nice` inside it.
 			- The same rules on the other boxes, with their own CPU count and load.
 		- Overrides: design.md, "The pipeline", on half the cores, and the Done item "No step in CICD should consume more than 50% CPU."
+	- Progress log:
+		- 20261025: split into children 2026102517333352 (`cicd.bash` and its scripts), 2026102517333357 (`cicd-win.ps1`) and 2026102517333362 (the other boxes).
+	- Test case: none yet.
+
+- CICD CPU: `cicd-win.ps1`.
+	- ID: 2026102517333357
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-173333
+	- Opened by: 2026102416300003
+	- Parent ID: 2026102416300003
+	- Requirements:
+		- `BelowNormal` priority at the top of `cicd-win.ps1`, or `Idle` for the hard steps, set on its own process so its children get it.
+		- Half the logical CPUs, a quarter when busy or for a hard step, worked out once and passed to every tool that runs in parallel. Busy needs a load figure Windows doesn't have; the processor queue length or CPU use over a short sample are the options.
+	- Test case: none yet.
+
+- CICD CPU: the FreeBSD and arm64 lanes and the private runner.
+	- ID: 2026102517333362
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-173333
+	- Opened by: 2026102416300003
+	- Parent ID: 2026102416300003
+	- Requirements:
+		- The same rules on each box, with its own CPU count and load: `nice -n 19` on FreeBSD, `nice` and `ionice` on the arm64 box, and its containers capped as on this box.
+		- `bsd/release.bash` and `bsd/lane.bash` take a fixed 4 jobs today, and the arm64 lane `NEMO_ARM_JOBS`, 4 by default. `include/jobs.bash` already reads FreeBSD's load.
 	- Test case: none yet.
 
 - CICD reset: standard flags.
@@ -834,6 +1015,50 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- The pre-push hook runs `--merge-gate` on a push to main, and skips it when the commits change only docs and other paths no build reads, listed in one place. A push to dev stays ungated.
 			- `cicd-win.ps1` takes the same flags.
 		- Overrides: 2026101816495201's decision that `--gate` stays the merge gate, design.md, "Branches and the merge gate", and the gate and full run lines in the private round settings.
+	- Progress log:
+		- 20261025: split into children 2026102516165473 to 2026102516165482, one per part. `--long` and `--slow` were already in. 2026102516295605 split from 2026102516165477 later.
+	- Test case: none yet.
+
+- CICD flags: `--no-container`, `--no-remote`, `--keep-temp` and `--list`.
+	- ID: 2026102516165477
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-161654
+	- Opened by: 2026102416300004
+	- Parent ID: 2026102416300004
+	- Prereq IDs: 2026102416300000, 2026102416300002
+	- Requirements:
+		- Per the shared CICD style guide: `--no-container` runs on the host, `--no-remote` skips the other hosts and VMs, `--keep-temp` keeps the run's temp folder and containers and prints where they are, and `--list` prints the steps and test IDs the other flags would run, and runs nothing.
+	- Progress log:
+		- 20261025: `--no-remote` is in `cicd.bash`. It leaves out arm64, the FreeBSD lane, the private runner and remote dogfood, and wins over `--include-arm` and `--include-bsd`. `--no-container` split to 2026102516295605. Left: `--keep-temp`, which needs the run's own temp folder and containers from 2026102416300002 and 2026102416300000, and `--list`.
+	- Test case: rkmqprx6 for `--no-remote`: a plain run, `--long` with both includes, and `--backlog-run-full`, each with it.
+	- Verified: 20261025, `--no-remote`: rkmqprx6 passes, and fails on `cicd.bash` without it, and with the private runner and remote dogfood left on under it.
+
+- CICD flags: run lengths.
+	- ID: 2026102516165479
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-161654
+	- Opened by: 2026102416300004
+	- Parent ID: 2026102416300004
+	- Requirements:
+		- The default run fits in about an hour. Time it, and move the slowest steps to `--long` if it doesn't.
+		- `--quick` keeps to about 10 minutes, with fuzzing at a short budget in it.
+	- Test case: none yet.
+
+- CICD flags: `cicd-win.ps1` takes the same flags.
+	- ID: 2026102516165482
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-161654
+	- Opened by: 2026102416300004
+	- Parent ID: 2026102416300004
+	- Prereq IDs: 2026102516165473, 2026102516165477
+	- Requirements:
+		- `cicd-win.ps1` takes the same flags as `cicd.bash`, in its own form where PowerShell needs one.
 	- Test case: none yet.
 
 - CICD reset: step output.
@@ -850,6 +1075,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- The rule above each step is 79 dots. Today it's 74.
 			- A step that's turned off isn't counted, and the first section lists those with the flag or reason for each.
 			- The gate, `cicd-win.ps1` and the lanes on the other boxes print the same form.
+	- Progress log:
+		- 20261025: split into children 2026102517333367 (`cicd.bash`, the gate included) and 2026102517333373 (`cicd-win.ps1` and the other boxes).
+	- Test case: none yet.
+
+- CICD step output: `cicd-win.ps1` and the lanes on other boxes.
+	- ID: 2026102517333373
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-173333
+	- Opened by: 2026102416300005
+	- Parent ID: 2026102416300005
+	- Requirements:
+		- `cicd-win.ps1`, its gate included, prints the same step lines as `cicd.bash`: the 79-dot rule, `Step N of M; Starting`, then `PASS` or `FAIL`, with local time to the hundredth, and the plan lists what's turned off.
+		- The FreeBSD and arm64 lanes and the private runner print the same form for their own steps.
 	- Test case: none yet.
 
 - CICD reset: a test for every Done item.
@@ -898,6 +1138,75 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Each run also removes the project's own run folders older than 2 days with no live process.
 			- Every recursive removal goes through a repo copy of the guard. 93 `rm -r` lines in 47 scripts and 29 `Remove-Item -Recurse` lines in 14 PowerShell scripts don't yet. File list in the private notes.
 			- The same on the Windows boxes and the test VMs.
+	- Progress log:
+		- 20261025: split into children 2026102516403466 (the run folder in `cicd.bash`), 2026102516403471 (the bash scripts), 2026102516403476 (`cicd-win.ps1` and the PowerShell scripts) and 2026102516403481 (the test VMs).
+	- Test case: none yet.
+
+- Temp files: the run folder in `cicd.bash`.
+	- ID: 2026102516403466
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: none
+	- Needs external testing: none
+	- Priority|Severity: Avg
+	- Opened: 20261025-164035
+	- Opened by: 2026102416300002
+	- Parent ID: 2026102416300002
+	- Requirements:
+		- Every run works in `${HOST_TEMP}/nemo-anywhere/<YYYYmmDD-HHMMSS>_<NNN>/`, points `TMPDIR`, `TEMP` and `TMP` at it, and writes `run.pid` there.
+		- A trap removes it at the end, on failure and Ctrl+C too. `--keep-temp` keeps it and prints its path.
+		- Each run also removes the project's own run folders older than 2 days with no live process.
+		- The removals go through a repo copy of the guard, which the other children use too.
+	- Progress log:
+		- 20261025: `cicd/utility/include/run-temp.bash` has the run folder, the stale sweep and `fSafeRm`, the repo copy of the guard. `cicd.bash` makes the folder right after its error trap, for every mode, and removes it from an EXIT trap. INT, TERM and HUP exit through it. `--keep-temp` keeps it, and the plan names it.
+		- 20261025: on vm925w the native lint stopped at rhtrxr80 (2026102519212960) before these, so they ran alone under MSYS2 in the desktop session, from a bundle at a61c4f91. rm5a3ej9 and rjph39cv pass; rm5a3ej9 skips its link cases there. rkmqprx6 fails its `--shots --demo` case, filed as 2026102519402235.
+	- Decisions:
+		- The sweep goes by the stamp in the folder's name, and leaves a folder with no `run.pid`, since hand-made temp folders share the parent.
+		- `<temp>` is `HOST_TEMP`, then `TMPDIR`, then `/tmp`, resolved once.
+	- Test case: rm5a3ej9 (run folder, signals, `--keep-temp`, stale sweep, the guard's refusals), and rkmqprx6 checks no run leaves its folder and the plan names it.
+	- Verified: 20261025, rm5a3ej9, rkmqprx6, rjph39cv and rj9v18rx pass. `--backlog-run-quick` passes, format, lint and tests, and leaves nothing in `<temp>/nemo-anywhere/`.
+	- Closed: 20261025
+	- Verified: 20261025, full run `cicd/cicd.bash --backlog-run-full --no-sanitize --no-bsd` at a61c4f91 passed all 10 steps; the sanitizer suite passed in the run before it at the same code. It left nothing of its own in the temp folder. rkmqprx6 passed under MSYS2 on vm925w after b652a8e0.
+
+- Temp files: bash scripts remove through the guard.
+	- ID: 2026102516403471
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261025-164035
+	- Opened by: 2026102416300002
+	- Parent ID: 2026102416300002
+	- Prereq IDs: 2026102516403466
+	- Requirements:
+		- The 93 `rm -r` lines in 47 scripts go through the repo copy of the guard, or a guard of the same kind that names the one parent it may remove under. File list in the private notes.
+	- Test case: none yet.
+
+- Temp files: `cicd-win.ps1` and the PowerShell scripts.
+	- ID: 2026102516403476
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261025-164035
+	- Opened by: 2026102416300002
+	- Parent ID: 2026102416300002
+	- Prereq IDs: 2026102516403466
+	- Requirements:
+		- `cicd-win.ps1` gets the same run folder, `run.pid`, removal at the end, keep switch and stale sweep as `cicd.bash`, on the Windows boxes.
+		- A PowerShell copy of the guard. The 29 `Remove-Item -Recurse` lines in 14 scripts go through it. File list in the private notes.
+	- Test case: none yet.
+
+- Temp files: the same on the test VMs.
+	- ID: 2026102516403481
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261025-164035
+	- Opened by: 2026102416300002
+	- Parent ID: 2026102416300002
+	- Prereq IDs: 2026102516403466
+	- Related IDs: 2026102416300001
+	- Requirements:
+		- The FreeBSD lane and the arm64 release work in a run folder under that box's temp root, write `run.pid` there, and remove it at the end through the guard, failure included.
 	- Test case: none yet.
 
 - CICD reset: CICD process gaps.
@@ -1426,6 +1735,52 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: a step after a closed menu waits until no pointer or keyboard grab is on record.
 	- Test case: the tests above themselves, with the X server held up after each menu closes.
 
+- rhd1cv38 read fewer than 3 draws once in the gate's suite, in the timed draw count case.
+	- ID: 2026102516081782
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261025-160817
+	- Opened by: 2026102510323600
+	- Target OS: Linux
+	- Steps to reproduce: `cicd/cicd.bash --gate` at load about 10.
+	- Incorrect behavior: "FAIL ../src/source/test/test-nemo-cache-db.c:592: renders == 3", in `check_draws_written_off_window`.
+	- Expected behavior: passes.
+	- Reproduced: once, 20261025 on round1025b, with an uncommitted header change that only touches compile-time pragmas. It passed 20 of 20 alone right after, in the same build.
+	- Possible cause: the case notes 3 draws, then waits for the count to go out after a 200 ms draw wait, and stops at the first count that isn't 0. A write that goes out between the notes would give 1 or 2. Not looked into.
+	- Test case: rhd1cv38 itself, beside the full suite.
+
+- rjbmh7g1 failed once in a full run's suite on a loaded box, the heap growing 1600 bytes over 64 rounds.
+	- ID: 2026102518200000
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261025-182000
+	- Opened by: t00mietum
+	- Target OS: Linux
+	- Steps to reproduce: `cicd/cicd.bash --backlog-run-full --no-sanitize` at load about 30 on 32 cores.
+	- Incorrect behavior: "zip-cancel: the heap grew 1600 bytes over 64 rounds", then "FAIL ../src/source/test/test-nemo-leaks.c:1187: growth < (gint64) COUNTED_ROUNDS * limit". The log also said a thread started or ended, so the reading was taken again.
+	- Expected behavior: passes.
+	- Reproduced: once, 20261025 on round1025b at e1159615. It passed in the run before at the same code, and 3 of 3 alone right after.
+	- Possible cause: a worker thread still winding down from a stopped zip job at the reading. Not looked into.
+	- Test case: rjbmh7g1 itself, beside the full suite.
+
+- A cicd run prints the last step's PASS line twice.
+	- ID: 2026102520100000
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261025-201000
+	- Opened by: t00mietum
+	- Related IDs: 2026102517333367
+	- Target OS: Linux
+	- Steps to reproduce: `cicd/cicd.bash --backlog-run-full --no-sanitize --no-bsd` to the end.
+	- Incorrect behavior: "Step 10 of 10; PASS Private runner" shows twice, the second time right after the first, before the closing rule.
+	- Expected behavior: each step closes once.
+	- Reproduced: 20261025 on round1025b at a61c4f91.
+	- Possible cause: the EXIT trap closes the open step again after the last step already closed it.
+	- Test case: rkmqprx6, counting each step's closing line.
+
 - In the icon views, removing an icon never tells the accessibility tree.
 	- ID: 2026102412590587
 	- Type: Bug
@@ -1495,6 +1850,101 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- On Windows, rhtrxr80 fails its first push case, so the native gate stops in lint.
+	- ID: 2026102519212960
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261025-192129
+	- Opened by: 2026102413432225
+	- Related IDs: 2026102516165475, 2026102516403466
+	- Target OS: Windows
+	- Test environment: vm925w, as wintest in the desktop session.
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes` from a bundle of round1025b at a61c4f91.
+	- Incorrect behavior: lint stops after 4 minutes at rhtrxr80 with "hook, first push: the gate did not run" and "pre-push version guard, 1 problem(s)". No test runs.
+	- Expected behavior: rhtrxr80 passes under MSYS2, as on Linux.
+	- Reproduced: 20261025 at a61c4f91, 1 of 1.
+	- Possible cause: the first push case from 2026102516165475 reads a call log that only the test's `cicd.bash` stand-in writes. On Windows the hook runs `pwsh cicd-win.ps1 -Gate` instead, and the `pwsh` stand-in exits 0 with no log. So the docs only case's "the gate ran" check can't fail there either.
+	- Actual cause: as above. With no call logged, the first push case failed under MSYS2, the release push case was skipped there, and the docs only case could never fail.
+	- Actual fix: in `cicd/hooks/test-pre-push.bash` the `pwsh` stand-in logs its call the same way, and the release push, docs only and first push cases check for the call this box's hook makes: `cicd-win.ps1 -Gate -Yes` under MSYS2, `--merge-gate` elsewhere.
+	- Branch: round1025b
+	- Test case: rhtrxr80.
+	- Verified: 20261025. rhtrxr80 passes on Linux, and on vm925w as wintest under MSYS2 MINGW64, from a bundle of round1025b at 3b9632c5 with the fix in. Without it, it fails there as reported. It also fails on a hook that runs the gate for a docs only push on Windows, which the old test let through, and on one that calls `cicd.bash` there.
+	- Swept: the other hook cases read no call log. rkmqprx6 was the only other test to stand in for a program that runs differently under MSYS2 (2026102519402235).
+	- Acceptance signoff: Self-closed: rhtrxr80 passes on Linux and vm925w, and fails on vm925w without the fix.
+	- Closed: 20261025-195457
+
+- On Windows, rkmqprx6 fails its `--shots --demo` case.
+	- ID: 2026102519402235
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261025-194022
+	- Opened by: 2026102516403466
+	- Prereq IDs: 2026102519212960
+	- Related IDs: 2026102516403466
+	- Target OS: Windows
+	- Test environment: vm925w, as wintest in the desktop session, MSYS2 MINGW64.
+	- Steps to reproduce: `bash cicd/utility/test-cicd-quick.bash` from a bundle of round1025b at a61c4f91.
+	- Incorrect behavior: "[--shots --demo]: demo did not run", then "step selection, 1 problem(s)". The native lint runs it right after rhtrxr80, so it stops the gate there once that's fixed.
+	- Expected behavior: rkmqprx6 passes under MSYS2, as on Linux.
+	- Reproduced: 20261025 at a61c4f91, 1 of 1.
+	- Possible cause: the case came in with 7b6c5e07. Its demo stand-in is a `.py` file the demo step runs with `python3`, which may not be what MSYS2 finds there. Not looked into.
+	- Actual cause: under MSYS2 MINGW64, `python3` is `/mingw64/bin/python3`, a native Windows Python. The stand-in had the marker's MSYS2 path written into it, `/tmp/...`, which a native Python reads as a folder on the current drive. The demo step treats a failed hook as a warning, so only the missing marker showed.
+	- Actual fix: in `cicd/utility/test-cicd-quick.bash` the demo stand-in finds the marker from its own path, which MSYS2 hands to a native program in Windows form.
+	- Branch: round1025b
+	- Test case: rkmqprx6.
+	- Verified: 20261025. rkmqprx6 passes on Linux, and on vm925w as wintest under MSYS2 MINGW64, from a bundle of round1025b at 3b9632c5 with the fix in. Without it, it fails there as reported.
+	- Swept: no other test under `cicd/` writes a Python stand-in. The other stand-ins are bash, which reads MSYS2 paths.
+	- Acceptance signoff: Self-closed: rkmqprx6 passes on Linux and vm925w, and fails on vm925w without the fix.
+	- Closed: 20261025-195457
+
+- CICD flags: the pre-push hook runs `--merge-gate`.
+	- ID: 2026102516165475
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261025-161654
+	- Opened by: 2026102416300004
+	- Parent ID: 2026102416300004
+	- Prereq IDs: 2026102516165473
+	- Requirements:
+		- The pre-push hook runs `--merge-gate` on a push to main, and skips it when the commits change only docs and other paths no build reads, listed in one place. A push to dev stays ungated.
+	- Decisions:
+		- The list is `cicd/hooks/gate-skip-paths.txt`, read from the commit pushed: `*.md` and `project/*` for now. The list itself isn't on it.
+		- A push that changes only those paths skips the version guard and the clean tree check too, since a docs push to main never bumps the version.
+		- A first push, or a remote sha this clone doesn't have, can't be compared, so it gets the gate.
+		- On Windows the hook still runs `cicd-win.ps1 -Gate` until 2026102516165482.
+	- Swept: design.md's merge gate lines. Each clone needs `cicd/hooks/install.bash` again to pick the hook up.
+	- Branch: round1025b
+	- Test case: rhtrxr80, `test-pre-push.bash`. It checks that a release push calls `--merge-gate`, that a docs-only push skips everything, and that docs plus a source file, a change to the list, and a first push don't.
+	- Verified: 20261025. rhtrxr80 passes, and fails on the old hook (`--gate`, docs push refused) and with the skip taken out.
+	- Acceptance signoff: Self-closed: rhtrxr80 pins it.
+	- Closed: 20261025-163200
+
+- rjph39cv and rkmqprx6 still expect arm64 in a plain run, so lint fails.
+	- ID: 2026102509133500
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261025-091335
+	- Opened by: t00mietum
+	- Related IDs: 2026102416300004
+	- Target OS: Linux
+	- Steps to reproduce: `cicd/cicd.bash --gate` on dev at 88eb2f9d.
+	- Incorrect behavior: the lint stage stops at rjph39cv, `test-cicd-arm.bash`, with "the arm64 build did not run" and 3 more problems. With that one left out, rkmqprx6, `test-cicd-quick.bash`, fails on "[no options]: arm64 did not run". So every gate and every full run stops in lint, and the stages after it never run.
+	- Expected behavior: both tests match the new default, where a plain run leaves arm64 out and `--long` or `--slow` brings it back.
+	- Reproduced: 20261025 on Linux, in round1025's gate step. Fails the same on dev, since the round didn't touch `cicd/`.
+	- Possible cause: 88eb2f9d moved arm64 behind `--long` in `cicd.bash`, and the 2 tests weren't updated with it.
+	- Note: with both tests left out of a copy of `lint.bash`, the rest of lint passed on the round branch.
+	- Actual cause: as above.
+	- Actual fix: `cicd/utility/test-cicd-arm.bash` and `test-cicd-quick.bash` expect no arm64 in a plain run, and arm64 with `--long` and with `--slow`. rjph39cv also checks `--long --no-arm`, the plan's "(no arm64, --long adds it)", and that `--help` names both flags. design.md's 2 lines that said a plain run builds arm64 now say `--long` adds it.
+	- Swept: every doc and script that says when arm64 runs. `cicd.bash` itself was already right. `cicd-win.ps1` has no arm64 lane.
+	- Test case: rjph39cv and rkmqprx6.
+	- Verified: 20261025. The old tests fail on the current `cicd.bash` with the reported problems, and the new ones pass. The new ones fail on `cicd.bash` from before 88eb2f9d, 10 and 3 problems. `cicd/cicd.bash --gate` passed on round1025b with the fix, both tests in its lint stage.
+	- Acceptance signoff: Self-closed: rjph39cv and rkmqprx6 pin the new default.
+	- Closed: 20261025-161204
 
 - SMB and SFTP networking is broken.
 	- ID: 2026101417352260
@@ -8990,6 +9440,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Filed 20261006: a link drop moves the files instead of opening Make link (2026100610503900). ImageMagick thumbnails open a console window each, and the packed exe makes none (2026100610503901). Also 2026100610503902 and 2026100610503903, both Low.
 	- Note 20261006: left here are signing and the UAC prompt, which need a release tag with secrets and a person at the screen.
 	- Test case: the Windows gate runs the suite natively, plus `cicd/win/gui-launch-smoke.ps1`; signing and the UAC prompt have none.
+	- Stand-in: none. Signing runs only in the hosted release workflow on a tag, with secrets the repo doesn't have, and the consent prompt needs a person at the screen.
 
 - 🔘 Target: macOS
 	- Status: Stalled

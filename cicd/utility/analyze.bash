@@ -40,8 +40,11 @@ root="$(cd "${here}/../.." && pwd)"
 source "${here}/include/echo.bash"
 # shellcheck source=include/gfs-rotate.bash
 source "${here}/include/gfs-rotate.bash"
+# shellcheck source=include/jobs.bash
+source "${here}/include/jobs.bash"
 
-jobs="${CICD_MAX_JOBS:-$(( $(nproc) / 2 ))}"
+fJobs_Default hard
+jobs="${CICD_MAX_JOBS}"
 tool="/src/cicd/utility/analyze.py"
 ## lane|container|compile list|compiler
 lanes=(
@@ -94,7 +97,7 @@ pids=(); names=()
 for l in "${lanes[@]}"; do
 	IFS='|' read -r lane container db cc <<< "${l}"
 	for a in gcc clang; do
-		docker exec -e "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-900}" "${container}" python3 "${tool}" run --tool "${a}" --db "${db}" --jobs "${each}" > "${last}/${a}-${lane}.log" 2>&1 &
+		docker exec -e "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-900}" "${container}" nice -n 19 python3 "${tool}" run --tool "${a}" --db "${db}" --jobs "${each}" > "${last}/${a}-${lane}.log" 2>&1 &
 		pids+=("$!"); names+=("${a}-${lane}")
 	done
 done

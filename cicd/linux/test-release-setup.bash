@@ -39,7 +39,7 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 box="nemo-release-setup-test-$$"
 trap 'docker rm -f "${box}" >/dev/null 2>&1 || true' EXIT
-docker run -d --rm --init --name "$box" -v "${root}:/src:ro" "$image" sleep infinity >/dev/null
+docker run -d --rm --init --name "$box" --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" -v "${root}:/src:ro" "$image" sleep infinity >/dev/null
 
 fOptions(){
 	docker exec "$box" meson introspect --buildoptions "$build" | python3 -c '

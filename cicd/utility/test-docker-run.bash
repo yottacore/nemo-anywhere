@@ -34,6 +34,7 @@ trap 'rm -rf "${scratch}"' EXIT
 mkdir -p "${scratch}/cicd/utility/include"
 cp "${here}/docker-run.bash" "${scratch}/cicd/utility/"
 cp "${here}/include/source-date.bash" "${scratch}/cicd/utility/include/"
+cp "${here}/include/jobs.bash" "${scratch}/cicd/utility/include/"
 
 rc=0
 out="$(NEMO_CONTAINER=nemo-build bash "${scratch}/cicd/utility/docker-run.bash" check 'echo inside-the-box' 2>&1)" || rc=$?

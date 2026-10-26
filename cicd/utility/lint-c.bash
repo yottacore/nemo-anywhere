@@ -1790,10 +1790,13 @@ fi
 
 fEcho "C lint (cppcheck, check-only) over ${#files[@]} file(s) ${scope}..."
 ## -j on its own drops the cross-file checks (the ctu* ones); a build dir keeps
-## them, with the same findings as one process. Half the cores, since something
-## else is usually running. The dir is relative so MSYS2 hands it over as is.
-jobs=$(( $(nproc 2>/dev/null || echo 2) / 2 ))
-((jobs >= 1)) || jobs=1
+## them, with the same findings as one process. The pipeline's job count, since
+## something else is usually running. The dir is relative so MSYS2 hands it over
+## as is.
+# shellcheck source=include/jobs.bash
+source cicd/utility/include/jobs.bash
+fJobs_Default
+jobs="${CICD_MAX_JOBS}"
 mkdir -p "${cacheDir}/build"
 cppcheck "${cppcheckArgs[@]}" -j "$jobs" --cppcheck-build-dir="${cacheDir}/build" \
 	--quiet --error-exitcode=2 "${files[@]}"

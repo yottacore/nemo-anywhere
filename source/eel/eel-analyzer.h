@@ -29,18 +29,26 @@
  *	link->prev->next = link->next;
  *	EEL_ANALYZER_END
  *
- * The argument is gcc's -Wanalyzer- name, and has to be a real one, or gcc
- * warns about the pragma. clang skips the one statement after it whatever the
- * name, so give a clang-only finding gcc's nearest one. Both compilers' plain
- * builds see nothing. */
+ * The argument is gcc's -Wanalyzer- name, and has to be a real one, or gcc 14
+ * and later warn about the pragma. Older gcc, such as jammy's 11 in the release
+ * build, lacks some names (infinite-loop is new in 14) and skips that check.
+ * The analyzer stage runs gcc 14, so the names are still checked there. clang
+ * skips the one statement after it whatever the name, so give a clang-only
+ * finding gcc's nearest one. Both compilers' plain builds see nothing. */
 
 #if defined(__clang_analyzer__)
 #define EEL_ANALYZER_SKIP(gcc_name) [[clang::suppress]]
 #define EEL_ANALYZER_END
 #elif defined(__GNUC__) && !defined(__clang__)
 #define EEL_ANALYZER_PRAGMA(text) _Pragma (#text)
+#if __GNUC__ >= 14
+#define EEL_ANALYZER_OLD_GCC
+#else
+#define EEL_ANALYZER_OLD_GCC _Pragma ("GCC diagnostic ignored \"-Wpragmas\"")
+#endif
 #define EEL_ANALYZER_SKIP(gcc_name) \
 	_Pragma ("GCC diagnostic push") \
+	EEL_ANALYZER_OLD_GCC \
 	EEL_ANALYZER_PRAGMA (GCC diagnostic ignored "-Wanalyzer-" gcc_name)
 #define EEL_ANALYZER_END _Pragma ("GCC diagnostic pop")
 #else

@@ -11,11 +11,11 @@ You need Docker (or Podman with a Docker alias) and git. Everything else is fetc
 ~~~bash
 git clone https://github.com/yottacore/nemo-anywhere.git
 cd nemo-anywhere
-cicd/hooks/install.bash          # merge gate as a pre-push hook
-cicd/cicd.bash --gate            # build, test and lint
+cicd/hooks/install.bash             # merge gate as a pre-push hook
+cicd/cicd.bash --backlog-run-quick  # build, test and lint
 ~~~
 
-`--gate` is the quick check. A bare `cicd/cicd.bash` runs the whole pipeline, which ends by committing and pushing, so leave that one until you mean it.
+`--backlog-run-quick`, or `--gate`, is the quick check. A bare `cicd/cicd.bash` runs the whole pipeline, which ends by committing and pushing, so leave that one until you mean it.
 
 To build without the container, on a Linux box with the GTK3 development stack:
 

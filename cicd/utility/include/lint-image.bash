@@ -32,7 +32,7 @@ fLintImage(){
 	tag="nemo-lint:${hash:0:12}"
 	if ! docker image inspect "$tag" >/dev/null 2>&1; then
 		echo "[ Building ${tag}, one time per Dockerfile.lint change ]" >&2
-		if ! docker build -q -t "$tag" - <"$file" >&2; then
+		if ! docker build -q -t "$tag" --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" - <"$file" >&2; then
 			echo "[ WARNING: lint tools: host, ${tag} did not build ]" >&2
 			return 0
 		fi
@@ -54,6 +54,7 @@ fLintRun(){
 	common="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
 	[[ -z "$common" || "$common" == "${root}/"* ]] || mounts+=(-v "${common}:${common}")
 	docker run --rm --network none --user "$(id -u):$(id -g)" "${mounts[@]}" -w "$root" \
+		--label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" \
 		-e CPPCHECK_STRICT -e SHELLCHECK_STRICT -e RUFF_STRICT -e PSA_STRICT \
 		"$img" "$@"
 }
