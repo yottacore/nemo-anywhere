@@ -70,7 +70,8 @@ got="$(_ver_from "${scratch}/meson.build" || true)"
 [[ "$got" == "2.1.0-rc.3" ]] || fFail "_ver_from read '${got}', expected 2.1.0-rc.3"
 
 ## A repo whose gate always passes, so only the version guard can refuse. The
-## hook picks the PowerShell gate on a Windows checkout.
+## hook picks the PowerShell gate on a Windows checkout, so both gates log
+## their calls, and each case checks the one this box's hook runs.
 repo="${scratch}/repo"
 mkdir -p "${repo}/source" "${repo}/cicd/hooks"
 cp "${here}/gate-skip-paths.txt" "${repo}/cicd/hooks/"
@@ -81,9 +82,13 @@ printf 'exit 0\n' > "${repo}/cicd/cicd-win.ps1"
 ## The lint stage runs under MSYS2 on Windows, where pwsh is not on PATH. The
 ## gate is a stand-in anyway, so pwsh can be one too.
 mkdir -p "${scratch}/bin"
-printf '#!/usr/bin/env bash\nexit 0\n' > "${scratch}/bin/pwsh"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "%s"\n' "$calls" > "${scratch}/bin/pwsh"
 chmod +x "${scratch}/bin/pwsh"
 PATH="${scratch}/bin:${PATH}"
+case "$(uname -s)" in
+	MINGW*|MSYS*|CYGWIN*) gateWant='*/cicd/cicd-win.ps1 -Gate -Yes' ;;
+	*)                    gateWant='--merge-gate' ;;
+esac
 git -C "$repo" init -q
 git -C "$repo" config user.name test
 git -C "$repo" config user.email test@example.invalid
@@ -175,9 +180,8 @@ oldsha="$(fCommitVersion 3.0.0)"
 newsha="$(fCommitVersion 3.0.1)"
 rm -f "$calls"
 fPushMain "release push" 0 ""
-if [[ "$(uname -s)" != MINGW* && "$(uname -s)" != MSYS* ]]; then
-	[[ "$(cat "$calls" 2>/dev/null)" == "--merge-gate" ]] || fFail "hook, release push: gate called as '$(cat "$calls" 2>/dev/null)', not --merge-gate"
-fi
+# shellcheck disable=SC2053  ## gateWant is a glob on purpose.
+[[ "$(cat "$calls" 2>/dev/null)" == $gateWant ]] || fFail "hook, release push: gate called as '$(cat "$calls" 2>/dev/null)', not '${gateWant}'"
 
 ## $1 label, then files to write; commits them with no version bump.
 fCommitFiles(){
@@ -212,7 +216,8 @@ oldsha="0000000000000000000000000000000000000000"
 newsha="$(fCommitFiles first guide.md)"
 rm -f "$calls"
 fPushMain "first push, docs only" 0 ""
-[[ -n "$(cat "$calls" 2>/dev/null)" ]] || fFail "hook, first push: the gate did not run"
+# shellcheck disable=SC2053  ## gateWant is a glob on purpose.
+[[ "$(cat "$calls" 2>/dev/null)" == $gateWant ]] || fFail "hook, first push: the gate did not run"
 
 if ((failures)); then
 	fEcho "FAILED: pre-push version guard, ${failures} problem(s)"

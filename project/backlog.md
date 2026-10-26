@@ -613,41 +613,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
 	- Test case: one per child.
 
-- On Windows, rhtrxr80 fails its first push case, so the native gate stops in lint.
-	- ID: 2026102519212960
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261025-192129
-	- Opened by: 2026102413432225
-	- Related IDs: 2026102516165475, 2026102516403466
-	- Target OS: Windows
-	- Test environment: vm925w, as wintest in the desktop session.
-	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes` from a bundle of round1025b at a61c4f91.
-	- Incorrect behavior: lint stops after 4 minutes at rhtrxr80 with "hook, first push: the gate did not run" and "pre-push version guard, 1 problem(s)". No test runs.
-	- Expected behavior: rhtrxr80 passes under MSYS2, as on Linux.
-	- Reproduced: 20261025 at a61c4f91, 1 of 1.
-	- Possible cause: the first push case from 2026102516165475 reads a call log that only the test's `cicd.bash` stand-in writes. On Windows the hook runs `pwsh cicd-win.ps1 -Gate` instead, and the `pwsh` stand-in exits 0 with no log. So the docs only case's "the gate ran" check can't fail there either.
-	- Test case: rhtrxr80.
-
-- On Windows, rkmqprx6 fails its `--shots --demo` case.
-	- ID: 2026102519402235
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261025-194022
-	- Opened by: 2026102516403466
-	- Prereq IDs: 2026102519212960
-	- Related IDs: 2026102516403466
-	- Target OS: Windows
-	- Test environment: vm925w, as wintest in the desktop session, MSYS2 MINGW64.
-	- Steps to reproduce: `bash cicd/utility/test-cicd-quick.bash` from a bundle of round1025b at a61c4f91.
-	- Incorrect behavior: "[--shots --demo]: demo did not run", then "step selection, 1 problem(s)". The native lint runs it right after rhtrxr80, so it stops the gate there once that's fixed.
-	- Expected behavior: rkmqprx6 passes under MSYS2, as on Linux.
-	- Reproduced: 20261025 at a61c4f91, 1 of 1.
-	- Possible cause: the case came in with 7b6c5e07. Its demo stand-in is a `.py` file the demo step runs with `python3`, which may not be what MSYS2 finds there. Not looked into.
-	- Test case: rkmqprx6.
-
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
 	- Type: Enhancement
@@ -1859,6 +1824,55 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- On Windows, rhtrxr80 fails its first push case, so the native gate stops in lint.
+	- ID: 2026102519212960
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261025-192129
+	- Opened by: 2026102413432225
+	- Related IDs: 2026102516165475, 2026102516403466
+	- Target OS: Windows
+	- Test environment: vm925w, as wintest in the desktop session.
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes` from a bundle of round1025b at a61c4f91.
+	- Incorrect behavior: lint stops after 4 minutes at rhtrxr80 with "hook, first push: the gate did not run" and "pre-push version guard, 1 problem(s)". No test runs.
+	- Expected behavior: rhtrxr80 passes under MSYS2, as on Linux.
+	- Reproduced: 20261025 at a61c4f91, 1 of 1.
+	- Possible cause: the first push case from 2026102516165475 reads a call log that only the test's `cicd.bash` stand-in writes. On Windows the hook runs `pwsh cicd-win.ps1 -Gate` instead, and the `pwsh` stand-in exits 0 with no log. So the docs only case's "the gate ran" check can't fail there either.
+	- Actual cause: as above. With no call logged, the first push case failed under MSYS2, the release push case was skipped there, and the docs only case could never fail.
+	- Actual fix: in `cicd/hooks/test-pre-push.bash` the `pwsh` stand-in logs its call the same way, and the release push, docs only and first push cases check for the call this box's hook makes: `cicd-win.ps1 -Gate -Yes` under MSYS2, `--merge-gate` elsewhere.
+	- Branch: round1025b
+	- Test case: rhtrxr80.
+	- Verified: 20261025. rhtrxr80 passes on Linux, and on vm925w as wintest under MSYS2 MINGW64, from a bundle of round1025b at 3b9632c5 with the fix in. Without it, it fails there as reported. It also fails on a hook that runs the gate for a docs only push on Windows, which the old test let through, and on one that calls `cicd.bash` there.
+	- Swept: the other hook cases read no call log. rkmqprx6 was the only other test to stand in for a program that runs differently under MSYS2 (2026102519402235).
+	- Acceptance signoff: Self-closed: rhtrxr80 passes on Linux and vm925w, and fails on vm925w without the fix.
+	- Closed: 20261025-195457
+
+- On Windows, rkmqprx6 fails its `--shots --demo` case.
+	- ID: 2026102519402235
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261025-194022
+	- Opened by: 2026102516403466
+	- Prereq IDs: 2026102519212960
+	- Related IDs: 2026102516403466
+	- Target OS: Windows
+	- Test environment: vm925w, as wintest in the desktop session, MSYS2 MINGW64.
+	- Steps to reproduce: `bash cicd/utility/test-cicd-quick.bash` from a bundle of round1025b at a61c4f91.
+	- Incorrect behavior: "[--shots --demo]: demo did not run", then "step selection, 1 problem(s)". The native lint runs it right after rhtrxr80, so it stops the gate there once that's fixed.
+	- Expected behavior: rkmqprx6 passes under MSYS2, as on Linux.
+	- Reproduced: 20261025 at a61c4f91, 1 of 1.
+	- Possible cause: the case came in with 7b6c5e07. Its demo stand-in is a `.py` file the demo step runs with `python3`, which may not be what MSYS2 finds there. Not looked into.
+	- Actual cause: under MSYS2 MINGW64, `python3` is `/mingw64/bin/python3`, a native Windows Python. The stand-in had the marker's MSYS2 path written into it, `/tmp/...`, which a native Python reads as a folder on the current drive. The demo step treats a failed hook as a warning, so only the missing marker showed.
+	- Actual fix: in `cicd/utility/test-cicd-quick.bash` the demo stand-in finds the marker from its own path, which MSYS2 hands to a native program in Windows form.
+	- Branch: round1025b
+	- Test case: rkmqprx6.
+	- Verified: 20261025. rkmqprx6 passes on Linux, and on vm925w as wintest under MSYS2 MINGW64, from a bundle of round1025b at 3b9632c5 with the fix in. Without it, it fails there as reported.
+	- Swept: no other test under `cicd/` writes a Python stand-in. The other stand-ins are bash, which reads MSYS2 paths.
+	- Acceptance signoff: Self-closed: rkmqprx6 passes on Linux and vm925w, and fails on vm925w without the fix.
+	- Closed: 20261025-195457
 
 - CICD flags: the pre-push hook runs `--merge-gate`.
 	- ID: 2026102516165475

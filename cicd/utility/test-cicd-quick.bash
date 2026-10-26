@@ -56,8 +56,12 @@ done
 ## Screenshots and the demo video are found by path, not by setting.
 printf '#!/usr/bin/env bash\nmkdir -p "%s/out" && touch "%s/out/shots"\n' "$scratch" "$scratch" > "${scratch}/cicd/utility/screenshots.bash"
 chmod +x "${scratch}/cicd/utility/screenshots.bash"
+## The demo hook is run with python3, a native Windows one under MSYS2, which
+## would read an MSYS2 path such as /tmp/... as a folder on the current drive.
+## So the marker is found from the script's own path, which MSYS2 hands over
+## in Windows form.
 mkdir -p "${scratch}/cicd/utility/demo-video"
-printf 'import pathlib\npathlib.Path("%s/out/demo").touch()\n' "$scratch" > "${scratch}/cicd/utility/demo-video/demo-video.py"
+printf 'import pathlib\n(pathlib.Path(__file__).resolve().parents[3] / "out" / "demo").touch()\n' > "${scratch}/cicd/utility/demo-video/demo-video.py"
 cat > "${scratch}/cicd/config.bash" <<-EOF
 	APP_NAME="App"
 	EXE_NAME="app"
