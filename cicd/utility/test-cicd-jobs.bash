@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2016  ## the patterns match literal ${...} text in the scripts.
 
 ##	- Purpose: Check the job counts. Half the CPUs, a quarter when the 1-minute
 ##	  load is over half the CPU count or for a hard step, never under 1. And
@@ -65,6 +64,7 @@ CICD_MAX_JOBS=5; fJobs_Default
 ## Nothing under cicd/ works out its own count. cicd.bash keeps nproc for the
 ## run's CPU quota only.
 while IFS= read -r hit; do
+	# shellcheck disable=SC2016  ## the cicd.bash pattern matches literal text.
 	case "$hit" in
 		cicd/utility/include/jobs.bash:*|cicd/utility/test-cicd-jobs.bash:*) ;;
 		'cicd/cicd.bash:'*'cores="$(nproc'*) ;;
@@ -80,6 +80,7 @@ done < <(grep -n -E '(^|[^\\])\$\{?CICD_MAX_JOBS' "${root}/cicd/config.bash" | g
 
 ## docker-run.bash hands the count across and runs the command under nice.
 lastExec="$(sed -n '/^exec docker exec/,/[^\\]$/p' "${root}/cicd/utility/docker-run.bash")"
+# shellcheck disable=SC2016  ## matches the literal text.
 [[ "$lastExec" == *'-e "CICD_MAX_JOBS=${CICD_MAX_JOBS}"'* ]] || fFail "docker-run.bash does not pass CICD_MAX_JOBS into the container"
 [[ "$lastExec" == *'nice -n 19'* ]] || fFail "docker-run.bash does not run the command under nice"
 

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2034  ## jobsCpus, jobsLoad and jobsBusy are for the scripts that source this.
 
 ##	- Purpose: The one place job counts are worked out. Half the CPUs, or a
 ##	  quarter on a busy box or for a hard step (sanitizers, fuzzing, the
@@ -44,7 +43,9 @@ fJobs(){
 	if [[ -r /proc/loadavg ]]; then read -r jobsLoad rest < /proc/loadavg
 	elif rest="$(sysctl -n vm.loadavg 2>/dev/null)"; then rest="${rest#\{ }"; jobsLoad="${rest%% *}"
 	fi
-	jobsBusy=0; fJobs_IsBusy "${jobsCpus}" "${jobsLoad}" && jobsBusy=1
+	jobsBusy=0
+	# shellcheck disable=SC2034  ## jobsBusy is for the scripts that source this.
+	fJobs_IsBusy "${jobsCpus}" "${jobsLoad}" && jobsBusy=1
 	if [[ -n "${CICD_JOBS_PIN:-}" ]]; then CICD_MAX_JOBS="${CICD_JOBS_PIN}"
 	else CICD_MAX_JOBS="$(fJobs_Count "${jobsCpus}" "${jobsLoad}" "${hard}")"; fi
 	export CICD_MAX_JOBS
