@@ -201,8 +201,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The Linux release build fails on `EEL_ANALYZER_SKIP ("infinite-loop")` in jammy's gcc 11.
 	- ID: 2026102510323600
 	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: a full run at round1025b's fix or later, for its native release build stage. The arm64 lane builds with the same gcc 11, so it needs no run of its own.
+	- Status: Done
+	- Needs local test suite run?: none
 	- Priority|Severity: High
 	- Opened: 20261025-103236
 	- Opened by: t00mietum
@@ -221,6 +221,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: all 10 `EEL_ANALYZER_SKIP` sites in 8 files. Only infinite-loop is newer than gcc 10. The arm64 lane is jammy's gcc 11 on aarch64, so the same fix covers it. FreeBSD builds with base clang, where the macro is empty.
 	- Test case: a release build in `nemo-build-jammy` with `-Werror`, which the full run already does.
 	- Verified: 20261025. In `nemo-build-jammy`'s release build (gcc 11.4, `-Werror`), `eel-canvas.c` fails at line 2250 as reported with the old header, and builds with the new one. All 8 files that use the macro build there. Under gcc 14 in `nemo-build` and MinGW gcc 14 in `nemo-winbuild`, the same files build with `-Werror`, and a bad name still fails. gcc 14's `-fanalyzer` on `eel-canvas.c` reports the infinite loop with the suppression taken out, and nothing with the new header. `cicd/cicd.bash --gate` passed with it, C lint included.
+	- Closed: 20261025
+	- Verified: 20261025, full run `cicd/cicd.bash --backlog-run-full --no-sanitize --no-bsd` at a61c4f91 passed all 10 steps; the sanitizer suite passed in the run before it at the same code. The native release build in nemo-build-jammy (gcc 11, -Werror) passed.
 
 - Nemo Anywhere dim checkmarks: the list view column.
 	- ID: 2026102411133409
@@ -297,8 +299,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD CPU: `cicd.bash` and the scripts it runs.
 	- ID: 2026102517333352
 	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: yes. One `cicd/cicd.bash --backlog-run-full`. Each step's `jobs` line should give half the cores, or a quarter on a busy box and for the sanitizer suite, fuzzing and the analyzers, and the debug build, the Windows cross build, the release build and the analyzers should build with that count.
+	- Status: Done
+	- Needs local test suite run?: none
 	- Priority|Severity: High
 	- Opened: 20261025-173333
 	- Opened by: 2026102416300003
@@ -318,12 +320,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: f8524717
 	- Test case: rm5cn5p8 (job counts, one place works them out, the containers read them per step under nice). rkmqprx6 checks a hard step gets a quarter.
 	- Verified: 20261025, rm5cn5p8 and rkmqprx6 pass, and each fails on a planted fault: a count of 0, a script working out its own half, a count expanded when `config.bash` is read, and the sanitizer suite not marked hard. In the build container, a command run the new way runs at nice 19 and idle I/O and reads the step's count. rj3ytv0b, rjph39cv, rm5a3ej9 and rm5b2v7n pass.
+	- Closed: 20261025
+	- Verified: 20261025, full run `cicd/cicd.bash --backlog-run-full --no-sanitize --no-bsd` at a61c4f91 passed all 10 steps; the sanitizer suite passed in the run before it at the same code. Every step printed its jobs line: 16 at load 16, 8 on a busy box, 8 for the hard steps (fuzzing, analyzers). The analyzers took 39 min at 8 jobs.
 
 - CICD step output: `cicd.bash`.
 	- ID: 2026102517333367
 	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: yes. One `cicd/cicd.bash --backlog-run-full`, read for its step lines: every step opens and closes, numbered out of the steps that run, and the plan lists the rest.
+	- Status: Done
+	- Needs local test suite run?: none
 	- Priority|Severity: High
 	- Opened: 20261025-173333
 	- Opened by: 2026102416300005
@@ -342,13 +346,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rkmqprx6 checks the step lines of every run it makes, a failing step, and the turned-off list. rj9v18rx now reads the steps `--quick` turns off from the plan.
 	- Verified: 20261025, rkmqprx6 and rj9v18rx pass. rkmqprx6 fails with a 76-dot rule, with the last step left open, with a step left out of the plan, and with no `FAIL` on a failed step. rj9v18rx fails with fuzzing left out of the `--quick` help.
 	- Progress log:
+	- Closed: 20261025
 		- 20261025: rj9v18rx used to grep `cicd.bash` for "skipped (--quick)" lines, which are gone. It now runs a copy with every step set up and reads the plan's turned-off list. What it checks is the same.
+	- Verified: 20261025, full run `cicd/cicd.bash --backlog-run-full --no-sanitize --no-bsd` at a61c4f91 passed all 10 steps; the sanitizer suite passed in the run before it at the same code. Every step opened and closed, numbered out of 10, and the plan listed the turned-off steps with their flags. The last step's PASS line printed twice, filed as 2026102520100000.
 
 - CICD flags: `--backlog-run-quick`, `--backlog-run-full` and `--merge-gate`.
 	- ID: 2026102516165473
 	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: yes. One `cicd/cicd.bash --backlog-run-full`, end to end. Its plan should say checks only, and `git status` should be the same after it.
+	- Status: Done
+	- Needs local test suite run?: none
 	- Priority|Severity: High
 	- Opened: 20261025-161654
 	- Opened by: 2026102416300004
@@ -367,6 +373,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: round1025b
 	- Test case: rkmqprx6, `test-cicd-quick.bash`. It gained a formatter, format check, README image and demo stand-in, and checks the steps each mode runs, the areas, the one-line note for `--gate` and `--ci`, a bad area, that nothing changes the tree, and that `--help` names them.
 	- Verified: 20261025. rkmqprx6 passes, and fails 20 checks on the old `cicd.bash`. It also fails with publish, dogfood, sync, or the README images and the demo left on under `--merge-gate`. `cicd/cicd.bash --gate` passed for real on round1025b: lint, then the suite with 235 OK and 1 skipped. rj9v18rx and rjph39cv pass.
+	- Closed: 20261025
+	- Verified: 20261025, full run `cicd/cicd.bash --backlog-run-full --no-sanitize --no-bsd` at a61c4f91 passed all 10 steps; the sanitizer suite passed in the run before it at the same code. The plan said checks only, and git status was the same after it.
 
 - The native gate on vm925w stops on scratch folders 7 tests leave behind.
 	- ID: 2026102413432225
@@ -1137,9 +1145,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Temp files: the run folder in `cicd.bash`.
 	- ID: 2026102516403466
 	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: `cicd/cicd.bash --backlog-run-full` once. Every host-side step now gets the run folder as `TMPDIR`; the run should pass and leave nothing in `<temp>/nemo-anywhere/`.
-	- Needs external testing: rkmqprx6 under MSYS2 on vm925w, once 2026102519402235 is fixed.
+	- Status: Done
+	- Needs local test suite run?: none
+	- Needs external testing: none
 	- Priority|Severity: Avg
 	- Opened: 20261025-164035
 	- Opened by: 2026102416300002
@@ -1157,6 +1165,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- `<temp>` is `HOST_TEMP`, then `TMPDIR`, then `/tmp`, resolved once.
 	- Test case: rm5a3ej9 (run folder, signals, `--keep-temp`, stale sweep, the guard's refusals), and rkmqprx6 checks no run leaves its folder and the plan names it.
 	- Verified: 20261025, rm5a3ej9, rkmqprx6, rjph39cv and rj9v18rx pass. `--backlog-run-quick` passes, format, lint and tests, and leaves nothing in `<temp>/nemo-anywhere/`.
+	- Closed: 20261025
+	- Verified: 20261025, full run `cicd/cicd.bash --backlog-run-full --no-sanitize --no-bsd` at a61c4f91 passed all 10 steps; the sanitizer suite passed in the run before it at the same code. It left nothing of its own in the temp folder. rkmqprx6 passed under MSYS2 on vm925w after b652a8e0.
 
 - Temp files: bash scripts remove through the guard.
 	- ID: 2026102516403471
@@ -1754,6 +1764,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: once, 20261025 on round1025b at e1159615. It passed in the run before at the same code, and 3 of 3 alone right after.
 	- Possible cause: a worker thread still winding down from a stopped zip job at the reading. Not looked into.
 	- Test case: rjbmh7g1 itself, beside the full suite.
+
+- A cicd run prints the last step's PASS line twice.
+	- ID: 2026102520100000
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261025-201000
+	- Opened by: t00mietum
+	- Related IDs: 2026102517333367
+	- Target OS: Linux
+	- Steps to reproduce: `cicd/cicd.bash --backlog-run-full --no-sanitize --no-bsd` to the end.
+	- Incorrect behavior: "Step 10 of 10; PASS Private runner" shows twice, the second time right after the first, before the closing rule.
+	- Expected behavior: each step closes once.
+	- Reproduced: 20261025 on round1025b at a61c4f91.
+	- Possible cause: the EXIT trap closes the open step again after the last step already closed it.
+	- Test case: rkmqprx6, counting each step's closing line.
 
 - In the icon views, removing an icon never tells the accessibility tree.
 	- ID: 2026102412590587
