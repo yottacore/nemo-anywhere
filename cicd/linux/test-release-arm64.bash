@@ -53,7 +53,7 @@ sumsName="nemo-anywhere-${ver}-sha256sums.txt"
 
 mkdir -p "${repo}/cicd/linux" "${repo}/cicd/utility/include" "${repo}/source" "${repo}/cicd/artifacts/release"
 cp "${root}/cicd/linux/release-arm64.bash" "${root}/cicd/linux/package.bash" "${repo}/cicd/linux/"
-for inc in echo source-date release-files run-temp jobs step-box; do
+for inc in echo source-date release-files run-temp jobs step-box box-wrap; do
 	cp "${root}/cicd/utility/include/${inc}.bash" "${repo}/cicd/utility/include/"
 done
 printf "project('nemo-anywhere', 'c', version: '%s')\n" "$ver" > "${repo}/source/meson.build"

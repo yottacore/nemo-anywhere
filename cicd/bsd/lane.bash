@@ -12,8 +12,10 @@
 ##	  ignored, as they are in the working tree, the way release-arm64.bash sends
 ##	  them. The source dir there is emptied and refilled every run; tar keeps the
 ##	  file times, so the test build dir beside it stays incremental.
-##	- The box is shared, so it is taken through the host lock for the run when
-##	  that tool is on this box. A box that does not answer is an error.
+##	- The box is shared, so it is taken for the run through the VM state helper
+##	  or the host lock, whichever is on this box (include/box-wrap.bash). The
+##	  helper starts a VM that is off, waits for its ssh, and puts it back after.
+##	  A box that does not answer is an error.
 ##	- NEMO_BSD_HOST is the ssh target (default bsdtest@vmFreeBSD), NEMO_BSD_LOCK
 ##	  its lock name (default vmFreeBSD), NEMO_BSD_JOBS the build and test jobs
 ##	  (default 4).
@@ -35,11 +37,6 @@ jobs="${NEMO_BSD_JOBS:-4}"
 ## Under the remote home.
 remoteBase="nemo-anywhere-ci"
 remoteDir="${remoteBase}/src"
-## Found by the tail of its name, like win-dogfood.bash does.
-lockTool="${WINDOWS_HOST_LOCK:-}"
-if [[ -z "$lockTool" ]]; then
-	for lockTool in "${HOME}"/synced/0-0/common/exec/util/linux/bash/*windows-host-lock.bash; do break; done
-fi
 ## A cold build plus the suite runs past the lock's default lease.
 lockWaitSec=1800
 
@@ -49,6 +46,9 @@ source "${ROOT}/cicd/utility/include/echo.bash"
 source "${ROOT}/cicd/utility/include/source-date.bash"
 # shellcheck source=../utility/include/release-files.bash
 source "${ROOT}/cicd/utility/include/release-files.bash"
+# shellcheck source=../utility/include/box-wrap.bash
+source "${ROOT}/cicd/utility/include/box-wrap.bash"
+lockTool="$(fBoxWrap_Tool)"
 
 sshOpts=(-o ConnectTimeout=8 -o BatchMode=yes -o LogLevel=ERROR)
 
@@ -135,3 +135,5 @@ fMain "${@}"
 
 ##	History:
 ##		- 2026-10-07: Created.
+##		- 2026-10-27: Takes the box through the VM state helper when it is here,
+##		  so a VM that is off is started and waited for.
