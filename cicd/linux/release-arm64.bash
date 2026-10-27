@@ -14,8 +14,10 @@
 ##	  ignored, as they are in the working tree: the same files the x86_64 build
 ##	  container sees. The stamp is this side's SOURCE_DATE_EPOCH, so both arches
 ##	  carry the same date.
-##	- The box is shared, so it is taken through the host lock for the run when
-##	  that tool is on this box. A box that does not answer is an error.
+##	- The box is shared, so it is taken for the run through the VM state helper
+##	  or the host lock, whichever is on this box (include/box-wrap.bash). The
+##	  helper starts a VM that is off, waits for its ssh, and puts it back after.
+##	  A box that does not answer is an error.
 ##	- NEMO_ARM_HOST is the ssh target (default tester@vmDebARM64), NEMO_ARM_LOCK
 ##	  its lock name (default vmDebARM64), NEMO_ARM_JOBS the build jobs (default
 ##	  4). The default box is emulated, where each core it uses costs the host
@@ -38,11 +40,6 @@ jobs="${NEMO_ARM_JOBS:-4}"
 ## Under the remote home. Emptied in place every run, never recreated: the build
 ## container there has it mounted, and a new dir would leave it on the old one.
 remoteDir="nemo-anywhere-arm64/src"
-## Found by the tail of its name, like win-dogfood.bash does.
-lockTool="${WINDOWS_HOST_LOCK:-}"
-if [[ -z "$lockTool" ]]; then
-	for lockTool in "${HOME}"/synced/0-0/common/exec/util/linux/bash/*windows-host-lock.bash; do break; done
-fi
 ## An emulated build runs well past the lock's default lease.
 lockWaitSec=1800
 
@@ -52,6 +49,9 @@ source "${ROOT}/cicd/utility/include/echo.bash"
 source "${ROOT}/cicd/utility/include/source-date.bash"
 # shellcheck source=../utility/include/release-files.bash
 source "${ROOT}/cicd/utility/include/release-files.bash"
+# shellcheck source=../utility/include/box-wrap.bash
+source "${ROOT}/cicd/utility/include/box-wrap.bash"
+lockTool="$(fBoxWrap_Tool)"
 
 sshOpts=(-o ConnectTimeout=8 -o BatchMode=yes -o LogLevel=ERROR)
 
@@ -129,3 +129,5 @@ fMain "${@}"
 ##		- 2026-10-07: Reads the arm64 .deb's dependencies on the box.
 ##		- 2026-10-26: Nothing to stop after, since release.bash and package.bash
 ##		  remove their containers there.
+##		- 2026-10-27: Takes the box through the VM state helper when it is here,
+##		  so a VM that is off is started and waited for.

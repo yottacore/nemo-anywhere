@@ -1031,6 +1031,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Overrides: the native Windows step in the private round settings, run by hand. The rule sending windowed checks to vm925w stays.
 	- Test case: none yet.
 	- 2026-10-26, round1026a full run: vmFreeBSD was off. The lane started it, then failed at once with 'bsdtest@vmFreeBSD is not a FreeBSD box reachable as that user', before ssh was up, and stopped the run. The lane should wait for ssh after a start.
+	- 2026-10-27: the same at step 7 of a full run, with ssh timing out on the VM that was off. The FreeBSD lane and the arm64 release now take their box through the VM state helper when it's here, so a VM that's off or paused is started, waited for and put back. The bare host lock is still the fallback. Left: the `SKIP` for a box that isn't there, and the Windows dogfood, which still only tries boxes that already answer.
 
 - CICD reset: CPU and priority.
 	- ID: 2026102416300003

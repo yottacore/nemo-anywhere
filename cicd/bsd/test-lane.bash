@@ -11,7 +11,8 @@
 ##	  - --release brings the pkg back and packs the prefix as the -bsd- tarball
 ##	    with the commit's stamp on every entry, so two runs give the same bytes
 ##	    whatever times the box left on the files. The sums file covers both.
-##	  - The run goes through the host lock's wrap, for vmFreeBSD.
+##	  - The run goes through the host lock's wrap, for vmFreeBSD, and through
+##	    the VM state helper's when that is on the box too.
 ##	- Needs git and python3; exit 77 without them.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/bsd/test-lane.bash
@@ -48,7 +49,8 @@ repo="${scratch}/repo"
 mkdir -p "${repo}/cicd/bsd" "${repo}/cicd/utility/include" "${repo}/source"
 cp "${root}/cicd/bsd/lane.bash" "${repo}/cicd/bsd/"
 cp "${root}/cicd/utility/include/echo.bash" "${root}/cicd/utility/include/source-date.bash" \
-	"${root}/cicd/utility/include/release-files.bash" "${repo}/cicd/utility/include/"
+	"${root}/cicd/utility/include/release-files.bash" "${root}/cicd/utility/include/box-wrap.bash" \
+	"${repo}/cicd/utility/include/"
 printf "project('nemo-anywhere', 'c', version : '9.9.9-rc1')\n" > "${repo}/source/meson.build"
 printf 'cicd/artifacts/\nignored.txt\n' > "${repo}/.gitignore"
 printf 'tracked\n' > "${repo}/tracked.txt"
@@ -133,6 +135,23 @@ else
 fi
 grep -q -E -- '^wrap vmFreeBSD .*-- bash .*lane\.bash --tests --locked$' "${scratch}/lock.log" \
 	|| fFail "--tests did not go through the lock's wrap for vmFreeBSD: $(cat "${scratch}/lock.log")"
+
+## With both tools on the box and neither named, the VM state helper is the one
+## used, since only it starts a VM that is off.
+toolDir="${scratch}/home/synced/0-0/common/exec/util/linux/bash"
+mkdir -p "$toolDir"
+sed "s|lock\.log|vm-state.log|" "${shim}/lock.bash" > "${toolDir}/x_vm-state.bash"
+sed "s|lock\.log|host-lock.log|" "${shim}/lock.bash" > "${toolDir}/x_windows-host-lock.bash"
+if (cd "$repo" && env -u SOURCE_DATE_EPOCH -u WINDOWS_HOST_LOCK -u BOX_WRAP_TOOL HOME="${scratch}/home" PATH="${shim}:${PATH}" \
+	bash cicd/bsd/lane.bash --tests) >"${scratch}/lane.log" 2>&1; then
+	if grep -q -E -- '^wrap vmFreeBSD ' "${scratch}/vm-state.log" 2>/dev/null && [[ ! -e "${scratch}/host-lock.log" ]]; then
+		fEcho "OK: the VM state helper is picked over the bare host lock"
+	else
+		fFail "the VM state helper was not the one used"
+	fi
+else
+	fFail "--tests through the VM state helper failed: $(tail -3 "${scratch}/lane.log")"
+fi
 
 if FAKE_TESTS_RC=1 fLane --tests; then fFail "--tests passed with a failing suite"; else fEcho "OK: a failing suite fails --tests"; fi
 
