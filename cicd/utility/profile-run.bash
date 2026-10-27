@@ -78,20 +78,20 @@ work="$(mktemp -d)"
 
 ## Profile the DEBUG build, not the release one: the release binaries are
 ## stripped, and a sampler that cannot name a function produces a flamegraph of
-## six boxes. The prefix is staged out of the build container once and reused.
+## six boxes. The prefix is staged out of the build's cache volume once and reused,
+## through a tar stream, so the files are the host user's.
 PREFIX="${ROOT}/cicd/artifacts/profiling/prefix"
-CONTAINER="${NEMO_CONTAINER:-nemo-build}"
 
 if [[ -z "$bin" ]]; then
 	if [[ ! -x "${PREFIX}/bin/${SLUG}" ]]; then
-		docker exec "$CONTAINER" true 2>/dev/null \
-			|| fDie "no staged debug prefix and the build container '${CONTAINER}' is not running - pass --bin"
 		fEcho_Clean
-		fEcho "Staging the debug build out of ${CONTAINER}"
-		docker exec "$CONTAINER" bash /src/cicd/linux/stage-prefix.bash /build /build-profile-prefix >/dev/null 2>&1 || true
+		fEcho "Staging the debug build"
 		rm -rf "$PREFIX"
-		mkdir -p "$(dirname "$PREFIX")"
-		docker cp "${CONTAINER}:/build-profile-prefix" "$PREFIX" >/dev/null
+		mkdir -p "$PREFIX"
+		# shellcheck disable=SC2016  ## expanded in the step's container
+		bash "${HERE}/docker-run.bash" "profile prefix" \
+			'p="$(mktemp -d)" && bash "${CICD_SRC}/cicd/linux/stage-prefix.bash" "${CICD_BUILD_ROOT}/build" "$p/nemo-anywhere" >&2 && tar -C "$p/nemo-anywhere" -cf - .' \
+			| tar -C "$PREFIX" -xf - || fDie "no staged debug prefix and none could be staged - pass --bin"
 	fi
 	bin="${PREFIX}/bin/${SLUG}"
 fi
@@ -272,3 +272,4 @@ fEcho_Clean
 ##		  profiling needs no elevated privileges.
 ##		- 2026-10-03: The display is the first free one from :120, proven ours,
 ##		  instead of a fixed :97 other projects also use.
+##		- 2026-10-26: The prefix comes from the build's cache volume, not nemo-build.

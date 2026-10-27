@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: Check that docker-run.bash refuses to run from a clone other
-##	  than the one the build container has mounted, such as a second worktree.
-##	  Else the gate would pass or fail the mounted clone, not the one pushing.
-##	- Needs docker and the nemo-build container; exit 77 without them.
+##	  than the one its build cache volumes belong to, such as a second
+##	  worktree. Else the gate would build on the other clone's objects.
+##	- Needs docker and the build image; exit 77 without them.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-docker-run.bash
 ##	- Test ID: rj3ytv0b
@@ -20,9 +20,10 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 fEcho(){ echo "[ $* ]"; }
 
-## Without the container, docker-run.bash would make one, mounted on the copy.
-if [[ "${CICD_NO_CONTAINER:-}" == "1" ]] || ! command -v docker >/dev/null 2>&1 || ! timeout 10 docker inspect nemo-build >/dev/null 2>&1; then
-	fEcho "docker-run clone check skipped: no nemo-build container"
+## Without the image, docker-run.bash would spend minutes building one.
+if [[ "${CICD_NO_CONTAINER:-}" == "1" ]] || ! command -v docker >/dev/null 2>&1 \
+	|| ! { timeout 10 docker image inspect nemo-build-deps:init || timeout 10 docker image inspect nemo-build-deps:latest; } >/dev/null 2>&1; then
+	fEcho "docker-run clone check skipped: no build image"
 	exit 77
 fi
 
@@ -36,17 +37,18 @@ cp "${here}/docker-run.bash" "${scratch}/cicd/utility/"
 cp "${here}/include/source-date.bash" "${scratch}/cicd/utility/include/"
 cp "${here}/include/jobs.bash" "${scratch}/cicd/utility/include/"
 
+## This clone first, which makes the volumes for it on a fresh box.
 rc=0
-out="$(NEMO_CONTAINER=nemo-build bash "${scratch}/cicd/utility/docker-run.bash" check 'echo inside-the-box' 2>&1)" || rc=$?
+out="$(bash "${here}/docker-run.bash" check 'echo inside-the-box' 2>&1)" || rc=$?
+[[ "$rc" == 0 && "$out" == *"inside-the-box"* ]] || fFail "refused the clone the volumes belong to (exit ${rc}); said: ${out}"
+
+rc=0
+out="$(bash "${scratch}/cicd/utility/docker-run.bash" check 'echo inside-the-box' 2>&1)" || rc=$?
 if [[ "$out" == *"inside-the-box"* || "$rc" == 0 ]]; then
 	fFail "ran from another clone (exit ${rc}); said: ${out}"
 elif [[ "$out" != *"not $(realpath "$scratch")"* ]]; then
 	fFail "refused without naming the clone; said: ${out}"
 fi
-
-rc=0
-out="$(NEMO_CONTAINER=nemo-build bash "${here}/docker-run.bash" check 'echo inside-the-box' 2>&1)" || rc=$?
-[[ "$rc" == 0 && "$out" == *"inside-the-box"* ]] || fFail "refused the mounted clone (exit ${rc}); said: ${out}"
 
 if ((failures)); then
 	fEcho "FAILED: docker-run clone check, ${failures} problem(s)"

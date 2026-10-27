@@ -50,6 +50,7 @@ cat > "${scratch}/bin/docker" <<-'EOF'
 	esac
 	exit 0
 EOF
+# shellcheck disable=SC2016  ## expanded by the stand-in when it runs
 printf '#!/usr/bin/env bash\n[[ "$*" != *gtk+-3.0* || -n "${HOST_GTK:-}" ]]\n' > "${scratch}/bin/pkg-config"
 printf '#!/usr/bin/env bash\nexit 0\n' > "${scratch}/bin/meson"
 cp "${scratch}/bin/meson" "${scratch}/bin/ninja"

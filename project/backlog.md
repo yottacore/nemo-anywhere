@@ -881,19 +881,65 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Containers are named `<project>-<run folder>-<step>` and run with `--rm`, unless `--keep-temp`. Today the build and test steps run in the long-lived `nemo-build`, `nemo-winbuild` and `nemo-build-jammy`.
 		- Cache volumes stay under 2 GB.
-	- Test case: none yet.
+	- Progress log:
+		- 20261026: split into children 2026102617253209 (the day-to-day build and tests), 2026102617253214 (the Windows cross build) and 2026102617253220 (the release build).
+	- Test case: none yet, from the children.
 
-- Container cleanup: one pass over what came before labels.
-	- ID: 2026102516403497
+- Container cleanup: a container per step, for the day-to-day build and tests.
+	- ID: 2026102617253209
+	- Type: Task
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: `cicd/cicd.bash --backlog-run-full` once, for the profiler and analyzer stages on the new build, and for no `nemo-anywhere-<run folder>-*` container left after it.
+	- Priority|Severity: High
+	- Opened: 20261026-172532
+	- Opened by: 2026102516403492
+	- Parent ID: 2026102516403492
+	- Requirements:
+		- The debug build, the tests, fuzzing and the sanitizer suite each run in a container of their own, named `nemo-anywhere-<run folder>-<step>`, with `--rm` unless `--keep-temp`. Today they run in the long-lived `nemo-build`.
+		- So do the steps that read that build: the profiler's prefix, the Linux analyzer lane and the fuzz exit check.
+		- What carries over from one step to the next sits in cache volumes, each under 2 GB.
+	- Progress log:
+		- 20261026: `docker-run.bash` runs each step in a container of its own from `nemo-build-deps:init`, named `nemo-anywhere-<run folder>-<step>`, with the next number when that name is taken. It has `--rm` unless `--keep-temp`, which the run folder now hands down as `CICD_KEEP_TEMP`. A fresh clone still builds `nemo-build-deps:latest` from `Dockerfile.dev`.
+		- 20261026: `/build` and `/build-fuzz` are the cache volumes `nemo-anywhere-build` and `nemo-anywhere-build-fuzz`, labeled with the clone that made them. Another clone is refused with one line saying how to hand them over, the way the long-lived box refused one. `linux/cache-cap.bash` empties one that is past 2 GB before the step. `/build` was 1.1 GB and `/build-fuzz` 146 MB.
+		- 20261026: the sanitizer build was 4.5 GB, so it starts cold in its step's container. The whole sanitizer step took 185 s at 8 jobs.
+		- 20261026: the profiler's prefix, the analyzer's Linux lane and the fuzz exit check go through `docker-run.bash` too. The profiler had never staged a prefix where none was staged yet: `stage-prefix.bash` wants a dest named `nemo-anywhere`, and the failure was hidden. It names one now, and a failure stops the stage.
+		- 20261026: `nemo-build` is out of `CICD_CONTAINERS`, and nothing in the pipeline uses it now. The box is left for hand use until the other children of 2026102516403492 are in.
+		- 20261026: a shellcheck info in `test-docker-run-host.bash`, from 2026102617145688, stopped the lint stage. It's disabled on its line, with the reason.
+		- 20261026: docker fills a new named volume from what the image has at that path. The `:init` snapshot holds an old `/build` and `/build-fuzz`, so the volumes started with those, and the first build still rebuilt all 701 targets.
+	- Decisions:
+		- One set of volumes per project, owned by one clone, rather than a set per clone. It keeps the rule that the gate builds only the clone it was set up on, and a worktree leaves no 1.2 GB behind it.
+		- A cache past its cap is emptied before the step, so no step starts on one that is over. The check costs about 2 s a step.
+	- Test case: rm7z5v9s (`test-docker-run-step.bash`, lint stage: the name, labels, `--rm` and `--keep-temp`, a taken name, the volumes made for this clone and refused for another, the cap before the step, and `cache-cap.bash` emptying only a dir past its cap). rj3ytv0b checks the clone rule against the volumes now. rm5cn5p8 and rjcbfcx7 run through the new path.
+		- 20261026: rm5cn5p8 reads the `exec docker run` line of `docker-run.bash`, where it read `exec docker exec`. What it checks on that line is the same.
+	- Verified: 20261026, rm7z5v9s failed on `docker-run.bash` as it was (17 problems) and on a cap 4 times too high, and passes now. `--backlog-run-quick format lint` passed, rj3ytv0b, rm7xde0b, rm7z5v9s and rjcbfcx7 among it. `--backlog-run-quick tests` passed, 234 OK and 2 skipped, building 701 targets in the volume. The sanitizer suite passed, 221 OK and 15 skipped. The analyzer self-test passed with the Linux lane in step containers. The profiler's staging gave a prefix that runs. A 3 s fuzz pass over the 12 targets was clean. Each step's container was gone after it.
+	- Swept: every `docker exec` into `nemo-build` and every `NEMO_CONTAINER` reader under `cicd/` and `utility/`: `docker-run.bash`, `profile-run.bash`, `analyze.bash`, `test-fuzz-exit.bash` and `test-docker-run.bash`. The other `docker exec` calls go to `nemo-winbuild` and `nemo-build-jammy`, which are 2026102617253214 and 2026102617253220.
+
+- Container cleanup: a container per step, for the Windows cross build.
+	- ID: 2026102617253214
 	- Type: Task
 	- Status: Queued
 	- Priority|Severity: High
-	- Opened: 20261025-164035
-	- Opened by: 2026101910075400
-	- Parent ID: 2026101910075400
-	- Prereq IDs: 2026102516403487
+	- Opened: 20261026-172532
+	- Opened by: 2026102516403492
+	- Parent ID: 2026102516403492
+	- Prereq IDs: 2026102617253209
 	- Requirements:
-		- What the pipeline made before it had labels gets one cleanup pass by hand, by ID. Images still in use stay.
+		- The cross build, and everything that reads it, runs in containers of its own, named and removed the same way, rather than in the long-lived `nemo-winbuild`: `build-cross.bash`, `pack-zip.bash`, `pack-setup.bash`, `test-setup.bash`, the GUI smoke check, the Windows analyzer lane and `utility/run-windows-build-via-wine.bash`.
+		- `/build-win` was 587 MB on 20261026, so it fits a cache volume under 2 GB.
+	- Test case: none yet.
+
+- Container cleanup: a container per step, for the release build.
+	- ID: 2026102617253220
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261026-172532
+	- Opened by: 2026102516403492
+	- Parent ID: 2026102516403492
+	- Prereq IDs: 2026102617253209
+	- Requirements:
+		- `release.bash` and the package step's dependency check run in containers of their own rather than in the long-lived `nemo-build-jammy`, on this box and on vmDebARM64.
+		- Whether the release build dir carries over between runs, in a cache volume, or starts cold each time, is still to be decided.
 	- Test case: none yet.
 
 - CICD reset: containers.
@@ -1853,6 +1899,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- Container cleanup: one pass over what came before labels.
+	- ID: 2026102516403497
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261025-164035
+	- Opened by: 2026101910075400
+	- Parent ID: 2026101910075400
+	- Prereq IDs: 2026102516403487
+	- Requirements:
+		- What the pipeline made before it had labels gets one cleanup pass by hand, by ID. Images still in use stay.
+	- Progress log:
+		- 20261026: removed 11 of this project's images by ID, with `docker rmi` and no `-f`. None was in use, and none had labels: `nemo-build-jammy:init` and its untagged parent, `nemo-build-jammy:pre-jail`, `nemo-winbuild:init-20261007`, `nemo-winbuild:latest`, `nemo-build-deps:init-20261018`, `nemo-build-deps:init-20261008`, and 4 untagged snapshots of the build boxes. Images went from 147.1 GB to 141.7 GB in `docker system df`, so about 5.4 GB freed. There were no stopped containers or volumes of this project's to remove.
+	- Decisions:
+		- Kept: the 3 images the long-lived boxes run (`nemo-build-deps:init`, `nemo-winbuild:init`, `nemo-build-jammy:latest`), the current `nemo-lint` tag, `nemo-build-deps:latest`, which `docker-run.bash` builds a fresh clone from, and the `debian:trixie` and `debian:trixie-slim` bases.
+		- The rollback snapshots went too. Each one but `nemo-winbuild:init-20261007` shared every layer with the image that replaced it, so they freed nothing, and the jail they predate has passed full runs since 20261023.
+		- Most of `nemo-build-deps:init`'s 60.7 GB is one 51 GB layer of test scratch that the snapshot took from `/tmp`. Only a rebuilt image gets that back, which is 2026102617145788.
+		- vmDebARM64's old images are 2026102516403481.
+	- Test case: none, a one-time pass by hand.
+	- Acceptance signoff: Self-closed: nothing in use was removed, and `docker system df` shows what went.
+	- Closed: 20261026-174341
 
 - CICD flags: `--no-container`.
 	- ID: 2026102516295605

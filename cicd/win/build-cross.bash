@@ -44,7 +44,7 @@ case "${1:-}" in
 esac
 
 ## A fresh clone has none yet, so it is made from cicd/win/Dockerfile on first
-## use, the same way nemo-build is. --init reaps orphans (wine leaves plenty);
+## use. --init reaps orphans (wine leaves plenty);
 ## --ulimit core=0 keeps crash dumps out of the mounted tree.
 names="$(docker ps -a --format '{{.Names}}' 2>/dev/null || true)"
 if ! grep -qx "$CONTAINER" <<<"$names"; then

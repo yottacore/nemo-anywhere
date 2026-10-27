@@ -5,7 +5,8 @@
 ##	- fRunTemp_Make <project> <YYYYmmDD-HHMMSS> -> makes
 ##	  ${HOST_TEMP}/<project>/<stamp>_<NNN>/, writes run.pid there, and points
 ##	  TMPDIR, TEMP and TMP at it. Sets runTempDir, and exports CICD_PROJECT
-##	  and CICD_RUN (the folder's name) for docker labels. HOST_TEMP falls back
+##	  and CICD_RUN (the folder's name) for docker labels, and CICD_KEEP_TEMP
+##	  (runTempKeep) so a step's container stays too. HOST_TEMP falls back
 ##	  to TMPDIR, then /tmp.
 ##	- fRunTemp_Sweep -> removes the project's run folders older than 2 days
 ##	  whose run.pid names no live process. A folder with no run.pid wasn't made
@@ -60,7 +61,7 @@ fRunTemp_Make(){
 	printf '%s\n' "$$" > "${dir}/run.pid" || return 1
 	runTempDir="${dir}"
 	export TMPDIR="${dir}" TEMP="${dir}" TMP="${dir}"
-	export CICD_PROJECT="${projectName}" CICD_RUN="${dir##*/}"
+	export CICD_PROJECT="${projectName}" CICD_RUN="${dir##*/}" CICD_KEEP_TEMP="${runTempKeep:-0}"
 }
 
 fRunTemp_Sweep(){
@@ -88,3 +89,4 @@ fRunTemp_Done(){
 
 ##	History:
 ##		- 2026-10-25: Created.
+##		- 2026-10-26: Exports CICD_KEEP_TEMP.

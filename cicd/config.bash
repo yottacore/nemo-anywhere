@@ -36,16 +36,15 @@ declare -i isSourced_t6wqf=0; [[ "${BASH_SOURCE[0]}" == "${0}" ]] || isSourced_t
 APP_NAME="Nemo Anywhere"
 EXE_NAME="nemo-anywhere"
 
-## The reference Linux build runs inside this container (image nemo-build-deps:latest,
-## created with --shm-size=2g). It mounts the repo root (github/) at /src and builds
-## into /build. See design.md "Building". The build/test commands below auto-start it.
-NEMO_CONTAINER="nemo-build"
+## The reference Linux build runs in a container per step, from nemo-build-deps:init
+## (or nemo-build-deps:latest on a fresh clone). Each mounts the repo root at /src
+## and builds into /build, a cache volume. See design.md "Building".
 
 ## Directory of this config, for locating sibling helper scripts (self-contained,
 ## no reliance on cicd.bash internals).
 _cfgdir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-## Wrapper that runs a shell command in NEMO_CONTAINER. With docker down or
+## Wrapper that runs a shell command in the step's own container. With docker down or
 ## absent, or no image, it runs the command on the host if the host has the
 ## build stack, and stops the run with one line if not. The commands find the
 ## tree at CICD_SRC and build under CICD_BUILD_ROOT, which it sets for either
@@ -91,9 +90,10 @@ DEBUG_BUILD_CMD=(bash "${DOCKER_RUN}" "debug build" "
 ## stage of its own and would otherwise test whatever was last left in /build.
 ## -j is passed through for the same reason it is above. Same wrapper.
 TEST_CMD=(bash "${DOCKER_RUN}" "tests" "NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash \${CICD_SRC:-/src}/cicd/linux/run-tests.bash")
-## Held to CICD_MAX_JOBS cores each, with a low CPU share, since the run's own
-## CPU cap and nice cannot reach inside them.
-CICD_CONTAINERS=(nemo-build nemo-build-jammy nemo-winbuild)
+## The long-lived boxes, held to CICD_MAX_JOBS cores each, with a low CPU share,
+## since the run's own CPU cap and nice cannot reach inside them. A step's own
+## container gets the same flags from docker-run.bash.
+CICD_CONTAINERS=(nemo-build-jammy nemo-winbuild)
 ## At the end of a run, remove the run's labeled containers, other than the ones
 ## above, the project's dangling and older images, and week-old build cache.
 DOCKER_SWEEP=1
