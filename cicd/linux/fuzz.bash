@@ -22,10 +22,10 @@
 
 set -Eeuo pipefail
 
-build="${BUILD_DIR:-/build-fuzz}"
+build="${BUILD_DIR:-${CICD_BUILD_ROOT:-}/build-fuzz}"
 secs="${FUZZ_SECS:-60}"
 hangSecs="${FUZZ_TIMEOUT:-25}"
-src="/src/source"
+src="${CICD_SRC:-/src}/source"
 
 ## Distinct on purpose: 1 is a build or usage problem, 77 is the tree's "could
 ## not run", and this is a crasher. Nothing else uses it.

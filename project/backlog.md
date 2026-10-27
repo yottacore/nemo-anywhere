@@ -33,21 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- CICD flags: `--no-container`.
-	- ID: 2026102516295605
-	- Type: Task
-	- Status: Queued
-		- Waits on the `--no-container` question in questions.md.
-	- Priority|Severity: High
-	- Opened: 20261025-162956
-	- Opened by: 2026102516165477
-	- Parent ID: 2026102416300004
-	- Requirements:
-		- `--no-container` runs on the host, per the shared CICD style guide.
-		- The GTK dev stack never goes on the host here, so the build and test steps can't run there.
-	- Test case: none yet.
-	- Decided: (a). Lints run on the host, and the run stops with one clear line at the first step that needs a container.
-
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
@@ -927,6 +912,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- `--no-container` runs on the host on purpose.
 			- Tests whose point is the real desktop, GPU or another platform stay on the host or a test box.
 		- File list in the private notes.
+	- Progress log:
+		- 20261026: split into children 2026102617145688 (the host fallback) and 2026102617145788 (pinned image recipes). `--no-container` is 2026102516295605.
+	- Decisions:
+		- 20261026: nothing in a container has the real desktop, a GPU or another platform as its point. Windows is checked natively on vm925w, and FreeBSD and arm64 on their own boxes.
+	- Test case: rm7xde0b, rkmqprx6, from the children. The recipes child names its own.
+
+- Container images from pinned recipes.
+	- ID: 2026102617145788
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261026-171457
+	- Opened by: 2026102416300000
+	- Parent ID: 2026102416300000
+	- Requirements:
+		- Every image comes from a pinned recipe in the repo, base by digest and tools by version.
+		- `nemo-build-deps:init` and `nemo-winbuild:init` are hand-made snapshots today. Their recipes have to make images that pass the same runs.
+		- `cicd/linux/Dockerfile.dev` and `cicd/win/Dockerfile` start from `debian:trixie` with no digest.
 	- Test case: none yet.
 
 - CICD reset: other hosts and VMs.
@@ -1850,6 +1853,58 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- CICD flags: `--no-container`.
+	- ID: 2026102516295605
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261025-162956
+	- Opened by: 2026102516165477
+	- Parent ID: 2026102416300004
+	- Related IDs: 2026102416300000, 2026102617145688
+	- Requirements:
+		- `--no-container` runs on the host, per the shared CICD style guide.
+		- The GTK dev stack never goes on the host here, so the build and test steps can't run there.
+	- Decided: (a). Lints run on the host, and the run stops with one clear line at the first step that needs a container.
+	- Progress log:
+		- 20261026: `cicd.bash --no-container` runs the lints with the host's tools (`NEMO_LINT_HOST=1`), then stops with `STOPPED at <step>: it needs a container, and --no-container runs on the host` and exit 1. A plain run, `--backlog-run-full` and `--merge-gate` stop at the build, and `--backlog-run-quick` at its tests. The plan lists those steps as turned off with `--no-container`. `--backlog-run-quick lint --no-container` needs no container, so it passes.
+		- 20261026: the container caps and the docker sweep stay off under it. `docker-run.bash` stops the same way if it's reached. The 4 script tests in the lint stage that use the real containers skip with 77 under it.
+	- Decisions:
+		- The lints run before the build under `--no-container`, so a plain run still lints. Otherwise it stops at the build and checks nothing.
+		- Exit 1, not 0, at the stop. What wasn't checked mustn't read as a pass.
+		- `cicd.bash` takes it from the flag only, not from a `CICD_NO_CONTAINER` already set. A test's copy of `cicd.bash` run under such a run would stop too.
+		- `test-lint-image.bash` now clears `NEMO_LINT_HOST` first, since each of its cases sets it on its own.
+	- Test case: rkmqprx6 (each mode under `--no-container`, the stop line, the plan, `NEMO_LINT_HOST`, and `--help`), rm7xde0b (`docker-run.bash` under `CICD_NO_CONTAINER=1`).
+	- Verified: 20261026, rkmqprx6 failed on `cicd.bash` as it was (10 problems) and passes now. `cicd.bash --backlog-run-quick --no-container` ran the lints on the host, passed them, and stopped at Tests with exit 1. `--backlog-run-quick format lint` and `--backlog-run-quick tests` pass.
+	- Swept: every `docker` call in the lint stage's script tests. `test-docker-run.bash`, `test-release-setup.bash`, `test-gui-smoke.bash` and `test-fuzz-exit.bash` use the real containers and skip. `test-lint-image.bash`, `test-cicd-jobs.bash` and `test-cicd-docker-sweep.bash` use a stand-in.
+	- Acceptance signoff: Self-closed: rkmqprx6 and rm7xde0b, and the run above.
+	- Closed: 20261026-171500
+
+- CICD: fall back to the host when there's no container to run in.
+	- ID: 2026102617145688
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261026-171456
+	- Opened by: 2026102416300000
+	- Parent ID: 2026102416300000
+	- Related IDs: 2026102516295605
+	- Requirements:
+		- Fall back to the host, with one line saying so, when docker is missing or the image can't be built. Today the step is skipped instead.
+	- Progress log:
+		- 20261026: with docker missing, the daemon down, or no image or container to be had, `docker-run.bash` says so in one line and runs the step on the host, when the host has meson, ninja, pkg-config and GTK 3. It builds under `build/host/` in the clone. A host without them stops the run with one line naming what's missing, and exit 1. This box is one of those.
+		- 20261026: the build, test, fuzz and sanitizer commands find the tree at `CICD_SRC` and build under `CICD_BUILD_ROOT`. `docker-run.bash` sets them to `/src` and empty in the container, as before.
+		- 20261026: `DOCKER_GATE_STRICT` is gone, since a step never skips now. Nothing set it.
+	- Decisions:
+		- A stop, not a skip, on a host without the build stack. The old skip exited 0, so a push to main with docker down passed a gate that checked nothing.
+		- The release, cross and package steps keep to their containers, since a release is built only in `nemo-build-jammy`. `release.bash` and `build-cross.bash` already stop with one line without docker.
+	- Test case: rm7xde0b (`test-docker-run-host.bash`, lint stage): the daemon down or the image not built runs the step on the host with the paths set and says so once, a failing command keeps its exit code, a host without GTK stops with exit 1 and runs nothing.
+	- Verified: 20261026, rm7xde0b failed on `docker-run.bash` as it was (9 problems) and passes now. On this box, with the daemon down, the debug build stops with one line naming meson. In the containers, `--backlog-run-quick tests` passed with no failures, the sanitizer suite passed, and a short fuzz pass over the 12 targets was clean.
+	- Not run: a real build and suite on a host with the GTK stack. No box here has one without docker.
+	- Swept: every `/src` and `/build` path in the commands `docker-run.bash` runs: `config.bash`, `run-tests.bash`, `fuzz.bash`, `test-sanitizers.bash`. `meson-setup.bash` and `check-werror.bash` take their paths as arguments.
+	- Acceptance signoff: Self-closed: rm7xde0b, and the runs above.
+	- Closed: 20261026-171500
 
 - On Windows, rhtrxr80 fails its first push case, so the native gate stops in lint.
 	- ID: 2026102519212960

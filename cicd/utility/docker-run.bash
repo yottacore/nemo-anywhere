@@ -1,21 +1,22 @@
 #!/usr/bin/env bash
 
-## Run a command inside the reference build container, resilient to a down/absent
-## docker daemon - so an unreachable daemon can't turn every gated push into a raw
-## socket error. Flow: ensure docker is reachable (best-effort NON-sudo nudge),
-## start the container, then exec the given shell command in it. An environmental
-## miss (docker absent, daemon down, container gone) SKIPS with a warning and
-## exits 0, so it never hard-blocks a push; a genuine command failure (build error,
-## smoke crash) propagates its exit code and still blocks.
+## Run a command inside the reference build container. Flow: ensure docker is
+## reachable (best-effort NON-sudo nudge), start the container, then exec the given
+## shell command in it. With docker absent, the daemon down, or no image or
+## container to be had, it says so in one line and runs the command on the host,
+## if the host has the build stack. If not, as on the main dev box, which never
+## gets the GTK dev stack, it stops with one line and exit 1: a skip would read as
+## a pass. CICD_NO_CONTAINER=1 (cicd.bash --no-container) stops at once. A genuine
+## command failure propagates its exit code. Backlog 2026102617145688.
 ##
 ## Usage: docker-run.bash <label> <sh-command>
 ##   NEMO_CONTAINER      selects the container (default nemo-build).
-##   DOCKER_GATE_STRICT=1 turns an environmental miss into a hard failure instead
-##                       of a skip (for a run that must not silently no-op).
+##   The command finds the tree at ${CICD_SRC} and builds under ${CICD_BUILD_ROOT}:
+##   /src and empty in the container, the clone and its build/host on the host.
 ##
 ## Why not auto-start the daemon: here it's a rootful system service, so starting
 ## it needs `sudo systemctl start docker` - which an unattended hook must not run.
-## We nudge only the rootless (per-user) service, then skip with that hint.
+## We nudge only the rootless (per-user) service, then fall back with that hint.
 
 ##	Copyright (c) 2026 Bubbles
 ##	Licensed under The MIT License (MIT). Full text at:
@@ -28,7 +29,7 @@ set -Eeuo pipefail
 label="${1:-container task}"
 cmd="${2:-}"
 container="${NEMO_CONTAINER:-nemo-build}"
-strict="${DOCKER_GATE_STRICT:-0}"
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 fEcho(){ echo "[ $* ]"; }
 
@@ -42,17 +43,27 @@ fSetSourceDate "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/include/jobs.bash"
 fJobs_Default
 
-## Environmental miss: skip (exit 0) so a push isn't blocked, unless strict.
-skip_or_die(){
-	if [[ "$strict" == "1" ]]; then
-		fEcho "FAILED: ${label}: $1" >&2
+if [[ "${CICD_NO_CONTAINER:-}" == "1" ]]; then
+	fEcho "STOPPED: ${label} needs a container, and --no-container runs on the host" >&2
+	exit 1
+fi
+
+## Environmental miss: the host, when it can build the app.
+fOnHost(){
+	local missing=() tool
+	for tool in meson ninja pkg-config; do command -v "$tool" >/dev/null 2>&1 || missing+=("$tool"); done
+	((${#missing[@]})) || pkg-config --exists gtk+-3.0 2>/dev/null || missing+=("gtk+-3.0")
+	if ((${#missing[@]})); then
+		fEcho "STOPPED: ${label}: $1, and the host has no ${missing[*]} to run it on" >&2
 		exit 1
 	fi
-	fEcho "WARNING: ${label} SKIPPED: $1 - not verified against the container" >&2
-	exit 0
+	fEcho "${label}: $1, so it runs on the host" >&2
+	mkdir -p "${repo}/build/host"
+	export CICD_SRC="${repo}" CICD_BUILD_ROOT="${repo}/build/host"
+	exec nice -n 19 sh -c "ulimit -c 0; ionice -c 3 -p \$\$ 2>/dev/null; $cmd"
 }
 
-command -v docker >/dev/null 2>&1 || skip_or_die "docker not installed"
+command -v docker >/dev/null 2>&1 || fOnHost "docker not installed"
 
 docker_up(){ timeout 10 docker info >/dev/null 2>&1; }
 
@@ -63,7 +74,7 @@ if ! docker_up; then
 		systemctl --user start docker.socket >/dev/null 2>&1 || true
 		systemctl --user start docker        >/dev/null 2>&1 || true
 	fi
-	docker_up || skip_or_die "docker daemon not reachable (try: sudo systemctl start docker)"
+	docker_up || fOnHost "docker daemon not reachable (try: sudo systemctl start docker)"
 fi
 
 ## A fresh clone has no build box yet, so the day-to-day one is made on first use,
@@ -74,19 +85,18 @@ fi
 ## needs (linux/jail.bash); docker's default profiles refuse them even to root.
 names="$(docker ps -a --format '{{.Names}}' 2>/dev/null || true)"
 if ! grep -qx "$container" <<<"$names"; then
-	[[ "$container" == "nemo-build" ]] || skip_or_die "build container '${container}' not found"
-	repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+	[[ "$container" == "nemo-build" ]] || fOnHost "build container '${container}' not found"
 	if ! docker image inspect nemo-build-deps:latest >/dev/null 2>&1; then
 		fEcho "building image nemo-build-deps (first run only, takes a few minutes)"
 		docker build --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" -t nemo-build-deps:latest -f "${repo}/cicd/linux/Dockerfile.dev" "${repo}/cicd/linux/" >/dev/null \
-			|| skip_or_die "could not build image nemo-build-deps"
+			|| fOnHost "could not build image nemo-build-deps"
 	fi
 	fEcho "creating container ${container}"
 	docker run -d --init --ulimit core=0 --shm-size=2g --cpus "${CICD_MAX_JOBS}" --cpu-shares 256 --name "$container" \
 		--label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" \
 		--security-opt seccomp=unconfined --security-opt apparmor=unconfined \
 		-v "${repo}:/src" nemo-build-deps:latest sleep infinity >/dev/null \
-		|| skip_or_die "could not create container '${container}'"
+		|| fOnHost "could not create container '${container}'"
 fi
 docker start "$container" >/dev/null 2>&1 || true
 
@@ -106,5 +116,5 @@ fi
 ## SOURCE_DATE_EPOCH has to be handed across explicitly - docker exec starts with
 ## the container's environment, not ours - or the linker stamps the clock. Same
 ## for the job count, and for nice: docker exec doesn't inherit ours.
-exec docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-0}" -e "CICD_MAX_JOBS=${CICD_MAX_JOBS}" "$container" \
+exec docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-0}" -e "CICD_MAX_JOBS=${CICD_MAX_JOBS}" -e CICD_SRC=/src -e CICD_BUILD_ROOT= "$container" \
 	nice -n 19 sh -c "ulimit -c 0; ionice -c 3 -p \$\$ 2>/dev/null; $cmd"

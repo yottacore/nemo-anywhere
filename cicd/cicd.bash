@@ -39,6 +39,10 @@
 ##	   --no-remote         skip every step on another box: arm64, the FreeBSD
 ##	                       lane, the private runner and remote dogfood, even
 ##	                       with --include-arm or --include-bsd
+##	   --no-container      run on the host. The GTK dev stack never goes on
+##	                       the host, so that's the lints, with the host's
+##	                       tools, and the run stops with one line at the
+##	                       first step that needs a container
 ##	   --no-profile        skip the profiler stage
 ##	   --no-sanitize       skip the test suite built with the address and
 ##	                       undefined behavior sanitizers
@@ -95,8 +99,12 @@ set -Eeuo pipefail
 
 ## Help before anything else runs: the CPU scope and the container caps below
 ## would otherwise go on just to print usage.
+## --no-container too, since the container caps go on before the options are read.
+## Only the flag sets it here, so a test's copy run under such a run decides alone.
+unset CICD_NO_CONTAINER
 for arg in "$@"; do case "$arg" in
 	-h|--help) sed -n '/^##	- Purpose:/,/^##	History:/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##	\{0,1\}//'; exit 0 ;;
+	--no-container) export CICD_NO_CONTAINER=1 NEMO_LINT_HOST=1 ;;
 esac; done
 
 ## Find the repo root and load project config.
@@ -138,6 +146,8 @@ source "${here}/config.bash"
 ## want it. It sticks to the container, so a build run by hand in there is held
 ## to it too.
 declare -p CICD_CONTAINERS &>/dev/null || CICD_CONTAINERS=()
+no_container=0
+if [[ "${CICD_NO_CONTAINER:-}" == "1" ]]; then no_container=1; CICD_CONTAINERS=(); DOCKER_SWEEP=0; fi
 ctrJobs=""
 fCapContainers(){
 	[[ "${ctrJobs}" != "${CICD_MAX_JOBS}" ]] || return 0
@@ -201,6 +211,7 @@ while (($#)); do case "$1" in
 	--no-package)             PACKAGE_ENABLE=0; shift ;;
 	--no-private)             PRIVATE_RUNNER=""; shift ;;
 	--no-remote)              no_remote=1; shift ;;             ## wins over --include-arm and --include-bsd
+	--no-container)           shift ;;                          ## read before config.bash, above
 	--no-profile)             PROFILE_ENABLE=0; shift ;;
 	--no-sanitize)            SANITIZE_CMD=(); shift ;;
 	--no-dogfood)             DOGFOOD_FIXED_DESTS=(); DOGFOOD_ROTATING_DESTS=(); DOGFOOD_CROSS_DESTS=(); DOGFOOD_HOOK=(); DOGFOOD_REMOTE=(); shift ;;
@@ -304,6 +315,22 @@ fEcho_Force(){ fEcho_ResetBlankCounter; fEcho "$*"; }
 _letterbox="•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
 fSection(){ fEcho_Clean; fEcho_Clean "${_letterbox}"; fEcho "$*"; }
 fDie(){ { fEcho_Force "FAILED: $*"; } >&2; exit 1; }
+fLints(){
+	fStep "Lints"
+	if "${LINT_PROBE[@]}" >/dev/null 2>&1; then
+		"${LINT_CMD[@]}"
+		fEcho "OK: lints clean"
+	else
+		fEcho "WARNING: lints skipped: ${LINT_PROBE[*]} failed (component not installed?)"
+	fi
+}
+## Not a skip: what wasn't checked mustn't read as a pass. 2026102516295605.
+fNoContainerStop(){
+	((no_container)) || return 0
+	fStep_Close PASS
+	{ fEcho_Force "STOPPED at ${1}: it needs a container, and --no-container runs on the host"; } >&2
+	exit 1
+}
 ## Local time to the hundredth, as YYYYmmDD-HHMMSS.NN.
 fStamp(){
 	local t="${EPOCHREALTIME:-}" frac
@@ -517,7 +544,8 @@ if ((gate)); then
 	gate_tests=0; fArea tests && gate_tests=1
 	fPlan "$gate_fmt"   "Format check" "$gate_fmt_why"
 	fPlan "$gate_lint"  "Lints"        "$gate_lint_why"
-	fPlan "$gate_tests" "Tests"        "area not named"
+	if ((no_container && gate_tests)); then fPlan 0 "Tests" "--no-container, the run stops there"
+	else fPlan "$gate_tests" "Tests" "area not named"; fi
 	fSection "${APP_NAME} backlog-run-quick${areas[*]:+ ${areas[*]}}"
 	fPlan_Show
 	if ((gate_fmt)); then
@@ -525,16 +553,9 @@ if ((gate)); then
 		"${FMT_CHECK_CMD[@]}" || fDie "format check failed (run: ${FMT_CMD[*]:-cargo fmt})"
 		fEcho "OK: formatting clean"
 	fi
-	if ((gate_lint)); then
-		fStep "Lints"
-		if "${LINT_PROBE[@]}" >/dev/null 2>&1; then
-			"${LINT_CMD[@]}"
-			fEcho "OK: lints clean"
-		else
-			fEcho "WARNING: lints skipped: ${LINT_PROBE[*]} failed (component not installed?)"
-		fi
-	fi
+	((gate_lint)) && fLints
 	if ((gate_tests)); then
+		fNoContainerStop "Tests"
 		fStep "Tests"
 		"${TEST_CMD[@]}"
 		fEcho "OK: tests passed"
@@ -610,6 +631,15 @@ fPlan "$run_dogfood"                    "Dogfood"               "$dogfood_why"
 [[ ! -x "$shots_hook" ]] || fPlan "$((SHOTS_ENABLE && ! quick))" "Screenshots" "$(quick_or "--shots turns it on")"
 [[ ! -f "$demo_hook" ]] || fPlan "$((${DEMO_ENABLE:-0} && ! quick))" "Demo video" "$(quick_or "--demo turns it on")"
 fPlan "$((${#GIT_PUBLISH[@]} > 0))"     "Publish"               "$(mode_or --no-publish)"
+## On the host nothing runs past the lints, which go before the build.
+if ((no_container)); then
+	kept=(); stopAt=""
+	for x in "${stepList[@]}"; do case "$x" in
+		"Remote sync"|"$fmt_step"|Lints) kept+=("$x") ;;
+		*) [[ -n "$stopAt" ]] || stopAt="$x"; stepOff+=("${x} (--no-container)") ;;
+	esac; done
+	stepList=("${kept[@]}")
+fi
 
 ## Preflight: show the plan with resolved paths, then confirm.
 profile_dir="$(cd "${root}" && mkdir -p "${PROFILE_OUT_DIR}" 2>/dev/null; cd "${PROFILE_OUT_DIR}" 2>/dev/null && pwd || echo "${root}/${PROFILE_OUT_DIR}")"
@@ -627,6 +657,7 @@ fEcho_Clean "Run folder ..........: ${runTempDir}$( ((runTempKeep)) && echo '  (
 fEcho_Clean "Remote sync .........: $( ((no_sync)) && echo "(skipped ${sync_why})" || echo 'fetch + fast-forward before building' )"
 fEcho_Clean "Build jobs ..........: $( [[ -n "${CICD_JOBS_PIN:-}" ]] && echo "${CICD_JOBS_PIN} (pinned)" || echo "half of ${cores} cores, a quarter on a busy box or for a hard step; ${CICD_MAX_JOBS} now, load ${jobsLoad}" )"
 fEcho_Clean "Priority ............: nice 19$(command -v ionice >/dev/null 2>&1 && echo ', ionice idle'); containers get --cpu-shares 256 and nice 19 inside"
+((no_container)) && fEcho_Clean "Containers ..........: none (--no-container): lints with the host's tools, then stop at ${stopAt:-the build}"
 fEcho_Clean "CPU cap .............: $( [[ -n "${CICD_CPU_CAPPED:-}" ]] && echo "$(( cores * 50 ))% (user scope)" || echo 'job counts only (no user systemd)' )"
 if ((checks_only)); then
 	fEcho_Clean "Format check ........: ${FMT_CHECK_CMD[*]:-(skipped)}"
@@ -769,6 +800,11 @@ elif ((run_fmt)); then
 	fEcho "OK: formatted (${FMT_CMD[*]})"
 fi
 
+if ((no_container)); then
+	((${#LINT_CMD[@]})) && fLints
+	fNoContainerStop "${stopAt:-Build (debug)}"
+fi
+
 ## Stage 2: debug build.
 fStep "Build (debug)"
 "${DEBUG_BUILD_CMD[@]}"
@@ -779,15 +815,7 @@ fEcho "OK: debug build"
 fStep "Tests"
 "${TEST_CMD[@]}"
 fEcho "OK: tests passed"
-if ((${#LINT_CMD[@]})); then
-	fStep "Lints"
-	if "${LINT_PROBE[@]}" >/dev/null 2>&1; then
-		"${LINT_CMD[@]}"
-		fEcho "OK: lints clean"
-	else
-		fEcho "WARNING: lints skipped: ${LINT_PROBE[*]} failed (component not installed?)"
-	fi
-fi
+((${#LINT_CMD[@]})) && fLints
 ## Bounded fuzzing of the parsers that read outside input. Slow by design, so it
 ## is left out of --quick; the gate never runs it at all.
 if ((! quick)) && ((${#FUZZ_CMD[@]})); then
@@ -1240,3 +1268,5 @@ fEcho_Clean
 ##		  or for a hard step, checked before each step; nice and ionice, and a
 ##		  low CPU share for the containers. Each step opens and closes with a
 ##		  timestamped "Step N of M" line; the plan lists the steps turned off.
+##		- 2026-10-26: --no-container: the lints on the host, then a stop at the
+##		  first step that needs a container.

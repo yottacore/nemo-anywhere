@@ -34,7 +34,7 @@ esac
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 src="$(cd "${here}/../../source" && pwd)"
-build="${BUILD_DIR:-/build}"
+build="${BUILD_DIR:-${CICD_BUILD_ROOT:-}/build}"
 jobs="${NEMO_TEST_JOBS:-2}"
 
 ## Arithmetic comparison here would evaluate whatever it was handed, and 0 means

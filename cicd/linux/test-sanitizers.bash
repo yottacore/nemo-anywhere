@@ -34,7 +34,7 @@ esac
 echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-build="${BUILD_DIR:-/build-sanitize}"
+build="${BUILD_DIR:-${CICD_BUILD_ROOT:-}/build-sanitize}"
 
 ## meson can keep a build dir's old options on reconfigure, and a plain build
 ## here would pass every test and prove nothing.

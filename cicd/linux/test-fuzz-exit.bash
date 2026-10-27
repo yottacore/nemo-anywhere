@@ -24,7 +24,7 @@ fEcho(){ echo "[ $* ]"; }
 if [[ "${1:-}" != "--inside" ]]; then
 	echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
 	here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-	if ! command -v docker >/dev/null 2>&1 || ! timeout 10 docker inspect nemo-build >/dev/null 2>&1; then
+	if [[ "${CICD_NO_CONTAINER:-}" == "1" ]] || ! command -v docker >/dev/null 2>&1 || ! timeout 10 docker inspect nemo-build >/dev/null 2>&1; then
 		fEcho "fuzz exit check skipped: no nemo-build container"
 		exit 77
 	fi

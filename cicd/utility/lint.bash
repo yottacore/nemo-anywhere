@@ -59,6 +59,7 @@ bash "${here}/test-werror.bash"
 bash "${here}/test-thumbnailers.bash"
 fTest bash "${here}/test-bundle-left-out.bash" --self-test
 fTest bash "${here}/test-docker-run.bash"
+bash "${here}/test-docker-run-host.bash"
 fTest bash "${here}/../win/test-gui-smoke.bash"
 fTest bash "${here}/../linux/test-fuzz-exit.bash"
 fTest bash "${here}/../linux/test-deb-size.bash"

@@ -45,10 +45,11 @@ NEMO_CONTAINER="nemo-build"
 ## no reliance on cicd.bash internals).
 _cfgdir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-## Wrapper that runs a shell command in NEMO_CONTAINER but stays resilient to a
-## down/absent docker daemon: it skips-with-warning (exit 0) on an environmental
-## miss instead of aborting the push with a raw socket error, and propagates a
-## genuine build/smoke failure. See utility/docker-run.bash.
+## Wrapper that runs a shell command in NEMO_CONTAINER. With docker down or
+## absent, or no image, it runs the command on the host if the host has the
+## build stack, and stops the run with one line if not. The commands find the
+## tree at CICD_SRC and build under CICD_BUILD_ROOT, which it sets for either
+## place. See utility/docker-run.bash.
 DOCKER_RUN="${_cfgdir}/utility/docker-run.bash"
 
 
@@ -73,8 +74,7 @@ TOOL_PINS=(
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 ## Stage 2: debug build - READY. Configure (or reconfigure) and build in-container.
-## The wrapper starts the container (and skips gracefully if docker is down) so a
-## stopped box or dead daemon doesn't fail the stage. This is what the smoke runs
+## The wrapper starts the container, so a stopped box doesn't fail the stage. This is what the smoke runs
 ## against.
 ## -j is not optional: left alone ninja takes cores+2, and the engine's whole
 ## point in computing CICD_MAX_JOBS is that a pipeline run leaves the box usable.
@@ -82,16 +82,15 @@ TOOL_PINS=(
 ## is checked again before each step.
 ## Warnings are errors in every pipeline build; linux/run-tests.bash says why.
 DEBUG_BUILD_CMD=(bash "${DOCKER_RUN}" "debug build" "
-	bash /src/cicd/utility/meson-setup.bash /build /src/source -Dwerror=true && bash /src/cicd/utility/check-werror.bash /build && ninja -C /build -j \${CICD_MAX_JOBS:-2}
+	bash \${CICD_SRC:-/src}/cicd/utility/meson-setup.bash \${CICD_BUILD_ROOT:-}/build \${CICD_SRC:-/src}/source -Dwerror=true && bash \${CICD_SRC:-/src}/cicd/utility/check-werror.bash \${CICD_BUILD_ROOT:-}/build && ninja -C \${CICD_BUILD_ROOT:-}/build -j \${CICD_MAX_JOBS:-2}
 ")
 
 ## Stage 3: regression tests - READY. The meson suite, then a headless launch and
 ## --version. Both run inside the container under its own Xvfb; see
 ## linux/run-tests.bash, which also does the build, since gate mode has no build
 ## stage of its own and would otherwise test whatever was last left in /build.
-## -j is passed through for the same reason it is above. Same wrapper, so a
-## down/absent daemon skips-with-warning instead of aborting the gate.
-TEST_CMD=(bash "${DOCKER_RUN}" "tests" "NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash /src/cicd/linux/run-tests.bash")
+## -j is passed through for the same reason it is above. Same wrapper.
+TEST_CMD=(bash "${DOCKER_RUN}" "tests" "NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash \${CICD_SRC:-/src}/cicd/linux/run-tests.bash")
 ## Held to CICD_MAX_JOBS cores each, with a low CPU share, since the run's own
 ## CPU cap and nice cannot reach inside them.
 CICD_CONTAINERS=(nemo-build nemo-build-jammy nemo-winbuild)
@@ -118,15 +117,15 @@ LINT_CMD=(bash cicd/utility/lint.bash)
 ## rots when this stage is skipped. Left out of --quick and out of the gate,
 ## where three minutes of searching does not belong.
 FUZZ_SECS=60
-FUZZ_PROBE=(bash "${DOCKER_RUN}" "fuzz probe" "bash /src/cicd/linux/fuzz.bash --probe")
-FUZZ_CMD=(bash "${DOCKER_RUN}" "fuzz" "FUZZ_SECS=${FUZZ_SECS} NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash /src/cicd/linux/fuzz.bash")
+FUZZ_PROBE=(bash "${DOCKER_RUN}" "fuzz probe" "bash \${CICD_SRC:-/src}/cicd/linux/fuzz.bash --probe")
+FUZZ_CMD=(bash "${DOCKER_RUN}" "fuzz" "FUZZ_SECS=${FUZZ_SECS} NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash \${CICD_SRC:-/src}/cicd/linux/fuzz.bash")
 
 ## Stage 3 (after fuzzing): the suite again, built with the address and undefined
 ## behavior sanitizers, leak checks on - READY. It builds into a directory of its
 ## own, so /build is left alone. About a minute cold at 16 jobs and half that
 ## warm. --quick keeps it and the gate leaves it out; --no-sanitize skips it. Leaks in the
 ## libraries under GTK are listed in linux/sanitizers.supp.
-SANITIZE_CMD=(bash "${DOCKER_RUN}" "sanitizers" "NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash /src/cicd/linux/test-sanitizers.bash")
+SANITIZE_CMD=(bash "${DOCKER_RUN}" "sanitizers" "NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash \${CICD_SRC:-/src}/cicd/linux/test-sanitizers.bash")
 
 ## Stage 5 (after the cross build): gcc's -fanalyzer and the clang analyzer over
 ## both compile lists - READY, report only for now. Fails on a tracked .c that
