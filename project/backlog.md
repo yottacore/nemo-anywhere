@@ -1893,6 +1893,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: a worker thread still winding down from a stopped zip job at the reading. Not looked into.
 	- Test case: rjbmh7g1 itself, beside the full suite.
 
+- The hosted Windows build stops at its MSYS2 step: pacman has no `mingw-w64-x86_64-desktop-file-utils` anymore.
+	- ID: 2026102618560000
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261026-185600
+	- Opened by: t00mietum
+	- Target OS: Windows
+	- Steps to reproduce: start `release-win.yml` on any branch.
+	- Incorrect behavior: "error: target not found: mingw-w64-x86_64-desktop-file-utils", and the job ends after about a minute.
+	- Expected behavior: the toolchain installs and the exe builds.
+	- Reproduced: 20261026 on round1026a, run 40434009683. The last passing run was 2026-08-19.
+	- Possible cause: MSYS2 dropped or renamed the package. It's named in `.github/workflows/release-win.yml`.
+	- Test case: a `release-win.yml` run that gets past the MSYS2 step.
+
 - A cicd run prints the last step's PASS line twice.
 	- ID: 2026102520100000
 	- Type: Bug
