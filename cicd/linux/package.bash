@@ -6,7 +6,7 @@
 ##	  /opt/<slug>, plus the three things a system install owes the desktop: a name
 ##	  on PATH, a menu entry, and the app icon in the shared icon theme.
 ##	- Shared-library dependencies for the .deb are read off the built binaries with
-##	  dpkg-shlibdeps IN THE RELEASE CONTAINER, not on this box: the package has to
+##	  dpkg-shlibdeps IN A RELEASE CONTAINER, not on this box: the package has to
 ##	  claim the same floor the binary was built against, and this host is newer.
 ##	  rpmbuild works those out from the ELF itself, so the .rpm needs no help.
 ##	- A tarball for another arch can't be read here. Its list comes from the
@@ -41,7 +41,7 @@ ROOT="$(cd "${HERE}/../.." && pwd)"
 SLUG="nemo-anywhere"
 NAME="Nemo Anywhere"
 OUT="${ROOT}/cicd/artifacts/release"
-CONTAINER="${NEMO_RELEASE_CONTAINER:-nemo-build-jammy}"
+IMAGE="${NEMO_RELEASE_IMAGE:-nemo-build-jammy:latest}"
 MAINTAINER="t00mietum <t00mietum@users.noreply.github.com>"
 
 # shellcheck source=../utility/include/echo.bash
@@ -52,6 +52,8 @@ source "${ROOT}/cicd/utility/include/source-date.bash"
 source "${ROOT}/cicd/utility/include/release-files.bash"
 # shellcheck source=../utility/include/run-temp.bash
 source "${ROOT}/cicd/utility/include/run-temp.bash"
+# shellcheck source=../utility/include/step-box.bash
+source "${ROOT}/cicd/utility/include/step-box.bash"
 
 tarball=""; do_deb=1; do_rpm=1; wantArch=""; dependsOnly=0
 while (($#)); do case "$1" in
@@ -97,13 +99,16 @@ arch="${base##*-linux-}"
 [[ -z "$wantArch" || "$arch" == "$wantArch" ]] || fDie "$(basename "$tarball") is not a ${wantArch} build"
 
 ## Runtime dependencies, read off the real binaries at the glibc floor they were
-## built against, in the release container. Prints nothing when it can't.
+## built against, in a container of its own from the release image. Prints
+## nothing when it can't. Called in a subshell, so it stops its own container.
 fDependsFromContainer(){
-	docker exec "$CONTAINER" true 2>/dev/null || return 0
+	local line
+	docker image inspect "$IMAGE" >/dev/null 2>&1 || return 0
+	fStepBox_Start "package depends" "$IMAGE" >/dev/null 2>&1 || return 0
 	## -l for the prefix's own lib dir, if the build has one, so a bundled
 	## extension library resolves; --ignore-missing-info so it is then
 	## skipped rather than treated as an unpackaged dependency and made fatal.
-	docker exec -i "$CONTAINER" sh -c '
+	line="$(docker exec -i "$stepBox" sh -c '
 		set -e
 		d=$(mktemp -d); cd "$d"
 		tar -xzf - >/dev/null
@@ -117,7 +122,9 @@ fDependsFromContainer(){
 		done
 		dpkg-shlibdeps -O --ignore-missing-info $libargs \
 			-Tdebian/pkg.substvars bin/* 2>/dev/null
-	' < "$tarball" | sed -n 's/^shlibs:Depends=//p' | head -1 || true
+	' < "$tarball" | sed -n 's/^shlibs:Depends=//p' | head -1 || true)"
+	fStepBox_Stop
+	[[ -z "$line" ]] || printf '%s\n' "$line"
 }
 
 ## The line the other arch's box read, if it was read off these very bytes.
@@ -162,7 +169,7 @@ deb_depends(){
 if ((dependsOnly)); then
 	[[ "$arch" == "$hostArch" ]] || fDie "$(basename "$tarball") is ${arch}; read its dependencies on a ${arch} box"
 	line="$(fDependsFromContainer)"
-	[[ -n "$line" ]] || fDie "could not read dependencies in ${CONTAINER}"
+	[[ -n "$line" ]] || fDie "could not read dependencies in a container from ${IMAGE}"
 	printf '%s\n' "$line"
 	exit 0
 fi
@@ -382,3 +389,4 @@ fEcho_Clean
 ##		  sit beside the x86_64 one.
 ##		- 2026-10-07: --arch, --depends-only, and the arm64 .deb's dependencies
 ##		  from the arm64 box.
+##		- 2026-10-26: The dependency read has a container of its own.

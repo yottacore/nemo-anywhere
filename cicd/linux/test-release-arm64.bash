@@ -53,7 +53,7 @@ sumsName="nemo-anywhere-${ver}-sha256sums.txt"
 
 mkdir -p "${repo}/cicd/linux" "${repo}/cicd/utility/include" "${repo}/source" "${repo}/cicd/artifacts/release"
 cp "${root}/cicd/linux/release-arm64.bash" "${root}/cicd/linux/package.bash" "${repo}/cicd/linux/"
-for inc in echo source-date release-files run-temp; do
+for inc in echo source-date release-files run-temp jobs step-box; do
 	cp "${root}/cicd/utility/include/${inc}.bash" "${repo}/cicd/utility/include/"
 done
 printf "project('nemo-anywhere', 'c', version: '%s')\n" "$ver" > "${repo}/source/meson.build"
@@ -143,7 +143,7 @@ else
 	[[ ! -e "${box}/nemo-anywhere-arm64/src/cicd/artifacts/release/${x86Name}" ]] || fFail "this side's artifacts were sent"
 	grep -q '^lock wrap armbox ' "$log" || fFail "the box was not locked by its name"
 	grep -q '^ssh tester@armbox$' "$log" || fFail "ssh did not go to NEMO_ARM_HOST"
-	grep -q '^docker stop nemo-build-jammy' "$log" || fFail "the build container was not stopped"
+	grep -q '^docker stop -t 2 nemo-anywhere-' "$log" || fFail "the build container was not stopped"
 	deps="${repo}/cicd/artifacts/deb-depends/${armName%.tar.gz}.txt"
 	if [[ ! -f "$deps" ]]; then
 		fFail "no dependency list for the arm64 tarball"
@@ -151,8 +151,8 @@ else
 		[[ "$(head -1 "$deps")" == "$(cd "${repo}/cicd/artifacts/release" && sha256sum "$armName")" ]] || fFail "the dependency list names '$(head -1 "$deps")', not the tarball's sha256"
 		[[ "$(sed -n 2p "$deps")" == "libc6 (>= 2.35), libgtk-3-0 (>= 3.24.33), from-aarch64" ]] || fFail "the dependency list has '$(sed -n 2p "$deps")', not the box container's reading"
 	fi
-	readAt="$(grep -n 'exec -i nemo-build-jammy' "$log" | head -1 | cut -d: -f1)"
-	stopAt="$(grep -n '^docker stop nemo-build-jammy' "$log" | head -1 | cut -d: -f1)"
+	readAt="$(grep -n 'exec -i nemo-anywhere-' "$log" | head -1 | cut -d: -f1)"
+	stopAt="$(grep -n '^docker stop -t 2 nemo-anywhere-' "$log" | head -1 | cut -d: -f1)"
 	[[ -n "$readAt" && -n "$stopAt" && "$readAt" -lt "$stopAt" ]] || fFail "the dependencies were not read in the box's container before it was stopped"
 fi
 
@@ -166,7 +166,7 @@ else
 	[[ -f "${repo}/cicd/artifacts/release/${armName}" ]] || fFail "no tarball when the dependency read failed"
 	[[ ! -e "${repo}/cicd/artifacts/deb-depends/${armName%.tar.gz}.txt" ]] || fFail "a dependency list was left when the read failed"
 	[[ "$out" == *"WARNING: could not read the arm64 dependencies"* ]] || fFail "no warning when the dependency read failed"
-	grep -q '^docker stop nemo-build-jammy' "$log" || fFail "the build container was not stopped after a failed read"
+	grep -q '^docker stop -t 2 nemo-anywhere-' "$log" || fFail "the build container was not stopped after a failed read"
 fi
 
 ## A box that answers but is not arm64.

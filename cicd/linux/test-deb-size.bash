@@ -45,7 +45,7 @@ lane="${scratch}/repo"
 mkdir -p "${lane}/cicd/linux" "${lane}/cicd/utility/include" "${lane}/cicd/artifacts/release"
 cp "${root}/cicd/linux/package.bash" "${lane}/cicd/linux/"
 cp "${root}/cicd/utility/include/echo.bash" "${root}/cicd/utility/include/source-date.bash" "${root}/cicd/utility/include/release-files.bash" "${root}/cicd/utility/include/run-temp.bash" \
-	"${lane}/cicd/utility/include/"
+	"${root}/cicd/utility/include/jobs.bash" "${root}/cicd/utility/include/step-box.bash" "${lane}/cicd/utility/include/"
 
 ## Sizes either side of a KiB and of a disk block, a symlink and a hardlink pair,
 ## so a count of blocks, or one that counts a hardlink twice, comes out different.
@@ -66,7 +66,7 @@ deb="${lane}/cicd/artifacts/release/${name}.deb"
 ## $1 work dir for package.bash, $2 where to keep the .deb.
 fPack(){
 	local out rc=0
-	out="$(TMPDIR="$1" SOURCE_DATE_EPOCH=1700000000 NEMO_RELEASE_CONTAINER=no-such-container-deb-size \
+	out="$(TMPDIR="$1" SOURCE_DATE_EPOCH=1700000000 NEMO_RELEASE_IMAGE=no-such-image-deb-size \
 		bash "${lane}/cicd/linux/package.bash" --no-rpm 2>&1)" || rc=$?
 	if [[ "$rc" != 0 || ! -f "$deb" ]]; then
 		fFail "package.bash with TMPDIR=$1 made no .deb (exit ${rc}): ${out}"

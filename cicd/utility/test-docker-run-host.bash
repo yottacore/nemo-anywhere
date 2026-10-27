@@ -36,7 +36,7 @@ repo="${scratch}/repo"
 log="${scratch}/docker.log"
 mkdir -p "${repo}/cicd/utility/include" "${scratch}/bin"
 cp "${here}/docker-run.bash" "${repo}/cicd/utility/"
-for inc in source-date jobs; do cp "${here}/include/${inc}.bash" "${repo}/cicd/utility/include/"; done
+for inc in source-date jobs step-box; do cp "${here}/include/${inc}.bash" "${repo}/cicd/utility/include/"; done
 ## DOCKER_MODE down: no daemon. nobuild: a daemon, but no container, no image,
 ## and a build that fails.
 cat > "${scratch}/bin/docker" <<-'EOF'

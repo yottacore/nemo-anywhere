@@ -3,16 +3,18 @@
 ##	- Purpose: Build the Linux release artifacts under the names the installers
 ##	  look for: nemo-anywhere-<ver>-linux-<arch>.tar.gz plus a shared
 ##	  nemo-anywhere-<ver>-sha256sums.txt (see design.md, Delivery).
-##	- Build box is nemo-build-jammy (Ubuntu 22.04), NOT the day-to-day nemo-build
-##	  container: the release binary's glibc floor is whatever it was built against,
-##	  and trixie's 2.41 would rule out every distro older than 2025. See the
-##	  Dockerfile beside this script.
-##	- The image and container are created on demand, so a fresh clone can cut a
-##	  release with one command.
+##	- Built from the nemo-build-jammy image (Ubuntu 22.04), NOT the day-to-day
+##	  nemo-build-deps one: the release binary's glibc floor is whatever it was
+##	  built against, and trixie's 2.41 would rule out every distro older than
+##	  2025. See the Dockerfile beside this script.
+##	- In a container of its own, named and removed the way every step's is
+##	  (utility/include/step-box.bash). The image is built on demand, so a fresh
+##	  clone can cut a release with one command.
 ##	- The sums file covers every artifact sitting in the release dir, so a Windows
 ##	  exe dropped in beside the tarball (the CI builds and signs that one) is
 ##	  covered by the same file the installers verify against.
-##	- Every build starts from an empty build dir; release-setup.bash says why.
+##	- Every build starts from an empty build dir, in the container, so no cache
+##	  volume; release-setup.bash says why.
 ##	- Syntax: release.bash
 
 ##	Copyright (c) 2026 Bubbles
@@ -25,7 +27,6 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SLUG="nemo-anywhere"
 IMAGE="${NEMO_RELEASE_IMAGE:-nemo-build-jammy:latest}"
-CONTAINER="${NEMO_RELEASE_CONTAINER:-nemo-build-jammy}"
 OUT="${ROOT}/cicd/artifacts/release"
 DOGFOOD="${ROOT}/cicd/artifacts/dogfood/${SLUG}"
 BUILD=/build-release
@@ -37,8 +38,8 @@ source "${ROOT}/cicd/utility/include/echo.bash"
 source "${ROOT}/cicd/utility/include/source-date.bash"
 # shellcheck source=../utility/include/release-files.bash
 source "${ROOT}/cicd/utility/include/release-files.bash"
-# shellcheck source=../utility/include/jobs.bash
-source "${ROOT}/cicd/utility/include/jobs.bash"
+# shellcheck source=../utility/include/step-box.bash
+source "${ROOT}/cicd/utility/include/step-box.bash"
 
 case "${1:-}" in
 	--clean) ;;	# every build is clean now; still taken so old command lines run
@@ -71,23 +72,18 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
 	fEcho_Clean "building image ${IMAGE}"
 	docker build --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" -t "$IMAGE" "${ROOT}/cicd/linux/" >/dev/null
 fi
-if ! docker exec "$CONTAINER" true 2>/dev/null; then
-	fEcho_Clean "starting container ${CONTAINER}"
-	docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
-	## --init reaps orphans; --ulimit core=0 keeps crash dumps out of the mounted tree.
-	## The --security-opt pair lets the test's jail start (jail.bash).
-	docker run -d --init --ulimit core=0 --name "$CONTAINER" --shm-size=2g \
-		--label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" \
-		--security-opt seccomp=unconfined --security-opt apparmor=unconfined \
-		-v "${ROOT}:/src" "$IMAGE" sleep infinity >/dev/null
-fi
+## -j alone does not hold the build to that many cores: every LTO link runs 4
+## jobs of its own, and ninja runs several links at once. So the container
+## gets the cap too. The --security-opt pair lets the test's jail start (jail.bash).
+trap 'fStepBox_Stop' EXIT
+fStepBox_Start "release build" "$IMAGE" \
+	--security-opt seccomp=unconfined --security-opt apparmor=unconfined \
+	-v "${ROOT}:/src" \
+	|| fDie "could not start a container from ${IMAGE}"
+CONTAINER="${stepBox}"
 ## Before the build, since on the arm64 box that's an hour.
 docker exec "$CONTAINER" bash /src/cicd/linux/jail.bash --check >/dev/null \
-	|| fDie "the test jail can't start in ${CONTAINER}. Rebuild ${IMAGE} from cicd/linux/Dockerfile if it has no bwrap, then remove ${CONTAINER} so this makes it again"
-## -j alone does not hold the build to that many cores: every LTO link runs 4
-## jobs of its own, and ninja runs several links at once. Same cap the engine
-## puts on its containers.
-docker update --cpus "$jobs" --cpu-shares 256 "$CONTAINER" >/dev/null 2>&1 || true
+	|| fDie "the test jail can't start in a container from ${IMAGE}. Rebuild it from cicd/linux/Dockerfile if it has no bwrap"
 fEcho_Clean "$(docker exec "$CONTAINER" sh -c '. /etc/os-release; printf "%s, glibc %s, gtk %s" "$PRETTY_NAME" "$(ldd --version | head -1 | grep -oE "[0-9]+\.[0-9]+$")" "$(pkg-config --modversion gtk+-3.0)"')"
 
 ## The asset name says arm64 where the kernel says aarch64.
@@ -114,7 +110,7 @@ fEcho_Clean "$smoke"
 ## The extension API lives in the exe in this build, and nothing else in the
 ## lane would notice if an extension could no longer reach it.
 docker exec "$CONTAINER" meson test -C "$BUILD" --no-rebuild --wrapper "bash /src/cicd/linux/jail.bash" "rh5f9h18 Extension load test" >/dev/null \
-	|| fDie "extension load test failed; see ${BUILD}/meson-logs/testlog-bash.txt in ${CONTAINER}"
+	|| fDie "extension load test failed; see ${BUILD}/meson-logs/testlog-bash.txt in ${CONTAINER} (kept with --keep-temp)"
 
 fEcho_Clean ""
 fEcho "Staging prefix"
@@ -165,3 +161,4 @@ fEcho_Clean ""
 ##		- 2026-10-03: Always a clean build dir.
 ##		- 2026-10-05: Runs on an arm64 box too, for release-arm64.bash.
 ##		- 2026-10-19: The extension load test runs in the test jail.
+##		- 2026-10-26: A container of its own, not the long-lived nemo-build-jammy.

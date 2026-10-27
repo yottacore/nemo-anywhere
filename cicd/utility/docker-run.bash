@@ -47,9 +47,10 @@ fEcho(){ echo "[ $* ]"; }
 # shellcheck source=include/source-date.bash
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/include/source-date.bash"
 fSetSourceDate "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-## The job count the command reads, as cicd.bash set it for this step.
-# shellcheck source=include/jobs.bash
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/include/jobs.bash"
+## The job count the command reads, as cicd.bash set it for this step, and the
+## step container's name and cache volumes.
+# shellcheck source=include/step-box.bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/include/step-box.bash"
 fJobs_Default
 
 if [[ "${CICD_NO_CONTAINER:-}" == "1" ]]; then
@@ -99,30 +100,15 @@ if ! docker image inspect "$image" >/dev/null 2>&1; then
 	fi
 fi
 
-## Each cache volume belongs to the clone that made it. Used from any other,
-## such as a second worktree, the step would build on that clone's objects.
-here_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
-fVolume(){
-	local vol="$1" src
-	if src="$(docker volume inspect "$vol" --format '{{index .Labels "dev.src"}}' 2>/dev/null)"; then
-		[[ "$src" == "$here_repo" ]] && return 0
-		fEcho "FAILED: ${label}: ${vol} builds ${src:-another clone}, not ${here_repo} (docker volume rm ${vol} hands it over)" >&2
-		exit 1
-	fi
-	docker volume create --label "dev.project=${project}" --label "dev.run=${run}" --label "dev.src=${here_repo}" "$vol" >/dev/null \
-		|| fOnHost "could not make volume ${vol}"
-}
-fVolume "${project}-build"
-fVolume "${project}-build-fuzz"
-
-## Outside a pipeline run there's no run folder, so the pid keeps 2 apart. A
-## kept container (--keep-temp) or a step run twice takes the next number.
-step="${label,,}"; step="${step//[^a-z0-9]/-}"
-name="${project}-${run}-${step}"
-[[ "$run" != none ]] || name+="-$$"
-names=$'\n'"$(docker ps -a --format '{{.Names}}' 2>/dev/null || true)"$'\n'
-base="$name"; n=1
-while [[ "$names" == *$'\n'"${name}"$'\n'* ]]; do n=$((n + 1)); name="${base}-${n}"; done
+for vol in build build-fuzz; do
+	rc=0; fStepBox_Volume "${project}-${vol}" "${label}" || rc=$?
+	case "${rc}" in
+		0) ;;
+		1) exit 1 ;;
+		*) fOnHost "could not make volume ${project}-${vol}" ;;
+	esac
+done
+name="$(fStepBox_Name "${label}")"
 
 keep=(--rm); [[ "${CICD_KEEP_TEMP:-0}" != 1 ]] || keep=()
 stdin=(); [[ -t 0 ]] || stdin=(-i)

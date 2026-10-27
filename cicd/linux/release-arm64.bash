@@ -3,7 +3,7 @@
 ##	- Purpose: Build the Linux arm64 release tarball on an arm64 box, bring it
 ##	  back to cicd/artifacts/release beside the x86_64 one, and rewrite the sums
 ##	  file over both.
-##	- The .deb's dependency line is read there too, in the same container, off
+##	- The .deb's dependency line is read there too, in a container from the same image, off
 ##	  the arm64 libraries, and kept beside this side's artifacts
 ##	  (fDebDependsFile). package.bash --arch arm64 makes the packages from both.
 ##	- Nothing here cross-builds GTK, so the build runs on an arm64 Linux box with
@@ -99,11 +99,6 @@ fRun(){
 		fEcho "WARNING: could not read the arm64 dependencies on ${armHost}; the arm64 .deb will get a conservative list"
 	fi
 
-	## Stopped, since anything left running costs the host several times over on an
-	## emulated box. Its build dir stays for a test run; the next release run
-	## replaces the container.
-	ssh "${sshOpts[@]}" "$armHost" "docker stop nemo-build-jammy >/dev/null 2>&1 || true"
-
 	fWriteReleaseSums "$OUT" "$SLUG" "$ver"
 
 	fEcho_Clean ""
@@ -132,3 +127,5 @@ fMain "${@}"
 ##	History:
 ##		- 2026-10-05: Created.
 ##		- 2026-10-07: Reads the arm64 .deb's dependencies on the box.
+##		- 2026-10-26: Nothing to stop after, since release.bash and package.bash
+##		  remove their containers there.

@@ -37,7 +37,7 @@ trap 'fSafeRm_IfThere "${scratch}"' EXIT
 mkdir -p "${scratch}/cicd/utility/include"
 cp "${here}/docker-run.bash" "${scratch}/cicd/utility/"
 cp "${here}/include/source-date.bash" "${scratch}/cicd/utility/include/"
-cp "${here}/include/jobs.bash" "${scratch}/cicd/utility/include/"
+cp "${here}/include/jobs.bash" "${here}/include/step-box.bash" "${scratch}/cicd/utility/include/"
 
 ## This clone first, which makes the volumes for it on a fresh box.
 rc=0

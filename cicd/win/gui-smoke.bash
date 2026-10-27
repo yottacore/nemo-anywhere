@@ -4,7 +4,7 @@
 ##	  nemo-anywhere.exe under wine on a throwaway Xvfb display, confirms the main
 ##	  window comes up, and drops a screenshot. The --version smoke does not exercise
 ##	  GTK/gvfs at all, so this is what actually proves the app runs and browses.
-##	- Runs INSIDE the nemo-winbuild container: docker exec nemo-winbuild bash /src/cicd/win/gui-smoke.bash
+##	- Runs INSIDE a cross-build step container: bash cicd/win/win-run.bash "gui smoke" "bash /src/cicd/win/gui-smoke.bash"
 ##	- Syntax: gui-smoke.bash [SHOT_PNG] [SECONDS]   (defaults /tmp/shot.png, 16)
 ##	- Wine needs its DLLs and schemas on-path: WINEPATH -> sysroot bin (the extension
 ##	  lib is folded into the exe); GSETTINGS_SCHEMA_DIR -> a dir holding nemo's schema merged

@@ -2,8 +2,8 @@
 
 ##	- Purpose: The static analyzer stage. gcc's -fanalyzer and the clang analyzer
 ##	  run over every C file in both compile lists: the debug build's /build,
-##	  read in a step container of its own, and nemo-winbuild's /build-win,
-##	  which has the Windows-only files. Run on the host, after the cross build,
+##	  and the cross build's /build-win, which has the Windows-only files, each
+##	  read in step containers of their own. Run on the host, after the cross build,
 ##	  so both lists are current.
 ##	- Report only for now (backlog 2026102114400584): findings are counted per
 ##	  area and kept, and don't fail the run. Vendored findings are listed in
@@ -16,8 +16,9 @@
 ##	- The last run's logs are in cicd/artifacts/analyze/last/. Each run also keeps
 ##	  counts_<stamp>.txt and findings_<stamp>.tgz there, GFS-rotated.
 ##	- An analyzer missing from its container shows as "not run" in the counts.
-##	  The Linux lane's container is "step", run through docker-run.bash.
-##	  nemo-winbuild has no clang yet.
+##	  The Linux lane's container is "step", run through docker-run.bash, and
+##	  the Windows lane's "winstep", through win/win-run.bash. The cross-build
+##	  image has no clang yet.
 ##	- CICD_MAX_JOBS caps the jobs of all 4 runs together. gcc spends many minutes
 ##	  on a few files (the blake3 SIMD ones and nemo-config.c, at -O0), and
 ##	  ANALYZE_TU_TIMEOUT (900 s) caps each file; one cut off counts as failed.
@@ -51,19 +52,17 @@ tool="/src/cicd/utility/analyze.py"
 ## lane|container|compile list|compiler
 lanes=(
 	"linux|step|/build/compile_commands.json|cc"
-	"win|nemo-winbuild|/build-win/compile_commands.json|x86_64-w64-mingw32-gcc"
+	"win|winstep|/build-win/compile_commands.json|x86_64-w64-mingw32-gcc"
 )
 failed=0
 
-## In the lane's container; "step" is one of its own, by label. Env goes in
-## through env, which works the same in both.
+## In a container of the lane's own, by label. Env goes in through env.
 fInLane(){
 	local container="$1" step="$2"; shift 2
-	if [[ "${container}" == step ]]; then
-		bash "${here}/docker-run.bash" "analyze ${step}" "$(printf '%q ' "$@")"
-	else
-		docker exec "${container}" "$@"
-	fi
+	case "${container}" in
+		step)    bash "${here}/docker-run.bash" "analyze ${step}" "$(printf '%q ' "$@")" ;;
+		winstep) bash "${root}/cicd/win/win-run.bash" "analyze win ${step}" "$(printf '%q ' "$@")" ;;
+	esac
 }
 
 fPlanted(){
@@ -131,4 +130,5 @@ fEcho "OK: analyzer stage (report only)"
 ##	History:
 ##		- 2026-10-21: First version, report only.
 ##		- 2026-10-24: Vendored suppression list.
-##		- 2026-10-26: The Linux lane runs in step containers, not nemo-build.
+##		- 2026-10-26: The Linux lane runs in step containers, not nemo-build,
+##		  and the Windows lane in its own, not nemo-winbuild.

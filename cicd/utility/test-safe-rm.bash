@@ -47,8 +47,6 @@ declare -A left=(
 	[install.bash]=7
 	[cicd/linux/test-fuzz-exit.bash]=1
 	[cicd/win/test-gui-smoke.bash]=1
-	[cicd/win/build-cross.bash]=1
-	[cicd/win/pack-setup.bash]=1
 	[cicd/win/pack-zip.bash]=2
 )
 

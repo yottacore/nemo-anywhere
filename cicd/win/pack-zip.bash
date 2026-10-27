@@ -27,7 +27,6 @@ set -Eeuo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${HERE}/../.." && pwd)"
 SLUG="nemo-anywhere"
-CONTAINER="${NEMO_WIN_CONTAINER:-nemo-winbuild}"
 BUILD="${NEMO_WIN_BUILD:-/build-win}"
 SYSROOT="/opt/win-sysroot/mingw64"
 OUT="${ROOT}/cicd/artifacts/release"
@@ -38,6 +37,8 @@ source "${ROOT}/cicd/utility/include/echo.bash"
 source "${ROOT}/cicd/utility/include/source-date.bash"
 # shellcheck source=../utility/include/run-temp.bash
 source "${ROOT}/cicd/utility/include/run-temp.bash"
+# shellcheck source=win-box.bash
+source "${HERE}/win-box.bash"
 # shellcheck source=../utility/include/pixbuf-loaders.bash
 source "${ROOT}/cicd/utility/include/pixbuf-loaders.bash"
 
@@ -49,9 +50,9 @@ while (($#)); do case "$1" in
 esac; done
 
 command -v zip >/dev/null 2>&1 || fDie "zip is not installed"
-## A reboot leaves it stopped, with no restart policy.
-docker exec "$CONTAINER" true 2>/dev/null || docker start "$CONTAINER" >/dev/null 2>&1 || true
-docker exec "$CONTAINER" true 2>/dev/null || fDie "cross-build container '${CONTAINER}' is not running and would not start"
+work=""
+trap 'fSafeRm_IfThere "${work}"; fStepBox_Stop' EXIT
+fWinBox_Start "windows zip" || exit 1
 docker exec "$CONTAINER" test -x "${BUILD}/src/${SLUG}.exe" 2>/dev/null \
 	|| fDie "no built exe at ${BUILD}/src/${SLUG}.exe - build the Windows target first"
 
@@ -125,7 +126,6 @@ docker exec "$CONTAINER" sh -c "
 # Pull it out and zip it
 
 work="$(mktemp -d)"
-trap 'fSafeRm_IfThere "${work}"' EXIT
 
 docker cp "${CONTAINER}:/tmp/${name}" "${work}/${name}" >/dev/null
 docker exec "$CONTAINER" rm -rf "/tmp/${name}"
@@ -157,3 +157,4 @@ fEcho_Clean
 ##	History:
 ##		- 2026-08-04: Created, so the Windows one-liner installer has an asset.
 ##		- 2026-10-13: GTK settings and font config from cicd/win/bundle-etc.
+##		- 2026-10-26: A step container of its own, not nemo-winbuild.

@@ -36,7 +36,7 @@ repo="${scratch}/repo"
 log="${scratch}/docker.log"
 mkdir -p "${repo}/cicd/utility/include" "${scratch}/bin"
 cp "${here}/docker-run.bash" "${repo}/cicd/utility/"
-for inc in source-date jobs; do cp "${here}/include/${inc}.bash" "${repo}/cicd/utility/include/"; done
+for inc in source-date jobs step-box; do cp "${here}/include/${inc}.bash" "${repo}/cicd/utility/include/"; done
 realRepo="$(cd "${repo}" && pwd -P)"
 ## STUB_IMAGES the images there are, STUB_VOL_SRC the clone the volumes
 ## belong to (none: no volumes yet), STUB_NAMES the containers there are.

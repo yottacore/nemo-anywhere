@@ -2,7 +2,7 @@
 ##		- Windows-native CI/CD pipeline for Nemo Anywhere. A PowerShell companion to
 ##		  the Linux cicd.bash - it does the same shape of work, but builds the app
 ##		  NATIVELY on Windows with MSYS2/MinGW-w64 (meson + ninja) rather than in a
-##		  Linux container. The container (nemo-build / nemo-winbuild) is the Linux
+##		  Linux container. The step containers (cicd/win/win-box.bash) are the Linux
 ##		  host's cross story; on real Windows there's a native GTK3 toolchain, so no
 ##		  Docker or wine is involved here. Does NOT touch cicd.bash or config.bash.
 ##		- Stages (fail-fast; any error aborts before the next stage):

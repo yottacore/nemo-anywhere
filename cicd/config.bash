@@ -90,10 +90,11 @@ DEBUG_BUILD_CMD=(bash "${DOCKER_RUN}" "debug build" "
 ## stage of its own and would otherwise test whatever was last left in /build.
 ## -j is passed through for the same reason it is above. Same wrapper.
 TEST_CMD=(bash "${DOCKER_RUN}" "tests" "NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash \${CICD_SRC:-/src}/cicd/linux/run-tests.bash")
-## The long-lived boxes, held to CICD_MAX_JOBS cores each, with a low CPU share,
-## since the run's own CPU cap and nice cannot reach inside them. A step's own
-## container gets the same flags from docker-run.bash.
-CICD_CONTAINERS=(nemo-build-jammy nemo-winbuild)
+## Long-lived boxes, held to CICD_MAX_JOBS cores each, with a low CPU share,
+## since the run's own CPU cap and nice cannot reach inside them. None now:
+## every step has a container of its own, with the same flags, from
+## utility/include/step-box.bash.
+CICD_CONTAINERS=()
 ## At the end of a run, remove the run's labeled containers, other than the ones
 ## above, the project's dangling and older images, and week-old build cache.
 DOCKER_SWEEP=1
@@ -150,7 +151,7 @@ ANALYZE_CMD=(bash cicd/utility/analyze.bash)
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 ## Stage 5: native release build - READY.
-## release.bash owns the whole lane: it builds in nemo-build-jammy so the glibc floor
+## release.bash owns the whole lane: it builds from nemo-build-jammy so the glibc floor
 ## stays at 2.35, stages the relocatable prefix, writes the versioned tarball and the
 ## sums file, and leaves the staged tree at cicd/artifacts/dogfood/ for stage 7 and
 ## the launcher. Every run builds from an empty dir, about a minute here.
@@ -165,8 +166,8 @@ RELEASE_NATIVE_OSARCH="linux-x86_64"
 ## built from the commit being run rather than whatever was cross-built by hand last.
 ## --no-cross leaves it out; --quick keeps it, since it takes under 2 minutes. The Windows box still builds and dogfoods its
 ## own packed exe through cicd-win.ps1; this only keeps the zip current.
-## The exe is copied out because the engine checks for the artifact on the host, and
-## the cross build dir lives only in the container.
+## build-cross.bash leaves the exe at the artifact path, since the engine checks
+## for it on the host, and the cross build dir lives only in its cache volume.
 ## Then the exe is opened under wine and its main window looked for, about twenty
 ## seconds, since nothing else here ever starts the Windows build's GUI.
 ## Linux arm64 is built on an arm64 box over ssh, not cross-compiled, and takes
@@ -176,7 +177,7 @@ RELEASE_NATIVE_OSARCH="linux-x86_64"
 ## the arm64 packages in stage 6.
 BUILD_CROSS=1
 CROSS_TARGETS=(
-	"Windows x86_64 (mingw)|windows-x86_64|cicd/artifacts/cross/nemo-anywhere.exe|rm -f cicd/artifacts/cross/nemo-anywhere.exe && bash cicd/win/build-cross.bash && mkdir -p cicd/artifacts/cross && docker cp nemo-winbuild:/build-win/src/nemo-anywhere.exe cicd/artifacts/cross/nemo-anywhere.exe && docker exec nemo-winbuild bash /src/cicd/win/gui-smoke.bash"
+	"Windows x86_64 (mingw)|windows-x86_64|cicd/artifacts/cross/nemo-anywhere.exe|rm -f cicd/artifacts/cross/nemo-anywhere.exe && bash cicd/win/build-cross.bash && bash cicd/win/win-run.bash 'gui smoke' 'bash /src/cicd/win/gui-smoke.bash'"
 	"Linux arm64 (arm64 box)|linux-arm64|cicd/artifacts/release/${EXE_NAME}-@VER@-linux-arm64.tar.gz|bash cicd/linux/release-arm64.bash"
 )
 #	Rust-era original (reference only - cargo/zig cross, not applicable to meson):
@@ -268,7 +269,7 @@ PACKAGE_CHECKS=(
 	"Windows bundle exe check|(command -v pwsh >/dev/null 2>&1 || exit 77; pwsh -NoProfile -File cicd/utility/test-bundle-exes.ps1)"
 	"Windows bundle settings check|(command -v pwsh >/dev/null 2>&1 || exit 77; pwsh -NoProfile -File cicd/utility/test-bundle-settings.ps1)"
 	"FreeBSD bundle check|bash cicd/utility/test-bundle-left-out.bash bsd"
-	"Setup exe check|docker exec nemo-winbuild bash /src/cicd/win/test-setup.bash"
+	"Setup exe check|bash cicd/win/win-run.bash --no-build-win 'setup check' 'bash /src/cicd/win/test-setup.bash'"
 )
 
 ## Stage 6, after the packages: builds that need another box's OS or signing

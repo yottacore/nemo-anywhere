@@ -917,7 +917,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Container cleanup: a container per step, for the Windows cross build.
 	- ID: 2026102617253214
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: `cicd/cicd.bash --backlog-run-full` once, for the cross target, the Windows packages and setup exe check, and the Windows analyzer lane over the whole list, with no `nemo-anywhere-<run folder>-*` container left after it.
 	- Priority|Severity: High
 	- Opened: 20261026-172532
 	- Opened by: 2026102516403492
@@ -926,12 +927,26 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- The cross build, and everything that reads it, runs in containers of its own, named and removed the same way, rather than in the long-lived `nemo-winbuild`: `build-cross.bash`, `pack-zip.bash`, `pack-setup.bash`, `test-setup.bash`, the GUI smoke check, the Windows analyzer lane and `utility/run-windows-build-via-wine.bash`.
 		- `/build-win` was 587 MB on 20261026, so it fits a cache volume under 2 GB.
-	- Test case: none yet.
+	- Progress log:
+		- 20261026: `cicd/win/win-box.bash` starts each step's container from the cross-build image, named `nemo-anywhere-<run folder>-<step>` and labeled the way `docker-run.bash`'s are, with `--rm` unless `--keep-temp`. `/build-win` is the cache volume `nemo-anywhere-build-win`, owned by one clone like the other two. `cicd/win/win-run.bash` runs one command in one, for the GUI smoke check, the setup exe check and the Windows analyzer lane. `build-cross.bash`, `pack-zip.bash`, `pack-setup.bash` and `run-windows-build-via-wine.bash` start their own and stop it on exit.
+		- 20261026: the naming, the volume check and the start and stop are in `cicd/utility/include/step-box.bash`, which `docker-run.bash` uses too.
+		- 20261026: `build-cross.bash` leaves the checked exe at `cicd/artifacts/cross/nemo-anywhere.exe`, since the host can't read the volume. `--clean` empties the volume rather than removing its mount.
+		- 20261026: `CICD_CONTAINERS` is empty. `nemo-winbuild` is left for hand use; nothing in the pipeline uses it now. `NEMO_WIN_CONTAINER` is gone; `NEMO_WIN_IMAGE` names the image.
+		- 20261026: the first build in the new volume rebuilt all 657 targets from the image's old `/build-win`, in 4 min at 8 jobs. The next one took 5 s. The volume is 613 MB.
+	- Decisions:
+		- One detached container per step, with `docker exec` into it, for the scripts that make several calls. It keeps their calls as they were, and `--rm` makes the stop at exit a removal.
+		- The cap runs only before the cross build. The steps that read the volume can't rebuild it, so emptying it there would only make them fail.
+		- `pack-setup.bash` and the setup exe check take `--no-build-win`, since they read only the packed artifacts. So a worktree's lint stage isn't refused over a volume it doesn't need.
+	- Test case: rm82nbmj (`cicd/win/test-win-run.bash`, lint stage: the name, labels, CPU cap, `--rm` and `--keep-temp`, a taken name, the volume made for this clone and refused for another, `--no-build-win`, the exit code passed back, the stop after the step and after a failure, a fresh clone's image, and one line on no image, docker down or `--no-container`; then no script names a long-lived box). rjcbfbx8 and rktsh3gd run through the new path.
+		- 20261026: rm80p6y8 lists neither `build-cross.bash` nor `pack-setup.bash` now, since neither has an `rm -r` left.
+	- Verified: 20261026, rm82nbmj passes, and fails on each of these: `--rm` always, exit 0 for any step, no stop, no volume, another clone's volume taken, `docker exec nemo-winbuild` back in `config.bash`, and the old stop on the arm64 box. `--backlog-run-quick format lint` passed. In step containers: the cross build, `pack-zip.bash`, `pack-setup.bash`, the setup exe check (rjphqx48), the GUI smoke check (rcdybfj0), rjcbfbx8 and the analyzer self-test with the Windows lane passed. `run-windows-build-via-wine.bash --restage` staged a runtime owned by the user. An exit 77 came back as 77, `--keep-temp` kept a stopped container, and no container was left after any step.
+	- Swept: every `docker exec`, `docker cp`, `docker start` and `docker run` that named `nemo-winbuild`, and every `NEMO_WIN_CONTAINER` reader, under `cicd/` and `utility/`: the 7 scripts above, `test-gui-smoke.bash`, `analyze.bash` and `config.bash`. The design.md build sections and the Dockerfile and `cicd-win.ps1` headers say the same now.
 
 - Container cleanup: a container per step, for the release build.
 	- ID: 2026102617253220
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: `cicd/cicd.bash --backlog-run-full` once, for the native release, the packages and the arm64 lane on vmDebARM64, with no `nemo-anywhere-*` container left after it on either box.
 	- Priority|Severity: High
 	- Opened: 20261026-172532
 	- Opened by: 2026102516403492
@@ -940,7 +955,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- `release.bash` and the package step's dependency check run in containers of their own rather than in the long-lived `nemo-build-jammy`, on this box and on vmDebARM64.
 		- Whether the release build dir carries over between runs, in a cache volume, or starts cold each time, is still to be decided.
-	- Test case: none yet.
+	- Progress log:
+		- 20261026: `release.bash` runs in a container of its own from `nemo-build-jammy:latest`, through `step-box.bash`, and removes it on exit, on this box and on the arm64 one. The package step's dependency read starts one of its own and stops it after. `release-arm64.bash` no longer stops `nemo-build-jammy` on the box, since nothing is left running there.
+		- 20261026: `NEMO_RELEASE_CONTAINER` is gone; `NEMO_RELEASE_IMAGE` names the image for both. `nemo-build-jammy` is left for hand use; nothing in the pipeline uses it now.
+	- Decisions:
+		- Decided: the release build starts cold each time, in its container, with no cache volume. `release-setup.bash` already builds from an empty dir on every run, so a volume would keep over 1 GB that no run reads. It took 3 min here at 8 jobs.
+	- Test case: rjph1pxd and rjpxzs6x (the dependency read in a container of its own, stopped after), rm82nbmj (no script names a long-lived box).
+		- 20261026: rjph1pxd wants `docker stop -t 2 nemo-anywhere-` where it wanted `docker stop nemo-build-jammy`, and `exec -i nemo-anywhere-` where it wanted `exec -i nemo-build-jammy`. What it checks is the same: the read happens before the stop. The deb size check sets `NEMO_RELEASE_IMAGE` to a missing image, where it set `NEMO_RELEASE_CONTAINER`.
+	- Verified: 20261026, `release.bash` built 787 targets in its own container in 177 s at 8 jobs, and the smoke test and the extension load test passed there. `package.bash --depends-only` read the line in a container of its own. rjph1pxd, rjpxzs6x and the deb size check pass. No container was left after either.
+	- Swept: every `docker exec`, `docker cp`, `docker update` and `docker stop` that named `nemo-build-jammy`, and every `NEMO_RELEASE_CONTAINER` reader, under `cicd/` and `utility/`: `release.bash`, `package.bash`, `release-arm64.bash`, `test-release-arm64.bash`, `test-package-arm64.bash` and `test-deb-size.bash`. `test-release-setup.bash` already ran its own container.
 
 - CICD reset: containers.
 	- ID: 2026102416300000

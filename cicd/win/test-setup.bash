@@ -5,8 +5,8 @@
 ##	  match the zip's, the Start menu shortcut, the Settings, Apps entry, and
 ##	  that the user PATH comes back exactly as it was found, including one too
 ##	  long to edit and one that only just fits.
-##	- Runs inside the cross-build container:
-##	  docker exec nemo-winbuild bash /src/cicd/win/test-setup.bash
+##	- Runs inside a cross-build step container:
+##	  bash cicd/win/win-run.bash --no-build-win "setup check" "bash /src/cicd/win/test-setup.bash"
 ##	- No setup exe or no zip beside it: exit 77.
 ##	- What wine can't show is checked on a Windows box by hand: a folder held
 ##	  open, the pages, and install.ps1 over it and under it.

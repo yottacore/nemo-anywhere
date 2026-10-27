@@ -48,7 +48,7 @@ rel="${lane}/cicd/artifacts/release"
 log="${scratch}/docker.log"
 mkdir -p "${lane}/cicd/linux" "${lane}/cicd/utility/include" "$rel" "${scratch}/bin"
 cp "${root}/cicd/linux/package.bash" "${lane}/cicd/linux/"
-for inc in echo source-date release-files run-temp; do
+for inc in echo source-date release-files run-temp jobs step-box; do
 	cp "${root}/cicd/utility/include/${inc}.bash" "${lane}/cicd/utility/include/"
 done
 # shellcheck source=../utility/include/release-files.bash
