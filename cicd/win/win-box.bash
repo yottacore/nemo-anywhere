@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2034  ## CONTAINER is for the scripts that source this.
 
 ##	- Purpose: The Windows cross build's step container: one of its own for each
 ##	  step, from the cross-build image, with the repo at /src and the cross
@@ -25,6 +24,7 @@
 # shellcheck source=../utility/include/step-box.bash
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../utility/include" && pwd)/step-box.bash"
 
+# shellcheck disable=SC2034  ## read by the scripts that source this
 CONTAINER=""
 
 fWinBox_Image(){
@@ -64,6 +64,7 @@ fWinBox_Start(){
 	fi
 	fStepBox_Start "${label}" "${image}" -v "${root}:/src" "${vols[@]}" -w /src \
 		|| { echo "[ FAILED: ${label}: could not start a container from ${image} ]" >&2; return 1; }
+	# shellcheck disable=SC2034
 	CONTAINER="${stepBox}"
 }
 
