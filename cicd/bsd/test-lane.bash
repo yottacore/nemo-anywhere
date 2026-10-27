@@ -27,6 +27,8 @@ echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURC
 
 fEcho(){ echo "[ $* ]"; }
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=../utility/include/run-temp.bash
+source "${root}/cicd/utility/include/run-temp.bash"
 
 if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then fEcho "FreeBSD lane check skipped: Linux only"; exit 77; fi
 for tool in git python3; do
@@ -34,7 +36,7 @@ for tool in git python3; do
 done
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/bsd-lane-check.XXXXXX")"
-trap 'rm -rf "${scratch}"' EXIT
+trap 'fSafeRm_IfThere "${scratch}"' EXIT
 
 failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }

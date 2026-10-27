@@ -5,8 +5,8 @@
 ##	  match the zip's, the Start menu shortcut, the Settings, Apps entry, and
 ##	  that the user PATH comes back exactly as it was found, including one too
 ##	  long to edit and one that only just fits.
-##	- Runs inside the cross-build container:
-##	  docker exec nemo-winbuild bash /src/cicd/win/test-setup.bash
+##	- Runs inside a cross-build step container:
+##	  bash cicd/win/win-run.bash --no-build-win "setup check" "bash /src/cicd/win/test-setup.bash"
 ##	- No setup exe or no zip beside it: exit 77.
 ##	- What wine can't show is checked on a Windows box by hand: a folder held
 ##	  open, the pages, and install.ps1 over it and under it.
@@ -22,6 +22,8 @@ echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURC
 ulimit -c 0
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=../utility/include/run-temp.bash
+source "${root}/cicd/utility/include/run-temp.bash"
 fEcho(){ echo "[ $* ]"; }
 
 readonly exeName="nemo-anywhere" appName="Nemo Anywhere"
@@ -36,7 +38,7 @@ fi
 
 scratch="$(mktemp -d /tmp/test_setup_XXXXXXXX)"
 export WINEPREFIX="${scratch}/wine" WINEDEBUG=-all XDG_RUNTIME_DIR="$scratch"
-trap 'wineserver -k 2>/dev/null || true; rm -rf "${scratch}"' EXIT
+trap 'wineserver -k 2>/dev/null || true; fSafeRm_IfThere "${scratch}"' EXIT
 
 failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }

@@ -3,11 +3,11 @@
 ##	- Purpose: Check that the fuzz stage reports a hang, a memory error and
 ##	  running out of memory each as a find with its saved input, and still runs
 ##	  the targets after one.
-##	- Runs a copy of fuzz.bash in the nemo-build container, with meson and ninja
+##	- Runs a copy of fuzz.bash in a build container of its own, with meson and ninja
 ##	  stood in for. The targets are small real libFuzzer programs that hang,
 ##	  overflow a buffer or ask for too much memory on any input.
-##	- Needs docker, the nemo-build container, and clang with libFuzzer in it;
-##	  exit 77 without them.
+##	- Needs docker, the build image, and clang with libFuzzer in it; exit 77
+##	  without them.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/linux/test-fuzz-exit.bash
 ##	- Test ID: rjcbfcx7
@@ -24,15 +24,15 @@ fEcho(){ echo "[ $* ]"; }
 if [[ "${1:-}" != "--inside" ]]; then
 	echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
 	here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-	if ! command -v docker >/dev/null 2>&1 || ! timeout 10 docker inspect nemo-build >/dev/null 2>&1; then
-		fEcho "fuzz exit check skipped: no nemo-build container"
+	if [[ "${CICD_NO_CONTAINER:-}" == "1" ]] || ! command -v docker >/dev/null 2>&1 \
+		|| ! { timeout 10 docker image inspect nemo-build-deps:init || timeout 10 docker image inspect nemo-build-deps:latest; } >/dev/null 2>&1; then
+		fEcho "fuzz exit check skipped: no build image"
 		exit 77
 	fi
-	## Copies, not the container's /src, which may be another clone.
 	rc=0
 	# shellcheck disable=SC2016  ## expanded by the shell in the container
 	tar -C "${here}/.." -cf - linux/fuzz.bash linux/test-fuzz-exit.bash utility/check-werror.bash utility/meson-setup.bash \
-		| timeout -k 5 360 docker exec -i nemo-build bash -c \
+		| timeout -k 5 360 bash "${here}/../utility/docker-run.bash" "fuzz exit check" \
 			'd="$(mktemp -d /tmp/test_fuzz-exit.XXXXXX)" && tar -C "$d" -xf - && { rc=0; bash "$d/linux/test-fuzz-exit.bash" --inside "$d/linux" || rc=$?; rm -rf -- "$d"; exit "$rc"; }' \
 		|| rc=$?
 	exit "${rc}"
@@ -44,7 +44,7 @@ progs="${work}/progs"
 mkdir -p "${stubs}" "${progs}"
 
 if ! bash "${work}/fuzz.bash" --probe >/dev/null 2>&1; then
-	fEcho "fuzz exit check skipped: no clang or libFuzzer in nemo-build"
+	fEcho "fuzz exit check skipped: no clang or libFuzzer in the build image"
 	exit 77
 fi
 

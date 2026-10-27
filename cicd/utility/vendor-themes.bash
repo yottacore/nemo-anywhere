@@ -30,6 +30,8 @@ set -Eeuo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/../.." && pwd)"			# repo: .../repo
+# shellcheck source=include/run-temp.bash
+source "${here}/include/run-temp.bash"
 vendor="$root/vendor"
 nameList="$here/theme-icon-names.txt"
 svgMin="$here/svg-min.py"
@@ -48,7 +50,7 @@ done
 [[ -n "$python" ]] || { echo "[ FAILED: no working python found (needed for svg-min.py) ]"; exit 1; }
 
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/nemo-themes.XXXXXX")"
-trap 'rm -rf "$tmp"' EXIT
+trap 'fSafeRm_IfThere "$tmp"' EXIT
 
 fEcho(){ echo "[ $* ]"; }
 fEcho_Clean(){ echo "$@"; }
@@ -656,7 +658,7 @@ fBuildIconTheme(){
 
 	staged="$tmp/stage-$id"
 	darkStaged="$tmp/stage-$id-dark"
-	rm -rf "$staged" "$darkStaged"
+	fSafeRm_IfThere "$staged" "$darkStaged"
 
 	local found=0 missing=0 darkFound=0 borrowed=0
 	while read -r ctx name; do

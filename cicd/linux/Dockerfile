@@ -1,6 +1,6 @@
 # nemo-build-jammy: the Linux RELEASE build box.
 #
-# Day-to-day Linux dev builds run in nemo-build (Debian 13, matches the host).
+# Day-to-day Linux dev builds run from nemo-build-deps (Debian 13, matches the host).
 # Release tarballs must not: a binary linked against trixie's glibc 2.41 only
 # runs on distros from 2025 onward. Ubuntu 22.04 LTS gives glibc 2.35, which
 # covers Ubuntu 22.04+, Debian 12+, Mint 21+, Fedora 36+ - and a binary built

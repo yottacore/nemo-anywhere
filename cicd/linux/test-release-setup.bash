@@ -29,7 +29,7 @@ image="${NEMO_RELEASE_IMAGE:-nemo-build-jammy:latest}"
 build=/build-release
 prefix=/opt/nemo-anywhere
 
-if ! command -v docker >/dev/null 2>&1 || ! timeout 10 docker image inspect "$image" >/dev/null 2>&1; then
+if [[ "${CICD_NO_CONTAINER:-}" == "1" ]] || ! command -v docker >/dev/null 2>&1 || ! timeout 10 docker image inspect "$image" >/dev/null 2>&1; then
 	fEcho "release setup check skipped: no ${image} image"
 	exit 77
 fi

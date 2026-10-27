@@ -721,9 +721,11 @@ The reference Linux builds happen in containers rather than on a development mac
 
 ### Building on Linux
 
-Stock Debian 13 is the known-good baseline, in `cicd/linux/Dockerfile.dev` (image `nemo-build-deps`, container `nemo-build`). That file is the authoritative dependency list; the packages below are the same set spelled out for anyone building on their own machine.
+Stock Debian 13 is the known-good baseline, in `cicd/linux/Dockerfile.dev` (image `nemo-build-deps`). That file is the authoritative dependency list; the packages below are the same set spelled out for anyone building on their own machine.
 
-- The pipeline makes that container on first use if there is none: it builds the image, then runs it with the repo mounted at `/src`, `--shm-size=2g` so parallel gcc has room, `--init` to reap stray processes, `--ulimit core=0` so a crash leaves no core file in the tree, and `--security-opt seccomp=unconfined --security-opt apparmor=unconfined` so the test jail can start, since docker's default profiles refuse its namespaces. The release and cross-build containers are made the same way by their own scripts.
+- Each pipeline step runs in a container of its own, named `nemo-anywhere-<run folder>-<step>`, which goes when the step ends, unless `--keep-temp`. The pipeline builds the image on first use if there is none. Each container has the repo mounted at `/src`, `--shm-size=2g` so parallel gcc has room, `--init` to reap stray processes, `--ulimit core=0` so a crash leaves no core file in the tree, and `--security-opt seccomp=unconfined --security-opt apparmor=unconfined` so the test jail can start, since docker's default profiles refuse its namespaces.
+	- `/build` and `/build-fuzz` carry over from one step to the next in cache volumes. They belong to the clone that made them, so a second clone or worktree is refused rather than building on the first one's objects. A cache past 2 GB starts empty. The sanitizer build is bigger than that, so it starts cold in its step's container.
+	- The release build and the Windows cross build run the same way, each step in a container of its own from their own images. The cross build's `/build-win` is a cache volume too, about 600 MB, and the steps that read it mount it. The release build starts from an empty dir every time, so it has no cache volume.
 
 - Toolchain and development libraries: `meson ninja-build gcc pkg-config gobject-introspection intltool itstool python3-gi`, `libgtk-3-dev libglib2.0-dev libpango1.0-dev libatk1.0-dev libgail-3-dev`, `libjson-glib-dev libgirepository1.0-dev libexempi-dev libexif-dev`, `libarchive-dev libsqlite3-dev`, `libx11-dev libxext-dev libxrender-dev`.
 
@@ -754,7 +756,7 @@ A cross-compile lane also exists, for checking a Windows build from the Linux bo
 
 - `cicd/win/fetch-sysroot.bash` resolves the dependency closure of a few root packages from the MSYS2 pacman database and unpacks each one into a sysroot. No pacman is needed, since the package database is a tarball of description files.
 
-- `cicd/win/Dockerfile` builds the `nemo-winbuild` container: the mingw toolchain, the native GLib code generators that have to run on the build host, wine, and the baked sysroot. `cicd/win/win64.cross.txt` is the meson cross file, with wine as the exe wrapper.
+- `cicd/win/Dockerfile` builds the image the cross build's step containers run from: the mingw toolchain, the native GLib code generators that have to run on the build host, wine, and the baked sysroot. `cicd/win/win64.cross.txt` is the meson cross file, with wine as the exe wrapper.
 
 Deliberately off for Windows either way: XMP and exempi, which aren't packaged for mingw, and the Unix-only pieces (`gio-unix`, `x11`, SELinux), which are guarded in meson by `host_machine.system()` and in the affected C files by `#ifdef`.
 

@@ -31,6 +31,8 @@ set -Eeuo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "${here}/../.." && pwd)"
+# shellcheck source=include/run-temp.bash
+source "${here}/include/run-temp.bash"
 cd "${root}"
 source "${here}/../config.bash"
 
@@ -137,7 +139,7 @@ fi
 if ((do_publish)); then
 	command -v gh >/dev/null 2>&1 || die "gh CLI not found"
 	pub_dir="$(mktemp -d)"
-	trap 'rm -rf "${pub_dir}"' EXIT
+	trap 'fSafeRm_IfThere "${pub_dir}"' EXIT
 	## gh leaves a draft when an upload fails part way.
 	if is_draft="$(gh release view "${tag}" --json isDraft --jq .isDraft 2>/dev/null)"; then
 		[[ "$is_draft" == true ]] || die "release ${tag} is published already"

@@ -24,6 +24,8 @@ echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURC
 fEcho(){ echo "[ $* ]"; }
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "${here}/../.." && pwd)"
+# shellcheck source=include/run-temp.bash
+source "${here}/include/run-temp.bash"
 
 ## Releases are cut on Linux, and a Windows box may only have the python3 stub.
 if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then fEcho "release stamp check skipped: Linux only"; exit 77; fi
@@ -32,7 +34,7 @@ for tool in git python3; do
 done
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/release-stamp-check.XXXXXX")"
-trap 'rm -rf "${scratch}"' EXIT
+trap 'fSafeRm_IfThere "${scratch}"' EXIT
 
 failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
@@ -45,7 +47,7 @@ repo="${scratch}/repo"
 mkdir -p "${repo}/cicd/utility/include" "${repo}/source"
 cp "${root}/cicd/config.bash" "${repo}/cicd/"
 cp "${root}/cicd/utility/release.bash" "${root}/cicd/utility/release-stamps.py" "${root}/cicd/utility/changelog-notes.bash" "${repo}/cicd/utility/"
-cp "${root}/cicd/utility/include/source-date.bash" "${repo}/cicd/utility/include/"
+cp "${root}/cicd/utility/include/source-date.bash" "${root}/cicd/utility/include/run-temp.bash" "${repo}/cicd/utility/include/"
 printf "project('nemo-anywhere', 'c', version : '9.9.9')\n" > "${repo}/source/meson.build"
 printf 'stand-in\n' > "${repo}/README.md"
 printf 'cicd/artifacts/\n' > "${repo}/.gitignore"
@@ -69,7 +71,7 @@ ver="9.9.9"
 ## $1 tarball stamp, $2 zip exe stamp, $3 .deb stamp or empty for none, $4
 ## FreeBSD pkg stamp or empty for none.
 fArtifacts(){
-	rm -rf "$art"; mkdir -p "$art" "${scratch}/pfx/nemo-anywhere-${ver}-linux-x86_64/bin"
+	fSafeRm_IfThere "$art"; mkdir -p "$art" "${scratch}/pfx/nemo-anywhere-${ver}-linux-x86_64/bin"
 	printf 'x\n' > "${scratch}/pfx/nemo-anywhere-${ver}-linux-x86_64/bin/nemo-anywhere"
 	tar -czf "${art}/nemo-anywhere-${ver}-linux-x86_64.tar.gz" -C "${scratch}/pfx" \
 		--owner=0 --group=0 --numeric-owner --sort=name --mtime="@$1" "nemo-anywhere-${ver}-linux-x86_64"
@@ -88,7 +90,7 @@ fArtifacts(){
 		    z.writestr("nemo-anywhere-9.9.9-windows-x86_64/gdbus.exe", bytes(other))
 	EOF
 	if [[ -n "${3:-}" ]]; then
-		rm -rf "${scratch}/deb"; mkdir -p "${scratch}/deb/DEBIAN" "${scratch}/deb/opt"
+		fSafeRm_IfThere "${scratch}/deb"; mkdir -p "${scratch}/deb/DEBIAN" "${scratch}/deb/opt"
 		printf 'x\n' > "${scratch}/deb/opt/f"
 		printf 'Package: nemo-anywhere\nVersion: %s\nArchitecture: amd64\nMaintainer: x <x@example.invalid>\nDescription: x\n' "$ver" > "${scratch}/deb/DEBIAN/control"
 		SOURCE_DATE_EPOCH="$3" dpkg-deb --build --root-owner-group "${scratch}/deb" "${art}/nemo-anywhere-${ver}-linux-x86_64.deb" >/dev/null
@@ -96,7 +98,7 @@ fArtifacts(){
 	## A pkg is a tar.zst with its manifest first. pkg create dates the files
 	## and leaves its own +MANIFEST at 0.
 	if [[ -n "${4:-}" ]]; then
-		rm -rf "${scratch}/pkg"; mkdir -p "${scratch}/pkg/usr/local/bin"
+		fSafeRm_IfThere "${scratch}/pkg"; mkdir -p "${scratch}/pkg/usr/local/bin"
 		printf '{}\n' > "${scratch}/pkg/+MANIFEST"
 		printf 'x\n' > "${scratch}/pkg/usr/local/bin/nemo-anywhere"
 		tar -cf "${scratch}/pkg.tar" -C "${scratch}/pkg" --owner=0 --group=0 --numeric-owner --mtime="@0" +MANIFEST

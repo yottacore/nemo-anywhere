@@ -20,6 +20,8 @@ echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURC
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "${here}/../.." && pwd)"
+# shellcheck source=include/run-temp.bash
+source "${here}/include/run-temp.bash"
 checker="${here}/check-werror.bash"
 
 fEcho(){ echo "[ $* ]"; }
@@ -40,7 +42,7 @@ project="$(sed -n '/^project(/,/)/p' "${root}/source/meson.build")"
 [[ "$(cat "${root}/.github/workflows/release-win.yml")" != *werror* ]] || fFail "release-win.yml builds with werror on a compiler it does not pin"
 
 scratch="$(mktemp -d)"
-trap 'rm -rf -- "${scratch}"' EXIT
+trap 'fSafeRm_IfThere "${scratch}"' EXIT
 mkdir -p "${scratch}/on" "${scratch}/off" "${scratch}/empty" "${scratch}/winon" "${scratch}/winoff" "${scratch}/winhalf"
 printf 'build a.o: c_COMPILER a.c\n ARGS = -Wall -Winvalid-pch -Wextra -Werror -std=c17\n' > "${scratch}/on/build.ninja"
 printf 'build a.o: c_COMPILER a.c\n ARGS = -Wall -Winvalid-pch -Wextra -std=c17 -Werror=address\n' > "${scratch}/off/build.ninja"

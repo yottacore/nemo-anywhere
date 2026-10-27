@@ -22,6 +22,8 @@
 set -Eeuo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=include/run-temp.bash
+source "${here}/include/run-temp.bash"
 
 fEcho(){ echo "[ $* ]"; }
 fHelp(){ sed -n '/^##	- Purpose:/,/^##	Copyright/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##	\{0,1\}//'; }
@@ -67,7 +69,7 @@ fi
 
 tag="$1"
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/release-notes.XXXXXX")"
-trap 'rm -rf "${scratch}"' EXIT
+trap 'fSafeRm_IfThere "${scratch}"' EXIT
 gh release view "$tag" --json assets > "${scratch}/assets.json"
 for try in 1 2 3 4 5; do
 	"$py" "${here}/release-table.py" --names "${scratch}/assets.json" > "${scratch}/before.txt"

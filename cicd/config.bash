@@ -36,19 +36,19 @@ declare -i isSourced_t6wqf=0; [[ "${BASH_SOURCE[0]}" == "${0}" ]] || isSourced_t
 APP_NAME="Nemo Anywhere"
 EXE_NAME="nemo-anywhere"
 
-## The reference Linux build runs inside this container (image nemo-build-deps:latest,
-## created with --shm-size=2g). It mounts the repo root (github/) at /src and builds
-## into /build. See design.md "Building". The build/test commands below auto-start it.
-NEMO_CONTAINER="nemo-build"
+## The reference Linux build runs in a container per step, from nemo-build-deps:init
+## (or nemo-build-deps:latest on a fresh clone). Each mounts the repo root at /src
+## and builds into /build, a cache volume. See design.md "Building".
 
 ## Directory of this config, for locating sibling helper scripts (self-contained,
 ## no reliance on cicd.bash internals).
 _cfgdir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-## Wrapper that runs a shell command in NEMO_CONTAINER but stays resilient to a
-## down/absent docker daemon: it skips-with-warning (exit 0) on an environmental
-## miss instead of aborting the push with a raw socket error, and propagates a
-## genuine build/smoke failure. See utility/docker-run.bash.
+## Wrapper that runs a shell command in the step's own container. With docker down or
+## absent, or no image, it runs the command on the host if the host has the
+## build stack, and stops the run with one line if not. The commands find the
+## tree at CICD_SRC and build under CICD_BUILD_ROOT, which it sets for either
+## place. See utility/docker-run.bash.
 DOCKER_RUN="${_cfgdir}/utility/docker-run.bash"
 
 
@@ -73,8 +73,7 @@ TOOL_PINS=(
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 ## Stage 2: debug build - READY. Configure (or reconfigure) and build in-container.
-## The wrapper starts the container (and skips gracefully if docker is down) so a
-## stopped box or dead daemon doesn't fail the stage. This is what the smoke runs
+## The wrapper starts the container, so a stopped box doesn't fail the stage. This is what the smoke runs
 ## against.
 ## -j is not optional: left alone ninja takes cores+2, and the engine's whole
 ## point in computing CICD_MAX_JOBS is that a pipeline run leaves the box usable.
@@ -82,19 +81,20 @@ TOOL_PINS=(
 ## is checked again before each step.
 ## Warnings are errors in every pipeline build; linux/run-tests.bash says why.
 DEBUG_BUILD_CMD=(bash "${DOCKER_RUN}" "debug build" "
-	bash /src/cicd/utility/meson-setup.bash /build /src/source -Dwerror=true && bash /src/cicd/utility/check-werror.bash /build && ninja -C /build -j \${CICD_MAX_JOBS:-2}
+	bash \${CICD_SRC:-/src}/cicd/utility/meson-setup.bash \${CICD_BUILD_ROOT:-}/build \${CICD_SRC:-/src}/source -Dwerror=true && bash \${CICD_SRC:-/src}/cicd/utility/check-werror.bash \${CICD_BUILD_ROOT:-}/build && ninja -C \${CICD_BUILD_ROOT:-}/build -j \${CICD_MAX_JOBS:-2}
 ")
 
 ## Stage 3: regression tests - READY. The meson suite, then a headless launch and
 ## --version. Both run inside the container under its own Xvfb; see
 ## linux/run-tests.bash, which also does the build, since gate mode has no build
 ## stage of its own and would otherwise test whatever was last left in /build.
-## -j is passed through for the same reason it is above. Same wrapper, so a
-## down/absent daemon skips-with-warning instead of aborting the gate.
-TEST_CMD=(bash "${DOCKER_RUN}" "tests" "NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash /src/cicd/linux/run-tests.bash")
-## Held to CICD_MAX_JOBS cores each, with a low CPU share, since the run's own
-## CPU cap and nice cannot reach inside them.
-CICD_CONTAINERS=(nemo-build nemo-build-jammy nemo-winbuild)
+## -j is passed through for the same reason it is above. Same wrapper.
+TEST_CMD=(bash "${DOCKER_RUN}" "tests" "NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash \${CICD_SRC:-/src}/cicd/linux/run-tests.bash")
+## Long-lived boxes, held to CICD_MAX_JOBS cores each, with a low CPU share,
+## since the run's own CPU cap and nice cannot reach inside them. None now:
+## every step has a container of its own, with the same flags, from
+## utility/include/step-box.bash.
+CICD_CONTAINERS=()
 ## At the end of a run, remove the run's labeled containers, other than the ones
 ## above, the project's dangling and older images, and week-old build cache.
 DOCKER_SWEEP=1
@@ -118,15 +118,15 @@ LINT_CMD=(bash cicd/utility/lint.bash)
 ## rots when this stage is skipped. Left out of --quick and out of the gate,
 ## where three minutes of searching does not belong.
 FUZZ_SECS=60
-FUZZ_PROBE=(bash "${DOCKER_RUN}" "fuzz probe" "bash /src/cicd/linux/fuzz.bash --probe")
-FUZZ_CMD=(bash "${DOCKER_RUN}" "fuzz" "FUZZ_SECS=${FUZZ_SECS} NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash /src/cicd/linux/fuzz.bash")
+FUZZ_PROBE=(bash "${DOCKER_RUN}" "fuzz probe" "bash \${CICD_SRC:-/src}/cicd/linux/fuzz.bash --probe")
+FUZZ_CMD=(bash "${DOCKER_RUN}" "fuzz" "FUZZ_SECS=${FUZZ_SECS} NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash \${CICD_SRC:-/src}/cicd/linux/fuzz.bash")
 
 ## Stage 3 (after fuzzing): the suite again, built with the address and undefined
 ## behavior sanitizers, leak checks on - READY. It builds into a directory of its
 ## own, so /build is left alone. About a minute cold at 16 jobs and half that
 ## warm. --quick keeps it and the gate leaves it out; --no-sanitize skips it. Leaks in the
 ## libraries under GTK are listed in linux/sanitizers.supp.
-SANITIZE_CMD=(bash "${DOCKER_RUN}" "sanitizers" "NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash /src/cicd/linux/test-sanitizers.bash")
+SANITIZE_CMD=(bash "${DOCKER_RUN}" "sanitizers" "NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash \${CICD_SRC:-/src}/cicd/linux/test-sanitizers.bash")
 
 ## Stage 5 (after the cross build): gcc's -fanalyzer and the clang analyzer over
 ## both compile lists - READY, report only for now. Fails on a tracked .c that
@@ -151,7 +151,7 @@ ANALYZE_CMD=(bash cicd/utility/analyze.bash)
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 ## Stage 5: native release build - READY.
-## release.bash owns the whole lane: it builds in nemo-build-jammy so the glibc floor
+## release.bash owns the whole lane: it builds from nemo-build-jammy so the glibc floor
 ## stays at 2.35, stages the relocatable prefix, writes the versioned tarball and the
 ## sums file, and leaves the staged tree at cicd/artifacts/dogfood/ for stage 7 and
 ## the launcher. Every run builds from an empty dir, about a minute here.
@@ -166,8 +166,8 @@ RELEASE_NATIVE_OSARCH="linux-x86_64"
 ## built from the commit being run rather than whatever was cross-built by hand last.
 ## --no-cross leaves it out; --quick keeps it, since it takes under 2 minutes. The Windows box still builds and dogfoods its
 ## own packed exe through cicd-win.ps1; this only keeps the zip current.
-## The exe is copied out because the engine checks for the artifact on the host, and
-## the cross build dir lives only in the container.
+## build-cross.bash leaves the exe at the artifact path, since the engine checks
+## for it on the host, and the cross build dir lives only in its cache volume.
 ## Then the exe is opened under wine and its main window looked for, about twenty
 ## seconds, since nothing else here ever starts the Windows build's GUI.
 ## Linux arm64 is built on an arm64 box over ssh, not cross-compiled, and takes
@@ -177,7 +177,7 @@ RELEASE_NATIVE_OSARCH="linux-x86_64"
 ## the arm64 packages in stage 6.
 BUILD_CROSS=1
 CROSS_TARGETS=(
-	"Windows x86_64 (mingw)|windows-x86_64|cicd/artifacts/cross/nemo-anywhere.exe|rm -f cicd/artifacts/cross/nemo-anywhere.exe && bash cicd/win/build-cross.bash && mkdir -p cicd/artifacts/cross && docker cp nemo-winbuild:/build-win/src/nemo-anywhere.exe cicd/artifacts/cross/nemo-anywhere.exe && docker exec nemo-winbuild bash /src/cicd/win/gui-smoke.bash"
+	"Windows x86_64 (mingw)|windows-x86_64|cicd/artifacts/cross/nemo-anywhere.exe|rm -f cicd/artifacts/cross/nemo-anywhere.exe && bash cicd/win/build-cross.bash && bash cicd/win/win-run.bash 'gui smoke' 'bash /src/cicd/win/gui-smoke.bash'"
 	"Linux arm64 (arm64 box)|linux-arm64|cicd/artifacts/release/${EXE_NAME}-@VER@-linux-arm64.tar.gz|bash cicd/linux/release-arm64.bash"
 )
 #	Rust-era original (reference only - cargo/zig cross, not applicable to meson):
@@ -269,7 +269,7 @@ PACKAGE_CHECKS=(
 	"Windows bundle exe check|(command -v pwsh >/dev/null 2>&1 || exit 77; pwsh -NoProfile -File cicd/utility/test-bundle-exes.ps1)"
 	"Windows bundle settings check|(command -v pwsh >/dev/null 2>&1 || exit 77; pwsh -NoProfile -File cicd/utility/test-bundle-settings.ps1)"
 	"FreeBSD bundle check|bash cicd/utility/test-bundle-left-out.bash bsd"
-	"Setup exe check|docker exec nemo-winbuild bash /src/cicd/win/test-setup.bash"
+	"Setup exe check|bash cicd/win/win-run.bash --no-build-win 'setup check' 'bash /src/cicd/win/test-setup.bash'"
 )
 
 ## Stage 6, after the packages: builds that need another box's OS or signing

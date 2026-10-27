@@ -3,11 +3,12 @@
 ##	- Purpose: Run the cross-built Windows nemo-anywhere.exe as a GUI app on the
 ##	  host's live X display via host wine (not the container's - that one is headless).
 ##	  Stages a runtime snapshot (GTK DLLs, pixbuf loaders, icons, schemas, the exe -
-##	  extension lib folded in) from the nemo-winbuild container into cicd/artifacts/win-run,
+##	  extension lib folded in) from a cross-build step container (cicd/win/win-box.bash)
+##	  into cicd/artifacts/win-run,
 ##	  then launches wine against it. The mingw64/ layout is preserved so GTK's
 ##	  relative lookups (loaders, schemas, icons) resolve without extra env.
 ##	- The staged copy is a snapshot: the exe is re-copied on every
-##	  run when the container is up, so a fresh ninja build is picked up automatically.
+##	  run when docker is up, so a fresh cross build is picked up automatically.
 ##	  Pass --restage to rebuild the whole snapshot (after a sysroot change).
 ##	- Each run replaces the last: a previous instance of this staged build is killed
 ##	  first (matched by path, so a nemo launched elsewhere and wineserver are safe).
@@ -28,9 +29,11 @@ ulimit -c 0
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEST="${ROOT}/cicd/artifacts/win-run"
-CONTAINER="${NEMO_WIN_CONTAINER:-nemo-winbuild}"
 
 fEcho(){ echo "[ $* ]"; }
+
+# shellcheck source=../cicd/win/win-box.bash
+source "${ROOT}/cicd/win/win-box.bash"
 
 restage=0
 uri=""
@@ -47,10 +50,13 @@ done
 # never touched. (pkill returns 1 when nothing matched - fine under set -e.)
 pkill -f "${DEST}/app/nemo-anywhere.exe" 2>/dev/null || true
 
-container_up(){ docker exec "$CONTAINER" true 2>/dev/null; }
+## Gone before wine starts, since the app outlives this script.
+trap 'fStepBox_Stop' EXIT
+boxUp=0
+fWinBox_Start "wine run" && boxUp=1
 
 if [[ ! -x "${DEST}/app/nemo-anywhere.exe" ]] || (( restage )); then
-	container_up || { fEcho "FAILED: no staged copy and container '$CONTAINER' isn't running"; exit 1; }
+	(( boxUp )) || { fEcho "FAILED: no staged copy, and no cross-build container to stage it from"; exit 1; }
 	fEcho "Staging wine runtime from $CONTAINER"
 	docker exec "$CONTAINER" sh -c '
 		set -e
@@ -72,16 +78,17 @@ if [[ ! -x "${DEST}/app/nemo-anywhere.exe" ]] || (( restage )); then
 	docker exec "$CONTAINER" chown -R "$(id -u):$(id -g)" /src/cicd/artifacts/win-run
 fi
 
-# fresh build -> fresh exe, every run the container is up
-if container_up; then
+# fresh build -> fresh exe, every run docker is up
+if (( boxUp )); then
 	docker exec "$CONTAINER" sh -c '
 		cp /build-win/src/nemo-anywhere.exe /src/cicd/artifacts/win-run/app/
 		# Nothing starts a session bus on Windows; a snapshot staged before that
 		# still has one.
 		rm -f /src/cicd/artifacts/win-run/mingw64/bin/gdbus.exe'
 	docker exec "$CONTAINER" chown -R "$(id -u):$(id -g)" /src/cicd/artifacts/win-run/app /src/cicd/artifacts/win-run/mingw64/bin
+	fStepBox_Stop
 else
-	fEcho "WARNING: container '$CONTAINER' not running - using the staged snapshot as-is"
+	fEcho "WARNING: no cross-build container - using the staged snapshot as-is"
 	[[ -f "${DEST}/mingw64/share/glib-2.0/schemas/gschemas.compiled" ]] || glib-compile-schemas "${DEST}/mingw64/share/glib-2.0/schemas"
 fi
 

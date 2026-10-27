@@ -7,7 +7,8 @@
 #   - make, which nothing here builds with: gcc's lto-wrapper shells out to it
 #     to run the LTRANS jobs in parallel, and without it every link is serial
 #   - nsis, for the setup exe (pack-setup.bash)
-# Source tree is mounted at /src (like nemo-build); builds go to /build-win.
+# Source tree is mounted at /src (like nemo-build); builds go to /build-win,
+# a cache volume (win-box.bash).
 
 FROM debian:trixie
 

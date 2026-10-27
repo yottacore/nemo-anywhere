@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: The static analyzer stage. gcc's -fanalyzer and the clang analyzer
-##	  run over every C file in both compile lists: nemo-build's /build and
-##	  nemo-winbuild's /build-win, which has the Windows-only files. Run on the
-##	  host, after the cross build, so both lists are current.
+##	  run over every C file in both compile lists: the debug build's /build,
+##	  and the cross build's /build-win, which has the Windows-only files, each
+##	  read in step containers of their own. Run on the host, after the cross build,
+##	  so both lists are current.
 ##	- Report only for now (backlog 2026102114400584): findings are counted per
 ##	  area and kept, and don't fail the run. Vendored findings are listed in
 ##	  analyze-vendored.txt, each with why it's safe, and count as suppressed; an
@@ -15,7 +16,9 @@
 ##	- The last run's logs are in cicd/artifacts/analyze/last/. Each run also keeps
 ##	  counts_<stamp>.txt and findings_<stamp>.tgz there, GFS-rotated.
 ##	- An analyzer missing from its container shows as "not run" in the counts.
-##	  nemo-winbuild has no clang yet.
+##	  The Linux lane's container is "step", run through docker-run.bash, and
+##	  the Windows lane's "winstep", through win/win-run.bash. The cross-build
+##	  image has no clang yet.
 ##	- CICD_MAX_JOBS caps the jobs of all 4 runs together. gcc spends many minutes
 ##	  on a few files (the blake3 SIMD ones and nemo-config.c, at -O0), and
 ##	  ANALYZE_TU_TIMEOUT (900 s) caps each file; one cut off counts as failed.
@@ -48,17 +51,26 @@ jobs="${CICD_MAX_JOBS}"
 tool="/src/cicd/utility/analyze.py"
 ## lane|container|compile list|compiler
 lanes=(
-	"linux|nemo-build|/build/compile_commands.json|cc"
-	"win|nemo-winbuild|/build-win/compile_commands.json|x86_64-w64-mingw32-gcc"
+	"linux|step|/build/compile_commands.json|cc"
+	"win|winstep|/build-win/compile_commands.json|x86_64-w64-mingw32-gcc"
 )
 failed=0
+
+## In a container of the lane's own, by label. Env goes in through env.
+fInLane(){
+	local container="$1" step="$2"; shift 2
+	case "${container}" in
+		step)    bash "${here}/docker-run.bash" "analyze ${step}" "$(printf '%q ' "$@")" ;;
+		winstep) bash "${root}/cicd/win/win-run.bash" "analyze win ${step}" "$(printf '%q ' "$@")" ;;
+	esac
+}
 
 fPlanted(){
 	local l lane container db cc a rc
 	for l in "${lanes[@]}"; do
 		IFS='|' read -r lane container db cc <<< "${l}"
 		for a in gcc clang; do
-			rc=0; docker exec "${container}" python3 "${tool}" planted --tool "${a}" --cc "${cc}" | grep -E '^\[|^### SKIP' || rc="${PIPESTATUS[0]}"
+			rc=0; fInLane "${container}" "planted-${a}" python3 "${tool}" planted --tool "${a}" --cc "${cc}" | grep -E '^\[|^### SKIP' || rc="${PIPESTATUS[0]}"
 			case "${rc}" in
 				0)  ;;
 				77) fEcho "${a}-${lane}: not run, no ${a} in ${container}" ;;
@@ -84,7 +96,7 @@ stamp="$(date +%Y%m%d-%H%M%S)"
 fSection "Compile list coverage"
 for l in "${lanes[@]}"; do
 	IFS='|' read -r lane container db cc <<< "${l}"
-	docker exec "${container}" cat "${db}" > "${last}/compile-${lane}.json" || fDie "no compile list in ${container}: ${db}"
+	fInLane "${container}" "compile-list" cat "${db}" > "${last}/compile-${lane}.json" || fDie "no compile list in ${container}: ${db}"
 done
 python3 "${root}/cicd/utility/analyze.py" cover "${root}" "${last}/compile-linux.json" "${last}/compile-win.json" || failed=1
 
@@ -97,7 +109,7 @@ pids=(); names=()
 for l in "${lanes[@]}"; do
 	IFS='|' read -r lane container db cc <<< "${l}"
 	for a in gcc clang; do
-		docker exec -e "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-900}" "${container}" nice -n 19 python3 "${tool}" run --tool "${a}" --db "${db}" --jobs "${each}" > "${last}/${a}-${lane}.log" 2>&1 &
+		fInLane "${container}" "${a}" env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-900}" nice -n 19 python3 "${tool}" run --tool "${a}" --db "${db}" --jobs "${each}" > "${last}/${a}-${lane}.log" 2>&1 &
 		pids+=("$!"); names+=("${a}-${lane}")
 	done
 done
@@ -118,3 +130,5 @@ fEcho "OK: analyzer stage (report only)"
 ##	History:
 ##		- 2026-10-21: First version, report only.
 ##		- 2026-10-24: Vendored suppression list.
+##		- 2026-10-26: The Linux lane runs in step containers, not nemo-build,
+##		  and the Windows lane in its own, not nemo-winbuild.

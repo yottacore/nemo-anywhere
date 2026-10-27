@@ -79,7 +79,7 @@ while IFS= read -r hit; do
 done < <(grep -n -E '(^|[^\\])\$\{?CICD_MAX_JOBS' "${root}/cicd/config.bash" | grep -v -E '^[0-9]+:[[:space:]]*#' || true)
 
 ## docker-run.bash hands the count across and runs the command under nice.
-lastExec="$(sed -n '/^exec docker exec/,/[^\\]$/p' "${root}/cicd/utility/docker-run.bash")"
+lastExec="$(sed -n '/^exec docker run/,/[^\\]$/p' "${root}/cicd/utility/docker-run.bash")"
 # shellcheck disable=SC2016  ## matches the literal text.
 [[ "$lastExec" == *'-e "CICD_MAX_JOBS=${CICD_MAX_JOBS}"'* ]] || fFail "docker-run.bash does not pass CICD_MAX_JOBS into the container"
 [[ "$lastExec" == *'nice -n 19'* ]] || fFail "docker-run.bash does not run the command under nice"

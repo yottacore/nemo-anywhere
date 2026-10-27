@@ -26,6 +26,8 @@ echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURC
 fEcho(){ echo "[ $* ]"; }
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "${here}/../.." && pwd)"
+# shellcheck source=../utility/include/run-temp.bash
+source "${root}/cicd/utility/include/run-temp.bash"
 
 if ! command -v dpkg-deb >/dev/null 2>&1; then
 	fEcho "arm64 package check skipped: no dpkg-deb"
@@ -38,7 +40,7 @@ failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/package-arm64-check.XXXXXX")"
-trap 'rm -rf "${scratch}"' EXIT
+trap 'fSafeRm_IfThere "${scratch}"' EXIT
 
 ver="9.9.9-check"
 lane="${scratch}/repo"
@@ -46,7 +48,7 @@ rel="${lane}/cicd/artifacts/release"
 log="${scratch}/docker.log"
 mkdir -p "${lane}/cicd/linux" "${lane}/cicd/utility/include" "$rel" "${scratch}/bin"
 cp "${root}/cicd/linux/package.bash" "${lane}/cicd/linux/"
-for inc in echo source-date release-files; do
+for inc in echo source-date release-files run-temp jobs step-box; do
 	cp "${root}/cicd/utility/include/${inc}.bash" "${lane}/cicd/utility/include/"
 done
 # shellcheck source=../utility/include/release-files.bash

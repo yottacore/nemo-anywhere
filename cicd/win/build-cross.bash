@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-##	- Purpose: Run the Windows cross build in the nemo-winbuild container with the
-##	  build stamp set, so the exe is reproducible. The linker writes a timestamp
+##	- Purpose: Run the Windows cross build in a step container of its own
+##	  (win-box.bash), on the cache volume at /build-win, with the build stamp set, so the exe is reproducible. The linker writes a timestamp
 ##	  into the PE header, and left alone it writes the clock - meaning two builds
 ##	  of the same commit differ. SOURCE_DATE_EPOCH replaces it with HEAD's commit
 ##	  date, and docker exec does not carry the host environment across, so it has
@@ -10,6 +10,8 @@
 ##	  to debug, and every exe this lane produced before 20260919 carried DWARF at
 ##	  five times the size it needs. cicd/utility/check-win-build-flags.bash holds
 ##	  that, and runs below once the exe is linked.
+##	- The checked exe is left at cicd/artifacts/cross/nemo-anywhere.exe, since
+##	  the build dir is in a volume the host can't read.
 ##	- Syntax: build-cross.bash [--clean]
 
 ##	Copyright (c) 2026 Bubbles
@@ -22,7 +24,6 @@ set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${HERE}/../.." && pwd)"
-CONTAINER="${NEMO_WIN_CONTAINER:-nemo-winbuild}"
 BUILD="${NEMO_WIN_BUILD:-/build-win}"
 ## Read from the mount, not the copy the image baked in at /opt, which goes stale
 ## the moment the file changes and needs an image rebuild to catch up.
@@ -32,8 +33,8 @@ CROSS="${NEMO_WIN_CROSSFILE:-/src/cicd/win/win64.cross.txt}"
 source "${ROOT}/cicd/utility/include/echo.bash"
 # shellcheck source=../utility/include/source-date.bash
 source "${ROOT}/cicd/utility/include/source-date.bash"
-# shellcheck source=../utility/include/jobs.bash
-source "${ROOT}/cicd/utility/include/jobs.bash"
+# shellcheck source=win-box.bash
+source "${HERE}/win-box.bash"
 
 clean=0
 case "${1:-}" in
@@ -43,23 +44,11 @@ case "${1:-}" in
 	*) fDie "unknown option: $1 (try --help)" ;;
 esac
 
-## A fresh clone has none yet, so it is made from cicd/win/Dockerfile on first
-## use, the same way nemo-build is. --init reaps orphans (wine leaves plenty);
-## --ulimit core=0 keeps crash dumps out of the mounted tree.
-names="$(docker ps -a --format '{{.Names}}' 2>/dev/null || true)"
-if ! grep -qx "$CONTAINER" <<<"$names"; then
-	if ! docker image inspect nemo-winbuild-deps:latest >/dev/null 2>&1; then
-		fEcho "building image nemo-winbuild-deps (first run only, takes a while)"
-		docker build --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" -t nemo-winbuild-deps:latest "${ROOT}/cicd/win/" >/dev/null || fDie "could not build image nemo-winbuild-deps"
-	fi
-	fEcho "creating container ${CONTAINER}"
-	docker run -d --init --ulimit core=0 --shm-size=2g --cpus "$(fJobs_Default; echo "${CICD_MAX_JOBS}")" --cpu-shares 256 --name "$CONTAINER" \
-		--label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" \
-		-v "${ROOT}:/src" nemo-winbuild-deps:latest sleep infinity >/dev/null || fDie "could not create container '${CONTAINER}'"
-fi
-## A reboot leaves it stopped, with no restart policy.
-docker exec "$CONTAINER" true 2>/dev/null || docker start "$CONTAINER" >/dev/null 2>&1 || true
-docker exec "$CONTAINER" true 2>/dev/null || fDie "cross-build container '${CONTAINER}' is not running and would not start"
+tmpExe=""
+trap 'rm -f "${tmpExe}"; fStepBox_Stop' EXIT
+fWinBox_Start "cross build" || exit 1
+## Past its cap, the cache starts empty, before the build rather than during it.
+docker exec -e CICD_CACHE_CAP_KB "$CONTAINER" bash /src/cicd/linux/cache-cap.bash "$BUILD" || true
 
 fSetSourceDate "$ROOT"
 fWarnIfSourceDateIsAGuess "$ROOT"
@@ -106,7 +95,7 @@ fBuild(){
 	fi
 	if [[ -n "$serial" ]]; then
 		printf '%s\n' "$serial" >&2
-		fDie "link-time optimization is running serially - install make in ${CONTAINER}"
+		fDie "link-time optimization is running serially - the cross-build image needs make (cicd/win/Dockerfile)"
 	fi
 }
 
@@ -125,7 +114,8 @@ fStrip(){
 
 fEcho_Clean ""
 fEcho "Cross build (stamped $(date -u -d "@${SOURCE_DATE_EPOCH}" '+%Y-%m-%d %H:%M:%S UTC'))"
-((clean)) && docker exec "$CONTAINER" rm -rf "$BUILD" || true
+## The dir is the volume's mount, so only what's in it goes.
+((clean)) && docker exec "$CONTAINER" find "$BUILD" -xdev -mindepth 1 -delete || true
 fBuild
 
 ## The stamp is part of the output, but ninja does not know that, so an exe left
@@ -152,11 +142,13 @@ fEcho_Clean "exe stamped ${pe}"
 ## Read the exe back rather than trusting the flags above. Copied out first
 ## because the check runs on the host and the exe lives in the container.
 tmpExe="$(mktemp)"
-trap 'rm -f "${tmpExe}"' EXIT
 docker exec "$CONTAINER" cat "${BUILD}/src/nemo-anywhere.exe" > "$tmpExe"
 bash "${ROOT}/cicd/utility/check-win-build-flags.bash" --shipped "$tmpExe" || fDie "the cross build is not a stripped release build"
+mkdir -p "${ROOT}/cicd/artifacts/cross"
+cp "$tmpExe" "${ROOT}/cicd/artifacts/cross/nemo-anywhere.exe"
 fEcho_Clean ""
 
 
 ##	History:
 ##		- 2026-08-26: Created.
+##		- 2026-10-26: A step container of its own, not nemo-winbuild.

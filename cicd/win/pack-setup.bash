@@ -25,13 +25,16 @@ set -Eeuo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${HERE}/../.." && pwd)"
 SLUG="nemo-anywhere"
-CONTAINER="${NEMO_WIN_CONTAINER:-nemo-winbuild}"
 OUT="${ROOT}/cicd/artifacts/release"
 
 # shellcheck source=../utility/include/echo.bash
 source "${ROOT}/cicd/utility/include/echo.bash"
 # shellcheck source=../utility/include/source-date.bash
 source "${ROOT}/cicd/utility/include/source-date.bash"
+# shellcheck source=../utility/include/run-temp.bash
+source "${ROOT}/cicd/utility/include/run-temp.bash"
+# shellcheck source=win-box.bash
+source "${HERE}/win-box.bash"
 
 while (($#)); do case "$1" in
 	--out)     OUT="${2:?--out needs a path}"; shift 2 ;;
@@ -41,10 +44,11 @@ while (($#)); do case "$1" in
 esac; done
 
 command -v unzip >/dev/null 2>&1 || fDie "unzip is not installed"
-docker exec "$CONTAINER" true 2>/dev/null || docker start "$CONTAINER" >/dev/null 2>&1 || true
-docker exec "$CONTAINER" true 2>/dev/null || fDie "cross-build container '${CONTAINER}' is not running and would not start"
+work=""
+trap 'fSafeRm_IfThere "${work}"; fStepBox_Stop' EXIT
+fWinBox_Start "windows setup" --no-build-win || exit 1
 docker exec "$CONTAINER" sh -c 'command -v makensis' >/dev/null 2>&1 \
-	|| fDie "no makensis in ${CONTAINER} - rebuild it from cicd/win/Dockerfile, or: docker exec ${CONTAINER} apt-get install -y nsis"
+	|| fDie "no makensis in the cross-build image - rebuild it from cicd/win/Dockerfile"
 
 ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "${ROOT}/source/meson.build" | head -1)"
 [[ -n "$ver" ]] || fDie "no version in source/meson.build"
@@ -64,8 +68,8 @@ fEcho_Clean
 fEcho "Packing ${setup}"
 
 work="$(mktemp -d)"
+## In the step's container, so it goes with it.
 box="/tmp/${SLUG}-setup.$$"
-trap 'rm -rf "${work}"; docker exec "$CONTAINER" rm -rf "${box}" >/dev/null 2>&1 || true' EXIT
 
 unzip -q "$zip" -d "${work}/payload"
 [[ -f "${work}/payload/${name}/${SLUG}.exe" ]] || fDie "${name}.zip has no ${name}/${SLUG}.exe"
@@ -92,3 +96,4 @@ fEcho_Clean
 
 ##	History:
 ##		- 2026-10-07: Created.
+##		- 2026-10-26: A step container of its own, not nemo-winbuild.

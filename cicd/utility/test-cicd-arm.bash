@@ -25,12 +25,14 @@ echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURC
 fEcho(){ echo "[ $* ]"; }
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "${here}/../.." && pwd)"
+# shellcheck source=include/run-temp.bash
+source "${here}/include/run-temp.bash"
 
 failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/cicd-arm-check.XXXXXX")"
-trap 'rm -rf "${scratch}"' EXIT
+trap 'fSafeRm_IfThere "${scratch}"' EXIT
 ## Run folders go in the scratch dir, not the box's own temp root.
 export HOST_TEMP="${scratch}/host-temp"
 mkdir -p "${HOST_TEMP}"
@@ -96,7 +98,7 @@ EOF
 fPipeline(){
 	local want="$1" text="$2"; shift 2
 	local out rc=0
-	rm -rf "${scratch}/out" "${scratch}/native.bin"
+	fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
 	out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync "$@" 2>&1 </dev/null)" || rc=$?
 	if [[ "$rc" != 0 ]]; then
 		fFail "[$*]: the run failed (exit ${rc}): $(tail -5 <<< "$out")"
@@ -132,7 +134,7 @@ fPipeline "no arm" "(no arm64, --no-arm)"               --no-arm --include-arm
 fPipeline "no arm" "(no arm64, --no-arm)"               --no-arm
 
 ## --no-cross leaves out every cross target, arm64 too.
-rm -rf "${scratch}/out"
+fSafeRm_IfThere "${scratch}/out"
 out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync --include-arm --no-cross 2>&1 </dev/null)" || fFail "--include-arm --no-cross failed"
 [[ ! -e "${scratch}/out/app.exe" && ! -e "${scratch}/out/app-${ver}-linux-arm64.tar.gz" ]] || fFail "--no-cross still ran a cross target"
 [[ ! -e "${scratch}/out/pkg-arm64" && ! -e "${scratch}/out/check-arm64" ]] || fFail "--include-arm --no-cross still made or checked arm64 packages"
@@ -143,7 +145,7 @@ out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd
 fBsd(){
 	local want="$1" text="$2"; shift 2
 	local out rc=0 ran=0
-	rm -rf "${scratch}/out" "${scratch}/native.bin"
+	fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
 	out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync "$@" 2>&1 </dev/null)" || rc=$?
 	if [[ "$rc" != 0 ]]; then
 		fFail "[$*]: the run failed (exit ${rc}): $(tail -5 <<< "$out")"
@@ -167,7 +169,7 @@ fBsd bsd      ""                                       --quick --include-bsd
 
 ## --quick leaves arm64 out. Since 2026-10-19 --include-arm brings it back under
 ## --quick, the way --include-bsd does, so that case moved to test-cicd-quick.bash.
-rm -rf "${scratch}/out"
+fSafeRm_IfThere "${scratch}/out"
 out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync --quick 2>&1 </dev/null)" || fFail "--quick failed"
 [[ ! -e "${scratch}/out/app-${ver}-linux-arm64.tar.gz" && ! -e "${scratch}/out/pkg-arm64" ]] || fFail "--quick built arm64"
 

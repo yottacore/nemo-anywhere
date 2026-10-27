@@ -3,9 +3,9 @@
 ##	- Purpose: Check that gui-smoke.bash finds the main window in a window list
 ##	  too long for one pipe write, and that it steps over a display another X
 ##	  server already holds instead of drawing on it.
-##	- Runs a copy of gui-smoke.bash in the nemo-winbuild container, with wine and
-##	  xwininfo stood in for. Xvfb, xdpyinfo and import are the real ones.
-##	- Needs docker and the nemo-winbuild container; exit 77 without them.
+##	- Runs a copy of gui-smoke.bash in a cross-build step container, with wine
+##	  and xwininfo stood in for. Xvfb, xdpyinfo and import are the real ones.
+##	- Needs docker and the cross-build image; exit 77 without them.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/win/test-gui-smoke.bash
 ##	- Test ID: rjcbfbx8
@@ -22,15 +22,17 @@ fEcho(){ echo "[ $* ]"; }
 if [[ "${1:-}" != "--inside" ]]; then
 	echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
 	root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-	if ! command -v docker >/dev/null 2>&1 || ! timeout 10 docker inspect nemo-winbuild >/dev/null 2>&1; then
-		fEcho "gui-smoke check skipped: no nemo-winbuild container"
+	# shellcheck source=win-box.bash
+	source "${root}/cicd/win/win-box.bash"
+	if [[ "${CICD_NO_CONTAINER:-}" == "1" ]] || ! command -v docker >/dev/null 2>&1 || ! timeout 10 docker info >/dev/null 2>&1 || ! fWinBox_Image >/dev/null; then
+		fEcho "gui-smoke check skipped: no cross-build image"
 		exit 77
 	fi
-	## Copies, not the container's /src, which may be another clone.
+	## Copies, so the stand-ins never touch the tree.
 	rc=0
 	# shellcheck disable=SC2016  ## expanded by the shell in the container
 	tar -C "${root}" -cf - cicd/win/gui-smoke.bash cicd/win/test-gui-smoke.bash cicd/utility/include/xvfb.bash \
-		| timeout -k 5 120 docker exec -i nemo-winbuild bash -c \
+		| timeout -k 5 120 bash "${root}/cicd/win/win-run.bash" --no-build-win "gui smoke check" \
 			'd="$(mktemp -d /tmp/test_gui-smoke.XXXXXX)" && tar -C "$d" -xf - && { rc=0; bash "$d/cicd/win/test-gui-smoke.bash" --inside "$d" || rc=$?; rm -rf -- "$d"; exit "$rc"; }' \
 		|| rc=$?
 	exit "${rc}"

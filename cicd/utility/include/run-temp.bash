@@ -5,7 +5,8 @@
 ##	- fRunTemp_Make <project> <YYYYmmDD-HHMMSS> -> makes
 ##	  ${HOST_TEMP}/<project>/<stamp>_<NNN>/, writes run.pid there, and points
 ##	  TMPDIR, TEMP and TMP at it. Sets runTempDir, and exports CICD_PROJECT
-##	  and CICD_RUN (the folder's name) for docker labels. HOST_TEMP falls back
+##	  and CICD_RUN (the folder's name) for docker labels, and CICD_KEEP_TEMP
+##	  (runTempKeep) so a step's container stays too. HOST_TEMP falls back
 ##	  to TMPDIR, then /tmp.
 ##	- fRunTemp_Sweep -> removes the project's run folders older than 2 days
 ##	  whose run.pid names no live process. A folder with no run.pid wasn't made
@@ -15,6 +16,9 @@
 ##	- fSafeRm <path> -> rm -rf of one absolute path under a folder named tmp, or
 ##	  under ${HOST_TEMP}/<project>/. Refuses .., //, a newline, a link, a path
 ##	  through a link, or one that isn't there. Stays on one file system.
+##	  The project is projectName, or CICD_PROJECT in a step's child.
+##	- fSafeRm_IfThere <path>... -> fSafeRm of each one that's there, with no
+##	  "removed" line. For a script's scratch dir and the paths in it.
 ##	- Syntax: source this file; it defines functions only.
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -27,18 +31,31 @@ runTempDir=""
 runTempKeep=0
 
 fSafeRm(){
-	local p="${1:-}" real='' own="${HOST_TEMP:?}/${projectName:?}"
+	local p="${1:-}" real='' own="${projectName:-${CICD_PROJECT:-}}"
+	## Outside a run there's no project root, so only the tmp folder rule holds.
+	if [[ -n "${HOST_TEMP:-}" && -n "${own}" ]]; then own="${HOST_TEMP}/${own}"; else own=""; fi
 	if [[ "${#}" -ne 1 || -z "${p}" || "${p}" == *..* || "${p}" == *//* || "${p}" == *$'\n'* ]]; then
 		printf 'safe-rm: refused, bad path: "%s"\n' "${p}" >&2; return 1
 	fi
 	p="${p%/}"
-	if ! [[ "${p}" =~ ^/(.+/)?tmp/[^/]+(/[^/]+)*$ || "${p}" == "${own}"/?* ]]; then
+	if ! [[ "${p}" =~ ^/(.+/)?tmp/[^/]+(/[^/]+)*$ || ( -n "${own}" && "${p}" == "${own}"/?* ) ]]; then
 		printf 'safe-rm: refused, not under a tmp folder: %s\n' "${p}" >&2; return 1
 	fi
 	if [[ -L "${p}" ]]; then printf 'safe-rm: refused, a link: %s\n' "${p}" >&2; return 1; fi
 	real="$(realpath -e -- "${p}" 2> /dev/null)" || { printf 'safe-rm: refused, not there: %s\n' "${p}" >&2; return 1; }
 	if [[ "${real}" != "${p}" ]]; then printf 'safe-rm: refused, goes through a link: %s\n' "${p}" >&2; return 1; fi
 	rm -rf --one-file-system -- "${p}" && printf 'removed %s\n' "${p}"
+}
+
+## For a script's own scratch: each path through fSafeRm, quietly, and one
+## that's already gone is fine, as with rm -rf. Returns 1 if any was refused.
+fSafeRm_IfThere(){
+	local p rc=0
+	for p in "$@"; do
+		[[ -e "${p}" || -L "${p}" ]] || continue
+		fSafeRm "${p}" > /dev/null || rc=1
+	done
+	return "${rc}"
 }
 
 fRunTemp_Make(){
@@ -60,7 +77,7 @@ fRunTemp_Make(){
 	printf '%s\n' "$$" > "${dir}/run.pid" || return 1
 	runTempDir="${dir}"
 	export TMPDIR="${dir}" TEMP="${dir}" TMP="${dir}"
-	export CICD_PROJECT="${projectName}" CICD_RUN="${dir##*/}"
+	export CICD_PROJECT="${projectName}" CICD_RUN="${dir##*/}" CICD_KEEP_TEMP="${runTempKeep:-0}"
 }
 
 fRunTemp_Sweep(){
@@ -88,3 +105,5 @@ fRunTemp_Done(){
 
 ##	History:
 ##		- 2026-10-25: Created.
+##		- 2026-10-26: Exports CICD_KEEP_TEMP.
+##		- 2026-10-26: fSafeRm_IfThere; fSafeRm works outside a run.

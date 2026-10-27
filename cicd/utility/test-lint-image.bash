@@ -17,10 +17,14 @@
 ##	SPDX-License-Identifier: MIT
 
 set -Eeuo pipefail
+## Set by --no-container; each case here names its own.
+unset NEMO_LINT_HOST
 echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "${here}/../.." && pwd)"
+# shellcheck source=include/run-temp.bash
+source "${here}/include/run-temp.bash"
 dockerfile="${root}/cicd/linux/Dockerfile.lint"
 
 fEcho(){ echo "[ $* ]"; }
@@ -42,7 +46,7 @@ for c in lint-c lint-bash lint-python lint-powershell; do
 done
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/test_lint-image_$(date +%Y%m%d-%H%M%S%2N).XXXXXX")"
-trap '[[ "$scratch" == */test_lint-image_* ]] && rm -rf "${scratch}"' EXIT
+trap '[[ "$scratch" == */test_lint-image_* ]] && fSafeRm_IfThere "${scratch}"' EXIT
 mkdir -p "${scratch}/bin" "${scratch}/repo/cicd/linux"
 cp "$dockerfile" "${scratch}/repo/cicd/linux/"
 log="${scratch}/docker.log"

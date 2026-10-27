@@ -22,6 +22,8 @@ set -Eeuo pipefail
 echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../utility/include/run-temp.bash
+source "${here}/../utility/include/run-temp.bash"
 hook="${here}/pre-push"
 
 ## The hook may be what is running this, and git can hand its hooks a GIT_DIR.
@@ -62,7 +64,7 @@ for entry in "${cases[@]}"; do
 done
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/pre-push-test.XXXXXX")"
-trap 'rm -rf "${scratch}"' EXIT
+trap 'fSafeRm_IfThere "${scratch}"' EXIT
 
 ## meson_version sits first on the line, so a match on it would read >=0.56.0.
 printf "project('x', 'c', meson_version : '>=0.56.0', version : '2.1.0-rc.3')\n" > "${scratch}/meson.build"

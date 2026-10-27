@@ -9,9 +9,11 @@
 ##	  and every step that needs another box. --backlog-run-full and
 ##	  --merge-gate run every check a plain run does, and never sync, format in
 ##	  place, dogfood or publish. --no-remote leaves out every step on another
-##	  box. Each step opens with a Starting line and closes with PASS, or FAIL
-##	  for one that fails, numbered out of the steps that run, under a rule of
-##	  79 dots. The plan lists what's turned off, and a hard step gets a quarter
+##	  box. --no-container runs the lints with the host's tools, then stops
+##	  with one line and exit 1 at the first step that needs a container.
+##	  Each step opens with a Starting line and closes with PASS, or FAIL for
+##	  one that fails, numbered out of the steps that run, under a rule of 79
+##	  dots. The plan lists what's turned off, and a hard step gets a quarter
 ##	  of the cpus. A copy of cicd.bash runs in a scratch git repo
 ##	  with every step a stand-in that leaves a marker file.
 ##	- Runs in the lint stage.
@@ -29,13 +31,15 @@ echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURC
 fEcho(){ echo "[ $* ]"; }
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "${here}/../.." && pwd)"
+# shellcheck source=include/run-temp.bash
+source "${here}/include/run-temp.bash"
 
 failures=0
 lastOut=""
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/cicd-quick-check.XXXXXX")"
-trap 'rm -rf "${scratch}"' EXIT
+trap 'fSafeRm_IfThere "${scratch}"' EXIT
 ## Run folders go in the scratch dir, not the box's own temp root.
 export HOST_TEMP="${scratch}/host-temp"
 mkdir -p "${HOST_TEMP}"
@@ -71,7 +75,7 @@ cat > "${scratch}/cicd/config.bash" <<-EOF
 	DEBUG_BUILD_CMD=(bash -c '$(mark build)')
 	TEST_CMD=(bash -c '[ -z "\${CHECK_FAIL_TESTS:-}" ] || exit 3; $(mark tests)')
 	LINT_PROBE=(true)
-	LINT_CMD=(bash -c '$(mark lint)')
+	LINT_CMD=(bash -c '$(mark lint); echo "\${NEMO_LINT_HOST:-}" > out/lint-host')
 	FUZZ_PROBE=(true)
 	FUZZ_CMD=(bash -c '$(mark fuzz)')
 	SANITIZE_CMD=(bash -c '$(mark sanitize)')
@@ -165,12 +169,12 @@ fSteps(){
 fRun(){
 	local want=" $1 " out rc=0 step ran
 	shift
-	rm -rf "${scratch}/out" "${scratch}/native.bin"
+	fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
 	mkdir -p "${scratch}/out"
 	out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 env -u CICD_MAX_JOBS bash cicd/cicd.bash -y "$@" 2>&1 </dev/null)" || rc=$?
 	lastOut="$out"
-	if [[ "$rc" != 0 ]]; then
-		fFail "[$*]: the run failed (exit ${rc}): $(tail -5 <<< "$out")"
+	if [[ "$rc" != "${wantRc:-0}" ]]; then
+		fFail "[$*]: exit ${rc}, not ${wantRc:-0}: $(tail -5 <<< "$out")"
 		return 0
 	fi
 	## A step per marker, less the ones that share a step: the package check
@@ -248,9 +252,32 @@ rc=0
 out="$(cd "$scratch" && CICD_CPU_CAPPED=1 bash cicd/cicd.bash --backlog-run-quick lint nosuch 2>&1 </dev/null)" || rc=$?
 [[ "$rc" == 2 && "$out" == *"unknown area: nosuch"* && "$out" == *"format lint tests"* ]] || fFail "[--backlog-run-quick lint nosuch]: exit ${rc}, not 2 with the areas listed: ${out}"
 help="$(bash "${root}/cicd/cicd.bash" --help)"
-for name in --backlog-run-quick --backlog-run-full --merge-gate --gate --ci --no-remote "format, lint, tests"; do
+for name in --backlog-run-quick --backlog-run-full --merge-gate --gate --ci --no-remote --no-container "format, lint, tests"; do
 	grep -q -F -- "$name" <<< "$help" || fFail "--help does not name ${name}"
 done
+
+## --no-container: the lints on the host, with the host's tools, then a stop
+## with one line at the first step that needs a container, and exit 1. Not
+## when the areas named need none.
+wantRc=1
+for mode in "" --backlog-run-quick --merge-gate; do
+	case "$mode" in
+		"")                  want="sync fmt lint"; stop="Build (debug)" ;;
+		--backlog-run-quick) want="fmt-check lint"; stop="Tests" ;;
+		*)                   want="fmt-check lint"; stop="Build (debug)" ;;
+	esac
+	fRun "$want" ${mode:+"$mode"} --no-container
+	label="${mode:-plain} --no-container"
+	[[ "$(grep -c '^\[ STOPPED' <<< "$lastOut")" == 1 && "$lastOut" == *"[ STOPPED at ${stop}: it needs a container, and --no-container runs on the host ]"* ]] \
+		|| fFail "[${label}]: no one stop line at ${stop}"
+	grep -q -x -F -- "    - ${stop} (--no-container${mode:+, the run stops there})" <<< "$lastOut" \
+		|| [[ -z "$mode" || "$mode" == --merge-gate ]] || fFail "[${label}]: the plan doesn't list ${stop} as turned off"
+	[[ "$(cat "${scratch}/out/lint-host" 2>/dev/null)" == 1 ]] || fFail "[${label}]: the lints didn't get NEMO_LINT_HOST=1"
+done
+grep -q -x -F -- "    - Build (debug) (--no-container)" <<< "$lastOut" || fFail "[--merge-gate --no-container]: the plan doesn't list the build as turned off"
+wantRc=0
+fRun "lint" --backlog-run-quick lint --no-container
+[[ "$lastOut" != *"STOPPED"* ]] || fFail "[--backlog-run-quick lint --no-container]: stopped with nothing left that needs a container"
 
 ## A failed step closes as FAIL, and the plan lists what's turned off with why.
 rc=0

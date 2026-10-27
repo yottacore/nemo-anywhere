@@ -24,6 +24,8 @@ echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURC
 fEcho(){ echo "[ $* ]"; }
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "${here}/../.." && pwd)"
+# shellcheck source=../utility/include/run-temp.bash
+source "${root}/cicd/utility/include/run-temp.bash"
 
 if ! command -v dpkg-deb >/dev/null 2>&1; then
 	fEcho "deb size check skipped: no dpkg-deb"
@@ -42,8 +44,8 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 lane="${scratch}/repo"
 mkdir -p "${lane}/cicd/linux" "${lane}/cicd/utility/include" "${lane}/cicd/artifacts/release"
 cp "${root}/cicd/linux/package.bash" "${lane}/cicd/linux/"
-cp "${root}/cicd/utility/include/echo.bash" "${root}/cicd/utility/include/source-date.bash" "${root}/cicd/utility/include/release-files.bash" \
-	"${lane}/cicd/utility/include/"
+cp "${root}/cicd/utility/include/echo.bash" "${root}/cicd/utility/include/source-date.bash" "${root}/cicd/utility/include/release-files.bash" "${root}/cicd/utility/include/run-temp.bash" \
+	"${root}/cicd/utility/include/jobs.bash" "${root}/cicd/utility/include/step-box.bash" "${lane}/cicd/utility/include/"
 
 ## Sizes either side of a KiB and of a disk block, a symlink and a hardlink pair,
 ## so a count of blocks, or one that counts a hardlink twice, comes out different.
@@ -64,7 +66,7 @@ deb="${lane}/cicd/artifacts/release/${name}.deb"
 ## $1 work dir for package.bash, $2 where to keep the .deb.
 fPack(){
 	local out rc=0
-	out="$(TMPDIR="$1" SOURCE_DATE_EPOCH=1700000000 NEMO_RELEASE_CONTAINER=no-such-container-deb-size \
+	out="$(TMPDIR="$1" SOURCE_DATE_EPOCH=1700000000 NEMO_RELEASE_IMAGE=no-such-image-deb-size \
 		bash "${lane}/cicd/linux/package.bash" --no-rpm 2>&1)" || rc=$?
 	if [[ "$rc" != 0 || ! -f "$deb" ]]; then
 		fFail "package.bash with TMPDIR=$1 made no .deb (exit ${rc}): ${out}"
@@ -80,7 +82,7 @@ fPack "${scratch}/work-a" "${scratch}/a.deb"
 ## DEBIAN dir it is measured with. Counted by hand only where the tool is missing.
 fExpected(){
 	local tree="${scratch}/unpacked" ctl="${scratch}/ctl"
-	rm -rf "$tree" "$ctl"; mkdir -p "$tree" "${ctl}/debian"
+	fSafeRm_IfThere "$tree" "$ctl"; mkdir -p "$tree" "${ctl}/debian"
 	dpkg-deb -x "$1" "$tree"
 	mkdir -p "${tree}/DEBIAN"
 	if command -v dpkg-gencontrol >/dev/null 2>&1; then
@@ -119,7 +121,9 @@ if [[ -f "${scratch}/a.deb" ]]; then
 	## The same tarball again with its work dir on another filesystem.
 	if [[ -d /dev/shm && -w /dev/shm && "$(stat -c %d /dev/shm)" != "$(stat -c %d "${scratch}")" ]]; then
 		shm="$(mktemp -d /dev/shm/deb-size-check.XXXXXX)"
-		fPack "$shm" "${scratch}/b.deb"
+		## Under a folder named tmp, so the packer's guard takes its work dir.
+		mkdir "${shm}/tmp"
+		fPack "${shm}/tmp" "${scratch}/b.deb"
 		if [[ -f "${scratch}/b.deb" ]]; then
 			if cmp -s "${scratch}/a.deb" "${scratch}/b.deb"; then
 				fEcho "OK: same .deb from $(stat -f -c %T "${scratch}") and $(stat -f -c %T /dev/shm)"
