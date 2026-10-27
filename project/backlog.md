@@ -212,8 +212,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere dim checkmarks: the list view column.
 	- ID: 2026102411133409
 	- Type: Enhancement
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: a full run at 1ef8ee4f or later. The suite and the sanitizer suite passed at c7194950, but both full runs stopped at 196653ba. On 20261025 at f4c13824 the build, suite, lint, fuzzing, sanitizer suite and profiler passed, but the release build stage stopped on 2026102510323600, so the stages after it are still left.
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no
 	- Prereq IDs: 2026102510323600
 	- Needs external testing: no. rm1sbxgy and rm1sbwdq pass in the FreeBSD lane. Neither is built for Windows, since both preload a probe.
 	- Needs hand testing: how the dim mark looks on selected rows, in a light and a dark theme.
@@ -243,12 +243,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rm1sbxgy and rm1sbwdq, where every list view check also checks the marks, the bands included. rktkms8a, rktqpp37 and rm1sbxgy check the column is there only under Nemo Anywhere, thin, and without the expanders.
 	- Verified: 20261024, rm1sbxgy, rm1sbwdq, rktkms8a, rk7yvgse, rktqpp37 and rkts3far pass. The full Linux suite, 234 OK and 1 skipped. The build and the Windows cross build with warnings as errors, the C lint, and the test ID check pass.
 	- Verified: 20261024, rm1sbxgy and rm1sbwdq pass in the FreeBSD lane at c7194950.
+	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9.
+	- Left at signoff for the look of the dim mark on selected rows.
 
 - Nemo Anywhere focus outline and keys: the list view.
 	- ID: 2026102412041967
 	- Type: Enhancement
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: a full run at 9384cedd or later. The suite and the sanitizer suite passed at c7194950, but both full runs stopped at 196653ba. Nothing else is left. On 20261025 at f4c13824 the build, suite, lint, fuzzing, sanitizer suite and profiler passed, but the release build stage stopped on 2026102510323600, so the stages after it are still left.
+	- Status: Done
+	- Needs local test suite run?: no
 	- Prereq IDs: 2026102510323600
 	- Needs external testing: no. rm1sbxgy passes in the FreeBSD lane.
 	- Priority|Severity: High
@@ -280,6 +282,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rm1sbxgy, Selection rules test, Nemo Anywhere: the list view's key checks, the outline among them.
 	- Verified: 20261024, rm1sbxgy fails 10 checks with the new handlers bypassed and passes with them. rktkms8a, rktqpp37, rk7yvgse and rm1sbwdq pass. The full Linux suite, 234 OK and 1 skipped. The build and the Windows cross build with warnings as errors, the C lint and the test ID check pass.
 	- Verified: 20261024, rm1sbxgy passes in the FreeBSD lane at c7194950.
+	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9.
+	- Closed: 20261026
 
 - CICD CPU: `cicd.bash` and the scripts it runs.
 	- ID: 2026102517333352
@@ -844,8 +848,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Container cleanup: labels, and the sweep at the end of a run.
 	- ID: 2026102516403487
 	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: `cicd/cicd.bash --backlog-run-full` once. It should end with the docker line, and `docker ps -a --filter label=dev.project=nemo-anywhere` should list nothing after it.
+	- Status: Done
+	- Needs local test suite run?: no
 	- Priority|Severity: High
 	- Opened: 20261025-164035
 	- Opened by: 2026101910075400
@@ -866,7 +870,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The `:init` snapshots predate the labels, so the sweep never touches them. A snapshot committed later from a labeled container takes its labels, and counts as one of its repository's tags.
 	- Test case: rm5b2v7n (which containers and images go, the keep list, `--keep-temp`, a failed step, SIGTERM, a refused df, docker down, `DOCKER_SWEEP` off, never `rmi -f` or another prune), rjxyddbk (labeled lint image build).
 	- Verified: 20261025, rm5b2v7n, rm5a3ej9, rjxyddbk, rkmqprx6, rjph39cv and rj3ytv0b pass. Two `--backlog-run-quick format lint` runs: one passed and printed the docker line; one got Ctrl+C while its labeled lint container ran, and exited 130 with no labeled container and no run folder left. A stand-in run that started a labeled container that outlives its step had it removed.
+	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9. It ended with the docker line, and `docker ps -a --filter label=dev.project=nemo-anywhere` listed nothing after it.
 	- Swept: every `docker build`, `docker run` and `docker create` under `cicd/`, `utility/` and `install.bash`. The arm64 lane builds on its own box, where `release.bash` labels with `dev.run=none`; that box's cleanup is 2026102516403481.
+	- Closed: 20261026
 
 - Container cleanup: a container per step.
 	- ID: 2026102516403492
@@ -888,8 +894,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Container cleanup: a container per step, for the day-to-day build and tests.
 	- ID: 2026102617253209
 	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: `cicd/cicd.bash --backlog-run-full` once, for the profiler and analyzer stages on the new build, and for no `nemo-anywhere-<run folder>-*` container left after it.
+	- Status: Done
+	- Needs local test suite run?: no
 	- Priority|Severity: High
 	- Opened: 20261026-172532
 	- Opened by: 2026102516403492
@@ -912,13 +918,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rm7z5v9s (`test-docker-run-step.bash`, lint stage: the name, labels, `--rm` and `--keep-temp`, a taken name, the volumes made for this clone and refused for another, the cap before the step, and `cache-cap.bash` emptying only a dir past its cap). rj3ytv0b checks the clone rule against the volumes now. rm5cn5p8 and rjcbfcx7 run through the new path.
 		- 20261026: rm5cn5p8 reads the `exec docker run` line of `docker-run.bash`, where it read `exec docker exec`. What it checks on that line is the same.
 	- Verified: 20261026, rm7z5v9s failed on `docker-run.bash` as it was (17 problems) and on a cap 4 times too high, and passes now. `--backlog-run-quick format lint` passed, rj3ytv0b, rm7xde0b, rm7z5v9s and rjcbfcx7 among it. `--backlog-run-quick tests` passed, 234 OK and 2 skipped, building 701 targets in the volume. The sanitizer suite passed, 221 OK and 15 skipped. The analyzer self-test passed with the Linux lane in step containers. The profiler's staging gave a prefix that runs. A 3 s fuzz pass over the 12 targets was clean. Each step's container was gone after it.
+	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9. The profiler and the analyzer stages passed on the new build, and no step container was left.
 	- Swept: every `docker exec` into `nemo-build` and every `NEMO_CONTAINER` reader under `cicd/` and `utility/`: `docker-run.bash`, `profile-run.bash`, `analyze.bash`, `test-fuzz-exit.bash` and `test-docker-run.bash`. The other `docker exec` calls go to `nemo-winbuild` and `nemo-build-jammy`, which are 2026102617253214 and 2026102617253220.
+	- Closed: 20261026
 
 - Container cleanup: a container per step, for the Windows cross build.
 	- ID: 2026102617253214
 	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: `cicd/cicd.bash --backlog-run-full` once, for the cross target, the Windows packages and setup exe check, and the Windows analyzer lane over the whole list, with no `nemo-anywhere-<run folder>-*` container left after it.
+	- Status: Done
+	- Needs local test suite run?: no
 	- Priority|Severity: High
 	- Opened: 20261026-172532
 	- Opened by: 2026102516403492
@@ -940,13 +948,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rm82nbmj (`cicd/win/test-win-run.bash`, lint stage: the name, labels, CPU cap, `--rm` and `--keep-temp`, a taken name, the volume made for this clone and refused for another, `--no-build-win`, the exit code passed back, the stop after the step and after a failure, a fresh clone's image, and one line on no image, docker down or `--no-container`; then no script names a long-lived box). rjcbfbx8 and rktsh3gd run through the new path.
 		- 20261026: rm80p6y8 lists neither `build-cross.bash` nor `pack-setup.bash` now, since neither has an `rm -r` left.
 	- Verified: 20261026, rm82nbmj passes, and fails on each of these: `--rm` always, exit 0 for any step, no stop, no volume, another clone's volume taken, `docker exec nemo-winbuild` back in `config.bash`, and the old stop on the arm64 box. `--backlog-run-quick format lint` passed. In step containers: the cross build, `pack-zip.bash`, `pack-setup.bash`, the setup exe check (rjphqx48), the GUI smoke check (rcdybfj0), rjcbfbx8 and the analyzer self-test with the Windows lane passed. `run-windows-build-via-wine.bash --restage` staged a runtime owned by the user. An exit 77 came back as 77, `--keep-temp` kept a stopped container, and no container was left after any step.
+	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9. The cross build, rcdybfj0, the Windows packages, rjphqx48 and the gcc-win analyzer lane passed, and no step container was left. clang-win is still not run, as before, since no image has clang.
 	- Swept: every `docker exec`, `docker cp`, `docker start` and `docker run` that named `nemo-winbuild`, and every `NEMO_WIN_CONTAINER` reader, under `cicd/` and `utility/`: the 7 scripts above, `test-gui-smoke.bash`, `analyze.bash` and `config.bash`. The design.md build sections and the Dockerfile and `cicd-win.ps1` headers say the same now.
+	- Closed: 20261026
 
 - Container cleanup: a container per step, for the release build.
 	- ID: 2026102617253220
 	- Type: Task
 	- Status: Waiting on automated testing
-	- Needs local test suite run?: `cicd/cicd.bash --backlog-run-full` once, for the native release, the packages and the arm64 lane on vmDebARM64, with no `nemo-anywhere-*` container left after it on either box.
+	- Needs local test suite run?: the arm64 lane on vmDebARM64 only, with no `nemo-anywhere-*` container left on that box.
 	- Priority|Severity: High
 	- Opened: 20261026-172532
 	- Opened by: 2026102516403492
@@ -963,6 +973,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: rjph1pxd and rjpxzs6x (the dependency read in a container of its own, stopped after), rm82nbmj (no script names a long-lived box).
 		- 20261026: rjph1pxd wants `docker stop -t 2 nemo-anywhere-` where it wanted `docker stop nemo-build-jammy`, and `exec -i nemo-anywhere-` where it wanted `exec -i nemo-build-jammy`. What it checks is the same: the read happens before the stop. The deb size check sets `NEMO_RELEASE_IMAGE` to a missing image, where it set `NEMO_RELEASE_CONTAINER`.
 	- Verified: 20261026, `release.bash` built 787 targets in its own container in 177 s at 8 jobs, and the smoke test and the extension load test passed there. `package.bash --depends-only` read the line in a container of its own. rjph1pxd, rjpxzs6x and the deb size check pass. No container was left after either.
+	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9. The native release and the packages passed, and no step container was left here. The arm64 lane was left out.
 	- Swept: every `docker exec`, `docker cp`, `docker update` and `docker stop` that named `nemo-build-jammy`, and every `NEMO_RELEASE_CONTAINER` reader, under `cicd/` and `utility/`: `release.bash`, `package.bash`, `release-arm64.bash`, `test-release-arm64.bash`, `test-package-arm64.bash` and `test-deb-size.bash`. `test-release-setup.bash` already ran its own container.
 
 - CICD reset: containers.
@@ -1260,7 +1271,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026102618083910
 	- Type: Task
 	- Status: Waiting on automated testing
-	- Needs local test suite run?: `cicd/cicd.bash --backlog-run-full` once, for the packages step, the profiler and the Windows pack, which run `package.bash`, `profile-run.bash`, `pack-zip.bash` and `pack-setup.bash`.
+	- Needs local test suite run?: no
 	- Needs external testing: the native lint on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for the test scripts' traps under MSYS2.
 	- Priority|Severity: Avg
 	- Opened: 20261026-180839
@@ -1278,6 +1289,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- rm80p6y8 holds the list of scripts still to move, with a count for each. A new `rm -r` anywhere else fails it, and so does a count that drops without the list.
 	- Test case: rm80p6y8 (every `rm -r` is on the list or gone, a script that calls the guard sources it, `fSafeRm_IfThere`, and `fSafeRm` with no `HOST_TEMP`).
 	- Verified: 20261026, rm80p6y8 fails with a trap put back to `rm -rf`, with the `source` line taken out, and on `run-temp.bash` as it was, and passes now. `--backlog-run-quick format lint` passed. test-prefix, test-installers, test-install-download, test-package-arm64 and test-release-arm64 pass when run alone.
+	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9. The packages step, the profiler and the Windows pack passed.
 	- Swept: every `rm -r` in tracked bash scripts. The rest are on the list in rm80p6y8, for the next two children.
 
 - Temp files: removals outside a temp root go through a guard that names its parent.
