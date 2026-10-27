@@ -31,13 +31,15 @@ echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURC
 fEcho(){ echo "[ $* ]"; }
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "${here}/../.." && pwd)"
+# shellcheck source=include/run-temp.bash
+source "${here}/include/run-temp.bash"
 
 failures=0
 lastOut=""
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/cicd-quick-check.XXXXXX")"
-trap 'rm -rf "${scratch}"' EXIT
+trap 'fSafeRm_IfThere "${scratch}"' EXIT
 ## Run folders go in the scratch dir, not the box's own temp root.
 export HOST_TEMP="${scratch}/host-temp"
 mkdir -p "${HOST_TEMP}"
@@ -167,7 +169,7 @@ fSteps(){
 fRun(){
 	local want=" $1 " out rc=0 step ran
 	shift
-	rm -rf "${scratch}/out" "${scratch}/native.bin"
+	fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
 	mkdir -p "${scratch}/out"
 	out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 env -u CICD_MAX_JOBS bash cicd/cicd.bash -y "$@" 2>&1 </dev/null)" || rc=$?
 	lastOut="$out"

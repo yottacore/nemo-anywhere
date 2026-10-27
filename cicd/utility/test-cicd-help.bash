@@ -17,6 +17,8 @@ set -Eeuo pipefail
 echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=include/run-temp.bash
+source "${here}/include/run-temp.bash"
 cicd="${here}/../cicd.bash"
 
 fEcho(){ echo "[ $* ]"; }
@@ -38,7 +40,7 @@ declare -A switchNames=([BUILD_CROSS]="cross" [PROFILE_ENABLE]="profiler" [PACKA
 ## A copy with every step set up, and a debug build that fails, so the run
 ## stops right after its plan.
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/cicd-help-check.XXXXXX")"
-trap 'rm -rf "${scratch}"' EXIT
+trap 'fSafeRm_IfThere "${scratch}"' EXIT
 export HOST_TEMP="${scratch}/host-temp"
 mkdir -p "${HOST_TEMP}" "${scratch}/cicd/utility/include" "${scratch}/cicd/utility/demo-video"
 cp "$cicd" "${scratch}/cicd/"

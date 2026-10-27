@@ -1228,7 +1228,63 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102516403466
 	- Requirements:
 		- The 93 `rm -r` lines in 47 scripts go through the repo copy of the guard, or a guard of the same kind that names the one parent it may remove under. File list in the private notes.
-	- Test case: none yet.
+	- Progress log:
+		- 20261026: split into children 2026102618083910 (removals in a temp folder), 2026102617555865 (removals outside a temp root) and 2026102617555870 (the installer, and removals inside a container). The first is in.
+	- Test case: rm80p6y8, once the last child is in.
+
+- Temp files: scripts remove their own temp folders through the guard.
+	- ID: 2026102618083910
+	- Type: Task
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: `cicd/cicd.bash --backlog-run-full` once, for the packages step, the profiler and the Windows pack, which run `package.bash`, `profile-run.bash`, `pack-zip.bash` and `pack-setup.bash`.
+	- Needs external testing: the native lint on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for the test scripts' traps under MSYS2.
+	- Priority|Severity: Avg
+	- Opened: 20261026-180839
+	- Opened by: 2026102516403471
+	- Parent ID: 2026102516403471
+	- Requirements:
+		- Every `rm -r` of a `mktemp` folder, or of a path in one, goes through `fSafeRm`.
+	- Progress log:
+		- 20261026: 47 lines in 30 scripts, mostly the test scripts' EXIT traps, now call `fSafeRm_IfThere` from `include/run-temp.bash`. It takes several paths, skips one that's gone, as `rm -rf` did, and prints nothing.
+		- 20261026: `fSafeRm` works outside a run now. With no `HOST_TEMP` or project it keeps only the tmp folder rule, where it used to stop the script. A step's child finds the project in `CICD_PROJECT`.
+		- 20261026: the tests that copy `package.bash` or `release.bash` into a scratch repo copy `run-temp.bash` too. test-deb-size's second pass works under `/dev/shm/.../tmp/`, since the guard refuses a work dir that's in no tmp folder.
+	- Decisions:
+		- One helper for a script's own scratch, rather than an `[[ -e ]]` check at each site, so a trap reads the same as before.
+		- A refusal in a trap warns and leaves the folder. It doesn't change the exit code.
+		- rm80p6y8 holds the list of scripts still to move, with a count for each. A new `rm -r` anywhere else fails it, and so does a count that drops without the list.
+	- Test case: rm80p6y8 (every `rm -r` is on the list or gone, a script that calls the guard sources it, `fSafeRm_IfThere`, and `fSafeRm` with no `HOST_TEMP`).
+	- Verified: 20261026, rm80p6y8 fails with a trap put back to `rm -rf`, with the `source` line taken out, and on `run-temp.bash` as it was, and passes now. `--backlog-run-quick format lint` passed. test-prefix, test-installers, test-install-download, test-package-arm64 and test-release-arm64 pass when run alone.
+	- Swept: every `rm -r` in tracked bash scripts. The rest are on the list in rm80p6y8, for the next two children.
+
+- Temp files: removals outside a temp root go through a guard that names its parent.
+	- ID: 2026102617555865
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261026-175558
+	- Opened by: 2026102516403471
+	- Parent ID: 2026102516403471
+	- Prereq IDs: 2026102618083910
+	- Requirements:
+		- The build, artifact, dogfood and prefix folders that `cicd.bash`, `bsd/`, `linux/release*.bash`, `stage-prefix.bash`, `jail.bash`, `fuzz.bash`, `profile-run.bash`, `lint-c.bash`, `vendor-themes.bash`, `win/stage-native.bash` and `utility/run-windows-build-via-wine.bash` remove, and test-deb-size's `/dev/shm` folder. The list is in rm80p6y8.
+		- A guard of the same kind as `fSafeRm`, which names the one parent it may remove under and refuses the rest.
+		- `fuzz.bash` and `stage-prefix.bash` also make a `mktemp` folder. `fuzz.bash` runs from a copy that test-fuzz-exit sends into a container, so the copy needs `run-temp.bash` too.
+		- The FreeBSD lane has no `realpath -e` or `rm --one-file-system`, so the guard needs a form that works there.
+	- Test case: rm80p6y8, with each script taken off its list.
+
+- Temp files: the installer, and removals inside a container.
+	- ID: 2026102617555870
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261026-175558
+	- Opened by: 2026102516403471
+	- Parent ID: 2026102516403471
+	- Prereq IDs: 2026102617555865
+	- Requirements:
+		- `install.bash` runs on its own, from a download, under Bash 3.2, and some of its removals are as root. It needs its own copy of the guard, built on the prefix check it already has.
+		- `docker exec ... rm -rf` in `build-cross.bash`, `pack-zip.bash` and `pack-setup.bash`, and the `bash -c` strings in test-fuzz-exit and test-gui-smoke, run inside a container, where the repo's include isn't sourced.
+	- Test case: rm80p6y8, with each script taken off its list.
 
 - Temp files: `cicd-win.ps1` and the PowerShell scripts.
 	- ID: 2026102516403476
@@ -1817,7 +1873,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - A cicd run prints the last step's PASS line twice.
 	- ID: 2026102520100000
 	- Type: Bug
-	- Status: Queued
+	- Status: Can't reproduce
 	- Priority|Severity: Low
 	- Opened: 20261025-201000
 	- Opened by: t00mietum
@@ -1828,7 +1884,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: each step closes once.
 	- Reproduced: 20261025 on round1025b at a61c4f91.
 	- Possible cause: the EXIT trap closes the open step again after the last step already closed it.
-	- Test case: rkmqprx6, counting each step's closing line.
+	- Progress log:
+		- 20261026: not seen again. A stand-in `--backlog-run-full` with the private runner last, its output to a file and through the lint log's tee, closed every step once. The lint log of the reported run, `run_20261025-183802.log`, has the line once, followed by the rule. The EXIT trap closes a step only on a failed exit, and `fStep_Close` clears the open step, so a passing run has no second path to that line. The doubled line may have come from how that run's output was watched.
+	- Test case: rkmqprx6, counting each step's closing line. A second close of the same step fails it as "closed a step that wasn't open".
 
 - In the icon views, removing an icon never tells the accessibility tree.
 	- ID: 2026102412590587

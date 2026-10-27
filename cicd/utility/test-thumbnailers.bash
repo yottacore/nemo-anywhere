@@ -21,6 +21,8 @@ set -Eeuo pipefail
 echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=include/run-temp.bash
+source "${root}/cicd/utility/include/run-temp.bash"
 # shellcheck source=include/thumbnailers.bash
 source "${root}/cicd/utility/include/thumbnailers.bash"
 
@@ -29,7 +31,7 @@ failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 scratch="$(mktemp -d)"
-trap 'rm -rf "${scratch}"' EXIT
+trap 'fSafeRm_IfThere "${scratch}"' EXIT
 src="${scratch}/src"
 mkdir -p "$src"
 

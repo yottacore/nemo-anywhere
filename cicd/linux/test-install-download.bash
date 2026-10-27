@@ -29,6 +29,8 @@ set -Eeuo pipefail
 echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=../utility/include/run-temp.bash
+source "${root}/cicd/utility/include/run-temp.bash"
 readonly exeName="nemo-anywhere"
 readonly dl="https://github.com/yottacore/${exeName}/releases/download"
 
@@ -44,7 +46,7 @@ arch="$(fReleaseArch "$(uname -m)")" || { fEcho "installer download check skippe
 os="$(fReleaseOs "$(uname -s)")"
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/${exeName}-download-check.XXXXXX")"
-trap 'rm -rf "${scratch}"' EXIT
+trap 'fSafeRm_IfThere "${scratch}"' EXIT
 
 failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }

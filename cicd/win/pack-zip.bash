@@ -36,6 +36,8 @@ OUT="${ROOT}/cicd/artifacts/release"
 source "${ROOT}/cicd/utility/include/echo.bash"
 # shellcheck source=../utility/include/source-date.bash
 source "${ROOT}/cicd/utility/include/source-date.bash"
+# shellcheck source=../utility/include/run-temp.bash
+source "${ROOT}/cicd/utility/include/run-temp.bash"
 # shellcheck source=../utility/include/pixbuf-loaders.bash
 source "${ROOT}/cicd/utility/include/pixbuf-loaders.bash"
 
@@ -123,7 +125,7 @@ docker exec "$CONTAINER" sh -c "
 # Pull it out and zip it
 
 work="$(mktemp -d)"
-trap 'rm -rf "${work}"' EXIT
+trap 'fSafeRm_IfThere "${work}"' EXIT
 
 docker cp "${CONTAINER}:/tmp/${name}" "${work}/${name}" >/dev/null
 docker exec "$CONTAINER" rm -rf "/tmp/${name}"

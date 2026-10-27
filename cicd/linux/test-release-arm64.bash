@@ -28,6 +28,8 @@ echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURC
 fEcho(){ echo "[ $* ]"; }
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "${here}/../.." && pwd)"
+# shellcheck source=../utility/include/run-temp.bash
+source "${root}/cicd/utility/include/run-temp.bash"
 
 if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then fEcho "arm64 lane check skipped: Linux only"; exit 77; fi
 if ! command -v git >/dev/null 2>&1 || ! command -v sha256sum >/dev/null 2>&1; then
@@ -39,7 +41,7 @@ failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/release-arm64-check.XXXXXX")"
-trap 'rm -rf "${scratch}"' EXIT
+trap 'fSafeRm_IfThere "${scratch}"' EXIT
 
 ver="9.8.7-check"
 repo="${scratch}/repo"
@@ -51,7 +53,7 @@ sumsName="nemo-anywhere-${ver}-sha256sums.txt"
 
 mkdir -p "${repo}/cicd/linux" "${repo}/cicd/utility/include" "${repo}/source" "${repo}/cicd/artifacts/release"
 cp "${root}/cicd/linux/release-arm64.bash" "${root}/cicd/linux/package.bash" "${repo}/cicd/linux/"
-for inc in echo source-date release-files; do
+for inc in echo source-date release-files run-temp; do
 	cp "${root}/cicd/utility/include/${inc}.bash" "${repo}/cicd/utility/include/"
 done
 printf "project('nemo-anywhere', 'c', version: '%s')\n" "$ver" > "${repo}/source/meson.build"

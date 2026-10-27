@@ -25,6 +25,8 @@ echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURC
 fEcho(){ echo "[ $* ]"; }
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "${here}/../.." && pwd)"
+# shellcheck source=include/run-temp.bash
+source "${here}/include/run-temp.bash"
 
 ## Releases are cut on Linux, and a Windows box may only have the python3 stub.
 if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then fEcho "release notes check skipped: Linux only"; exit 77; fi
@@ -33,7 +35,7 @@ for tool in git python3; do
 done
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/release-notes-check.XXXXXX")"
-trap 'rm -rf "${scratch}"' EXIT
+trap 'fSafeRm_IfThere "${scratch}"' EXIT
 
 failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
@@ -266,7 +268,7 @@ chmod +x "${scratch}/bin/gh"
 export FAKE_GH="$fakeDir" FAKE_BASE="$base" PATH="${scratch}/bin:${PATH}"
 
 fUpdate(){ bash "${here}/release-notes.bash" --changelog "$changelog" --update "$tag" > "${scratch}/update.out" 2>&1; }
-fReset(){ rm -rf "${fakeDir:?}"/*; }
+fReset(){ fSafeRm_IfThere "${fakeDir:?}"/*; }
 
 ## A file uploaded between the read and the edit gets a second edit.
 fReset
@@ -294,7 +296,7 @@ mkdir -p "${repo}/cicd/utility/include" "${repo}/source"
 cp "${root}/cicd/config.bash" "${repo}/cicd/"
 cp "${root}/cicd/utility/release.bash" "${root}/cicd/utility/release-stamps.py" "${root}/cicd/utility/changelog-notes.bash" \
 	"${root}/cicd/utility/release-notes.bash" "${root}/cicd/utility/release-table.py" "${repo}/cicd/utility/"
-cp "${root}/cicd/utility/include/source-date.bash" "${repo}/cicd/utility/include/"
+cp "${root}/cicd/utility/include/source-date.bash" "${root}/cicd/utility/include/run-temp.bash" "${repo}/cicd/utility/include/"
 cp "${root}/source/build-number.py" "${repo}/source/"
 cp "$changelog" "${repo}/changelog.md"
 printf "project('nemo-anywhere', 'c', version : '%s')\n" "$ver" > "${repo}/source/meson.build"

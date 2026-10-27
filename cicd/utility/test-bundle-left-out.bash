@@ -26,6 +26,8 @@
 set -Eeuo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=include/run-temp.bash
+source "${root}/cicd/utility/include/run-temp.bash"
 readonly slug="nemo-anywhere"
 
 fEcho(){ echo "[ $* ]"; }
@@ -175,7 +177,7 @@ fSelfTest(){
 	fi
 	scratch="$(mktemp -d)"
 	# shellcheck disable=SC2064  ## the path is fixed now
-	trap "rm -rf '${scratch}'" RETURN
+	trap "fSafeRm_IfThere '${scratch}'" RETURN
 	fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 	## $1 good|bad, $2 bundle

@@ -22,9 +22,11 @@ PFX="mingw-w64-x86_64-"
 ##	sqlite3 already arrives through the gtk3 chain, but the thumbnail cache links it
 ##	directly, so name it here rather than let a refresh of that chain drop it.
 ROOTS=(gtk3 json-glib libexif libarchive sqlite3)
+# shellcheck source=../utility/include/run-temp.bash
+source "$(dirname "${BASH_SOURCE[0]}")/../utility/include/run-temp.bash"
 
 work="$(mktemp -d)"
-trap 'rm -rf "$work"' EXIT
+trap 'fSafeRm_IfThere "$work"' EXIT
 
 fEcho(){ echo "[ $* ]"; }
 

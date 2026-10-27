@@ -50,6 +50,8 @@ source "${ROOT}/cicd/utility/include/echo.bash"
 source "${ROOT}/cicd/utility/include/source-date.bash"
 # shellcheck source=../utility/include/release-files.bash
 source "${ROOT}/cicd/utility/include/release-files.bash"
+# shellcheck source=../utility/include/run-temp.bash
+source "${ROOT}/cicd/utility/include/run-temp.bash"
 
 tarball=""; do_deb=1; do_rpm=1; wantArch=""; dependsOnly=0
 while (($#)); do case "$1" in
@@ -180,7 +182,7 @@ esac
 rpm_ver="${ver//-/\~}"
 
 work="$(mktemp -d)"
-trap 'rm -rf "${work}"' EXIT
+trap 'fSafeRm_IfThere "${work}"' EXIT
 
 fEcho_Clean
 fEcho "Packaging ${SLUG} ${ver} (${arch})"

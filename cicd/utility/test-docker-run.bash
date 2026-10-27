@@ -17,6 +17,8 @@ set -Eeuo pipefail
 echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=include/run-temp.bash
+source "${here}/include/run-temp.bash"
 
 fEcho(){ echo "[ $* ]"; }
 
@@ -31,7 +33,7 @@ failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/docker-run-test.XXXXXX")"
-trap 'rm -rf "${scratch}"' EXIT
+trap 'fSafeRm_IfThere "${scratch}"' EXIT
 mkdir -p "${scratch}/cicd/utility/include"
 cp "${here}/docker-run.bash" "${scratch}/cicd/utility/"
 cp "${here}/include/source-date.bash" "${scratch}/cicd/utility/include/"

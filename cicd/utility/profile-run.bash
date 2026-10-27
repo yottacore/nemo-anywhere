@@ -37,6 +37,8 @@ SLUG="nemo-anywhere"
 
 # shellcheck source=include/echo.bash
 source "${HERE}/include/echo.bash"
+# shellcheck source=include/run-temp.bash
+source "${HERE}/include/run-temp.bash"
 # shellcheck source=include/xvfb.bash
 source "${HERE}/include/xvfb.bash"
 
@@ -113,7 +115,7 @@ cleanup(){
 	[[ -n "$driver_pid" ]] && kill "$driver_pid" 2>/dev/null || true
 	[[ -n "$app_pid"    ]] && kill "$app_pid"    2>/dev/null || true
 	[[ -n "$XVFB_PID"   ]] && kill "$XVFB_PID"   2>/dev/null || true
-	rm -rf "$work"
+	fSafeRm_IfThere "$work"
 }
 trap cleanup EXIT
 

@@ -32,6 +32,8 @@ OUT="${ROOT}/cicd/artifacts/release"
 source "${ROOT}/cicd/utility/include/echo.bash"
 # shellcheck source=../utility/include/source-date.bash
 source "${ROOT}/cicd/utility/include/source-date.bash"
+# shellcheck source=../utility/include/run-temp.bash
+source "${ROOT}/cicd/utility/include/run-temp.bash"
 
 while (($#)); do case "$1" in
 	--out)     OUT="${2:?--out needs a path}"; shift 2 ;;
@@ -65,7 +67,7 @@ fEcho "Packing ${setup}"
 
 work="$(mktemp -d)"
 box="/tmp/${SLUG}-setup.$$"
-trap 'rm -rf "${work}"; docker exec "$CONTAINER" rm -rf "${box}" >/dev/null 2>&1 || true' EXIT
+trap 'fSafeRm_IfThere "${work}"; docker exec "$CONTAINER" rm -rf "${box}" >/dev/null 2>&1 || true' EXIT
 
 unzip -q "$zip" -d "${work}/payload"
 [[ -f "${work}/payload/${name}/${SLUG}.exe" ]] || fDie "${name}.zip has no ${name}/${SLUG}.exe"

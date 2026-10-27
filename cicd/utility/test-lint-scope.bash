@@ -19,6 +19,8 @@ set -Eeuo pipefail
 echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=include/run-temp.bash
+source "${here}/include/run-temp.bash"
 
 ## Run from the pre-push hook, git may hand down a GIT_DIR, and every git call
 ## below would then write to the real repo.
@@ -29,7 +31,7 @@ failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/lint-scope-test.XXXXXX")"
-trap 'rm -rf "${scratch}"' EXIT
+trap 'fSafeRm_IfThere "${scratch}"' EXIT
 repo="${scratch}/repo"
 mkdir -p "${repo}/cicd/utility"
 cp "${here}/lint-c.bash" "${repo}/cicd/utility/"
