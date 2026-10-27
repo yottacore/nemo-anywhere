@@ -66,8 +66,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
 	- Type: Bug
-	- Status: Waiting for answers
+	- Status: Open
 		- Filed upstream as GTK issue [#8497](https://gitlab.gnome.org/GNOME/gtk/-/work_items/8497) and MR [!10551](https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/10551). Waits on a GTK 3.24 release with it.
+		- Let's patch our own fork, if it hasn't been merged yet.
 	- Needs external testing: none. Seen on native Windows 20261022.
 	- Priority|Severity: Low
 	- Opened: 20261021-122230
