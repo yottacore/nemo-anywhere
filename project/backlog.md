@@ -33,6 +33,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- FreeBSD result lines put meson's project name in front of the test ID.
+	- ID: 2026102812032075
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261028-120320
+	- Opened by: t00mietum
+	- Related IDs: 2026102416300007
+	- Target OS: FreeBSD, Windows
+	- Incorrect behavior: the FreeBSD suite's lines read `PASS nemo-anywhere:ddepg Stopped zip leak test  0.08s`, so a search for `PASS ddepg` misses them. All 236 lines of the 20261028 FreeBSD suite had it. The Linux suite's lines don't.
+	- Expected behavior: `PASS ddepg Stopped zip leak test  0.08s` on every platform, as in the testing rules.
+	- Reproduced: 20261028, the FreeBSD suite in a full run at 4be04125 and the lane run alone after it.
+	- Possible cause: meson 1.10.2 on FreeBSD names each test `<project>:<test>` on its result line, where 1.7.0 in the build container doesn't. `result-lines.awk` passes the name through as it is. MSYS2's meson on native Windows is new too, so it likely does the same.
+	- Test case: dehyx, once it has a result line with the project name in front.
+
 - The FreeBSD lane stops on meson clock skew when vmFreeBSD was paused, since a resumed guest keeps its old clock.
 	- ID: 2026102810470587
 	- Type: Bug
@@ -113,6 +128,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261024, dec8w, dec8v, de8bd, ddy5f, de8dm and de8ec pass. The full Linux suite, 234 OK and 1 skipped. The build and the Windows cross build with warnings as errors, the C lint, and the test ID check pass.
 	- Verified: 20261024, dec8w and dec8v pass in the FreeBSD lane at c7194950.
 	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9.
+	- Stand-in: none (20261028). Turns on how the dim mark looks in a light and a dark theme.
 	- Left at signoff for the look of the dim mark on selected rows.
 
 - README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
@@ -135,7 +151,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: instdocs
 	- Commit: c5eb2000
 	- Test case: none new, docs only. The lint stage passes, and its prose check now reads install.md and building.md.
-	- Stand-in: none. File names, layout and the license line are calls for a person.
+	- Stand-in: none (20261028). File names, layout and the license line are calls for a person.
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
@@ -175,7 +191,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026102808084300
 	- Type: Bug
 	- Status: Waiting on automated testing
-	- Needs local test suite run?: the FreeBSD lane and the arm64 release, each from its VM off, in a full run with `--long`.
+	- Needs local test suite run?: the arm64 release from vmDebARM64 off, in a full run with `--long`.
 	- Priority|Severity: High
 	- Opened: 20261028-080843
 	- Opened by: t00mietum
@@ -194,6 +210,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every ssh to a test box in `cicd/`. The FreeBSD lane and the arm64 release were the only ones that start a VM.
 	- Test case: ddmn7 and ddmmv. A box whose ssh, or docker on arm64, comes up after a few tries is waited for, and one that never does fails before anything is sent. Both new cases fail before the fix and pass after.
 	- Verified: 20261028, ddmn7 and ddmmv, and the quick gate.
+	- Verified: 20261028, the FreeBSD lane alone (`lane.bash --tests`) at d7bd529d with vmFreeBSD off: it was started, its login waited for, the suite passed (216 OK, 20 skipped), and it was shut down after. In the full run before, from paused, the lane got in and failed later on the clock, which is 2026102810470587.
 
 - Container cleanup: a container per step, for the release build.
 	- ID: 2026102617253220
@@ -218,12 +235,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261026, `release.bash` built 787 targets in its own container in 177 s at 8 jobs, and the smoke test and the extension load test passed there. `package.bash --depends-only` read the line in a container of its own. ddmmv, ddmvx and the deb size check pass. No container was left after either.
 	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9. The native release and the packages passed, and no step container was left here. The arm64 lane was left out.
 	- Swept: every `docker exec`, `docker cp`, `docker update` and `docker stop` that named `nemo-build-jammy`, and every `NEMO_RELEASE_CONTAINER` reader, under `cicd/` and `utility/`: `release.bash`, `package.bash`, `release-arm64.bash`, `test-release-arm64.bash`, `test-package-arm64.bash` and `test-deb-size.bash`. `test-release-setup.bash` already ran its own container.
+	- 20261028: not run. Neither full run that day had `--long`, so the arm64 lane was left out.
 
 - Other hosts: a box that isn't there is a SKIP.
 	- ID: 2026102808250949
 	- Type: Task
 	- Status: Waiting on automated testing
-	- Needs local test suite run?: a full run with `--long`, with vmFreeBSD and vmDebARM64 paused or off: both lanes start their VM rather than skip, and put it back.
+	- Needs local test suite run?: a full run with `--long`, with vmDebARM64 paused or off: the arm64 lane starts its VM rather than skip, and puts it back.
 	- Priority|Severity: High
 	- Opened: 20261028-082509
 	- Opened by: 2026102416300001
@@ -241,6 +259,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every lane the pipeline runs on another box: the FreeBSD suite and release, and the cross targets, where arm64 is the only remote one. The Windows dogfood already skips a box that doesn't answer, and is 2026102808250954. The private runner skips its own boxes.
 	- Test case: ddmmw (a lane exiting 77 is a SKIP line, listed at the end, and the run goes on without the arm64 packages), ddmn7 and ddmmv (a box that isn't there exits 77 before the lock, and nothing is sent). Each fails before the change and passes after.
 	- Verified: 20261028, ddmmw, ddmn7 and ddmmv, and the quick gate.
+	- Verified: 20261028, the FreeBSD lane started vmFreeBSD and put it back, from paused in a full run at 4be04125 and from off in a lane run alone at d7bd529d.
 
 - Other hosts: the Windows dogfood takes b29w by that name, and its box through the VM state helper.
 	- ID: 2026102808250954
@@ -261,13 +280,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: the other places that name a Windows box in `cicd/`. Only the dogfood names one; the native Windows gate is 2026102808250959.
 	- Test case: dehyb. b29w goes first by that name, vm925w is taken through the VM state helper while off and its login waited for, and no box there is a skip. It fails before the change and passes after.
 	- Verified: 20261028, dehyb, and the quick gate.
+	- 20261028: not run. Left for a plain run, since no narrower check covers the refresh.
 
 - CICD reset: test IDs.
 	- ID: 2026102416300007
 	- Type: Task
 	- Status: Waiting on automated testing
-	- Needs local test suite run?: the full run, `--no-remote`: the fuzz stage (ddf32's line format against real targets), the sanitizer suite, the package checks and the cross build's flags check and GUI smoke.
-	- Needs external testing: the native gate on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for meson's lines through awk under MSYS2 and the Windows script test lines. The FreeBSD lane, for the rewrite under its awk.
+	- Needs local test suite run?: no
+	- Needs external testing: the native gate on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for meson's lines through awk under MSYS2 and the Windows script test lines. The FreeBSD lane again once 2026102812032075 is fixed.
 	- Priority|Severity: High
 	- Opened: 20261024-163000
 	- Opened by: t00mietum
@@ -291,6 +311,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: round1028a
 	- Test case: dehyx, the result line rewrite and the script test helper. ddf32 checks the fuzz lines and ddaga the package check lines. `test-id.py --check`, in the lint stage, fails on the old 8-digit IDs.
 	- Verified: 20261028, `test-id.py --check` fails on the old IDs and passes after, 410 tests. dehyx fails with the skip mapped to a pass, ddaga with the old package checks, ddf32 with the old fuzz lines; all pass after. `cicd/cicd.bash --backlog-run-quick` passes.
+	- Verified: 20261028, full runs at 4be04125: the 12 fuzz targets, 223 sanitizer suite tests, the package checks (ddmn6, ddqjk, ddqv0, ddwhx, ddmn8), dcvpj and da73c each print a PASS line with the ID. The FreeBSD suite's lines come out as PASS, FAIL or SKIP under its awk, but with the project name stuck to the ID, filed as 2026102812032075.
+	- 20261028: native gate not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
 
 - The hosted Windows build stops at its MSYS2 step: pacman has no `mingw-w64-x86_64-desktop-file-utils` anymore.
 	- ID: 2026102618560000
@@ -343,6 +365,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261026, defnq fails with a trap put back to `rm -rf`, with the `source` line taken out, and on `run-temp.bash` as it was, and passes now. `--backlog-run-quick format lint` passed. test-prefix, test-installers, test-install-download, test-package-arm64 and test-release-arm64 pass when run alone.
 	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9. The packages step, the profiler and the Windows pack passed.
 	- Swept: every `rm -r` in tracked bash scripts. The rest are on the list in defnq, for the next two children.
+	- 20261028: native gate not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
 
 - CICD reset: CICD process gaps.
 	- ID: 2026102416300008
@@ -433,6 +456,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261028, `cicd.bash --backlog-run-quick` passes at 776666f9, and `test-heap.c` compiles in the Windows cross build. gcc's and clang's analyzers find nothing in it or in the cache store test.
 	- Swept: both callers of `test_heap_growth`, the leak cases and the rename probe in `test-nemo-leaks.c`. `test-nemo-config.c` reads the heap but takes no readings through it.
 	- Verified: 20261028, full run 20261028-104801: PASS ddepg, PASS de5hg. Native Windows still to run.
+	- 20261028: native gate not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
 
 - Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
 	- ID: 2026100516274646
@@ -470,6 +494,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: c0a7ede
 	- Test case: dd5dm, Compress dialog height test: closed with Reset grayed at the defaults, Reset lit by a change and by a password alone, Reset clearing them and closing Options, opening by itself for remembered choices with the buttons on screen, Reset dropping them from the settings file, and a remembered lock the format can't do opening Options, shown off and grayed, and back on with rar. dcwjb, Archive settings test, test_choices: the defaults match the settings table, each choice off its default counts, a forced off shows off and leaves the choice, saving keeps it with a preset as its size, and the reset drops every key under Options and nothing else.
 	- Stand-in: 20261025 on vm925w at a61c4f91: dd5dm passes on the real desktop, with a 1392 px work area. Options opened by itself and the 787 px dialog stayed on screen. The lower resolution for a short screen didn't take, so that part is still to run.
+	- 20261028: not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
@@ -9881,7 +9906,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Filed 20261006: a link drop moves the files instead of opening Make link (2026100610503900). ImageMagick thumbnails open a console window each, and the packed exe makes none (2026100610503901). Also 2026100610503902 and 2026100610503903, both Low.
 	- Note 20261006: left here are signing and the UAC prompt, which need a release tag with secrets and a person at the screen.
 	- Test case: the Windows gate runs the suite natively, plus `cicd/win/gui-launch-smoke.ps1`; signing and the UAC prompt have none.
-	- Stand-in: none. Signing runs only in the hosted release workflow on a tag, with secrets the repo doesn't have, and the consent prompt needs a person at the screen.
+	- Stand-in: none (20261028). Signing runs only in the hosted release workflow on a tag, with secrets the repo doesn't have, and the consent prompt needs a person at the screen.
 
 - 🔘 Target: macOS
 	- Status: Stalled
