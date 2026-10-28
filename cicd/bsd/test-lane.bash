@@ -13,6 +13,8 @@
 ##	    whatever times the box left on the files. The sums file covers both.
 ##	  - The run goes through the host lock's wrap, for vmFreeBSD, and through
 ##	    the VM state helper's when that is on the box too.
+##	  - A box still booting is waited for. One that never answers, or isn't
+##	    FreeBSD, fails before anything is sent, the second without the wait.
 ##	- Needs git and python3; exit 77 without them.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/bsd/test-lane.bash
@@ -69,7 +71,7 @@ shim="${scratch}/shim"
 mkdir -p "$box" "$shim" "${scratch}/boxbin"
 cat > "${scratch}/boxbin/uname" <<'EOF'
 #!/usr/bin/env bash
-case "${1:-}" in -s) echo FreeBSD ;; -m) echo amd64 ;; *) echo FreeBSD ;; esac
+case "${1:-}" in -s) echo "${FAKE_OS:-FreeBSD}" ;; -m) echo amd64 ;; *) echo "${FAKE_OS:-FreeBSD}" ;; esac
 EOF
 cat > "${scratch}/fake-run-tests.bash" <<'EOF'
 #!/usr/bin/env bash
@@ -92,8 +94,14 @@ printf 'b\n' > "${out}/${name}/share/b/f"
 touch -d "@$(( $(date +%s) - RANDOM ))" "${out}/${name}/share/a/f"
 printf 'pkg\n' > "${out}/${name}.pkg"
 EOF
+## FAKE_SSH_DOWN=N: the first N connections time out, as on a box still booting.
 cat > "${shim}/ssh" <<EOF
 #!/usr/bin/env bash
+if [[ -n "\${FAKE_SSH_DOWN:-}" ]]; then
+	n=\$(( \$(cat "${scratch}/ssh-tries" 2>/dev/null || echo 0) + 1 ))
+	echo "\$n" > "${scratch}/ssh-tries"
+	if (( n <= FAKE_SSH_DOWN )); then echo "ssh: connect to host box port 22: Connection timed out" >&2; exit 255; fi
+fi
 while [[ "\${1:-}" == -* ]]; do shift; [[ "\${1:-}" != -* ]] && shift; done
 shift
 cmd="\$*"
@@ -152,6 +160,30 @@ if (cd "$repo" && env -u SOURCE_DATE_EPOCH -u WINDOWS_HOST_LOCK -u BOX_WRAP_TOOL
 else
 	fFail "--tests through the VM state helper failed: $(tail -3 "${scratch}/lane.log")"
 fi
+
+## Booting, then up: the lane waits rather than failing on the first try.
+rm -f "${scratch}/ssh-tries"
+if FAKE_SSH_DOWN=2 BOX_READY_POLL=0 fLane --tests; then
+	if grep -q 'answered after' "${scratch}/lane.log"; then fEcho "OK: a box still booting is waited for"; else fFail "no line saying the box was waited for"; fi
+else
+	fFail "--tests failed on a box that came up on the third try: $(tail -3 "${scratch}/lane.log")"
+fi
+
+## Never answers, or isn't FreeBSD: both fail before the send.
+printf 'stale\n' > "${box}/nemo-anywhere-ci/src/stale.txt"
+rm -f "${scratch}/ssh-tries"
+if FAKE_SSH_DOWN=99 BOX_READY_POLL=1 NEMO_BSD_READY_WAIT=1 fLane --tests; then fFail "--tests passed on a box that never answered"
+elif ! grep -q 'did not answer' "${scratch}/lane.log"; then fFail "no reason for a box that never answered: $(tail -3 "${scratch}/lane.log")"
+else fEcho "OK: a box that never answers fails"
+fi
+rm -f "${scratch}/ssh-tries"
+startedAt=$SECONDS
+if FAKE_OS=Linux BOX_READY_POLL=5 NEMO_BSD_READY_WAIT=30 fLane --tests; then fFail "--tests passed on a box that isn't FreeBSD"
+elif ! grep -q 'is not a FreeBSD box' "${scratch}/lane.log"; then fFail "no reason for a box that isn't FreeBSD: $(tail -3 "${scratch}/lane.log")"
+elif ((SECONDS - startedAt >= 5)); then fFail "a box that isn't FreeBSD was waited on"
+else fEcho "OK: a box that isn't FreeBSD fails without the wait"
+fi
+[[ -e "${box}/nemo-anywhere-ci/src/stale.txt" ]] || fFail "the tree on a box that failed the check was touched"
 
 if FAKE_TESTS_RC=1 fLane --tests; then fFail "--tests passed with a failing suite"; else fEcho "OK: a failing suite fails --tests"; fi
 

@@ -614,7 +614,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Need to wait longer after powering up VMs, to connect via SSH.
 	- ID: 2026102808084300
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: the FreeBSD lane and the arm64 release, each from its VM off, in a full run with `--long`.
 	- Priority|Severity: High
 	- Opened: 20261028-080843
 	- Opened by: t00mietum
@@ -624,7 +625,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: need to wait longer after powering up VMs, to connect via SSH. Especially ARM64, which takes forever. It looks like it didn't wait long enough for vmFreeBSD to boot.
 	- Expected behavior: a lane that starts its VM waits until the VM has booted and takes ssh, then connects.
 	- Possible cause: the VM helper's ssh check passes before the lane's own ssh target is ready, or the lane's 8 second connect timeout is too short right after boot. The FreeBSD lane and the arm64 release both go through `cicd/utility/include/box-wrap.bash`.
-	- Test case: none yet.
+	- Actual cause: not seen on a real boot yet. The VM helper waits for ssh as the person running it, with 5 s tries. Each lane then made one try as its own user with an 8 s timeout, and arm64 also needed docker up by then. A login or docker that lags behind the first ssh, or a slow answer from a VM just booted on a busy host, fails the lane at once. The helper's boot wait is 600 s, short for the emulated arm64 VM.
+		- Ruled out: the failures of 20261026 and 20261027 at 11:25 came before the lanes took their box through the VM helper, so nothing waited for a boot. The two full runs after that change passed from off and from paused.
+	- Actual fix: both lanes wait for their own login, polling every 5 s, before anything is sent: 600 s for FreeBSD, 1200 s for arm64, which also waits for docker. A box that answers but is the wrong kind fails at once, and a name that doesn't resolve fails without the wait. arm64 raises the helper's boot wait to 1200 s. Both lanes' connect timeout is 30 s, from 8.
+	- Decisions:
+		- The wait runs the lane's own check, as the lane's user, rather than relying on the helper's. It covers the bare host lock too, and a box someone else is booting.
+		- Knobs: `NEMO_BSD_READY_WAIT` and `NEMO_ARM_READY_WAIT`. The Windows dogfood keeps its 8 s try, since it only uses a box that already answers.
+	- Swept: every ssh to a test box in `cicd/`. The FreeBSD lane and the arm64 release were the only ones that start a VM.
+	- Test case: rjphnh77 and rjph1pxd. A box whose ssh, or docker on arm64, comes up after a few tries is waited for, and one that never does fails before anything is sent. Both new cases fail before the fix and pass after.
+	- Verified: 20261028, rjphnh77 and rjph1pxd, and the quick gate.
 
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
