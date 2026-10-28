@@ -611,6 +611,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
 	- Test case: one per child.
 
+- Need to wait longer after powering up VMs, to connect via SSH.
+	- ID: 2026102808084300
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261028-080843
+	- Opened by: t00mietum
+	- Target OS: FreeBSD, Linux
+	- Requirements:
+		- Before the next cut.
+	- Incorrect behavior: need to wait longer after powering up VMs, to connect via SSH. Especially ARM64, which takes forever. It looks like it didn't wait long enough for vmFreeBSD to boot.
+	- Expected behavior: a lane that starts its VM waits until the VM has booted and takes ssh, then connects.
+	- Possible cause: the VM helper's ssh check passes before the lane's own ssh target is ready, or the lane's 8 second connect timeout is too short right after boot. The FreeBSD lane and the arm64 release both go through `cicd/utility/include/box-wrap.bash`.
+	- Test case: none yet.
+
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
 	- Type: Enhancement
