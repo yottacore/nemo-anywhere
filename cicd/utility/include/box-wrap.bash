@@ -10,6 +10,16 @@
 ##	  bare host lock.
 ##	- fBoxWrap_Tool -> prints the path. The caller checks it with -f, since
 ##	  neither tool may be on this box.
+##	- fBoxWrap_WaitReady <target> <sec> <probe> [ssh opt]... -> 0 once <probe>
+##	  exits 0 there, 3 at once when it exits 3 (the wrong box), 1 when <sec> runs
+##	  out or the name doesn't resolve. The helper's own wait is for ssh as the
+##	  person running it, which can answer while the lane's user can't log in
+##	  yet, or before what the lane needs there, such as docker, is up.
+##	  BOX_READY_POLL is the seconds between tries (default 5).
+##	- fBoxWrap_IsThere <name> <target> <tool> [ssh opt]... -> 1 when the box
+##	  isn't there: not a VM the VM state helper <tool> can start, and ssh gets
+##	  no answer at all. A login or command that fails still counts as there, so
+##	  the lane fails on it rather than skipping.
 ##	- Syntax: source this file; it defines functions only.
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -27,6 +37,46 @@ fBoxWrap_Tool(){
 	echo "$tool"
 }
 
+fBoxWrap_IsThere(){
+	local name="$1" target="$2" tool="$3" err='' st=''
+	shift 3
+	if [[ "$tool" == *vm-state.bash && -f "$tool" ]]; then
+		st="$(bash "$tool" status "$name" 2> /dev/null | awk -v h="$name" '$1 == h {print $3}')" || true
+		[[ -z "$st" || "$st" == - ]] || return 0
+	fi
+	## The first ConnectTimeout given wins, so a paused box isn't waited on long.
+	err="$(ssh -o ConnectTimeout=8 "$@" "$target" exit 2>&1 > /dev/null < /dev/null)" && return 0
+	case "$err" in
+		*"Could not resolve hostname"*|*"timed out"*|*"No route to host"*|*"Connection refused"*|*"Network is unreachable"*)
+			fEcho_Clean "${err}"; return 1 ;;
+	esac
+	return 0
+}
+
+## The probe is put together by the caller, to run there.
+# shellcheck disable=SC2029
+fBoxWrap_WaitReady(){
+	local target="$1" probe="$3" err='' rc=0
+	local -i waitSec="$2" started=$SECONDS poll="${BOX_READY_POLL:-5}" said=0
+	shift 3
+	while :; do
+		rc=0; err="$(ssh "$@" "$target" "$probe" 2>&1 > /dev/null < /dev/null)" || rc=$?
+		case "$rc" in
+			0) ((said)) && fEcho_Clean "${target} answered after $((SECONDS - started))s"; return 0 ;;
+			3) return 3 ;;
+		esac
+		if [[ "$err" == *"Could not resolve hostname"* ]] || ((SECONDS - started + poll > waitSec)); then
+			[[ -z "$err" ]] || fEcho_Clean "${err}"
+			return 1
+		fi
+		((said)) || fEcho_Clean "waiting up to ${waitSec}s for ${target} to answer"
+		said=1
+		sleep "$poll"
+	done
+}
+
 
 ##	History:
 ##		- 2026-10-27: Created.
+##		- 2026-10-28: fBoxWrap_WaitReady, so a lane waits for its own login
+##		  after a boot. fBoxWrap_IsThere, so a box that isn't there is a skip.

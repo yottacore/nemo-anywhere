@@ -8,7 +8,7 @@
 ##	  in a throwaway repo.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-lint-scope.bash
-##	- Test ID: rj3ytty2
+##	- Test ID: ddagb
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:
@@ -33,8 +33,9 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/lint-scope-test.XXXXXX")"
 trap 'fSafeRm_IfThere "${scratch}"' EXIT
 repo="${scratch}/repo"
-mkdir -p "${repo}/cicd/utility"
+mkdir -p "${repo}/cicd/utility/include"
 cp "${here}/lint-c.bash" "${repo}/cicd/utility/"
+cp "${here}/include/result-line.bash" "${repo}/cicd/utility/include/"
 g(){ git -C "$repo" "$@"; }
 g init -q -b main
 g config user.name test

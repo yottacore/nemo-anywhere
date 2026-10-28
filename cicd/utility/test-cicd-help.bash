@@ -6,7 +6,7 @@
 ##	  option turns off.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-help.bash
-##	- Test ID: rj9v18rx
+##	- Test ID: dddq3
 
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)

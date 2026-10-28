@@ -296,18 +296,18 @@ if not get_option('fuzzing')
     fuzzTestEnv = [ 'ASAN_OPTIONS=detect_leaks=0' ]
   endif
 
-  test('rh0808b8 Settings parser fuzz corpus test',  fuzzShcl,            args: fuzzShclCorpus,            env: fuzzTestEnv)
-  test('rh0808b9 Drag payload fuzz corpus test',     fuzzDnd,             args: fuzzDndCorpus,             env: fuzzTestEnv)
-  test('rh0808ba Command template fuzz corpus test', fuzzCommandTemplate, args: fuzzCommandTemplateCorpus, env: fuzzTestEnv)
-  test('rhe0xz30 Photoshop fuzz corpus test',        fuzzPsd,             args: fuzzPsdCorpus,             env: fuzzTestEnv)
-  test('rhqmm0ar Camera raw fuzz corpus test',       fuzzRaw,             args: fuzzRawCorpus,             env: fuzzTestEnv)
-  test('rjvb97bb Office zip fuzz corpus test',       fuzzOffice,          args: fuzzOfficeCorpus,          env: fuzzTestEnv)
-  test('rjvtghmd Old office fuzz corpus test',       fuzzOle2,            args: fuzzOle2Corpus,            env: fuzzTestEnv)
-  test('rhatwe0r Workbook fuzz corpus test',         fuzzXls,             args: fuzzXlsCorpus,             env: fuzzTestEnv)
-  test('rhatwe0s Presentation fuzz corpus test',     fuzzPpt,             args: fuzzPptCorpus,             env: fuzzTestEnv)
-  test('rhatwe0t Word document fuzz corpus test',    fuzzDoc,             args: fuzzDocCorpus,             env: fuzzTestEnv)
+  test('dcq06 Settings parser fuzz corpus test',  fuzzShcl,            args: fuzzShclCorpus,            env: fuzzTestEnv)
+  test('dcq07 Drag payload fuzz corpus test',     fuzzDnd,             args: fuzzDndCorpus,             env: fuzzTestEnv)
+  test('dcq08 Command template fuzz corpus test', fuzzCommandTemplate, args: fuzzCommandTemplateCorpus, env: fuzzTestEnv)
+  test('dcygz Photoshop fuzz corpus test',        fuzzPsd,             args: fuzzPsdCorpus,             env: fuzzTestEnv)
+  test('dd3s1 Camera raw fuzz corpus test',       fuzzRaw,             args: fuzzRawCorpus,             env: fuzzTestEnv)
+  test('ddq93 Office zip fuzz corpus test',       fuzzOffice,          args: fuzzOfficeCorpus,          env: fuzzTestEnv)
+  test('ddqhd Old office fuzz corpus test',       fuzzOle2,            args: fuzzOle2Corpus,            env: fuzzTestEnv)
+  test('dcws8 Workbook fuzz corpus test',         fuzzXls,             args: fuzzXlsCorpus,             env: fuzzTestEnv)
+  test('dcws9 Presentation fuzz corpus test',     fuzzPpt,             args: fuzzPptCorpus,             env: fuzzTestEnv)
+  test('dcwsa Word document fuzz corpus test',    fuzzDoc,             args: fuzzDocCorpus,             env: fuzzTestEnv)
   if not is_windows
-    test('rhmxm5ag Windows shortcut fuzz corpus test', fuzzLnk,           args: fuzzLnkCorpus,             env: fuzzTestEnv)
-    test('rjfa5fmh Shortcut edit fuzz corpus test',    fuzzLnkEdit,       args: fuzzLnkEditCorpus,         env: fuzzTestEnv)
+    test('dd29g Windows shortcut fuzz corpus test', fuzzLnk,           args: fuzzLnkCorpus,             env: fuzzTestEnv)
+    test('ddgpr Shortcut edit fuzz corpus test',    fuzzLnkEdit,       args: fuzzLnkEditCorpus,         env: fuzzTestEnv)
   endif
 endif

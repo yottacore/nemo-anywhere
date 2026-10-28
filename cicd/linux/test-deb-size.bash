@@ -11,7 +11,7 @@
 ##	  size is counted here instead.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/linux/test-deb-size.bash
-##	- Test ID: rjcma0se
+##	- Test ID: ddf7v
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

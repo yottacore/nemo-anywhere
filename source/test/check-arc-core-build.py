@@ -7,7 +7,7 @@
 ##	  thing; this reads what the build did.
 ##	- Syntax: check-arc-core-build.py <source-root> <build-root> <libarc-core.a> [nm]
 ##	  With no nm the symbol half answers 77, so the test shows as a skip.
-##	- Test ID: rk6704r8
+##	- Test ID: ddx6z
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under the GNU General Public License, version 2 only.

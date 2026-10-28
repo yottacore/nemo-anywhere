@@ -12,10 +12,11 @@
 ##	  arch-independent, so the Linux tool's result works for the wine build).
 ##	- The display is the first free one from GUI_SMOKE_DISPLAY (default :120) up,
 ##	  proven ours before use (include/xvfb.bash). A taken number is stepped over.
-##	- Test ID: rcdybfj0
+##	- Test ID: da73c
 
 set -euo pipefail
-echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
+testId="$(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}")"
+echo "[ Test ${testId} ${BASH_SOURCE[0]##*/} ]"
 
 ## No crash dumps: the workdir is the mounted repo and core_pattern is relative, so a
 ## wine/GTK crash would leave a root-owned core.<pid> the host user can't even delete.
@@ -50,6 +51,7 @@ XVFB_PID=""
 trap '[[ -n $XVFB_PID ]] && kill "$XVFB_PID" 2>/dev/null || true' EXIT
 if ! fXvfbStart "$dispFirst" 1280x900x24 /tmp/xvfb.log; then
 	fEcho "FAILED: no free display from ${dispFirst} - see /tmp/xvfb.log"
+	echo "FAIL ${testId} ${BASH_SOURCE[0]##*/}"
 	exit 1
 fi
 DISP="$XVFB_DISPLAY"
@@ -78,4 +80,5 @@ else
 fi
 
 kill "$wpid" 2>/dev/null || true
+if ((rc == 0)); then echo "PASS ${testId} ${BASH_SOURCE[0]##*/}"; else echo "FAIL ${testId} ${BASH_SOURCE[0]##*/}"; fi
 exit "$rc"

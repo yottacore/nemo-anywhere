@@ -5,9 +5,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <glib.h>
+#include <glib-object.h>
 
 #ifdef __GLIBC__
 #include <malloc.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 #endif
 
@@ -254,28 +256,46 @@ thread_ids (void)
    a moment after, with this set. */
 #define THREAD_EXITING 0x4
 
-/* Field 9 of the thread's stat line, its flags. The name before it is in
-   brackets and can hold anything, so the count starts after the last one. */
-static gboolean
-thread_exiting (const char *id)
+/* The thread's stat line, read past the name, which is in brackets and can
+   hold anything. Field 3 is its state, and field 9 its flags. NULL where the
+   thread is gone. */
+static char *
+thread_stat (const char *id, const char **after_name)
 {
 	char *path = g_build_filename ("/proc/self/task", id, "stat", NULL);
 	char *stat = NULL;
-	gboolean exiting = TRUE;
 
+	*after_name = NULL;
 	if (g_file_get_contents (path, &stat, NULL, NULL)) {
-		const char *field = strrchr (stat, ')');
-		guint i;
-
-		for (i = 0; field != NULL && i < 7; i++) {
-			field = strchr (field + 1, ' ');
-		}
-		if (field != NULL) {
-			exiting = (g_ascii_strtoull (field + 1, NULL, 10) & THREAD_EXITING) != 0;
-		}
-		g_free (stat);
+		*after_name = strrchr (stat, ')');
 	}
 	g_free (path);
+	if (*after_name == NULL) {
+		g_free (stat);
+		return NULL;
+	}
+
+	return stat;
+}
+
+static gboolean
+thread_exiting (const char *id)
+{
+	const char *field;
+	char *stat = thread_stat (id, &field);
+	gboolean exiting = TRUE;
+	guint i;
+
+	if (stat == NULL) {
+		return TRUE;
+	}
+	for (i = 0; field != NULL && i < 7; i++) {
+		field = strchr (field + 1, ' ');
+	}
+	if (field != NULL) {
+		exiting = (g_ascii_strtoull (field + 1, NULL, 10) & THREAD_EXITING) != 0;
+	}
+	g_free (stat);
 
 	return exiting;
 }
@@ -354,6 +374,62 @@ wait_for_quiet_heap (void)
 		}
 	}
 }
+#elif defined(__GLIBC__)
+/* A job's thread hands its task back to the main loop a moment after the
+   job's own done callback has run there, and the task, about 800 bytes, is
+   freed only then. On a busy box that can come after the round's main loop
+   has gone quiet, so a reading caught the task on one side or the other
+   (2026102518200000). So a reading waits until no other thread is running
+   and the main loop has nothing left to do. */
+#define STILL_POLL_MS 2
+#define STILL_GIVE_UP_MS 5000
+
+static gboolean
+other_thread_running (void)
+{
+	g_autofree char *self = g_strdup_printf ("%ld", (long) syscall (SYS_gettid));
+	GDir *dir = g_dir_open ("/proc/self/task", 0, NULL);
+	const char *name;
+	gboolean running = FALSE;
+
+	if (dir == NULL) {
+		return FALSE;
+	}
+	while (!running && (name = g_dir_read_name (dir)) != NULL) {
+		const char *field;
+		char *stat;
+
+		if (strcmp (name, self) == 0) {
+			continue;
+		}
+		stat = thread_stat (name, &field);
+		running = stat != NULL && field[1] == ' ' && field[2] == 'R';
+		g_free (stat);
+	}
+	g_dir_close (dir);
+
+	return running;
+}
+
+static void
+wait_for_quiet_heap (void)
+{
+	gint64 give_up_at = g_get_monotonic_time () + STILL_GIVE_UP_MS * 1000;
+
+	for (;;) {
+		while (g_main_context_iteration (NULL, FALSE)) {
+		}
+		if (!other_thread_running () && !g_main_context_pending (NULL)) {
+			return;
+		}
+		if (g_get_monotonic_time () > give_up_at) {
+			g_print ("a thread was still running after %d seconds\n",
+				 STILL_GIVE_UP_MS / 1000);
+			return;
+		}
+		g_usleep (STILL_POLL_MS * 1000);
+	}
+}
 #else
 static void
 wait_for_quiet_heap (void)
@@ -404,10 +480,46 @@ settled_reading (void (*op) (gpointer data), gpointer data, guint rounds,
 	return settled;
 }
 
+/* GObject keeps every signal handler in one hash table, and a table that
+   has filled with removed entries is rebuilt to fit how many are connected at
+   that moment. A job connects a few dozen and lets them go, and with only
+   the few dozen a bare test has, a rebuild left the table at 64 or 128
+   slots, 768 bytes apart, by when it came (2026102518200000). With this many
+   more held for the readings, every rebuild comes out the same size. 384 put
+   the drag case, which keeps a few objects a round, near the next size up. */
+#define HELD_HANDLERS 1024
+
+static void
+held_handler (GObject *object, GParamSpec *pspec, gpointer data)
+{
+	(void) object;
+	(void) pspec;
+	(void) data;
+}
+
+static GPtrArray *
+hold_handlers (void)
+{
+	GPtrArray *held = g_ptr_array_new_full (HELD_HANDLERS, g_object_unref);
+	guint i;
+
+	/* One object each, since the table of objects with handlers is rebuilt
+	   the same way. */
+	for (i = 0; i < HELD_HANDLERS; i++) {
+		GObject *object = g_object_new (G_TYPE_OBJECT, NULL);
+
+		g_signal_connect (object, "notify", G_CALLBACK (held_handler), NULL);
+		g_ptr_array_add (held, object);
+	}
+
+	return held;
+}
+
 TestHeapResult
 test_heap_growth (void (*op) (gpointer data), gpointer data,
 		  guint warmup, guint rounds, gint64 limit, gint64 *growth)
 {
+	g_autoptr (GPtrArray) held = hold_handlers ();
 	gint64 reading_growth;
 	guint settled = 0;
 	guint reading;

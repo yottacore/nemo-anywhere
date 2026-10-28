@@ -13,7 +13,7 @@
 ##		  stage.
 ##	Syntax:
 ##		pwsh -NoProfile -File cicd/win/test-install-holders.ps1
-##	Test ID: rhtwm2cd
+##	Test ID: dd5hz
 
 ##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:

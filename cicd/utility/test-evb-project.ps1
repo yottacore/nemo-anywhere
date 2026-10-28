@@ -11,7 +11,7 @@
 ##		  with the option missing, is refused. Runs in the lint stage.
 ##	Syntax:
 ##		pwsh -NoProfile -File cicd/utility/test-evb-project.ps1 [-SelfTest] [-Path <evb>...]
-##	Test ID: rjxn0ekh
+##	Test ID: ddrhb
 
 ##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:

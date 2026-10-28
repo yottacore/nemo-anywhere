@@ -8,7 +8,7 @@ script. Re-run it after changing the logo.
 
 With --check nothing is written. It fails if a committed icon no longer looks
 like the logo, which is how a new logo went unnoticed for two days.
-Test ID: rhdsqqx1
+Test ID: dcyd3
 
 Syntax: gen-app-icon.py [--check] [<repo-root>]
 """

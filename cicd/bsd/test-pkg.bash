@@ -14,7 +14,7 @@
 ##	- No pkg for this version in cicd/artifacts/release skips with exit 77.
 ##	- Runs in the packages stage, after the FreeBSD lane.
 ##	- Syntax: cicd/bsd/test-pkg.bash [pkg file]
-##	- Test ID: rjphng6y
+##	- Test ID: ddmn6
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

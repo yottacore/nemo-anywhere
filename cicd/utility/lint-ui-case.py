@@ -15,7 +15,7 @@
 ##	  brings the old name back.
 ##	- --self-test runs both checks over made-up files, so a change that blinds
 ##	  them shows up there rather than as a clean run over the tree.
-##	  Test ID: rk54j8k7
+##	  Test ID: ddwm5
 ##	- Exit 1 on any finding, so it gates. Syntax: lint-ui-case.py <source-root>
 ##	  or lint-ui-case.py --self-test
 

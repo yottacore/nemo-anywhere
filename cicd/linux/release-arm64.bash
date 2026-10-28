@@ -17,11 +17,16 @@
 ##	- The box is shared, so it is taken for the run through the VM state helper
 ##	  or the host lock, whichever is on this box (include/box-wrap.bash). The
 ##	  helper starts a VM that is off, waits for its ssh, and puts it back after.
-##	  A box that does not answer is an error.
+##	  The lane then waits for its own user to log in and for docker there,
+##	  since both can lag well behind ssh on an emulated boot. A box that does
+##	  not answer in time is an error. One that isn't there at all, and isn't a
+##	  VM here, exits 77, a skip.
 ##	- NEMO_ARM_HOST is the ssh target (default tester@vmDebARM64), NEMO_ARM_LOCK
 ##	  its lock name (default vmDebARM64), NEMO_ARM_JOBS the build jobs (default
-##	  4). The default box is emulated, where each core it uses costs the host
-##	  several.
+##	  4), NEMO_ARM_READY_WAIT the seconds to wait for the login and docker
+##	  (default 1200). The default box is emulated, where each core it uses costs
+##	  the host several, and the helper's boot wait is raised to 1200s for it
+##	  unless CLAUDE_VM_BOOT_WAIT is set.
 ##	- Syntax: release-arm64.bash
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -37,6 +42,7 @@ OUT="${ROOT}/cicd/artifacts/release"
 armHost="${NEMO_ARM_HOST:-tester@vmDebARM64}"
 lockName="${NEMO_ARM_LOCK:-vmDebARM64}"
 jobs="${NEMO_ARM_JOBS:-4}"
+readyWaitSec="${NEMO_ARM_READY_WAIT:-1200}"
 ## Under the remote home. Emptied in place every run, never recreated: the build
 ## container there has it mounted, and a new dir would leave it on the old one.
 remoteDir="nemo-anywhere-arm64/src"
@@ -53,12 +59,13 @@ source "${ROOT}/cicd/utility/include/release-files.bash"
 source "${ROOT}/cicd/utility/include/box-wrap.bash"
 lockTool="$(fBoxWrap_Tool)"
 
-sshOpts=(-o ConnectTimeout=8 -o BatchMode=yes -o LogLevel=ERROR)
+## 8s was too short for an emulated VM that had just booted on a busy host.
+sshOpts=(-o ConnectTimeout=30 -o BatchMode=yes -o LogLevel=ERROR)
 
 ## Every remote command is put together on this side.
 # shellcheck disable=SC2029
 fRun(){
-	local ver name started secs depsFile deps
+	local ver name started secs depsFile deps rc=0
 
 	ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "${ROOT}/source/meson.build" | head -1)"
 	[[ -n "$ver" ]] || fDie "no version in source/meson.build"
@@ -69,8 +76,14 @@ fRun(){
 
 	fEcho_Clean ""
 	fEcho "arm64 release build on ${armHost}"
-	ssh "${sshOpts[@]}" "$armHost" 'test "$(uname -m)" = aarch64 && docker info >/dev/null 2>&1' \
-		|| fDie "${armHost} is not an arm64 box with docker reachable as that user"
+	## Runs there.
+	# shellcheck disable=SC2016
+	fBoxWrap_WaitReady "$armHost" "$readyWaitSec" 'test "$(uname -m)" = aarch64 || exit 3; docker info >/dev/null 2>&1' "${sshOpts[@]}" || rc=$?
+	case "$rc" in
+		0) ;;
+		3) fDie "${armHost} is not an arm64 box" ;;
+		*) fDie "${armHost} did not answer as that user with docker up in ${readyWaitSec}s" ;;
+	esac
 
 	ssh "${sshOpts[@]}" "$armHost" "mkdir -p ${remoteDir} && find ${remoteDir} -mindepth 1 -delete"
 	## --ignore-failed-read: a file deleted in the tree but not yet in git is
@@ -114,8 +127,12 @@ fMain(){
 		"") ;;
 		*) fDie "unknown option: $1 (try --help)" ;;
 	esac
+	if ! fBoxWrap_IsThere "$lockName" "$armHost" "$lockTool" "${sshOpts[@]}"; then
+		fEcho "SKIP: ${armHost} isn't there"
+		exit 77
+	fi
 	if [[ -f "$lockTool" ]]; then
-		bash "$lockTool" wrap "$lockName" --wait "$lockWaitSec" -- bash "${BASH_SOURCE[0]}" --locked
+		CLAUDE_VM_BOOT_WAIT="${CLAUDE_VM_BOOT_WAIT:-1200}" bash "$lockTool" wrap "$lockName" --wait "$lockWaitSec" -- bash "${BASH_SOURCE[0]}" --locked
 	else
 		fRun
 	fi
@@ -131,3 +148,5 @@ fMain "${@}"
 ##		  remove their containers there.
 ##		- 2026-10-27: Takes the box through the VM state helper when it is here,
 ##		  so a VM that is off is started and waited for.
+##		- 2026-10-28: Waits for its own login and docker, with longer boot and
+##		  connect timeouts. A box that isn't there is a skip.

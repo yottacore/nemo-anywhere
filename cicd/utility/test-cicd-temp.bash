@@ -9,7 +9,7 @@
 ##	  should. A copy of cicd.bash runs in a scratch dir with a stand-in step.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-temp.bash
-##	- Test ID: rm5a3ej9
+##	- Test ID: dee6e
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

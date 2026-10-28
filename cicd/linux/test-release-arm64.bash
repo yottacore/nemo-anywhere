@@ -11,11 +11,14 @@
 ##	  file, the .deb's dependency line is read on the box by package.bash and
 ##	  kept here against the tarball's sha256 before the build container is
 ##	  stopped, a failed read only warns and leaves no list, and a box that is
-##	  not arm64 is refused before anything is sent.
+##	  not arm64 is refused before anything is sent. A VM whose ssh or docker
+##	  is still coming up is waited for, and one that never gets there fails
+##	  before the send. A box that isn't there, and isn't a VM here, exits 77
+##	  before the lock.
 ##	- Runs in the lint stage. Skipped under MSYS2, where the lane never runs and
 ##	  sha256sum marks every line binary.
 ##	- Syntax: cicd/linux/test-release-arm64.bash
-##	- Test ID: rjph1pxd
+##	- Test ID: ddmmv
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:
@@ -80,10 +83,16 @@ cat > "${scratch}/boxbin/uname" <<-EOF
 	if [[ "\${1:-}" == -m ]]; then echo "\${FAKE_ARCH:-aarch64}"; else exec "${realUname}" "\$@"; fi
 EOF
 ## The box's release container: answers the dependency read with its own
-## arch, unless told to fail.
+## arch, unless told to fail. FAKE_DOCKER_DOWN=N: the first N calls of
+## docker info fail, as before the daemon is up.
 cat > "${scratch}/boxbin/docker" <<-EOF
 	#!/usr/bin/env bash
 	echo "docker \$*" >> "${log}"
+	if [[ "\$1" == info && -n "\${FAKE_DOCKER_DOWN:-}" ]]; then
+		n=\$(( \$(cat "${scratch}/docker-tries" 2>/dev/null || echo 0) + 1 ))
+		echo "\$n" > "${scratch}/docker-tries"
+		(( n > FAKE_DOCKER_DOWN )) || exit 1
+	fi
 	if [[ "\$1 \$2" == "exec -i" ]]; then
 		cat > /dev/null
 		[[ -z "\${FAKE_DOCKER_FAIL:-}" ]] || exit 1
@@ -91,14 +100,20 @@ cat > "${scratch}/boxbin/docker" <<-EOF
 	fi
 EOF
 ## ssh [-o opt]... host command: runs the command in the box dir, with none of
-## this side's environment, as over a real ssh.
+## this side's environment, as over a real ssh. FAKE_SSH_DOWN=N: the first N
+## connections time out.
 cat > "${scratch}/bin/ssh" <<-EOF
 	#!/usr/bin/env bash
+	if [[ -n "\${FAKE_SSH_DOWN:-}" ]]; then
+		n=\$(( \$(cat "${scratch}/ssh-tries" 2>/dev/null || echo 0) + 1 ))
+		echo "\$n" > "${scratch}/ssh-tries"
+		(( n > FAKE_SSH_DOWN )) || { echo "ssh: connect to host armbox port 22: Connection timed out" >&2; exit 255; }
+	fi
 	while [[ "\${1:-}" == -o ]]; do shift 2; done
 	echo "ssh \$1" >> "${log}"
 	shift
 	cd "${box}"
-	exec env -i HOME="${box}" PATH="${scratch}/boxbin:\${PATH}" FAKE_ARCH="\${FAKE_ARCH:-}" FAKE_DOCKER_FAIL="\${FAKE_DOCKER_FAIL:-}" bash -c "\$*"
+	exec env -i HOME="${box}" PATH="${scratch}/boxbin:\${PATH}" FAKE_ARCH="\${FAKE_ARCH:-}" FAKE_DOCKER_DOWN="\${FAKE_DOCKER_DOWN:-}" FAKE_DOCKER_FAIL="\${FAKE_DOCKER_FAIL:-}" bash -c "\$*"
 EOF
 ## scp [-q] [-o opt]... host:path dest
 cat > "${scratch}/bin/scp" <<-EOF
@@ -109,6 +124,14 @@ cat > "${scratch}/bin/scp" <<-EOF
 EOF
 cat > "${scratch}/lock.bash" <<-EOF
 	echo "lock \$*" >> "${log}"
+	while ((\$#)) && [[ "\$1" != -- ]]; do shift; done
+	shift
+	exec "\$@"
+EOF
+## The VM state helper: its status row says whether the box is a VM here.
+cat > "${scratch}/x_vm-state.bash" <<-EOF
+	if [[ "\${1:-}" == status ]]; then printf 'host guest state note\n%s %s %s\n' "\$2" "\$2" "\${FAKE_VM_STATE:--}"; exit 0; fi
+	echo "vm \$*" >> "${log}"
 	while ((\$#)) && [[ "\$1" != -- ]]; do shift; done
 	shift
 	exec "\$@"
@@ -177,6 +200,32 @@ rc=0; out="$(FAKE_ARCH=x86_64 fRunLane)" || rc=$?
 [[ "$out" == *"is not an arm64 box"* ]] || fFail "no reason given for the x86_64 box: ${out}"
 [[ -e "${box}/nemo-anywhere-arm64/src/stale.txt" ]] || fFail "the tree on an x86_64 box was touched"
 [[ ! -e "${repo}/cicd/artifacts/release/${armName}" ]] || fFail "an arm64 tarball came from an x86_64 box"
+
+## ssh, then docker, still coming up: waited for.
+rm -f "${repo}/cicd/artifacts/release/${armName}" "${scratch}/ssh-tries" "${scratch}/docker-tries"
+rc=0; out="$(BOX_WRAP_TOOL="${scratch}/x_vm-state.bash" FAKE_VM_STATE=off FAKE_SSH_DOWN=2 FAKE_DOCKER_DOWN=2 BOX_READY_POLL=0 fRunLane)" || rc=$?
+if [[ "$rc" != 0 ]]; then
+	fFail "the lane failed on a box that came up late (exit ${rc}): ${out}"
+else
+	[[ -f "${repo}/cicd/artifacts/release/${armName}" ]] || fFail "no tarball from a box that came up late"
+	[[ "$out" == *"answered after"* ]] || fFail "no line saying the box was waited for"
+fi
+
+## docker never comes up: fails before the send.
+rm -f "${repo}/cicd/artifacts/release/${armName}" "${scratch}/ssh-tries" "${scratch}/docker-tries"
+echo "old" > "${box}/nemo-anywhere-arm64/src/stale.txt"
+rc=0; out="$(FAKE_DOCKER_DOWN=99 BOX_READY_POLL=1 NEMO_ARM_READY_WAIT=1 fRunLane)" || rc=$?
+[[ "$rc" != 0 ]] || fFail "a box with no docker was used"
+[[ "$out" == *"did not answer as that user with docker up"* ]] || fFail "no reason given for a box with no docker: ${out}"
+[[ -e "${box}/nemo-anywhere-arm64/src/stale.txt" ]] || fFail "the tree on a box with no docker was touched"
+
+## Not there, and not a VM here: a skip, before the lock.
+rm -f "${scratch}/ssh-tries" "$log"
+rc=0; out="$(FAKE_SSH_DOWN=99 fRunLane)" || rc=$?
+[[ "$rc" == 77 ]] || fFail "a box that isn't there gave exit ${rc}, not 77: ${out}"
+[[ "$out" == *"SKIP: tester@armbox isn't there"* ]] || fFail "no SKIP line for a box that isn't there"
+! grep -q '^lock ' "$log" 2>/dev/null || fFail "the lock was taken for a box that isn't there"
+[[ -e "${box}/nemo-anywhere-arm64/src/stale.txt" ]] || fFail "the tree was touched on a box that isn't there"
 
 if ((failures)); then
 	fEcho "FAILED: arm64 lane, ${failures} problem(s)"

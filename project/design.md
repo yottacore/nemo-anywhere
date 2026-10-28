@@ -817,6 +817,7 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 - Every container and image the pipeline makes has `dev.project` and `dev.run` labels. At the end of a run, failure and Ctrl+C included, the run's own containers go, then the project's dangling images and its tags past the newest 2, then build cache over a week old. One line says what went and about what it freed. Nothing without the project's label is touched. The long-lived build containers stay, and `--keep-temp` keeps the run's containers too.
 
 - The FreeBSD lane runs the build and suite on the FreeBSD box in the test stage, and its tarball and pkg in the release stage. It runs on every full run. `--no-bsd` leaves it out, and `--include-bsd` brings it back under `--quick`.
+	- The FreeBSD and arm64 boxes are VMs here. One that's off or paused is started, waited for until the lane's own login answers, and docker too for arm64, then put back the way it was. A box that isn't there, and isn't a VM this box can start, is a `SKIP`, and the run goes on. With arm64 skipped, its packages are too. The Windows dogfood refresh takes b29w first, then vm925w the same way, and skips when neither is there.
 
 - The same hook blocks a push to main unless `source/meson.build` is a strict version increase over what is already there.
 
@@ -841,19 +842,23 @@ Stages, in order, each self-skipping when unconfigured: remote sync, format, deb
 
 - No stage is allowed all the cores. Job counts are half of them, and a quarter when the box is busy or for the steps that are hard on it: the sanitizer suite, fuzzing and the analyzers. Busy means a 1-minute load over half the core count, checked again before each step. Everything runs at the lowest CPU and disk priority, and each build container is held to the step's count with a low CPU share, so a full run leaves the machine usable.
 
-- Each step opens and closes with a line giving the local time, its number out of the steps that run, and PASS or FAIL. The plan at the top lists the steps turned off, with the flag or reason for each.
+- Each step opens and closes with a line giving the local time, its number out of the steps that run, and PASS, FAIL or SKIP. SKIP is for a box that isn't there, and the end of the run lists those steps. The plan at the top lists the steps turned off, with the flag or reason for each.
 
 - The publish stage refuses a dirty tree, checked once at preflight and again before it runs. It commits everything it finds, and nothing there can tell work in progress from a finished change.
 
 - Profiling browses a generated folder tree on a private headless display while sampling every thread, then renders a flamegraph and prints the hot spots into the run log. It samples by attaching a debugger rather than using perf, because perf needs a privileged sysctl here and a profiler that can't run without root is a profiler nobody runs. The cost is wall-clock samples, so a blocked thread reads as work; the report keeps waiting in its own bucket and gives every figure as a share of busy time as well as of total. It profiles the debug build, since the release binaries are stripped and a flamegraph with no function names says nothing.
 
+- Every run's output goes to a log under `cicd/artifacts/lint/`. `cicd/utility/lint-report.py` lists the warning and error lines in the newest one that no older log has, with counts, times and temp names evened out first. With `--check` it says nothing new until a newer log is there.
+
 - The last stage archives the project tree into a rotated set of backups and then commits and pushes the current branch. The archive keeps what would be painful to lose - source, docs, the pipeline, assets, release builds and their packages - and drops what a command regenerates, chiefly the staged Windows runtime snapshot, which by itself took each archive from about 1.6 MB to 36 MB.
 
 ### Reproducible builds
 
-Nothing a build produces takes its timestamp from the clock. Every lane sets `SOURCE_DATE_EPOCH` to the commit date of what is being built, so the same commit builds to the same bytes on any box on any day and a released Linux artifact can be checked against a rebuild of its tag. That holds from the release after 1.0.0-beta2, since beta1 and beta2 were built with link-time optimization off. The Windows exe can't be yet: its hosted build installs whatever MSYS2 packages are current that day.
+Nothing a build produces takes its timestamp from the clock. Every lane sets `SOURCE_DATE_EPOCH` to the commit date of what is being built, so the same commit builds to the same bytes on any box on any day and a released Linux artifact can be checked against a rebuild of its tag. That holds from the release after 1.0.0-beta2, since beta1 and beta2 were built with link-time optimization off. The hosted Windows build installs the same MSYS2 packages every time, so its exe is built from the same compiler and libraries on any day. Whether the packed exe comes out byte for byte the same hasn't been checked yet.
 
 - The Windows exe was the one that actually differed run to run. The linker writes a timestamp into the PE header, and left alone it writes the clock: two clean builds of one commit used to differ in exactly those four bytes.
+
+- The hosted Windows build pins what it installs. The setup action is pinned by commit, which fixes the dated MSYS2 base it unpacks, and its own update is off. The toolchain and libraries on top come from `cicd/win/msys2-pins.txt`, the whole dependency closure by file name and sha256, fetched from the MSYS2 repo, which keeps old versions for a while. The packer is pinned by version. `cicd/win/msys2-pins.bash update` moves the pins to whatever is current, and is run by hand.
 
 - The strip rewrites the field too, so whatever strips a released exe has to carry the stamp as well as whatever linked it. Both Windows lanes were missed here, one at a time: the linker was given the stamp and the strip that ran after it put the clock back. Whichever step writes the file last is the one that decides.
 

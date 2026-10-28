@@ -10,9 +10,12 @@
 ##	  Then the real config.bash is read: its arm64 entry has to name
 ##	  release-arm64.bash and the tarball that script writes, and its arm64
 ##	  packager and check have to ask for arm64.
+##	- A lane that exits 77, for a box that isn't there, closes its step as
+##	  SKIP, is listed at the end, and the run goes on. A skipped arm64 build
+##	  takes its packages and check with it.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-arm.bash
-##	- Test ID: rjph39cv
+##	- Test ID: ddmmw
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:
@@ -61,7 +64,7 @@ cat > "${scratch}/cicd/config.bash" <<-EOF
 	BUILD_CROSS=1
 	CROSS_TARGETS=(
 		"Windows x86_64 (stand-in)|windows-x86_64|out/app.exe|mkdir -p out && touch out/app.exe"
-		"Linux arm64 (stand-in)|linux-arm64|out/app-@VER@-linux-arm64.tar.gz|mkdir -p out && touch out/app-${ver}-linux-arm64.tar.gz"
+		"Linux arm64 (stand-in)|linux-arm64|out/app-@VER@-linux-arm64.tar.gz|(if [[ -n \"\\\${FAKE_BOX_GONE:-}\" ]]; then exit 77; fi; mkdir -p out && touch out/app-${ver}-linux-arm64.tar.gz)"
 	)
 	RELEASE_ARTIFACT_DIR="out"
 	RELEASE_COLLECT=0
@@ -75,8 +78,8 @@ cat > "${scratch}/cicd/config.bash" <<-EOF
 		"Other check (stand-in)|mkdir -p out && touch out/check-other"
 		"Check (arm64, stand-in)|mkdir -p out && touch out/check-arm64"
 	)
-	BSD_TEST_CMD=(bash -c 'mkdir -p out && touch out/bsd-tests')
-	BSD_RELEASE_CMD=(bash -c 'mkdir -p out && touch out/bsd-release')
+	BSD_TEST_CMD=(bash -c '[[ -z "\${FAKE_BOX_GONE:-}" ]] || exit 77; mkdir -p out && touch out/bsd-tests')
+	BSD_RELEASE_CMD=(bash -c '[[ -z "\${FAKE_BOX_GONE:-}" ]] || exit 77; mkdir -p out && touch out/bsd-release')
 	PRIVATE_RUNNER=""
 	PROFILE_ENABLE=0
 	PROFILE_OUT_DIR="profiling"
@@ -166,6 +169,21 @@ fBsd "no bsd" "FreeBSD .............: (skipped --no-bsd)"   --no-bsd
 fBsd "no bsd" "FreeBSD .............: (skipped --no-bsd)"   --include-bsd --no-bsd
 fBsd "no bsd" "FreeBSD .............: (skipped --quick)"    --quick
 fBsd bsd      ""                                       --quick --include-bsd
+
+## The FreeBSD and arm64 boxes aren't there: SKIP, and the run goes on.
+fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
+rc=0; out="$(cd "$scratch" && FAKE_BOX_GONE=1 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync --long 2>&1 </dev/null)" || rc=$?
+if [[ "$rc" != 0 ]]; then
+	fFail "a run with no FreeBSD or arm64 box failed (exit ${rc}): $(tail -5 <<< "$out")"
+else
+	for step in "FreeBSD suite" "Release build: Linux arm64 (stand-in)" "Release build: FreeBSD"; do
+		grep -qF "; SKIP ${step} ]" <<< "$out" || fFail "no SKIP line for ${step}"
+		grep -qxF "    - ${step}" <<< "$out" || fFail "${step} is not in the list of skipped steps at the end"
+	done
+	[[ ! -e "${scratch}/out/pkg-arm64" && ! -e "${scratch}/out/check-arm64" ]] || fFail "arm64 packages or their check ran with the arm64 build skipped"
+	[[ -f "${scratch}/out/pkg-other" && -f "${scratch}/out/check-other" && -f "${scratch}/out/app.exe" ]] || fFail "a step after the skips did not run"
+	fEcho "OK: a box that isn't there is a SKIP, and the run goes on"
+fi
 
 ## --quick leaves arm64 out. Since 2026-10-19 --include-arm brings it back under
 ## --quick, the way --include-bsd does, so that case moved to test-cicd-quick.bash.

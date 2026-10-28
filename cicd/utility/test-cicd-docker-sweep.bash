@@ -11,7 +11,7 @@
 ##	  cicd.bash runs in a scratch dir with a stand-in docker.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-docker-sweep.bash
-##	- Test ID: rm5b2v7n
+##	- Test ID: dee6z
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

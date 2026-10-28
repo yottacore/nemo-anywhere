@@ -12,7 +12,7 @@
 ##	  build the image.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/linux/test-release-setup.bash
-##	- Test ID: rjcpvcyb
+##	- Test ID: ddf98
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

@@ -100,7 +100,7 @@ smoke="$("${BUILD}/src/${SLUG}" --version)"
 [[ "$smoke" == "${SLUG} v${ver} build "* ]] || fDie "smoke test said '${smoke}', expected '${SLUG} v${ver} build <n>'"
 fEcho_Clean "$smoke"
 ## A fake HOME and the delete fence; there's no jail on FreeBSD.
-meson test -C "$BUILD" --no-rebuild --wrapper "bash ${ROOT}/cicd/linux/jail.bash" "rh5f9h18 Extension load test" >/dev/null \
+meson test -C "$BUILD" --no-rebuild --wrapper "bash ${ROOT}/cicd/linux/jail.bash" "dcsvh Extension load test" >/dev/null \
 	|| fDie "extension load test failed; see ${BUILD}/meson-logs/testlog-bash.txt"
 kill "${XVFB_PID}" 2>/dev/null || true
 XVFB_PID=""

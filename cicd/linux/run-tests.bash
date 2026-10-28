@@ -56,7 +56,9 @@ fi
 ## One clear line now, rather than every test failing on the same missing piece,
 ## then proof the jail holds.
 bash "${here}/jail.bash" --check || exit 1
-bash "${here}/test-jail.bash" "${build}" || exit 1
+# shellcheck source=../utility/include/result-line.bash
+source "${here}/../utility/include/result-line.bash"
+fTest bash "${here}/test-jail.bash" "${build}"
 
 ## About a third of the suite fails on "cannot open display" with no server, and
 ## several of those read like real assertion failures. The bus is disabled so a
@@ -87,8 +89,10 @@ else
 	fUnderX(){ "$@"; }
 fi
 
+## Each result line becomes "PASS|FAIL|SKIP <id> <name>". pipefail keeps
+## meson's exit code.
 fUnderX meson test -C "${build}" --no-rebuild --num-processes "${jobs}" --print-errorlogs \
-	--wrapper "bash ${here}/jail.bash" "$@"
+	--wrapper "bash ${here}/jail.bash" "$@" | awk -f "${here}/../utility/include/result-lines.awk"
 
 ## ls, since BSD find has no -printf. A cell is named after its test, and
 ## jail.bash keeps one only when the test left something in its temp dir. In

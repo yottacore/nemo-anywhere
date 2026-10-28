@@ -277,16 +277,20 @@ arm_built=0
 if ((BUILD_CROSS)) && declare -p CROSS_TARGETS &>/dev/null; then
 	for t in "${CROSS_TARGETS[@]}"; do case "$t" in *arm64*|*aarch64*) arm_built=1 ;; esac; done
 fi
-if ((! arm_built)) && declare -p PACKAGE_CMDS &>/dev/null; then
+## Also when the arm64 box turns out not to be there.
+fDropArmPackages(){
+	local t kept=()
+	if declare -p PACKAGE_CMDS &>/dev/null; then
+		for t in "${PACKAGE_CMDS[@]}"; do case "$t" in *arm64*|*aarch64*) ;; *) kept+=("$t") ;; esac; done
+		PACKAGE_CMDS=("${kept[@]}")
+	fi
 	kept=()
-	for t in "${PACKAGE_CMDS[@]}"; do case "$t" in *arm64*|*aarch64*) ;; *) kept+=("$t") ;; esac; done
-	PACKAGE_CMDS=("${kept[@]}")
-fi
-if ((! arm_built)) && declare -p PACKAGE_CHECKS &>/dev/null; then
-	kept=()
-	for t in "${PACKAGE_CHECKS[@]}"; do case "$t" in *arm64*|*aarch64*) ;; *) kept+=("$t") ;; esac; done
-	PACKAGE_CHECKS=("${kept[@]}")
-fi
+	if declare -p PACKAGE_CHECKS &>/dev/null; then
+		for t in "${PACKAGE_CHECKS[@]}"; do case "$t" in *arm64*|*aarch64*) ;; *) kept+=("$t") ;; esac; done
+		PACKAGE_CHECKS=("${kept[@]}")
+	fi
+}
+((arm_built)) || fDropArmPackages
 declare -p PACKAGE_ENABLE &>/dev/null || PACKAGE_ENABLE=0        ## tolerate a config predating the packages stage
 declare -p DOGFOOD_CROSS_DESTS &>/dev/null || DOGFOOD_CROSS_DESTS=()   ## ditto, cross dogfood
 declare -p DOGFOOD_HOOK &>/dev/null || DOGFOOD_HOOK=()                 ## ditto, post-dogfood hook
@@ -345,14 +349,16 @@ fStamp(){
 ## <on> <name> <why off>. A step that's off isn't counted, and the plan lists it
 ## with its flag or reason. fStep <name> [hard] closes the step before it as
 ## PASS, checks the load again for the job count, and opens this one. The EXIT
-## trap closes an open step as FAIL.
-stepList=(); stepOff=(); stepNow=0; stepOpen=""
+## trap closes an open step as FAIL. fStep_Skip closes it as SKIP, for a box
+## that isn't there, and the end of the run lists those.
+stepList=(); stepOff=(); stepSkipped=(); stepNow=0; stepOpen=""
 fPlan(){ if (($1)); then stepList+=("$2"); else stepOff+=("$2 (${3})"); fi; }
 fStep_Close(){
 	[[ -n "$stepOpen" ]] || return 0
 	fEcho_Force "$(fStamp): Step ${stepNow} of ${#stepList[@]}; $1 ${stepOpen}"
 	stepOpen=""
 }
+fStep_Skip(){ stepSkipped+=("$stepOpen"); fStep_Close SKIP; }
 fStep(){
 	local why=""
 	fStep_Close PASS
@@ -838,8 +844,13 @@ fi
 ## The same build and suite on the FreeBSD box.
 if ((run_bsd_tests)); then
 	fStep "FreeBSD suite"
-	"${BSD_TEST_CMD[@]}"
-	fEcho "OK: FreeBSD suite"
+	## 77: the box isn't there.
+	lane_rc=0; "${BSD_TEST_CMD[@]}" || lane_rc=$?
+	case "$lane_rc" in
+		0)  fEcho "OK: FreeBSD suite" ;;
+		77) fStep_Skip ;;
+		*)  fDie "FreeBSD suite (exit ${lane_rc})" ;;
+	esac
 fi
 if ((${#DENY_CMD[@]})); then
 	fStep "Dependency check"
@@ -942,7 +953,13 @@ if ((run_cross)); then
 		local_label="${t%%|*}"; rest="${t#*|}"; osarch="${rest%%|*}"; rest="${rest#*|}"; art="${rest%%|*}"; cmd="${rest#*|}"
 		art="${art//@VER@/${ver}}"   ## for a lane that puts the version in the file name
 		fStep "Release build: ${local_label}"
-		eval "${cmd}"
+		lane_rc=0; eval "${cmd}" || lane_rc=$?
+		if ((lane_rc == 77)); then
+			fStep_Skip
+			case "$osarch" in *arm64*|*aarch64*) fDropArmPackages ;; esac
+			continue
+		fi
+		((lane_rc == 0)) || fDie "${local_label} (exit ${lane_rc})"
 		[[ -f "${art}" ]] || fDie "missing artifact for ${local_label}: ${art}"
 		fEcho "OK: ${local_label}: ${art} ($(du -h "${art}" | cut -f1))"
 		built_arts+=("${osarch}|${art}")
@@ -951,8 +968,12 @@ fi
 
 if ((run_bsd_release)); then
 	fStep "Release build: FreeBSD"
-	"${BSD_RELEASE_CMD[@]}"
-	fEcho "OK: FreeBSD tarball and pkg"
+	lane_rc=0; "${BSD_RELEASE_CMD[@]}" || lane_rc=$?
+	case "$lane_rc" in
+		0)  fEcho "OK: FreeBSD tarball and pkg" ;;
+		77) fStep_Skip ;;
+		*)  fDie "FreeBSD release build (exit ${lane_rc})" ;;
+	esac
 fi
 
 ## Collect the built binaries under versioned names + a sha256 checksums file,
@@ -1009,15 +1030,19 @@ run_package_checks(){
 	((PACKAGE_ENABLE)) || return 0
 	declare -p PACKAGE_CHECKS &>/dev/null || return 0
 
-	local entry label cmd rc
+	## Each check gets one "PASS|FAIL|SKIP <id> <label>" line, with the ID read
+	## from the test script its command names.
+	local entry label cmd rc script id
 	for entry in "${PACKAGE_CHECKS[@]}"; do
 		label="${entry%%|*}"; cmd="${entry#*|}"
 		fEcho_Clean "checking: ${label} ..."
 		rc=0; eval "${cmd}" || rc=$?
+		id=''; script="$(grep -oE "cicd/[^ '\"]*/test-[^ '\"]*\.(bash|ps1)" <<< "${cmd}" | tail -n 1 || true)"
+		[[ -n "${script}" && -f "${script}" ]] && id="$(sed -n -E 's/^##[[:space:]]+(- )?Test ID: ([0-9a-z]+)$/\2/p' "${script}" | head -n 1)"
 		case "$rc" in
-			0)  ;;
-			77) fEcho "WARNING: ${label} skipped" ;;
-			*)  fDie "${label} (exit ${rc})" ;;
+			0)  echo "PASS ${id:-?} ${label}" ;;
+			77) echo "SKIP ${id:-?} ${label}"; fEcho "WARNING: ${label} skipped" ;;
+			*)  echo "FAIL ${id:-?} ${label}"; fDie "${label} (exit ${rc})" ;;
 		esac
 	done
 }
@@ -1249,6 +1274,11 @@ else
 fi
 
 fStep_Close PASS
+if ((${#stepSkipped[@]})); then
+	fEcho_Clean
+	fEcho_Clean "Skipped, no box .....:"
+	for x in "${stepSkipped[@]}"; do fEcho_Clean "    - ${x}"; done
+fi
 fSection "${APP_NAME} CI/CD${run_mode:+ ${run_mode}}: done."
 fEcho_Clean
 
@@ -1270,3 +1300,5 @@ fEcho_Clean
 ##		  timestamped "Step N of M" line; the plan lists the steps turned off.
 ##		- 2026-10-26: --no-container: the lints on the host, then a stop at the
 ##		  first step that needs a container.
+##		- 2026-10-28: a lane that exits 77, for a box that isn't there, closes
+##		  its step as SKIP and the run goes on; the end lists those steps.

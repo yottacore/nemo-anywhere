@@ -13,10 +13,14 @@
 ##	    whatever times the box left on the files. The sums file covers both.
 ##	  - The run goes through the host lock's wrap, for vmFreeBSD, and through
 ##	    the VM state helper's when that is on the box too.
+##	  - A VM still booting is waited for. One that never answers, or a box that
+##	    isn't FreeBSD, fails before anything is sent, the second without the
+##	    wait. A box that isn't there, and isn't a VM here, exits 77 before the
+##	    lock is taken.
 ##	- Needs git and python3; exit 77 without them.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/bsd/test-lane.bash
-##	- Test ID: rjphnh77
+##	- Test ID: ddmn7
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:
@@ -69,7 +73,7 @@ shim="${scratch}/shim"
 mkdir -p "$box" "$shim" "${scratch}/boxbin"
 cat > "${scratch}/boxbin/uname" <<'EOF'
 #!/usr/bin/env bash
-case "${1:-}" in -s) echo FreeBSD ;; -m) echo amd64 ;; *) echo FreeBSD ;; esac
+case "${1:-}" in -s) echo "${FAKE_OS:-FreeBSD}" ;; -m) echo amd64 ;; *) echo "${FAKE_OS:-FreeBSD}" ;; esac
 EOF
 cat > "${scratch}/fake-run-tests.bash" <<'EOF'
 #!/usr/bin/env bash
@@ -92,8 +96,14 @@ printf 'b\n' > "${out}/${name}/share/b/f"
 touch -d "@$(( $(date +%s) - RANDOM ))" "${out}/${name}/share/a/f"
 printf 'pkg\n' > "${out}/${name}.pkg"
 EOF
+## FAKE_SSH_DOWN=N: the first N connections time out, as on a box still booting.
 cat > "${shim}/ssh" <<EOF
 #!/usr/bin/env bash
+if [[ -n "\${FAKE_SSH_DOWN:-}" ]]; then
+	n=\$(( \$(cat "${scratch}/ssh-tries" 2>/dev/null || echo 0) + 1 ))
+	echo "\$n" > "${scratch}/ssh-tries"
+	if (( n <= FAKE_SSH_DOWN )); then echo "ssh: connect to host box port 22: Connection timed out" >&2; exit 255; fi
+fi
 while [[ "\${1:-}" == -* ]]; do shift; [[ "\${1:-}" != -* ]] && shift; done
 shift
 cmd="\$*"
@@ -111,6 +121,15 @@ EOF
 cat > "${shim}/lock.bash" <<EOF
 #!/usr/bin/env bash
 printf '%s\n' "\$*" >> "${scratch}/lock.log"
+while [[ "\${1:-}" != -- ]]; do shift; done
+shift
+exec "\$@"
+EOF
+## The VM state helper: its status row says whether the box is a VM here.
+cat > "${shim}/x_vm-state.bash" <<EOF
+#!/usr/bin/env bash
+if [[ "\${1:-}" == status ]]; then printf 'host guest state note\n%s %s %s\n' "\$2" "\$2" "\${FAKE_VM_STATE:--}"; exit 0; fi
+printf '%s\n' "\$*" >> "${scratch}/vm-state.log"
 while [[ "\${1:-}" != -- ]]; do shift; done
 shift
 exec "\$@"
@@ -140,7 +159,7 @@ grep -q -E -- '^wrap vmFreeBSD .*-- bash .*lane\.bash --tests --locked$' "${scra
 ## used, since only it starts a VM that is off.
 toolDir="${scratch}/home/synced/0-0/common/exec/util/linux/bash"
 mkdir -p "$toolDir"
-sed "s|lock\.log|vm-state.log|" "${shim}/lock.bash" > "${toolDir}/x_vm-state.bash"
+cp "${shim}/x_vm-state.bash" "${toolDir}/x_vm-state.bash"
 sed "s|lock\.log|host-lock.log|" "${shim}/lock.bash" > "${toolDir}/x_windows-host-lock.bash"
 if (cd "$repo" && env -u SOURCE_DATE_EPOCH -u WINDOWS_HOST_LOCK -u BOX_WRAP_TOOL HOME="${scratch}/home" PATH="${shim}:${PATH}" \
 	bash cicd/bsd/lane.bash --tests) >"${scratch}/lane.log" 2>&1; then
@@ -152,6 +171,42 @@ if (cd "$repo" && env -u SOURCE_DATE_EPOCH -u WINDOWS_HOST_LOCK -u BOX_WRAP_TOOL
 else
 	fFail "--tests through the VM state helper failed: $(tail -3 "${scratch}/lane.log")"
 fi
+
+## A VM booting, then up: the lane waits rather than failing on the first try.
+vmTool="${shim}/x_vm-state.bash"
+rm -f "${scratch}/ssh-tries"
+if BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=off FAKE_SSH_DOWN=2 BOX_READY_POLL=0 fLane --tests; then
+	if grep -q 'answered after' "${scratch}/lane.log"; then fEcho "OK: a box still booting is waited for"; else fFail "no line saying the box was waited for"; fi
+else
+	fFail "--tests failed on a box that came up on the third try: $(tail -3 "${scratch}/lane.log")"
+fi
+
+## Never answers, or isn't FreeBSD: both fail before the send.
+printf 'stale\n' > "${box}/nemo-anywhere-ci/src/stale.txt"
+rm -f "${scratch}/ssh-tries"
+if BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=off FAKE_SSH_DOWN=99 BOX_READY_POLL=1 NEMO_BSD_READY_WAIT=1 fLane --tests; then fFail "--tests passed on a box that never answered"
+elif ! grep -q 'did not answer' "${scratch}/lane.log"; then fFail "no reason for a box that never answered: $(tail -3 "${scratch}/lane.log")"
+else fEcho "OK: a box that never answers fails"
+fi
+rm -f "${scratch}/ssh-tries"
+startedAt=$SECONDS
+if FAKE_OS=Linux BOX_READY_POLL=5 NEMO_BSD_READY_WAIT=30 fLane --tests; then fFail "--tests passed on a box that isn't FreeBSD"
+elif ! grep -q 'is not a FreeBSD box' "${scratch}/lane.log"; then fFail "no reason for a box that isn't FreeBSD: $(tail -3 "${scratch}/lane.log")"
+elif ((SECONDS - startedAt >= 5)); then fFail "a box that isn't FreeBSD was waited on"
+else fEcho "OK: a box that isn't FreeBSD fails without the wait"
+fi
+[[ -e "${box}/nemo-anywhere-ci/src/stale.txt" ]] || fFail "the tree on a box that failed the check was touched"
+
+## Not there, and not a VM here: a skip, before the lock.
+rm -f "${scratch}/ssh-tries"
+locks="$(wc -l < "${scratch}/lock.log")"
+rc=0; FAKE_SSH_DOWN=99 fLane --tests || rc=$?
+if [[ "$rc" != 77 ]]; then fFail "a box that isn't there gave exit ${rc}, not 77: $(tail -3 "${scratch}/lane.log")"
+elif ! grep -q "SKIP: bsdtest@vmFreeBSD isn't there" "${scratch}/lane.log"; then fFail "no SKIP line for a box that isn't there"
+elif [[ "$(wc -l < "${scratch}/lock.log")" != "$locks" ]]; then fFail "the lock was taken for a box that isn't there"
+else fEcho "OK: a box that isn't there is a skip"
+fi
+[[ -e "${box}/nemo-anywhere-ci/src/stale.txt" ]] || fFail "the tree was touched on a box that isn't there"
 
 if FAKE_TESTS_RC=1 fLane --tests; then fFail "--tests passed with a failing suite"; else fEcho "OK: a failing suite fails --tests"; fi
 

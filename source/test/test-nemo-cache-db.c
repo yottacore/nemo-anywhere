@@ -567,7 +567,8 @@ check_window_never_waits (NemoCacheDb *db)
 }
 
 /* Draw counts go out on their own after the wait, with nothing running the
- * window's main loop. */
+ * window's main loop. A slow box can let the wait run out between the notes,
+ * which writes them in two goes, so this waits for the total. */
 static void
 check_draws_written_off_window (NemoCacheDb *db)
 {
@@ -587,7 +588,7 @@ check_draws_written_off_window (NemoCacheDb *db)
 	do {
 		g_usleep (50 * 1000);
 		nemo_cache_db_thumbnail_stats (db, "file:///timed/one.png", &renders, NULL);
-	} while (renders == 0 && g_get_monotonic_time () < give_up);
+	} while (renders < 3 && g_get_monotonic_time () < give_up);
 
 	check (renders == 3);
 

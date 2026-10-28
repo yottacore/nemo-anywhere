@@ -9,7 +9,7 @@
 ##	  in a scratch dir with a stand-in docker, meson, ninja and pkg-config.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-docker-run-host.bash
-##	- Test ID: rm7xde0b
+##	- Test ID: defky
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

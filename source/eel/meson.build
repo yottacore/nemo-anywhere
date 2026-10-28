@@ -37,7 +37,7 @@ eel = declare_dependency(
 )
 
 
-test('009nhz6r Eel test',
+test('00591 Eel test',
   executable('check-program',
     'check-program.c',
     dependencies: eel,

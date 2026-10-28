@@ -64,7 +64,7 @@ fi
 ## grep -q and -m quit at their first match. Downstream of a writer under
 ## pipefail, the writer's SIGPIPE then turns a match into a failed pipeline,
 ## which read as no window in the GUI smoke check. Give them a here-string.
-## Test ID: rjcc6jnz
+## Test ID: ddf3e
 earlyExit="$(grep -nE '(^|[^|])[|][[:space:]]*grep([[:space:]]+-[^[:space:]]+)*[[:space:]]+-[a-zA-Z]*[qm]' "${files[@]}" || true)"
 if [[ -n "$earlyExit" ]]; then
 	printf '%s\n' "$earlyExit"

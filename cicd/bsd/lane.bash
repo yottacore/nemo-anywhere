@@ -15,10 +15,13 @@
 ##	- The box is shared, so it is taken for the run through the VM state helper
 ##	  or the host lock, whichever is on this box (include/box-wrap.bash). The
 ##	  helper starts a VM that is off, waits for its ssh, and puts it back after.
-##	  A box that does not answer is an error.
+##	  The lane then waits for its own user to log in, since that can lag right
+##	  after a boot. A box that does not answer in time is an error. One that
+##	  isn't there at all, and isn't a VM here, exits 77, a skip.
 ##	- NEMO_BSD_HOST is the ssh target (default bsdtest@vmFreeBSD), NEMO_BSD_LOCK
 ##	  its lock name (default vmFreeBSD), NEMO_BSD_JOBS the build and test jobs
-##	  (default 4).
+##	  (default 4), NEMO_BSD_READY_WAIT the seconds to wait for the login
+##	  (default 600).
 ##	- Syntax: lane.bash --tests|--release
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -34,6 +37,7 @@ OUT="${ROOT}/cicd/artifacts/release"
 bsdHost="${NEMO_BSD_HOST:-bsdtest@vmFreeBSD}"
 lockName="${NEMO_BSD_LOCK:-vmFreeBSD}"
 jobs="${NEMO_BSD_JOBS:-4}"
+readyWaitSec="${NEMO_BSD_READY_WAIT:-600}"
 ## Under the remote home.
 remoteBase="nemo-anywhere-ci"
 remoteDir="${remoteBase}/src"
@@ -50,13 +54,21 @@ source "${ROOT}/cicd/utility/include/release-files.bash"
 source "${ROOT}/cicd/utility/include/box-wrap.bash"
 lockTool="$(fBoxWrap_Tool)"
 
-sshOpts=(-o ConnectTimeout=8 -o BatchMode=yes -o LogLevel=ERROR)
+## 8s was too short for a VM that had just booted on a busy host.
+sshOpts=(-o ConnectTimeout=30 -o BatchMode=yes -o LogLevel=ERROR)
 
 ## Every remote command is put together on this side.
 # shellcheck disable=SC2029
 fSend(){
-	ssh "${sshOpts[@]}" "$bsdHost" 'test "$(uname -s)" = FreeBSD' \
-		|| fDie "${bsdHost} is not a FreeBSD box reachable as that user"
+	local rc=0
+	## Runs there.
+	# shellcheck disable=SC2016
+	fBoxWrap_WaitReady "$bsdHost" "$readyWaitSec" 'test "$(uname -s)" = FreeBSD || exit 3' "${sshOpts[@]}" || rc=$?
+	case "$rc" in
+		0) ;;
+		3) fDie "${bsdHost} is not a FreeBSD box" ;;
+		*) fDie "${bsdHost} did not answer as that user in ${readyWaitSec}s" ;;
+	esac
 	ssh "${sshOpts[@]}" "$bsdHost" "mkdir -p ${remoteDir} && find ${remoteDir} -mindepth 1 -delete"
 	## --ignore-failed-read: a file deleted in the tree but not yet in git is
 	## still listed, and the Linux build would not see it either.
@@ -120,6 +132,10 @@ fMain(){
 		-h|--help) sed -n '/^##	- Purpose:/,/^##	Copyright/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##	\{0,1\}//'; return 0 ;;
 		*) fDie "need --tests or --release (try --help)" ;;
 	esac
+	if [[ "${2:-}" != "--locked" ]] && ! fBoxWrap_IsThere "$lockName" "$bsdHost" "$lockTool" "${sshOpts[@]}"; then
+		fEcho "SKIP: ${bsdHost} isn't there"
+		exit 77
+	fi
 	if [[ "${2:-}" == "--locked" || ! -f "$lockTool" ]]; then
 		case "$mode" in
 			--tests)   fTests ;;
@@ -137,3 +153,5 @@ fMain "${@}"
 ##		- 2026-10-07: Created.
 ##		- 2026-10-27: Takes the box through the VM state helper when it is here,
 ##		  so a VM that is off is started and waited for.
+##		- 2026-10-28: Waits for its own login too, and a longer connect timeout.
+##		  A box that isn't there is a skip.

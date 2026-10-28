@@ -24,7 +24,8 @@ set -Eeuo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-fTest(){ local rc=0; "$@" || rc=$?; [[ "$rc" == "0" || "$rc" == "77" ]] || exit "$rc"; }
+# shellcheck source=include/result-line.bash
+source "${here}/include/result-line.bash"
 
 root="$(cd "${here}/../.." && pwd)"
 # shellcheck source=include/lint-image.bash
@@ -41,56 +42,60 @@ bash "${here}/lint-prose.bash"
 if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then
 	echo "[ vendor-themes self-test skipped: needs symlinks, not there under MSYS2 ]"
 else
-	bash "${here}/vendor-themes.bash" --self-test
+	fTest bash "${here}/vendor-themes.bash" --self-test
 	fTest bash "${here}/test-vendor-forks.bash"
 fi
 
-bash "${here}/../hooks/test-pre-push.bash"
-bash "${here}/test-package-checks.bash"
-bash "${here}/test-lint-scope.bash"
-bash "${here}/test-lint-image.bash"
-bash "${here}/test-cicd-help.bash"
-bash "${here}/test-cicd-arm.bash"
-bash "${here}/test-cicd-quick.bash"
-bash "${here}/test-cicd-temp.bash"
-bash "${here}/test-safe-rm.bash"
-bash "${here}/test-cicd-docker-sweep.bash"
-bash "${here}/test-cicd-jobs.bash"
-bash "${here}/test-werror.bash"
-bash "${here}/test-thumbnailers.bash"
+fTest bash "${here}/../hooks/test-pre-push.bash"
+fTest bash "${here}/test-package-checks.bash"
+fTest bash "${here}/test-lint-scope.bash"
+fTest bash "${here}/test-lint-image.bash"
+fTest bash "${here}/test-cicd-help.bash"
+fTest bash "${here}/test-cicd-arm.bash"
+fTest bash "${here}/test-cicd-quick.bash"
+fTest bash "${here}/test-cicd-temp.bash"
+fTest bash "${here}/test-safe-rm.bash"
+fTest bash "${here}/test-result-lines.bash"
+fTest bash "${here}/test-cicd-docker-sweep.bash"
+fTest bash "${here}/test-cicd-jobs.bash"
+fTest bash "${here}/test-werror.bash"
+fTest bash "${here}/test-thumbnailers.bash"
 fTest bash "${here}/test-bundle-left-out.bash" --self-test
 fTest bash "${here}/test-docker-run.bash"
-bash "${here}/test-docker-run-host.bash"
-bash "${here}/test-docker-run-step.bash"
-bash "${here}/../win/test-win-run.bash"
+fTest bash "${here}/test-docker-run-host.bash"
+fTest bash "${here}/test-docker-run-step.bash"
+fTest bash "${here}/../win/test-win-run.bash"
+fTest bash "${here}/../win/test-msys2-pins.bash"
 fTest bash "${here}/../win/test-gui-smoke.bash"
 fTest bash "${here}/../linux/test-fuzz-exit.bash"
 fTest bash "${here}/../linux/test-deb-size.bash"
 fTest bash "${here}/../linux/test-release-arm64.bash"
 fTest bash "${here}/../linux/test-package-arm64.bash"
-bash "${here}/../linux/test-release-image-pin.bash"
+fTest bash "${here}/../linux/test-release-image-pin.bash"
 fTest bash "${here}/../linux/test-release-setup.bash"
 fTest bash "${here}/test-release-stamp.bash"
 fTest bash "${here}/test-release-notes.bash"
 fTest bash "${here}/../bsd/test-lane.bash"
+fTest bash "${here}/test-win-dogfood.bash"
 py=""
 for cand in python3 python; do
 	if command -v "$cand" >/dev/null 2>&1; then py="$cand"; break; fi
 done
 if [[ -n "$py" ]]; then
-	"$py" "${here}/svg-min.py" --self-test
-	"$py" "${here}/analyze.py" --self-test
+	fTest "$py" "${here}/svg-min.py" --self-test
+	fTest "$py" "${here}/analyze.py" --self-test
+	fTest "$py" "${here}/lint-report.py" --self-test
 	"$py" "${here}/test-id.py" --check
 else
 	echo "[ svg-min self-test and test ID check skipped: no python ]"
 fi
 if command -v pwsh >/dev/null 2>&1; then
-	pwsh -NoProfile -File "${here}/test-install-path.ps1"
-	pwsh -NoProfile -File "${here}/test-runfm-pool.ps1"
-	pwsh -NoProfile -File "${here}/test-runfm-shortcuts.ps1"
-	pwsh -NoProfile -File "${here}/test-bundle-exes.ps1" -SelfTest
-	pwsh -NoProfile -File "${here}/test-bundle-settings.ps1" -SelfTest
-	pwsh -NoProfile -File "${here}/test-evb-project.ps1" -SelfTest
+	fTest pwsh -NoProfile -File "${here}/test-install-path.ps1"
+	fTest pwsh -NoProfile -File "${here}/test-runfm-pool.ps1"
+	fTest pwsh -NoProfile -File "${here}/test-runfm-shortcuts.ps1"
+	fTest pwsh -NoProfile -File "${here}/test-bundle-exes.ps1" -SelfTest
+	fTest pwsh -NoProfile -File "${here}/test-bundle-settings.ps1" -SelfTest
+	fTest pwsh -NoProfile -File "${here}/test-evb-project.ps1" -SelfTest
 else
 	echo "[ install.ps1 PATH, n8runfm pool and shortcut, bundle exe and settings, and evb project tests skipped: no pwsh ]"
 fi
@@ -112,7 +117,7 @@ fi
 ## The app icons are cut from assets/logo.png by hand, so a new logo can sit there
 ## with the old icons still shipping. Needs Pillow, which not every box has.
 if python3 -c 'import PIL' 2>/dev/null; then
-	python3 "${here}/gen-app-icon.py" --check
+	fTest python3 "${here}/gen-app-icon.py" --check
 else
 	echo "[ app icon check skipped: no Pillow ]"
 fi

@@ -18,7 +18,7 @@
 ##	- NEMO_TEST_JOBS caps the build and the tests at once. BUILD_DIR overrides the
 ##	  build directory. Arguments go to meson test, such as test names.
 ##	- Syntax: cicd/linux/test-sanitizers.bash [meson test arguments]
-##	- Test ID: rjfgk2mp
+##	- Test ID: ddgt8
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:
@@ -65,7 +65,7 @@ export BUILD_DIR="${build}"
 export SETUP_ARGS="-Db_sanitize=address,undefined -Db_lundef=false"
 
 ## GTK's CSS transitions leak a value each (sanitizers.supp), and its function
-## only shows on a whole stack, which makes the timed tests too slow. rkneye51
+## only shows on a whole stack, which makes the timed tests too slow. de5hh
 ## turns them back on with whole stacks. GTK reads settings.ini from the system
 ## config dirs as well, which the tests leave alone.
 mkdir -p "${build}/xdg-config/gtk-3.0"
@@ -79,5 +79,14 @@ export ASAN_OPTIONS="detect_leaks=1:verify_asan_link_order=0${ASAN_OPTIONS:+:${A
 export LSAN_OPTIONS="suppressions=${here}/sanitizers.supp:print_suppressions=0"
 export UBSAN_OPTIONS="halt_on_error=1:print_stacktrace=1"
 
-## Everything runs two to four times slower.
-exec bash "${here}/run-tests.bash" --timeout-multiplier 4 "$@"
+## Everything runs two to four times slower. Not exec, so the suite's own
+## line can follow the lines of the tests in it.
+rc=0
+bash "${here}/run-tests.bash" --timeout-multiplier 4 "$@" || rc=$?
+testId="$(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}")"
+case "${rc}" in
+	0)  echo "PASS ${testId} ${BASH_SOURCE[0]##*/}" ;;
+	77) echo "SKIP ${testId} ${BASH_SOURCE[0]##*/}" ;;
+	*)  echo "FAIL ${testId} ${BASH_SOURCE[0]##*/}" ;;
+esac
+exit "${rc}"

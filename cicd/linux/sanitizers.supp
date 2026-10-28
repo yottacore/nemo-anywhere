@@ -4,7 +4,7 @@
 # it. The names show only with the debug symbols the lane checks for.
 # A leak of ours is fixed. One that has to wait is filed, and the test that
 # shows it gets detect_leaks=0 in its meson env, with the backlog ID beside it.
-# rkneye51 checks that a leak beside these is still found.
+# de5hh checks that a leak beside these is still found.
 
 # fontconfig reaches a pattern's entries by an offset from the pattern, not a
 # pointer, so the entries of every live pattern look lost. A pattern that is
@@ -14,7 +14,7 @@ leak:FcPatternObjectInsertElt
 # GTK 3.24 drops a value each time a CSS transition starts from one still on its
 # way: gtk_css_calc_array_add overwrites an entry without its unref. It grows
 # with use. Upstream: GNOME's GTK issue tracker, gtk-3-24 branch.
-# The function is only on a whole stack, so this matches in rkneye51 alone,
+# The function is only on a whole stack, so this matches in de5hh alone,
 # and the rest of the lane runs with animations off.
 leak:gtk_css_value_calc_multiply
 

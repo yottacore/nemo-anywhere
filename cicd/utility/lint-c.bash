@@ -41,6 +41,8 @@ strict="${CPPCHECK_STRICT:-0}"
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 fEcho(){ echo "[ $* ]"; }
+# shellcheck source=include/result-line.bash
+source cicd/utility/include/result-line.bash
 
 ## Each check prints its test ID, read from the "## Test ID:" line above it, so
 ## the comment stays the only copy. A check fails by exiting, hence the trap.
@@ -56,12 +58,12 @@ fCleanCache(){
 	[[ "$cacheDir" == cicd/artifacts/cppcheck.* && -d "$cacheDir" ]] || return 0
 	rm -rf -- "$cacheDir"
 }
-trap 'fCleanCache; [[ -n "$curTest" ]] && printf "%s %-22s FAIL\n" "${testIds[$curTest]:-?}" "${curTest#fCheck}"' EXIT
+trap 'fCleanCache; [[ -n "$curTest" ]] && printf "FAIL %s %s\n" "${testIds[$curTest]:-?}" "${curTest#fCheck}"' EXIT
 fRun(){
 	if ((listOnly)); then return 0; fi
 	curTest="$1"
 	"$1"
-	printf '%s %-22s OK\n' "${testIds[$1]:-?}" "${1#fCheck}"
+	printf 'PASS %s %s\n' "${testIds[$1]:-?}" "${1#fCheck}"
 	curTest=""
 }
 
@@ -69,7 +71,7 @@ fRun(){
 ## the delete guard sees it. Two calls in make_link_copy sat outside it until
 ## 20260917 and were reachable with no guard at all. Whole-tree, since the rule
 ## is about that one file whether or not this change touched it.
-## Test ID: rh30we0r
+## Test ID: dcrgq
 fCheckDeleteWrapper(){
 	local src='source/libnemo-private/nemo-file-operations.c'
 	local n
@@ -90,7 +92,7 @@ fRun fCheckDeleteWrapper
 ## uses sit a few lines after the ask at their retry label; anything further
 ## away has grown a path that reaches the flag without asking. Whole-tree, same
 ## reason as above.
-## Test ID: rh34b4zr
+## Test ID: dcrjk
 fCheckOverwriteAsk(){
 	local src='source/libnemo-private/nemo-file-operations.c'
 	local bad
@@ -126,7 +128,7 @@ fRun fCheckOverwriteAsk
 ## Windows pipes, where the only action is quit (see fCheckAppActions). None
 ## of them touches a file. Tests are left out: a test that stands in for
 ## another program's server is not something the app exports.
-## Test ID: rh3qr9y8
+## Test ID: dcrx7
 fCheckBusMethods(){
 	local allowed=' ShowFolders ShowItems ShowItemProperties ListWindows TakeTab TakeSettings Activate '
 	local name bad=""
@@ -145,7 +147,7 @@ fCheckBusMethods(){
 fRun fCheckBusMethods
 
 ## Application actions are exported on the bus too. Only quit.
-## Test ID: rh3qr9y9
+## Test ID: dcrx8
 fCheckAppActions(){
 	local hits
 
@@ -162,7 +164,7 @@ fRun fCheckAppActions
 
 ## Who may start a trash, delete, empty trash or move job. Each file here is
 ## reached from something done in a window.
-## Test ID: rh3qr9ya
+## Test ID: dcrx9
 fCheckJobCallers(){
 	local allowed=' '
 	allowed+='source/src/nemo-view.c '				# trash and delete commands, drops, paste
@@ -192,7 +194,7 @@ fRun fCheckJobCallers
 
 ## Raw deletes outside the jobs. What is left only touches files the app made
 ## for itself.
-## Test ID: rh3qr9yb
+## Test ID: dcrxa
 fCheckRawDeletes(){
 	local allowed=' '
 	allowed+='source/libnemo-private/nemo-file-operations.c '	# the jobs
@@ -225,7 +227,7 @@ fRun fCheckRawDeletes
 ## type alone let three of these walks through one until 20260918. Any function
 ## that lists a folder and removes things has to ask
 ## nemo_delete_guard_is_real_folder, or be on the list with a reason.
-## Test ID: rh5nme6j
+## Test ID: dcsz2
 fCheckTreeWalks(){
 	local allowed=' '
 	allowed+='copy_move_directory '	# walks a link only to copy it; a move through one is turned into a copy
@@ -261,7 +263,7 @@ fRun fCheckTreeWalks
 ## The fixtures plant links on purpose, so one of those walking into a link
 ## takes out something the test never made. test-scratch.c owns the one guarded
 ## walk; everything else goes through it.
-## Test ID: rhaqte91
+## Test ID: dcwqm
 fCheckTestTreeWalks(){
 	local bad
 
@@ -295,7 +297,7 @@ fRun fCheckTestTreeWalks
 ## was in the tree in two spellings across sixty-odd files, and twenty-odd
 ## tests each set the same three environment variables by hand to get a
 ## throwaway config root. A fresh copy of either drifts from the rest.
-## Test ID: rhas2bm0
+## Test ID: dcwr8
 fCheckTestHelpers(){
 	local bad
 
@@ -322,7 +324,7 @@ fRun fCheckTestHelpers
 ## background, so it can skip saying it again on every redraw. That is only
 ## safe while cell_set_plain is the one place the property is turned off. A
 ## second writer would leave the memory wrong and the shading with it, quietly.
-## Test ID: rhabc73r
+## Test ID: dcwgs
 fCheckCellPlain(){
 	local src='source/src/nemo-list-view.c'
 	local n
@@ -350,7 +352,7 @@ fRun fCheckCellPlain
 ## share it worked out while the view was wider, and it will not give that back
 ## until some width really changes - so the row scrolls sideways while fitting.
 ## The places sidebar has its own tree view and is not covered by any of this.
-## Test ID: rhaz9ph0
+## Test ID: dcwvn
 fCheckColumnExpand(){
 	local src='source/src/nemo-list-view.c'
 
@@ -367,7 +369,7 @@ fRun fCheckColumnExpand
 ## every column but Name. That held a scrollbar on a folder with nothing left
 ## needing it, emptied or not. A removal marks the samples stale, and a layout
 ## whose minimums overflow while they are stale samples the folder again.
-## Test ID: rhjrtq18
+## Test ID: dd13y
 fCheckStaleSamples(){
 	local src='source/src/nemo-list-view.c'
 	local body
@@ -392,7 +394,7 @@ fRun fCheckStaleSamples
 ## of a burst, while the changes themselves go in on a shorter one. Files
 ## removed one after another by some other program left the count a few too
 ## high, for good, since nothing counted again once the last ones were in.
-## Test ID: rhjvme48
+## Test ID: dd15f
 fCheckStatusAfterChanges(){
 	local src='source/src/nemo-view.c'
 	local body
@@ -412,7 +414,7 @@ fRun fCheckStatusAfterChanges
 ## goes wrong quietly rather than loudly: a column left to size itself makes
 ## the tree view measure every row again, which is the cost being avoided.
 ## So the two are pinned together.
-## Test ID: rhb15mg0
+## Test ID: dcwwp
 fCheckFixedHeight(){
 	local src='source/src/nemo-list-view.c'
 	local other
@@ -444,7 +446,7 @@ fRun fCheckFixedHeight
 ## The measuring cache in the list view. Each rule below is what keeps a
 ## remembered width honest; without one the columns come out wrong or the
 ## cache grows per row.
-## Test ID: rhb35y3r
+## Test ID: dcwxs
 fCheckMeasureCache(){
 	local src='source/src/nemo-list-view.c'
 	local body
@@ -479,7 +481,7 @@ fRun fCheckMeasureCache
 ## wrong. The handler has to send the rows back to be measured - but only on a
 ## change that moved something, since style-updated also fires for a state or
 ## a CSS class and 50,000 rows is not free.
-## Test ID: rhb4ppn8
+## Test ID: dcwym
 fCheckStyleRemeasure(){
 	local src='source/src/nemo-list-view.c'
 	local body
@@ -502,7 +504,7 @@ fRun fCheckStyleRemeasure
 
 ## The zoom slider is the last thing in the status bar, so it needs a margin of
 ## its own or the trough runs into the window edge.
-## Test ID: rhb4yasr
+## Test ID: dcwyr
 fCheckSliderMargin(){
 	local src='source/src/nemo-statusbar.c'
 
@@ -517,7 +519,7 @@ fRun fCheckSliderMargin
 
 ## An icon whose picture changes size has to be laid out again before the next
 ## paint, or its name jumps up under a short thumbnail and back down a frame later.
-## Test ID: rhfgzbc8
+## Test ID: dczb7
 fCheckIconRelayout(){
 	local src='source/libnemo-private/nemo-icon-container.c' body
 
@@ -540,7 +542,7 @@ fRun fCheckIconRelayout
 ## A transition on the path bar / location bar stack paints the bar going out
 ## while its resize can still be pending, which logs a GTK critical on a folder
 ## change.
-## Test ID: rhfvghdg
+## Test ID: dczgz
 fCheckToolbarStack(){
 	local src='source/src/nemo-toolbar.c' types
 
@@ -559,7 +561,7 @@ fRun fCheckToolbarStack
 ## preference can still move it. Writing here would pin a folder at whatever the
 ## setting said the first time it was opened, and in a window that is not
 ## remembering per folder it would follow you into the next folder.
-## Test ID: rhbe2n9h
+## Test ID: dcx3r
 fCheckImageDefault(){
 	local src='source/src/nemo-icon-view.c'
 	local body
@@ -586,7 +588,7 @@ fRun fCheckImageDefault
 ## asking which kind of folder is in front, and that is how the picture size
 ## once ended up on the rows of the next list. List view touches only its own,
 ## or the icon view's 64 turns up on the next list after a folder of pictures.
-## Test ID: rhdncew0
+## Test ID: dcyap
 fCheckHeldIconSize(){
 	local src='source/src/nemo-icon-view.c'
 	local stray
@@ -613,7 +615,7 @@ fRun fCheckHeldIconSize
 ## Windows show the program's icon, set once as the default. Upstream set each
 ## window to its folder's icon, so a taskbar full of them showed generic folders
 ## and nothing said which program they were.
-## Test ID: rhdsqqx0
+## Test ID: dcyd2
 fCheckWindowIcon(){
 	local stray
 
@@ -634,7 +636,7 @@ fRun fCheckWindowIcon
 ## Every copy is its own process under one app id, so a session manager
 ## takes the first one to register and refuses the rest. Nothing here needs
 ## registering; the logout block during a copy asks the session manager itself.
-## Test ID: rhdx93tr
+## Test ID: dcyf0
 fCheckNoSessionRegister(){
 	local stray
 	stray="$(grep -rn -F 'register-session' source/src source/libnemo-private || true)"
@@ -655,7 +657,7 @@ fRun fCheckNoSessionRegister
 ## old checksum under a size and time that both match, which no reader can
 ## catch. No test can hold this - the bad state is one a read cannot tell from
 ## a good one.
-## Test ID: rhd29h29
+## Test ID: dcy09
 fCheckDigestAttrOrder(){
 	local src='source/libnemo-private/nemo-file-digest.c'
 	local body order
@@ -678,7 +680,7 @@ fRun fCheckDigestAttrOrder
 ## something that never ran. Two shapes are caught: a skip message whose block
 ## goes on to exit 0, and one that jumps to the end of a main with no way to
 ## exit 77. A skip of one case that lets the rest run is not either shape.
-## Test ID: rhtg2ye8
+## Test ID: dd5az
 fCheckTestSkipExit(){
 	local bad
 
@@ -722,7 +724,7 @@ fRun fCheckTestSkipExit
 ## and keeps two runs apart. One test made and removed its own by hand, and two
 ## copies running at once destroyed each other's tree. test-scratch.c is the
 ## helper; test-nemo-scratch.c needs one the helper has no claim on.
-## Test ID: rhtg2ye9
+## Test ID: dd5b0
 fCheckTestScratchDirs(){
 	local bad
 
@@ -739,7 +741,7 @@ fRun fCheckTestScratchDirs
 ## A test that starts a file job opens nemo_preferences first. The job queue
 ## watches a setting there from when it's made, and 4 tests made it with none
 ## open, which only logged a critical (2026101416534029).
-## Test ID: rkrqqdxc
+## Test ID: de7ap
 fCheckTestJobPrefs(){
 	local f bad=""
 
@@ -760,7 +762,7 @@ fRun fCheckTestJobPrefs
 ## instead, so a delete started from inside any unrelated handler was taken
 ## for one a person asked for. The caller says so now, and the event only
 ## names the trigger in the log.
-## Test ID: rhtg2yea
+## Test ID: dd5b1
 fCheckByUser(){
 	local allowed=' '
 	allowed+='source/src/nemo-view.c '				# trash, delete and empty trash commands
@@ -804,7 +806,7 @@ fRun fCheckByUser
 ## question asked of it, and a folder waits on all of them. These three leave
 ## anything on a share alone; without them a folder of such links took minutes
 ## to list or to switch view.
-## Test ID: rhtg2yeb
+## Test ID: dd5b2
 fCheckShareGates(){
 	local want src fn body
 
@@ -825,7 +827,7 @@ fRun fCheckShareGates
 ## handler set it on every one, which redrew the view at the frame rate - the
 ## strobing scrollbar. Each set sits behind a check that the value moved.
 ## Starting a folder load resets it once, which cannot loop.
-## Test ID: rhtg2yec
+## Test ID: dd5b3
 fCheckMarginGuard(){
 	local src='source/src/nemo-list-view.c'
 	local bad
@@ -851,7 +853,7 @@ fRun fCheckMarginGuard
 ## Anything started directly inherits the single-exe packer's hooks: programs
 ## built on Chromium reported a crash on a cold start, and 32-bit ones never
 ## ran. The other calls into the shell are on the list with their reasons.
-## Test ID: rhtg2yed
+## Test ID: dd5b4
 fCheckWinLaunch(){
 	local allowed=' '
 	allowed+='nemo-view-win32.c:nemo_view_win32_open_elevated '		# runas on our own exe, the only way to ask for elevation
@@ -884,7 +886,7 @@ fRun fCheckWinLaunch
 ## app launch spawns the same way for anything but a store app, and so does
 ## GTK's show-uri through it, which an About box or a link button calls on a
 ## click unless told otherwise.
-## Test ID: rjm8a6xr
+## Test ID: ddkd4
 fCheckGlibSpawn(){
 	local allowed=' '
 	allowed+='nemo-tool-run.c:nemo_tool_run_start '						# Windows goes through nemo-launch-win32.c
@@ -931,7 +933,7 @@ fRun fCheckGlibSpawn
 ## GSETTINGS_SCHEMA_DIR. A program of the user's gets those as they were, so
 ## every function that starts a program or makes a launch context either asks
 ## for the user's environment or is on this list as one of ours.
-## Test ID: rk5884m7
+## Test ID: ddwp6
 fCheckUserEnviron(){
 	local allowed=' '
 	allowed+='nemo-tool-run.c:nemo_tool_run_start '						# helpers: archive tools, search converters
@@ -972,7 +974,7 @@ fRun fCheckUserEnviron
 ## pipes instead (nemo-instances-win32.c). The app also sets the bus address to
 ## "disabled:" at startup, which is what keeps GApplication off it, but every
 ## call that would ask is on this list with why Windows never reaches it.
-## Test ID: rjvmbv00
+## Test ID: ddqe1
 fCheckSessionBus(){
 	local allowed=' '
 	allowed+='nemo-action.c:setup_dbus_condition '					# not on Windows, where the condition never passes
@@ -999,7 +1001,7 @@ fRun fCheckSessionBus
 ## A right-click on a path button pops its menu inside the press. It used to
 ## wait for the folder's attributes and pop up from their callback, which came
 ## after the release with a stale event, so the menu opened and shut at once.
-## Test ID: rhtg2yee
+## Test ID: dd5b5
 fCheckLocationPopup(){
 	local src='source/src/nemo-view.c'
 	local last body
@@ -1023,7 +1025,7 @@ fRun fCheckLocationPopup
 ## On Windows a trash goes to the Recycle Bin through nemo_trash_win32_recycle
 ## with the shell's confirmations off. g_file_trash leaves them on, so every
 ## file was asked about twice, the second time from behind the progress window.
-## Test ID: rhtg2yef
+## Test ID: dd5b6
 fCheckWinTrash(){
 	local src='source/libnemo-private/nemo-file-operations.c'
 	local bad
@@ -1049,7 +1051,7 @@ fRun fCheckWinTrash
 
 ## An open view follows its default zoom and the default view. Nothing
 ## watched them, so a changed default reached only folders opened after it.
-## Test ID: rhtg2yeg
+## Test ID: dd5b7
 fCheckDefaultsFollowed(){
 	local want
 
@@ -1071,7 +1073,7 @@ fRun fCheckDefaultsFollowed
 ## Window size and place were written only on a clean close, so a crash, or
 ## the launcher replacing a running copy, lost them. A move or resize saves
 ## them once it settles.
-## Test ID: rhtg2yeh
+## Test ID: dd5b8
 fCheckGeometrySave(){
 	local src='source/src/nemo-window.c'
 	local body
@@ -1092,7 +1094,7 @@ fRun fCheckGeometrySave
 ## place or ending a rename hands it to the folder. Only the tree pane keeps the
 ## focus it was given, so connecting a content view must not grab from it, nor
 ## from a rename in "Places" while it lasts.
-## Test ID: rhtg2yej
+## Test ID: dd5b9
 fCheckSidebarFocus(){
 	local src='source/src/nemo-window.c' places='source/src/nemo-places-sidebar.c'
 	local body bad fn
@@ -1134,7 +1136,7 @@ fRun fCheckSidebarFocus
 ## A Windows-only test is left out of the build elsewhere and carries no stub
 ## for the other platform. Some were built and reported a skip and some had
 ## stubs never compiled, so a Linux run could not say what it had covered.
-## Test ID: rhtg2yek
+## Test ID: dd5ba
 fCheckWinTests(){
 	local build='source/test/meson.build'
 	local bad
@@ -1172,7 +1174,7 @@ fRun fCheckWinTests
 ## test_scratch or on its own. One without it can delete anywhere on a box with
 ## no jail. The fakes, the env dump and the old-format writers are programs a
 ## test starts, not tests, and link nothing of the build's on purpose.
-## Test ID: rknkbqe9
+## Test ID: de5kw
 fCheckTestFence(){
 	local build='source/test/meson.build'
 	local bad
@@ -1206,9 +1208,9 @@ fRun fCheckTestFence
 ## A test that takes the foreground, or holds a menu open, runs alone on Windows,
 ## where every test shares one desktop. A menu closes when its window loses the
 ## focus, and any test's window coming up beside it takes the focus, not only one
-## that forces its way to the front (rhtmbdma, 2026102322330406 and
+## that forces its way to the front (dd5dc, 2026102322330406 and
 ## 2026102409082700). Only a test's own .c files are read.
-## Test ID: rm1n4v1b
+## Test ID: dec6j
 fCheckForegroundAlone(){
 	local build='source/test/meson.build'
 	local takes='gtk_window_present|gdk_window_focus|SetForegroundWindow|SwitchToThisWindow|BringWindowToTop'
@@ -1264,7 +1266,7 @@ fRun fCheckForegroundAlone
 
 ## Taking the focus off the path entry puts the buttons back, not only Escape.
 ## Switching to another program does not, so a half-typed path survives it.
-## Test ID: rhtg2yem
+## Test ID: dd5bb
 fCheckEntryFocusOut(){
 	local src='source/src/nemo-window-pane.c'
 	local body
@@ -1291,7 +1293,7 @@ fRun fCheckEntryFocusOut
 ## Same idea as fCheckStyleRemeasure, for the other two things that make every
 ## remembered width wrong: a zoom changes the font and the icon, and a column
 ## coming or going changes what the rest have to fit into.
-## Test ID: rhtg2yen
+## Test ID: dd5bc
 fCheckZoomRemeasure(){
 	local src='source/src/nemo-list-view.c'
 	local fn body
@@ -1312,7 +1314,7 @@ fRun fCheckZoomRemeasure
 ## turn it on. The media bar offered to run the software types until the
 ## autorun helper was removed, so those three stay refused there. The
 ## translation catalogs keep upstream's strings until they are regenerated.
-## Test ID: rhtg2yep
+## Test ID: dd5bd
 fCheckNoAutorun(){
 	local src='source/src/nemo-window-manage-views.c'
 	local body type bad
@@ -1340,7 +1342,7 @@ fRun fCheckNoAutorun
 ## View and layout state on a file is ours alone, so its keys carry the app
 ## name; upstream Nemo reads the same files, and the two builds fought over the
 ## view. Keys other file managers read too stay bare, or they stop sharing.
-## Test ID: rhtg2yeq
+## Test ID: dd5be
 fCheckMetadataSlug(){
 	local src='source/libnemo-private/nemo-metadata.h'
 	local bad
@@ -1366,7 +1368,7 @@ fRun fCheckMetadataSlug
 
 ## A domain named in a UI file beats the one the code sets, and upstream's
 ## "nemo" sent two windows to Nemo's catalog instead of ours.
-## Test ID: rhtzhbqg
+## Test ID: dd5kd
 fCheckUiDomain(){
 	local bad
 
@@ -1381,7 +1383,7 @@ fRun fCheckUiDomain
 
 ## xsi- icons are Mint's own set. Anywhere else they're missing, so menus and
 ## toolbars came up blank until every one was mapped to a freedesktop name.
-## Test ID: rkaw04qg
+## Test ID: ddzrb
 fCheckMintIcons(){
 	local bad
 
@@ -1400,7 +1402,7 @@ fRun fCheckMintIcons
 ## is Cmd on macOS. Plain Control in a button or scroll handler is a click that
 ## missed that change; the list view's add-to-selection on Ctrl+click did.
 ## Keyboard handlers mix both on purpose and are not checked.
-## Test ID: rj9tz3mv
+## Test ID: dddq2
 fCheckClickPrimary(){
 	local bad f
 	local -a handlerFiles=()
@@ -1439,7 +1441,7 @@ fRun fCheckClickPrimary
 ## Shifting into the sign bit of an int is undefined, though gcc does what was
 ## meant today. The metadata list mask was 1<<31; a top bit is 1u << 31.
 ## Vendored code is read too, since it is undefined there as well.
-## Test ID: rj9v86cj
+## Test ID: dddq8
 fCheckSignShift(){
 	local bad
 
@@ -1458,7 +1460,7 @@ fRun fCheckSignShift
 ## it is made, so a letter mapped to a share that is not answering held the side
 ## pane for the network timeout. Every list goes through nemo_get_mounts, and no
 ## bin is asked for with a NULL root, which takes in every drive, mapped too.
-## Test ID: rjhw99yh
+## Test ID: ddj3k
 fCheckMountList(){
 	local bad bins
 
@@ -1480,7 +1482,7 @@ fRun fCheckMountList
 ## and GKeyFile and g_shell_parse_argv both read a backslash as an escape. So
 ## those go through nemo-user-text.c, and the rest are on this list with why
 ## the text is not the user's.
-## Test ID: rjmqp83c
+## Test ID: ddkng
 fCheckUserText(){
 	local allowed=' '
 	allowed+='nemo-user-text.c:nemo_user_text_get_string '						# the one place that calls them
@@ -1508,7 +1510,7 @@ fRun fCheckUserText
 
 ## Windows takes x.LNK as a shortcut too, and a case-sensitive compare once
 ## saved one as x.LNK.lnk. Names go through nemo_lnk_has_extension.
-## Test ID: rm1p6hjv
+## Test ID: dec74
 fCheckLnkCase(){
 	local bad
 
@@ -1529,7 +1531,7 @@ fRun fCheckLnkCase
 ## of it. Win32 calls in it go in its own *-win32.c. Its test links the core
 ## alone. The rules above scan the app's folders only, so this one is the
 ## core's.
-## Test ID: rjq9mx02
+## Test ID: ddn2a
 fCheckArcCore(){
 	local dir='source/archive-core' test='source/test/test-arc-core.c'
 	local appNames='(^|[^A-Za-z0-9_])(nemo|eel|gtk|gdk|NEMO|EEL|GTK|GDK)_[A-Za-z0-9_]|(^|[^A-Za-z0-9_])(Nemo|Eel|Gtk|Gdk)[A-Z]|#[[:space:]]*include[[:space:]]*[<"](gtk/|gdk/|eel/|libnemo|nemo-|config\.h)'
@@ -1574,7 +1576,7 @@ fRun fCheckArcCore
 ## own. The About and shortcuts windows build tabs inside, hence _within. NemoTabList keeps the focus off by itself, and whoever shows one binds
 ## the keys through nemo_tab_list_step. A builder file counts against the C
 ## file that loads it. Python has no helper, so tabs there fail outright.
-## Test ID: rk6nassf
+## Test ID: ddxev
 fCheckTabFocus(){
 	local gtkTabs='(^|[^A-Za-z0-9_])gtk_(notebook|stack_switcher|stack_sidebar|about_dialog)_new[[:space:]]*\(|gtk_show_about_dialog|GTK_TYPE_(ABOUT_DIALOG|SHORTCUTS_WINDOW)|G_DEFINE_TYPE[A-Z_]*[[:space:]]*\(.*GTK_TYPE_(NOTEBOOK|STACK_SWITCHER|STACK_SIDEBAR)'
 	local gtkHelper='eel_gtk_tabs_keep_focus_off|eel_gtk_notebook_keep_focus_off_tabs'
@@ -1646,7 +1648,7 @@ done
 if ((listOnly)); then
 	:
 elif [[ -n "$PY" ]]; then
-	"$PY" cicd/utility/lint-ui-case.py --self-test
+	fTest "$PY" cicd/utility/lint-ui-case.py --self-test
 	"$PY" cicd/utility/lint-ui-case.py source
 	## Same reasoning: the demo recorder's settings keys and columns go stale
 	## silently, and nothing C has to change for that to happen.
@@ -1656,14 +1658,14 @@ elif [[ -n "$PY" ]]; then
 	## So does one left for finalize while a view is still held, which is why
 	## a plain connect for an object is reported too. A handler listening on a
 	## group that does not have its key is never called, and says nothing.
-	"$PY" cicd/utility/lint-pref-handlers.py --self-test
+	fTest "$PY" cicd/utility/lint-pref-handlers.py --self-test
 	"$PY" cicd/utility/lint-pref-handlers.py source
 	## A key claimed by two actions does whichever GTK merged first, and says
 	## nothing about it.
 	"$PY" cicd/utility/lint-accels.py source
 	## Who frees a returned pointer is written above the function, since C
 	## can't say it. Whole-tree, so a Windows-only file is read on Linux too.
-	"$PY" cicd/utility/lint-ownership.py --self-test
+	fTest "$PY" cicd/utility/lint-ownership.py --self-test
 	"$PY" cicd/utility/lint-ownership.py source
 else
 	fEcho "WARNING: UI case SKIPPED: no python" >&2
@@ -1696,7 +1698,7 @@ fi
 ## two strings, says unknownMacro, and checks nothing else in it. With that
 ## suppressed, 40 files went unchecked past it until 20261019. So: a leak after
 ## the macros we define has to be found, and a macro nobody defines has to fail.
-## Test ID: rknjb8dk
+## Test ID: de5ka
 fCheckMacroCanary(){
 	local dir="${cacheDir}/canary" got
 

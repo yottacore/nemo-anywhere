@@ -32,7 +32,7 @@
 # --self-test runs the checks over made-up files, wrong and right, so a change
 # that blinds them to a group or a spelling shows up here rather than as a
 # clean run over a tree that is not clean.
-# Test ID: rhtg2yer
+# Test ID: dd5bf
 #
 # Syntax: lint-pref-handlers.py [root]   (default: the repo's source/)
 #         lint-pref-handlers.py --self-test

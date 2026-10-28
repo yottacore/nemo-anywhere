@@ -8,7 +8,7 @@
 ##	  lists, amd64 and arm64, since the same file builds both images.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/linux/test-release-image-pin.bash
-##	- Test ID: rjcma0t3
+##	- Test ID: ddf7w
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

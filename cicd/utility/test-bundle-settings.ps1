@@ -15,7 +15,7 @@
 ##		  in the wrong place, and checks each answer. Runs in the lint stage.
 ##	Syntax:
 ##		pwsh -NoProfile -File cicd/utility/test-bundle-settings.ps1 [-SelfTest] [-Path <zip or folder>...]
-##	Test ID: rk50ewvs
+##	Test ID: ddwhx
 
 ##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:

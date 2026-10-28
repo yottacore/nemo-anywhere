@@ -16,7 +16,7 @@
 #
 # --self-test runs the check over made-up files, so a change that blinds it to
 # a spelling shows up there rather than as a clean run over the tree.
-# Test ID: rjh9pts1
+# Test ID: ddhse
 #
 # Syntax: lint-ownership.py [root]   (default: the repo's source/)
 #         lint-ownership.py --self-test

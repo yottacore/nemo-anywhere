@@ -24,7 +24,7 @@
 ##	  ANALYZE_TU_TIMEOUT (900 s) caps each file; one cut off counts as failed.
 ##	- --self-test runs analyze.py's own self-test and the planted faults only.
 ##	- Syntax: cicd/utility/analyze.bash [--self-test]
-##	- Test ID: rktsh3gd
+##	- Test ID: de8es
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:
