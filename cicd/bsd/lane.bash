@@ -16,7 +16,8 @@
 ##	  or the host lock, whichever is on this box (include/box-wrap.bash). The
 ##	  helper starts a VM that is off, waits for its ssh, and puts it back after.
 ##	  The lane then waits for its own user to log in, since that can lag right
-##	  after a boot. A box that does not answer in time is an error.
+##	  after a boot. A box that does not answer in time is an error. One that
+##	  isn't there at all, and isn't a VM here, exits 77, a skip.
 ##	- NEMO_BSD_HOST is the ssh target (default bsdtest@vmFreeBSD), NEMO_BSD_LOCK
 ##	  its lock name (default vmFreeBSD), NEMO_BSD_JOBS the build and test jobs
 ##	  (default 4), NEMO_BSD_READY_WAIT the seconds to wait for the login
@@ -131,6 +132,10 @@ fMain(){
 		-h|--help) sed -n '/^##	- Purpose:/,/^##	Copyright/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##	\{0,1\}//'; return 0 ;;
 		*) fDie "need --tests or --release (try --help)" ;;
 	esac
+	if [[ "${2:-}" != "--locked" ]] && ! fBoxWrap_IsThere "$lockName" "$bsdHost" "$lockTool" "${sshOpts[@]}"; then
+		fEcho "SKIP: ${bsdHost} isn't there"
+		exit 77
+	fi
 	if [[ "${2:-}" == "--locked" || ! -f "$lockTool" ]]; then
 		case "$mode" in
 			--tests)   fTests ;;
@@ -149,3 +154,4 @@ fMain "${@}"
 ##		- 2026-10-27: Takes the box through the VM state helper when it is here,
 ##		  so a VM that is off is started and waited for.
 ##		- 2026-10-28: Waits for its own login too, and a longer connect timeout.
+##		  A box that isn't there is a skip.

@@ -1056,6 +1056,60 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none yet.
 	- 2026-10-26, round1026a full run: vmFreeBSD was off. The lane started it, then failed at once with 'bsdtest@vmFreeBSD is not a FreeBSD box reachable as that user', before ssh was up, and stopped the run. The lane should wait for ssh after a start.
 	- 2026-10-27: the same at step 7 of a full run, with ssh timing out on the VM that was off. The FreeBSD lane and the arm64 release now take their box through the VM state helper when it's here, so a VM that's off or paused is started, waited for and put back. The bare host lock is still the fallback. Left: the `SKIP` for a box that isn't there, and the Windows dogfood, which still only tries boxes that already answer.
+	- 20261028: split into children. The `SKIP` is 2026102808250949, the Windows dogfood's box and name 2026102808250954, the native Windows gate 2026102808250959. The FreeBSD and arm64 work folders are 2026102516403481. A lane that starts its VM now also waits for its own login (2026102808084300).
+
+- Other hosts: a box that isn't there is a SKIP.
+	- ID: 2026102808250949
+	- Type: Task
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: a full run with `--long`, with vmFreeBSD and vmDebARM64 paused or off: both lanes start their VM rather than skip, and put it back.
+	- Priority|Severity: High
+	- Opened: 20261028-082509
+	- Opened by: 2026102416300001
+	- Parent ID: 2026102416300001
+	- Related IDs: 2026102808084300
+	- Requirements:
+		- The FreeBSD lane and the arm64 release. A box that doesn't answer, and isn't a VM this box can start, shows as `SKIP` in its step line and in the summary at the end, and the run goes on.
+		- When arm64 is skipped, its packages and their check are left out too.
+		- A box that answers but fails, or a VM that won't boot, still fails the run.
+	- Decisions:
+		- A lane says a box isn't there with exit 77, the code the test runner already reads as a skip. The pipeline closes that step as `SKIP` and lists it at the end, under "Skipped, no box". Any other failure still stops the run.
+		- Not there means ssh gets no answer at all, such as a timeout, a refusal or a name that doesn't resolve, and the box isn't a VM the VM state helper knows. A refused login or a failing command still counts as there, so a broken box fails rather than hiding.
+		- The check runs before the lock, so a box that's gone never holds up the queue. It tries for 8 s, and asks the VM state helper first, so a paused VM isn't tried at all.
+		- A skipped arm64 build drops the arm64 packages and their check for the rest of the run, the same way a run without arm64 does.
+	- Swept: every lane the pipeline runs on another box: the FreeBSD suite and release, and the cross targets, where arm64 is the only remote one. The Windows dogfood already skips a box that doesn't answer, and is 2026102808250954. The private runner skips its own boxes.
+	- Test case: rjph39cv (a lane exiting 77 is a SKIP line, listed at the end, and the run goes on without the arm64 packages), rjphnh77 and rjph1pxd (a box that isn't there exits 77 before the lock, and nothing is sent). Each fails before the change and passes after.
+	- Verified: 20261028, rjph39cv, rjphnh77 and rjph1pxd, and the quick gate.
+
+- Other hosts: the Windows dogfood takes b29w by that name, and its box through the VM state helper.
+	- ID: 2026102808250954
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261028-082509
+	- Opened by: 2026102416300001
+	- Parent ID: 2026102416300001
+	- Requirements:
+		- The dogfood refresh names `b29w`, never `b29w-wif`.
+		- vm925w is started when it's off or paused, and put back after, the way the FreeBSD lane does it. b29w goes first.
+		- No box there is still a skip, not an error.
+	- Test case: none yet.
+
+- Other hosts: the native Windows gate in the default run.
+	- ID: 2026102808250959
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261028-082509
+	- Opened by: 2026102416300001
+	- Parent ID: 2026102416300001
+	- Prereq IDs: 2026102808250949
+	- Requirements:
+		- The native Windows gate is part of the default run. It favors b29w, and goes to vm925w for GPU or timed work, and for a check that puts a window on screen. b29w can still run a windowed check unattended under its test account. `--no-remote` skips every box.
+		- Each Windows box gets the project's own work folder under its temp root, removed at the end.
+		- The VM is put back the way it was found, through the VM state helper.
+		- Overrides: the native Windows step in the private round settings, run by hand. The rule sending windowed checks to vm925w stays.
+	- Test case: none yet.
 
 - CICD reset: CPU and priority.
 	- ID: 2026102416300003

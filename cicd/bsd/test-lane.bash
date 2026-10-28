@@ -13,8 +13,10 @@
 ##	    whatever times the box left on the files. The sums file covers both.
 ##	  - The run goes through the host lock's wrap, for vmFreeBSD, and through
 ##	    the VM state helper's when that is on the box too.
-##	  - A box still booting is waited for. One that never answers, or isn't
-##	    FreeBSD, fails before anything is sent, the second without the wait.
+##	  - A VM still booting is waited for. One that never answers, or a box that
+##	    isn't FreeBSD, fails before anything is sent, the second without the
+##	    wait. A box that isn't there, and isn't a VM here, exits 77 before the
+##	    lock is taken.
 ##	- Needs git and python3; exit 77 without them.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/bsd/test-lane.bash
@@ -123,6 +125,15 @@ while [[ "\${1:-}" != -- ]]; do shift; done
 shift
 exec "\$@"
 EOF
+## The VM state helper: its status row says whether the box is a VM here.
+cat > "${shim}/x_vm-state.bash" <<EOF
+#!/usr/bin/env bash
+if [[ "\${1:-}" == status ]]; then printf 'host guest state note\n%s %s %s\n' "\$2" "\$2" "\${FAKE_VM_STATE:--}"; exit 0; fi
+printf '%s\n' "\$*" >> "${scratch}/vm-state.log"
+while [[ "\${1:-}" != -- ]]; do shift; done
+shift
+exec "\$@"
+EOF
 chmod +x "${shim}/ssh" "${shim}/scp" "${scratch}/boxbin/uname"
 
 fLane(){ (cd "$repo" && env -u SOURCE_DATE_EPOCH PATH="${shim}:${PATH}" WINDOWS_HOST_LOCK="${shim}/lock.bash" bash cicd/bsd/lane.bash "$@") >"${scratch}/lane.log" 2>&1; }
@@ -148,7 +159,7 @@ grep -q -E -- '^wrap vmFreeBSD .*-- bash .*lane\.bash --tests --locked$' "${scra
 ## used, since only it starts a VM that is off.
 toolDir="${scratch}/home/synced/0-0/common/exec/util/linux/bash"
 mkdir -p "$toolDir"
-sed "s|lock\.log|vm-state.log|" "${shim}/lock.bash" > "${toolDir}/x_vm-state.bash"
+cp "${shim}/x_vm-state.bash" "${toolDir}/x_vm-state.bash"
 sed "s|lock\.log|host-lock.log|" "${shim}/lock.bash" > "${toolDir}/x_windows-host-lock.bash"
 if (cd "$repo" && env -u SOURCE_DATE_EPOCH -u WINDOWS_HOST_LOCK -u BOX_WRAP_TOOL HOME="${scratch}/home" PATH="${shim}:${PATH}" \
 	bash cicd/bsd/lane.bash --tests) >"${scratch}/lane.log" 2>&1; then
@@ -161,9 +172,10 @@ else
 	fFail "--tests through the VM state helper failed: $(tail -3 "${scratch}/lane.log")"
 fi
 
-## Booting, then up: the lane waits rather than failing on the first try.
+## A VM booting, then up: the lane waits rather than failing on the first try.
+vmTool="${shim}/x_vm-state.bash"
 rm -f "${scratch}/ssh-tries"
-if FAKE_SSH_DOWN=2 BOX_READY_POLL=0 fLane --tests; then
+if BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=off FAKE_SSH_DOWN=2 BOX_READY_POLL=0 fLane --tests; then
 	if grep -q 'answered after' "${scratch}/lane.log"; then fEcho "OK: a box still booting is waited for"; else fFail "no line saying the box was waited for"; fi
 else
 	fFail "--tests failed on a box that came up on the third try: $(tail -3 "${scratch}/lane.log")"
@@ -172,7 +184,7 @@ fi
 ## Never answers, or isn't FreeBSD: both fail before the send.
 printf 'stale\n' > "${box}/nemo-anywhere-ci/src/stale.txt"
 rm -f "${scratch}/ssh-tries"
-if FAKE_SSH_DOWN=99 BOX_READY_POLL=1 NEMO_BSD_READY_WAIT=1 fLane --tests; then fFail "--tests passed on a box that never answered"
+if BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=off FAKE_SSH_DOWN=99 BOX_READY_POLL=1 NEMO_BSD_READY_WAIT=1 fLane --tests; then fFail "--tests passed on a box that never answered"
 elif ! grep -q 'did not answer' "${scratch}/lane.log"; then fFail "no reason for a box that never answered: $(tail -3 "${scratch}/lane.log")"
 else fEcho "OK: a box that never answers fails"
 fi
@@ -184,6 +196,17 @@ elif ((SECONDS - startedAt >= 5)); then fFail "a box that isn't FreeBSD was wait
 else fEcho "OK: a box that isn't FreeBSD fails without the wait"
 fi
 [[ -e "${box}/nemo-anywhere-ci/src/stale.txt" ]] || fFail "the tree on a box that failed the check was touched"
+
+## Not there, and not a VM here: a skip, before the lock.
+rm -f "${scratch}/ssh-tries"
+locks="$(wc -l < "${scratch}/lock.log")"
+rc=0; FAKE_SSH_DOWN=99 fLane --tests || rc=$?
+if [[ "$rc" != 77 ]]; then fFail "a box that isn't there gave exit ${rc}, not 77: $(tail -3 "${scratch}/lane.log")"
+elif ! grep -q "SKIP: bsdtest@vmFreeBSD isn't there" "${scratch}/lane.log"; then fFail "no SKIP line for a box that isn't there"
+elif [[ "$(wc -l < "${scratch}/lock.log")" != "$locks" ]]; then fFail "the lock was taken for a box that isn't there"
+else fEcho "OK: a box that isn't there is a skip"
+fi
+[[ -e "${box}/nemo-anywhere-ci/src/stale.txt" ]] || fFail "the tree was touched on a box that isn't there"
 
 if FAKE_TESTS_RC=1 fLane --tests; then fFail "--tests passed with a failing suite"; else fEcho "OK: a failing suite fails --tests"; fi
 

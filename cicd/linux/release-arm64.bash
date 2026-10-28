@@ -19,7 +19,8 @@
 ##	  helper starts a VM that is off, waits for its ssh, and puts it back after.
 ##	  The lane then waits for its own user to log in and for docker there,
 ##	  since both can lag well behind ssh on an emulated boot. A box that does
-##	  not answer in time is an error.
+##	  not answer in time is an error. One that isn't there at all, and isn't a
+##	  VM here, exits 77, a skip.
 ##	- NEMO_ARM_HOST is the ssh target (default tester@vmDebARM64), NEMO_ARM_LOCK
 ##	  its lock name (default vmDebARM64), NEMO_ARM_JOBS the build jobs (default
 ##	  4), NEMO_ARM_READY_WAIT the seconds to wait for the login and docker
@@ -126,6 +127,10 @@ fMain(){
 		"") ;;
 		*) fDie "unknown option: $1 (try --help)" ;;
 	esac
+	if ! fBoxWrap_IsThere "$lockName" "$armHost" "$lockTool" "${sshOpts[@]}"; then
+		fEcho "SKIP: ${armHost} isn't there"
+		exit 77
+	fi
 	if [[ -f "$lockTool" ]]; then
 		CLAUDE_VM_BOOT_WAIT="${CLAUDE_VM_BOOT_WAIT:-1200}" bash "$lockTool" wrap "$lockName" --wait "$lockWaitSec" -- bash "${BASH_SOURCE[0]}" --locked
 	else
@@ -144,4 +149,4 @@ fMain "${@}"
 ##		- 2026-10-27: Takes the box through the VM state helper when it is here,
 ##		  so a VM that is off is started and waited for.
 ##		- 2026-10-28: Waits for its own login and docker, with longer boot and
-##		  connect timeouts.
+##		  connect timeouts. A box that isn't there is a skip.

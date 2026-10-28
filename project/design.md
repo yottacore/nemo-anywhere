@@ -817,6 +817,7 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 - Every container and image the pipeline makes has `dev.project` and `dev.run` labels. At the end of a run, failure and Ctrl+C included, the run's own containers go, then the project's dangling images and its tags past the newest 2, then build cache over a week old. One line says what went and about what it freed. Nothing without the project's label is touched. The long-lived build containers stay, and `--keep-temp` keeps the run's containers too.
 
 - The FreeBSD lane runs the build and suite on the FreeBSD box in the test stage, and its tarball and pkg in the release stage. It runs on every full run. `--no-bsd` leaves it out, and `--include-bsd` brings it back under `--quick`.
+	- The FreeBSD and arm64 boxes are VMs here. One that's off or paused is started, waited for until the lane's own login answers, and docker too for arm64, then put back the way it was. A box that isn't there, and isn't a VM this box can start, is a `SKIP`, and the run goes on. With arm64 skipped, its packages are too.
 
 - The same hook blocks a push to main unless `source/meson.build` is a strict version increase over what is already there.
 
@@ -841,7 +842,7 @@ Stages, in order, each self-skipping when unconfigured: remote sync, format, deb
 
 - No stage is allowed all the cores. Job counts are half of them, and a quarter when the box is busy or for the steps that are hard on it: the sanitizer suite, fuzzing and the analyzers. Busy means a 1-minute load over half the core count, checked again before each step. Everything runs at the lowest CPU and disk priority, and each build container is held to the step's count with a low CPU share, so a full run leaves the machine usable.
 
-- Each step opens and closes with a line giving the local time, its number out of the steps that run, and PASS or FAIL. The plan at the top lists the steps turned off, with the flag or reason for each.
+- Each step opens and closes with a line giving the local time, its number out of the steps that run, and PASS, FAIL or SKIP. SKIP is for a box that isn't there, and the end of the run lists those steps. The plan at the top lists the steps turned off, with the flag or reason for each.
 
 - The publish stage refuses a dirty tree, checked once at preflight and again before it runs. It commits everything it finds, and nothing there can tell work in progress from a finished change.
 
