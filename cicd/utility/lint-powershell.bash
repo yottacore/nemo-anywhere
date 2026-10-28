@@ -33,7 +33,7 @@ fSkip(){
 
 ## Windows can refuse to run a script with non-ASCII bytes in it, a BOM included.
 ## Runs ahead of the pwsh check, so a box without pwsh still gets it.
-## Test ID: rjmn9fh2
+## Test ID: ddkm6
 nonAscii="$(git ls-files -z '*.ps1' '*.psm1' '*.psd1' | xargs -0 -r grep -nP '[^\x00-\x7F]' || true)"
 if [[ -n "$nonAscii" ]]; then
 	printf '%s\n' "$nonAscii"

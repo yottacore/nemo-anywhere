@@ -16,7 +16,7 @@
 #
 # --self-test runs cover and count over made-up input, the -Werror form of a
 # gcc finding included, since a parser that only knows "warning:" counts 0.
-# Test ID: rktsh374
+# Test ID: de8em
 #
 # Syntax: analyze.py run --tool gcc|clang --db <compile_commands.json> [--jobs N]
 #         analyze.py cover <repo root> <db>...

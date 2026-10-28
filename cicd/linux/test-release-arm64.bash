@@ -18,7 +18,7 @@
 ##	- Runs in the lint stage. Skipped under MSYS2, where the lane never runs and
 ##	  sha256sum marks every line binary.
 ##	- Syntax: cicd/linux/test-release-arm64.bash
-##	- Test ID: rjph1pxd
+##	- Test ID: ddmmv
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

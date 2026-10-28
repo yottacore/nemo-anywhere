@@ -9,7 +9,7 @@
 ##	- Needs git only.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-lint-image.bash
-##	- Test ID: rjxyddbk
+##	- Test ID: ddrpf
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

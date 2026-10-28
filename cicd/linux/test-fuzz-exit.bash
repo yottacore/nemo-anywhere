@@ -10,7 +10,7 @@
 ##	  without them.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/linux/test-fuzz-exit.bash
-##	- Test ID: rjcbfcx7
+##	- Test ID: ddf32
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:
@@ -102,13 +102,13 @@ out="$(env PATH="${stubs}:${PATH}" STUB_PROGS="${progs}" BUILD_DIR="${build}" FU
 
 [[ "${rc}" == "86" ]] || fFail "stage exited ${rc}, not 86 for a find"
 
-## <target> <OK|FOUND> [kind of saved input]
+## <target> <PASS|FAIL> [kind of saved input]
 fExpect(){
 	local line
-	line="$(grep -E "^[0-9]+/[0-9]+ [a-z0-9]+ +$1 " <<<"${out}" || true)"
+	line="$(grep -E "^(PASS|FAIL|SKIP) [a-z0-9]+ +$1 " <<<"${out}" || true)"
 	if [[ -z "${line}" ]]; then
 		fFail "$1 did not run"
-	elif [[ "${line}" != *" $2 "* ]]; then
+	elif [[ "${line}" != "$2 "* ]]; then
 		fFail "$1 not $2: ${line}"
 	elif [[ -n "${3:-}" ]] && [[ "${line}" != *"/$1-$3-"* ]]; then
 		fFail "$1 did not name its $3 input: ${line}"
@@ -117,18 +117,18 @@ fExpect(){
 	fi
 	return 0
 }
-fExpect fuzz-shcl OK
-fExpect fuzz-dnd FOUND timeout
-fExpect fuzz-command-template OK
-fExpect fuzz-xls FOUND crash
-fExpect fuzz-ppt OK
-fExpect fuzz-doc OK
-fExpect fuzz-psd FOUND oom
-fExpect fuzz-raw OK
-fExpect fuzz-office OK
-fExpect fuzz-ole2 OK
-fExpect fuzz-lnk OK
-fExpect fuzz-lnk-edit OK
+fExpect fuzz-shcl PASS
+fExpect fuzz-dnd FAIL timeout
+fExpect fuzz-command-template PASS
+fExpect fuzz-xls FAIL crash
+fExpect fuzz-ppt PASS
+fExpect fuzz-doc PASS
+fExpect fuzz-psd FAIL oom
+fExpect fuzz-raw PASS
+fExpect fuzz-office PASS
+fExpect fuzz-ole2 PASS
+fExpect fuzz-lnk PASS
+fExpect fuzz-lnk-edit PASS
 
 if ((failures)); then
 	grep -E '^[0-9]+/[0-9]+ |^\[' <<<"${out}" || true

@@ -13,7 +13,7 @@
 ##	- Needs dpkg-deb; exit 77 without it. The .rpm checks need rpmbuild and rpm.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/linux/test-package-arm64.bash
-##	- Test ID: rjpxzs6x
+##	- Test ID: ddmvx
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

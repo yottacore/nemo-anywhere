@@ -297,8 +297,21 @@ function fSmoke {
 ## script allows for that.
 function fGuiSmoke {
 	param([Parameter(Mandatory)][string]$Exe, [Parameter(Mandatory)][string]$RuntimeBin)
-	& pwsh -NoProfile -File (Join-Path $Root "cicd\win\gui-launch-smoke.ps1") -Exe $Exe -RuntimeBin $RuntimeBin
-	if ($LASTEXITCODE -ne 0) { fDie "GUI launch smoke failed (exit $LASTEXITCODE)" }
+	$test = Join-Path $Root "cicd\win\gui-launch-smoke.ps1"
+	& pwsh -NoProfile -File $test -Exe $Exe -RuntimeBin $RuntimeBin
+	$rc = $LASTEXITCODE
+	fTestLine $test $rc
+	if ($rc -ne 0) { fDie "GUI launch smoke failed (exit $rc)" }
+}
+
+## One "PASS|FAIL|SKIP <id> <name>" line for a script test, as the Linux runs
+## print, with the ID from the script's own "Test ID:" line.
+function fTestLine {
+	param([Parameter(Mandatory)][string]$Script, [int]$Rc)
+	$m = Select-String -LiteralPath $Script -Pattern '^#+\s+(- )?Test ID: ([0-9a-z]+)$' | Select-Object -First 1
+	$id = if ($m) { $m.Matches[0].Groups[2].Value } else { '?' }
+	$state = switch ($Rc) { 0 { 'PASS' } 77 { 'SKIP' } default { 'FAIL' } }
+	fEcho_Clean "$state $id $(Split-Path -Leaf $Script)"
 }
 
 ## The meson suite against the debug build. The mingw64 shell has the GTK DLLs on
@@ -320,7 +333,8 @@ function fTests {
 	## System32 before PATH, so a bare bash is WSL's.
 	$wrapBash = $MsysBash -replace '\\', '/'
 	try {
-		fMingw "NEMO_NO_CRASH_DIALOG=1 TMPDIR='$runDirU' meson test -C $BuildRel --no-rebuild --num-processes $jobs --print-errorlogs --wrapper '$wrapBash $jail'"
+		## Each result line becomes "PASS|FAIL|SKIP <id> <name>", as on Linux.
+		fMingw "set -o pipefail; NEMO_NO_CRASH_DIALOG=1 TMPDIR='$runDirU' meson test -C $BuildRel --no-rebuild --num-processes $jobs --print-errorlogs --wrapper '$wrapBash $jail' | awk -f cicd/utility/include/result-lines.awk"
 	} finally { $env:MSYS2_PATH_TYPE = $savedPathType }
 	if ($script:MingwRc -ne 0) { fDie "test suite failed (exit $($script:MingwRc)); anything a test left is in $runDir" }
 	$left = @(Get-ChildItem -LiteralPath $runDir -Force -ErrorAction SilentlyContinue)
@@ -329,14 +343,23 @@ function fTests {
 	fEcho "OK: test suite"
 	## The installer's in-use check needs a real process to find, so it runs
 	## here rather than beside the other script tests in lint.
-	& pwsh -NoProfile -File (Join-Path $Root "cicd\win\test-install-holders.ps1")
-	if ($LASTEXITCODE -ne 0) { fDie "install.ps1 in-use check failed (exit $LASTEXITCODE)" }
+	$test = Join-Path $Root "cicd\win\test-install-holders.ps1"
+	& pwsh -NoProfile -File $test
+	$rc = $LASTEXITCODE
+	fTestLine $test $rc
+	if ($rc -ne 0) { fDie "install.ps1 in-use check failed (exit $rc)" }
 	## Needs Windows ACLs to read, so it sits here for the same reason.
-	& pwsh -NoProfile -File (Join-Path $Root "cicd\win\test-install-acl.ps1")
-	if ($LASTEXITCODE -ne 0) { fDie "install.ps1 ACL check failed (exit $LASTEXITCODE)" }
+	$test = Join-Path $Root "cicd\win\test-install-acl.ps1"
+	& pwsh -NoProfile -File $test
+	$rc = $LASTEXITCODE
+	fTestLine $test $rc
+	if ($rc -ne 0) { fDie "install.ps1 ACL check failed (exit $rc)" }
 	## Needs Windows file locking, and lint does not run it here.
-	& pwsh -NoProfile -File (Join-Path $Root "cicd\utility\test-install-staging.ps1")
-	if ($LASTEXITCODE -ne 0) { fDie "install.ps1 staging check failed (exit $LASTEXITCODE)" }
+	$test = Join-Path $Root "cicd\utility\test-install-staging.ps1"
+	& pwsh -NoProfile -File $test
+	$rc = $LASTEXITCODE
+	fTestLine $test $rc
+	if ($rc -ne 0) { fDie "install.ps1 staging check failed (exit $rc)" }
 }
 
 ## Path to the freshly built exe for the in-place smoke. The extension lib is folded

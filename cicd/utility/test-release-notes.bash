@@ -12,7 +12,7 @@
 ##	  that the table renders as one.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-release-notes.bash
-##	- Test ID: rjf2v5d5
+##	- Test ID: ddgjr
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

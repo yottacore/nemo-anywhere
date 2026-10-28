@@ -1030,15 +1030,19 @@ run_package_checks(){
 	((PACKAGE_ENABLE)) || return 0
 	declare -p PACKAGE_CHECKS &>/dev/null || return 0
 
-	local entry label cmd rc
+	## Each check gets one "PASS|FAIL|SKIP <id> <label>" line, with the ID read
+	## from the test script its command names.
+	local entry label cmd rc script id
 	for entry in "${PACKAGE_CHECKS[@]}"; do
 		label="${entry%%|*}"; cmd="${entry#*|}"
 		fEcho_Clean "checking: ${label} ..."
 		rc=0; eval "${cmd}" || rc=$?
+		id=''; script="$(grep -oE "cicd/[^ '\"]*/test-[^ '\"]*\.(bash|ps1)" <<< "${cmd}" | tail -n 1 || true)"
+		[[ -n "${script}" && -f "${script}" ]] && id="$(sed -n -E 's/^##[[:space:]]+(- )?Test ID: ([0-9a-z]+)$/\2/p' "${script}" | head -n 1)"
 		case "$rc" in
-			0)  ;;
-			77) fEcho "WARNING: ${label} skipped" ;;
-			*)  fDie "${label} (exit ${rc})" ;;
+			0)  echo "PASS ${id:-?} ${label}" ;;
+			77) echo "SKIP ${id:-?} ${label}"; fEcho "WARNING: ${label} skipped" ;;
+			*)  echo "FAIL ${id:-?} ${label}"; fDie "${label} (exit ${rc})" ;;
 		esac
 	done
 }

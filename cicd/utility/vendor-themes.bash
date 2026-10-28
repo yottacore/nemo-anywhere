@@ -445,7 +445,7 @@ fStageIcon(){
 ## Worth having because the resolver answers through a global rather than
 ## stdout, which is easy to get subtly wrong, and because the only other way to
 ## find out is a twenty minute run against twenty upstreams.
-## Test ID: rhad73w8
+## Test ID: dcwhs
 
 fSelfTestTree(){
 	local repo="$1"

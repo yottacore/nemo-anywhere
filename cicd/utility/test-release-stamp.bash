@@ -11,7 +11,7 @@
 ##	  the FreeBSD pkg case zstd.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-release-stamp.bash
-##	- Test ID: rjcma0tt
+##	- Test ID: ddf7x
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

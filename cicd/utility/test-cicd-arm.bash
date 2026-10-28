@@ -15,7 +15,7 @@
 ##	  takes its packages and check with it.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-arm.bash
-##	- Test ID: rjph39cv
+##	- Test ID: ddmmw
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

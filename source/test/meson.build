@@ -39,7 +39,7 @@ test_heap = declare_dependency(
   ),
 )
 
-test('5ethkhjr Search Engine test',
+test('2zfbv Search Engine test',
   executable('test-nemo-search-engine',
     [ 'test-nemo-search-engine.c' ],
     include_directories: [ rootInclude, ],
@@ -49,7 +49,7 @@ test('5ethkhjr Search Engine test',
   timeout: 180        # three searches, each with its own 30s ceiling
 )
 
-test('rgy4vnf0 Search folder test',
+test('dcnvg Search folder test',
   executable('test-nemo-search-folder',
     [ 'test-nemo-search-folder.c' ],
     include_directories: [ rootInclude, ],
@@ -59,7 +59,7 @@ test('rgy4vnf0 Search folder test',
   timeout: 120
 )
 
-test('rgep22n8 Directory monitor test',
+test('dcdd9 Directory monitor test',
   executable('test-nemo-directory-monitor',
     [ 'test-nemo-directory-monitor.c' ],
     include_directories: [ rootInclude, ],
@@ -69,7 +69,7 @@ test('rgep22n8 Directory monitor test',
   timeout: 120
 )
 
-test('rhmkzde8 Folder time after a change inside it test',
+test('dd248 Folder time after a change inside it test',
   executable('test-nemo-folder-mtime',
     [ 'test-nemo-folder-mtime.c' ],
     include_directories: [ rootInclude, ],
@@ -79,7 +79,7 @@ test('rhmkzde8 Folder time after a change inside it test',
   timeout: 60
 )
 
-test('rhmmhmeg Small file copy test',
+test('dd24j Small file copy test',
   executable('test-nemo-small-copy',
     [ 'test-nemo-small-copy.c' ],
     include_directories: [ rootInclude, ],
@@ -88,7 +88,7 @@ test('rhmmhmeg Small file copy test',
   args: []
 )
 
-test('rhtmbdm8 Drop action from another program test',
+test('dd5da Drop action from another program test',
   executable('test-nemo-drop-action',
     [ 'test-nemo-drop-action.c' ],
     include_directories: [ rootInclude, ],
@@ -97,7 +97,7 @@ test('rhtmbdm8 Drop action from another program test',
   args: []
 )
 
-test('rfzh7ygg Drag drop confirm test',
+test('dc54g Drag drop confirm test',
   executable('test-nemo-drag-confirm',
     [ 'test-nemo-drag-confirm.c' ],
     include_directories: [ rootInclude, ],
@@ -106,7 +106,7 @@ test('rfzh7ygg Drag drop confirm test',
   args: []
 )
 
-test('rg6a49ar Config defaults list test',
+test('dc8tz Config defaults list test',
   executable('test-nemo-config-catalog',
     [ 'test-nemo-config-catalog.c' ],
     include_directories: [ rootInclude, ],
@@ -115,7 +115,7 @@ test('rg6a49ar Config defaults list test',
   args: []
 )
 
-test('rdjjz89r Config store test',
+test('dav3s Config store test',
   executable('test-nemo-config',
     [ 'test-nemo-config.c' ],
     include_directories: [ rootInclude, ],
@@ -125,7 +125,7 @@ test('rdjjz89r Config store test',
   timeout: 90         # a hundred external rewrites, each waiting on the file monitor
 )
 
-test('rk7wrme6 Bulk rename default test',
+test('ddy4b Bulk rename default test',
   executable('test-nemo-bulk-rename',
     [ 'test-nemo-bulk-rename.c' ],
     include_directories: [ rootInclude, ],
@@ -135,7 +135,7 @@ test('rk7wrme6 Bulk rename default test',
 )
 
 # Converting runs when the store opens, so the old file goes in before that.
-test('rjc4dd8z Config format upgrade test',
+test('ddez6 Config format upgrade test',
   executable('test-nemo-config-format',
     [ 'test-nemo-config-format.c' ],
     include_directories: [ rootInclude, ],
@@ -157,7 +157,7 @@ foreach release : [ '1.2.0', '2.0.0' ]
   ) ]
 endforeach
 
-test('rjcev513 Config old formats test',
+test('ddf4w Config old formats test',
   executable('test-nemo-config-old-formats',
     [ 'test-nemo-config-old-formats.c' ],
     include_directories: [ rootInclude, ],
@@ -169,7 +169,7 @@ test('rjcev513 Config old formats test',
 
 # Counts allocations through its own malloc, which only glibc allows.
 if not is_windows
-  test('rj4jbn1b Allocations per read test',
+  test('ddatz Allocations per read test',
     executable('test-nemo-read-allocations',
       [ 'test-nemo-read-allocations.c' ],
       include_directories: [ rootInclude, ],
@@ -179,7 +179,7 @@ if not is_windows
   )
 endif
 
-test('rh325v70 Delete test guard arming test',
+test('dcrhe Delete test guard arming test',
   executable('test-nemo-delete-testguard',
     [ 'test-nemo-delete-testguard.c' ],
     include_directories: [ rootInclude, ],
@@ -188,7 +188,7 @@ test('rh325v70 Delete test guard arming test',
   args: []
 )
 
-test('rhnpn188 Guard pauses the job test',
+test('dd2q6 Guard pauses the job test',
   executable('test-nemo-guard-pause',
     [ 'test-nemo-guard-pause.c' ],
     include_directories: [ rootInclude, ],
@@ -197,7 +197,7 @@ test('rhnpn188 Guard pauses the job test',
   args: []
 )
 
-test('rhtq57n0 Job queue test',
+test('dd5ev Job queue test',
   executable('test-nemo-job-queue',
     [ 'test-nemo-job-queue.c' ],
     include_directories: [ rootInclude, ],
@@ -207,9 +207,9 @@ test('rhtq57n0 Job queue test',
 )
 
 # The bus half of the link between copies. Windows has no bus; its pipes are
-# rjvks1yf's.
+# ddqdq's.
 if not is_windows
-  test('rjptygcj Instance list test',
+  test('ddmt8 Instance list test',
     executable('test-nemo-instance-list',
       [ 'test-nemo-instance-list.c' ],
       include_directories: [ rootInclude, ],
@@ -219,7 +219,7 @@ if not is_windows
     timeout: 60
   )
 
-  test('rjvdch2z Settings shared between copies test',
+  test('ddqa7 Settings shared between copies test',
     executable('test-nemo-config-share',
       [ 'test-nemo-config-share.c' ],
       include_directories: [ rootInclude, shclInclude, ],
@@ -243,33 +243,33 @@ leaks = executable('test-nemo-leaks',
 # outside can keep it moving, and growth has to show 4 times there, so a case
 # can take twice its usual 15 s (2026101913541101).
 leakTimeout = is_windows ? 90 : 30
-test('rjbkzvdv Job progress leak test', leaks, args: [ 'progress' ],
+test('ddep6 Job progress leak test', leaks, args: [ 'progress' ],
   timeout: leakTimeout)
-test('rjbkzwe7 Move job leak test', leaks, args: [ 'move' ],
+test('ddep7 Move job leak test', leaks, args: [ 'move' ],
   timeout: leakTimeout)
-test('rjbmdd0s Clipboard drag check leak test', leaks, args: [ 'clipboard' ],
+test('ddepe Clipboard drag check leak test', leaks, args: [ 'clipboard' ],
   timeout: leakTimeout)
-test('rjbmh7g1 Stopped zip leak test', leaks, args: [ 'zip-cancel' ],
+test('ddepg Stopped zip leak test', leaks, args: [ 'zip-cancel' ],
   timeout: leakTimeout)
-test('rjbn18rq Search query leak test', leaks, args: [ 'query-editor' ],
+test('ddeps Search query leak test', leaks, args: [ 'query-editor' ],
   timeout: leakTimeout)
-test('rjbn19rn Bookmarks load leak test', leaks, args: [ 'bookmarks' ],
+test('ddept Bookmarks load leak test', leaks, args: [ 'bookmarks' ],
   timeout: leakTimeout)
-test('rjbn328w Bookmarks file load leak test', leaks, args: [ 'bookmarks-file' ],
+test('ddepv Bookmarks file load leak test', leaks, args: [ 'bookmarks-file' ],
   timeout: leakTimeout)
-test('rjbpmcxy Extract job leak test', leaks, args: [ 'extract' ],
+test('ddeqn Extract job leak test', leaks, args: [ 'extract' ],
   timeout: leakTimeout)
-test('rjbqagjf Stopped tar.gz leak test', leaks, args: [ 'tar.gz-cancel' ],
+test('dder1 Stopped tar.gz leak test', leaks, args: [ 'tar.gz-cancel' ],
   timeout: leakTimeout)
-test('rjbw0rkq Stopped 7z leak test', leaks, args: [ '7z-cancel' ],
+test('ddetk Stopped 7z leak test', leaks, args: [ '7z-cancel' ],
   timeout: leakTimeout)
-test('rjcth67d Leak test self-check', leaks, args: [ 'self-check' ],
+test('ddfb8 Leak test self-check', leaks, args: [ 'self-check' ],
   timeout: leakTimeout)
-test('rkneydx6 Settings save and reload leak test', leaks, args: [ 'settings' ],
+test('de5he Settings save and reload leak test', leaks, args: [ 'settings' ],
   timeout: leakTimeout)
-test('rkneydzr File checksum leak test', leaks, args: [ 'checksum' ],
+test('de5hf File checksum leak test', leaks, args: [ 'checksum' ],
   timeout: leakTimeout)
-test('rkneye2c Multi-row drag leak test', leaks, args: [ 'drag' ],
+test('de5hg Multi-row drag leak test', leaks, args: [ 'drag' ],
   timeout: 180)       # every round waits out GDK's snap-back, about half a second
 
 if not is_windows
@@ -277,7 +277,7 @@ if not is_windows
   # added to the lane's own options.
   sanitizerLeaksEnv = environment()
   sanitizerLeaksEnv.append('ASAN_OPTIONS', 'fast_unwind_on_malloc=0', separator: ':')
-  test('rkneye51 Sanitizer leak suppressions test',
+  test('de5hh Sanitizer leak suppressions test',
     executable('test-sanitizer-leaks',
       [ 'test-sanitizer-leaks.c' ] + gresources + themeGresources,
       include_directories: [ rootInclude, ],
@@ -289,7 +289,7 @@ if not is_windows
   )
 endif
 
-test('rhtq57n1 Cancelled drop leaves the files test',
+test('dd5ew Cancelled drop leaves the files test',
   executable('test-nemo-drop-cancel',
     [ 'test-nemo-drop-cancel.c' ],
     include_directories: [ rootInclude, ],
@@ -298,7 +298,7 @@ test('rhtq57n1 Cancelled drop leaves the files test',
   args: []
 )
 
-test('rh3n43kg Empty trash asks test',
+test('dcrvs Empty trash asks test',
   executable('test-nemo-empty-trash',
     [ 'test-nemo-empty-trash.c' ],
     include_directories: [ rootInclude, ],
@@ -307,7 +307,7 @@ test('rh3n43kg Empty trash asks test',
   args: []
 )
 
-test('rh8w1q80 Delete from trash asks test',
+test('dcvpy Delete from trash asks test',
   executable('test-nemo-delete-from-trash',
     [ 'test-nemo-delete-from-trash.c' ],
     include_directories: [ rootInclude, ],
@@ -316,7 +316,7 @@ test('rh8w1q80 Delete from trash asks test',
   args: []
 )
 
-test('redmwz7r Favorites test',
+test('db9wp Favorites test',
   executable('test-nemo-favorites',
     [ 'test-nemo-favorites.c' ],
     include_directories: [ rootInclude, ],
@@ -325,7 +325,7 @@ test('redmwz7r Favorites test',
   args: []
 )
 
-test('rhd1v448 File checksum test',
+test('dcy00 File checksum test',
   executable('test-nemo-file-digest',
     [ 'test-nemo-file-digest.c' ],
     include_directories: [ rootInclude, ],
@@ -336,7 +336,7 @@ test('rhd1v448 File checksum test',
 
 # Links the app's own blake3 routines, with the dispatcher built again around
 # them, so it can't link nemo_private, which has the first copy.
-test('rkne1y8a blake3 routines test',
+test('de5gz blake3 routines test',
   executable('test-blake3-paths',
     [ 'test-blake3-paths.c' ],
     include_directories: [ rootInclude, blake3Include, ],
@@ -352,7 +352,7 @@ test('rkne1y8a blake3 routines test',
   args: []
 )
 
-test('rhd29h28 File checksum attribute test',
+test('dcy08 File checksum attribute test',
   executable('test-nemo-file-xattr',
     [ 'test-nemo-file-xattr.c' ],
     include_directories: [ rootInclude, ],
@@ -361,7 +361,7 @@ test('rhd29h28 File checksum attribute test',
   args: []
 )
 
-test('rhd1cv38 File cache store test',
+test('dcxzr File cache store test',
   executable('test-nemo-cache-db',
     [ 'test-nemo-cache-db.c' ],
     include_directories: [ rootInclude, ],
@@ -370,7 +370,7 @@ test('rhd1cv38 File cache store test',
   args: []
 )
 
-test('rjch1a9a File cache opened by many at once test',
+test('ddf62 File cache opened by many at once test',
   executable('test-nemo-cache-open-race',
     [ 'test-nemo-cache-open-race.c' ],
     include_directories: [ rootInclude, ],
@@ -380,7 +380,7 @@ test('rjch1a9a File cache opened by many at once test',
   timeout: 120
 )
 
-test('rhd69rjr File cache prune test',
+test('dcy2e File cache prune test',
   executable('test-nemo-cache-prune',
     [ 'test-nemo-cache-prune.c' ],
     include_directories: [ rootInclude, ],
@@ -390,7 +390,7 @@ test('rhd69rjr File cache prune test',
   timeout: 120
 )
 
-test('rhd4gy78 Thumbnail store test',
+test('dcy1f Thumbnail store test',
   executable('test-nemo-thumbnail-store',
     [ 'test-nemo-thumbnail-store.c' ],
     include_directories: [ rootInclude, ],
@@ -399,7 +399,7 @@ test('rhd4gy78 Thumbnail store test',
   args: []
 )
 
-test('redrqe60 Thumbnail factory test',
+test('db9ys Thumbnail factory test',
   executable('test-nemo-thumbnail',
     [ 'test-nemo-thumbnail.c' ],
     include_directories: [ rootInclude, ],
@@ -409,7 +409,7 @@ test('redrqe60 Thumbnail factory test',
   timeout: 180        # the hung-helper case waits out the thumbnailer timeout
 )
 
-test('rcgxemdg Metadata store test',
+test('da8qa Metadata store test',
   executable('test-nemo-metadata-store',
     [ 'test-nemo-metadata-store.c' ],
     include_directories: [ rootInclude, ],
@@ -419,7 +419,7 @@ test('rcgxemdg Metadata store test',
 )
 
 # Needs the slug define: the point of the test is the path the app really builds.
-test('reqzgh4g Config root test',
+test('dbfh8 Config root test',
   executable('test-nemo-config-root',
     [ 'test-nemo-config-root.c' ],
     include_directories: [ rootInclude, ],
@@ -429,7 +429,7 @@ test('reqzgh4g Config root test',
   args: []
 )
 
-test('rj46m24q EEL string check test',
+test('ddamj EEL string check test',
   executable('test-eel-string',
     [ 'test-eel-string.c' ],
     include_directories: [ rootInclude, ],
@@ -438,7 +438,7 @@ test('rj46m24q EEL string check test',
   args: []
 )
 
-test('rj46pkw3 Conflict dialog test',
+test('ddamm Conflict dialog test',
   executable('test-nemo-conflict-dialog',
     [ 'test-nemo-conflict-dialog.c' ],
     include_directories: [ rootInclude, ],
@@ -447,7 +447,7 @@ test('rj46pkw3 Conflict dialog test',
   args: []
 )
 
-test('rk8tkp4h Bad name characters test',
+test('ddymm Bad name characters test',
   executable('test-nemo-bad-name',
     [ 'test-nemo-bad-name.c' ],
     include_directories: [ rootInclude, ],
@@ -458,7 +458,7 @@ test('rk8tkp4h Bad name characters test',
 
 # Owner and group are POSIX ids.
 if not is_windows
-  test('rkdsb9d9 Undo record refs test',
+  test('de1ba Undo record refs test',
     executable('test-nemo-undo-refs',
       [ 'test-nemo-undo-refs.c' ],
       include_directories: [ rootInclude, ],
@@ -468,7 +468,7 @@ if not is_windows
   )
 endif
 
-test('rcgzq4qg User input parse test',
+test('da8rh User input parse test',
   executable('test-eel-user-input',
     [ 'test-eel-user-input.c' ],
     include_directories: [ rootInclude, ],
@@ -479,7 +479,7 @@ test('rcgzq4qg User input parse test',
 
 # symlink(2) and the guard-page mmap below are POSIX; none of these cross-build.
 if not is_windows
-  test('rek3gd30 Symlink recurse premise test',
+  test('dbcw2 Symlink recurse premise test',
     executable('test-nemo-symlink-recurse',
       [ 'test-nemo-symlink-recurse.c' ],
       include_directories: [ rootInclude, ],
@@ -488,7 +488,7 @@ if not is_windows
     args: []
   )
 
-  test('rgv89eeg Delete guard test',
+  test('dcm8y Delete guard test',
     executable('test-nemo-delete-guard',
       [ 'test-nemo-delete-guard.c' ],
       include_directories: [ rootInclude, ],
@@ -497,7 +497,7 @@ if not is_windows
     args: []
   )
 
-  test('rgy4vnf1 Scratch cleanup test',
+  test('dcnvh Scratch cleanup test',
     executable('test-nemo-scratch',
       [ 'test-nemo-scratch.c' ],
       include_directories: [ rootInclude, ],
@@ -506,7 +506,7 @@ if not is_windows
     args: []
   )
 
-  test('rjprhm52 Scratch cleanup waits for the font cache test',
+  test('ddmry Scratch cleanup waits for the font cache test',
     executable('test-nemo-scratch-fonts',
       [ 'test-nemo-scratch-fonts.c' ],
       include_directories: [ rootInclude, ],
@@ -516,7 +516,7 @@ if not is_windows
   )
 endif
 
-test('rm494xfp Scratch cleanup of held folders test',
+test('dedme Scratch cleanup of held folders test',
   executable('test-nemo-scratch-held',
     [ 'test-nemo-scratch-held.c' ],
     include_directories: [ rootInclude, ],
@@ -525,7 +525,7 @@ test('rm494xfp Scratch cleanup of held folders test',
   args: []
 )
 
-test('rknjd2qn Delete fence test',
+test('de5kb Delete fence test',
   executable('test-nemo-fence',
     [ 'test-nemo-fence.c' ],
     include_directories: [ rootInclude, ],
@@ -536,7 +536,7 @@ test('rknjd2qn Delete fence test',
   timeout: 60
 )
 
-test('rek3gd31 Search invalid regex test',
+test('dbcw3 Search invalid regex test',
   executable('test-nemo-search-regex',
     [ 'test-nemo-search-regex.c' ],
     include_directories: [ rootInclude, ],
@@ -546,7 +546,7 @@ test('rek3gd31 Search invalid regex test',
 )
 
 if is_windows
-  test('rgy77abr Delete guard win32 test',
+  test('dcnwt Delete guard win32 test',
     executable('test-nemo-delete-guard-win32',
       [ 'test-nemo-delete-guard-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -556,7 +556,7 @@ if is_windows
   )
 
   # Takes the focus, so alone.
-  test('rm0d1tdd Delete key after a window on another thread test',
+  test('debgn Delete key after a window on another thread test',
     executable('test-nemo-delete-focus-win32',
       [ 'test-nemo-delete-focus-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -567,7 +567,7 @@ if is_windows
   )
 endif
 
-test('rffw4xdg Treeview hit test',
+test('dbwjv Treeview hit test',
   executable('test-eel-treeview-hit',
     [ 'test-eel-treeview-hit.c' ],
     include_directories: [ rootInclude, ],
@@ -576,7 +576,7 @@ test('rffw4xdg Treeview hit test',
   args: []
 )
 
-test('rhtmbdm9 Clipped cell text test',
+test('dd5db Clipped cell text test',
   executable('test-eel-clipped-cell',
     [ 'test-eel-clipped-cell.c' ],
     include_directories: [ rootInclude, ],
@@ -587,7 +587,7 @@ test('rhtmbdm9 Clipped cell text test',
 
 # Holds a menu open. On Windows any test's window coming up beside it takes the
 # focus, and the menu closes with it, so alone there.
-test('rhtmbdma Keyboard context menu test',
+test('dd5dc Keyboard context menu test',
   executable('test-eel-context-menu',
     [ 'test-eel-context-menu.c' ],
     include_directories: [ rootInclude, ],
@@ -597,7 +597,7 @@ test('rhtmbdma Keyboard context menu test',
   is_parallel: not is_windows,
 )
 
-test('rjes67yy Rename field accessible test',
+test('ddgdf Rename field accessible test',
   executable('test-eel-editable-label-atk',
     [ 'test-eel-editable-label-atk.c' ],
     include_directories: [ rootInclude, ],
@@ -606,7 +606,7 @@ test('rjes67yy Rename field accessible test',
   args: []
 )
 
-test('rjew8g59 Rename field sized before shown test',
+test('ddgf5 Rename field sized before shown test',
   executable('test-eel-editable-label-size',
     [ 'test-eel-editable-label-size.c' ],
     include_directories: [ rootInclude, ],
@@ -615,7 +615,7 @@ test('rjew8g59 Rename field sized before shown test',
   args: []
 )
 
-test('rk520jh7 Rename field takes a new width while hidden test',
+test('ddwjs Rename field takes a new width while hidden test',
   executable('test-eel-editable-label-rewidth',
     [ 'test-eel-editable-label-rewidth.c' ],
     include_directories: [ rootInclude, ],
@@ -624,7 +624,7 @@ test('rk520jh7 Rename field takes a new width while hidden test',
   args: []
 )
 
-test('rhtmbdmb Escape forgets the cursor test',
+test('dd5dd Escape forgets the cursor test',
   executable('test-eel-forget-cursor',
     [ 'test-eel-forget-cursor.c' ],
     include_directories: [ rootInclude, ],
@@ -634,7 +634,7 @@ test('rhtmbdmb Escape forgets the cursor test',
 )
 
 # Takes the foreground. Every test shares one desktop on Windows, so alone there.
-test('rgxy149r Focus guard test',
+test('dcnqs Focus guard test',
   executable('test-eel-focus-guard',
     [ 'test-eel-focus-guard.c' ],
     include_directories: [ rootInclude, ],
@@ -645,7 +645,7 @@ test('rgxy149r Focus guard test',
 )
 
 # Same, it takes the foreground.
-test('rk6narsh Tabs take no focus helper test',
+test('ddxet Tabs take no focus helper test',
   executable('test-eel-tab-keys',
     [ 'test-eel-tab-keys.c' ],
     include_directories: [ rootInclude, ],
@@ -655,7 +655,7 @@ test('rk6narsh Tabs take no focus helper test',
   is_parallel: not is_windows,
 )
 
-test('rhnv1n88 Row hover tint test',
+test('dd2sk Row hover tint test',
   executable('test-nemo-row-hover',
     [ 'test-nemo-row-hover.c' ],
     include_directories: [ rootInclude, ],
@@ -664,7 +664,7 @@ test('rhnv1n88 Row hover tint test',
   args: []
 )
 
-test('rhgba078 Primary mask test',
+test('dczsk Primary mask test',
   executable('test-eel-primary-mask',
     [ 'test-eel-primary-mask.c' ],
     include_directories: [ rootInclude, ],
@@ -673,7 +673,7 @@ test('rhgba078 Primary mask test',
   args: []
 )
 
-test('rgeahzbr Entry context menu test',
+test('dcd70 Entry context menu test',
   executable('test-nemo-entry-menu',
     [ 'test-nemo-entry-menu.c' ],
     include_directories: [ rootInclude, ],
@@ -696,7 +696,7 @@ if not get_option('b_sanitize').contains('address')
   searchContentEnv = [ 'ASAN_OPTIONS=detect_leaks=0' ]
 endif
 
-test('rffvm2bg Search content test',
+test('dbwjj Search content test',
   executable('test-nemo-search-content',
     [ 'test-nemo-search-content.c' ],
     include_directories: [ rootInclude, ],
@@ -709,7 +709,7 @@ test('rffvm2bg Search content test',
 )
 
 if not is_windows
-  test('rhaqte90 Scratch guard test',
+  test('dcwqk Scratch guard test',
     executable('test-scratch-guard',
       [ 'test-scratch-guard.c' ],
       include_directories: [ rootInclude, ],
@@ -718,7 +718,7 @@ if not is_windows
     args: []
   )
 
-  test('rek3gd32 DnD selection parser test',
+  test('dbcw4 DnD selection parser test',
     executable('test-nemo-dnd',
       [ 'test-nemo-dnd.c' ],
       include_directories: [ rootInclude, ],
@@ -728,7 +728,7 @@ if not is_windows
   )
 endif
 
-test('rhtjdp1g Rename selection test',
+test('dd5c8 Rename selection test',
   executable('test-eel-rename-region',
     [ 'test-eel-rename-region.c' ],
     include_directories: [ rootInclude, ],
@@ -737,7 +737,7 @@ test('rhtjdp1g Rename selection test',
   args: []
 )
 
-test('rhtjdp1h Message dialog text test',
+test('dd5c9 Message dialog text test',
   executable('test-eel-stock-dialogs',
     [ 'test-eel-stock-dialogs.c' ],
     include_directories: [ rootInclude, ],
@@ -746,7 +746,7 @@ test('rhtjdp1h Message dialog text test',
   args: []
 )
 
-test('rek3gd33 Terminal fallback test',
+test('dbcw5 Terminal fallback test',
   executable('test-eel-terminal',
     [ 'test-eel-terminal.c' ],
     include_directories: [ rootInclude, ],
@@ -755,7 +755,7 @@ test('rek3gd33 Terminal fallback test',
   args: []
 )
 
-test('rek3gd34 Extension column test',
+test('dbcw6 Extension column test',
   executable('test-nemo-column',
     [ 'test-nemo-column.c' ],
     include_directories: [ rootInclude, ],
@@ -770,7 +770,7 @@ if is_windows
   # with a full bin the whole run has been seen to take four and a half minutes.
   # It watches the real bin for a quiet spell, so nothing else may run beside
   # it: the archive combinations test recycles into that same bin.
-  test('rcgzbyar Trash win32 test',
+  test('da8rb Trash win32 test',
     executable('test-nemo-trash-win32',
       [ 'test-nemo-trash-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -782,7 +782,7 @@ if is_windows
   )
 endif
 
-test('rge1srj8 Crash reporter test',
+test('dcd27 Crash reporter test',
   executable('test-nemo-crash',
     [ 'test-nemo-crash.c' ],
     include_directories: [ rootInclude, ],
@@ -793,7 +793,7 @@ test('rge1srj8 Crash reporter test',
 )
 
 if is_windows
-  test('rdcvb368 Shortcut win32 test',
+  test('daqzg Shortcut win32 test',
     executable('test-nemo-shortcut-win32',
       [ 'test-nemo-shortcut-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -803,7 +803,7 @@ if is_windows
   )
 endif
 
-test('rch2h9g0 GIO fileops probe',
+test('da8t3 GIO fileops probe',
   executable('test-gio-fileops',
     [ 'test-gio-fileops.c' ],
     include_directories: [ rootInclude, ],
@@ -812,7 +812,7 @@ test('rch2h9g0 GIO fileops probe',
   args: []
 )
 
-test('78k3mysg Copy test',
+test('3z0xv Copy test',
   executable('test-nemo-copy',
     [ 'test-copy.c', 'test.c' ],
     include_directories: [ rootInclude, ],
@@ -829,7 +829,7 @@ link_copy_job = executable('test-nemo-link-copy-job',
   c_args: nemo_definitions,
 )
 
-test('rhr6ggmr Link copy job, every answer', link_copy_job, args: [])
+test('dd42s Link copy job, every answer', link_copy_job, args: [])
 
 make_link_job = executable('test-nemo-make-link-job',
   [ 'test-nemo-make-link-job.c', 'test.c' ],
@@ -845,22 +845,22 @@ new_folder_path = executable('test-nemo-new-folder-path',
   c_args: nemo_definitions,
 )
 
-test('rk56fsaw New folder named with a path', new_folder_path)
+test('ddwn7 New folder named with a path', new_folder_path)
 
-test('rhmye3d0 Make link relative', make_link_job, args: [ 'relative' ])
-test('rhmye3d1 Make link absolute', make_link_job, args: [ 'absolute' ])
-test('rhmye3d2 Make link hardlink', make_link_job, args: [ 'hardlink' ])
-test('rhn5ewrg Make link shortcut', make_link_job, args: [ 'shortcut' ])
+test('dd29z Make link relative', make_link_job, args: [ 'relative' ])
+test('dd2a0 Make link absolute', make_link_job, args: [ 'absolute' ])
+test('dd2a1 Make link hardlink', make_link_job, args: [ 'hardlink' ])
+test('dd2ds Make link shortcut', make_link_job, args: [ 'shortcut' ])
 # A shortcut always has every path since backlog 2026092813381440, so an
 # absolute-only one can no longer be asked for.
-# test('rhn92e10 Make link shortcut absolute', make_link_job, args: [ 'shortcut-absolute' ])
-test('rhnb1z7g Make link shortcut portable', make_link_job, args: [ 'shortcut-portable' ])
-test('rhnq7f38 Make link names', make_link_job, args: [ 'names' ])
-test('rm1p3ner Make link shortcut to an upper-case .LNK', make_link_job, args: [ 'shortcut-upper' ])
-test('rhr6ggms Make link, every answer', make_link_job, args: [ 'every' ])
-test('rj05egmb Make link redo', make_link_job, args: [ 'redo' ])
+# test('dd2fr Make link shortcut absolute', make_link_job, args: [ 'shortcut-absolute' ])
+test('dd2gv Make link shortcut portable', make_link_job, args: [ 'shortcut-portable' ])
+test('dd2qg Make link names', make_link_job, args: [ 'names' ])
+test('dec73 Make link shortcut to an upper-case .LNK', make_link_job, args: [ 'shortcut-upper' ])
+test('dd42t Make link, every answer', make_link_job, args: [ 'every' ])
+test('dd8e1 Make link redo', make_link_job, args: [ 'redo' ])
 if is_windows
-  test('rhmye3d3 Make link junction', make_link_job, args: [ 'junction' ])
+  test('dd2a2 Make link junction', make_link_job, args: [ 'junction' ])
 endif
 
 link_delete_job = executable('test-nemo-link-delete-job',
@@ -870,9 +870,9 @@ link_delete_job = executable('test-nemo-link-delete-job',
   c_args: nemo_definitions,
 )
 
-test('rh5nme6g Link delete leaves the target', link_delete_job, args: [ 'delete' ])
-test('rhtq57n2 Link delete, asked by the job', link_delete_job, args: [ 'delete-asked' ])
-test('rh5nme6h Link move leaves the target', link_delete_job, args: [ 'move' ])
+test('dcsz0 Link delete leaves the target', link_delete_job, args: [ 'delete' ])
+test('dd5ex Link delete, asked by the job', link_delete_job, args: [ 'delete-asked' ])
+test('dcsz1 Link move leaves the target', link_delete_job, args: [ 'move' ])
 
 move_conflict = executable('test-nemo-move-conflict',
   [ 'test-nemo-move-conflict.c', 'test.c' ],
@@ -880,17 +880,17 @@ move_conflict = executable('test-nemo-move-conflict',
   dependencies: [ gtk, nemo_private, test_scratch ],
   c_args: nemo_definitions,
 )
-test('rkb48gsx Move conflict answers test',
+test('ddzwv Move conflict answers test',
   move_conflict,
   timeout: 120,
 )
-test('rkrqwvsq Move Replace asks the guard once test',
+test('de7as Move Replace asks the guard once test',
   move_conflict,
   args: [ 'guard' ],
 )
 
 # Carries the resource for the emblem art, as the next test does.
-test('rhtmbdmc Link emblems test',
+test('dd5de Link emblems test',
   executable('test-nemo-emblems',
     [ 'test-nemo-emblems.c' ] + gresources,
     include_directories: [ rootInclude, ],
@@ -900,7 +900,7 @@ test('rhtmbdmc Link emblems test',
 )
 
 # Carries its own copy of the resource, for the reason the next test explains.
-test('rgak6kmg App resources test',
+test('dcb5t App resources test',
   executable('test-nemo-app-resources',
     [ 'test-nemo-app-resources.c' ] + gresources,
     include_directories: [ rootInclude, ],
@@ -911,7 +911,7 @@ test('rgak6kmg App resources test',
 
 # The resource has to be compiled straight in for the same reason the exe does:
 # nothing else references the self-registering object, so the linker drops it.
-test('rf2w8yxr Settings widgets test',
+test('dbnfq Settings widgets test',
   executable('test-nemo-prefs-widgets',
     [ 'test-nemo-prefs-widgets.c' ] + gresources,
     include_directories: [ rootInclude, ],
@@ -920,7 +920,7 @@ test('rf2w8yxr Settings widgets test',
   args: []
 )
 
-test('rkrqg9mg Template rename and add errors test',
+test('de7aj Template rename and add errors test',
   executable('test-nemo-template-errors',
     [ 'test-nemo-template-errors.c', '../src/nemo-template-config-widget.c',
       '../src/nemo-config-base-widget.c', '../src/nemo-error-reporting.c' ] + gresources,
@@ -932,7 +932,7 @@ test('rkrqg9mg Template rename and add errors test',
 )
 
 # Brings its dialog to the front, so alone on Windows too.
-test('rhtmbdmd Settings dialog test',
+test('dd5df Settings dialog test',
   executable('test-nemo-prefs-dialog',
     [ 'test-nemo-prefs-dialog.c', '../src/nemo-file-management-properties.c' ] + gresources,
     include_directories: [ rootInclude, include_directories('../src') ],
@@ -943,7 +943,7 @@ test('rhtmbdmd Settings dialog test',
   is_parallel: not is_windows,
 )
 
-test('rhtmbdme Search box Enter test',
+test('dd5dg Search box Enter test',
   executable('test-nemo-query-editor',
     [ 'test-nemo-query-editor.c', '../src/nemo-query-editor.c' ] + gresources,
     include_directories: [ rootInclude, include_directories('../src') ],
@@ -953,7 +953,7 @@ test('rhtmbdme Search box Enter test',
   args: []
 )
 
-test('rk5b84ef Settings tab list test',
+test('ddwqt Settings tab list test',
   executable('test-nemo-tab-list',
     [ 'test-nemo-tab-list.c' ],
     include_directories: [ rootInclude, ],
@@ -962,7 +962,7 @@ test('rk5b84ef Settings tab list test',
   args: []
 )
 
-test('rhtmbdmf Settings Current tab test',
+test('dd5dh Settings Current tab test',
   executable('test-nemo-prefs-current',
     [ 'test-nemo-prefs-current.c', '../src/nemo-prefs-current-folder.c' ] + gresources,
     include_directories: [ rootInclude, include_directories('../src') ],
@@ -973,7 +973,7 @@ test('rhtmbdmf Settings Current tab test',
 )
 
 if is_windows
-  test('rf2w8yxs Path separator test',
+  test('dbnfr Path separator test',
     executable('test-nemo-path-separator-win32',
       [ 'test-nemo-path-separator-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -983,7 +983,7 @@ if is_windows
   )
 endif
 
-test('rfwwdyvg Link copy test',
+test('dc3p6 Link copy test',
   executable('test-nemo-link-copy',
     [ 'test-nemo-link-copy.c' ],
     include_directories: [ rootInclude, ],
@@ -992,7 +992,7 @@ test('rfwwdyvg Link copy test',
   args: []
 )
 
-test('rhqxx81r Link edit test',
+test('dd3y3 Link edit test',
   executable('test-nemo-link-edit',
     [ 'test-nemo-link-edit.c' ],
     include_directories: [ rootInclude, ],
@@ -1001,7 +1001,7 @@ test('rhqxx81r Link edit test',
   args: []
 )
 
-test('rff477f0 Shortcut name test',
+test('dbw5s Shortcut name test',
   executable('test-nemo-shortcut-name',
     [ 'test-nemo-shortcut-name.c' ],
     include_directories: [ rootInclude, ],
@@ -1010,7 +1010,7 @@ test('rff477f0 Shortcut name test',
   args: []
 )
 
-test('rh2nkbar Folder settings test',
+test('dcraj Folder settings test',
   executable('test-nemo-folder-settings',
     [ 'test-nemo-folder-settings.c' ],
     include_directories: [ rootInclude, ],
@@ -1021,7 +1021,7 @@ test('rh2nkbar Folder settings test',
 )
 
 if is_windows
-  test('rf2v65mr Dot-file switch test',
+  test('dbnf4 Dot-file switch test',
     executable('test-nemo-dot-files-win32',
       [ 'test-nemo-dot-files-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -1033,7 +1033,7 @@ endif
 
 # The win32 helper lives in src/, not a library, so it is compiled straight in.
 if is_windows
-  test('renyy630 Win32 argument quoting test',
+  test('dbedz Win32 argument quoting test',
     executable('test-nemo-view-win32',
       [ 'test-nemo-view-win32.c', '../src/nemo-view-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -1045,7 +1045,7 @@ if is_windows
 endif
 
 # Both platforms: on Windows icons follow the scale, elsewhere they must not.
-test('rjpbjt68 Icon display scale test',
+test('ddmhv Icon display scale test',
   executable('test-nemo-ui-scale',
     [ 'test-nemo-ui-scale.c' ],
     include_directories: [ rootInclude, ],
@@ -1056,7 +1056,7 @@ test('rjpbjt68 Icon display scale test',
 )
 
 if is_windows
-  test('rexrjb60 DPI win32 test',
+  test('dbjpa DPI win32 test',
     executable('test-nemo-dpi-win32',
       [ 'test-nemo-dpi-win32.c', '../src/nemo-dpi-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -1070,7 +1070,7 @@ endif
 # Puts three windows on screen and needs the foreground, so it skips over ssh,
 # and runs alone, since it takes the foreground from any test beside it.
 if is_windows
-  test('rjf8db1q Tab move foreground right test',
+  test('ddgns Tab move foreground right test',
     executable('test-nemo-raise-win32',
       [ 'test-nemo-raise-win32.c', '../src/nemo-window-at-point-win32.c' ],
       include_directories: [ rootInclude, include_directories('../src') ],
@@ -1082,7 +1082,7 @@ if is_windows
 endif
 
 if is_windows
-  test('rkrwz70y Console charset win32 test',
+  test('de7dh Console charset win32 test',
     executable('test-nemo-console-charset-win32',
       [ 'test-nemo-console-charset-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -1093,7 +1093,7 @@ if is_windows
 endif
 
 if is_windows
-  test('renz2428 Network win32 test',
+  test('dbee2 Network win32 test',
     executable('test-nemo-network-win32',
       [ 'test-nemo-network-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -1104,7 +1104,7 @@ if is_windows
 endif
 
 if is_windows
-  test('reybtrrr Properties fallback win32 test',
+  test('dbk0v Properties fallback win32 test',
     executable('test-nemo-properties-win32',
       [ 'test-nemo-properties-win32.c', '../src/nemo-properties-win32.c' ],
       include_directories: [ rootInclude, '../src' ],
@@ -1116,7 +1116,7 @@ if is_windows
 endif
 
 if is_windows
-  test('rep11s5r Drive root name test',
+  test('dbef4 Drive root name test',
     executable('test-nemo-drive-root-name',
       [ 'test-nemo-drive-root-name.c' ],
       include_directories: [ rootInclude, ],
@@ -1128,7 +1128,7 @@ if is_windows
 endif
 
 if is_windows
-  test('rep11s5s File refresh churn test',
+  test('dbef5 File refresh churn test',
     executable('test-nemo-file-win32-churn',
       [ 'test-nemo-file-win32-churn.c' ],
       include_directories: [ rootInclude, ],
@@ -1140,7 +1140,7 @@ if is_windows
 endif
 
 if is_windows
-  test('rep167r8 Thumbnail win32 type test',
+  test('dbef7 Thumbnail win32 type test',
     executable('test-nemo-thumbnail-win32',
       [ 'test-nemo-thumbnail-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -1150,7 +1150,7 @@ if is_windows
     args: []
   )
 
-  test('rky0srmt Thumbnail upper-case extension win32 test',
+  test('dea70 Thumbnail upper-case extension win32 test',
     executable('test-nemo-thumbnail-case-win32',
       [ 'test-nemo-thumbnail-case-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -1161,7 +1161,7 @@ if is_windows
   )
 endif
 
-test('repkeg1g Appearance themes test',
+test('dbes6 Appearance themes test',
   # The theme resource is linked into the app, not into libnemo-private, so a
   # test that checks it has to carry its own copy.
   executable('test-nemo-appearance',
@@ -1174,7 +1174,7 @@ test('repkeg1g Appearance themes test',
 
 # XSETTINGS is how an X desktop names its themes. Linux and the BSDs.
 if not is_windows and not is_macos
-  test('rkmve05x Desktop theme change test',
+  test('de56s Desktop theme change test',
     executable('test-nemo-appearance-desktop',
       [ 'test-nemo-appearance-desktop.c' ],
       include_directories: [ rootInclude, ],
@@ -1184,7 +1184,7 @@ if not is_windows and not is_macos
   )
 endif
 
-test('rexta5a8 Column layout test',
+test('dbjq9 Column layout test',
   executable('test-nemo-column-layout',
     [ 'test-nemo-column-layout.c', '../src/nemo-column-layout.c' ],
     include_directories: [ rootInclude, ],
@@ -1194,7 +1194,7 @@ test('rexta5a8 Column layout test',
   args: []
 )
 
-test('rjm2rvjn Find mode columns test',
+test('ddka3 Find mode columns test',
   executable('test-nemo-search-columns',
     [ 'test-nemo-search-columns.c' ],
     include_directories: [ rootInclude, ],
@@ -1204,7 +1204,7 @@ test('rjm2rvjn Find mode columns test',
   args: []
 )
 
-test('rh0ktwj0 Pane layout test',
+test('dcq6m Pane layout test',
   executable('test-nemo-pane-layout',
     [ 'test-nemo-pane-layout.c', '../src/nemo-pane-layout.c' ],
     include_directories: [ rootInclude, ],
@@ -1214,7 +1214,7 @@ test('rh0ktwj0 Pane layout test',
   args: []
 )
 
-test('rh0ms87r Proportional paned test',
+test('dcq75 Proportional paned test',
   executable('test-nemo-proportional-paned',
     [ 'test-nemo-proportional-paned.c', '../src/nemo-proportional-paned.c', '../src/nemo-pane-layout.c' ],
     include_directories: [ rootInclude, ],
@@ -1224,7 +1224,7 @@ test('rh0ms87r Proportional paned test',
   args: []
 )
 
-test('rfzn5ttr Search group test',
+test('dc56n Search group test',
   executable('test-nemo-search-group',
     [ 'test-nemo-search-group.c', '../src/nemo-list-model.c' ],
     include_directories: [ rootInclude, include_directories('../src') ],
@@ -1234,7 +1234,7 @@ test('rfzn5ttr Search group test',
   args: []
 )
 
-test('rhbcgvhg Icon size test',
+test('dcx2w Icon size test',
   executable('test-nemo-icon-size',
     [ 'test-nemo-icon-size.c' ],
     include_directories: [ rootInclude, ],
@@ -1244,7 +1244,7 @@ test('rhbcgvhg Icon size test',
   args: []
 )
 
-test('rhb624a0 List expander test',
+test('dcwzb List expander test',
   executable('test-nemo-list-expander',
     [ 'test-nemo-list-expander.c', '../src/nemo-list-model.c' ],
     include_directories: [ rootInclude, include_directories('../src') ],
@@ -1254,7 +1254,7 @@ test('rhb624a0 List expander test',
   args: []
 )
 
-test('rh2af9s0 Tree folders test',
+test('dcr4f Tree folders test',
   executable('test-nemo-tree-folders',
     [ 'test-nemo-tree-folders.c', '../src/nemo-tree-sidebar-model.c' ],
     include_directories: [ rootInclude, include_directories('../src') ],
@@ -1264,7 +1264,7 @@ test('rh2af9s0 Tree folders test',
   args: []
 )
 
-test('rhtmbdmg Status bar name test',
+test('dd5dj Status bar name test',
   executable('test-nemo-status-name',
     [ 'test-nemo-status-name.c' ],
     include_directories: [ rootInclude, ],
@@ -1273,7 +1273,7 @@ test('rhtmbdmg Status bar name test',
   args: []
 )
 
-test('rhtmbdmh Tab strip test',
+test('dd5dk Tab strip test',
   executable('test-nemo-notebook',
     [ 'test-nemo-notebook.c', '../src/nemo-notebook.c' ],
     include_directories: [ rootInclude, include_directories('../src') ],
@@ -1283,7 +1283,7 @@ test('rhtmbdmh Tab strip test',
   args: []
 )
 
-test('rg3wt7d8 New process argv test',
+test('dc7gq New process argv test',
   executable('test-nemo-new-process',
     [ 'test-nemo-new-process.c', '../src/nemo-new-process.c' ],
     include_directories: [ rootInclude, include_directories('../src') ],
@@ -1294,7 +1294,7 @@ test('rg3wt7d8 New process argv test',
 )
 
 if not is_windows
-  test('rhtjdp1j Clipboard drag collision test',
+  test('dd5ca Clipboard drag collision test',
     executable('test-nemo-clipboard',
       [ 'test-nemo-clipboard.c' ],
       include_directories: [ rootInclude, ],
@@ -1305,7 +1305,7 @@ if not is_windows
 endif
 
 if not is_windows
-  test('rhtjdp1k Desktop terminal setting test',
+  test('dd5cb Desktop terminal setting test',
     executable('test-nemo-desktop-terminal',
       [ 'test-nemo-desktop-terminal.c' ],
       include_directories: [ rootInclude, ],
@@ -1317,7 +1317,7 @@ endif
 
 # Desktop files and a URI handler from mimeapps.list, neither of which macOS has.
 if not is_windows and not is_macos
-  test('rk583zzx Launch environment test',
+  test('ddwp3 Launch environment test',
     executable('test-nemo-launch-env',
       [ 'test-nemo-launch-env.c' ],
       include_directories: [ rootInclude, ],
@@ -1332,7 +1332,7 @@ if not is_windows and not is_macos
 endif
 
 if not is_windows
-  test('rgahvdsr Runtime environment test',
+  test('dcb52 Runtime environment test',
     executable('test-nemo-runtime-env',
       [ 'test-nemo-runtime-env.c' ],
       include_directories: [ rootInclude, ],
@@ -1347,7 +1347,7 @@ if not is_windows
 endif
 
 if not is_windows
-  test('rgahgzt8 Extensions list flag test',
+  test('dcb4x Extensions list flag test',
     executable('test-nemo-extensions-list',
       [ 'test-nemo-extensions-list.c' ],
       include_directories: [ rootInclude, ],
@@ -1364,14 +1364,14 @@ cli_version = executable('test-nemo-cli-version',
 )
 
 if is_windows
-  test('rjgw21aw Version and option parse test',
+  test('ddhj0 Version and option parse test',
     cli_version,
     args: [ nemo, meson.project_version() ],
   )
 endif
 
 if not is_windows
-  test('rh3nba2g Version with no display test',
+  test('dcrvx Version with no display test',
     cli_version,
     args: [ nemo, meson.project_version(),
             meson.current_source_dir() / '..' / 'build-number.py', py.full_path() ],
@@ -1379,7 +1379,7 @@ if not is_windows
 
   # X11 only. GTK on macOS has no X server to ask.
   if not is_macos
-    test('rhmr6qgr Window under the pointer test',
+    test('dd26j Window under the pointer test',
       executable('test-nemo-window-at-point',
         [ 'test-nemo-window-at-point.c', '../src/nemo-window-at-point.c' ],
         include_directories: [ rootInclude, include_directories('../src') ],
@@ -1389,7 +1389,7 @@ if not is_windows
     )
   endif
 
-  test('rhtq57n3 Action programs in their own folder test',
+  test('dd5ey Action programs in their own folder test',
     executable('test-nemo-action-exec',
       [ 'test-nemo-action-exec.c' ],
       include_directories: [ rootInclude, ],
@@ -1398,7 +1398,7 @@ if not is_windows
     args: []
   )
 
-  test('rjhbbg9n Share visits test',
+  test('ddhtb Share visits test',
     executable('test-nemo-share-visits',
       [ 'test-nemo-share-visits.c' ],
       include_directories: [ rootInclude, ],
@@ -1407,7 +1407,7 @@ if not is_windows
     args: []
   )
 
-  test('rk95h61s Share folder with a local path lists test',
+  test('ddytk Share folder with a local path lists test',
     executable('test-nemo-dir-enum-remote',
       [ 'test-nemo-dir-enum-remote.c' ],
       include_directories: [ rootInclude, ],
@@ -1421,7 +1421,7 @@ if not is_windows
     [ 'test-nemo-list-view-counts.c' ],
     dependencies: [ gtk, cc.find_library('dl', required: false) ],
   )
-  test('rj4jkr22 List view work per row test',
+  test('ddav4 List view work per row test',
     executable('test-nemo-list-view-work',
       [ 'test-nemo-list-view-work.c' ],
       include_directories: [ rootInclude, ],
@@ -1436,7 +1436,7 @@ if not is_windows
     [ 'test-nemo-list-expand-time-probe.c' ],
     dependencies: [ gtk ],
   )
-  test('rk96k9va List view expander time test',
+  test('ddyv6 List view expander time test',
     executable('test-nemo-list-expand-time',
       [ 'test-nemo-list-expand-time.c' ],
       include_directories: [ rootInclude, ],
@@ -1451,7 +1451,7 @@ if not is_windows
     [ 'test-nemo-open-time-probe.c' ],
     dependencies: [ gtk ],
   )
-  test('rkbdyne7 Folder open time test',
+  test('de025 Folder open time test',
     executable('test-nemo-open-time',
       [ 'test-nemo-open-time.c' ],
       include_directories: [ rootInclude, ],
@@ -1466,7 +1466,7 @@ if not is_windows
     [ 'test-nemo-places-focus-probe.c' ],
     dependencies: [ gtk ],
   )
-  test('rjedw75s Places focus test',
+  test('ddg79 Places focus test',
     executable('test-nemo-places-focus',
       [ 'test-nemo-places-focus.c' ],
       include_directories: [ rootInclude, ],
@@ -1480,7 +1480,7 @@ if not is_windows
     [ 'test-nemo-places-bookmarks-heading-probe.c' ],
     dependencies: [ gtk ],
   )
-  test('rjhemba0 Places bookmarks heading after a settings edit test',
+  test('ddhw4 Places bookmarks heading after a settings edit test',
     executable('test-nemo-places-bookmarks-heading',
       [ 'test-nemo-places-bookmarks-heading.c' ],
       include_directories: [ rootInclude, ],
@@ -1496,7 +1496,7 @@ if not is_windows
     include_directories: [ rootInclude, ],
     dependencies: [ gtk ],
   )
-  test('rjefm41d Keyboard menu beside the item test',
+  test('ddg88 Keyboard menu beside the item test',
     executable('test-nemo-menu-key-place',
       [ 'test-nemo-menu-key-place.c' ],
       include_directories: [ rootInclude, ],
@@ -1517,17 +1517,17 @@ if not is_windows
     include_directories: [ rootInclude, ],
     dependencies: [ glib, gio, test_scratch ],
   )
-  test('rk7yvgse Drag select test',
+  test('ddy5f Drag select test',
     drag_select,
     args: [ nemo, drag_select_probe ],
     timeout: 240
   )
-  test('rkts3far Drag select test, Nemo Classic',
+  test('de8ec Drag select test, Nemo Classic',
     drag_select,
     args: [ nemo, drag_select_probe, 'nemo-classic' ],
     timeout: 240
   )
-  test('rm1sbwdq Drag select test, Nemo Anywhere',
+  test('dec8v Drag select test, Nemo Anywhere',
     drag_select,
     args: [ nemo, drag_select_probe, 'nemo-anywhere' ],
     timeout: 240
@@ -1544,17 +1544,17 @@ if not is_windows
     include_directories: [ rootInclude, ],
     dependencies: [ glib, gio, test_scratch ],
   )
-  test('rktkms8a Selection rules test',
+  test('de8bd Selection rules test',
     selection_rules,
     args: [ nemo, selection_rules_probe ],
     timeout: 300
   )
-  test('rktqpp37 Selection rules test, Nemo Classic',
+  test('de8dm Selection rules test, Nemo Classic',
     selection_rules,
     args: [ nemo, selection_rules_probe, 'nemo-classic' ],
     timeout: 300
   )
-  test('rm1sbxgy Selection rules test, Nemo Anywhere',
+  test('dec8w Selection rules test, Nemo Anywhere',
     selection_rules,
     args: [ nemo, selection_rules_probe, 'nemo-anywhere' ],
     timeout: 300
@@ -1565,7 +1565,7 @@ if not is_windows
     include_directories: [ rootInclude, ],
     dependencies: [ gtk ],
   )
-  test('rjerav6k Icon accessible extents test',
+  test('ddgd0 Icon accessible extents test',
     executable('test-nemo-icon-atk',
       [ 'test-nemo-icon-atk.c' ],
       include_directories: [ rootInclude, ],
@@ -1581,7 +1581,7 @@ if not is_windows
     include_directories: [ rootInclude, ],
     dependencies: [ gtk ],
   )
-  test('rk526bz6 F2 in a folder of pictures test',
+  test('ddwjw F2 in a folder of pictures test',
     executable('test-nemo-rename-photo',
       [ 'test-nemo-rename-photo.c' ],
       include_directories: [ rootInclude, ],
@@ -1596,7 +1596,7 @@ if not is_windows
     include_directories: [ rootInclude, ],
     dependencies: [ gtk ],
   )
-  test('rkb84h93 F2 while the folder keeps changing test',
+  test('ddzyz F2 while the folder keeps changing test',
     executable('test-nemo-rename-photo-busy',
       [ 'test-nemo-rename-photo.c' ],
       include_directories: [ rootInclude, ],
@@ -1611,7 +1611,7 @@ if not is_windows
     include_directories: [ rootInclude, ],
     dependencies: [ gtk ],
   )
-  test('rkb9fjtc Rename stays open when the icons move test',
+  test('ddzzq Rename stays open when the icons move test',
     executable('test-nemo-rename-photo-moved',
       [ 'test-nemo-rename-photo.c' ],
       include_directories: [ rootInclude, ],
@@ -1626,7 +1626,7 @@ if not is_windows
     [ 'test-nemo-search-escape-probe.c' ],
     dependencies: [ gtk ],
   )
-  test('rk7vz6gm Escape in find mode test',
+  test('ddy3x Escape in find mode test',
     executable('test-nemo-search-escape',
       [ 'test-nemo-search-escape.c' ],
       include_directories: [ rootInclude, ],
@@ -1641,7 +1641,7 @@ if not is_windows
     [ 'test-nemo-bulk-rename-run-probe.c' ],
     dependencies: [ gtk ],
   )
-  test('rk7wywt9 Bulk renamer gets paths test',
+  test('ddy4e Bulk renamer gets paths test',
     executable('test-nemo-bulk-rename-run',
       [ 'test-nemo-bulk-rename-run.c' ],
       include_directories: [ rootInclude, ],
@@ -1661,9 +1661,9 @@ if not is_windows
     include_directories: [ rootInclude, ],
     dependencies: [ glib, gio, test_scratch ],
   )
-  test('rk56ftav New folder named with a path, icon view',
+  test('ddwn8 New folder named with a path, icon view',
     new_folder_path_gui, args: [ nemo, new_folder_path_probe, 'icon' ], timeout: 120)
-  test('rk56g0rq New folder named with a path, list view',
+  test('ddwn9 New folder named with a path, list view',
     new_folder_path_gui, args: [ nemo, new_folder_path_probe, 'list' ], timeout: 120)
 
   # Preloaded too; it opens Properties and presses the keys from inside.
@@ -1671,7 +1671,7 @@ if not is_windows
     [ 'test-nemo-properties-tabs-probe.c' ],
     dependencies: [ gtk ],
   )
-  test('rk6naqsk Properties tabs take no focus test',
+  test('ddxes Properties tabs take no focus test',
     executable('test-nemo-properties-tabs',
       [ 'test-nemo-properties-tabs.c' ],
       include_directories: [ rootInclude, ],
@@ -1686,7 +1686,7 @@ if not is_windows
     [ 'test-nemo-delete-after-dialog-probe.c' ],
     dependencies: [ gtk ],
   )
-  test('rkmsgs9m Delete key after Properties test',
+  test('de55r Delete key after Properties test',
     executable('test-nemo-delete-after-dialog',
       [ 'test-nemo-delete-after-dialog.c' ],
       include_directories: [ rootInclude, ],
@@ -1702,7 +1702,7 @@ if not is_windows
     include_directories: [ rootInclude, ],
     dependencies: [ gtk ],
   )
-  test('rk52yvz0 No tooltip while another program has the focus test',
+  test('ddwk9 No tooltip while another program has the focus test',
     executable('test-nemo-tooltip-focus',
       [ 'test-nemo-tooltip-focus.c' ],
       include_directories: [ rootInclude, ],
@@ -1717,7 +1717,7 @@ if not is_windows
     [ 'test-nemo-reset-sort-probe.c' ],
     dependencies: [ gtk ],
   )
-  test('rjnzamsq Reset view sort test',
+  test('ddmb5 Reset view sort test',
     executable('test-nemo-reset-sort',
       [ 'test-nemo-reset-sort.c' ],
       include_directories: [ rootInclude, ],
@@ -1732,7 +1732,7 @@ if not is_windows
     [ 'test-nemo-sort-views-probe.c' ],
     dependencies: [ gtk ],
   )
-  test('rkmsgtfz List and icon views share a sort test',
+  test('de55s List and icon views share a sort test',
     executable('test-nemo-sort-views',
       [ 'test-nemo-sort-views.c' ],
       include_directories: [ rootInclude, ],
@@ -1747,7 +1747,7 @@ if not is_windows
     [ 'test-nemo-find-view-probe.c' ],
     dependencies: [ gtk ],
   )
-  test('rk7wxqh5 Find mode view test',
+  test('ddy4d Find mode view test',
     executable('test-nemo-find-view',
       [ 'test-nemo-find-view.c' ],
       include_directories: [ rootInclude, ],
@@ -1762,7 +1762,7 @@ if not is_windows
     [ 'test-nemo-find-history-probe.c' ],
     dependencies: [ gtk ],
   )
-  test('rk7y2ch7 Search in history test',
+  test('ddy51 Search in history test',
     executable('test-nemo-find-history',
       [ 'test-nemo-find-history.c' ],
       include_directories: [ rootInclude, ],
@@ -1777,7 +1777,7 @@ if not is_windows
     [ 'test-nemo-connecting-probe.c' ],
     dependencies: [ gtk, cc.find_library('dl', required: false) ],
   )
-  test('rjv9ks2z Connecting sign while a share mounts test',
+  test('ddq85 Connecting sign while a share mounts test',
     executable('test-nemo-connecting',
       [ 'test-nemo-connecting.c' ],
       include_directories: [ rootInclude, ],
@@ -1788,7 +1788,7 @@ if not is_windows
   )
 
   if not is_macos
-    test('rhtq57n4 Clean start test',
+    test('dd5ez Clean start test',
       executable('test-nemo-startup-clean',
         [ 'test-nemo-startup-clean.c' ],
         include_directories: [ rootInclude, ],
@@ -1799,7 +1799,7 @@ if not is_windows
     )
   endif
 
-  test('rg3wt7d9 Instances test',
+  test('dc7gr Instances test',
     executable('test-nemo-instances',
       [ 'test-nemo-instances.c' ],
       include_directories: [ rootInclude, ],
@@ -1810,7 +1810,7 @@ if not is_windows
   )
 
   if not is_macos
-    test('rj750n43 File cache written at quit test',
+    test('ddc84 File cache written at quit test',
       executable('test-nemo-cache-quit',
         [ 'test-nemo-cache-quit.c' ],
         include_directories: [ rootInclude, ],
@@ -1834,12 +1834,12 @@ if not is_windows
       include_directories: [ rootInclude, ],
       dependencies: [ glib, gio, x11, test_scratch ],
     )
-    test('rjch1b9a Shortcut saved and notice withdrawn at quit test',
+    test('ddf63 Shortcut saved and notice withdrawn at quit test',
       quit_saves,
       args: [ nemo, quit_hooks ],
       timeout: 120
     )
-    test('rjcscb0t Shortcut file beside settings and carried over once test',
+    test('ddfam Shortcut file beside settings and carried over once test',
       quit_saves,
       args: [ nemo, quit_hooks, 'carry-over' ],
       timeout: 240
@@ -1851,7 +1851,7 @@ if not is_windows
     [ 'test-nemo-tab-move-probe.c' ],
     dependencies: [ gtk ],
   )
-  test('rhmr6qgs Tab move between processes test',
+  test('dd26k Tab move between processes test',
     executable('test-nemo-tab-move',
       [ 'test-nemo-tab-move.c' ],
       include_directories: [ rootInclude, ],
@@ -1860,7 +1860,7 @@ if not is_windows
     args: [ nemo, tab_move_probe ],
     timeout: 180
   )
-  test('rjf00qfj Menus freed after closing test',
+  test('ddgh6 Menus freed after closing test',
     executable('test-nemo-menus-freed',
       [ 'test-nemo-menus-freed.c' ],
       include_directories: [ rootInclude, ],
@@ -1873,7 +1873,7 @@ if not is_windows
   # A stray XQuartz copy on a Mac has no server behind it here.
   xtst = is_macos ? dependency('', required: false) : dependency('xtst', required: false)
   if xtst.found()
-    test('rj04ta3n Tree menu key test',
+    test('dd8dp Tree menu key test',
       executable('test-nemo-tree-menu-key',
         [ 'test-nemo-tree-menu-key.c' ],
         include_directories: [ rootInclude, ],
@@ -1888,7 +1888,7 @@ if not is_windows
       [ 'test-nemo-held-view-hooks.c' ],
       dependencies: [ gtk, cc.find_library('dl', required: false) ],
     )
-    test('rjahhesy Held view settings handlers test',
+    test('dde3c Held view settings handlers test',
       executable('test-nemo-held-view',
         [ 'test-nemo-held-view.c' ],
         include_directories: [ rootInclude, shclInclude, ],
@@ -1904,7 +1904,7 @@ if not is_windows
       include_directories: [ rootInclude, ],
       dependencies: [ gtk, x11, xtst ],
     )
-    test('rk80w1ds Long press menu test',
+    test('ddy6j Long press menu test',
       executable('test-nemo-long-press',
         [ 'test-nemo-long-press.c' ],
         include_directories: [ rootInclude, ],
@@ -1916,7 +1916,7 @@ if not is_windows
   endif
 endif
 
-test('rezjn4m8 Filename extension test',
+test('dbkp1 Filename extension test',
   executable('test-nemo-filename-extension',
     [ 'test-nemo-filename-extension.c' ],
     include_directories: [ rootInclude, ],
@@ -1925,7 +1925,7 @@ test('rezjn4m8 Filename extension test',
   args: []
 )
 
-test('rh65bpp8 Owner columns test',
+test('dct7k Owner columns test',
   executable('test-nemo-owner-columns',
     [ 'test-nemo-owner-columns.c' ],
     include_directories: [ rootInclude, ],
@@ -1934,7 +1934,7 @@ test('rh65bpp8 Owner columns test',
   args: []
 )
 
-test('rhtjdp1m Uri under another test',
+test('dd5cc Uri under another test',
   executable('test-nemo-uri-under',
     [ 'test-nemo-uri-under.c' ],
     include_directories: [ rootInclude, ],
@@ -1943,7 +1943,7 @@ test('rhtjdp1m Uri under another test',
   args: []
 )
 
-test('rh648pjg Path forms test',
+test('dct70 Path forms test',
   executable('test-nemo-path-forms',
     [ 'test-nemo-path-forms.c' ],
     include_directories: [ rootInclude, ],
@@ -1952,7 +1952,7 @@ test('rh648pjg Path forms test',
   args: []
 )
 
-test('rh3bha78 Window title test',
+test('dcrph Window title test',
   executable('test-nemo-window-title',
     [ 'test-nemo-window-title.c' ],
     include_directories: [ rootInclude, ],
@@ -1961,7 +1961,7 @@ test('rh3bha78 Window title test',
   args: []
 )
 
-test('rhdg25n0 Uptime test',
+test('dcy7s Uptime test',
   executable('test-nemo-uptime',
     [ 'test-nemo-uptime.c' ],
     include_directories: [ rootInclude, ],
@@ -1970,7 +1970,7 @@ test('rhdg25n0 Uptime test',
   args: []
 )
 
-test('rjmpxtbg Windows paths in user text test',
+test('ddkn3 Windows paths in user text test',
   executable('test-nemo-user-text',
     [ 'test-nemo-user-text.c' ],
     include_directories: [ rootInclude, ],
@@ -1979,7 +1979,7 @@ test('rjmpxtbg Windows paths in user text test',
   args: []
 )
 
-test('rjpr3nzy Link file type test',
+test('ddmrp Link file type test',
   executable('test-nemo-link-type',
     [ 'test-nemo-link-type.c', '../src/nemo-desktop-item-properties.c' ],
     include_directories: [ rootInclude, include_directories('../src') ],
@@ -1989,7 +1989,7 @@ test('rjpr3nzy Link file type test',
   args: []
 )
 
-test('rexkeyng Command template test',
+test('dbjkh Command template test',
   executable('test-nemo-command-template',
     [ 'test-nemo-command-template.c' ],
     include_directories: [ rootInclude, ],
@@ -1998,7 +1998,7 @@ test('rexkeyng Command template test',
   args: []
 )
 
-test('rev86z08 Archive options test',
+test('dbhae Archive options test',
   executable('test-nemo-archive',
     [ 'test-nemo-archive.c' ],
     include_directories: [ rootInclude, ],
@@ -2007,7 +2007,7 @@ test('rev86z08 Archive options test',
   args: []
 )
 
-test('rhtmbdmj Compress dialog height test',
+test('dd5dm Compress dialog height test',
   executable('test-nemo-archive-dialog',
     [ 'test-nemo-archive-dialog.c', '../src/nemo-archive-dialog.c' ],
     include_directories: [ rootInclude, include_directories('../src') ],
@@ -2017,7 +2017,7 @@ test('rhtmbdmj Compress dialog height test',
   args: []
 )
 
-test('rhae85g0 Archive settings test',
+test('dcwjb Archive settings test',
   executable('test-nemo-archive-settings',
     [ 'test-nemo-archive-settings.c' ],
     include_directories: [ rootInclude, ],
@@ -2027,7 +2027,7 @@ test('rhae85g0 Archive settings test',
 )
 
 # Reads the archives it wrote back with libarchive, so it needs that library.
-test('rewygsbg Archive job test',
+test('dbj83 Archive job test',
   executable('test-nemo-archive-job',
     [ 'test-archive-job.c', 'test.c', '../src/nemo-progress-info-widget.c' ],
     include_directories: [ rootInclude, include_directories('../src') ],
@@ -2037,7 +2037,7 @@ test('rewygsbg Archive job test',
   args: []
 )
 
-test('rj4jewn6 Archive check cost test',
+test('ddav1 Archive check cost test',
   executable('test-nemo-archive-verify-cost',
     [ 'test-nemo-archive-verify-cost.c' ],
     include_directories: [ rootInclude, ],
@@ -2049,7 +2049,7 @@ test('rj4jewn6 Archive check cost test',
 
 # Makes its big file sparse, which is a POSIX call.
 if not is_windows
-  test('rjbpyy28 Archive stop time test',
+  test('ddeqt Archive stop time test',
     executable('test-nemo-archive-stop-time',
       [ 'test-nemo-archive-stop-time.c' ],
       include_directories: [ rootInclude, ],
@@ -2062,7 +2062,7 @@ if not is_windows
 endif
 
 # Some hundreds of archives, so it gets longer than the default.
-test('rhr6ggmt Archive option combinations',
+test('dd42v Archive option combinations',
   executable('test-nemo-archive-combos',
     [ 'test-nemo-archive-combos.c', 'test.c' ],
     include_directories: [ rootInclude, ],
@@ -2073,7 +2073,7 @@ test('rhr6ggmt Archive option combinations',
   timeout: 600,
 )
 
-test('reww9h2r Extract naming test',
+test('dbj6w Extract naming test',
   executable('test-nemo-extract',
     [ 'test-nemo-extract.c' ],
     include_directories: [ rootInclude, ],
@@ -2082,7 +2082,7 @@ test('reww9h2r Extract naming test',
   args: []
 )
 
-test('rh62t0e0 Archive mount address test',
+test('dct66 Archive mount address test',
   executable('test-nemo-archive-mount',
     [ 'test-nemo-archive-mount.c' ],
     include_directories: [ rootInclude, ],
@@ -2092,7 +2092,7 @@ test('rh62t0e0 Archive mount address test',
 )
 
 # Writes its own zip with libarchive, so it needs the library the app links.
-test('reww9h2s Extract job test',
+test('dbj6x Extract job test',
   executable('test-nemo-extract-job',
     [ 'test-extract-job.c', 'test.c' ],
     include_directories: [ rootInclude, ],
@@ -2105,7 +2105,7 @@ test('reww9h2s Extract job test',
 # A rar with a link libarchive 3.8.9 and older can't read. Writes it with rar;
 # the links it holds are POSIX ones. Reads one back with libarchive too.
 if not is_windows
-  test('rk65m3m4 Extract rar long link test',
+  test('ddx67 Extract rar long link test',
     executable('test-extract-rar-links',
       [ 'test-extract-rar-links.c', 'test.c' ],
       include_directories: [ rootInclude, ],
@@ -2117,7 +2117,7 @@ if not is_windows
 endif
 
 # The archive core with nothing of the app linked in, and no display to lean on.
-test('rjq9mv0w Archive core test',
+test('ddn29 Archive core test',
   executable('test-arc-core',
     [ 'test-arc-core.c' ],
     dependencies: [ arc_core, test_fence ],
@@ -2129,7 +2129,7 @@ test('rjq9mv0w Archive core test',
 # What the core's build did: no GTK or app on its include path, and no call
 # into them in the library.
 arc_core_nm = find_program('nm', required: false)
-test('rk6704r8 Archive core build test',
+test('ddx6z Archive core build test',
   py,
   args: [ files('check-arc-core-build.py'), meson.project_source_root(), meson.project_build_root(),
           arc_core_lib, arc_core_nm.found() ? arc_core_nm.full_path() : '' ],
@@ -2138,7 +2138,7 @@ test('rk6704r8 Archive core build test',
 # The scan behind the archive size totals on a scratch tree, with a host the
 # test makes and with the app's own. The app is linked for the scratch folder
 # and its host only; the scan never sees it.
-test('rjqef159 Archive scan test',
+test('ddn4x Archive scan test',
   executable('test-arc-scan',
     [ 'test-arc-scan.c' ],
     include_directories: [ rootInclude, ],
@@ -2148,7 +2148,7 @@ test('rjqef159 Archive scan test',
   args: []
 )
 
-test('rg40vg48 Data dirs test',
+test('dc7jy Data dirs test',
   executable('test-nemo-data-dirs',
     [ 'test-nemo-data-dirs.c' ],
     include_directories: [ rootInclude, ],
@@ -2157,7 +2157,7 @@ test('rg40vg48 Data dirs test',
   args: []
 )
 
-test('ret6zctg Path list text test',
+test('dbgr9 Path list text test',
   executable('test-nemo-path-list',
     [ 'test-nemo-path-list.c' ],
     include_directories: [ rootInclude, ],
@@ -2166,7 +2166,7 @@ test('ret6zctg Path list text test',
   args: []
 )
 
-test('rhbe2n9g Image folder test',
+test('dcx3q Image folder test',
   executable('test-nemo-image-folder',
     [ 'test-nemo-image-folder.c' ],
     include_directories: [ rootInclude, ],
@@ -2175,7 +2175,7 @@ test('rhbe2n9g Image folder test',
   args: []
 )
 
-test('rhe0xz31 Photoshop reader test',
+test('dcyh0 Photoshop reader test',
   executable('test-nemo-psd',
     [ 'test-nemo-psd.c' ],
     include_directories: [ rootInclude, ],
@@ -2185,7 +2185,7 @@ test('rhe0xz31 Photoshop reader test',
 )
 
 # The stand-in thumbnailer and search helper are this program run again.
-test('rjvb97aa Office files read in the app test',
+test('ddq92 Office files read in the app test',
   executable('test-nemo-office',
     [ 'test-nemo-office.c' ],
     include_directories: [ rootInclude, ],
@@ -2197,7 +2197,7 @@ test('rjvb97aa Office files read in the app test',
 )
 
 # The .doc, .xls and .ppt are written here, with no library.
-test('rjvtggme Old office files read in the app test',
+test('ddqhc Old office files read in the app test',
   executable('test-nemo-office-ole',
     [ 'test-nemo-office-ole.c' ],
     include_directories: [ rootInclude, ],
@@ -2214,18 +2214,18 @@ testRaw = executable('test-nemo-raw',
   dependencies: [ gtk, nemo_private, test_scratch ],
 )
 
-test('rhg7vh28 Camera raw reader test', testRaw, args: [])
+test('dczqq Camera raw reader test', testRaw, args: [])
 
 # Again with GLib clearing what a shrunk array gives up, so the fixtures can't
 # lean on bytes they no longer own.
-test('rj9v7n76 Camera raw reader test, cleared memory', testRaw,
+test('dddq7 Camera raw reader test, cleared memory', testRaw,
   env: [ 'G_DEBUG=gc-friendly' ],
   args: []
 )
 
 # Windows reads shortcuts through the shell and never builds this reader.
 if not is_windows
-  test('rhmxm5ah Windows shortcut reader test',
+  test('dd29h Windows shortcut reader test',
     executable('test-nemo-lnk',
       [ 'test-nemo-lnk.c' ],
       include_directories: [ rootInclude, ],
@@ -2234,7 +2234,7 @@ if not is_windows
     args: []
   )
 
-  test('rhnqqpm8 Folder shortcuts sort with folders test',
+  test('dd2qs Folder shortcuts sort with folders test',
     executable('test-nemo-lnk-sort',
       [ 'test-nemo-lnk-sort.c' ],
       include_directories: [ rootInclude, ],
@@ -2244,7 +2244,7 @@ if not is_windows
   )
 endif
 
-test('rhg8y5f0 ImageMagick thumbnail test',
+test('dczra ImageMagick thumbnail test',
   executable('test-nemo-magick',
     [ 'test-nemo-magick.c' ],
     include_directories: [ rootInclude, ],
@@ -2255,7 +2255,7 @@ test('rhg8y5f0 ImageMagick thumbnail test',
 
 # Runs on a copy of the loader list the system's gdk-pixbuf reads.
 if not is_windows
-  test('rjnz8zfz ImageMagick for missing pixbuf loaders test',
+  test('ddmb4 ImageMagick for missing pixbuf loaders test',
     executable('test-nemo-magick-extras',
       [ 'test-nemo-magick-extras.c' ],
       include_directories: [ rootInclude, ],
@@ -2267,7 +2267,7 @@ if not is_windows
   )
 endif
 
-test('rhe0xz32 Thumbnail hold test',
+test('dcyh1 Thumbnail hold test',
   executable('test-nemo-thumbnail-hold',
     [ 'test-nemo-thumbnail-hold.c' ],
     include_directories: [ rootInclude, ],
@@ -2276,7 +2276,7 @@ test('rhe0xz32 Thumbnail hold test',
   args: []
 )
 
-test('rhfc3tt8 Thumbnail memory test',
+test('dcz8j Thumbnail memory test',
   executable('test-nemo-thumbnail-memory',
     [ 'test-nemo-thumbnail-memory.c' ],
     include_directories: [ rootInclude, ],
@@ -2285,7 +2285,7 @@ test('rhfc3tt8 Thumbnail memory test',
   args: []
 )
 
-test('rhfdeb5g Thumbnail jobs test',
+test('dcz99 Thumbnail jobs test',
   executable('test-nemo-thumbnail-jobs',
     [ 'test-nemo-thumbnail-jobs.c' ],
     include_directories: [ rootInclude, ],
@@ -2294,7 +2294,7 @@ test('rhfdeb5g Thumbnail jobs test',
   args: []
 )
 
-test('rhf905br Thumbnail order test',
+test('dcz6w Thumbnail order test',
   executable('test-nemo-thumbnail-order',
     [ 'test-nemo-thumbnail-order.c' ],
     include_directories: [ rootInclude, ],
@@ -2303,7 +2303,7 @@ test('rhf905br Thumbnail order test',
   args: []
 )
 
-test('rj40hkdr Thumbnail of an edited file test',
+test('ddah8 Thumbnail of an edited file test',
   executable('test-nemo-thumbnail-edited',
     [ 'test-nemo-thumbnail-edited.c' ],
     include_directories: [ rootInclude, ],
@@ -2312,7 +2312,7 @@ test('rj40hkdr Thumbnail of an edited file test',
   args: []
 )
 
-test('rkrq87a3 Thumbnail of a picture dated ahead test',
+test('de7ad Thumbnail of a picture dated ahead test',
   executable('test-nemo-thumbnail-future',
     [ 'test-nemo-thumbnail-future.c' ],
     include_directories: [ rootInclude, ],
@@ -2324,7 +2324,7 @@ test('rkrq87a3 Thumbnail of a picture dated ahead test',
 # It holds a listing by standing in for a GIO call, which only works where
 # the loader looks in the program first.
 if not is_windows
-  test('rkrvj8g4 Thumbnail lookup behind a slow count test',
+  test('de7cs Thumbnail lookup behind a slow count test',
     executable('test-nemo-thumbnail-count-wait',
       [ 'test-nemo-thumbnail-count-wait.c' ],
       include_directories: [ rootInclude, ],
@@ -2337,7 +2337,7 @@ endif
 # Its stand-in thumbnailer is matched on image/png, and Windows types a file
 # by its extension instead.
 if not is_windows
-  test('rj043mnp Thumbnail zoom during render test',
+  test('dd8d9 Thumbnail zoom during render test',
     executable('test-nemo-thumbnail-zoom',
       [ 'test-nemo-thumbnail-zoom.c' ],
       include_directories: [ rootInclude, ],
@@ -2347,7 +2347,7 @@ if not is_windows
   )
 endif
 
-test('rjffcm7d Thumbnail stopped once nothing wants it test',
+test('ddgsk Thumbnail stopped once nothing wants it test',
   executable('test-nemo-thumbnail-stop',
     [ 'test-nemo-thumbnail-stop.c' ],
     include_directories: [ rootInclude, ],
@@ -2356,7 +2356,7 @@ test('rjffcm7d Thumbnail stopped once nothing wants it test',
   args: []
 )
 
-test('rhdfp7t8 Menu paths test',
+test('dcy7j Menu paths test',
   executable('test-nemo-menu-paths',
     [ 'test-nemo-menu-paths.c' ] + gresources,
     include_directories: [ rootInclude, ],
@@ -2365,7 +2365,7 @@ test('rhdfp7t8 Menu paths test',
   args: []
 )
 
-test('rhg6h4m0 Deep counts test',
+test('dczq0 Deep counts test',
   executable('test-nemo-deep-counts',
     [ 'test-nemo-deep-counts.c' ],
     include_directories: [ rootInclude, ],
@@ -2374,7 +2374,7 @@ test('rhg6h4m0 Deep counts test',
   args: []
 )
 
-test('rfaz67tr Directory load clean test',
+test('dbsx4 Directory load clean test',
   executable('test-nemo-directory-load-clean',
     [ 'test-nemo-directory-load-clean.c' ],
     include_directories: [ rootInclude, ],
@@ -2389,8 +2389,8 @@ if is_windows
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch ],
   )
-  test('rhtwm2c8 Share check does no I/O', share_win32, args: [ 'share' ])
-  test('rhtwm2c9 Junction to a missing folder lists', share_win32, args: [ 'dangling' ])
+  test('dd5ht Share check does no I/O', share_win32, args: [ 'share' ])
+  test('dd5hv Junction to a missing folder lists', share_win32, args: [ 'dangling' ])
 
   drives_win32 = executable('test-nemo-drives-win32',
     [ 'test-nemo-drives-win32.c' ],
@@ -2399,13 +2399,13 @@ if is_windows
   )
   # Maps a free drive letter for the run, so it waits for nothing else that
   # lists the drives.
-  test('rjhvmm6f Mapped drive not asked', drives_win32,
+  test('ddj38 Mapped drive not asked', drives_win32,
     args: [],
     is_parallel: false,
   )
-  test('rktexj0a Drive names asked for only when shown', drives_win32, args: [ 'names' ])
+  test('de88t Drive names asked for only when shown', drives_win32, args: [ 'names' ])
 
-  test('rhtwm2ca Permissions source test',
+  test('dd5hw Permissions source test',
     executable('test-nemo-perm-source-win32',
       [ 'test-nemo-perm-source-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2416,7 +2416,7 @@ if is_windows
 endif
 
 if is_windows
-  test('rgaz5cn8 Metadata ready test',
+  test('dcbcb Metadata ready test',
     executable('test-nemo-metadata-ready-win32',
       [ 'test-nemo-metadata-ready-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2427,7 +2427,7 @@ if is_windows
   )
 endif
 
-test('rfazc870 Config schema drift test',
+test('dbsx7 Config schema drift test',
   executable('test-nemo-config-schema',
     [ 'test-nemo-config-schema.c' ],
     include_directories: [ rootInclude, ],
@@ -2445,7 +2445,7 @@ if is_windows
     depend_files:        files('../src/nemo-anywhere.manifest'),
   )
 
-  test('rffdvgpg Long path enumeration test',
+  test('dbwb1 Long path enumeration test',
     executable('test-nemo-dir-enum-win32',
       [ 'test-nemo-dir-enum-win32.c' ] + longPathManifest,
       include_directories: [ rootInclude, ],
@@ -2454,7 +2454,7 @@ if is_windows
     args: []
   )
 
-  test('rhtwm2cb Application manifest test',
+  test('dd5hx Application manifest test',
     executable('test-nemo-manifest-win32',
       [ 'test-nemo-manifest-win32.c' ] + longPathManifest,
       include_directories: [ rootInclude, ],
@@ -2466,7 +2466,7 @@ endif
 
 # The bookmark list lives in src/, not a library, so it is compiled straight in.
 if is_windows
-  test('rffkjp10 First run test',
+  test('dbwe5 First run test',
     executable('test-nemo-first-run-win32',
       [ 'test-nemo-first-run-win32.c', '../src/nemo-bookmark-list.c' ],
       include_directories: [ rootInclude, include_directories('../src') ],
@@ -2485,7 +2485,7 @@ if not is_windows
     include_directories: [ rootInclude, ],
     dependencies: [ glib, gtk ],
   )
-  test('rh5f9h18 Extension load test',
+  test('dcsvh Extension load test',
     executable('test-nemo-extension-load',
       [ 'test-nemo-extension-load.c' ],
       include_directories: [ rootInclude, ],
@@ -2497,7 +2497,7 @@ endif
 
 # The cases the old converter programs had, now read in the app, on files
 # written for the purpose.
-test('rfhnaccg Office text and search helpers test',
+test('dbxj2 Office text and search helpers test',
   executable('test-nemo-search-helpers',
     [ 'test-nemo-search-helpers.c' ],
     include_directories: [ rootInclude, ],
@@ -2507,7 +2507,7 @@ test('rfhnaccg Office text and search helpers test',
   args: [],
 )
 
-test('rjm9n8sr Bookmark name and icon test',
+test('ddkdv Bookmark name and icon test',
   executable('test-nemo-bookmark-info',
     [ 'test-nemo-bookmark-info.c' ],
     include_directories: [ rootInclude, ],
@@ -2516,7 +2516,7 @@ test('rjm9n8sr Bookmark name and icon test',
   args: []
 )
 
-test('rkb69y1a Connect to Server address scheme test',
+test('ddzxz Connect to Server address scheme test',
   executable('test-nemo-skip-scheme',
     [ 'test-nemo-skip-scheme.c' ],
     include_directories: [ rootInclude, ],
@@ -2526,7 +2526,7 @@ test('rkb69y1a Connect to Server address scheme test',
 )
 
 if is_windows
-  test('rfhnacch Windows Search test',
+  test('dbxj3 Windows Search test',
     executable('test-nemo-search-win32',
       [ 'test-nemo-search-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2535,7 +2535,7 @@ if is_windows
     args: []
   )
 
-  test('rfhpkpn0 File associations test',
+  test('dbxjs File associations test',
     executable('test-nemo-associations-win32',
       [ 'test-nemo-associations-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2544,7 +2544,7 @@ if is_windows
     args: []
   )
 
-  test('rfnmh050 Program launch test',
+  test('dbzqh Program launch test',
     executable('test-nemo-launch-win32',
       [ 'test-nemo-launch-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2553,7 +2553,7 @@ if is_windows
     args: []
   )
 
-  test('rfhr0zw0 Shell icon test',
+  test('dbxkh Shell icon test',
     executable('test-nemo-shell-icon-win32',
       [ 'test-nemo-shell-icon-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2562,7 +2562,7 @@ if is_windows
     args: []
   )
 
-  test('rfmxrdpg Link type test',
+  test('dbzb3 Link type test',
     executable('test-nemo-link-info-win32',
       [ 'test-nemo-link-info-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2571,7 +2571,7 @@ if is_windows
     args: []
   )
 
-  test('rjehwjw7 Link end test',
+  test('ddg9f Link end test',
     executable('test-nemo-link-end-win32',
       [ 'test-nemo-link-end-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2580,7 +2580,7 @@ if is_windows
     args: []
   )
 
-  test('rfmxrdph Clipboard win32 test',
+  test('dbzb4 Clipboard win32 test',
     executable('test-nemo-clipboard-win32',
       [ 'test-nemo-clipboard-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2589,7 +2589,7 @@ if is_windows
     args: []
   )
 
-  test('rftjs1yr Drag source win32 test',
+  test('dc2dz Drag source win32 test',
     executable('test-nemo-dnd-win32',
       [ 'test-nemo-dnd-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2598,7 +2598,7 @@ if is_windows
     args: []
   )
 
-  test('rjkybspg ImageMagick start win32 test',
+  test('ddk7p ImageMagick start win32 test',
     executable('test-nemo-magick-win32',
       [ 'test-nemo-magick-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2611,7 +2611,7 @@ if is_windows
   # Explorer starts it with its own PATH, so it links nothing of the build's.
   env_dump = executable('test-env-dump', [ 'test-env-dump.c' ], link_args: [ '-lshell32' ])
 
-  test('rjm4ctwh Tool start win32 test',
+  test('ddkaz Tool start win32 test',
     executable('test-nemo-tool-start-win32',
       [ 'test-nemo-tool-start-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2622,7 +2622,7 @@ if is_windows
     timeout: 120
   )
 
-  test('rjvks1yf Copies reach each other with no bus win32 test',
+  test('ddqdq Copies reach each other with no bus win32 test',
     executable('test-nemo-copies-win32',
       [ 'test-nemo-copies-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2632,7 +2632,7 @@ if is_windows
     timeout: 300
   )
 
-  test('rjpatrck Helper end win32 test',
+  test('ddmhe Helper end win32 test',
     executable('test-nemo-helper-end-win32',
       [ 'test-nemo-helper-end-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2642,7 +2642,7 @@ if is_windows
     timeout: 120
   )
 
-  test('rjvzdd4w Launch environment win32 test',
+  test('ddqm2 Launch environment win32 test',
     executable('test-nemo-launch-env-win32',
       [ 'test-nemo-launch-env-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2652,7 +2652,7 @@ if is_windows
     timeout: 120
   )
 
-  test('rjw1ks5h New window start win32 test',
+  test('ddqn8 New window start win32 test',
     executable('test-nemo-new-copy-win32',
       [ 'test-nemo-new-copy-win32.c', '../src/nemo-new-process.c' ],
       include_directories: [ rootInclude, include_directories('../src') ],
@@ -2663,7 +2663,7 @@ if is_windows
     timeout: 120
   )
 
-  test('rjmb3j8p Action start win32 test',
+  test('ddkem Action start win32 test',
     executable('test-nemo-action-start-win32',
       [ 'test-nemo-action-start-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2674,7 +2674,7 @@ if is_windows
     timeout: 60
   )
 
-  test('rjmc40ex Thumbnailer type win32 test',
+  test('ddkf6 Thumbnailer type win32 test',
     executable('test-nemo-thumbnailer-type-win32',
       [ 'test-nemo-thumbnailer-type-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2684,7 +2684,7 @@ if is_windows
     timeout: 60
   )
 
-  test('rjnzpkk7 Command launch win32 test',
+  test('ddmbc Command launch win32 test',
     executable('test-nemo-command-launch-win32',
       [ 'test-nemo-command-launch-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2694,7 +2694,7 @@ if is_windows
     timeout: 60
   )
 
-  test('rjp4ch0y Launchable win32 test',
+  test('ddmdx Launchable win32 test',
     executable('test-nemo-launchable-win32',
       [ 'test-nemo-launchable-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2703,7 +2703,7 @@ if is_windows
     args: []
   )
 
-  test('rk8vn5kr Drop from another program win32 test',
+  test('ddyn6 Drop from another program win32 test',
     executable('test-nemo-drop-win32',
       [ 'test-nemo-drop-win32.c' ],
       include_directories: [ rootInclude, ],
@@ -2712,7 +2712,7 @@ if is_windows
     args: []
   )
 
-  test('rjkwtgrm Drop keys win32 test',
+  test('ddk6v Drop keys win32 test',
     executable('test-nemo-drop-keys-win32',
       [ 'test-nemo-drop-keys-win32.c' ],
       include_directories: [ rootInclude, ],

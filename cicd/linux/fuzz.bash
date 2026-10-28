@@ -33,18 +33,18 @@ declare -i FUZZ_FIND_CODE=86
 
 ## Each target's test ID, the target, and where its seeds live.
 targets=(
-	"rh0808bb|fuzz-shcl|shcl"
-	"rh0808bc|fuzz-dnd|dnd"
-	"rh0808bd|fuzz-command-template|command-template"
-	"rhatwe0v|fuzz-xls|xls"
-	"rhatwe0w|fuzz-ppt|ppt"
-	"rhatwe0x|fuzz-doc|doc"
-	"rhe0xz33|fuzz-psd|psd"
-	"rhqmm0as|fuzz-raw|raw"
-	"rjvb97cb|fuzz-office|office"
-	"rjvtgjmb|fuzz-ole2|ole2"
-	"rhmxm5aj|fuzz-lnk|lnk"
-	"rjfa5fnh|fuzz-lnk-edit|lnk-edit"
+	"dcq09|fuzz-shcl|shcl"
+	"dcq0a|fuzz-dnd|dnd"
+	"dcq0b|fuzz-command-template|command-template"
+	"dcwsb|fuzz-xls|xls"
+	"dcwsc|fuzz-ppt|ppt"
+	"dcwsd|fuzz-doc|doc"
+	"dcyh2|fuzz-psd|psd"
+	"dd3s2|fuzz-raw|raw"
+	"ddq94|fuzz-office|office"
+	"ddqhe|fuzz-ole2|ole2"
+	"dd29j|fuzz-lnk|lnk"
+	"ddgps|fuzz-lnk-edit|lnk-edit"
 )
 
 case "${1:-}" in
@@ -172,16 +172,16 @@ for entry in "${targets[@]}"; do
 	runs="$(fStat number_of_executed_units "${log}" || true)"
 	added="$(fStat new_units_added "${log}" || true)"
 	rss="$(fStat peak_rss_mb "${log}" || true)"
-	printf -v head '%d/%d %s %-24s' "${num}" "${#targets[@]}" "${id}" "${name}"
+	printf -v head '%s %-24s' "${id}" "${name}"
 
 	if ((rc == 0)); then
-		echo "${head} OK      ${secs}s  ${runs:-?} runs  ${added:-?} new inputs  ${rss:-?} MB peak"
+		echo "PASS ${head} ${num}/${#targets[@]}  ${secs}s  ${runs:-?} runs  ${added:-?} new inputs  ${rss:-?} MB peak"
 	elif ((rc == FUZZ_FIND_CODE)) || [[ -n "${saved}" ]]; then
-		echo "${head} FOUND   ${saved:-input under ${findings}}" >&2
+		echo "FAIL ${head} ${num}/${#targets[@]}  found ${saved:-input under ${findings}}" >&2
 		tail -n 40 "${log}" >&2
 		found=$((found + 1))
 	else
-		echo "${head} ERROR   exited ${rc}, which is neither a clean run nor a find" >&2
+		echo "FAIL ${head} ${num}/${#targets[@]}  exited ${rc}, which is neither a clean run nor a find" >&2
 		tail -n 40 "${log}" >&2
 		exit 1
 	fi

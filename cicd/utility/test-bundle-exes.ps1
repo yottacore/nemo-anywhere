@@ -16,7 +16,7 @@
 ##		  each answer. Runs in the lint stage.
 ##	Syntax:
 ##		pwsh -NoProfile -File cicd/utility/test-bundle-exes.ps1 [-SelfTest] [-Path <zip or folder>...]
-##	Test ID: rjwc3jkm
+##	Test ID: ddqv0
 
 ##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:

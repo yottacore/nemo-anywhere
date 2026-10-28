@@ -8,7 +8,7 @@
 ##	- Needs docker and the cross-build image; exit 77 without them.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/win/test-gui-smoke.bash
-##	- Test ID: rjcbfbx8
+##	- Test ID: ddf31
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:
@@ -98,6 +98,7 @@ fCase(){
 		fFail "${label}: exit ${rc}; said: ${out}"
 		return 0
 	fi
+	[[ "${out}" =~ (^|$'\n')"PASS "[0-9a-z]+" gui-smoke.bash"($'\n'|$) ]] || fFail "${label}: no PASS line; said: ${out}"
 	local disp pid num
 	read -r disp pid <"${saw}" || true
 	num="${disp#:}"

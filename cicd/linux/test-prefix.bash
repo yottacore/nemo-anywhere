@@ -14,7 +14,7 @@
 ##	  The default is this version's x86_64 tarball; --arch picks another
 ##	  arch's. The only thing run is the editor's shell launcher, so any arch
 ##	  checks on any box.
-##	- Test ID: rhtq57n5
+##	- Test ID: dd5f0
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

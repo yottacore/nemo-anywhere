@@ -6,7 +6,7 @@
 ##	  with stand-in entries, and reads the real lists from config.bash.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-package-checks.bash
-##	- Test ID: rj3yttvt
+##	- Test ID: ddaga
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:
@@ -39,8 +39,9 @@ funcs="$(awk '/^(build_packages|run_package_checks)\(\)\{/ { on = 1 } on { print
 fStage(){
 	local want="$1" text="$2"; shift 2
 	local out rc=0
-	out="$(FUNCS="$funcs" bash -c '
+	out="$(FUNCS="$funcs" ROOT="$root" bash -c '
 		set -Eeuo pipefail
+		cd "$ROOT"
 		fEcho(){ echo "[ $* ]"; }
 		fEcho_Clean(){ echo "$*"; }
 		fDie(){ echo "FAILED: $*" >&2; exit 1; }
@@ -63,10 +64,14 @@ fStage(){
 	[[ -z "$text" || "$out" == *"$text"* ]] || fFail "[$*]: no '${text}'; said: ${out}"
 }
 
-fStage "runs on" ""                          "Installer check|true" "Prefix check|true"
+fStage "runs on" "PASS ? Prefix check"       "Installer check|true" "Prefix check|true"
 fStage stops     "FAILED: Installer check"   "Installer check|bash -c \"exit 1\"" "Prefix check|true"
-fStage stops     "FAILED: Prefix check"      "Installer check|true" "Prefix check|bash -c \"exit 2\""
+fStage stops     "FAIL ? Prefix check"       "Installer check|true" "Prefix check|bash -c \"exit 2\""
 fStage "runs on" "WARNING: Prefix check skipped" "Installer check|true" "Prefix check|bash -c \"exit 77\""
+fStage "runs on" "SKIP ? Prefix check"       "Installer check|true" "Prefix check|bash -c \"exit 77\""
+## The ID comes from the test script the command names, even inside quotes.
+installerId="$(sed -n -E 's/^##[[:space:]]+(- )?Test ID: ([0-9a-z]+)$/\2/p' "${root}/cicd/linux/test-installers.bash")"
+fStage "runs on" "PASS ${installerId} Installer check" "Installer check|true 'bash /src/cicd/linux/test-installers.bash'"
 
 if ((failures)); then
 	fEcho "FAILED: package checks, ${failures} problem(s)"

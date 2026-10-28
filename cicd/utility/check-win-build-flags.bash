@@ -26,7 +26,7 @@
 ##	  default: the stale artifacts of an earlier run are not what a bare run
 ##	  should be judging.
 ##	- Syntax: check-win-build-flags.bash [--shipped] [path-to-exe]
-##	- Test ID: rh8vbs38
+##	- Test ID: dcvpj
 
 ##	Copyright (c) 2026 Bubbles
 ##	Licensed under The MIT License (MIT). Full text at:
@@ -34,7 +34,8 @@
 ##	SPDX-License-Identifier: MIT
 
 set -Eeuo pipefail
-echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
+testId="$(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}")"
+echo "[ Test ${testId} ${BASH_SOURCE[0]##*/} ]"
 
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
@@ -159,9 +160,11 @@ fi
 
 if (( failures > 0 )); then
 	fEcho "FAILED: Windows build flags: ${failures} problem(s)"
+	echo "FAIL ${testId} ${BASH_SOURCE[0]##*/}"
 	exit 1
 fi
 fEcho "OK: Windows build flags"
+echo "PASS ${testId} ${BASH_SOURCE[0]##*/}"
 
 ##	History:
 ##		- 2026-09-19: Created.

@@ -10,7 +10,7 @@
 ##		- Runs in the lint stage.
 ##	Syntax:
 ##		pwsh -NoProfile -File cicd/utility/test-install-path.ps1
-##	Test ID: rhtrxr82
+##	Test ID: dd5fw
 
 ##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:

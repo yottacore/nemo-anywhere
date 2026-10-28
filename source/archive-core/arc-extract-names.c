@@ -180,7 +180,7 @@ arc_extract_unique_name (const char *name,
 
 #ifdef G_OS_WIN32
 /* "CON", "nul.txt", "com1 .log" and the rest of Windows' device names. The
-   app keeps its own list, and reww9h2r holds the two together. */
+   app keeps its own list, and dbj6w holds the two together. */
 static gboolean
 is_device_name (const char *name)
 {

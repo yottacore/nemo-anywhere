@@ -16,7 +16,7 @@
 ##	  that it finds each. Runs in the lint stage; exit 77 with no python3.
 ##	- Runs in the packages stage.
 ##	- Syntax: cicd/utility/test-bundle-left-out.bash [--self-test] [--dir DIR] KIND...
-##	- Test ID: rjvwpz9d
+##	- Test ID: ddqjk
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

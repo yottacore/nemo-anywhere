@@ -10,7 +10,7 @@
 ##	  stager, the zip and the wine runner go through the shared step.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-thumbnailers.bash
-##	- Test ID: rjnyer4p
+##	- Test ID: ddmap
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:

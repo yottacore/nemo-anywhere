@@ -15,7 +15,7 @@
 ##		- Exits 77 where it cannot run: not Windows, or no exe.
 ##	Syntax:
 ##		pwsh -NoProfile -File cicd/win/gui-launch-smoke.ps1 -Exe <exe> -RuntimeBin <dir> [-Seconds <n>]
-##	Test ID: rhtwm2cc
+##	Test ID: dd5hy
 
 ##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:

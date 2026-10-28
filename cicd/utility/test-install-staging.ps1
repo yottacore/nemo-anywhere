@@ -18,7 +18,7 @@
 ##		- Runs in cicd-win.ps1's test stage, and in the lint stage elsewhere.
 ##	Syntax:
 ##		pwsh -NoProfile -File cicd/utility/test-install-staging.ps1
-##	Test ID: rjeqef3d
+##	Test ID: ddgch
 
 ##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:

@@ -2,15 +2,16 @@
 
 # Test IDs.
 #
-# Every CI test carries an ID: the time it was written, as milliseconds since
-# 2000-01-01 00:00 UTC, in lower-case Crockford base 32, zero-padded to 8
-# digits. A meson test has it at the front of its name, so a failure in the log
-# already names it. A lint-c check and a test script carry it on a "Test ID:"
-# comment line, and read it back from there to print it when they run. So does
-# a tool's self-test that the lint stage runs, on a line in the tool. A fuzz
-# target has it at the front of its entry in fuzz.bash.
+# Every CI test carries an ID: the time it was written, as whole minutes since
+# 2000-01-01 00:00 UTC, in lower-case Crockford base 32, zero-padded to 5
+# digits, as in decp8. When 2 tests fall in one minute, the newer one takes the
+# next free minute. A meson test has it at the front of its name, so a failure
+# in the log already names it. A lint-c check and a test script carry it on a
+# "Test ID:" comment line, and read it back from there to print it when they
+# run. So does a tool's self-test that the lint stage runs, on a line in the
+# tool. A fuzz target has it at the front of its entry in fuzz.bash.
 #
-# With no option, prints the ID for right now, for a new test.
+# With no option, prints the first free ID from right now, for a new test.
 # --at TIME prints the one for an ISO time, when dating an older test.
 # --check fails on a test with no ID, a malformed one, or one used twice.
 #
@@ -23,29 +24,32 @@
 
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 DIGITS = '0123456789abcdefghjkmnpqrstvwxyz'
 EPOCH = datetime(2000, 1, 1, tzinfo=timezone.utc)
 
 
-def encode(when):
-    ms = (when - EPOCH) // datetime.resolution // 1000
-    if ms <= 0:
-        sys.exit(f'test-id: {when.isoformat()} is before 2000')
+def minutes(when):
+    return (when - EPOCH) // timedelta(minutes=1)
+
+
+def encode(count):
+    if count < 0:
+        sys.exit('test-id: that is before 2000')
     out = ''
-    while ms:
-        ms, rem = divmod(ms, 32)
+    while count:
+        count, rem = divmod(count, 32)
         out = DIGITS[rem] + out
-    return out.rjust(8, '0')
+    return out.rjust(5, '0')
 
 
 def decode(text):
-    ms = 0
+    count = 0
     for ch in text:
-        ms = ms * 32 + DIGITS.index(ch)
-    return ms
+        count = count * 32 + DIGITS.index(ch)
+    return count
 
 
 def found_ids(root):
@@ -113,13 +117,15 @@ def found_ids(root):
 
 
 def check(root):
-    now = (datetime.now(timezone.utc) - EPOCH) // datetime.resolution // 1000
+    # A new test made in a taken minute gets a later one, so allow a little
+    # past now.
+    now = minutes(datetime.now(timezone.utc)) + 60
     seen = {}
     bad = 0
     for tag, where in found_ids(root):
         if tag is None:
             print(f'FAIL: {where}: test has no ID (make one with cicd/utility/test-id.py)')
-        elif not re.fullmatch(f'[{DIGITS}]{{8,}}', tag) or decode(tag) > now:
+        elif not re.fullmatch(f'[{DIGITS}]{{5,}}', tag) or decode(tag) > now:
             print(f'FAIL: {where}: "{tag}" is not a lower-case Crockford ID from the past')
         elif tag in seen:
             print(f'FAIL: {where}: ID {tag} is also used at {seen[tag]}')
@@ -138,8 +144,13 @@ if __name__ == '__main__':
         check(Path(args[1]) if len(args) > 1 else Path(__file__).resolve().parents[2])
     elif args[:1] == ['--at'] and len(args) == 2:
         when = datetime.fromisoformat(args[1])
-        print(encode(when if when.tzinfo else when.replace(tzinfo=timezone.utc)))
+        print(encode(minutes(when if when.tzinfo else when.replace(tzinfo=timezone.utc))))
     elif not args:
-        print(encode(datetime.now(timezone.utc)))
+        taken = {decode(tag) for tag, _ in found_ids(Path(__file__).resolve().parents[2])
+                 if tag and re.fullmatch(f'[{DIGITS}]+', tag)}
+        count = minutes(datetime.now(timezone.utc))
+        while count in taken:
+            count += 1
+        print(encode(count))
     else:
         sys.exit('Syntax: test-id.py [--at TIME | --check [root]]')

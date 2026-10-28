@@ -25,7 +25,7 @@ Syntax: svg-min.py <in.svg> <out.svg>
 and checks what comes out, so a change that rounds a multiplier or loses an
 arc flag fails the lint stage rather than showing up as a misdrawn icon.
 
-Test ID: rhtrxr84
+Test ID: dd5fy
 """
 
 import math
