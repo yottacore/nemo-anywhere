@@ -1979,6 +1979,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261025: not reproduced in 120 more runs at load 50 to 84, with each grab logged. Every menu took 2 grabs at the server's current time, and both were granted every time. The test's own event times run about 14 s ahead of the clock, from its 1 s jumps before each right-click, but the menu grabs don't use them. Still open: whether the failing run's menu grab was refused.
 		- 20261025: read only, not run: the press pops the menu up at once, with the press's own time. So the release 20 ms later can't close it through GTK's rule that a release more than 500 ms after the popup closes the menu.
 		- 20261025: ddy5f had the same shape once in 72 loaded runs, before the fix in 2026102507531487: "list-view: FAIL timed out at step 9" under Nemo Anywhere v1, waiting for the menu from the right-click at steps 7 and 8.
+		- 20261028: not worked. Grouped with 2026102516081782 and 2026102518200000, which were fixed, and left for a job of its own, since it hasn't come back in 120 runs.
 	- Test case: de8dm itself, in the sanitizer lane with the cores loaded.
 
 - de7aj leaked 48 bytes once in the sanitizer lane.
@@ -2030,7 +2031,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - dcxzr read fewer than 3 draws once in the gate's suite, in the timed draw count case.
 	- ID: 2026102516081782
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: dcxzr in a full run's plain suite.
 	- Priority|Severity: Low
 	- Opened: 20261025-160817
 	- Opened by: 2026102510323600
@@ -2039,13 +2041,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: "FAIL ../src/source/test/test-nemo-cache-db.c:592: renders == 3", in `check_draws_written_off_window`.
 	- Expected behavior: passes.
 	- Reproduced: once, 20261025 on round1025b, with an uncommitted header change that only touches compile-time pragmas. It passed 20 of 20 alone right after, in the same build.
+		- 20261028: every time, with a 400 ms pause held after the first of the 3 notes: "renders == 3" fails.
 	- Possible cause: the case notes 3 draws, then waits for the count to go out after a 200 ms draw wait, and stops at the first count that isn't 0. A write that goes out between the notes would give 1 or 2. Not looked into.
-	- Test case: dcxzr itself, beside the full suite.
+	- Actual cause: the 200 ms wait starts at the first note. A slow box can let it run out before the third, so the writer sends 1 or 2 and the rest go out in a second write. The case read the count once the first write was in.
+	- Actual fix: the case waits for all 3 draws to be written, up to the same 5 s. Counts written in 2 goes still add up to 3.
+	- Branch: round1028a
+	- Commit: 776666f9
+	- Test case: dcxzr itself, beside the full suite. With the 400 ms pause after the first note it fails before the fix and passes after.
+	- Verified: 20261028, dcxzr fails with the pause before the fix and passes with it after, and passes in the plain build without it.
+	- Verified: 20261028, `cicd.bash --backlog-run-quick` passes at 776666f9.
+	- Swept: the only other test that notes a draw, the prune test, writes it with a flush, not the timed writer.
 
 - ddepg failed once in a full run's suite on a loaded box, the heap growing 1600 bytes over 64 rounds.
 	- ID: 2026102518200000
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: ddepg, de5hg and the other leak cases in a full run's plain suite.
+	- Needs external testing: the leak cases on native Windows, `cicd-win.ps1 -Gate` on vm925w, since the held handlers are in every platform's readings.
 	- Priority|Severity: Low
 	- Opened: 20261025-182000
 	- Opened by: t00mietum
@@ -2055,7 +2067,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: passes.
 	- Reproduced: once, 20261025 on round1025b at e1159615. It passed in the run before at the same code, and 3 of 3 alone right after.
 	- Possible cause: a worker thread still winding down from a stopped zip job at the reading. Not looked into.
-	- Test case: ddepg itself, beside the full suite.
+	- Actual cause: 2 things, each moving a reading by about 800 bytes either way, against a limit of 1024 over the 64 rounds. 1600 is both at once, or one of them twice.
+		- GObject's table of signal handlers. A job connects a few dozen and lets them go, and the table, rebuilt to fit however many were connected at that moment, came out at 64 or 128 slots, 768 bytes apart.
+		- The job's task, freed when its thread hands it back to the main loop. That comes a moment after the job's done callback, and on a busy box it could come after the round's main loop had gone quiet.
+	- Progress log:
+		- 20261028: 16 copies at once with 8 busy loops, at load 6 to 18: before the fix, 12 of 16 final readings were off by 768 to 1584 bytes. After it, 30 of 32 grew 0 bytes and 2 grew 16. With only the handlers held, 4 of 32 were still off by about 820.
+		- A hold of 384 handlers put de5hg, which keeps a few objects a round, at 1008 to 1024 against its 1024 limit. At 96 and 1024 it grew 736 to 752, the same as before.
+	- Decisions:
+		- The fix is in the shared reading, not the zip case, since every case that runs a job or connects a signal can move the same table.
+	- Actual fix: in `test-heap.c`, for every leak case. The readings hold 1024 extra handlers on as many objects, so every rebuild comes out the same size. And each reading on Linux first runs the main loop until it's empty and no other thread is running, as Windows already did, up to 5 s.
+	- Branch: round1028a
+	- Commit: 776666f9
+	- Test case: ddepg itself, beside the full suite, and the 12 other leak cases and ddfb8, the self-check, which all go through the same readings.
+	- Verified: 20261028, in the plain build: ddepg 32 of 32 with 8 busy loops beside 16 copies, and the 12 other leak cases, ddfb8, dcxzr and dav3s pass.
+	- Verified: 20261028, `cicd.bash --backlog-run-quick` passes at 776666f9, and `test-heap.c` compiles in the Windows cross build. gcc's and clang's analyzers find nothing in it or in the cache store test.
+	- Swept: both callers of `test_heap_growth`, the leak cases and the rename probe in `test-nemo-leaks.c`. `test-nemo-config.c` reads the heap but takes no readings through it.
 
 - The hosted Windows build stops at its MSYS2 step: pacman has no `mingw-w64-x86_64-desktop-file-utils` anymore.
 	- ID: 2026102618560000
