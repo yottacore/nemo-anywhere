@@ -58,10 +58,15 @@ jobs:
 
       # The linker writes a timestamp into the PE header, and left alone it writes
       # the clock, so the same tag would build to different bytes every run.
+      # The pinned MSYS2 has no git, so the runner's own git reads the date.
+      - name: Commit date
+        shell: bash
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+
       - name: Build (meson + ninja)
         shell: msys2 {0}
         run: |
-          SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          [[ -n "${SOURCE_DATE_EPOCH:-}" ]] || { echo "no SOURCE_DATE_EPOCH" >&2; exit 1; }
           export SOURCE_DATE_EPOCH
           # A manual run isn't a release, so its version line keeps the date.
           release=false
