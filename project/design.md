@@ -817,7 +817,7 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 - Every container and image the pipeline makes has `dev.project` and `dev.run` labels. At the end of a run, failure and Ctrl+C included, the run's own containers go, then the project's dangling images and its tags past the newest 2, then build cache over a week old. One line says what went and about what it freed. Nothing without the project's label is touched. The long-lived build containers stay, and `--keep-temp` keeps the run's containers too.
 
 - The FreeBSD lane runs the build and suite on the FreeBSD box in the test stage, and its tarball and pkg in the release stage. It runs on every full run. `--no-bsd` leaves it out, and `--include-bsd` brings it back under `--quick`.
-	- The FreeBSD and arm64 boxes are VMs here. One that's off or paused is started, waited for until the lane's own login answers, and docker too for arm64, then put back the way it was. A box that isn't there, and isn't a VM this box can start, is a `SKIP`, and the run goes on. With arm64 skipped, its packages are too.
+	- The FreeBSD and arm64 boxes are VMs here. One that's off or paused is started, waited for until the lane's own login answers, and docker too for arm64, then put back the way it was. A box that isn't there, and isn't a VM this box can start, is a `SKIP`, and the run goes on. With arm64 skipped, its packages are too. The Windows dogfood refresh takes b29w first, then vm925w the same way, and skips when neither is there.
 
 - The same hook blocks a push to main unless `source/meson.build` is a strict version increase over what is already there.
 

@@ -5,8 +5,13 @@
 ##	  whichever Windows box answers first: its clone is moved to the commit this
 ##	  run is on, and cicd-win.ps1 builds, tests, packs and drops it into the
 ##	  synced app dir there.
-##	- The boxes are shared with other sessions, so the box is taken through the
-##	  host lock for the whole run. No box answering is not an error.
+##	- The boxes are shared with other sessions, so the box is taken for the whole
+##	  run through the VM state helper or the host lock, whichever is on this box
+##	  (include/box-wrap.bash). b29w goes first. vm925w, a VM here, is started when
+##	  it's off or paused, waited for, and put back after, when the helper is
+##	  here. No box there is not an error.
+##	- NEMO_WIN_READY_WAIT is the seconds to wait for the login after a boot
+##	  (default 600).
 ##	- The clone there has no key for the repo, so the commits go over as a git
 ##	  bundle. Only what is committed goes; an uncommitted edit here does not.
 ##	- Syntax: win-dogfood.bash
@@ -23,22 +28,22 @@ cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fEcho_Clean(){ echo "${@}"; }
 fEcho(){       if [[ -n "${*}" ]]; then fEcho_Clean "[ ${*} ]"; else fEcho_Clean ""; fi; }
 
-## lock name|ssh name, in the order they are tried.
-readonly boxes=("b29w|b29w-wif" "vm925w|vm925w")
-## Shared by other sessions on the same boxes. Found by the tail of its name, which
-## is the part that stays put. WINDOWS_HOST_LOCK names it outright.
-lockTool="${WINDOWS_HOST_LOCK:-}"
-if [[ -z "$lockTool" ]]; then
-	for lockTool in "${HOME}"/synced/0-0/common/exec/util/linux/bash/*windows-host-lock.bash; do break; done
-fi
+# shellcheck source=include/box-wrap.bash
+source cicd/utility/include/box-wrap.bash
+
+## Lock name and ssh name both, in the order they are tried.
+readonly boxes=(b29w vm925w)
+lockTool="$(fBoxWrap_Tool)"
 readonly lockTool
+readyWaitSec="${NEMO_WIN_READY_WAIT:-600}"
 readonly clone='%USERPROFILE%\source\repos\nemo-anywhere'
 readonly bundleName='nemo-anywhere-dogfood.bundle'
 ## A Windows build plus the suite runs well past the lock's default lease, and
 ## the wait is for whoever holds the box to finish.
 readonly lockWaitSec=1800
 
-sshOpts=(-o ConnectTimeout=8 -o BatchMode=yes -o LogLevel=ERROR)
+## 8s was too short for a VM that had just booted on a busy host.
+sshOpts=(-o ConnectTimeout=30 -o BatchMode=yes -o LogLevel=ERROR)
 
 ## Every command here is put together on this side for cmd.exe on the box.
 # shellcheck disable=SC2029
@@ -79,6 +84,7 @@ fMain(){
 	local entry lockName sshHost
 
 	if [[ "${1:-}" == "--locked" ]]; then
+		fBoxWrap_WaitReady "$2" "$readyWaitSec" exit "${sshOpts[@]}" || { fEcho "${2} did not answer in ${readyWaitSec}s"; return 1; }
 		fRun "$2"
 		return
 	fi
@@ -89,8 +95,8 @@ fMain(){
 	fi
 
 	for entry in "${boxes[@]}"; do
-		lockName="${entry%%|*}"; sshHost="${entry#*|}"
-		if ssh "${sshOpts[@]}" "$sshHost" "exit" &>/dev/null; then
+		lockName="$entry"; sshHost="$entry"
+		if fBoxWrap_IsThere "$lockName" "$sshHost" "$lockTool" "${sshOpts[@]}" > /dev/null; then
 			fEcho_Clean "Windows dogfood on ${sshHost}"
 			bash "$lockTool" wrap "$lockName" --wait "$lockWaitSec" -- bash "${BASH_SOURCE[0]}" --locked "$sshHost"
 			return
@@ -101,3 +107,8 @@ fMain(){
 }
 
 fMain "${@}"
+
+
+##	History:
+##		- 2026-10-28: b29w by that name, and vm925w through the VM state helper,
+##		  which starts it and puts it back.

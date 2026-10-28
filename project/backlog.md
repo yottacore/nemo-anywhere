@@ -630,7 +630,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual fix: both lanes wait for their own login, polling every 5 s, before anything is sent: 600 s for FreeBSD, 1200 s for arm64, which also waits for docker. A box that answers but is the wrong kind fails at once, and a name that doesn't resolve fails without the wait. arm64 raises the helper's boot wait to 1200 s. Both lanes' connect timeout is 30 s, from 8.
 	- Decisions:
 		- The wait runs the lane's own check, as the lane's user, rather than relying on the helper's. It covers the bare host lock too, and a box someone else is booting.
-		- Knobs: `NEMO_BSD_READY_WAIT` and `NEMO_ARM_READY_WAIT`. The Windows dogfood keeps its 8 s try, since it only uses a box that already answers.
+		- Knobs: `NEMO_BSD_READY_WAIT` and `NEMO_ARM_READY_WAIT`. The Windows dogfood does the same since 2026102808250954, with `NEMO_WIN_READY_WAIT`.
 	- Swept: every ssh to a test box in `cicd/`. The FreeBSD lane and the arm64 release were the only ones that start a VM.
 	- Test case: rjphnh77 and rjph1pxd. A box whose ssh, or docker on arm64, comes up after a few tries is waited for, and one that never does fails before anything is sent. Both new cases fail before the fix and pass after.
 	- Verified: 20261028, rjphnh77 and rjph1pxd, and the quick gate.
@@ -1084,7 +1084,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Other hosts: the Windows dogfood takes b29w by that name, and its box through the VM state helper.
 	- ID: 2026102808250954
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs external testing: a plain run's Windows dogfood with b29w away and vm925w off: vm925w is started, the exe refreshed, and vm925w shut down again.
 	- Priority|Severity: High
 	- Opened: 20261028-082509
 	- Opened by: 2026102416300001
@@ -1093,7 +1094,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The dogfood refresh names `b29w`, never `b29w-wif`.
 		- vm925w is started when it's off or paused, and put back after, the way the FreeBSD lane does it. b29w goes first.
 		- No box there is still a skip, not an error.
-	- Test case: none yet.
+	- Decisions:
+		- It takes its box the way the FreeBSD lane does: the same check for a box that isn't there, the VM state helper or the bare host lock, and a wait for its own login after a boot, 600 s by default. Its connect timeout is 30 s, from 8.
+		- With only the bare host lock here, a VM that's off is still skipped, as before.
+	- Swept: the other places that name a Windows box in `cicd/`. Only the dogfood names one; the native Windows gate is 2026102808250959.
+	- Test case: rmc5nksv. b29w goes first by that name, vm925w is taken through the VM state helper while off and its login waited for, and no box there is a skip. It fails before the change and passes after.
+	- Verified: 20261028, rmc5nksv, and the quick gate.
 
 - Other hosts: the native Windows gate in the default run.
 	- ID: 2026102808250959
