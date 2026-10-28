@@ -22,6 +22,8 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "${here}/../.." && pwd)"
 workflow="${root}/.github/workflows/release-win.yml"
 pins="${here}/msys2-pins.txt"
+# shellcheck source=../utility/include/run-temp.bash
+source "${root}/cicd/utility/include/run-temp.bash"
 # shellcheck source=msys2-pins.bash
 source "${here}/msys2-pins.bash"
 
@@ -46,7 +48,8 @@ grep -qE '^[[:space:]]*update:[[:space:]]*false[[:space:]]*$' <<<"${block}" || f
 if grep -qE '^[[:space:]]*(install|pacboy):' <<<"${block}"; then fFail "setup-msys2 installs packages of its own"; fi
 grep -qE '^[[:space:]]*run:[[:space:]]*bash cicd/win/msys2-pins\.bash install[[:space:]]*$' <<<"${wf}" || fFail "no step runs msys2-pins.bash install"
 if grep -qE 'pacman[[:space:]]+-S' <<<"${wf}"; then fFail "workflow runs pacman -S, which installs whatever is current"; fi
-if grep -E '^[[:space:]]*choco[[:space:]]+install' <<<"${wf}" | grep -vqE '[[:space:]]--version[[:space:]=][0-9]'; then fFail "a choco install with no --version"; fi
+chocos="$(grep -E '^[[:space:]]*choco[[:space:]]+install' <<<"${wf}" || true)"
+if [[ -n "${chocos}" ]] && grep -vqE '[[:space:]]--version[[:space:]=][0-9]' <<<"${chocos}"; then fFail "a choco install with no --version"; fi
 
 header="$(sed -n '2p' "${pins}")"
 [[ "${header}" == "# setup-msys2 ${SETUP_MSYS2}, base ${BASE_DATE}" ]] || fFail "pins were written for another base: ${header}"

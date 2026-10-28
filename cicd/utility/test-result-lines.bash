@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2016  ## expanded by the fake test script it writes
 
 ##	- Purpose: Check the one line each test gets in a run's log, status first,
 ##	  then its ID and name. include/result-lines.awk rewrites meson's result
@@ -54,6 +53,7 @@ got="$(awk -f "${here}/include/result-lines.awk" <<< "${in}")"
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/result-lines-test.XXXXXX")"
 trap 'fSafeRm_IfThere "${scratch}"' EXIT
+# shellcheck disable=SC2016  ## expanded by the fake test script
 printf '#!/usr/bin/env bash\n##\t- Test ID: abcde\nexit "${1:-0}"\n' > "${scratch}/test-fake.bash"
 printf '#!/usr/bin/env python3\n"""Fake.\n\nTest ID: abcdf\n"""\n' > "${scratch}/fake.py"
 
