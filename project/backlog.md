@@ -36,7 +36,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - FreeBSD result lines put meson's project name in front of the test ID.
 	- ID: 2026102812032075
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261028-120320
 	- Opened by: t00mietum
@@ -46,7 +46,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: `PASS ddepg Stopped zip leak test  0.08s` on every platform, as in the testing rules.
 	- Reproduced: 20261028, the FreeBSD suite in a full run at 4be04125 and the lane run alone after it.
 	- Possible cause: meson 1.10.2 on FreeBSD names each test `<project>:<test>` on its result line, where 1.7.0 in the build container doesn't. `result-lines.awk` passes the name through as it is. MSYS2's meson on native Windows is new too, so it likely does the same.
-	- Test case: dehyx, once it has a result line with the project name in front.
+	- Test case: dehyx, with a nemo-anywhere:<id> result line.
+	- Closed: 20261028
+	- Fixed in 9f7df4c7: result-lines.awk drops a leading project name from the ID. dehyx failed on the new case first.
+	- Verified: 20261028, FreeBSD lane at 9f7df4c7: 217 PASS lines with bare IDs, none with the prefix, no FAIL.
 
 - The FreeBSD lane stops on meson clock skew when vmFreeBSD was paused, since a resumed guest keeps its old clock.
 	- ID: 2026102810470587
@@ -287,7 +290,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Type: Task
 	- Status: Waiting on automated testing
 	- Needs local test suite run?: no
-	- Needs external testing: the native gate on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for meson's lines through awk under MSYS2 and the Windows script test lines. The FreeBSD lane again once 2026102812032075 is fixed.
+	- Needs external testing: the native gate on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for meson's lines through awk under MSYS2 and the Windows script test lines.
 	- Priority|Severity: High
 	- Opened: 20261024-163000
 	- Opened by: t00mietum
@@ -313,6 +316,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261028, `test-id.py --check` fails on the old IDs and passes after, 410 tests. dehyx fails with the skip mapped to a pass, ddaga with the old package checks, ddf32 with the old fuzz lines; all pass after. `cicd/cicd.bash --backlog-run-quick` passes.
 	- Verified: 20261028, full runs at 4be04125: the 12 fuzz targets, 223 sanitizer suite tests, the package checks (ddmn6, ddqjk, ddqv0, ddwhx, ddmn8), dcvpj and da73c each print a PASS line with the ID. The FreeBSD suite's lines come out as PASS, FAIL or SKIP under its awk, but with the project name stuck to the ID, filed as 2026102812032075.
 	- 20261028: native gate not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
+	- Verified: 20261028, FreeBSD lane at 9f7df4c7: every result line reads PASS <id> <name>.
 
 - The hosted Windows build stops at its MSYS2 step: pacman has no `mingw-w64-x86_64-desktop-file-utils` anymore.
 	- ID: 2026102618560000
