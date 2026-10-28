@@ -33,6 +33,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- The FreeBSD lane stops on meson clock skew when vmFreeBSD was paused, since a resumed guest keeps its old clock.
+	- ID: 2026102810470587
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261028-104705
+	- Opened by: t00mietum
+	- Target OS: FreeBSD
+	- Steps to reproduce: pause vmFreeBSD for some hours, then start a full run.
+	- Incorrect behavior: meson says 'Clock skew detected', a source file 60941 s in the future, and the FreeBSD suite fails.
+	- Expected behavior: the lane sets the guest clock after it wakes the box, or waits for it to be right, before building.
+	- Reproduced: 20261028 on round1028a, full run at 10:43 local.
+	- Possible cause: claude_vm-state.bash resumes a paused guest, and the guest clock doesn't jump forward. From off it boots with the right time. vmDebARM64 likely has the same problem for the arm64 lane.
+	- Test case: a lane run with the VM paused for an hour first, plus a box-wrap test that the clock step runs after a resume.
+
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
