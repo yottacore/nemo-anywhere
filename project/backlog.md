@@ -295,9 +295,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The hosted Windows build stops at its MSYS2 step: pacman has no `mingw-w64-x86_64-desktop-file-utils` anymore.
 	- ID: 2026102618560000
 	- Type: Bug
-	- Status: Waiting on automated testing
+	- Status: Done
 	- Needs local test suite run?: no. Only the hosted workflow and its scripts changed, and their checks run in the lint stage.
-	- Needs external testing: a `release-win.yml` run on round1028a, started by hand, that gets through both MSYS2 steps, the build and the pack.
+	- Needs external testing: No
 	- Priority|Severity: Avg
 	- Opened: 20261026-185600
 	- Opened by: t00mietum
@@ -316,6 +316,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: round1028a
 	- Test case: dehzp `cicd/win/test-msys2-pins.bash`, in the lint stage. It checks the workflow names no packages of its own, so a dropped one can only break a pins move. The hosted run is the real test.
 	- Verified: dehzp passes, and fails on the workflow as it was, on 5 checks. All 86 pinned files are on the MSYS2 repo under those names.
+	- Closed: 20261028
+	- Verified: 20261028, release-win.yml run 40737555415 on round1028a at 313352b1 passed both MSYS2 steps, the build, the pack and the upload.
 
 - Temp files: scripts remove their own temp folders through the guard.
 	- ID: 2026102618083910
@@ -345,9 +347,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD reset: CICD process gaps.
 	- ID: 2026102416300008
 	- Type: Task
-	- Status: Waiting on automated testing
+	- Status: Done
 	- Needs local test suite run?: no. The new checks run in the lint stage.
-	- Needs external testing: the same `release-win.yml` run as 2026102618560000.
+	- Needs external testing: No
 	- Priority|Severity: Avg
 	- Opened: 20261024-163000
 	- Opened by: t00mietum
@@ -371,12 +373,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: round1028a
 	- Test case: dehzp `cicd/win/test-msys2-pins.bash` and dehzr `lint-report.py --self-test`, both in the lint stage.
 	- Verified: dehzp and dehzr pass, and each fails with the change it checks taken out. `lint-report.py --check` over the logs here lists 29 lines from the newest run that no older one has.
+	- Closed: 20261028
+	- Verified: 20261028, release-win.yml run 40737555415 on round1028a at 313352b1 passed both MSYS2 steps, the build, the pack and the upload.
 
 - dcxzr read fewer than 3 draws once in the gate's suite, in the timed draw count case.
 	- ID: 2026102516081782
 	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: dcxzr in a full run's plain suite.
+	- Status: Done
+	- Needs local test suite run?: No
 	- Priority|Severity: Low
 	- Opened: 20261025-160817
 	- Opened by: 2026102510323600
@@ -395,12 +399,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261028, dcxzr fails with the pause before the fix and passes with it after, and passes in the plain build without it.
 	- Verified: 20261028, `cicd.bash --backlog-run-quick` passes at 776666f9.
 	- Swept: the only other test that notes a draw, the prune test, writes it with a flush, not the timed writer.
+	- Closed: 20261028
+	- Verified: 20261028, full run 20261028-104801 on round1028a: PASS dcxzr.
 
 - ddepg failed once in a full run's suite on a loaded box, the heap growing 1600 bytes over 64 rounds.
 	- ID: 2026102518200000
 	- Type: Bug
 	- Status: Waiting on automated testing
-	- Needs local test suite run?: ddepg, de5hg and the other leak cases in a full run's plain suite.
+	- Needs local test suite run?: No
 	- Needs external testing: the leak cases on native Windows, `cicd-win.ps1 -Gate` on vm925w, since the held handlers are in every platform's readings.
 	- Priority|Severity: Low
 	- Opened: 20261025-182000
@@ -426,6 +432,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261028, in the plain build: ddepg 32 of 32 with 8 busy loops beside 16 copies, and the 12 other leak cases, ddfb8, dcxzr and dav3s pass.
 	- Verified: 20261028, `cicd.bash --backlog-run-quick` passes at 776666f9, and `test-heap.c` compiles in the Windows cross build. gcc's and clang's analyzers find nothing in it or in the cache store test.
 	- Swept: both callers of `test_heap_growth`, the leak cases and the rename probe in `test-nemo-leaks.c`. `test-nemo-config.c` reads the heap but takes no readings through it.
+	- Verified: 20261028, full run 20261028-104801: PASS ddepg, PASS de5hg. Native Windows still to run.
 
 - Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
 	- ID: 2026100516274646
