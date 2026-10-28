@@ -35,7 +35,7 @@ test_heap = declare_dependency(
   link_with: static_library('test-heap',
     [ 'test-heap.c' ],
     include_directories: [ rootInclude, ],
-    dependencies: [ glib ],
+    dependencies: [ glib, gobject ],
   ),
 )
 
