@@ -65,6 +65,7 @@ fTest bash "${here}/test-docker-run.bash"
 fTest bash "${here}/test-docker-run-host.bash"
 fTest bash "${here}/test-docker-run-step.bash"
 fTest bash "${here}/../win/test-win-run.bash"
+fTest bash "${here}/../win/test-msys2-pins.bash"
 fTest bash "${here}/../win/test-gui-smoke.bash"
 fTest bash "${here}/../linux/test-fuzz-exit.bash"
 fTest bash "${here}/../linux/test-deb-size.bash"
@@ -83,6 +84,7 @@ done
 if [[ -n "$py" ]]; then
 	fTest "$py" "${here}/svg-min.py" --self-test
 	fTest "$py" "${here}/analyze.py" --self-test
+	fTest "$py" "${here}/lint-report.py" --self-test
 	"$py" "${here}/test-id.py" --check
 else
 	echo "[ svg-min self-test and test ID check skipped: no python ]"

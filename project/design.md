@@ -848,13 +848,17 @@ Stages, in order, each self-skipping when unconfigured: remote sync, format, deb
 
 - Profiling browses a generated folder tree on a private headless display while sampling every thread, then renders a flamegraph and prints the hot spots into the run log. It samples by attaching a debugger rather than using perf, because perf needs a privileged sysctl here and a profiler that can't run without root is a profiler nobody runs. The cost is wall-clock samples, so a blocked thread reads as work; the report keeps waiting in its own bucket and gives every figure as a share of busy time as well as of total. It profiles the debug build, since the release binaries are stripped and a flamegraph with no function names says nothing.
 
+- Every run's output goes to a log under `cicd/artifacts/lint/`. `cicd/utility/lint-report.py` lists the warning and error lines in the newest one that no older log has, with counts, times and temp names evened out first. With `--check` it says nothing new until a newer log is there.
+
 - The last stage archives the project tree into a rotated set of backups and then commits and pushes the current branch. The archive keeps what would be painful to lose - source, docs, the pipeline, assets, release builds and their packages - and drops what a command regenerates, chiefly the staged Windows runtime snapshot, which by itself took each archive from about 1.6 MB to 36 MB.
 
 ### Reproducible builds
 
-Nothing a build produces takes its timestamp from the clock. Every lane sets `SOURCE_DATE_EPOCH` to the commit date of what is being built, so the same commit builds to the same bytes on any box on any day and a released Linux artifact can be checked against a rebuild of its tag. That holds from the release after 1.0.0-beta2, since beta1 and beta2 were built with link-time optimization off. The Windows exe can't be yet: its hosted build installs whatever MSYS2 packages are current that day.
+Nothing a build produces takes its timestamp from the clock. Every lane sets `SOURCE_DATE_EPOCH` to the commit date of what is being built, so the same commit builds to the same bytes on any box on any day and a released Linux artifact can be checked against a rebuild of its tag. That holds from the release after 1.0.0-beta2, since beta1 and beta2 were built with link-time optimization off. The hosted Windows build installs the same MSYS2 packages every time, so its exe is built from the same compiler and libraries on any day. Whether the packed exe comes out byte for byte the same hasn't been checked yet.
 
 - The Windows exe was the one that actually differed run to run. The linker writes a timestamp into the PE header, and left alone it writes the clock: two clean builds of one commit used to differ in exactly those four bytes.
+
+- The hosted Windows build pins what it installs. The setup action is pinned by commit, which fixes the dated MSYS2 base it unpacks, and its own update is off. The toolchain and libraries on top come from `cicd/win/msys2-pins.txt`, the whole dependency closure by file name and sha256, fetched from the MSYS2 repo, which keeps old versions for a while. The packer is pinned by version. `cicd/win/msys2-pins.bash update` moves the pins to whatever is current, and is run by hand.
 
 - The strip rewrites the field too, so whatever strips a released exe has to carry the stamp as well as whatever linked it. Both Windows lanes were missed here, one at a time: the linker was given the stamp and the strip that ran after it put the clock back. Whichever step writes the file last is the one that decides.
 

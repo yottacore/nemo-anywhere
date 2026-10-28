@@ -33,6 +33,30 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- The Windows zip's libraries are whatever MSYS2 had when the cross build image was made.
+	- ID: 2026102809292792
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261028-092927
+	- Opened by: 2026102416300008
+	- Related IDs: 2026102416300008
+	- Target OS: Windows
+	- Requirements: `fetch-sysroot.bash` takes the current package database, so two images built on different days pack different DLLs into the zip. Pin it like the hosted build, maybe from the same list.
+	- Test case: none yet.
+
+- The hosted Windows build warns that MSYS2's MINGW64 environment is deprecated.
+	- ID: 2026102809292776
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261028-092927
+	- Opened by: 2026102618560000
+	- Related IDs: 2026102618560000
+	- Target OS: Windows
+	- Requirements: the setup step warns "MINGW64 is deprecated. Migrate to UCRT64 or CLANG64." on every run. Options: move every Windows lane to UCRT64, which changes the C runtime the exe links and so touches the dev box, the cross image and the bundle; or turn the warning off in the workflow and keep MINGW64. The rest of the pipeline wants no warnings.
+	- Test case: none yet.
+
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
@@ -1464,16 +1488,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD reset: CICD process gaps.
 	- ID: 2026102416300008
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: no. The new checks run in the lint stage.
+	- Needs external testing: the same `release-win.yml` run as 2026102618560000.
 	- Priority|Severity: Avg
 	- Opened: 20261024-163000
 	- Opened by: t00mietum
+	- Related IDs: 2026102618560000
 	- Requirements:
 		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
 		- What else in the shared CICD rules the pipeline doesn't do yet:
 			- A lint `--check` gate that reports only output not seen before, run beside the profiler's.
 			- The hosted Windows build installs whatever MSYS2 packages are current, so its exe can't be reproduced. Pin them.
-	- Test case: none yet.
+	- Progress log:
+		- 20261028: both gaps done. The lint check is in, and the hosted build installs only pinned packages. Left: the hosted run.
+	- Decisions:
+		- The pins are the whole dependency closure, by file name and sha256, not only the packages named. Otherwise the dependencies still float.
+		- The msys side leaves out what the base install has. That base is fixed by the setup action's commit, which is pinned too, with its update off.
+		- The files come from MSYS2's own repo, which keeps old versions for a while. When one is gone the run fails, and `msys2-pins.bash update` moves them all. No copy of the files is kept here, since the build runs only at a release.
+		- The packer is pinned by version too, since it writes the exe.
+		- The cross build's sysroot still takes what's current when its image is built. That's split out as its own item.
+		- The lint check matches the newest run log against the older logs in the folder, not a stored list, so there's nothing to keep in step. A warning seen only in logs rotated out counts as new again.
+		- Digits, times, pids and temp names are evened out first, so a warning that moved a line or came from another run isn't new.
+		- `--check` works like the profiler's: quiet until a newer log is there, with the marker outside git.
+	- Branch: round1028a
+	- Test case: dehzp `cicd/win/test-msys2-pins.bash` and dehzr `lint-report.py --self-test`, both in the lint stage.
+	- Verified: dehzp and dehzr pass, and each fails with the change it checks taken out. `lint-report.py --check` over the logs here lists 29 lines from the newest run that no older one has.
 
 - Static analyzers: fix or suppress the findings in our own code.
 	- ID: 2026102114400588
@@ -2020,17 +2060,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The hosted Windows build stops at its MSYS2 step: pacman has no `mingw-w64-x86_64-desktop-file-utils` anymore.
 	- ID: 2026102618560000
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: no. Only the hosted workflow and its scripts changed, and their checks run in the lint stage.
+	- Needs external testing: a `release-win.yml` run on round1028a, started by hand, that gets through both MSYS2 steps, the build and the pack.
 	- Priority|Severity: Avg
 	- Opened: 20261026-185600
 	- Opened by: t00mietum
+	- Related IDs: 2026102416300008
 	- Target OS: Windows
 	- Steps to reproduce: start `release-win.yml` on any branch.
 	- Incorrect behavior: "error: target not found: mingw-w64-x86_64-desktop-file-utils", and the job ends after about a minute.
 	- Expected behavior: the toolchain installs and the exe builds.
 	- Reproduced: 20261026 on round1026a, run 40434009683. The last passing run was 2026-08-19.
 	- Possible cause: MSYS2 dropped or renamed the package. It's named in `.github/workflows/release-win.yml`.
-	- Test case: a `release-win.yml` run that gets past the MSYS2 step.
+	- Actual cause: MSYS2 dropped `mingw-w64-x86_64-desktop-file-utils` from its mingw64 package database. The file is still on the repo, but pacman installs only what the database lists. Nothing in the Windows build runs it.
+	- Decisions:
+		- Dropped rather than pinned to the last file. Nothing on Windows runs desktop-file-validate or update-desktop-database, and the Windows package list in design.md never had it.
+	- Actual fix: it's gone from the list. The hosted build now installs a pinned list in place of named packages (2026102416300008), so a package MSYS2 drops later can't stop it until the pins are moved.
+	- Swept: every MSYS2 package list. The workflow, design.md "Building on Windows", building.md and `fetch-sysroot.bash`'s roots. Only the workflow named it. The Linux images' `desktop-file-utils` is Debian's and is still there.
+	- Branch: round1028a
+	- Test case: dehzp `cicd/win/test-msys2-pins.bash`, in the lint stage. It checks the workflow names no packages of its own, so a dropped one can only break a pins move. The hosted run is the real test.
+	- Verified: dehzp passes, and fails on the workflow as it was, on 5 checks. All 86 pinned files are on the MSYS2 repo under those names.
 
 - A cicd run prints the last step's PASS line twice.
 	- ID: 2026102520100000

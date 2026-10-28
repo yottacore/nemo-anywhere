@@ -43,22 +43,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: MSYS2 mingw64 toolchain
-        uses: msys2/setup-msys2@v2
+      # The action's commit fixes the dated base install it unpacks, and the
+      # toolchain on top of it comes from cicd/win/msys2-pins.txt, so a tag
+      # builds from the same packages whenever it runs. msys2-pins.bash moves them.
+      - name: MSYS2 base
+        uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
         with:
           msystem: MINGW64
-          update: true
-          install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-gtk3
-            mingw-w64-x86_64-libarchive
-            mingw-w64-x86_64-json-glib
-            mingw-w64-x86_64-libexif
-            mingw-w64-x86_64-meson
-            mingw-w64-x86_64-ninja
-            mingw-w64-x86_64-pkgconf
-            mingw-w64-x86_64-desktop-file-utils
-            intltool
+          update: false
+
+      - name: MSYS2 mingw64 toolchain
+        shell: msys2 {0}
+        run: bash cicd/win/msys2-pins.bash install
 
       # The linker writes a timestamp into the PE header, and left alone it writes
       # the clock, so the same tag would build to different bytes every run.
@@ -82,10 +78,11 @@ jobs:
         run: |
           # The community feed hands out a 503 often enough to lose a release cut
           # on its own, so the install gets a few tries before the job gives up.
+          # Pinned like the toolchain, since the packer writes the exe too.
           $PSNativeCommandUseErrorActionPreference = $false
           $installed = $false
           foreach ($try in 1..3) {
-            choco install enigmavirtualbox --ignore-checksums -y --no-progress
+            choco install enigmavirtualbox --version 9.20 --ignore-checksums -y --no-progress
             if ($LASTEXITCODE -eq 0) { $installed = $true; break }
             Write-Host "choco install failed on attempt $try"
             Start-Sleep -Seconds (20 * $try)
