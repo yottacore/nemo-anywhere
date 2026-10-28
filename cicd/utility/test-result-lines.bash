@@ -36,6 +36,7 @@ in='ninja: no work to do.
  77/236 rjbmj Expected fail test                                       EXPECTEDFAIL     0.10s   exit status 1
  78/236 rjbmk Unexpected pass test                                     UNEXPECTEDPASS   0.10s
  79/236 rjbmm Error test                                               ERROR            0.10s   exit status 99
+ 80/236 nemo-anywhere:rjbmn Newer meson test                     OK               0.10s
  3/10 rows sorted
 Ok:                 234'
 want='ninja: no work to do.
@@ -46,6 +47,7 @@ FAIL rjbmi OK FAIL name test  30.01s killed by signal 15 SIGTERM
 PASS rjbmj Expected fail test  0.10s exit status 1
 FAIL rjbmk Unexpected pass test  0.10s
 FAIL rjbmm Error test  0.10s exit status 99
+PASS rjbmn Newer meson test  0.10s
  3/10 rows sorted
 Ok:                 234'
 got="$(awk -f "${here}/include/result-lines.awk" <<< "${in}")"
