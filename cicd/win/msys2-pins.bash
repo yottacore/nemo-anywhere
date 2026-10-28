@@ -135,6 +135,7 @@ fMsys2Pins_Install(){
 	# shellcheck disable=SC2064 # the path is fixed now, on purpose
 	trap "fSafeRm_IfThere '${work}'" EXIT
 	while read -r repo file sha; do
+		sha="${sha%$'\r'}"  ## a Windows checkout may hand it CRLF
 		[[ -z "${repo}" || "${repo}" == \#* ]] && continue
 		[[ "${file}" != */* && "${sha}" =~ ^[0-9a-f]{64}$ ]] || fDie "bad line: ${repo} ${file} ${sha}"
 		printf 'url = "%s/%s/%s"\noutput = "%s/%s"\n' "${REPO_ROOT}" "${repo}" "${file}" "${work}" "${file}" >> "${work}/curl.cfg"

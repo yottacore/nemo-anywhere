@@ -2,6 +2,7 @@
 # (autocrlf would otherwise hand them CRLF on a Windows checkout and break them).
 *.bash text eol=lf
 *.sh   text eol=lf
+cicd/win/msys2-pins.txt text eol=lf
 
 # Git hooks are shell too, just without an extension to match on. So is the launcher
 # wrapper, which has to be named for the command it stands in for.
