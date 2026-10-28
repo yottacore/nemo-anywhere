@@ -33,39 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- FreeBSD result lines put meson's project name in front of the test ID.
-	- ID: 2026102812032075
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: High
-	- Opened: 20261028-120320
-	- Opened by: t00mietum
-	- Related IDs: 2026102416300007
-	- Target OS: FreeBSD, Windows
-	- Incorrect behavior: the FreeBSD suite's lines read `PASS nemo-anywhere:ddepg Stopped zip leak test  0.08s`, so a search for `PASS ddepg` misses them. All 236 lines of the 20261028 FreeBSD suite had it. The Linux suite's lines don't.
-	- Expected behavior: `PASS ddepg Stopped zip leak test  0.08s` on every platform, as in the testing rules.
-	- Reproduced: 20261028, the FreeBSD suite in a full run at 4be04125 and the lane run alone after it.
-	- Possible cause: meson 1.10.2 on FreeBSD names each test `<project>:<test>` on its result line, where 1.7.0 in the build container doesn't. `result-lines.awk` passes the name through as it is. MSYS2's meson on native Windows is new too, so it likely does the same.
-	- Test case: dehyx, with a nemo-anywhere:<id> result line.
-	- Closed: 20261028
-	- Fixed in 9f7df4c7: result-lines.awk drops a leading project name from the ID. dehyx failed on the new case first.
-	- Verified: 20261028, FreeBSD lane at 9f7df4c7: 217 PASS lines with bare IDs, none with the prefix, no FAIL.
-
-- The FreeBSD lane stops on meson clock skew when vmFreeBSD was paused, since a resumed guest keeps its old clock.
-	- ID: 2026102810470587
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261028-104705
-	- Opened by: t00mietum
-	- Target OS: FreeBSD
-	- Steps to reproduce: pause vmFreeBSD for some hours, then start a full run.
-	- Incorrect behavior: meson says 'Clock skew detected', a source file 60941 s in the future, and the FreeBSD suite fails.
-	- Expected behavior: the lane sets the guest clock after it wakes the box, or waits for it to be right, before building.
-	- Reproduced: 20261028 on round1028a, full run at 10:43 local.
-	- Possible cause: claude_vm-state.bash resumes a paused guest, and the guest clock doesn't jump forward. From off it boots with the right time. vmDebARM64 likely has the same problem for the arm64 lane.
-	- Test case: a lane run with the VM paused for an hour first, plus a box-wrap test that the clock step runs after a resume.
-
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
@@ -156,40 +123,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none new, docs only. The lint stage passes, and its prose check now reads install.md and building.md.
 	- Stand-in: none (20261028). File names, layout and the license line are calls for a person.
 
-- With OLE drag on, a GTK drag on Windows may keep its whole drag window.
-	- ID: 2026102112223038
-	- Type: Bug
-	- Status: Open
-		- Filed upstream as GTK issue [#8497](https://gitlab.gnome.org/GNOME/gtk/-/work_items/8497) and MR [!10551](https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/10551). Waits on a GTK 3.24 release with it.
-		- Let's patch our own fork, if it hasn't been merged yet.
-	- Needs external testing: none. Seen on native Windows 20261022.
-	- Priority|Severity: Low
-	- Opened: 20261021-122230
-	- Opened by: t00mietum
-	- Related IDs: 2026102020234500, 2026101916044103
-	- Target OS: Windows
-	- Steps to reproduce:
-		- Turn on GDK's OLE drag, as `nemo_dnd_win32_prepare` does.
-		- Start a GTK drag, such as a tab or a text drag, and stop it.
-	- Incorrect behavior: the drag window is never destroyed, and keeps 4 refs after the drag's context is gone. One per drag, for the life of the app. The app's own file drags don't use it, but GTK's own drag sources do.
-	- Expected behavior: the drag window is destroyed and freed with its context, as it is with GTK's own drag protocol.
-	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. 20261022 on Windows 11, GTK 3.24.52, the same in every mode. Again 20261021 under wine: only when the drag stops before GDK handles another event. One stopped 300 ms in is freed, OLE on or off.
-	- Possible cause: GDK's OLE drag source keeps the context's drag window past the context, or wine's `DoDragDrop` never returns for a drag stopped from GTK's side.
-	- Actual cause: GDK, not wine.
-		- With OLE on, `gdk_drag_begin` leaves a pending OLE drag source that holds a ref on the context. Only the code after `DoDragDrop` lets it go, and `DoDragDrop` starts on the next event GDK handles. GDK's drag abort just sets the state to none, so a drag stopped before then never runs `DoDragDrop`, and the source is never released.
-		- So the context isn't gone. It stays at 1 ref, is never finalized, and never destroys its drag window. The window's 4 refs are what any drag window has until its context's finalize. Dropping the context's last ref by hand destroys and frees the window at once.
-		- The first source left this way also stays GDK's current drag source, so later drops inside the app take their source window from it.
-	- Decisions:
-		- Upstream only. The ref belongs to GDK's pending drag source, which the app can't reach. Dropping it from the app leaves GDK's pointer to the context dangling, and GDK reads it on the next drop into the app.
-		- Drags in the app start from an event, so `DoDragDrop` runs right after and the context is freed. The app never cancels a drag itself. So it stays Low.
-		- An upstream patch is drafted, not filed: GDK's drag abort releases the pending source when `DoDragDrop` hasn't started.
-		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
-		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
-	- Actual fix: none in the app.
-	- Test case: none. The fix is upstream, and nothing in the app hits it.
-	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
-	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
-
 - Need to wait longer after powering up VMs, to connect via SSH.
 	- ID: 2026102808084300
 	- Type: Bug
@@ -239,6 +172,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9. The native release and the packages passed, and no step container was left here. The arm64 lane was left out.
 	- Swept: every `docker exec`, `docker cp`, `docker update` and `docker stop` that named `nemo-build-jammy`, and every `NEMO_RELEASE_CONTAINER` reader, under `cicd/` and `utility/`: `release.bash`, `package.bash`, `release-arm64.bash`, `test-release-arm64.bash`, `test-package-arm64.bash` and `test-deb-size.bash`. `test-release-setup.bash` already ran its own container.
 	- 20261028: not run. Neither full run that day had `--long`, so the arm64 lane was left out.
+
+- With OLE drag on, a GTK drag on Windows may keep its whole drag window.
+	- ID: 2026102112223038
+	- Type: Bug
+	- Status: Open
+		- Filed upstream as GTK issue [#8497](https://gitlab.gnome.org/GNOME/gtk/-/work_items/8497) and MR [!10551](https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/10551). Waits on a GTK 3.24 release with it.
+		- Let's patch our own fork, if it hasn't been merged yet.
+	- Needs external testing: none. Seen on native Windows 20261022.
+	- Priority|Severity: Low
+	- Opened: 20261021-122230
+	- Opened by: t00mietum
+	- Related IDs: 2026102020234500, 2026101916044103
+	- Target OS: Windows
+	- Steps to reproduce:
+		- Turn on GDK's OLE drag, as `nemo_dnd_win32_prepare` does.
+		- Start a GTK drag, such as a tab or a text drag, and stop it.
+	- Incorrect behavior: the drag window is never destroyed, and keeps 4 refs after the drag's context is gone. One per drag, for the life of the app. The app's own file drags don't use it, but GTK's own drag sources do.
+	- Expected behavior: the drag window is destroyed and freed with its context, as it is with GTK's own drag protocol.
+	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. 20261022 on Windows 11, GTK 3.24.52, the same in every mode. Again 20261021 under wine: only when the drag stops before GDK handles another event. One stopped 300 ms in is freed, OLE on or off.
+	- Possible cause: GDK's OLE drag source keeps the context's drag window past the context, or wine's `DoDragDrop` never returns for a drag stopped from GTK's side.
+	- Actual cause: GDK, not wine.
+		- With OLE on, `gdk_drag_begin` leaves a pending OLE drag source that holds a ref on the context. Only the code after `DoDragDrop` lets it go, and `DoDragDrop` starts on the next event GDK handles. GDK's drag abort just sets the state to none, so a drag stopped before then never runs `DoDragDrop`, and the source is never released.
+		- So the context isn't gone. It stays at 1 ref, is never finalized, and never destroys its drag window. The window's 4 refs are what any drag window has until its context's finalize. Dropping the context's last ref by hand destroys and frees the window at once.
+		- The first source left this way also stays GDK's current drag source, so later drops inside the app take their source window from it.
+	- Decisions:
+		- Upstream only. The ref belongs to GDK's pending drag source, which the app can't reach. Dropping it from the app leaves GDK's pointer to the context dangling, and GDK reads it on the next drop into the app.
+		- Drags in the app start from an event, so `DoDragDrop` runs right after and the context is freed. The app never cancels a drag itself. So it stays Low.
+		- An upstream patch is drafted, not filed: GDK's drag abort releases the pending source when `DoDragDrop` hasn't started.
+		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
+		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
+	- Actual fix: none in the app.
+	- Test case: none. The fix is upstream, and nothing in the app hits it.
+	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
+	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
 
 - Other hosts: a box that isn't there is a SKIP.
 	- ID: 2026102808250949
@@ -318,33 +285,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- 20261028: native gate not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
 	- Verified: 20261028, FreeBSD lane at 9f7df4c7: every result line reads PASS <id> <name>.
 
-- The hosted Windows build stops at its MSYS2 step: pacman has no `mingw-w64-x86_64-desktop-file-utils` anymore.
-	- ID: 2026102618560000
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. Only the hosted workflow and its scripts changed, and their checks run in the lint stage.
-	- Needs external testing: No
-	- Priority|Severity: Avg
-	- Opened: 20261026-185600
-	- Opened by: t00mietum
-	- Related IDs: 2026102416300008
-	- Target OS: Windows
-	- Steps to reproduce: start `release-win.yml` on any branch.
-	- Incorrect behavior: "error: target not found: mingw-w64-x86_64-desktop-file-utils", and the job ends after about a minute.
-	- Expected behavior: the toolchain installs and the exe builds.
-	- Reproduced: 20261026 on round1026a, run 40434009683. The last passing run was 2026-08-19.
-	- Possible cause: MSYS2 dropped or renamed the package. It's named in `.github/workflows/release-win.yml`.
-	- Actual cause: MSYS2 dropped `mingw-w64-x86_64-desktop-file-utils` from its mingw64 package database. The file is still on the repo, but pacman installs only what the database lists. Nothing in the Windows build runs it.
-	- Decisions:
-		- Dropped rather than pinned to the last file. Nothing on Windows runs desktop-file-validate or update-desktop-database, and the Windows package list in design.md never had it.
-	- Actual fix: it's gone from the list. The hosted build now installs a pinned list in place of named packages (2026102416300008), so a package MSYS2 drops later can't stop it until the pins are moved.
-	- Swept: every MSYS2 package list. The workflow, design.md "Building on Windows", building.md and `fetch-sysroot.bash`'s roots. Only the workflow named it. The Linux images' `desktop-file-utils` is Debian's and is still there.
-	- Branch: round1028a
-	- Test case: dehzp `cicd/win/test-msys2-pins.bash`, in the lint stage. It checks the workflow names no packages of its own, so a dropped one can only break a pins move. The hosted run is the real test.
-	- Verified: dehzp passes, and fails on the workflow as it was, on 5 checks. All 86 pinned files are on the MSYS2 repo under those names.
-	- Closed: 20261028
-	- Verified: 20261028, release-win.yml run 40737555415 on round1028a at 313352b1 passed both MSYS2 steps, the build, the pack and the upload.
-
 - Temp files: scripts remove their own temp folders through the guard.
 	- ID: 2026102618083910
 	- Type: Task
@@ -370,64 +310,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9. The packages step, the profiler and the Windows pack passed.
 	- Swept: every `rm -r` in tracked bash scripts. The rest are on the list in defnq, for the next two children.
 	- 20261028: native gate not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
-
-- CICD reset: CICD process gaps.
-	- ID: 2026102416300008
-	- Type: Task
-	- Status: Done
-	- Needs local test suite run?: no. The new checks run in the lint stage.
-	- Needs external testing: No
-	- Priority|Severity: Avg
-	- Opened: 20261024-163000
-	- Opened by: t00mietum
-	- Related IDs: 2026102618560000
-	- Requirements:
-		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
-		- What else in the shared CICD rules the pipeline doesn't do yet:
-			- A lint `--check` gate that reports only output not seen before, run beside the profiler's.
-			- The hosted Windows build installs whatever MSYS2 packages are current, so its exe can't be reproduced. Pin them.
-	- Progress log:
-		- 20261028: both gaps done. The lint check is in, and the hosted build installs only pinned packages. Left: the hosted run.
-	- Decisions:
-		- The pins are the whole dependency closure, by file name and sha256, not only the packages named. Otherwise the dependencies still float.
-		- The msys side leaves out what the base install has. That base is fixed by the setup action's commit, which is pinned too, with its update off.
-		- The files come from MSYS2's own repo, which keeps old versions for a while. When one is gone the run fails, and `msys2-pins.bash update` moves them all. No copy of the files is kept here, since the build runs only at a release.
-		- The packer is pinned by version too, since it writes the exe.
-		- The cross build's sysroot still takes what's current when its image is built. That's split out as its own item.
-		- The lint check matches the newest run log against the older logs in the folder, not a stored list, so there's nothing to keep in step. A warning seen only in logs rotated out counts as new again.
-		- Digits, times, pids and temp names are evened out first, so a warning that moved a line or came from another run isn't new.
-		- `--check` works like the profiler's: quiet until a newer log is there, with the marker outside git.
-	- Branch: round1028a
-	- Test case: dehzp `cicd/win/test-msys2-pins.bash` and dehzr `lint-report.py --self-test`, both in the lint stage.
-	- Verified: dehzp and dehzr pass, and each fails with the change it checks taken out. `lint-report.py --check` over the logs here lists 29 lines from the newest run that no older one has.
-	- Closed: 20261028
-	- Verified: 20261028, release-win.yml run 40737555415 on round1028a at 313352b1 passed both MSYS2 steps, the build, the pack and the upload.
-
-- dcxzr read fewer than 3 draws once in the gate's suite, in the timed draw count case.
-	- ID: 2026102516081782
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: No
-	- Priority|Severity: Low
-	- Opened: 20261025-160817
-	- Opened by: 2026102510323600
-	- Target OS: Linux
-	- Steps to reproduce: `cicd/cicd.bash --gate` at load about 10.
-	- Incorrect behavior: "FAIL ../src/source/test/test-nemo-cache-db.c:592: renders == 3", in `check_draws_written_off_window`.
-	- Expected behavior: passes.
-	- Reproduced: once, 20261025 on round1025b, with an uncommitted header change that only touches compile-time pragmas. It passed 20 of 20 alone right after, in the same build.
-		- 20261028: every time, with a 400 ms pause held after the first of the 3 notes: "renders == 3" fails.
-	- Possible cause: the case notes 3 draws, then waits for the count to go out after a 200 ms draw wait, and stops at the first count that isn't 0. A write that goes out between the notes would give 1 or 2. Not looked into.
-	- Actual cause: the 200 ms wait starts at the first note. A slow box can let it run out before the third, so the writer sends 1 or 2 and the rest go out in a second write. The case read the count once the first write was in.
-	- Actual fix: the case waits for all 3 draws to be written, up to the same 5 s. Counts written in 2 goes still add up to 3.
-	- Branch: round1028a
-	- Commit: 776666f9
-	- Test case: dcxzr itself, beside the full suite. With the 400 ms pause after the first note it fails before the fix and passes after.
-	- Verified: 20261028, dcxzr fails with the pause before the fix and passes with it after, and passes in the plain build without it.
-	- Verified: 20261028, `cicd.bash --backlog-run-quick` passes at 776666f9.
-	- Swept: the only other test that notes a draw, the prune test, writes it with a flush, not the timed writer.
-	- Closed: 20261028
-	- Verified: 20261028, full run 20261028-104801 on round1028a: PASS dcxzr.
 
 - ddepg failed once in a full run's suite on a loaded box, the heap growing 1600 bytes over 64 rounds.
 	- ID: 2026102518200000
@@ -723,6 +605,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: opened.
 		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
 	- Test case: one per child.
+
+- The FreeBSD lane stops on meson clock skew when vmFreeBSD was paused, since a resumed guest keeps its old clock.
+	- ID: 2026102810470587
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261028-104705
+	- Opened by: t00mietum
+	- Target OS: FreeBSD
+	- Steps to reproduce: pause vmFreeBSD for some hours, then start a full run.
+	- Incorrect behavior: meson says 'Clock skew detected', a source file 60941 s in the future, and the FreeBSD suite fails.
+	- Expected behavior: the lane sets the guest clock after it wakes the box, or waits for it to be right, before building.
+	- Reproduced: 20261028 on round1028a, full run at 10:43 local.
+	- Possible cause: claude_vm-state.bash resumes a paused guest, and the guest clock doesn't jump forward. From off it boots with the right time. vmDebARM64 likely has the same problem for the arm64 lane.
+	- Test case: a lane run with the VM paused for an hour first, plus a box-wrap test that the clock step runs after a resume.
 
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
@@ -1944,6 +1841,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: ssh is now a full alias for sftp everywhere, Connect to Server included, and the error seen was there (ddzxz). ddytk pins the smb and sftp listings, and dbee2 the Windows smb addresses, checked natively on vm925w with Connect to Server too. Asking only for server and share on Windows is how Windows connects, as the session.
 	- Closed: 20261025-155000
 
+- FreeBSD result lines put meson's project name in front of the test ID.
+	- ID: 2026102812032075
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261028-120320
+	- Opened by: t00mietum
+	- Related IDs: 2026102416300007
+	- Target OS: FreeBSD, Windows
+	- Incorrect behavior: the FreeBSD suite's lines read `PASS nemo-anywhere:ddepg Stopped zip leak test  0.08s`, so a search for `PASS ddepg` misses them. All 236 lines of the 20261028 FreeBSD suite had it. The Linux suite's lines don't.
+	- Expected behavior: `PASS ddepg Stopped zip leak test  0.08s` on every platform, as in the testing rules.
+	- Reproduced: 20261028, the FreeBSD suite in a full run at 4be04125 and the lane run alone after it.
+	- Possible cause: meson 1.10.2 on FreeBSD names each test `<project>:<test>` on its result line, where 1.7.0 in the build container doesn't. `result-lines.awk` passes the name through as it is. MSYS2's meson on native Windows is new too, so it likely does the same.
+	- Test case: dehyx, with a nemo-anywhere:<id> result line.
+	- Closed: 20261028
+	- Fixed in 9f7df4c7: result-lines.awk drops a leading project name from the ID. dehyx failed on the new case first.
+	- Verified: 20261028, FreeBSD lane at 9f7df4c7: 217 PASS lines with bare IDs, none with the prefix, no FAIL.
+
 - The Linux release build fails on `EEL_ANALYZER_SKIP ("infinite-loop")` in jammy's gcc 11.
 	- ID: 2026102510323600
 	- Type: Bug
@@ -2800,6 +2715,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261022, round1022: the full Linux suite, 231 OK. FreeBSD lane as `bsdtest`, 212 OK and 20 skipped, de8dm, de8ec, de8bd, ddy5f and dd5df among them.
 	- Closed: 20261022-214700
 	- Verified: 20261021, de8dm, de8ec, de8bd and ddy5f pass in all 3 views. dd5df, dbnfq, dbsx7 and dc8tz pass. The build has no warnings, the Windows cross build with warnings as errors is clean, and the UI case and test ID checks pass.
+
+- The hosted Windows build stops at its MSYS2 step: pacman has no `mingw-w64-x86_64-desktop-file-utils` anymore.
+	- ID: 2026102618560000
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. Only the hosted workflow and its scripts changed, and their checks run in the lint stage.
+	- Needs external testing: No
+	- Priority|Severity: Avg
+	- Opened: 20261026-185600
+	- Opened by: t00mietum
+	- Related IDs: 2026102416300008
+	- Target OS: Windows
+	- Steps to reproduce: start `release-win.yml` on any branch.
+	- Incorrect behavior: "error: target not found: mingw-w64-x86_64-desktop-file-utils", and the job ends after about a minute.
+	- Expected behavior: the toolchain installs and the exe builds.
+	- Reproduced: 20261026 on round1026a, run 40434009683. The last passing run was 2026-08-19.
+	- Possible cause: MSYS2 dropped or renamed the package. It's named in `.github/workflows/release-win.yml`.
+	- Actual cause: MSYS2 dropped `mingw-w64-x86_64-desktop-file-utils` from its mingw64 package database. The file is still on the repo, but pacman installs only what the database lists. Nothing in the Windows build runs it.
+	- Decisions:
+		- Dropped rather than pinned to the last file. Nothing on Windows runs desktop-file-validate or update-desktop-database, and the Windows package list in design.md never had it.
+	- Actual fix: it's gone from the list. The hosted build now installs a pinned list in place of named packages (2026102416300008), so a package MSYS2 drops later can't stop it until the pins are moved.
+	- Swept: every MSYS2 package list. The workflow, design.md "Building on Windows", building.md and `fetch-sysroot.bash`'s roots. Only the workflow named it. The Linux images' `desktop-file-utils` is Debian's and is still there.
+	- Branch: round1028a
+	- Test case: dehzp `cicd/win/test-msys2-pins.bash`, in the lint stage. It checks the workflow names no packages of its own, so a dropped one can only break a pins move. The hosted run is the real test.
+	- Verified: dehzp passes, and fails on the workflow as it was, on 5 checks. All 86 pinned files are on the MSYS2 repo under those names.
+	- Closed: 20261028
+	- Verified: 20261028, release-win.yml run 40737555415 on round1028a at 313352b1 passed both MSYS2 steps, the build, the pack and the upload.
 
 - The native gate on vm925w stops on scratch folders 7 tests leave behind.
 	- ID: 2026102413432225
@@ -4706,6 +4648,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: de025 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
 
+- CICD reset: CICD process gaps.
+	- ID: 2026102416300008
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: no. The new checks run in the lint stage.
+	- Needs external testing: No
+	- Priority|Severity: Avg
+	- Opened: 20261024-163000
+	- Opened by: t00mietum
+	- Related IDs: 2026102618560000
+	- Requirements:
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- What else in the shared CICD rules the pipeline doesn't do yet:
+			- A lint `--check` gate that reports only output not seen before, run beside the profiler's.
+			- The hosted Windows build installs whatever MSYS2 packages are current, so its exe can't be reproduced. Pin them.
+	- Progress log:
+		- 20261028: both gaps done. The lint check is in, and the hosted build installs only pinned packages. Left: the hosted run.
+	- Decisions:
+		- The pins are the whole dependency closure, by file name and sha256, not only the packages named. Otherwise the dependencies still float.
+		- The msys side leaves out what the base install has. That base is fixed by the setup action's commit, which is pinned too, with its update off.
+		- The files come from MSYS2's own repo, which keeps old versions for a while. When one is gone the run fails, and `msys2-pins.bash update` moves them all. No copy of the files is kept here, since the build runs only at a release.
+		- The packer is pinned by version too, since it writes the exe.
+		- The cross build's sysroot still takes what's current when its image is built. That's split out as its own item.
+		- The lint check matches the newest run log against the older logs in the folder, not a stored list, so there's nothing to keep in step. A warning seen only in logs rotated out counts as new again.
+		- Digits, times, pids and temp names are evened out first, so a warning that moved a line or came from another run isn't new.
+		- `--check` works like the profiler's: quiet until a newer log is there, with the marker outside git.
+	- Branch: round1028a
+	- Test case: dehzp `cicd/win/test-msys2-pins.bash` and dehzr `lint-report.py --self-test`, both in the lint stage.
+	- Verified: dehzp and dehzr pass, and each fails with the change it checks taken out. `lint-report.py --check` over the logs here lists 29 lines from the newest run that no older one has.
+	- Closed: 20261028
+	- Verified: 20261028, release-win.yml run 40737555415 on round1028a at 313352b1 passed both MSYS2 steps, the build, the pack and the upload.
+
 - Temp files: the run folder in `cicd.bash`.
 	- ID: 2026102516403466
 	- Type: Task
@@ -5704,6 +5678,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddf4w Config old formats test.
 	- Acceptance signoff: Self-closed: ddf4w is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- dcxzr read fewer than 3 draws once in the gate's suite, in the timed draw count case.
+	- ID: 2026102516081782
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: No
+	- Priority|Severity: Low
+	- Opened: 20261025-160817
+	- Opened by: 2026102510323600
+	- Target OS: Linux
+	- Steps to reproduce: `cicd/cicd.bash --gate` at load about 10.
+	- Incorrect behavior: "FAIL ../src/source/test/test-nemo-cache-db.c:592: renders == 3", in `check_draws_written_off_window`.
+	- Expected behavior: passes.
+	- Reproduced: once, 20261025 on round1025b, with an uncommitted header change that only touches compile-time pragmas. It passed 20 of 20 alone right after, in the same build.
+		- 20261028: every time, with a 400 ms pause held after the first of the 3 notes: "renders == 3" fails.
+	- Possible cause: the case notes 3 draws, then waits for the count to go out after a 200 ms draw wait, and stops at the first count that isn't 0. A write that goes out between the notes would give 1 or 2. Not looked into.
+	- Actual cause: the 200 ms wait starts at the first note. A slow box can let it run out before the third, so the writer sends 1 or 2 and the rest go out in a second write. The case read the count once the first write was in.
+	- Actual fix: the case waits for all 3 draws to be written, up to the same 5 s. Counts written in 2 goes still add up to 3.
+	- Branch: round1028a
+	- Commit: 776666f9
+	- Test case: dcxzr itself, beside the full suite. With the 400 ms pause after the first note it fails before the fix and passes after.
+	- Verified: 20261028, dcxzr fails with the pause before the fix and passes with it after, and passes in the plain build without it.
+	- Verified: 20261028, `cicd.bash --backlog-run-quick` passes at 776666f9.
+	- Swept: the only other test that notes a draw, the prune test, writes it with a flush, not the timed writer.
+	- Closed: 20261028
+	- Verified: 20261028, full run 20261028-104801 on round1028a: PASS dcxzr.
 
 - On Windows, the trash icon leaves out removable drives.
 	- ID: 2026100708294146
