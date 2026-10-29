@@ -5,16 +5,21 @@
 ##		  Linux container. The step containers (cicd/win/win-box.bash) are the Linux
 ##		  host's cross story; on real Windows there's a native GTK3 toolchain, so no
 ##		  Docker or wine is involved here. Does NOT touch cicd.bash or config.bash.
-##		- Stages (fail-fast; any error aborts before the next stage):
-##		   0. remote sync   (fetch; fast-forward if safely behind; abort if diverged)
-##		   1. lint          (check-only: every checker in cicd/utility/lint.bash)
-##		   2. debug build   (meson setup -Dxmp=false + ninja, MSYS2 mingw64)
-##		   3. tests         (meson test suite, the installer's in-use check, then a
-##		                     --version smoke and a GUI launch smoke of the built exe)
-##		   4. stage         (self-contained runtime bundle - the packer's input)
-##		   5. packages      (portable single-exe via Enigma Virtual Box; NSIS later)
-##		   6. dogfood       (drop the single exe into the synced app dir)
-##		   7. publish       (stash -> pull -> add -> commit -> push, current branch)
+##		- Steps (fail-fast; any error aborts before the next step):
+##		   Remote sync     (fetch; fast-forward if safely behind; abort if diverged)
+##		   Lints           (check-only: every checker in cicd/utility/lint.bash)
+##		   Build (debug)   (meson setup -Dxmp=false + ninja, MSYS2 mingw64)
+##		   Tests           (meson test suite and the installer's script tests)
+##		   Smoke checks    (--version and a GUI launch of the built exe)
+##		   Runtime bundle  (self-contained runtime bundle - the packer's input)
+##		   Packages        (portable single-exe via Enigma Virtual Box; NSIS later)
+##		   Dogfood         (drop the single exe into the synced app dir)
+##		   Publish         (stash -> pull -> add -> commit -> push, current branch)
+##		- Each step opens and closes with a timestamped "Step N of M" line, as in
+##		  cicd.bash. A step that's turned off isn't counted; the plan lists it.
+##		- Runs at BelowNormal priority, which the tools it starts inherit. Job
+##		  counts are half the CPUs, a quarter when CPU use is over 50%, checked
+##		  before each step. CICD_JOBS_PIN or CICD_MAX_JOBS set beforehand pins it.
 ##		- The build needs MSYS2 with the mingw64 GTK toolchain (gtk3, meson, ninja,
 ##		  json-glib, libexif, libarchive). A missing toolchain warn-skips the build/stage
 ##		  (so sync + publish still run) unless -BuildStrict makes it a hard failure.
@@ -114,6 +119,22 @@ if (-not $IsWindows) {
 ## -Quiet implies unattended; both suppress the preflight prompt.
 $Unattended = ($Yes -or $Quiet)
 
+## Low priority before anything starts. Windows hands BelowNormal and Idle down
+## to child processes, so MSYS2, ninja, gcc and the tests run there too. A run
+## started lower than that stays where it was.
+$script:PriorityRank = @{ Idle = 0; BelowNormal = 1; Normal = 2; AboveNormal = 3; High = 4; RealTime = 5 }
+$script:PriorityStart = [string](Get-Process -Id $PID).PriorityClass
+function fPriority {
+	param([Parameter(Mandatory)][ValidateSet('Idle', 'BelowNormal')][string]$Class)
+	$want = $Class
+	if ($script:PriorityRank[$script:PriorityStart] -lt $script:PriorityRank[$Class]) { $want = $script:PriorityStart }
+	$self = Get-Process -Id $PID
+	if ([string]$self.PriorityClass -eq $want) { return }
+	try { $self.PriorityClass = $want }
+	catch { Write-Warning "could not set priority ${want}: $($_.Exception.Message)" }
+}
+fPriority 'BelowNormal'
+
 
 #------------------------------------------------------------------------------
 # Configuration (Windows-native; config.bash stays the Linux source of truth).
@@ -176,7 +197,7 @@ $LogDir = Join-Path $Root "cicd\artifacts\lint-win"
 # Output helpers (mirror cicd.bash: fEcho / fEcho_Clean / fSection)
 
 $script:WasLastEchoBlank = $false
-$script:Letterbox = ([string][char]0x2022) * 73
+$script:Letterbox = ([string][char]0x2022) * 79
 $script:Transcribing = $false
 
 function fEcho_Clean {
@@ -189,6 +210,86 @@ function fSection  { param([string]$Msg);      fEcho_Clean; fEcho_Clean $script:
 function fNote     { param([string]$Msg); fEcho_Clean $Msg }
 function fWarn     { param([string]$Msg); fEcho "WARNING: $Msg" }
 function fDie      { param([string]$Msg); fEcho "FAILED: $Msg"; exit 1 }
+
+## Local time to the hundredth, as YYYYmmDD-HHMMSS.NN. Invariant, or a Thai
+## or Hijri calendar would print another year.
+function fStamp { return [DateTime]::Now.ToString('yyyyMMdd-HHmmss.ff', [Globalization.CultureInfo]::InvariantCulture) }
+
+## Job counts, worked out here only, the way include/jobs.bash does it for the
+## Linux run: half the CPUs, a quarter on a busy box or for a hard step, never
+## under 1. Windows has no load average, so busy is CPU use over 50% across
+## the last second, the same line the load rule draws at half the CPUs.
+$script:Jobs = 1; $script:JobsCpus = 1; $script:JobsUse = -1; $script:JobsBusy = $false
+$script:JobsPin = if ($env:CICD_JOBS_PIN) { $env:CICD_JOBS_PIN } else { $env:CICD_MAX_JOBS }
+function fJobs_Count {
+	param([int]$Cpus, [int]$CpuUse, [switch]$Hard)
+	$div = if ($Hard -or $CpuUse -gt 50) { 4 } else { 2 }
+	return [int][Math]::Max(1, [Math]::Floor($Cpus / $div))
+}
+## -1 when Windows won't say.
+function fCpuUse {
+	$use = $null
+	try { $use = (Get-CimInstance -ClassName Win32_Processor -ErrorAction Stop | Measure-Object -Property LoadPercentage -Average).Average }
+	catch { $use = $null }
+	if ($null -eq $use) { return -1 }
+	return [int]$use
+}
+function fJobs {
+	param([switch]$Hard)
+	$script:JobsCpus = [Environment]::ProcessorCount
+	$script:JobsUse = fCpuUse
+	$script:JobsBusy = ($script:JobsUse -gt 50)
+	if ($script:JobsPin) {
+		if ($script:JobsPin -notmatch '^[1-9][0-9]*$') { fDie "CICD_JOBS_PIN or CICD_MAX_JOBS must be a whole number over 0, not '$($script:JobsPin)'" }
+		$script:Jobs = [int]$script:JobsPin
+	} else {
+		$script:Jobs = fJobs_Count -Cpus $script:JobsCpus -CpuUse $script:JobsUse -Hard:$Hard
+	}
+	$env:CICD_MAX_JOBS = [string]$script:Jobs
+}
+
+## Steps. The plan is made first, so each header can say "Step N of M": fPlan
+## <on> <name> <why off>. A step that's off isn't counted, and the plan lists
+## it with its flag or reason. fStep <name> [-Hard] closes the step before it
+## as PASS, checks CPU use again for the job count, and opens this one. The
+## last finally block closes a step still open as FAIL.
+$script:StepList = [Collections.Generic.List[string]]::new()
+$script:StepOff  = [Collections.Generic.List[string]]::new()
+$script:StepNow  = 0
+$script:StepOpen = ""
+function fPlan {
+	param([bool]$On, [string]$Name, [string]$WhyOff = "")
+	if ($On) { $script:StepList.Add($Name) } else { $script:StepOff.Add("$Name ($WhyOff)") }
+}
+function fPlan_Show {
+	fEcho_Clean "Steps .......: $($script:StepList.Count)"
+	if ($script:StepOff.Count -eq 0) { return }
+	fEcho_Clean "Turned off ..:"
+	foreach ($off in $script:StepOff) { fEcho_Clean "    - $off" }
+}
+function fStep_Close {
+	param([Parameter(Mandatory)][string]$State)
+	if (-not $script:StepOpen) { return }
+	fEcho "$(fStamp): Step $($script:StepNow) of $($script:StepList.Count); $State $($script:StepOpen)"
+	$script:StepOpen = ""
+}
+function fStep {
+	param([Parameter(Mandatory)][string]$Name, [switch]$Hard)
+	fStep_Close 'PASS'
+	$script:StepNow++
+	$script:StepOpen = $Name
+	fJobs -Hard:$Hard
+	## None of the steps here is hard yet; Idle is for when one is.
+	fPriority $(if ($Hard) { 'Idle' } else { 'BelowNormal' })
+	fEcho_Clean
+	fEcho_Clean $script:Letterbox
+	fEcho "$(fStamp): Step $($script:StepNow) of $($script:StepList.Count); Starting $Name"
+	$planned = if ($script:StepNow -le $script:StepList.Count) { $script:StepList[$script:StepNow - 1] } else { 'none' }
+	if ($planned -ne $Name) { fWarn "the plan has step $($script:StepNow) as '$planned'" }
+	$why = if ($script:JobsPin) { 'pinned, ' } elseif ($Hard) { 'hard step, ' } elseif ($script:JobsBusy) { 'busy box, ' } else { '' }
+	$use = if ($script:JobsUse -lt 0) { 'cpu use unknown' } else { "cpu use $($script:JobsUse)%" }
+	fEcho_Clean "jobs $($script:Jobs) (${why}${use} on $($script:JobsCpus) cpus)"
+}
 
 
 #------------------------------------------------------------------------------
@@ -207,15 +308,18 @@ function fToMsysPath {
 ## return value - a function's return is its whole pipeline, so returning the code
 ## would fold the native stdout into it). MSYSTEM=MINGW64 + a login shell give the
 ## mingw64 PATH and codegen tools; CHERE_INVOKING keeps our cd instead of $HOME.
-## -Quiet swallows output (for probes).
+## The job count goes in by name, as SOURCE_DATE_EPOCH does in fBuild, rather
+## than trusting the login shell to pass our environment on. -Quiet swallows
+## output (for probes).
 $script:MingwRc = 0
 function fMingw {
 	param([Parameter(Mandatory)][string]$ShCommand, [switch]$Quiet)
 	$rootU = fToMsysPath $Root
 	$env:MSYSTEM = "MINGW64"
 	$env:CHERE_INVOKING = "1"
-	if ($Quiet) { & $MsysBash -lc "cd '$rootU' || exit 2; $ShCommand" *> $null }
-	else        { & $MsysBash -lc "cd '$rootU' || exit 2; $ShCommand" }
+	$sh = "export CICD_MAX_JOBS=$($script:Jobs); cd '$rootU' || exit 2; $ShCommand"
+	if ($Quiet) { & $MsysBash -lc $sh *> $null }
+	else        { & $MsysBash -lc $sh }
 	$script:MingwRc = $LASTEXITCODE
 }
 
@@ -239,8 +343,6 @@ function fVersion {
 ## ninja, in the mingw64 shell. Aborts on a real build error. Warnings are errors,
 ## as in the Linux lanes (cicd/linux/run-tests.bash says why).
 function fBuild {
-	## -j caps at half the cores, same as the Linux engine; ninja alone takes cores+2.
-	$jobs = [Math]::Max(1, [Environment]::ProcessorCount / 2 -as [int])
 	## The linker stamps the PE header with the clock unless told otherwise, which
 	## makes two builds of the same commit differ. Set inside the snippet rather
 	## than as $env: - the mingw shell does not reliably carry ours across.
@@ -256,7 +358,7 @@ export SOURCE_DATE_EPOCH="`$(git log -1 --format=%ct 2>/dev/null || echo 0)"
 SETUP_FRESH=-Dxmp=false bash cicd/utility/meson-setup.bash $BuildRel source -Dwerror=true || exit 5
 bash cicd/utility/check-werror.bash $BuildRel || exit 4
 find $BuildRel -name '*.a' -type f | while read -r lib; do ar t "`$lib" >/dev/null 2>&1 || { echo "dropped stale `$lib"; rm -f "`$lib"; }; done
-ninja -C $BuildRel -j $jobs
+ninja -C $BuildRel -j $($script:Jobs)
 "@
 	fMingw $sh
 	if ($script:MingwRc -ne 0) { fDie "native build failed (exit $($script:MingwRc))" }
@@ -317,7 +419,6 @@ function fTestLine {
 ## The meson suite against the debug build. The mingw64 shell has the GTK DLLs on
 ## PATH. A crash would otherwise stop the run behind a modal box.
 function fTests {
-	$jobs = [Math]::Max(1, [Environment]::ProcessorCount / 2 -as [int])
 	## The login shell keeps only the system folders of the Windows PATH, so a
 	## test that looks for an installed program, ImageMagick say, never found it.
 	$savedPathType = $env:MSYS2_PATH_TYPE
@@ -334,7 +435,7 @@ function fTests {
 	$wrapBash = $MsysBash -replace '\\', '/'
 	try {
 		## Each result line becomes "PASS|FAIL|SKIP <id> <name>", as on Linux.
-		fMingw "set -o pipefail; NEMO_NO_CRASH_DIALOG=1 TMPDIR='$runDirU' meson test -C $BuildRel --no-rebuild --num-processes $jobs --print-errorlogs --wrapper '$wrapBash $jail' | awk -f cicd/utility/include/result-lines.awk"
+		fMingw "set -o pipefail; NEMO_NO_CRASH_DIALOG=1 TMPDIR='$runDirU' meson test -C $BuildRel --no-rebuild --num-processes $($script:Jobs) --print-errorlogs --wrapper '$wrapBash $jail' | awk -f cicd/utility/include/result-lines.awk"
 	} finally { $env:MSYS2_PATH_TYPE = $savedPathType }
 	if ($script:MingwRc -ne 0) { fDie "test suite failed (exit $($script:MingwRc)); anything a test left is in $runDir" }
 	$left = @(Get-ChildItem -LiteralPath $runDir -Force -ErrorAction SilentlyContinue)
@@ -483,13 +584,14 @@ function fSignFile {
 }
 
 ## Pack: the staged bundle -> one self-contained exe (cicd/win/pack-portable.ps1,
-## Enigma Virtual Box), then sign it (no-op unless a cert is configured). The script
-## warn-skips when EVB isn't installed - the dogfood/single exe is the release artifact.
-function fPack {
-	$evbFound = (Test-Path -LiteralPath "C:\Program Files (x86)\Enigma Virtual Box\enigmavbconsole.exe") -or
+## Enigma Virtual Box), then sign it (no-op unless a cert is configured). Without
+## EVB the plan turns the step off - the dogfood/single exe is the release artifact.
+function fEvbFound {
+	return (Test-Path -LiteralPath "C:\Program Files (x86)\Enigma Virtual Box\enigmavbconsole.exe") -or
 		(Test-Path -LiteralPath "C:\Program Files\Enigma Virtual Box\enigmavbconsole.exe") -or
 		[bool](Get-Command enigmavbconsole -ErrorAction SilentlyContinue)
-	if (-not $evbFound) { fWarn "Enigma Virtual Box not installed; pack skipped"; return }
+}
+function fPack {
 	& pwsh -File (Join-Path $Root "cicd\win\pack-portable.ps1")
 	if ($LASTEXITCODE -ne 0) { fDie "portable pack failed (exit $LASTEXITCODE)" }
 	if ($NoSign) { fNote "signing skipped (-NoSign)" }
@@ -652,29 +754,36 @@ function fPublish {
 
 function fMain {
 	Set-Location -LiteralPath $Root
-	$stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+	$stamp = [DateTime]::Now.ToString('yyyyMMdd-HHmmss', [Globalization.CultureInfo]::InvariantCulture)
+	fJobs
+	$toolMiss = fToolchainMissing
 
 	## Gate mode: lint + build + tests + smoke, then exit. The local verification
 	## for a push. Nothing is staged or published.
 	if ($Gate) {
-		$miss = fToolchainMissing
-		if ($miss) {
-			if ($BuildStrict) { fDie "gate: $miss" }
+		if ($toolMiss -and $BuildStrict) { fDie "gate: $toolMiss" }
+		$why = if ($toolMiss) { 'toolchain missing' } else { '' }
+		fPlan (-not ($NoFmt -or $why)) 'Lints' $(if ($NoFmt) { '-NoFmt' } else { $why })
+		fPlan (-not $why) 'Build (debug)' $why
+		fPlan (-not $why) 'Tests'         $why
+		fPlan (-not $why) 'Smoke checks'  $why
+		fSection "$AppName gate"
+		fPlan_Show
+		if ($toolMiss) {
+			fWarn "toolchain missing: $toolMiss"
 			fSection "$AppName gate: SKIPPED"
-			fWarn "toolchain missing: $miss"
 			fEcho_Clean
 			return
 		}
-		fSection "Gate 1/4  Lint"
-		if ($NoFmt) { fNote "lint skipped (-NoFmt)" }
-		else { fLint }
-		fSection "Gate 2/4  Build"
+		if (-not $NoFmt) { fStep 'Lints'; fLint }
+		fStep 'Build (debug)'
 		fBuild
-		fSection "Gate 3/4  Tests"
+		fStep 'Tests'
 		fTests
-		fSection "Gate 4/4  Smoke"
+		fStep 'Smoke checks'
 		fSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
 		fGuiSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
+		fStep_Close 'PASS'
 		fSection "$AppName gate: PASSED."
 		fEcho_Clean
 		return
@@ -686,26 +795,41 @@ function fMain {
 	if     ($Message)     { $publishMsg = $Message }
 	elseif ($Unattended)  { $publishMsg = fAutoMessage }
 
+	## The steps this run takes, in order, and the ones turned off with why. A
+	## missing toolchain turns off everything that needs it, so sync and publish
+	## still run, unless -BuildStrict makes the build step fail on it.
+	$lintWhy  = if ($NoFmt) { '-NoFmt' } elseif ($toolMiss) { 'toolchain missing' } else { '' }
+	$buildWhy = if ($NoBuild) { '-NoBuild' } elseif ($toolMiss -and -not $BuildStrict) { 'toolchain missing' } else { '' }
+	$packWhy  = if ($NoPack) { '-NoPack' } elseif ($buildWhy) { $buildWhy } elseif (-not (fEvbFound)) { 'Enigma Virtual Box not installed' } else { '' }
+	$dogWhy   = if ($NoDogfood) { '-NoDogfood' } elseif ($packWhy) { "no pack: $packWhy" } else { '' }
+	fPlan (-not $NoSync)    'Remote sync'    '-NoSync'
+	fPlan (-not $lintWhy)   'Lints'          $lintWhy
+	fPlan (-not $buildWhy)  'Build (debug)'  $buildWhy
+	fPlan (-not $buildWhy)  'Tests'          $buildWhy
+	fPlan (-not $buildWhy)  'Smoke checks'   $buildWhy
+	fPlan (-not $buildWhy)  'Runtime bundle' $buildWhy
+	fPlan (-not $packWhy)   'Packages'       $packWhy
+	fPlan (-not $dogWhy)    'Dogfood'        $dogWhy
+	fPlan (-not $NoPublish) 'Publish'        '-NoPublish'
+
 	## Preflight summary.
-	$toolMiss = fToolchainMissing
 	fEcho_Clean
 	fEcho_Clean "$AppName Windows CI/CD (native MSYS2/mingw64)"
 	fEcho_Clean
 	fEcho_Clean "Repo root ...: $Root"
 	fEcho_Clean "Version .....: $(fVersion)  (source/meson.build)"
 	fEcho_Clean "Toolchain ...: $(if ($toolMiss) { "MISSING - $toolMiss" } else { "mingw64 GTK toolchain OK" })"
-	fEcho_Clean "Remote sync .: $(if ($NoSync) { '(skipped)' } else { 'fetch + fast-forward check' })"
-	fEcho_Clean "Lint ........: $(if ($NoFmt) { '(skipped)' } else { 'every checker in lint.bash, check-only' })"
-	fEcho_Clean "Build .......: $(if ($NoBuild) { '(skipped)' } else { 'meson + ninja, native mingw64' })"
-	fEcho_Clean "Tests .......: $(if ($NoBuild) { '(skipped)' } else { 'meson test suite + --version and GUI smokes' })"
-	fEcho_Clean "Packages ....: $(if ($NoPack -or $NoBuild) { '(skipped)' } else { 'portable single-exe (Enigma Virtual Box)' })"
+	fEcho_Clean "Build jobs ..: $(if ($script:JobsPin) { "$($script:Jobs) (pinned)" } else { "half of $($script:JobsCpus) cpus, a quarter on a busy box or for a hard step; $($script:Jobs) now" })"
+	fEcho_Clean "Priority ....: $([string](Get-Process -Id $PID).PriorityClass), which the tools it starts inherit"
 	fEcho_Clean "Signing .....: $(if ($NoSign) { '(skipped)' } elseif (fSignConfigured) { 'Authenticode (configured)' } else { '(none configured)' })"
-	fEcho_Clean "Dogfood .....: $(if ($NoDogfood -or $NoBuild -or $NoPack) { '(skipped)' } else { $DogfoodExe })"
-	if ($NoPublish)          { fEcho_Clean "Publish .....: (skipped)" }
-	elseif ($publishMsg)     { fEcho_Clean "Publish .....: commit + push current branch (hands-off: `"$publishMsg`")" }
-	else                     { fEcho_Clean "Publish .....: commit + push current branch (will prompt; blank = editor)" }
+	if (-not $dogWhy) { fEcho_Clean "Dogfood .....: $DogfoodExe" }
+	if (-not $NoPublish) {
+		if ($publishMsg) { fEcho_Clean "Publish .....: commit + push current branch (hands-off: `"$publishMsg`")" }
+		else             { fEcho_Clean "Publish .....: commit + push current branch (will prompt; blank = editor)" }
+	}
+	fPlan_Show
 	fEcho_Clean
-	fEcho_Clean "Fail-fast: any error aborts before the next stage."
+	fEcho_Clean "Fail-fast: any error aborts before the next step."
 	fEcho_Clean
 
 	## Capture the commit message up front so the run finishes unattended. Ctrl+C
@@ -737,67 +861,52 @@ function fMain {
 		fWarn "no transcript for this run: $($_.Exception.Message)"
 	}
 
-	## Stage 0: remote sync.
-	fSection "0  Remote sync"
-	if ($NoSync) { fNote "remote sync skipped" }
-	else { fRemoteSync }
+	if (-not $NoSync) { fStep 'Remote sync'; fRemoteSync }
 
-	## Stage 1: lint (check-only; the shared helper warn-skips without cppcheck).
-	fSection "1  Lint"
-	if ($NoFmt) { fNote "lint skipped (-NoFmt)" }
-	elseif ($toolMiss) { fWarn "lint SKIPPED: $toolMiss" }
-	else { fLint }
+	## Check-only; the shared helper warn-skips without cppcheck.
+	if (-not $lintWhy) { fStep 'Lints'; fLint }
 
-	## Stages 2-4: build, smoke, stage. Guarded as one block: a missing toolchain
-	## warn-skips them all (so sync + publish still run) unless -BuildStrict.
-	if ($NoBuild) {
-		fSection "2  Build"; fNote "build skipped (-NoBuild)"
-	} elseif ($toolMiss) {
-		fSection "2  Build"
-		if ($BuildStrict) { fDie "build: $toolMiss" }
-		fWarn "build/smoke/stage SKIPPED: $toolMiss"
-	} else {
-		fSection "2  Debug build"
+	if (-not $buildWhy) {
+		fStep 'Build (debug)'
+		if ($toolMiss) { fDie "build: $toolMiss" }
 		fBuild
-		fSection "3  Tests"
+		fStep 'Tests'
 		fTests
+		fStep 'Smoke checks'
 		fSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
 		fGuiSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
-		fSection "4  Stage"
+		fStep 'Runtime bundle'
 		fStage
 	}
 
-	## Stage 5: packages - the portable single-exe (Enigma Virtual Box), then sign it
-	## (no-op unless a cert is configured). A missing packer or bundle warn-skips.
-	fSection "5  Packages"
-	if ($NoPack -or $NoBuild) { fNote "pack skipped" }
-	elseif (-not (Test-Path -LiteralPath (Join-Path $StageDir "app\$ExeName.exe"))) { fWarn "no staged bundle; pack skipped" }
-	else { fPack }
+	## The portable single-exe (Enigma Virtual Box), then sign it (no-op unless
+	## a cert is configured).
+	if (-not $packWhy) { fStep 'Packages'; fPack }
 
-	## Stage 6: dogfood - the packed single exe into the synced by-self folder. Needs
-	## the packer's output, so it follows stage 5; no build/pack means no exe to drop.
-	fSection "6  Dogfood"
-	if ($NoDogfood) { fNote "dogfood skipped (-NoDogfood)" }
-	elseif ($NoPack -or $NoBuild) { fNote "dogfood skipped (no pack)" }
-	else { fDogfood }
+	## The packed single exe into the synced app dir, so it needs the packer's output.
+	if (-not $dogWhy) { fStep 'Dogfood'; fDogfood }
 
-	## Stage 7: publish.
-	fSection "7  Publish"
-	if ($NoPublish) { fNote "publish skipped" }
-	else { fPublish -Msg $publishMsg }
+	if (-not $NoPublish) { fStep 'Publish'; fPublish -Msg $publishMsg }
 
+	fStep_Close 'PASS'
 	fSection "$AppName Windows CI/CD: done."
 	fEcho_Clean
 }
 
+## A step still open here was stopped by fDie, a throw or Ctrl+C.
 try {
 	fMain
 } finally {
+	if ($script:StepOpen) { fStep_Close 'FAIL'; fEcho_Clean }
 	if ($script:Transcribing) { Stop-Transcript | Out-Null }
 }
 
 
 ##	History:
+##		- 2026-10-28: BelowNormal priority, which the tools it starts inherit, and
+##		  job counts from one place, a quarter when CPU use is over 50%. Each step
+##		  opens and closes with a timestamped "Step N of M" line under a 79-dot
+##		  rule, and the plan lists the steps turned off.
 ##		- 2026-10-22: The test wrapper names MSYS2's bash by path, not WSL's.
 ##		- 2026-10-19: Each test runs with a HOME and temp dir of its own, behind
 ##		  the test library's delete fence.

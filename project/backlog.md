@@ -33,6 +33,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- CICD step output: the FreeBSD and arm64 lanes and the private runner.
+	- ID: 2026102819522603
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261028-195226
+	- Opened by: 2026102517333373
+	- Parent ID: 2026102517333373
+	- Requirements:
+		- The FreeBSD and arm64 lanes and the private runner print the step lines of `cicd.bash` for their own steps: the 79-dot rule, `Step N of M; Starting`, then `PASS` or `FAIL`, in local time to the hundredth.
+		- Each lane is already one step of `cicd.bash`, so its own steps print inside that one. They need a form that doesn't read as the outer run's step count, such as `FreeBSD 1 of 3`.
+		- `cicd/utility/include/echo.bash`, which the lanes and the release scripts use, still draws a 74-dot rule.
+		- The private runner is in the private repo.
+	- Test case: none yet.
+
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
@@ -981,7 +996,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD CPU: `cicd-win.ps1`.
 	- ID: 2026102517333357
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: no
+	- Needs external testing: the native gate on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for the CPU use Windows reports in each step's jobs line, and for ninja, gcc and the suite running at `BelowNormal` under MSYS2.
 	- Priority|Severity: High
 	- Opened: 20261025-173333
 	- Opened by: 2026102416300003
@@ -989,7 +1006,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- `BelowNormal` priority at the top of `cicd-win.ps1`, or `Idle` for the hard steps, set on its own process so its children get it.
 		- Half the logical CPUs, a quarter when busy or for a hard step, worked out once and passed to every tool that runs in parallel. Busy needs a load figure Windows doesn't have; the processor queue length or CPU use over a short sample are the options.
-	- Test case: none yet.
+	- Progress log:
+		- 20261028: `cicd-win.ps1` sets its own process to `BelowNormal` before anything else runs, and Windows hands that down to MSYS2 and what it starts. `fJobs` works out the count before the run and again before each step, and ninja, `meson test` and the MSYS2 shell (as `CICD_MAX_JOBS`) all take it from there. Each step prints its jobs line, and the preflight says the count and the priority.
+	- Decisions:
+		- Busy is CPU use over 50%, from `Win32_Processor`'s `LoadPercentage`, which Windows averages over the last second. That's the same line the load rule draws at half the CPUs, it needs no sampling wait, and it doesn't depend on the language counter names are in. The processor queue length counts only threads waiting, not running ones, and swings a lot from one reading to the next.
+		- When Windows won't say, the line reads "cpu use unknown" and the run takes half.
+		- A run started lower than `BelowNormal`, such as `Idle`, stays there. Priority is never raised.
+		- No step here is hard. The sanitizers, fuzzing, the analyzers and the leak checks don't run on Windows. `fStep -Hard` takes `Idle` and a quarter for when one does.
+		- `CICD_JOBS_PIN` or `CICD_MAX_JOBS` set beforehand pins the count, as in `cicd.bash`. Anything but a whole number over 0 stops the run.
+	- Swept: every `ProcessorCount` and `-j`/`--num-processes` in `cicd-win.ps1` (`fBuild` and `fTests` had their own half). `stage-native.bash`, `pack-portable.ps1` and the GUI smoke run nothing in parallel. `lint.bash`'s C check reads `CICD_MAX_JOBS`, now passed in.
+	- Branch: round1028b
+	- Test case: dejjt (`cicd/utility/test-cicd-win.ps1`, lint stage: the count at 50% and 51%, hard, and 1 CPU; one place reads the CPU count; ninja, `meson test` and the MSYS2 shell get it; busy and pinned jobs lines; a bad pin stops the run; the toolchain check and each step's work run at `BelowNormal` or lower).
+	- Verified: 20261028, dejjt passes, and fails with busy at 90%, with `meson test` given its own count, with a second place reading the CPU count, and with no priority set at the top. `cicd/cicd.bash --backlog-run-quick format lint` passes. PSScriptAnalyzer is clean on both files.
 
 - CICD CPU: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102517333362
@@ -1092,15 +1120,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD step output: `cicd-win.ps1` and the lanes on other boxes.
 	- ID: 2026102517333373
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: no
+	- Needs external testing: the native gate on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for the step lines of a real run.
 	- Priority|Severity: High
 	- Opened: 20261025-173333
 	- Opened by: 2026102416300005
 	- Parent ID: 2026102416300005
 	- Requirements:
 		- `cicd-win.ps1`, its gate included, prints the same step lines as `cicd.bash`: the 79-dot rule, `Step N of M; Starting`, then `PASS` or `FAIL`, with local time to the hundredth, and the plan lists what's turned off.
-		- The FreeBSD and arm64 lanes and the private runner print the same form for their own steps.
-	- Test case: none yet.
+		- The FreeBSD and arm64 lanes and the private runner print the same form for their own steps. That part is in child 2026102819522603.
+	- Progress log:
+		- 20261028: `cicd-win.ps1` makes its plan first, from the same switches the steps read, so M is known at step 1. Each step opens under a 79-dot rule with a `Starting` line and closes `PASS` or `FAIL`. A step still open when the run stops, by a failure, a throw or Ctrl+C, closes as `FAIL`. The gate and the full run print the plan's step count and the steps turned off, each with its flag or reason.
+		- 20261028: split the lanes and the private runner into child 2026102819522603.
+	- Decisions:
+		- The steps are the old stages, plus the smoke checks, now their own step in the full run as in the gate: Remote sync, Lints, Build (debug), Tests, Smoke checks, Runtime bundle, Packages, Dogfood, Publish. The names match `cicd.bash`'s where the step is the same.
+		- A missing toolchain, `-NoBuild`, `-NoPack` and a missing Enigma Virtual Box turn steps off in the plan, rather than warning inside the step. Dogfood says which of those turned the pack off.
+		- The old inline "skipped" lines are gone, and so are the preflight lines that only said a step was skipped, since the plan lists those.
+		- The run's timestamps are written in the invariant culture, so a Thai or Hijri calendar doesn't change the year.
+	- Swept: `echo.bash`'s 74-dot rule, which the lanes use, went to the child. Nothing reads the old stage headers: `win-dogfood.bash`, the pre-push hook and their tests only run the script.
+	- Branch: round1028b
+	- Test case: dejjt (`cicd/utility/test-cicd-win.ps1`, lint stage: the gate and the full run with every step on, with steps turned off by each flag, a missing toolchain with and without `-BuildStrict`, no Enigma Virtual Box, and a step that fails, each checked for the rule, numbering, open and close lines and the turned-off list).
+	- Verified: 20261028, dejjt passes, and fails with a 78-dot rule, with no `FAIL` close on a failure, with a step left out of the plan, and with the last step left open. `cicd/cicd.bash --backlog-run-quick format lint` passes.
 
 - CICD reset: temp files and safe removal.
 	- ID: 2026102416300002
