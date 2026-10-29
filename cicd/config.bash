@@ -36,8 +36,8 @@ declare -i isSourced_t6wqf=0; [[ "${BASH_SOURCE[0]}" == "${0}" ]] || isSourced_t
 APP_NAME="Nemo Anywhere"
 EXE_NAME="nemo-anywhere"
 
-## The reference Linux build runs in a container per step, from nemo-build-deps:init
-## (or nemo-build-deps:latest on a fresh clone). Each mounts the repo root at /src
+## The reference Linux build runs in a container per step, from nemo-build-deps,
+## built from the pinned linux/Dockerfile.dev. Each mounts the repo root at /src
 ## and builds into /build, a cache volume. See design.md "Building".
 
 ## Directory of this config, for locating sibling helper scripts (self-contained,

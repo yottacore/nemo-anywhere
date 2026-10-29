@@ -15,8 +15,8 @@
 ##
 ## Usage: docker-run.bash <label> <sh-command>
 ##   <label> names the step, and the container after it.
-##   NEMO_IMAGE          the image (default nemo-build-deps:init, or a fresh
-##                       clone's nemo-build-deps:latest from linux/Dockerfile.dev).
+##   NEMO_IMAGE          the image (default nemo-build-deps:<hash>, built from the
+##                       pinned linux/Dockerfile.dev the first time its hash is seen).
 ##   The command finds the tree at ${CICD_SRC} and builds under ${CICD_BUILD_ROOT}:
 ##   /src and empty in the container, the clone and its build/host on the host.
 ##   stdin reaches the command when it isn't a terminal.
@@ -35,7 +35,6 @@ set -Eeuo pipefail
 
 label="${1:-container task}"
 cmd="${2:-}"
-image="${NEMO_IMAGE:-nemo-build-deps:init}"
 project="${CICD_PROJECT:-nemo-anywhere}"
 run="${CICD_RUN:-none}"
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -52,6 +51,9 @@ fSetSourceDate "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=include/step-box.bash
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/include/step-box.bash"
 fJobs_Default
+image="${NEMO_IMAGE:-}"
+[[ -n "$image" ]] || image="$(fStepBox_ImageTag nemo-build-deps "${repo}/cicd/linux/Dockerfile.dev")" \
+	|| { fEcho "FAILED: ${label}: no linux/Dockerfile.dev to build the image from" >&2; exit 1; }
 
 if [[ "${CICD_NO_CONTAINER:-}" == "1" ]]; then
 	fEcho "STOPPED: ${label} needs a container, and --no-container runs on the host" >&2
@@ -87,17 +89,14 @@ if ! docker_up; then
 	docker_up || fOnHost "docker daemon not reachable (try: sudo systemctl start docker)"
 fi
 
-## A fresh clone has no :init snapshot, so it builds the image from the same
-## Dockerfile as by hand, on first use. A NEMO_IMAGE someone named and doesn't
-## have is still an env miss.
+## Built from the recipe the first time its hash is seen, on a fresh clone too.
+## The run's docker sweep drops all but the newest 2 tags. A NEMO_IMAGE someone
+## named and doesn't have is still an env miss.
 if ! docker image inspect "$image" >/dev/null 2>&1; then
 	[[ -z "${NEMO_IMAGE:-}" ]] || fOnHost "image '${image}' not found"
-	image="nemo-build-deps:latest"
-	if ! docker image inspect "$image" >/dev/null 2>&1; then
-		fEcho "building image nemo-build-deps (first run only, takes a few minutes)" >&2
-		docker build --label "dev.project=${project}" --label "dev.run=${run}" -t "$image" -f "${repo}/cicd/linux/Dockerfile.dev" "${repo}/cicd/linux/" >/dev/null \
-			|| fOnHost "could not build image nemo-build-deps"
-	fi
+	fEcho "building image ${image} from linux/Dockerfile.dev (once per change to it, takes a few minutes)" >&2
+	nice -n 19 docker build --label "dev.project=${project}" --label "dev.run=${run}" -t "$image" -f "${repo}/cicd/linux/Dockerfile.dev" "${repo}/cicd/linux/" >/dev/null \
+		|| fOnHost "could not build image ${image}"
 fi
 
 for vol in build build-fuzz; do

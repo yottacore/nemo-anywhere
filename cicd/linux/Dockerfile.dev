@@ -50,6 +50,13 @@ RUN printf '%s\n' 'Types: deb' 'URIs: http://snapshot.debian.org/archive/debian-
 		libfontconfig1-dbgsym libgtk-3-0t64-dbgsym \
 	&& rm -rf /var/lib/apt/lists/*
 
+# rar 7.20 from non-free, by hash, so ddx67 can write the rar archives it
+# extracts. Its pinned case is tuned to the bytes 7.20 writes, and trixie has
+# 7.11. Without rar the test skips.
+ADD --checksum=sha256:856da311e8f0b98b2507bc413efc9d807789eb570e185be3590072d8a1a7abc6 \
+	http://snapshot.debian.org/archive/debian/20260218T083118Z/pool/non-free/r/rar/rar_7.20-1_amd64.deb /tmp/rar.deb
+RUN dpkg -i /tmp/rar.deb && rm /tmp/rar.deb
+
 # fontconfig's cache holds each font folder's mtime to the nanosecond, and the
 # saved image keeps whole seconds, so a cache made during the build reads as
 # stale in every container. Each GTK program then rescans the fonts and writes a
@@ -62,7 +69,6 @@ RUN find -L /usr/share/fonts /usr/local/share/fonts -type d \
 
 # p7zip is here so the 7-Zip backend can be exercised rather than only the
 # libarchive one - without it the Compress dialog offers 7z with none of the
-# options that backend brings. rar is not packaged for Debian, so the rar
-# backend still cannot be driven from in here.
+# options that backend brings. rar comes from non-free, above.
 
 WORKDIR /src

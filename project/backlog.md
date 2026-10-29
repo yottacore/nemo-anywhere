@@ -51,7 +51,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Pinned recipe for the day-to-day build image.
 	- ID: 2026102820195801
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: the full run, `cicd/cicd.bash --backlog-run-full --no-private`, for the steps the quick run skips, now from the recipe image: fuzzing at its full 60 s, the analyzer's Linux lane over the whole build (de8es), and the profiler.
 	- Priority|Severity: High
 	- Opened: 20261028-201958
 	- Opened by: 2026102617145788
@@ -65,14 +66,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261028: `docker-run.bash` runs each step from `nemo-build-deps:<hash>`, the hash taken over the Dockerfile, and builds it the first time that hash is seen. The fresh clone's `:latest` fallback is gone, since every clone now builds from the recipe. The run's docker sweep keeps the newest 2 tags.
 		- 20261028: the new image is 2.3 GB, where `:init` is 60.7 GB. gcc, clang, meson, GTK and GLib are the same versions, and the dbgsym packages match theirs. It differs from `:init` in security point releases from after 2026-09-16, and it lacks 2 packages nothing uses, b3sum and the gsf library. The build took about 7.5 min, mostly snapshot downloads.
 		- 20261028: in the new image the quick gate's lints pass, and the tests pass but for de8bd, de8dm and dec8w, which is 2026102820481713. That gap predates the pin, so the pinned `Dockerfile.dev` and dejma are on `round1028b`, and the switch of the pipeline's default image waits on branch `wip/round1028b-2026102820195801`.
+		- 20261028: the switch is on `round1028b` now, from the wip branch, after the font cache fix of 2026102820481713.
+		- 20261028: ddx67 skipped in the recipe image. `:init` had rar 7.20 in `/usr/local/bin`, put there by hand, so it wasn't in the package list. The recipe now installs Debian's rar 7.20-1 package from snapshot.debian.org, checked by its SHA-256. trixie's own rar is 7.11, and ddx67 fails with it.
+		- 20261028: the run's docker sweep removed `nemo-build-deps:6af684408ce8`. `nemo-build-deps:latest`, 2.2 GB, was removed by hand, since nothing reads it now.
 	- Decisions:
 		- The snapshot is the date of the old image's last update, not today, so the new image matches what passed before. The release image's pin was picked the same way, in 2026092813381427.
 		- Tagged by the recipe's hash, as `nemo-lint` is, so an edit to the recipe builds a new image on the next run.
 		- `nemo-build-deps:init` stays while the long-lived `nemo-build` box runs from it, and goes with that box.
+		- rar 7.20 from a package pinned by hash, rather than trixie's 7.11 from non-free. ddx67's pinned case is tuned to the bytes 7.20 writes, and 7.20 is what `:init` passed with. Debian's package is the same rarlab build. `ADD --checksum` checks it before the layer runs, so the image needs no curl.
 	- Swept: every reader of `nemo-build-deps:init` and `:latest` under `cicd/`: `docker-run.bash`, `test-docker-run.bash`, `test-docker-run-step.bash`, `test-docker-run-host.bash`, `test-fuzz-exit.bash` and `config.bash`, and design.md "Building on Linux". The Windows image is 2026102820195917, and the release image was pinned in 2026092813381427.
-	- Test case: dejma (`test-dev-image-pin.bash`, lint stage: the base by digest, every apt source on one dated snapshot before apt runs, and nothing left on the live archive). On the wip branch, defmw also checks that the tag follows the recipe, that a missing image is built from it with the labels, and that `NEMO_IMAGE` still wins.
-		- 20261028, on the wip branch: defky's no-image case expects `could not build image nemo-build-deps:<tag>`, where it expected `nemo-build-deps`.
+		- 20261028: every test that skipped in the recipe image and not in `:init`, from the skip lists of both suites. Only ddx67 did.
+	- Branch: round1028b
+	- Test case: dejma (`test-dev-image-pin.bash`, lint stage: the base by digest, every apt source on one dated snapshot before apt runs, and nothing left on the live archive). defmw also checks that the tag follows the recipe, that a missing image is built from it with the labels, and that `NEMO_IMAGE` still wins. ddx67 runs rather than skips in the recipe image.
+		- 20261028: defky's no-image case expects `could not build image nemo-build-deps:<tag>`, where it expected `nemo-build-deps`.
 	- Verified: 20261028, dejma fails on the old `Dockerfile.dev` (3 problems) and on a debug source with another date, a security source left on the live archive, and no Valid-Until override, and passes on the new one. defmw fails on the old `docker-run.bash` (20 problems) and passes on the new one. The image builds from the recipe. `cicd/cicd.bash --backlog-run-quick` with every change: lints pass, ddagc and ddf32 among them in the new image, and the tests are 231 OK, 3 failed, 2 skipped, the 3 being 2026102820481713.
+	- Verified: 20261028, on `round1028b` from `nemo-build-deps:91fc9cf1ae15`: `--backlog-run-quick format lint` passed, and `--backlog-run-quick tests` gave 235 OK and 1 skipped, as `:init` did on 20261026, with de8bd, de8dm, dec8w and ddx67 passing. ddx67 failed with trixie's rar 7.11. The sanitizer suite gave 221 OK and 15 skipped, as `:init` did. The fuzz probe and a 3 s pass over the 12 targets were clean, the analyzer self-test found the planted faults in the Linux lane, and the profiler's prefix staged from the build and ran. defmw, defky, ddagc, ddf32 and dejma pass.
 
 - CICD step output: the private runner.
 	- ID: 2026102820110989
