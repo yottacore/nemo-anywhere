@@ -50,6 +50,16 @@ RUN printf '%s\n' 'Types: deb' 'URIs: http://snapshot.debian.org/archive/debian-
 		libfontconfig1-dbgsym libgtk-3-0t64-dbgsym \
 	&& rm -rf /var/lib/apt/lists/*
 
+# fontconfig's cache holds each font folder's mtime to the nanosecond, and the
+# saved image keeps whole seconds, so a cache made during the build reads as
+# stale in every container. Each GTK program then rescans the fonts and writes a
+# cache of its own under XDG_CACHE_HOME, which puts a folder in a test's home
+# that the selection rules tests count. Round the folders down first, then
+# rebuild the cache. Last, so no later package trigger redoes it.
+RUN find -L /usr/share/fonts /usr/local/share/fonts -type d \
+		-exec sh -c 'for d; do touch -m -d "@$(stat -L -c %Y "$d")" "$d"; done' sh {} + \
+	&& fc-cache -f
+
 # p7zip is here so the 7-Zip backend can be exercised rather than only the
 # libarchive one - without it the Compress dialog offers 7z with none of the
 # options that backend brings. rar is not packaged for Debian, so the rar

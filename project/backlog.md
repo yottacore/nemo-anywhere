@@ -33,22 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- The selection rules tests fail in a build image made from its recipe.
-	- ID: 2026102820481713
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261028-204817
-	- Opened by: 2026102820195801
-	- Parent ID: 2026102820195801
-	- Target OS: Linux
-	- Steps to reproduce: `NEMO_IMAGE=<image> bash cicd/utility/docker-run.bash seltest 'bash /src/cicd/linux/run-tests.bash "de8bd Selection rules test"'`, with an image built from `cicd/linux/Dockerfile.dev`.
-	- Incorrect behavior: de8bd, de8dm and dec8w fail, each on "Enter opens the selected folder" and "a double-click opens the folder", in the list, icon and compact views. The other 231 tests pass.
-	- Expected behavior: they pass, as they do in the hand-made `nemo-build-deps:init`.
-	- Reproduced: 20261028 on Linux, every run, in the pinned image of 2026102820195801 and in the unpinned `nemo-build-deps:latest` of 20260916. So it predates the pin.
-	- Possible cause: something only the hand-made image has. Ruled out: the package versions, both images' extra packages, `/usr/local/bin/rar`, root's home, and `/etc` and the GLib, GIO, pixbuf and MIME caches, which match. Left: the image's 51 GB `/tmp` layer, which has stale display lock files, and file contents outside those dirs.
-	- Test case: de8bd, de8dm and dec8w, run in the recipe image.
-
 - Pinned recipe for the Windows cross build image.
 	- ID: 2026102820195917
 	- Type: Task
@@ -1883,6 +1867,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Estimated effort: Low
 	- Test case: none yet.
 
+- The selection rules tests open folders by their place in the home folder, which depends on the box.
+	- ID: 2026102821124143
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261028-211241
+	- Opened by: 2026102820481713
+	- Related IDs: 2026102820481713
+	- Target OS: All
+	- Incorrect behavior: steps 37 to 43 of de8bd, de8dm and dec8w open items 2 and 3 of the home folder and expect `data` and the test folder. What else is in that folder depends on the box: `Desktop` is made at start, and a stale system font cache makes `cache`, which moves both down one. The comment there lists cache, config, data and selrules, where `:init` shows Desktop, config, data and selrules.
+	- Expected behavior: the folders are found by name, or the harness makes every folder it points the XDG dirs at, so the listing is the same on every box.
+	- Test case: de8bd, de8dm and dec8w, with a `cache` folder made in the home folder before the run.
+
 - The Windows zip's libraries are whatever MSYS2 had when the cross build image was made.
 	- ID: 2026102809292792
 	- Type: Task
@@ -1959,6 +1956,36 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- The selection rules tests fail in a build image made from its recipe.
+	- ID: 2026102820481713
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The pipeline runs from `nemo-build-deps:init` until 2026102820195801 switches it, and that item runs the suite in the recipe image.
+	- Needs external testing: no
+	- Priority|Severity: High
+	- Opened: 20261028-204817
+	- Opened by: 2026102820195801
+	- Parent ID: 2026102820195801
+	- Related IDs: 2026102821124143
+	- Target OS: Linux
+	- Steps to reproduce: `NEMO_IMAGE=<image> bash cicd/utility/docker-run.bash seltest 'bash /src/cicd/linux/run-tests.bash "de8bd Selection rules test"'`, with an image built from `cicd/linux/Dockerfile.dev`.
+	- Incorrect behavior: de8bd, de8dm and dec8w fail, each on "Enter opens the selected folder" and "a double-click opens the folder", in the list, icon and compact views. The other 231 tests pass.
+	- Expected behavior: they pass, as they do in the hand-made `nemo-build-deps:init`.
+	- Reproduced: 20261028 on Linux, every run, in the pinned image of 2026102820195801 and in the unpinned `nemo-build-deps:latest` of 20260916. So it predates the pin.
+	- Reproduced: 20261028, from one build run in both images: the same binaries pass in `:init` and fail in the recipe image, so it is the image and not the build.
+	- Possible cause: something only the hand-made image has. Ruled out: the package versions, both images' extra packages, `/usr/local/bin/rar`, root's home, and `/etc` and the GLib, GIO, pixbuf and MIME caches, which match. Left: the image's 51 GB `/tmp` layer, which has stale display lock files, and file contents outside those dirs.
+	- Actual cause: the image's font cache. fontconfig keeps each font folder's mtime to the nanosecond, and the saved image keeps whole seconds, so the cache `fc-cache` made during the build reads as stale in every container. Each GTK program then rescans the fonts, and with `/` read-only in the jail it writes a cache of its own under `XDG_CACHE_HOME`, which the test points at `cache` in its home folder. That folder moves `config` and `data` down one place, and the test opens folders by place. `:init` had its caches rewritten in a running box, after the mtimes were rounded, so they match there.
+	- Actual fix: `Dockerfile.dev` rounds every font folder's mtime down to the second and then runs `fc-cache -f`, in a last layer of its own. The image tag moves to `nemo-build-deps:6af684408ce8`.
+	- Decisions:
+		- Fixed in the image rather than the test, since a stale font cache also makes every GTK program in the suite rescan the fonts at start. The test opening folders by place is 2026102821124143, a separate weakness, so it is related rather than a child.
+		- A plain `RUN fc-cache` doesn't do it: the build step still sees the nanoseconds, so its cache is as stale as the first.
+	- Swept: the release image `nemo-build-jammy:latest` writes no user font cache. Not checked: the Windows recipe image, not built yet (2026102820195917).
+	- Branch: round1028b
+	- Test case: de8bd, de8dm and dec8w, run in the recipe image.
+	- Verified: 20261028, de8bd, de8dm and dec8w fail in `nemo-build-deps:41986bd450ac`, and pass from the same build in that image with the font folders rounded and the cache rebuilt. With the edited recipe, `fc-list` writes no user cache and finds the same 113 fonts. The steps to reproduce with `nemo-build-deps:6af684408ce8` pass all 3, built in that image. dejma passes.
+	- Acceptance signoff: Self-closed: de8bd, de8dm and dec8w in the recipe image.
+	- Closed: 20261028-211327
 
 - SMB and SFTP networking is broken.
 	- ID: 2026101417352260
