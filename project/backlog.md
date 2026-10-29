@@ -191,7 +191,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026102808084300
 	- Type: Bug
 	- Status: Waiting on automated testing
-	- Needs local test suite run?: the arm64 release from vmDebARM64 off, in a full run with `--long`.
+	- Needs local test suite run?: the arm64 release with vmDebARM64 off rather than paused, in a full run with `--long`, so its boot is waited for.
 	- Priority|Severity: High
 	- Opened: 20261028-080843
 	- Opened by: t00mietum
@@ -211,72 +211,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddmn7 and ddmmv. A box whose ssh, or docker on arm64, comes up after a few tries is waited for, and one that never does fails before anything is sent. Both new cases fail before the fix and pass after.
 	- Verified: 20261028, ddmn7 and ddmmv, and the quick gate.
 	- Verified: 20261028, the FreeBSD lane alone (`lane.bash --tests`) at d7bd529d with vmFreeBSD off: it was started, its login waited for, the suite passed (216 OK, 20 skipped), and it was shut down after. In the full run before, from paused, the lane got in and failed later on the clock, which is 2026102810470587.
-
-- The FreeBSD lane stops on meson clock skew when vmFreeBSD was paused, since a resumed guest keeps its old clock.
-	- ID: 2026102810470587
-	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: a full run with `--long`, with vmFreeBSD and vmDebARM64 paused for an hour first and their clocks left alone: both lanes build, or fail before the send naming the clock.
-	- Priority|Severity: High
-	- Opened: 20261028-104705
-	- Opened by: t00mietum
-	- Target OS: FreeBSD
-	- Steps to reproduce: pause vmFreeBSD for some hours, then start a full run.
-	- Incorrect behavior: meson says 'Clock skew detected', a source file 60941 s in the future, and the FreeBSD suite fails.
-	- Expected behavior: the lane sets the guest clock after it wakes the box, or waits for it to be right, before building.
-	- Reproduced: 20261028 on round1028a, full run at 10:43 local.
-	- Possible cause: claude_vm-state.bash resumes a paused guest, and the guest clock doesn't jump forward. From off it boots with the right time. vmDebARM64 likely has the same problem for the arm64 lane.
-	- Actual cause: a guest resumed from paused keeps the clock it stopped with, until its own time sync catches up, if it does. Every file sent from here is then in its future. The lanes never checked the clock.
-	- Actual fix: the VM state helper sets the clock of a guest it wakes from paused, since 20261028. Both lanes now also check the box's clock after its login answers, and before anything is sent. They wait up to 60 s for it to come within 5 s of this one's, then fail naming how far off it is.
-	- Decisions:
-		- The lane checks the clock rather than setting it. bsdtest has no sudo, and setting it takes the admin login the VM state helper already uses. The check still covers the bare host lock, a clock the helper couldn't set, and a guest someone else resumed.
-		- A clock that's ahead fails too. The objects left from the last run would look newer than the sources, and the incremental build would skip them.
-		- A wrong clock is a failure, not a skip, since the box is there, per 2026102808250949.
-		- The skew is taken against the middle of the ssh round trip. Knobs: `BOX_CLOCK_MAX_SKEW` (5 s) and `BOX_CLOCK_WAIT` (60 s).
-		- tar keeps the file times, since the test build dir on the box needs them to stay incremental.
-	- Swept: every lane that sends the tree to another box and builds there: the FreeBSD lane, tests and release, and the arm64 release. The Windows dogfood only copies an exe, so it has no check.
-	- Test case: ddmn7 and ddmmv. A box hours behind, or ahead, fails before anything is sent, and one whose clock is set a moment after the resume is waited for, inside the VM state helper's wrap. Both fail before the fix and pass after.
-	- Verified: 20261028, ddmn7 and ddmmv, both ways, and the quick gate.
-
-- Pinned recipe for the day-to-day build image.
-	- ID: 2026102820195801
-	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: the full run, `cicd/cicd.bash --backlog-run-full --no-private`, for the steps the quick run skips, now from the recipe image: fuzzing at its full 60 s, the analyzer's Linux lane over the whole build (de8es), and the profiler.
-	- Priority|Severity: High
-	- Opened: 20261028-201958
-	- Opened by: 2026102617145788
-	- Parent ID: 2026102617145788
-	- Prereq IDs: 2026102820481713
-	- Requirements:
-		- `nemo-build-deps` comes from `cicd/linux/Dockerfile.dev`, with the base by digest and apt from a dated snapshot.
-		- It passes the runs that `nemo-build-deps:init` passes, and the pipeline uses it in place of the snapshot.
-	- Progress log:
-		- 20261028: `Dockerfile.dev` pins trixie by digest, the base the old image was built on. apt reads the archive, the security and debug archives included, from snapshot.debian.org at 2026-10-19 22:00 UTC, the last time the old image was updated.
-		- 20261028: `docker-run.bash` runs each step from `nemo-build-deps:<hash>`, the hash taken over the Dockerfile, and builds it the first time that hash is seen. The fresh clone's `:latest` fallback is gone, since every clone now builds from the recipe. The run's docker sweep keeps the newest 2 tags.
-		- 20261028: the new image is 2.3 GB, where `:init` is 60.7 GB. gcc, clang, meson, GTK and GLib are the same versions, and the dbgsym packages match theirs. It differs from `:init` in security point releases from after 2026-09-16, and it lacks 2 packages nothing uses, b3sum and the gsf library. The build took about 7.5 min, mostly snapshot downloads.
-		- 20261028: in the new image the quick gate's lints pass, and the tests pass but for de8bd, de8dm and dec8w, which is 2026102820481713. That gap predates the pin, so the pinned `Dockerfile.dev` and dejma are on `round1028b`, and the switch of the pipeline's default image waits on branch `wip/round1028b-2026102820195801`.
-		- 20261028: the switch is on `round1028b` now, from the wip branch, after the font cache fix of 2026102820481713.
-		- 20261028: ddx67 skipped in the recipe image. `:init` had rar 7.20 in `/usr/local/bin`, put there by hand, so it wasn't in the package list. The recipe now installs Debian's rar 7.20-1 package from snapshot.debian.org, checked by its SHA-256. trixie's own rar is 7.11, and ddx67 fails with it.
-		- 20261028: the run's docker sweep removed `nemo-build-deps:6af684408ce8`. `nemo-build-deps:latest`, 2.2 GB, was removed by hand, since nothing reads it now.
-	- Decisions:
-		- The snapshot is the date of the old image's last update, not today, so the new image matches what passed before. The release image's pin was picked the same way, in 2026092813381427.
-		- Tagged by the recipe's hash, as `nemo-lint` is, so an edit to the recipe builds a new image on the next run.
-		- `nemo-build-deps:init` stays while the long-lived `nemo-build` box runs from it, and goes with that box.
-		- rar 7.20 from a package pinned by hash, rather than trixie's 7.11 from non-free. ddx67's pinned case is tuned to the bytes 7.20 writes, and 7.20 is what `:init` passed with. Debian's package is the same rarlab build. `ADD --checksum` checks it before the layer runs, so the image needs no curl.
-	- Swept: every reader of `nemo-build-deps:init` and `:latest` under `cicd/`: `docker-run.bash`, `test-docker-run.bash`, `test-docker-run-step.bash`, `test-docker-run-host.bash`, `test-fuzz-exit.bash` and `config.bash`, and design.md "Building on Linux". The Windows image is 2026102820195917, and the release image was pinned in 2026092813381427.
-		- 20261028: every test that skipped in the recipe image and not in `:init`, from the skip lists of both suites. Only ddx67 did.
-	- Branch: round1028b
-	- Test case: dejma (`test-dev-image-pin.bash`, lint stage: the base by digest, every apt source on one dated snapshot before apt runs, and nothing left on the live archive). defmw also checks that the tag follows the recipe, that a missing image is built from it with the labels, and that `NEMO_IMAGE` still wins. ddx67 runs rather than skips in the recipe image.
-		- 20261028: defky's no-image case expects `could not build image nemo-build-deps:<tag>`, where it expected `nemo-build-deps`.
-	- Verified: 20261028, dejma fails on the old `Dockerfile.dev` (3 problems) and on a debug source with another date, a security source left on the live archive, and no Valid-Until override, and passes on the new one. defmw fails on the old `docker-run.bash` (20 problems) and passes on the new one. The image builds from the recipe. `cicd/cicd.bash --backlog-run-quick` with every change: lints pass, ddagc and ddf32 among them in the new image, and the tests are 231 OK, 3 failed, 2 skipped, the 3 being 2026102820481713.
-	- Verified: 20261028, on `round1028b` from `nemo-build-deps:91fc9cf1ae15`: `--backlog-run-quick format lint` passed, and `--backlog-run-quick tests` gave 235 OK and 1 skipped, as `:init` did on 20261026, with de8bd, de8dm, dec8w and ddx67 passing. ddx67 failed with trixie's rar 7.11. The sanitizer suite gave 221 OK and 15 skipped, as `:init` did. The fuzz probe and a 3 s pass over the 12 targets were clean, the analyzer self-test found the planted faults in the Linux lane, and the profiler's prefix staged from the build and ran. defmw, defky, ddagc, ddf32 and dejma pass.
+	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed: the arm64 lane from paused was ready in 15 s, and the FreeBSD suite and release from paused in under a second each. Neither VM booted from off in it.
 
 - CICD step output: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102819522603
 	- Type: Task
 	- Status: Waiting on automated testing
-	- Needs local test suite run?: a full run with `--long`: the FreeBSD suite and release and the arm64 release print their own steps inside the run's.
+	- Needs local test suite run?: none left. Closes with its child 2026102820110989, the private runner.
 	- Priority|Severity: High
 	- Opened: 20261028-195226
 	- Opened by: 2026102517333373
@@ -298,55 +239,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: round1028b
 	- Test case: ddmn7 and ddmmv (the steps of a passing run, a failing step closing as `FAIL`, and the rule above each step).
 	- Verified: 20261028, ddmn7 and ddmmv pass, and fail on the lanes before the change, with a 78-dot rule, and with no `FAIL` close on a failure.
-
-- Container cleanup: a container per step, for the release build.
-	- ID: 2026102617253220
-	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: the arm64 lane on vmDebARM64 only, with no `nemo-anywhere-*` container left on that box.
-	- Priority|Severity: High
-	- Opened: 20261026-172532
-	- Opened by: 2026102516403492
-	- Parent ID: 2026102516403492
-	- Prereq IDs: 2026102617253209
-	- Requirements:
-		- `release.bash` and the package step's dependency check run in containers of their own rather than in the long-lived `nemo-build-jammy`, on this box and on vmDebARM64.
-		- Whether the release build dir carries over between runs, in a cache volume, or starts cold each time, is still to be decided.
-	- Progress log:
-		- 20261026: `release.bash` runs in a container of its own from `nemo-build-jammy:latest`, through `step-box.bash`, and removes it on exit, on this box and on the arm64 one. The package step's dependency read starts one of its own and stops it after. `release-arm64.bash` no longer stops `nemo-build-jammy` on the box, since nothing is left running there.
-		- 20261026: `NEMO_RELEASE_CONTAINER` is gone; `NEMO_RELEASE_IMAGE` names the image for both. `nemo-build-jammy` is left for hand use; nothing in the pipeline uses it now.
-	- Decisions:
-		- Decided: the release build starts cold each time, in its container, with no cache volume. `release-setup.bash` already builds from an empty dir on every run, so a volume would keep over 1 GB that no run reads. It took 3 min here at 8 jobs.
-	- Test case: ddmmv and ddmvx (the dependency read in a container of its own, stopped after), defps (no script names a long-lived box).
-		- 20261026: ddmmv wants `docker stop -t 2 nemo-anywhere-` where it wanted `docker stop nemo-build-jammy`, and `exec -i nemo-anywhere-` where it wanted `exec -i nemo-build-jammy`. What it checks is the same: the read happens before the stop. The deb size check sets `NEMO_RELEASE_IMAGE` to a missing image, where it set `NEMO_RELEASE_CONTAINER`.
-	- Verified: 20261026, `release.bash` built 787 targets in its own container in 177 s at 8 jobs, and the smoke test and the extension load test passed there. `package.bash --depends-only` read the line in a container of its own. ddmmv, ddmvx and the deb size check pass. No container was left after either.
-	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9. The native release and the packages passed, and no step container was left here. The arm64 lane was left out.
-	- Swept: every `docker exec`, `docker cp`, `docker update` and `docker stop` that named `nemo-build-jammy`, and every `NEMO_RELEASE_CONTAINER` reader, under `cicd/` and `utility/`: `release.bash`, `package.bash`, `release-arm64.bash`, `test-release-arm64.bash`, `test-package-arm64.bash` and `test-deb-size.bash`. `test-release-setup.bash` already ran its own container.
-	- 20261028: not run. Neither full run that day had `--long`, so the arm64 lane was left out.
-
-- Other hosts: a box that isn't there is a SKIP.
-	- ID: 2026102808250949
-	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: a full run with `--long`, with vmDebARM64 paused or off: the arm64 lane starts its VM rather than skip, and puts it back.
-	- Priority|Severity: High
-	- Opened: 20261028-082509
-	- Opened by: 2026102416300001
-	- Parent ID: 2026102416300001
-	- Related IDs: 2026102808084300
-	- Requirements:
-		- The FreeBSD lane and the arm64 release. A box that doesn't answer, and isn't a VM this box can start, shows as `SKIP` in its step line and in the summary at the end, and the run goes on.
-		- When arm64 is skipped, its packages and their check are left out too.
-		- A box that answers but fails, or a VM that won't boot, still fails the run.
-	- Decisions:
-		- A lane says a box isn't there with exit 77, the code the test runner already reads as a skip. The pipeline closes that step as `SKIP` and lists it at the end, under "Skipped, no box". Any other failure still stops the run.
-		- Not there means ssh gets no answer at all, such as a timeout, a refusal or a name that doesn't resolve, and the box isn't a VM the VM state helper knows. A refused login or a failing command still counts as there, so a broken box fails rather than hiding.
-		- The check runs before the lock, so a box that's gone never holds up the queue. It tries for 8 s, and asks the VM state helper first, so a paused VM isn't tried at all.
-		- A skipped arm64 build drops the arm64 packages and their check for the rest of the run, the same way a run without arm64 does.
-	- Swept: every lane the pipeline runs on another box: the FreeBSD suite and release, and the cross targets, where arm64 is the only remote one. The Windows dogfood already skips a box that doesn't answer, and is 2026102808250954. The private runner skips its own boxes.
-	- Test case: ddmmw (a lane exiting 77 is a SKIP line, listed at the end, and the run goes on without the arm64 packages), ddmn7 and ddmmv (a box that isn't there exits 77 before the lock, and nothing is sent). Each fails before the change and passes after.
-	- Verified: 20261028, ddmmw, ddmn7 and ddmmv, and the quick gate.
-	- Verified: 20261028, the FreeBSD lane started vmFreeBSD and put it back, from paused in a full run at 4be04125 and from off in a lane run alone at d7bd529d.
+	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed: the FreeBSD suite (FreeBSD 1 to 3 of 3), the FreeBSD release (1 to 4 of 4) and the arm64 release (arm64 1 to 4 of 4) each printed their own steps inside the run's step, under the rule, with `Starting` and `PASS`.
 
 - Other hosts: the Windows dogfood takes b29w by that name, and its box through the VM state helper.
 	- ID: 2026102808250954
@@ -443,7 +336,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026102517333362
 	- Type: Task
 	- Status: Waiting on automated testing
-	- Needs local test suite run?: a full run with `--long`: the FreeBSD suite and release and the arm64 release each print a jobs line worked out from their box, and run there under nice.
+	- Needs local test suite run?: none left. Closes with its child 2026102820110967, the private runner.
 	- Priority|Severity: High
 	- Opened: 20261025-173333
 	- Opened by: 2026102416300003
@@ -465,13 +358,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: round1028b
 	- Test case: ddmn7 (FreeBSD lane: half the box's CPUs, a quarter when busy, the pin, a bad pin, nice 19 there), ddmmv (arm64: the same under nice and ionice, and the container's cap), dee7t (reading both kinds of load line).
 	- Verified: 20261028, ddmn7, ddmmv and dee7t pass. ddmn7 and ddmmv fail on the lanes before the change: a fixed 4, no nice and no jobs line.
+	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed: the FreeBSD suite and release printed "jobs 4 (load 1.65 on 8 cpus on bsdtest@vmFreeBSD)" and "jobs 4 (load 0.85 ...)", and the arm64 release "jobs 4 (load 1.31 on 8 cpus on tester@vmDebARM64)". nice and the container caps there are checked by ddmn7 and ddmmv, which passed in the same run.
 
 - CICD step output: `cicd-win.ps1` and the lanes on other boxes.
 	- ID: 2026102517333373
 	- Type: Task
 	- Status: Waiting on automated testing
 	- Needs local test suite run?: no
-	- Needs external testing: the native gate on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for the step lines of a real run.
+	- Needs external testing: none left. Closes with its child 2026102819522603.
 	- Priority|Severity: High
 	- Opened: 20261025-173333
 	- Opened by: 2026102416300005
@@ -482,6 +376,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261028: `cicd-win.ps1` makes its plan first, from the same switches the steps read, so M is known at step 1. Each step opens under a 79-dot rule with a `Starting` line and closes `PASS` or `FAIL`. A step still open when the run stops, by a failure, a throw or Ctrl+C, closes as `FAIL`. The gate and the full run print the plan's step count and the steps turned off, each with its flag or reason.
 		- 20261028: split the lanes and the private runner into child 2026102819522603.
+		- 20261029: open only for its child 2026102819522603, which waits on the private runner's child 2026102820110989.
 	- Decisions:
 		- The steps are the old stages, plus the smoke checks, now their own step in the full run as in the gate: Remote sync, Lints, Build (debug), Tests, Smoke checks, Runtime bundle, Packages, Dogfood, Publish. The names match `cicd.bash`'s where the step is the same.
 		- A missing toolchain, `-NoBuild`, `-NoPack` and a missing Enigma Virtual Box turn steps off in the plan, rather than warning inside the step. Dogfood says which of those turned the pack off.
@@ -1947,6 +1842,123 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- The FreeBSD lane stops on meson clock skew when vmFreeBSD was paused, since a resumed guest keeps its old clock.
+	- ID: 2026102810470587
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: a full run with `--long`, with vmFreeBSD and vmDebARM64 paused for an hour first and their clocks left alone: both lanes build, or fail before the send naming the clock.
+	- Priority|Severity: High
+	- Opened: 20261028-104705
+	- Opened by: t00mietum
+	- Target OS: FreeBSD
+	- Steps to reproduce: pause vmFreeBSD for some hours, then start a full run.
+	- Incorrect behavior: meson says 'Clock skew detected', a source file 60941 s in the future, and the FreeBSD suite fails.
+	- Expected behavior: the lane sets the guest clock after it wakes the box, or waits for it to be right, before building.
+	- Reproduced: 20261028 on round1028a, full run at 10:43 local.
+	- Possible cause: claude_vm-state.bash resumes a paused guest, and the guest clock doesn't jump forward. From off it boots with the right time. vmDebARM64 likely has the same problem for the arm64 lane.
+	- Actual cause: a guest resumed from paused keeps the clock it stopped with, until its own time sync catches up, if it does. Every file sent from here is then in its future. The lanes never checked the clock.
+	- Actual fix: the VM state helper sets the clock of a guest it wakes from paused, since 20261028. Both lanes now also check the box's clock after its login answers, and before anything is sent. They wait up to 60 s for it to come within 5 s of this one's, then fail naming how far off it is.
+	- Decisions:
+		- The lane checks the clock rather than setting it. bsdtest has no sudo, and setting it takes the admin login the VM state helper already uses. The check still covers the bare host lock, a clock the helper couldn't set, and a guest someone else resumed.
+		- A clock that's ahead fails too. The objects left from the last run would look newer than the sources, and the incremental build would skip them.
+		- A wrong clock is a failure, not a skip, since the box is there, per 2026102808250949.
+		- The skew is taken against the middle of the ssh round trip. Knobs: `BOX_CLOCK_MAX_SKEW` (5 s) and `BOX_CLOCK_WAIT` (60 s).
+		- tar keeps the file times, since the test build dir on the box needs them to stay incremental.
+	- Swept: every lane that sends the tree to another box and builds there: the FreeBSD lane, tests and release, and the arm64 release. The Windows dogfood only copies an exe, so it has no check.
+	- Test case: ddmn7 and ddmmv. A box hours behind, or ahead, fails before anything is sent, and one whose clock is set a moment after the resume is waited for, inside the VM state helper's wrap. Both fail before the fix and pass after.
+	- Verified: 20261028, ddmn7 and ddmmv, both ways, and the quick gate.
+	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed, with vmFreeBSD and vmDebARM64 paused about 3 h first: each was resumed and its clock set, and the FreeBSD suite, the FreeBSD release and the arm64 release all built.
+	- Closed: 20261029-002232
+
+- Other hosts: a box that isn't there is a SKIP.
+	- ID: 2026102808250949
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: a full run with `--long`, with vmDebARM64 paused or off: the arm64 lane starts its VM rather than skip, and puts it back.
+	- Priority|Severity: High
+	- Opened: 20261028-082509
+	- Opened by: 2026102416300001
+	- Parent ID: 2026102416300001
+	- Related IDs: 2026102808084300
+	- Requirements:
+		- The FreeBSD lane and the arm64 release. A box that doesn't answer, and isn't a VM this box can start, shows as `SKIP` in its step line and in the summary at the end, and the run goes on.
+		- When arm64 is skipped, its packages and their check are left out too.
+		- A box that answers but fails, or a VM that won't boot, still fails the run.
+	- Decisions:
+		- A lane says a box isn't there with exit 77, the code the test runner already reads as a skip. The pipeline closes that step as `SKIP` and lists it at the end, under "Skipped, no box". Any other failure still stops the run.
+		- Not there means ssh gets no answer at all, such as a timeout, a refusal or a name that doesn't resolve, and the box isn't a VM the VM state helper knows. A refused login or a failing command still counts as there, so a broken box fails rather than hiding.
+		- The check runs before the lock, so a box that's gone never holds up the queue. It tries for 8 s, and asks the VM state helper first, so a paused VM isn't tried at all.
+		- A skipped arm64 build drops the arm64 packages and their check for the rest of the run, the same way a run without arm64 does.
+	- Swept: every lane the pipeline runs on another box: the FreeBSD suite and release, and the cross targets, where arm64 is the only remote one. The Windows dogfood already skips a box that doesn't answer, and is 2026102808250954. The private runner skips its own boxes.
+	- Test case: ddmmw (a lane exiting 77 is a SKIP line, listed at the end, and the run goes on without the arm64 packages), ddmn7 and ddmmv (a box that isn't there exits 77 before the lock, and nothing is sent). Each fails before the change and passes after.
+	- Verified: 20261028, ddmmw, ddmn7 and ddmmv, and the quick gate.
+	- Verified: 20261028, the FreeBSD lane started vmFreeBSD and put it back, from paused in a full run at 4be04125 and from off in a lane run alone at d7bd529d.
+	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed: the arm64 lane found vmDebARM64 paused, started it rather than skip, built, and put it back to paused.
+	- Closed: 20261029-002232
+
+- Container cleanup: a container per step, for the release build.
+	- ID: 2026102617253220
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: the arm64 lane on vmDebARM64 only, with no `nemo-anywhere-*` container left on that box.
+	- Priority|Severity: High
+	- Opened: 20261026-172532
+	- Opened by: 2026102516403492
+	- Parent ID: 2026102516403492
+	- Prereq IDs: 2026102617253209
+	- Requirements:
+		- `release.bash` and the package step's dependency check run in containers of their own rather than in the long-lived `nemo-build-jammy`, on this box and on vmDebARM64.
+		- Whether the release build dir carries over between runs, in a cache volume, or starts cold each time, is still to be decided.
+	- Progress log:
+		- 20261026: `release.bash` runs in a container of its own from `nemo-build-jammy:latest`, through `step-box.bash`, and removes it on exit, on this box and on the arm64 one. The package step's dependency read starts one of its own and stops it after. `release-arm64.bash` no longer stops `nemo-build-jammy` on the box, since nothing is left running there.
+		- 20261026: `NEMO_RELEASE_CONTAINER` is gone; `NEMO_RELEASE_IMAGE` names the image for both. `nemo-build-jammy` is left for hand use; nothing in the pipeline uses it now.
+	- Decisions:
+		- Decided: the release build starts cold each time, in its container, with no cache volume. `release-setup.bash` already builds from an empty dir on every run, so a volume would keep over 1 GB that no run reads. It took 3 min here at 8 jobs.
+	- Test case: ddmmv and ddmvx (the dependency read in a container of its own, stopped after), defps (no script names a long-lived box).
+		- 20261026: ddmmv wants `docker stop -t 2 nemo-anywhere-` where it wanted `docker stop nemo-build-jammy`, and `exec -i nemo-anywhere-` where it wanted `exec -i nemo-build-jammy`. What it checks is the same: the read happens before the stop. The deb size check sets `NEMO_RELEASE_IMAGE` to a missing image, where it set `NEMO_RELEASE_CONTAINER`.
+	- Verified: 20261026, `release.bash` built 787 targets in its own container in 177 s at 8 jobs, and the smoke test and the extension load test passed there. `package.bash --depends-only` read the line in a container of its own. ddmmv, ddmvx and the deb size check pass. No container was left after either.
+	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9. The native release and the packages passed, and no step container was left here. The arm64 lane was left out.
+	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed: the arm64 release built in a container of its own on vmDebARM64 in 76 min, and its packages and their checks passed. After it, vmDebARM64 had no `nemo-anywhere-*` container, only the old stopped `nemo-build-jammy`.
+	- Swept: every `docker exec`, `docker cp`, `docker update` and `docker stop` that named `nemo-build-jammy`, and every `NEMO_RELEASE_CONTAINER` reader, under `cicd/` and `utility/`: `release.bash`, `package.bash`, `release-arm64.bash`, `test-release-arm64.bash`, `test-package-arm64.bash` and `test-deb-size.bash`. `test-release-setup.bash` already ran its own container.
+	- Closed: 20261029-002232
+	- 20261028: not run. Neither full run that day had `--long`, so the arm64 lane was left out.
+
+- Pinned recipe for the day-to-day build image.
+	- ID: 2026102820195801
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: the full run, `cicd/cicd.bash --backlog-run-full --no-private`, for the steps the quick run skips, now from the recipe image: fuzzing at its full 60 s, the analyzer's Linux lane over the whole build (de8es), and the profiler.
+	- Priority|Severity: High
+	- Opened: 20261028-201958
+	- Opened by: 2026102617145788
+	- Parent ID: 2026102617145788
+	- Prereq IDs: 2026102820481713
+	- Requirements:
+		- `nemo-build-deps` comes from `cicd/linux/Dockerfile.dev`, with the base by digest and apt from a dated snapshot.
+		- It passes the runs that `nemo-build-deps:init` passes, and the pipeline uses it in place of the snapshot.
+	- Progress log:
+		- 20261028: `Dockerfile.dev` pins trixie by digest, the base the old image was built on. apt reads the archive, the security and debug archives included, from snapshot.debian.org at 2026-10-19 22:00 UTC, the last time the old image was updated.
+		- 20261028: `docker-run.bash` runs each step from `nemo-build-deps:<hash>`, the hash taken over the Dockerfile, and builds it the first time that hash is seen. The fresh clone's `:latest` fallback is gone, since every clone now builds from the recipe. The run's docker sweep keeps the newest 2 tags.
+		- 20261028: the new image is 2.3 GB, where `:init` is 60.7 GB. gcc, clang, meson, GTK and GLib are the same versions, and the dbgsym packages match theirs. It differs from `:init` in security point releases from after 2026-09-16, and it lacks 2 packages nothing uses, b3sum and the gsf library. The build took about 7.5 min, mostly snapshot downloads.
+		- 20261028: in the new image the quick gate's lints pass, and the tests pass but for de8bd, de8dm and dec8w, which is 2026102820481713. That gap predates the pin, so the pinned `Dockerfile.dev` and dejma are on `round1028b`, and the switch of the pipeline's default image waits on branch `wip/round1028b-2026102820195801`.
+		- 20261028: the switch is on `round1028b` now, from the wip branch, after the font cache fix of 2026102820481713.
+		- 20261028: ddx67 skipped in the recipe image. `:init` had rar 7.20 in `/usr/local/bin`, put there by hand, so it wasn't in the package list. The recipe now installs Debian's rar 7.20-1 package from snapshot.debian.org, checked by its SHA-256. trixie's own rar is 7.11, and ddx67 fails with it.
+		- 20261028: the run's docker sweep removed `nemo-build-deps:6af684408ce8`. `nemo-build-deps:latest`, 2.2 GB, was removed by hand, since nothing reads it now.
+	- Decisions:
+		- The snapshot is the date of the old image's last update, not today, so the new image matches what passed before. The release image's pin was picked the same way, in 2026092813381427.
+		- Tagged by the recipe's hash, as `nemo-lint` is, so an edit to the recipe builds a new image on the next run.
+		- `nemo-build-deps:init` stays while the long-lived `nemo-build` box runs from it, and goes with that box.
+		- rar 7.20 from a package pinned by hash, rather than trixie's 7.11 from non-free. ddx67's pinned case is tuned to the bytes 7.20 writes, and 7.20 is what `:init` passed with. Debian's package is the same rarlab build. `ADD --checksum` checks it before the layer runs, so the image needs no curl.
+	- Swept: every reader of `nemo-build-deps:init` and `:latest` under `cicd/`: `docker-run.bash`, `test-docker-run.bash`, `test-docker-run-step.bash`, `test-docker-run-host.bash`, `test-fuzz-exit.bash` and `config.bash`, and design.md "Building on Linux". The Windows image is 2026102820195917, and the release image was pinned in 2026092813381427.
+		- 20261028: every test that skipped in the recipe image and not in `:init`, from the skip lists of both suites. Only ddx67 did.
+	- Branch: round1028b
+	- Test case: dejma (`test-dev-image-pin.bash`, lint stage: the base by digest, every apt source on one dated snapshot before apt runs, and nothing left on the live archive). defmw also checks that the tag follows the recipe, that a missing image is built from it with the labels, and that `NEMO_IMAGE` still wins. ddx67 runs rather than skips in the recipe image.
+		- 20261028: defky's no-image case expects `could not build image nemo-build-deps:<tag>`, where it expected `nemo-build-deps`.
+	- Verified: 20261028, dejma fails on the old `Dockerfile.dev` (3 problems) and on a debug source with another date, a security source left on the live archive, and no Valid-Until override, and passes on the new one. defmw fails on the old `docker-run.bash` (20 problems) and passes on the new one. The image builds from the recipe. `cicd/cicd.bash --backlog-run-quick` with every change: lints pass, ddagc and ddf32 among them in the new image, and the tests are 231 OK, 3 failed, 2 skipped, the 3 being 2026102820481713.
+	- Verified: 20261028, on `round1028b` from `nemo-build-deps:91fc9cf1ae15`: `--backlog-run-quick format lint` passed, and `--backlog-run-quick tests` gave 235 OK and 1 skipped, as `:init` did on 20261026, with de8bd, de8dm, dec8w and ddx67 passing. ddx67 failed with trixie's rar 7.11. The sanitizer suite gave 221 OK and 15 skipped, as `:init` did. The fuzz probe and a 3 s pass over the 12 targets were clean, the analyzer self-test found the planted faults in the Linux lane, and the profiler's prefix staged from the build and ran. defmw, defky, ddagc, ddf32 and dejma pass.
+	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed, every step from `nemo-build-deps:91fc9cf1ae15`: fuzzing clean at 60 s a target, the analyzers over the whole build with the same gcc-linux row as the runs from `:init` on 20261027 and 20261028, and the profiler.
+	- Closed: 20261029-002232
 
 - CICD CPU: `cicd-win.ps1`.
 	- ID: 2026102517333357
