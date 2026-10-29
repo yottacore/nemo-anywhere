@@ -18,9 +18,11 @@
 ##	  or the host lock, whichever is on this box (include/box-wrap.bash). The
 ##	  helper starts a VM that is off, waits for its ssh, and puts it back after.
 ##	  The lane then waits for its own user to log in and for docker there,
-##	  since both can lag well behind ssh on an emulated boot. A box that does
-##	  not answer in time is an error. One that isn't there at all, and isn't a
-##	  VM here, exits 77, a skip.
+##	  since both can lag well behind ssh on an emulated boot, and for its clock
+##	  to agree with this one, since a VM resumed from paused keeps the time it
+##	  stopped at. A box that does not answer in time, or whose clock stays off,
+##	  is an error. One that isn't there at all, and isn't a VM here, exits 77,
+##	  a skip.
 ##	- NEMO_ARM_HOST is the ssh target (default tester@vmDebARM64), NEMO_ARM_LOCK
 ##	  its lock name (default vmDebARM64), NEMO_ARM_JOBS the build jobs (default
 ##	  4), NEMO_ARM_READY_WAIT the seconds to wait for the login and docker
@@ -84,6 +86,7 @@ fRun(){
 		3) fDie "${armHost} is not an arm64 box" ;;
 		*) fDie "${armHost} did not answer as that user with docker up in ${readyWaitSec}s" ;;
 	esac
+	fBoxWrap_ClockReady "$armHost" "${sshOpts[@]}" || fDie "${armHost} has the wrong time, and the build would stop on it"
 
 	ssh "${sshOpts[@]}" "$armHost" "mkdir -p ${remoteDir} && find ${remoteDir} -mindepth 1 -delete"
 	## --ignore-failed-read: a file deleted in the tree but not yet in git is
@@ -149,4 +152,5 @@ fMain "${@}"
 ##		- 2026-10-27: Takes the box through the VM state helper when it is here,
 ##		  so a VM that is off is started and waited for.
 ##		- 2026-10-28: Waits for its own login and docker, with longer boot and
-##		  connect timeouts. A box that isn't there is a skip.
+##		  connect timeouts. A box that isn't there is a skip. A box whose clock is
+##		  off fails before the send.

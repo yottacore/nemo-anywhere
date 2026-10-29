@@ -17,6 +17,9 @@
 ##	    isn't FreeBSD, fails before anything is sent, the second without the
 ##	    wait. A box that isn't there, and isn't a VM here, exits 77 before the
 ##	    lock is taken.
+##	  - A box whose clock is hours behind, as a VM resumed from paused is,
+##	    fails before anything is sent, and so does one that is ahead. One whose
+##	    clock is set a moment after the resume is waited for.
 ##	- Needs git and python3; exit 77 without them.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/bsd/test-lane.bash
@@ -74,6 +77,18 @@ mkdir -p "$box" "$shim" "${scratch}/boxbin"
 cat > "${scratch}/boxbin/uname" <<'EOF'
 #!/usr/bin/env bash
 case "${1:-}" in -s) echo "${FAKE_OS:-FreeBSD}" ;; -m) echo amd64 ;; *) echo "${FAKE_OS:-FreeBSD}" ;; esac
+EOF
+## FAKE_CLOCK_BEHIND=S: the box's clock is S seconds behind, for its first
+## FAKE_CLOCK_READS reads, or all of them.
+realDate="$(command -v date)"
+cat > "${scratch}/boxbin/date" <<EOF
+#!/usr/bin/env bash
+if [[ -n "\${FAKE_CLOCK_BEHIND:-}" && "\${1:-}" == +%s ]]; then
+	n=\$(( \$(cat "${scratch}/clock-reads" 2>/dev/null || echo 0) + 1 ))
+	echo "\$n" > "${scratch}/clock-reads"
+	if [[ -z "\${FAKE_CLOCK_READS:-}" ]] || (( n <= FAKE_CLOCK_READS )); then echo \$(( \$("${realDate}" +%s) - FAKE_CLOCK_BEHIND )); exit 0; fi
+fi
+exec "${realDate}" "\$@"
 EOF
 cat > "${scratch}/fake-run-tests.bash" <<'EOF'
 #!/usr/bin/env bash
@@ -134,7 +149,7 @@ while [[ "\${1:-}" != -- ]]; do shift; done
 shift
 exec "\$@"
 EOF
-chmod +x "${shim}/ssh" "${shim}/scp" "${scratch}/boxbin/uname"
+chmod +x "${shim}/ssh" "${shim}/scp" "${scratch}/boxbin/uname" "${scratch}/boxbin/date"
 
 fLane(){ (cd "$repo" && env -u SOURCE_DATE_EPOCH PATH="${shim}:${PATH}" WINDOWS_HOST_LOCK="${shim}/lock.bash" bash cicd/bsd/lane.bash "$@") >"${scratch}/lane.log" 2>&1; }
 
@@ -196,6 +211,30 @@ elif ((SECONDS - startedAt >= 5)); then fFail "a box that isn't FreeBSD was wait
 else fEcho "OK: a box that isn't FreeBSD fails without the wait"
 fi
 [[ -e "${box}/nemo-anywhere-ci/src/stale.txt" ]] || fFail "the tree on a box that failed the check was touched"
+
+## Resumed from paused with its old clock: fails before the send, rather than
+## meson stopping on clock skew there. Ahead fails the same way.
+for behind in 60941 -3600; do
+	rm -f "${scratch}/clock-reads"
+	if BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=paused FAKE_CLOCK_BEHIND="$behind" BOX_CLOCK_WAIT=1 BOX_READY_POLL=1 fLane --tests; then fFail "--tests passed on a box ${behind}s off"
+	elif ! grep -q 'has the wrong time' "${scratch}/lane.log" || ! grep -q -E 's (behind|ahead), still after' "${scratch}/lane.log"; then fFail "no reason for a box ${behind}s off: $(tail -3 "${scratch}/lane.log")"
+	else fEcho "OK: a box ${behind}s off fails"
+	fi
+done
+[[ -e "${box}/nemo-anywhere-ci/src/stale.txt" ]] || fFail "the tree on a box with the wrong time was touched"
+
+## Its clock set a moment after the resume: waited for, then the suite runs.
+rm -f "${scratch}/clock-reads" "${box}/run-tests.log"
+: > "${scratch}/vm-state.log"
+if BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=paused FAKE_CLOCK_BEHIND=60941 FAKE_CLOCK_READS=2 BOX_READY_POLL=0 fLane --tests; then
+	if ! grep -q 'clock is right after' "${scratch}/lane.log"; then fFail "no line saying the clock was waited for"
+	elif ! grep -q -E -- '^wrap vmFreeBSD ' "${scratch}/vm-state.log" || [[ ! -f "${box}/run-tests.log" ]]; then fFail "the suite did not run inside the VM state helper's wrap"
+	else fEcho "OK: a clock set after the resume is waited for"
+	fi
+else
+	fFail "--tests failed on a box whose clock was set after two reads: $(tail -3 "${scratch}/lane.log")"
+fi
+printf 'stale\n' > "${box}/nemo-anywhere-ci/src/stale.txt"
 
 ## Not there, and not a VM here: a skip, before the lock.
 rm -f "${scratch}/ssh-tries"

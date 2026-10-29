@@ -609,7 +609,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The FreeBSD lane stops on meson clock skew when vmFreeBSD was paused, since a resumed guest keeps its old clock.
 	- ID: 2026102810470587
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: a full run with `--long`, with vmFreeBSD and vmDebARM64 paused for an hour first and their clocks left alone: both lanes build, or fail before the send naming the clock.
 	- Priority|Severity: High
 	- Opened: 20261028-104705
 	- Opened by: t00mietum
@@ -619,7 +620,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the lane sets the guest clock after it wakes the box, or waits for it to be right, before building.
 	- Reproduced: 20261028 on round1028a, full run at 10:43 local.
 	- Possible cause: claude_vm-state.bash resumes a paused guest, and the guest clock doesn't jump forward. From off it boots with the right time. vmDebARM64 likely has the same problem for the arm64 lane.
-	- Test case: a lane run with the VM paused for an hour first, plus a box-wrap test that the clock step runs after a resume.
+	- Actual cause: a guest resumed from paused keeps the clock it stopped with, until its own time sync catches up, if it does. Every file sent from here is then in its future. The lanes never checked the clock.
+	- Actual fix: the VM state helper sets the clock of a guest it wakes from paused, since 20261028. Both lanes now also check the box's clock after its login answers, and before anything is sent. They wait up to 60 s for it to come within 5 s of this one's, then fail naming how far off it is.
+	- Decisions:
+		- The lane checks the clock rather than setting it. bsdtest has no sudo, and setting it takes the admin login the VM state helper already uses. The check still covers the bare host lock, a clock the helper couldn't set, and a guest someone else resumed.
+		- A clock that's ahead fails too. The objects left from the last run would look newer than the sources, and the incremental build would skip them.
+		- A wrong clock is a failure, not a skip, since the box is there, per 2026102808250949.
+		- The skew is taken against the middle of the ssh round trip. Knobs: `BOX_CLOCK_MAX_SKEW` (5 s) and `BOX_CLOCK_WAIT` (60 s).
+		- tar keeps the file times, since the test build dir on the box needs them to stay incremental.
+	- Swept: every lane that sends the tree to another box and builds there: the FreeBSD lane, tests and release, and the arm64 release. The Windows dogfood only copies an exe, so it has no check.
+	- Test case: ddmn7 and ddmmv. A box hours behind, or ahead, fails before anything is sent, and one whose clock is set a moment after the resume is waited for, inside the VM state helper's wrap. Both fail before the fix and pass after.
+	- Verified: 20261028, ddmn7 and ddmmv, both ways, and the quick gate.
 
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
