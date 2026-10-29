@@ -33,6 +33,70 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- dehzr fails on native Windows: lint-report.py reads itself as cp1252.
+	- ID: 2026102823073182
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261028-230731
+	- Opened: 20261028-230731
+	- Opened by: 2026102416300007
+	- Target OS: Windows
+	- Steps to reproduce: the lint step of `pwsh cicd/cicd-win.ps1` on b29w, past defmw (2026102822580271).
+	- Incorrect behavior: `lint-report.py --self-test` stops with "UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d" at `open(__file__).read()`, and the lint step fails.
+	- Expected behavior: passes.
+	- Reproduced: 20261028 on b29w, round1028b at 2964120b, which didn't change the file.
+	- Possible cause: `open()` with no encoding takes the locale's, cp1252 under MSYS2's Python, and the header's copyright line is UTF-8. Its other reads of text files have the same shape.
+	- Test case: dehzr itself, on native Windows.
+
+- 4 native Windows tests fail with no desktop session: de5kb, debgn, dbxkh, ddqdq.
+	- ID: 2026102822580302
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261028-225803
+	- Opened: 20261028-225802
+	- Opened by: 2026102517333373
+	- Target OS: Windows
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes -NoFmt` on b29w, started as an admin outside any desktop session, the way a detached run over ssh starts.
+	- Incorrect behavior: de5kb, Delete fence test, times out at 60 s. debgn says "the focus never came back". dbxkh exits 3 after the fence refuses a move of Explorer's `iconcache_idx.db` in the user's profile. ddqdq times out waiting for the alpha and beta window titles. The window tests that fail print "gdk_monitor_get_geometry: assertion 'GDK_IS_MONITOR (monitor)' failed".
+	- Expected behavior: each passes, or skips with 77 when there's no desktop to draw on, as 19 other window tests in the same run did.
+	- Reproduced: 20261028 on b29w, at round1028b 2964120b and at dev 051f2d14, the same 4 failing and 190 OK, 19 skipped, both times. A gate there at 1694aeb, also with no desktop, failed none.
+	- Possible cause: not looked into. dbxkh is the delete fence catching a move the shell makes on the test's behalf. The other 3 seem to need a desktop and don't check for one.
+	- Test case: the 4 tests themselves, on native Windows with no desktop session, and again in a desktop session.
+
+- cicd-win.ps1's step rule comes out as BEL characters when its output is piped.
+	- ID: 2026102822580287
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261028-225802
+	- Opened: 20261028-225802
+	- Opened by: 2026102517333373
+	- Target OS: Windows
+	- Steps to reproduce: run `pwsh cicd/cicd-win.ps1 -Gate -Yes` from another pwsh with its output piped to a file.
+	- Incorrect behavior: each rule line is 79 bytes of 0x07 rather than 79 bullets, so a terminal showing the log rings the bell 79 times a step.
+	- Expected behavior: the same rule as `cicd.bash` draws, in any log.
+	- Reproduced: 20261028 on b29w, round1028b at 2964120b. dev drew 73 of the same bullet, so it predates the round.
+	- Possible cause: the rule is `[char]0x2022`. Piped output goes out in the console's OEM code page, which has no bullet, and Windows swaps in 0x07, the byte that code page shows as a bullet.
+	- Test case: to add with the fix, in dejjt: the rule survives a pipe.
+
+- defmw fails on native Windows: its [cap] case lists the link dir too.
+	- ID: 2026102822580271
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261028-225802
+	- Opened: 20261028-225802
+	- Opened by: 2026102517333373
+	- Target OS: Windows
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes` on b29w.
+	- Incorrect behavior: the lint step stops at defmw, `test-docker-run-step.bash`: "[cap]: not one line for the one dir", with a line for both `cache/big` and `cache/link`, each "2 MB, past its 1 MB cap".
+	- Expected behavior: passes, or skips the link case where MSYS2 can't make a link.
+	- Reproduced: 20261028 on b29w, round1028b at 2964120b. The case is the same on dev, and no native gate had run since defmw came in on 20261026.
+	- Possible cause: `ln -s` under MSYS2 without the symlink privilege makes a copy, so the link dir holds 2 MB of its own. lint.bash already skips the vendor-themes self-test under MSYS2 for the same reason.
+	- Test case: defmw itself, on native Windows.
+
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
@@ -304,6 +368,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: dehyb. b29w goes first by that name, vm925w is taken through the VM state helper while off and its login waited for, and no box there is a skip. It fails before the change and passes after.
 	- Verified: 20261028, dehyb, and the quick gate.
 	- 20261028: not run. Left for a plain run, since no narrower check covers the refresh.
+	- 20261028: still not run. A round never runs the dogfood, and the step it needs, vm925w started from off, can't happen while the paused vmKt6m holds SPICE port 5900. dehyb covers the rest.
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
@@ -344,7 +409,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Type: Task
 	- Status: Waiting on automated testing
 	- Needs local test suite run?: no
-	- Needs external testing: the native gate on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for meson's lines through awk under MSYS2 and the Windows script test lines.
+	- Needs external testing: the 3 Windows-only script tests' lines (install in-use, ACL and staging checks) in the native gate's Tests step, once the suite gets past 2026102822580302.
 	- Priority|Severity: High
 	- Opened: 20261024-163000
 	- Opened by: t00mietum
@@ -371,32 +436,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261028, full runs at 4be04125: the 12 fuzz targets, 223 sanitizer suite tests, the package checks (ddmn6, ddqjk, ddqv0, ddwhx, ddmn8), dcvpj and da73c each print a PASS line with the ID. The FreeBSD suite's lines come out as PASS, FAIL or SKIP under its awk, but with the project name stuck to the ID, filed as 2026102812032075.
 	- 20261028: native gate not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
 	- Verified: 20261028, FreeBSD lane at 9f7df4c7: every result line reads PASS <id> <name>.
-
-- CICD CPU: `cicd-win.ps1`.
-	- ID: 2026102517333357
-	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: no
-	- Needs external testing: the native gate on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for the CPU use Windows reports in each step's jobs line, and for ninja, gcc and the suite running at `BelowNormal` under MSYS2.
-	- Priority|Severity: High
-	- Opened: 20261025-173333
-	- Opened by: 2026102416300003
-	- Parent ID: 2026102416300003
-	- Requirements:
-		- `BelowNormal` priority at the top of `cicd-win.ps1`, or `Idle` for the hard steps, set on its own process so its children get it.
-		- Half the logical CPUs, a quarter when busy or for a hard step, worked out once and passed to every tool that runs in parallel. Busy needs a load figure Windows doesn't have; the processor queue length or CPU use over a short sample are the options.
-	- Progress log:
-		- 20261028: `cicd-win.ps1` sets its own process to `BelowNormal` before anything else runs, and Windows hands that down to MSYS2 and what it starts. `fJobs` works out the count before the run and again before each step, and ninja, `meson test` and the MSYS2 shell (as `CICD_MAX_JOBS`) all take it from there. Each step prints its jobs line, and the preflight says the count and the priority.
-	- Decisions:
-		- Busy is CPU use over 50%, from `Win32_Processor`'s `LoadPercentage`, which Windows averages over the last second. That's the same line the load rule draws at half the CPUs, it needs no sampling wait, and it doesn't depend on the language counter names are in. The processor queue length counts only threads waiting, not running ones, and swings a lot from one reading to the next.
-		- When Windows won't say, the line reads "cpu use unknown" and the run takes half.
-		- A run started lower than `BelowNormal`, such as `Idle`, stays there. Priority is never raised.
-		- No step here is hard. The sanitizers, fuzzing, the analyzers and the leak checks don't run on Windows. `fStep -Hard` takes `Idle` and a quarter for when one does.
-		- `CICD_JOBS_PIN` or `CICD_MAX_JOBS` set beforehand pins the count, as in `cicd.bash`. Anything but a whole number over 0 stops the run.
-	- Swept: every `ProcessorCount` and `-j`/`--num-processes` in `cicd-win.ps1` (`fBuild` and `fTests` had their own half). `stage-native.bash`, `pack-portable.ps1` and the GUI smoke run nothing in parallel. `lint.bash`'s C check reads `CICD_MAX_JOBS`, now passed in.
-	- Branch: round1028b
-	- Test case: dejjt (`cicd/utility/test-cicd-win.ps1`, lint stage: the count at 50% and 51%, hard, and 1 CPU; one place reads the CPU count; ninja, `meson test` and the MSYS2 shell get it; busy and pinned jobs lines; a bad pin stops the run; the toolchain check and each step's work run at `BelowNormal` or lower).
-	- Verified: 20261028, dejjt passes, and fails with busy at 90%, with `meson test` given its own count, with a second place reading the CPU count, and with no priority set at the top. `cicd/cicd.bash --backlog-run-quick format lint` passes. PSScriptAnalyzer is clean on both files.
+	- Verified: 20261028, native Windows on b29w at 2964120b: meson's result lines through awk under MSYS2 all read `PASS`, `FAIL` or `SKIP`, then the ID and name, 217 of them. The lint step's 92 script test lines did too, with defmw and dehzr left out of the list (2026102822580271, 2026102823073182). The Tests step stopped on 4 failures already on dev (2026102822580302) before the Windows-only script tests.
+	- Prereq IDs: 2026102822580302
 
 - CICD CPU: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102517333362
@@ -450,65 +491,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: round1028b
 	- Test case: dejjt (`cicd/utility/test-cicd-win.ps1`, lint stage: the gate and the full run with every step on, with steps turned off by each flag, a missing toolchain with and without `-BuildStrict`, no Enigma Virtual Box, and a step that fails, each checked for the rule, numbering, open and close lines and the turned-off list).
 	- Verified: 20261028, dejjt passes, and fails with a 78-dot rule, with no `FAIL` close on a failure, with a step left out of the plan, and with the last step left open. `cicd/cicd.bash --backlog-run-quick format lint` passes.
-
-- Temp files: scripts remove their own temp folders through the guard.
-	- ID: 2026102618083910
-	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: no
-	- Needs external testing: the native lint on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for the test scripts' traps under MSYS2.
-	- Priority|Severity: Avg
-	- Opened: 20261026-180839
-	- Opened by: 2026102516403471
-	- Parent ID: 2026102516403471
-	- Requirements:
-		- Every `rm -r` of a `mktemp` folder, or of a path in one, goes through `fSafeRm`.
-	- Progress log:
-		- 20261026: 47 lines in 30 scripts, mostly the test scripts' EXIT traps, now call `fSafeRm_IfThere` from `include/run-temp.bash`. It takes several paths, skips one that's gone, as `rm -rf` did, and prints nothing.
-		- 20261026: `fSafeRm` works outside a run now. With no `HOST_TEMP` or project it keeps only the tmp folder rule, where it used to stop the script. A step's child finds the project in `CICD_PROJECT`.
-		- 20261026: the tests that copy `package.bash` or `release.bash` into a scratch repo copy `run-temp.bash` too. test-deb-size's second pass works under `/dev/shm/.../tmp/`, since the guard refuses a work dir that's in no tmp folder.
-	- Decisions:
-		- One helper for a script's own scratch, rather than an `[[ -e ]]` check at each site, so a trap reads the same as before.
-		- A refusal in a trap warns and leaves the folder. It doesn't change the exit code.
-		- defnq holds the list of scripts still to move, with a count for each. A new `rm -r` anywhere else fails it, and so does a count that drops without the list.
-	- Test case: defnq (every `rm -r` is on the list or gone, a script that calls the guard sources it, `fSafeRm_IfThere`, and `fSafeRm` with no `HOST_TEMP`).
-	- Verified: 20261026, defnq fails with a trap put back to `rm -rf`, with the `source` line taken out, and on `run-temp.bash` as it was, and passes now. `--backlog-run-quick format lint` passed. test-prefix, test-installers, test-install-download, test-package-arm64 and test-release-arm64 pass when run alone.
-	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9. The packages step, the profiler and the Windows pack passed.
-	- Swept: every `rm -r` in tracked bash scripts. The rest are on the list in defnq, for the next two children.
-	- 20261028: native gate not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
-
-- ddepg failed once in a full run's suite on a loaded box, the heap growing 1600 bytes over 64 rounds.
-	- ID: 2026102518200000
-	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: No
-	- Needs external testing: the leak cases on native Windows, `cicd-win.ps1 -Gate` on vm925w, since the held handlers are in every platform's readings.
-	- Priority|Severity: Low
-	- Opened: 20261025-182000
-	- Opened by: t00mietum
-	- Target OS: Linux
-	- Steps to reproduce: `cicd/cicd.bash --backlog-run-full --no-sanitize` at load about 30 on 32 cores.
-	- Incorrect behavior: "zip-cancel: the heap grew 1600 bytes over 64 rounds", then "FAIL ../src/source/test/test-nemo-leaks.c:1187: growth < (gint64) COUNTED_ROUNDS * limit". The log also said a thread started or ended, so the reading was taken again.
-	- Expected behavior: passes.
-	- Reproduced: once, 20261025 on round1025b at e1159615. It passed in the run before at the same code, and 3 of 3 alone right after.
-	- Possible cause: a worker thread still winding down from a stopped zip job at the reading. Not looked into.
-	- Actual cause: 2 things, each moving a reading by about 800 bytes either way, against a limit of 1024 over the 64 rounds. 1600 is both at once, or one of them twice.
-		- GObject's table of signal handlers. A job connects a few dozen and lets them go, and the table, rebuilt to fit however many were connected at that moment, came out at 64 or 128 slots, 768 bytes apart.
-		- The job's task, freed when its thread hands it back to the main loop. That comes a moment after the job's done callback, and on a busy box it could come after the round's main loop had gone quiet.
-	- Progress log:
-		- 20261028: 16 copies at once with 8 busy loops, at load 6 to 18: before the fix, 12 of 16 final readings were off by 768 to 1584 bytes. After it, 30 of 32 grew 0 bytes and 2 grew 16. With only the handlers held, 4 of 32 were still off by about 820.
-		- A hold of 384 handlers put de5hg, which keeps a few objects a round, at 1008 to 1024 against its 1024 limit. At 96 and 1024 it grew 736 to 752, the same as before.
-	- Decisions:
-		- The fix is in the shared reading, not the zip case, since every case that runs a job or connects a signal can move the same table.
-	- Actual fix: in `test-heap.c`, for every leak case. The readings hold 1024 extra handlers on as many objects, so every rebuild comes out the same size. And each reading on Linux first runs the main loop until it's empty and no other thread is running, as Windows already did, up to 5 s.
-	- Branch: round1028a
-	- Commit: 776666f9
-	- Test case: ddepg itself, beside the full suite, and the 12 other leak cases and ddfb8, the self-check, which all go through the same readings.
-	- Verified: 20261028, in the plain build: ddepg 32 of 32 with 8 busy loops beside 16 copies, and the 12 other leak cases, ddfb8, dcxzr and dav3s pass.
-	- Verified: 20261028, `cicd.bash --backlog-run-quick` passes at 776666f9, and `test-heap.c` compiles in the Windows cross build. gcc's and clang's analyzers find nothing in it or in the cache store test.
-	- Swept: both callers of `test_heap_growth`, the leak cases and the rename probe in `test-nemo-leaks.c`. `test-nemo-config.c` reads the heap but takes no readings through it.
-	- Verified: 20261028, full run 20261028-104801: PASS ddepg, PASS de5hg. Native Windows still to run.
-	- 20261028: native gate not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
+	- Verified: 20261028, native gate on b29w at 2964120b: the plan gave the step count and listed each step turned off with its flag, each step opened under a 79-character rule with `Starting`, and the failing Lints and Tests steps closed as `FAIL`. The rule's bullets come out as 0x07 in a piped log, which predates the round and is 2026102822580287.
 
 - Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
 	- ID: 2026100516274646
@@ -1964,6 +1947,97 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
+
+- CICD CPU: `cicd-win.ps1`.
+	- ID: 2026102517333357
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: no
+	- Needs external testing: the native gate on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for the CPU use Windows reports in each step's jobs line, and for ninja, gcc and the suite running at `BelowNormal` under MSYS2.
+	- Priority|Severity: High
+	- Opened: 20261025-173333
+	- Opened by: 2026102416300003
+	- Parent ID: 2026102416300003
+	- Requirements:
+		- `BelowNormal` priority at the top of `cicd-win.ps1`, or `Idle` for the hard steps, set on its own process so its children get it.
+		- Half the logical CPUs, a quarter when busy or for a hard step, worked out once and passed to every tool that runs in parallel. Busy needs a load figure Windows doesn't have; the processor queue length or CPU use over a short sample are the options.
+	- Progress log:
+		- 20261028: `cicd-win.ps1` sets its own process to `BelowNormal` before anything else runs, and Windows hands that down to MSYS2 and what it starts. `fJobs` works out the count before the run and again before each step, and ninja, `meson test` and the MSYS2 shell (as `CICD_MAX_JOBS`) all take it from there. Each step prints its jobs line, and the preflight says the count and the priority.
+	- Decisions:
+		- Busy is CPU use over 50%, from `Win32_Processor`'s `LoadPercentage`, which Windows averages over the last second. That's the same line the load rule draws at half the CPUs, it needs no sampling wait, and it doesn't depend on the language counter names are in. The processor queue length counts only threads waiting, not running ones, and swings a lot from one reading to the next.
+		- When Windows won't say, the line reads "cpu use unknown" and the run takes half.
+		- A run started lower than `BelowNormal`, such as `Idle`, stays there. Priority is never raised.
+		- No step here is hard. The sanitizers, fuzzing, the analyzers and the leak checks don't run on Windows. `fStep -Hard` takes `Idle` and a quarter for when one does.
+		- `CICD_JOBS_PIN` or `CICD_MAX_JOBS` set beforehand pins the count, as in `cicd.bash`. Anything but a whole number over 0 stops the run.
+	- Swept: every `ProcessorCount` and `-j`/`--num-processes` in `cicd-win.ps1` (`fBuild` and `fTests` had their own half). `stage-native.bash`, `pack-portable.ps1` and the GUI smoke run nothing in parallel. `lint.bash`'s C check reads `CICD_MAX_JOBS`, now passed in.
+	- Branch: round1028b
+	- Test case: dejjt (`cicd/utility/test-cicd-win.ps1`, lint stage: the count at 50% and 51%, hard, and 1 CPU; one place reads the CPU count; ninja, `meson test` and the MSYS2 shell get it; busy and pinned jobs lines; a bad pin stops the run; the toolchain check and each step's work run at `BelowNormal` or lower).
+	- Verified: 20261028, dejjt passes, and fails with busy at 90%, with `meson test` given its own count, with a second place reading the CPU count, and with no priority set at the top. `cicd/cicd.bash --backlog-run-quick format lint` passes. PSScriptAnalyzer is clean on both files.
+	- Verified: 20261028, native gate on b29w at 2964120b: the jobs line read "jobs 8 (cpu use 49% on 16 cpus)" on a quiet box and "jobs 4 (busy box, cpu use 66% on 16 cpus)" on a busy one, the preflight said BelowNormal, and the MSYS2 shells under it ran at BelowNormal.
+	- Closed: 20261028-230114
+
+- Temp files: scripts remove their own temp folders through the guard.
+	- ID: 2026102618083910
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: no
+	- Needs external testing: the native lint on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for the test scripts' traps under MSYS2.
+	- Priority|Severity: Avg
+	- Opened: 20261026-180839
+	- Opened by: 2026102516403471
+	- Parent ID: 2026102516403471
+	- Requirements:
+		- Every `rm -r` of a `mktemp` folder, or of a path in one, goes through `fSafeRm`.
+	- Progress log:
+		- 20261026: 47 lines in 30 scripts, mostly the test scripts' EXIT traps, now call `fSafeRm_IfThere` from `include/run-temp.bash`. It takes several paths, skips one that's gone, as `rm -rf` did, and prints nothing.
+		- 20261026: `fSafeRm` works outside a run now. With no `HOST_TEMP` or project it keeps only the tmp folder rule, where it used to stop the script. A step's child finds the project in `CICD_PROJECT`.
+		- 20261026: the tests that copy `package.bash` or `release.bash` into a scratch repo copy `run-temp.bash` too. test-deb-size's second pass works under `/dev/shm/.../tmp/`, since the guard refuses a work dir that's in no tmp folder.
+	- Decisions:
+		- One helper for a script's own scratch, rather than an `[[ -e ]]` check at each site, so a trap reads the same as before.
+		- A refusal in a trap warns and leaves the folder. It doesn't change the exit code.
+		- defnq holds the list of scripts still to move, with a count for each. A new `rm -r` anywhere else fails it, and so does a count that drops without the list.
+	- Test case: defnq (every `rm -r` is on the list or gone, a script that calls the guard sources it, `fSafeRm_IfThere`, and `fSafeRm` with no `HOST_TEMP`).
+	- Verified: 20261026, defnq fails with a trap put back to `rm -rf`, with the `source` line taken out, and on `run-temp.bash` as it was, and passes now. `--backlog-run-quick format lint` passed. test-prefix, test-installers, test-install-download, test-package-arm64 and test-release-arm64 pass when run alone.
+	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9. The packages step, the profiler and the Windows pack passed.
+	- Verified: 20261028, the native lint on b29w at 2964120b, with defmw and dehzr left out of the list for 2026102822580271 and 2026102823073182: every test script ran under MSYS2 and the step passed, with no trap refusing or leaving a folder. defnq passed.
+	- Swept: every `rm -r` in tracked bash scripts. The rest are on the list in defnq, for the next two children.
+	- Closed: 20261028-231647
+	- 20261028: native gate not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
+
+- ddepg failed once in a full run's suite on a loaded box, the heap growing 1600 bytes over 64 rounds.
+	- ID: 2026102518200000
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: No
+	- Needs external testing: the leak cases on native Windows, `cicd-win.ps1 -Gate` on vm925w, since the held handlers are in every platform's readings.
+	- Priority|Severity: Low
+	- Opened: 20261025-182000
+	- Opened by: t00mietum
+	- Target OS: Linux
+	- Steps to reproduce: `cicd/cicd.bash --backlog-run-full --no-sanitize` at load about 30 on 32 cores.
+	- Incorrect behavior: "zip-cancel: the heap grew 1600 bytes over 64 rounds", then "FAIL ../src/source/test/test-nemo-leaks.c:1187: growth < (gint64) COUNTED_ROUNDS * limit". The log also said a thread started or ended, so the reading was taken again.
+	- Expected behavior: passes.
+	- Reproduced: once, 20261025 on round1025b at e1159615. It passed in the run before at the same code, and 3 of 3 alone right after.
+	- Possible cause: a worker thread still winding down from a stopped zip job at the reading. Not looked into.
+	- Actual cause: 2 things, each moving a reading by about 800 bytes either way, against a limit of 1024 over the 64 rounds. 1600 is both at once, or one of them twice.
+		- GObject's table of signal handlers. A job connects a few dozen and lets them go, and the table, rebuilt to fit however many were connected at that moment, came out at 64 or 128 slots, 768 bytes apart.
+		- The job's task, freed when its thread hands it back to the main loop. That comes a moment after the job's done callback, and on a busy box it could come after the round's main loop had gone quiet.
+	- Progress log:
+		- 20261028: 16 copies at once with 8 busy loops, at load 6 to 18: before the fix, 12 of 16 final readings were off by 768 to 1584 bytes. After it, 30 of 32 grew 0 bytes and 2 grew 16. With only the handlers held, 4 of 32 were still off by about 820.
+		- A hold of 384 handlers put de5hg, which keeps a few objects a round, at 1008 to 1024 against its 1024 limit. At 96 and 1024 it grew 736 to 752, the same as before.
+	- Decisions:
+		- The fix is in the shared reading, not the zip case, since every case that runs a job or connects a signal can move the same table.
+	- Actual fix: in `test-heap.c`, for every leak case. The readings hold 1024 extra handlers on as many objects, so every rebuild comes out the same size. And each reading on Linux first runs the main loop until it's empty and no other thread is running, as Windows already did, up to 5 s.
+	- Branch: round1028a
+	- Commit: 776666f9
+	- Test case: ddepg itself, beside the full suite, and the 12 other leak cases and ddfb8, the self-check, which all go through the same readings.
+	- Verified: 20261028, in the plain build: ddepg 32 of 32 with 8 busy loops beside 16 copies, and the 12 other leak cases, ddfb8, dcxzr and dav3s pass.
+	- Verified: 20261028, `cicd.bash --backlog-run-quick` passes at 776666f9, and `test-heap.c` compiles in the Windows cross build. gcc's and clang's analyzers find nothing in it or in the cache store test.
+	- Swept: both callers of `test_heap_growth`, the leak cases and the rename probe in `test-nemo-leaks.c`. `test-nemo-config.c` reads the heap but takes no readings through it.
+	- Verified: 20261028, full run 20261028-104801: PASS ddepg, PASS de5hg. Native Windows still to run.
+	- Verified: 20261028, native Windows on b29w at 2964120b (`cicd-win.ps1 -Gate -Yes -NoFmt`): ddepg passes, and so do 10 of the other 12 leak cases and ddfb8, the self-check. de5hg and de5he skipped, since the run had no desktop to draw on.
+	- Closed: 20261028-230114
+	- 20261028: native gate not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
 
 - SMB and SFTP networking is broken.
 	- ID: 2026101417352260
