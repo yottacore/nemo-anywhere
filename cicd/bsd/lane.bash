@@ -16,12 +16,18 @@
 ##	  or the host lock, whichever is on this box (include/box-wrap.bash). The
 ##	  helper starts a VM that is off, waits for its ssh, and puts it back after.
 ##	  The lane then waits for its own user to log in, since that can lag right
-##	  after a boot. A box that does not answer in time is an error. One that
-##	  isn't there at all, and isn't a VM here, exits 77, a skip.
+##	  after a boot, and for its clock to agree with this one, since a VM
+##	  resumed from paused keeps the time it stopped at. A box that does not
+##	  answer in time, or whose clock stays off, is an error. One that isn't
+##	  there at all, and isn't a VM here, exits 77, a skip.
+##	- The build and the suite run there under nice 19, with jobs worked out
+##	  from that box's own CPU count and load, the same way as for a step here
+##	  (include/jobs.bash), just before they start.
+##	- Its steps print the way cicd.bash's do, as "FreeBSD N of M", since the
+##	  lane is itself one step of that run.
 ##	- NEMO_BSD_HOST is the ssh target (default bsdtest@vmFreeBSD), NEMO_BSD_LOCK
-##	  its lock name (default vmFreeBSD), NEMO_BSD_JOBS the build and test jobs
-##	  (default 4), NEMO_BSD_READY_WAIT the seconds to wait for the login
-##	  (default 600).
+##	  its lock name (default vmFreeBSD), NEMO_BSD_JOBS pins the build and test
+##	  jobs, NEMO_BSD_READY_WAIT the seconds to wait for the login (default 600).
 ##	- Syntax: lane.bash --tests|--release
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -36,7 +42,7 @@ SLUG="nemo-anywhere"
 OUT="${ROOT}/cicd/artifacts/release"
 bsdHost="${NEMO_BSD_HOST:-bsdtest@vmFreeBSD}"
 lockName="${NEMO_BSD_LOCK:-vmFreeBSD}"
-jobs="${NEMO_BSD_JOBS:-4}"
+jobsPin="${NEMO_BSD_JOBS:-}"
 readyWaitSec="${NEMO_BSD_READY_WAIT:-600}"
 ## Under the remote home.
 remoteBase="nemo-anywhere-ci"
@@ -57,10 +63,14 @@ lockTool="$(fBoxWrap_Tool)"
 ## 8s was too short for a VM that had just booted on a busy host.
 sshOpts=(-o ConnectTimeout=30 -o BatchMode=yes -o LogLevel=ERROR)
 
+## FreeBSD has no ionice.
+remoteNice="nice -n 19"
+
 ## Every remote command is put together on this side.
 # shellcheck disable=SC2029
 fSend(){
 	local rc=0
+	fLaneStep "Box ready"
 	## Runs there.
 	# shellcheck disable=SC2016
 	fBoxWrap_WaitReady "$bsdHost" "$readyWaitSec" 'test "$(uname -s)" = FreeBSD || exit 3' "${sshOpts[@]}" || rc=$?
@@ -69,6 +79,8 @@ fSend(){
 		3) fDie "${bsdHost} is not a FreeBSD box" ;;
 		*) fDie "${bsdHost} did not answer as that user in ${readyWaitSec}s" ;;
 	esac
+	fBoxWrap_ClockReady "$bsdHost" "${sshOpts[@]}" || fDie "${bsdHost} has the wrong time, and meson would stop on it"
+	fLaneStep "Send"
 	ssh "${sshOpts[@]}" "$bsdHost" "mkdir -p ${remoteDir} && find ${remoteDir} -mindepth 1 -delete"
 	## --ignore-failed-read: a file deleted in the tree but not yet in git is
 	## still listed, and the Linux build would not see it either.
@@ -82,8 +94,11 @@ fSend(){
 fTests(){
 	fEcho_Clean ""
 	fEcho "FreeBSD build and suite on ${bsdHost}"
+	fLaneStep_Plan FreeBSD "Box ready" "Send" "Build and suite"
 	fSend
-	ssh "${sshOpts[@]}" "$bsdHost" "cd ${remoteDir} && BUILD_DIR=\$HOME/${remoteBase}/build NEMO_TEST_JOBS=${jobs} bash cicd/linux/run-tests.bash"
+	fLaneStep "Build and suite"
+	fBoxWrap_Jobs "$jobsPin" "$bsdHost" "${sshOpts[@]}" || fDie "could not read the CPU count and load on ${bsdHost}"
+	ssh "${sshOpts[@]}" "$bsdHost" "cd ${remoteDir} && BUILD_DIR=\$HOME/${remoteBase}/build NEMO_TEST_JOBS=${boxJobs} ${remoteNice} bash cicd/linux/run-tests.bash"
 }
 
 # shellcheck disable=SC2029
@@ -97,10 +112,15 @@ fRelease(){
 
 	fEcho_Clean ""
 	fEcho "FreeBSD release build on ${bsdHost}"
+	fLaneStep_Plan FreeBSD "Box ready" "Send" "Release build" "Bring back"
 	fSend
+	fLaneStep "Release build"
+	fBoxWrap_Jobs "$jobsPin" "$bsdHost" "${sshOpts[@]}" || fDie "could not read the CPU count and load on ${bsdHost}"
 	started="$(date +%s)"
-	ssh "${sshOpts[@]}" "$bsdHost" "cd ${remoteDir} && SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH} CICD_MAX_JOBS=${jobs} bash cicd/bsd/release.bash"
+	ssh "${sshOpts[@]}" "$bsdHost" "cd ${remoteDir} && SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH} CICD_MAX_JOBS=${boxJobs} ${remoteNice} bash cicd/bsd/release.bash"
 	secs=$(( $(date +%s) - started ))
+
+	fLaneStep "Bring back"
 
 	## The arch is whatever the box built for.
 	name="$(ssh "${sshOpts[@]}" "$bsdHost" "cd ${remoteDir}/cicd/artifacts/release && ls -d ${SLUG}-${ver}-bsd-*.pkg" | sed 's/\.pkg$//' | head -1)"
@@ -119,10 +139,8 @@ fRelease(){
 
 	fWriteReleaseSums "$OUT" "$SLUG" "$ver"
 
-	fEcho_Clean ""
-	fEcho "FreeBSD build took $(( secs / 60 ))m $(( secs % 60 ))s on ${bsdHost}"
+	fEcho_Clean "FreeBSD build took $(( secs / 60 ))m $(( secs % 60 ))s on ${bsdHost}"
 	fEcho_Clean "$(cd "$OUT" && sha256sum "${name}.tar.gz" "${name}.pkg")"
-	fEcho_Clean ""
 }
 
 fMain(){
@@ -137,6 +155,7 @@ fMain(){
 		exit 77
 	fi
 	if [[ "${2:-}" == "--locked" || ! -f "$lockTool" ]]; then
+		trap 'fLaneStep_OnExit $?' EXIT
 		case "$mode" in
 			--tests)   fTests ;;
 			--release) fRelease ;;
@@ -154,4 +173,7 @@ fMain "${@}"
 ##		- 2026-10-27: Takes the box through the VM state helper when it is here,
 ##		  so a VM that is off is started and waited for.
 ##		- 2026-10-28: Waits for its own login too, and a longer connect timeout.
-##		  A box that isn't there is a skip.
+##		  A box that isn't there is a skip. A box whose clock is off fails
+##		  before the send.
+##		- 2026-10-28: Prints its steps as cicd.bash does. The jobs come from the
+##		  box's own CPU count and load, and its side runs under nice 19.

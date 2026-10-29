@@ -24,8 +24,10 @@ fEcho(){ echo "[ $* ]"; }
 if [[ "${1:-}" != "--inside" ]]; then
 	echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
 	here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	# shellcheck source=../utility/include/step-box.bash
+	source "${here}/../utility/include/step-box.bash"
 	if [[ "${CICD_NO_CONTAINER:-}" == "1" ]] || ! command -v docker >/dev/null 2>&1 \
-		|| ! { timeout 10 docker image inspect nemo-build-deps:init || timeout 10 docker image inspect nemo-build-deps:latest; } >/dev/null 2>&1; then
+		|| ! timeout 10 docker image inspect "${NEMO_IMAGE:-$(fStepBox_ImageTag nemo-build-deps "${here}/Dockerfile.dev")}" >/dev/null 2>&1; then
 		fEcho "fuzz exit check skipped: no build image"
 		exit 77
 	fi

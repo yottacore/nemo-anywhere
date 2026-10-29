@@ -17,6 +17,8 @@ set -Eeuo pipefail
 echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=include/step-box.bash
+source "${here}/include/step-box.bash"
 # shellcheck source=include/run-temp.bash
 source "${here}/include/run-temp.bash"
 
@@ -24,7 +26,7 @@ fEcho(){ echo "[ $* ]"; }
 
 ## Without the image, docker-run.bash would spend minutes building one.
 if [[ "${CICD_NO_CONTAINER:-}" == "1" ]] || ! command -v docker >/dev/null 2>&1 \
-	|| ! { timeout 10 docker image inspect nemo-build-deps:init || timeout 10 docker image inspect nemo-build-deps:latest; } >/dev/null 2>&1; then
+	|| ! timeout 10 docker image inspect "${NEMO_IMAGE:-$(fStepBox_ImageTag nemo-build-deps "${here}/../linux/Dockerfile.dev")}" >/dev/null 2>&1; then
 	fEcho "docker-run clone check skipped: no build image"
 	exit 77
 fi
@@ -34,7 +36,8 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/docker-run-test.XXXXXX")"
 trap 'fSafeRm_IfThere "${scratch}"' EXIT
-mkdir -p "${scratch}/cicd/utility/include"
+mkdir -p "${scratch}/cicd/utility/include" "${scratch}/cicd/linux"
+cp "${here}/../linux/Dockerfile.dev" "${scratch}/cicd/linux/"
 cp "${here}/docker-run.bash" "${scratch}/cicd/utility/"
 cp "${here}/include/source-date.bash" "${scratch}/cicd/utility/include/"
 cp "${here}/include/jobs.bash" "${here}/include/step-box.bash" "${scratch}/cicd/utility/include/"

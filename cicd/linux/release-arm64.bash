@@ -18,12 +18,20 @@
 ##	  or the host lock, whichever is on this box (include/box-wrap.bash). The
 ##	  helper starts a VM that is off, waits for its ssh, and puts it back after.
 ##	  The lane then waits for its own user to log in and for docker there,
-##	  since both can lag well behind ssh on an emulated boot. A box that does
-##	  not answer in time is an error. One that isn't there at all, and isn't a
-##	  VM here, exits 77, a skip.
+##	  since both can lag well behind ssh on an emulated boot, and for its clock
+##	  to agree with this one, since a VM resumed from paused keeps the time it
+##	  stopped at. A box that does not answer in time, or whose clock stays off,
+##	  is an error. One that isn't there at all, and isn't a VM here, exits 77,
+##	  a skip.
+##	- What runs there runs under nice 19 and idle I/O, with jobs worked out
+##	  from that box's own CPU count and load, the same way as for a step here
+##	  (include/jobs.bash), just before the build. Its containers get that count
+##	  as their CPU cap, with a low share, as here.
+##	- Its steps print the way cicd.bash's do, as "arm64 N of M", since the
+##	  lane is itself one step of that run.
 ##	- NEMO_ARM_HOST is the ssh target (default tester@vmDebARM64), NEMO_ARM_LOCK
-##	  its lock name (default vmDebARM64), NEMO_ARM_JOBS the build jobs (default
-##	  4), NEMO_ARM_READY_WAIT the seconds to wait for the login and docker
+##	  its lock name (default vmDebARM64), NEMO_ARM_JOBS pins the build jobs,
+##	  NEMO_ARM_READY_WAIT the seconds to wait for the login and docker
 ##	  (default 1200). The default box is emulated, where each core it uses costs
 ##	  the host several, and the helper's boot wait is raised to 1200s for it
 ##	  unless CLAUDE_VM_BOOT_WAIT is set.
@@ -41,7 +49,7 @@ SLUG="nemo-anywhere"
 OUT="${ROOT}/cicd/artifacts/release"
 armHost="${NEMO_ARM_HOST:-tester@vmDebARM64}"
 lockName="${NEMO_ARM_LOCK:-vmDebARM64}"
-jobs="${NEMO_ARM_JOBS:-4}"
+jobsPin="${NEMO_ARM_JOBS:-}"
 readyWaitSec="${NEMO_ARM_READY_WAIT:-1200}"
 ## Under the remote home. Emptied in place every run, never recreated: the build
 ## container there has it mounted, and a new dir would leave it on the old one.
@@ -61,6 +69,7 @@ lockTool="$(fBoxWrap_Tool)"
 
 ## 8s was too short for an emulated VM that had just booted on a busy host.
 sshOpts=(-o ConnectTimeout=30 -o BatchMode=yes -o LogLevel=ERROR)
+remoteNice="ionice -c 3 nice -n 19"
 
 ## Every remote command is put together on this side.
 # shellcheck disable=SC2029
@@ -76,6 +85,8 @@ fRun(){
 
 	fEcho_Clean ""
 	fEcho "arm64 release build on ${armHost}"
+	fLaneStep_Plan arm64 "Box ready" "Send" "Release build" "Bring back"
+	fLaneStep "Box ready"
 	## Runs there.
 	# shellcheck disable=SC2016
 	fBoxWrap_WaitReady "$armHost" "$readyWaitSec" 'test "$(uname -m)" = aarch64 || exit 3; docker info >/dev/null 2>&1' "${sshOpts[@]}" || rc=$?
@@ -84,7 +95,9 @@ fRun(){
 		3) fDie "${armHost} is not an arm64 box" ;;
 		*) fDie "${armHost} did not answer as that user with docker up in ${readyWaitSec}s" ;;
 	esac
+	fBoxWrap_ClockReady "$armHost" "${sshOpts[@]}" || fDie "${armHost} has the wrong time, and the build would stop on it"
 
+	fLaneStep "Send"
 	ssh "${sshOpts[@]}" "$armHost" "mkdir -p ${remoteDir} && find ${remoteDir} -mindepth 1 -delete"
 	## --ignore-failed-read: a file deleted in the tree but not yet in git is
 	## still listed, and the x86_64 build would not see it either.
@@ -93,9 +106,13 @@ fRun(){
 		| ssh "${sshOpts[@]}" "$armHost" "tar -xf - -C ${remoteDir}"
 	fEcho_Clean "sent $(cd "$ROOT" && git ls-files --cached --others --exclude-standard | wc -l) files to ${remoteDir}"
 
+	fLaneStep "Release build"
+	fBoxWrap_Jobs "$jobsPin" "$armHost" "${sshOpts[@]}" || fDie "could not read the CPU count and load on ${armHost}"
 	started="$(date +%s)"
-	ssh "${sshOpts[@]}" "$armHost" "cd ${remoteDir} && SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH} CICD_MAX_JOBS=${jobs} bash cicd/linux/release.bash"
+	ssh "${sshOpts[@]}" "$armHost" "cd ${remoteDir} && SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH} CICD_MAX_JOBS=${boxJobs} ${remoteNice} bash cicd/linux/release.bash"
 	secs=$(( $(date +%s) - started ))
+
+	fLaneStep "Bring back"
 
 	mkdir -p "$OUT"
 	rm -f "${OUT:?}/${name}"
@@ -104,7 +121,7 @@ fRun(){
 	## A failed read costs only the versions in the .deb, not the hour's build.
 	depsFile="$(fDebDependsFile "$ROOT" "$name")"
 	rm -f "$depsFile"
-	if deps="$(ssh "${sshOpts[@]}" "$armHost" "cd ${remoteDir} && bash cicd/linux/package.bash --depends-only --from cicd/artifacts/release/${name}")" && [[ -n "$deps" ]]; then
+	if deps="$(ssh "${sshOpts[@]}" "$armHost" "cd ${remoteDir} && CICD_MAX_JOBS=${boxJobs} ${remoteNice} bash cicd/linux/package.bash --depends-only --from cicd/artifacts/release/${name}")" && [[ -n "$deps" ]]; then
 		mkdir -p "$(dirname "$depsFile")"
 		{ (cd "$OUT" && sha256sum "$name"); printf '%s\n' "$deps"; } > "$depsFile"
 		fEcho_Clean "arm64 .deb depends: ${deps}"
@@ -114,15 +131,13 @@ fRun(){
 
 	fWriteReleaseSums "$OUT" "$SLUG" "$ver"
 
-	fEcho_Clean ""
-	fEcho "arm64 build took $(( secs / 60 ))m $(( secs % 60 ))s on ${armHost}"
+	fEcho_Clean "arm64 build took $(( secs / 60 ))m $(( secs % 60 ))s on ${armHost}"
 	fEcho_Clean "$(cd "$OUT" && sha256sum "$name")"
-	fEcho_Clean ""
 }
 
 fMain(){
 	case "${1:-}" in
-		--locked) fRun; return ;;
+		--locked) trap 'fLaneStep_OnExit $?' EXIT; fRun; return ;;
 		-h|--help) sed -n '/^##	- Purpose:/,/^##	Copyright/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##	\{0,1\}//'; return 0 ;;
 		"") ;;
 		*) fDie "unknown option: $1 (try --help)" ;;
@@ -134,6 +149,7 @@ fMain(){
 	if [[ -f "$lockTool" ]]; then
 		CLAUDE_VM_BOOT_WAIT="${CLAUDE_VM_BOOT_WAIT:-1200}" bash "$lockTool" wrap "$lockName" --wait "$lockWaitSec" -- bash "${BASH_SOURCE[0]}" --locked
 	else
+		trap 'fLaneStep_OnExit $?' EXIT
 		fRun
 	fi
 }
@@ -149,4 +165,7 @@ fMain "${@}"
 ##		- 2026-10-27: Takes the box through the VM state helper when it is here,
 ##		  so a VM that is off is started and waited for.
 ##		- 2026-10-28: Waits for its own login and docker, with longer boot and
-##		  connect timeouts. A box that isn't there is a skip.
+##		  connect timeouts. A box that isn't there is a skip. A box whose clock is
+##		  off fails before the send.
+##		- 2026-10-28: Prints its steps as cicd.bash does. The jobs come from the
+##		  box's own CPU count and load, and its side runs under nice and ionice.

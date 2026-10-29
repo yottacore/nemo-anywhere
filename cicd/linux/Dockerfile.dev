@@ -10,12 +10,23 @@
 # Run it with --shm-size=2g or parallel gcc ICEs on the default 64M /dev/shm.
 # Each test runs in a bubblewrap jail (jail.bash), which needs
 # --security-opt seccomp=unconfined --security-opt apparmor=unconfined too.
+#
+# Pinned: the base by digest (trixie, 2026-07-13), and apt reads the archive,
+# security and debug archives included, from snapshot.debian.org as they stood
+# at 2026-10-19 22:00 UTC, the last time the old hand-made image was updated.
+# Move the snapshot on purpose, and the digest with it when the base moves.
+# Snapshot Release files are past their Valid-Until, which apt would refuse;
+# every index and package is still checked against the signed InRelease.
+# docker-run.bash tags the image by a hash of this file and builds it the first
+# time that hash is seen.
 
-FROM debian:trixie
+FROM debian:trixie@sha256:fac46bff2e02f51425b6e33b0e1169f55dfb053d83511ca28aa50c09fd5ed7a4
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN sed -i -E 's#http://deb\.debian\.org/(debian(-security)?)$#http://snapshot.debian.org/archive/\1/20261019T220000Z#' /etc/apt/sources.list.d/debian.sources \
+	&& echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/80snapshot \
+	&& apt-get update && apt-get install -y --no-install-recommends \
 		meson ninja-build gcc pkg-config gettext intltool itstool \
 		clang llvm libclang-rt-dev gdb \
 		gobject-introspection libgirepository1.0-dev python3-gi \
@@ -31,7 +42,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # The sanitizer lane's suppressions name functions inside fontconfig and GTK,
 # and a leak report only has those names with the debug symbols. Each dbgsym
 # package wants the exact version installed above.
-RUN printf '%s\n' 'Types: deb' 'URIs: http://deb.debian.org/debian-debug' \
+RUN printf '%s\n' 'Types: deb' 'URIs: http://snapshot.debian.org/archive/debian-debug/20261019T220000Z' \
 		'Suites: trixie-debug trixie-proposed-updates-debug' 'Components: main' \
 		'Signed-By: /usr/share/keyrings/debian-archive-keyring.pgp' \
 		> /etc/apt/sources.list.d/debian-debug.sources \
@@ -39,9 +50,25 @@ RUN printf '%s\n' 'Types: deb' 'URIs: http://deb.debian.org/debian-debug' \
 		libfontconfig1-dbgsym libgtk-3-0t64-dbgsym \
 	&& rm -rf /var/lib/apt/lists/*
 
+# rar 7.20 from non-free, by hash, so ddx67 can write the rar archives it
+# extracts. Its pinned case is tuned to the bytes 7.20 writes, and trixie has
+# 7.11. Without rar the test skips.
+ADD --checksum=sha256:856da311e8f0b98b2507bc413efc9d807789eb570e185be3590072d8a1a7abc6 \
+	http://snapshot.debian.org/archive/debian/20260218T083118Z/pool/non-free/r/rar/rar_7.20-1_amd64.deb /tmp/rar.deb
+RUN dpkg -i /tmp/rar.deb && rm /tmp/rar.deb
+
+# fontconfig's cache holds each font folder's mtime to the nanosecond, and the
+# saved image keeps whole seconds, so a cache made during the build reads as
+# stale in every container. Each GTK program then rescans the fonts and writes a
+# cache of its own under XDG_CACHE_HOME, which puts a folder in a test's home
+# that the selection rules tests count. Round the folders down first, then
+# rebuild the cache. Last, so no later package trigger redoes it.
+RUN find -L /usr/share/fonts /usr/local/share/fonts -type d \
+		-exec sh -c 'for d; do touch -m -d "@$(stat -L -c %Y "$d")" "$d"; done' sh {} + \
+	&& fc-cache -f
+
 # p7zip is here so the 7-Zip backend can be exercised rather than only the
 # libarchive one - without it the Compress dialog offers 7z with none of the
-# options that backend brings. rar is not packaged for Debian, so the rar
-# backend still cannot be driven from in here.
+# options that backend brings. rar comes from non-free, above.
 
 WORKDIR /src

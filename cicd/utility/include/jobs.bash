@@ -10,6 +10,10 @@
 ##	  jobsLoad and jobsBusy (0 or 1). With CICD_JOBS_PIN set, that number wins.
 ##	- fJobs_Default -> for a script that may run alone: CICD_MAX_JOBS as
 ##	  cicd.bash set it, or fJobs when it's unset.
+##	- For another box, with its own CPUs and load: jobsProbe is the sh command
+##	  that prints both there, a line each, on Linux or FreeBSD.
+##	  fJobs_Read <cpus> <load line> sets jobsCpus, jobsLoad and jobsBusy from
+##	  them, and fJobs_Count gives the count.
 ##	- Syntax: source this file; it defines functions only.
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -36,16 +40,28 @@ fJobs_Count(){
 	printf '%s' "$(( cpus / div >= 1 ? cpus / div : 1 ))"
 }
 
-fJobs(){
-	local hard="${1:-}" rest
-	jobsCpus="$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
-	jobsLoad="0.00"
-	if [[ -r /proc/loadavg ]]; then read -r jobsLoad rest < /proc/loadavg
-	elif rest="$(sysctl -n vm.loadavg 2>/dev/null)"; then rest="${rest#\{ }"; jobsLoad="${rest%% *}"
-	fi
-	jobsBusy=0
+## sysctl first, since FreeBSD may have a /proc without loadavg.
+# shellcheck disable=SC2034  ## for the scripts that source this.
+jobsProbe='getconf _NPROCESSORS_ONLN; sysctl -n vm.loadavg 2>/dev/null || cat /proc/loadavg'
+
+## The load line is /proc/loadavg's, or FreeBSD's vm.loadavg, "{ 0.12 0.30 0.25 }".
+fJobs_Read(){
+	local cpus="${1:-}" line="${2:-}" rest
+	[[ "${cpus}" =~ ^[1-9][0-9]*$ ]] || cpus=2
+	line="${line#*\{}"
+	read -r jobsLoad rest <<< "${line}"
+	[[ "${jobsLoad}" =~ ^[0-9]+(\.[0-9]+)?$ ]] || jobsLoad="0.00"
+	jobsCpus="${cpus}"; jobsBusy=0
 	# shellcheck disable=SC2034  ## jobsBusy is for the scripts that source this.
 	fJobs_IsBusy "${jobsCpus}" "${jobsLoad}" && jobsBusy=1
+	return 0
+}
+
+fJobs(){
+	local hard="${1:-}" line=""
+	if [[ -r /proc/loadavg ]]; then read -r line < /proc/loadavg
+	else line="$(sysctl -n vm.loadavg 2>/dev/null)" || line=""; fi
+	fJobs_Read "$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)" "${line}"
 	if [[ -n "${CICD_JOBS_PIN:-}" ]]; then CICD_MAX_JOBS="${CICD_JOBS_PIN}"
 	else CICD_MAX_JOBS="$(fJobs_Count "${jobsCpus}" "${jobsLoad}" "${hard}")"; fi
 	export CICD_MAX_JOBS
@@ -57,3 +73,4 @@ fJobs_Default(){ [[ -n "${CICD_MAX_JOBS:-}" ]] || fJobs "${1:-}"; }
 ##	History:
 ##		- 2026-10-25: Created, from the half-the-cores lines in cicd.bash and the
 ##		  scripts it runs.
+##		- 2026-10-28: jobsProbe and fJobs_Read, for the lanes on other boxes.

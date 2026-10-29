@@ -34,8 +34,9 @@ trap 'fRunTemp_Done; rmdir "${HOST_TEMP}/docker-run-host-check" 2> /dev/null || 
 
 repo="${scratch}/repo"
 log="${scratch}/docker.log"
-mkdir -p "${repo}/cicd/utility/include" "${scratch}/bin"
+mkdir -p "${repo}/cicd/utility/include" "${repo}/cicd/linux" "${scratch}/bin"
 cp "${here}/docker-run.bash" "${repo}/cicd/utility/"
+cp "${here}/../linux/Dockerfile.dev" "${repo}/cicd/linux/"
 for inc in source-date jobs step-box; do cp "${here}/include/${inc}.bash" "${repo}/cicd/utility/include/"; done
 ## DOCKER_MODE down: no daemon. nobuild: a daemon, but no container, no image,
 ## and a build that fails.
@@ -88,7 +89,7 @@ fRun "down, failing" "exit 5" DOCKER_MODE=down HOST_GTK=1
 [[ "$rc" == 5 ]] || fFail "[down, failing]: exit ${rc}, not the command's 5"
 
 fRun "no image" "$mark" DOCKER_MODE=nobuild HOST_GTK=1
-[[ "$rc" == 0 && "$out" == *"check: could not build image nemo-build-deps, so it runs on the host"* ]] || fFail "[no image]: exit ${rc}, said: ${out}"
+[[ "$rc" == 0 && "$out" == *"check: could not build image nemo-build-deps:"*", so it runs on the host"* ]] || fFail "[no image]: exit ${rc}, said: ${out}"
 [[ -e "${scratch}/ran" ]] || fFail "[no image]: the command didn't run"
 grep -q '^build ' "$log" || fFail "[no image]: never tried to build the image"
 

@@ -13,6 +13,8 @@
 ##	- fStepBox_Start <label> <image> [docker run args]... -> starts it detached,
 ##	  with the step's CPU cap and share, and sets stepBox to its name.
 ##	- fStepBox_Stop -> for the EXIT trap. --rm makes the stop a removal.
+##	- fStepBox_ImageTag <repository> <recipe file>... -> <repository>:<hash>, the
+##	  hash over the recipe and the files it copies in, so an edit gives a new tag.
 ##	- Backlog 2026102617253209, 2026102617253214 and 2026102617253220.
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -68,5 +70,12 @@ fStepBox_Stop(){
 }
 
 
+fStepBox_ImageTag(){
+	local repository="$1" hash; shift
+	hash="$(cat -- "$@" | sha256sum)" || return 1
+	printf '%s:%s\n' "${repository}" "${hash:0:12}"
+}
+
 ##	History:
 ##		- 2026-10-26: Created, from docker-run.bash.
+##		- 2026-10-28: fStepBox_ImageTag, for images built from a pinned recipe.

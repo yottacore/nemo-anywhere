@@ -7,7 +7,11 @@
 ##	  - What is sent is the tracked and untracked files, not the ignored ones,
 ##	    and nothing from an earlier run is left beside them.
 ##	  - --tests hands run-tests.bash its build dir and job count, and fails
-##	    when the suite does.
+##	    when the suite does. The count is half the box's own CPUs, a quarter
+##	    when its load is over half of them, or NEMO_BSD_JOBS. The suite and
+##	    the release build run there under nice 19.
+##	  - The lane prints its steps as "FreeBSD N of M" under the 79-dot rule,
+##	    with the time to the hundredth, and a step that fails closes as FAIL.
 ##	  - --release brings the pkg back and packs the prefix as the -bsd- tarball
 ##	    with the commit's stamp on every entry, so two runs give the same bytes
 ##	    whatever times the box left on the files. The sums file covers both.
@@ -17,6 +21,9 @@
 ##	    isn't FreeBSD, fails before anything is sent, the second without the
 ##	    wait. A box that isn't there, and isn't a VM here, exits 77 before the
 ##	    lock is taken.
+##	  - A box whose clock is hours behind, as a VM resumed from paused is,
+##	    fails before anything is sent, and so does one that is ahead. One whose
+##	    clock is set a moment after the resume is waited for.
 ##	- Needs git and python3; exit 77 without them.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/bsd/test-lane.bash
@@ -54,7 +61,7 @@ mkdir -p "${repo}/cicd/bsd" "${repo}/cicd/utility/include" "${repo}/source"
 cp "${root}/cicd/bsd/lane.bash" "${repo}/cicd/bsd/"
 cp "${root}/cicd/utility/include/echo.bash" "${root}/cicd/utility/include/source-date.bash" \
 	"${root}/cicd/utility/include/release-files.bash" "${root}/cicd/utility/include/box-wrap.bash" \
-	"${repo}/cicd/utility/include/"
+	"${root}/cicd/utility/include/jobs.bash" "${repo}/cicd/utility/include/"
 printf "project('nemo-anywhere', 'c', version : '9.9.9-rc1')\n" > "${repo}/source/meson.build"
 printf 'cicd/artifacts/\nignored.txt\n' > "${repo}/.gitignore"
 printf 'tracked\n' > "${repo}/tracked.txt"
@@ -74,6 +81,29 @@ mkdir -p "$box" "$shim" "${scratch}/boxbin"
 cat > "${scratch}/boxbin/uname" <<'EOF'
 #!/usr/bin/env bash
 case "${1:-}" in -s) echo "${FAKE_OS:-FreeBSD}" ;; -m) echo amd64 ;; *) echo "${FAKE_OS:-FreeBSD}" ;; esac
+EOF
+## The box's CPU count and load, as FreeBSD gives them. Only the jobs probe
+## calls getconf there.
+cat > "${scratch}/boxbin/getconf" <<'EOF'
+#!/usr/bin/env bash
+echo "${FAKE_CPUS:-12}"
+EOF
+cat > "${scratch}/boxbin/sysctl" <<'EOF'
+#!/usr/bin/env bash
+[[ "$*" == "-n vm.loadavg" ]] && { echo "{ ${FAKE_LOAD:-1.00} 0.50 0.40 }"; exit 0; }
+exit 1
+EOF
+## FAKE_CLOCK_BEHIND=S: the box's clock is S seconds behind, for its first
+## FAKE_CLOCK_READS reads, or all of them.
+realDate="$(command -v date)"
+cat > "${scratch}/boxbin/date" <<EOF
+#!/usr/bin/env bash
+if [[ -n "\${FAKE_CLOCK_BEHIND:-}" && "\${1:-}" == +%s ]]; then
+	n=\$(( \$(cat "${scratch}/clock-reads" 2>/dev/null || echo 0) + 1 ))
+	echo "\$n" > "${scratch}/clock-reads"
+	if [[ -z "\${FAKE_CLOCK_READS:-}" ]] || (( n <= FAKE_CLOCK_READS )); then echo \$(( \$("${realDate}" +%s) - FAKE_CLOCK_BEHIND )); exit 0; fi
+fi
+exec "${realDate}" "\$@"
 EOF
 cat > "${scratch}/fake-run-tests.bash" <<'EOF'
 #!/usr/bin/env bash
@@ -107,6 +137,7 @@ fi
 while [[ "\${1:-}" == -* ]]; do shift; [[ "\${1:-}" != -* ]] && shift; done
 shift
 cmd="\$*"
+printf '%s\n' "\$cmd" >> "${scratch}/ssh-cmds.log"
 cmd="\${cmd//bash cicd\/linux\/run-tests.bash/bash ${scratch}/fake-run-tests.bash}"
 cmd="\${cmd//bash cicd\/bsd\/release.bash/bash ${scratch}/fake-release.bash}"
 cd "${box}" && HOME="${box}" PATH="${scratch}/boxbin:\${PATH}" bash -c "\$cmd"
@@ -134,7 +165,7 @@ while [[ "\${1:-}" != -- ]]; do shift; done
 shift
 exec "\$@"
 EOF
-chmod +x "${shim}/ssh" "${shim}/scp" "${scratch}/boxbin/uname"
+chmod +x "${shim}/ssh" "${shim}/scp" "${scratch}/boxbin/"*
 
 fLane(){ (cd "$repo" && env -u SOURCE_DATE_EPOCH PATH="${shim}:${PATH}" WINDOWS_HOST_LOCK="${shim}/lock.bash" bash cicd/bsd/lane.bash "$@") >"${scratch}/lane.log" 2>&1; }
 
@@ -147,11 +178,44 @@ src="${box}/nemo-anywhere-ci/src"
 [[ -f "${src}/tracked.txt" && -f "${src}/untracked.txt" ]] || fFail "tracked or untracked file not sent"
 [[ ! -e "${src}/ignored.txt" ]] || fFail "an ignored file was sent"
 [[ ! -e "${src}/stale.txt" ]] || fFail "a file from an earlier run was left in the source dir"
-if [[ "$(cat "${box}/run-tests.log" 2>/dev/null || true)" == "BUILD_DIR=${box}/nemo-anywhere-ci/build NEMO_TEST_JOBS=4" ]]; then
+## 12 cpus, load 1.00: half.
+if [[ "$(cat "${box}/run-tests.log" 2>/dev/null || true)" == "BUILD_DIR=${box}/nemo-anywhere-ci/build NEMO_TEST_JOBS=6" ]]; then
 	fEcho "OK: run-tests.bash got its build dir and jobs"
 else
 	fFail "run-tests.bash got '$(cat "${box}/run-tests.log" 2>/dev/null || true)'"
 fi
+grep -q -F 'NEMO_TEST_JOBS=6 nice -n 19 bash cicd/linux/run-tests.bash' "${scratch}/ssh-cmds.log" \
+	|| fFail "the suite did not run under nice 19 there: $(grep -F run-tests "${scratch}/ssh-cmds.log" || true)"
+grep -q -F 'jobs 6 (load 1.00 on 12 cpus on bsdtest@vmFreeBSD)' "${scratch}/lane.log" || fFail "no jobs line for the box"
+
+## The step lines: each step opens under the rule and closes, with the time.
+rule="$(printf '•%.0s' {1..79})"
+stamp='[0-9]{8}-[0-9]{6}\.[0-9]{2}'
+fSteps(){
+	local want="$1" log="$2" got opens rules
+	got="$(grep -E -o "^\[ ${stamp}: FreeBSD [0-9]+ of [0-9]+; (Starting|PASS|FAIL) [^]]*\]\$" "$log" | sed -E "s/^\[ ${stamp}: //; s/ \]\$//" | paste -sd '|' -)"
+	[[ "$got" == "$want" ]] || { fFail "step lines: got '${got}', want '${want}'"; return 1; }
+	opens="$(grep -c -E "^\[ ${stamp}: FreeBSD [0-9]+ of [0-9]+; Starting " "$log")"
+	rules="$(grep -A1 -x -F "$rule" "$log" | grep -c -E "^\[ ${stamp}: FreeBSD [0-9]+ of [0-9]+; Starting " || true)"
+	[[ "$rules" == "$opens" ]] || { fFail "${opens} steps, ${rules} of them under a 79-dot rule"; return 1; }
+}
+fSteps "FreeBSD 1 of 3; Starting Box ready|FreeBSD 1 of 3; PASS Box ready|FreeBSD 2 of 3; Starting Send|FreeBSD 2 of 3; PASS Send|FreeBSD 3 of 3; Starting Build and suite|FreeBSD 3 of 3; PASS Build and suite" \
+	"${scratch}/lane.log" && fEcho "OK: --tests prints its steps"
+
+## A busy box gets a quarter, and NEMO_BSD_JOBS pins it.
+rm -f "${box}/run-tests.log"
+if FAKE_LOAD=6.01 fLane --tests && grep -q 'NEMO_TEST_JOBS=3$' "${box}/run-tests.log" && grep -q -F 'jobs 3 (busy box, load 6.01 on 12 cpus' "${scratch}/lane.log"; then
+	fEcho "OK: a busy box gets a quarter"
+else
+	fFail "a busy box: '$(cat "${box}/run-tests.log" 2>/dev/null || true)' $(grep '^jobs' "${scratch}/lane.log" || true)"
+fi
+rm -f "${box}/run-tests.log"
+if NEMO_BSD_JOBS=5 FAKE_LOAD=6.01 fLane --tests && grep -q 'NEMO_TEST_JOBS=5$' "${box}/run-tests.log" && grep -q -F 'jobs 5 (pinned, ' "${scratch}/lane.log"; then
+	fEcho "OK: NEMO_BSD_JOBS pins the count"
+else
+	fFail "NEMO_BSD_JOBS=5: '$(cat "${box}/run-tests.log" 2>/dev/null || true)'"
+fi
+if NEMO_BSD_JOBS=many fLane --tests; then fFail "--tests passed with NEMO_BSD_JOBS=many"; else fEcho "OK: a pin that isn't a count fails"; fi
 grep -q -E -- '^wrap vmFreeBSD .*-- bash .*lane\.bash --tests --locked$' "${scratch}/lock.log" \
 	|| fFail "--tests did not go through the lock's wrap for vmFreeBSD: $(cat "${scratch}/lock.log")"
 
@@ -195,7 +259,32 @@ elif ! grep -q 'is not a FreeBSD box' "${scratch}/lane.log"; then fFail "no reas
 elif ((SECONDS - startedAt >= 5)); then fFail "a box that isn't FreeBSD was waited on"
 else fEcho "OK: a box that isn't FreeBSD fails without the wait"
 fi
+fSteps "FreeBSD 1 of 3; Starting Box ready|FreeBSD 1 of 3; FAIL Box ready" "${scratch}/lane.log" && fEcho "OK: a step that fails closes as FAIL"
 [[ -e "${box}/nemo-anywhere-ci/src/stale.txt" ]] || fFail "the tree on a box that failed the check was touched"
+
+## Resumed from paused with its old clock: fails before the send, rather than
+## meson stopping on clock skew there. Ahead fails the same way.
+for behind in 60941 -3600; do
+	rm -f "${scratch}/clock-reads"
+	if BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=paused FAKE_CLOCK_BEHIND="$behind" BOX_CLOCK_WAIT=1 BOX_READY_POLL=1 fLane --tests; then fFail "--tests passed on a box ${behind}s off"
+	elif ! grep -q 'has the wrong time' "${scratch}/lane.log" || ! grep -q -E 's (behind|ahead), still after' "${scratch}/lane.log"; then fFail "no reason for a box ${behind}s off: $(tail -3 "${scratch}/lane.log")"
+	else fEcho "OK: a box ${behind}s off fails"
+	fi
+done
+[[ -e "${box}/nemo-anywhere-ci/src/stale.txt" ]] || fFail "the tree on a box with the wrong time was touched"
+
+## Its clock set a moment after the resume: waited for, then the suite runs.
+rm -f "${scratch}/clock-reads" "${box}/run-tests.log"
+: > "${scratch}/vm-state.log"
+if BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=paused FAKE_CLOCK_BEHIND=60941 FAKE_CLOCK_READS=2 BOX_READY_POLL=0 fLane --tests; then
+	if ! grep -q 'clock is right after' "${scratch}/lane.log"; then fFail "no line saying the clock was waited for"
+	elif ! grep -q -E -- '^wrap vmFreeBSD ' "${scratch}/vm-state.log" || [[ ! -f "${box}/run-tests.log" ]]; then fFail "the suite did not run inside the VM state helper's wrap"
+	else fEcho "OK: a clock set after the resume is waited for"
+	fi
+else
+	fFail "--tests failed on a box whose clock was set after two reads: $(tail -3 "${scratch}/lane.log")"
+fi
+printf 'stale\n' > "${box}/nemo-anywhere-ci/src/stale.txt"
 
 ## Not there, and not a VM here: a skip, before the lock.
 rm -f "${scratch}/ssh-tries"
@@ -209,6 +298,8 @@ fi
 [[ -e "${box}/nemo-anywhere-ci/src/stale.txt" ]] || fFail "the tree was touched on a box that isn't there"
 
 if FAKE_TESTS_RC=1 fLane --tests; then fFail "--tests passed with a failing suite"; else fEcho "OK: a failing suite fails --tests"; fi
+fSteps "FreeBSD 1 of 3; Starting Box ready|FreeBSD 1 of 3; PASS Box ready|FreeBSD 2 of 3; Starting Send|FreeBSD 2 of 3; PASS Send|FreeBSD 3 of 3; Starting Build and suite|FreeBSD 3 of 3; FAIL Build and suite" \
+	"${scratch}/lane.log" && fEcho "OK: a failing suite closes its step as FAIL"
 
 art="${repo}/cicd/artifacts/release"
 name="nemo-anywhere-9.9.9-rc1-bsd-x86_64"
@@ -217,6 +308,10 @@ for run in 1 2; do
 	if ! fLane --release; then fFail "--release run ${run} failed: $(tail -3 "${scratch}/lane.log")"; continue; fi
 	sums+=("$(sha256sum "${art}/${name}.tar.gz" | cut -d' ' -f1)")
 done
+grep -q -F 'CICD_MAX_JOBS=6 nice -n 19 bash cicd/bsd/release.bash' "${scratch}/ssh-cmds.log" \
+	|| fFail "the release build did not get the box's jobs under nice 19: $(grep -F release.bash "${scratch}/ssh-cmds.log" || true)"
+fSteps "FreeBSD 1 of 4; Starting Box ready|FreeBSD 1 of 4; PASS Box ready|FreeBSD 2 of 4; Starting Send|FreeBSD 2 of 4; PASS Send|FreeBSD 3 of 4; Starting Release build|FreeBSD 3 of 4; PASS Release build|FreeBSD 4 of 4; Starting Bring back|FreeBSD 4 of 4; PASS Bring back" \
+	"${scratch}/lane.log" && fEcho "OK: --release prints its steps"
 [[ "$(cat "${box}/release-sde.log" 2>/dev/null || true)" == "$commitDate" ]] || fFail "the box was not handed the commit's stamp"
 [[ -f "${art}/${name}.pkg" ]] || fFail "no pkg brought back"
 [[ ! -e "${art}/${name}" ]] || fFail "the prefix that came back was left in the release dir"
