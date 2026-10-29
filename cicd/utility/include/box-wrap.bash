@@ -27,12 +27,21 @@
 ##	  isn't there: not a VM the VM state helper <tool> can start, and ssh gets
 ##	  no answer at all. A login or command that fails still counts as there, so
 ##	  the lane fails on it rather than skipping.
-##	- Syntax: source this file; it defines functions only.
+##	- fBoxWrap_Jobs <pin> <target> [ssh opt]... -> sets boxJobs, the build and
+##	  test jobs for that box, from its own CPU count and load by the rules in
+##	  jobs.bash, or <pin> when that's set, and prints the count the way
+##	  cicd.bash does for a step. 1 when the box won't say.
+##	- Syntax: source this file; it defines functions and boxJobs only.
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT
+
+# shellcheck source=jobs.bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/jobs.bash"
+
+boxJobs=""
 
 fBoxWrap_Tool(){
 	local dir="${HOME}/synced/0-0/common/exec/util/linux/bash" tool
@@ -110,9 +119,25 @@ fBoxWrap_ClockReady(){
 	done
 }
 
+## The probe runs there.
+# shellcheck disable=SC2029
+fBoxWrap_Jobs(){
+	local pin="$1" target="$2" out='' cpus='' line='' why=''
+	shift 2
+	[[ -z "${pin}" || "${pin}" =~ ^[1-9][0-9]*$ ]] || { fEcho_Clean "the jobs pin for ${target} is not a count: ${pin}"; return 1; }
+	out="$(ssh "$@" "$target" "${jobsProbe}" 2> /dev/null < /dev/null)" || out=''
+	{ read -r cpus; read -r line; } <<< "${out}" || true
+	[[ "${cpus}" =~ ^[1-9][0-9]*$ && -n "${line}" ]] || { fEcho_Clean "${target} did not say its CPU count and load"; return 1; }
+	fJobs_Read "${cpus}" "${line}"
+	if [[ -n "${pin}" ]]; then boxJobs="${pin}"; why="pinned, "
+	else boxJobs="$(fJobs_Count "${jobsCpus}" "${jobsLoad}")"; ((jobsBusy)) && why="busy box, "; fi
+	fEcho_Clean "jobs ${boxJobs} (${why}load ${jobsLoad} on ${jobsCpus} cpus on ${target})"
+}
+
 
 ##	History:
 ##		- 2026-10-27: Created.
 ##		- 2026-10-28: fBoxWrap_WaitReady, so a lane waits for its own login
 ##		  after a boot. fBoxWrap_IsThere, so a box that isn't there is a skip.
 ##		  fBoxWrap_ClockReady, since a resumed guest keeps its old clock.
+##		- 2026-10-28: fBoxWrap_Jobs, so a lane works out its box's jobs there.

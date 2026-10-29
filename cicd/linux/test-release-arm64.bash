@@ -16,6 +16,11 @@
 ##	  before the send. A box that isn't there, and isn't a VM here, exits 77
 ##	  before the lock. A box whose clock is hours behind, as a VM resumed from
 ##	  paused is, fails before the send.
+##	- The build and the dependency read run there under nice and ionice, with
+##	  NEMO_ARM_JOBS, or half the box's own CPUs, a quarter when its load is
+##	  over half of them. The read's container gets that count as its cap. The
+##	  lane prints its steps as "arm64 N of M" under the 79-dot rule, and a
+##	  step that fails closes as FAIL.
 ##	- Runs in the lint stage. Skipped under MSYS2, where the lane never runs and
 ##	  sha256sum marks every line binary.
 ##	- Syntax: cicd/linux/test-release-arm64.bash
@@ -95,6 +100,17 @@ if [[ -n "\${FAKE_CLOCK_BEHIND:-}" && "\${1:-}" == +%s ]]; then
 fi
 exec "${realDate}" "\$@"
 EOF
+## The box's CPU count and load. Its sysctl prints /proc/loadavg's line, in
+## place of the cat that follows it on a real Linux box.
+cat > "${scratch}/boxbin/getconf" <<-'EOF'
+	#!/usr/bin/env bash
+	echo "${FAKE_CPUS:-8}"
+EOF
+cat > "${scratch}/boxbin/sysctl" <<-'EOF'
+	#!/usr/bin/env bash
+	[[ "$*" == "-n vm.loadavg" ]] && { echo "${FAKE_LOAD:-1.00} 0.50 0.40 2/345 6789"; exit 0; }
+	exit 1
+EOF
 ## The box's release container: answers the dependency read with its own
 ## arch, unless told to fail. FAKE_DOCKER_DOWN=N: the first N calls of
 ## docker info fail, as before the daemon is up.
@@ -125,8 +141,9 @@ cat > "${scratch}/bin/ssh" <<-EOF
 	while [[ "\${1:-}" == -o ]]; do shift 2; done
 	echo "ssh \$1" >> "${log}"
 	shift
+	echo "cmd \$*" >> "${log}"
 	cd "${box}"
-	exec env -i HOME="${box}" PATH="${scratch}/boxbin:\${PATH}" FAKE_ARCH="\${FAKE_ARCH:-}" FAKE_DOCKER_DOWN="\${FAKE_DOCKER_DOWN:-}" FAKE_DOCKER_FAIL="\${FAKE_DOCKER_FAIL:-}" FAKE_CLOCK_BEHIND="\${FAKE_CLOCK_BEHIND:-}" bash -c "\$*"
+	exec env -i HOME="${box}" PATH="${scratch}/boxbin:\${PATH}" FAKE_CPUS="\${FAKE_CPUS:-}" FAKE_LOAD="\${FAKE_LOAD:-}" FAKE_ARCH="\${FAKE_ARCH:-}" FAKE_DOCKER_DOWN="\${FAKE_DOCKER_DOWN:-}" FAKE_DOCKER_FAIL="\${FAKE_DOCKER_FAIL:-}" FAKE_CLOCK_BEHIND="\${FAKE_CLOCK_BEHIND:-}" bash -c "\$*"
 EOF
 ## scp [-q] [-o opt]... host:path dest
 cat > "${scratch}/bin/scp" <<-EOF
@@ -153,7 +170,7 @@ chmod +x "${scratch}/bin/"* "${scratch}/boxbin/"*
 
 fRunLane(){
 	PATH="${scratch}/bin:${PATH}" WINDOWS_HOST_LOCK="${scratch}/lock.bash" \
-		NEMO_ARM_HOST="tester@armbox" NEMO_ARM_LOCK="armbox" NEMO_ARM_JOBS=3 \
+		NEMO_ARM_HOST="tester@armbox" NEMO_ARM_LOCK="armbox" NEMO_ARM_JOBS="${ARM_PIN-3}" \
 		SOURCE_DATE_EPOCH=1791244781 bash "${repo}/cicd/linux/release-arm64.bash" 2>&1
 }
 
@@ -190,7 +207,39 @@ else
 	readAt="$(grep -n 'exec -i nemo-anywhere-' "$log" | head -1 | cut -d: -f1)"
 	stopAt="$(grep -n '^docker stop -t 2 nemo-anywhere-' "$log" | head -1 | cut -d: -f1)"
 	[[ -n "$readAt" && -n "$stopAt" && "$readAt" -lt "$stopAt" ]] || fFail "the dependencies were not read in the box's container before it was stopped"
+	grep -q -F 'cmd cd nemo-anywhere-arm64/src && SOURCE_DATE_EPOCH=1791244781 CICD_MAX_JOBS=3 ionice -c 3 nice -n 19 bash cicd/linux/release.bash' "$log" \
+		|| fFail "the build did not run under nice and ionice with its jobs: $(grep -F release.bash "$log" || true)"
+	grep -q -F 'cmd cd nemo-anywhere-arm64/src && CICD_MAX_JOBS=3 ionice -c 3 nice -n 19 bash cicd/linux/package.bash --depends-only' "$log" \
+		|| fFail "the dependency read did not run under nice and ionice with its jobs: $(grep -F package.bash "$log" || true)"
+	grep -q -E '^docker run .*--cpus 3 --cpu-shares 256 ' "$log" || fFail "the box's container did not get the count as its cap: $(grep '^docker run' "$log" || true)"
+	[[ "$out" == *"jobs 3 (pinned, load 1.00 on 8 cpus on tester@armbox)"* ]] || fFail "no jobs line for the box"
 fi
+
+## The step lines: each step opens under the rule and closes, with the time.
+rule="$(printf '•%.0s' {1..79})"
+stamp='[0-9]{8}-[0-9]{6}\.[0-9]{2}'
+fSteps(){
+	local want="$1" text="$2" got opens rules
+	got="$(grep -E -o "^\[ ${stamp}: arm64 [0-9]+ of [0-9]+; (Starting|PASS|FAIL) [^]]*\]\$" <<< "$text" | sed -E "s/^\[ ${stamp}: //; s/ \]\$//" | paste -sd '|' -)"
+	[[ "$got" == "$want" ]] || { fFail "step lines: got '${got}', want '${want}'"; return 1; }
+	opens="$(grep -c -E "^\[ ${stamp}: arm64 [0-9]+ of [0-9]+; Starting " <<< "$text")"
+	rules="$(grep -A1 -x -F "$rule" <<< "$text" | grep -c -E "^\[ ${stamp}: arm64 [0-9]+ of [0-9]+; Starting " || true)"
+	[[ "$rules" == "$opens" ]] || { fFail "${opens} steps, ${rules} of them under a 79-dot rule"; return 1; }
+}
+fSteps "arm64 1 of 4; Starting Box ready|arm64 1 of 4; PASS Box ready|arm64 2 of 4; Starting Send|arm64 2 of 4; PASS Send|arm64 3 of 4; Starting Release build|arm64 3 of 4; PASS Release build|arm64 4 of 4; Starting Bring back|arm64 4 of 4; PASS Bring back" \
+	"$out" && fEcho "OK: the lane prints its steps"
+
+## Not pinned: half the box's CPUs, or a quarter when it's busy.
+for case in "1.00 4" "4.01 2"; do
+	rm -f "${repo}/cicd/artifacts/release/${armName}"
+	rc=0; out="$(ARM_PIN="" FAKE_LOAD="${case% *}" fRunLane)" || rc=$?
+	got="$(cat "${repo}/cicd/artifacts/release/${armName}" 2>/dev/null || true)"
+	if [[ "$rc" != 0 || "$got" != "1791244781 ${case#* } aarch64" ]]; then
+		fFail "8 cpus at load ${case% *}: the build got '${got}', not ${case#* } jobs (exit ${rc})"
+	else
+		fEcho "OK: 8 cpus at load ${case% *} build with ${case#* } jobs"
+	fi
+done
 
 ## The box can't read the dependencies: the tarball still comes back, with
 ## a warning and no list, and an old list goes.
@@ -211,6 +260,7 @@ echo "old" > "${box}/nemo-anywhere-arm64/src/stale.txt"
 rc=0; out="$(FAKE_ARCH=x86_64 fRunLane)" || rc=$?
 [[ "$rc" != 0 ]] || fFail "an x86_64 box was taken as arm64"
 [[ "$out" == *"is not an arm64 box"* ]] || fFail "no reason given for the x86_64 box: ${out}"
+fSteps "arm64 1 of 4; Starting Box ready|arm64 1 of 4; FAIL Box ready" "$out" && fEcho "OK: a step that fails closes as FAIL"
 [[ -e "${box}/nemo-anywhere-arm64/src/stale.txt" ]] || fFail "the tree on an x86_64 box was touched"
 [[ ! -e "${repo}/cicd/artifacts/release/${armName}" ]] || fFail "an arm64 tarball came from an x86_64 box"
 

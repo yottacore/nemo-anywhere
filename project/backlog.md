@@ -33,10 +33,43 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- CICD step output: the private runner.
+	- ID: 2026102820110989
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261028-201109
+	- Opened by: 2026102819522603
+	- Parent ID: 2026102819522603
+	- Related IDs: 2026102517333362
+	- Requirements:
+		- The private runner prints its own steps the way the FreeBSD and arm64 lanes do: the 79-dot rule, `<box> N of M; Starting`, then `PASS` or `FAIL`, in local time to the hundredth.
+		- The private runner is in the private repo, which has branches of its own.
+	- Progress log:
+		- 20261028: split from 2026102819522603, whose lanes part is done.
+	- Test case: none yet.
+
+- CICD CPU: the private runner.
+	- ID: 2026102820110967
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261028-201109
+	- Opened by: 2026102517333362
+	- Parent ID: 2026102517333362
+	- Related IDs: 2026102819522603
+	- Requirements:
+		- The same rules as the FreeBSD and arm64 lanes, on the boxes the private runner builds on: `nice -n 19` on macOS and `BelowNormal` on Windows, with jobs from each box's own CPU count and load.
+		- The private runner is in the private repo, which has branches of its own.
+	- Progress log:
+		- 20261028: split from 2026102517333362, whose lanes part is done.
+	- Test case: none yet.
+
 - CICD step output: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102819522603
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: a full run with `--long`: the FreeBSD suite and release and the arm64 release print their own steps inside the run's.
 	- Priority|Severity: High
 	- Opened: 20261028-195226
 	- Opened by: 2026102517333373
@@ -46,7 +79,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Each lane is already one step of `cicd.bash`, so its own steps print inside that one. They need a form that doesn't read as the outer run's step count, such as `FreeBSD 1 of 3`.
 		- `cicd/utility/include/echo.bash`, which the lanes and the release scripts use, still draws a 74-dot rule.
 		- The private runner is in the private repo.
-	- Test case: none yet.
+	- Progress log:
+		- 20261028: the FreeBSD and arm64 lanes and `echo.bash` done. The private runner is in child 2026102820110989.
+	- Decisions:
+		- A lane's steps print as `FreeBSD N of M` or `arm64 N of M`, under the same 79-dot rule, time stamp and `Starting`, `PASS` and `FAIL` words as `cicd.bash`.
+		- The steps are Box ready (the login and clock waits), Send, then Build and suite, or Release build and Bring back. The build step opens with the box's jobs line.
+		- The steps start once the box is held. Taking the lock and starting a VM print before them.
+		- A step still open when the lane stops closes as `FAIL`, as in `cicd.bash`.
+		- `echo.bash` draws the 79-dot rule and has the time stamp and the lane step helpers. `cicd.bash` keeps its own copies, unchanged.
+	- Swept: `analyze.bash` is the only other script that draws `echo.bash`'s rule, and now draws 79. Every test that copies `box-wrap.bash` also copies `jobs.bash`, which it now needs: ddmn7, ddmmv and dehyb.
+	- Branch: round1028b
+	- Test case: ddmn7 and ddmmv (the steps of a passing run, a failing step closing as `FAIL`, and the rule above each step).
+	- Verified: 20261028, ddmn7 and ddmmv pass, and fail on the lanes before the change, with a 78-dot rule, and with no `FAIL` close on a failure.
 
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
@@ -1022,7 +1066,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD CPU: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102517333362
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: a full run with `--long`: the FreeBSD suite and release and the arm64 release each print a jobs line worked out from their box, and run there under nice.
 	- Priority|Severity: High
 	- Opened: 20261025-173333
 	- Opened by: 2026102416300003
@@ -1030,7 +1075,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- The same rules on each box, with its own CPU count and load: `nice -n 19` on FreeBSD, `nice` and `ionice` on the arm64 box, and its containers capped as on this box.
 		- `bsd/release.bash` and `bsd/lane.bash` take a fixed 4 jobs today, and the arm64 lane `NEMO_ARM_JOBS`, 4 by default. `include/jobs.bash` already reads FreeBSD's load.
-	- Test case: none yet.
+	- Progress log:
+		- 20261028: the FreeBSD and arm64 lanes done. The private runner is in child 2026102820110967.
+		- 20261028: ddmn7's job count for the suite went from 4 to 6, since the fixed 4 is gone and its stand-in box has 12 CPUs.
+	- Decisions:
+		- Each lane reads its box's CPU count and 1-minute load over ssh, just before the build or suite, and works the count out by the same rules as this box, in `include/jobs.bash`. It prints the count the way a step of `cicd.bash` does, naming the box.
+		- `NEMO_BSD_JOBS` and `NEMO_ARM_JOBS` now pin the count, with no fixed default. A pin that isn't a count fails the lane.
+		- On FreeBSD the suite and the release build run under `nice -n 19`. On the arm64 box the release build and the dependency read run under `ionice -c 3` and `nice -n 19`, and their containers get the lane's count as `--cpus`, with `--cpu-shares 256`.
+		- No lane step is a hard one, so each takes half its box's CPUs, or a quarter when that box is busy.
+		- `bsd/release.bash` run alone on FreeBSD works its count out there the same way, rather than taking 4.
+		- The arm64 count is half the VM's own CPUs. On the emulated VM each of those costs this box several, so if the full run shows it, `NEMO_ARM_JOBS` pins it lower.
+	- Swept: every ssh that builds or tests on another box under `cicd/`: the FreeBSD suite and release, and the arm64 release and its dependency read. The Windows dogfood only copies files.
+	- Branch: round1028b
+	- Test case: ddmn7 (FreeBSD lane: half the box's CPUs, a quarter when busy, the pin, a bad pin, nice 19 there), ddmmv (arm64: the same under nice and ionice, and the container's cap), dee7t (reading both kinds of load line).
+	- Verified: 20261028, ddmn7, ddmmv and dee7t pass. ddmn7 and ddmmv fail on the lanes before the change: a fixed 4, no nice and no jobs line.
 
 - CICD reset: standard flags.
 	- ID: 2026102416300004

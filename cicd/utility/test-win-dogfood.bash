@@ -41,7 +41,7 @@ repo="${scratch}/repo"
 log="${scratch}/calls.log"
 mkdir -p "${repo}/cicd/utility/include" "${scratch}/bin"
 cp "${root}/cicd/utility/win-dogfood.bash" "${repo}/cicd/utility/"
-cp "${root}/cicd/utility/include/box-wrap.bash" "${repo}/cicd/utility/include/"
+cp "${root}/cicd/utility/include/box-wrap.bash" "${root}/cicd/utility/include/jobs.bash" "${repo}/cicd/utility/include/"
 git -C "$repo" -c user.name=test -c user.email=test@example.invalid init -q
 git -C "$repo" add -A
 git -C "$repo" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m base

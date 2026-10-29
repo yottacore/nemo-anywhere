@@ -20,9 +20,10 @@
 ##	- Native build with the base clang, no container, so the versions are what
 ##	  pkg had here at the time.
 ##	- SOURCE_DATE_EPOCH must be set; there is no git history here to read it
-##	  from. CICD_MAX_JOBS caps the build (default 4). NEMO_BSD_BUILD is the
-##	  build dir (default: build-release beside the tree), set up from empty
-##	  every run.
+##	  from. CICD_MAX_JOBS caps the build, as lane.bash works it out for this
+##	  box; run alone, it's worked out here the same way (include/jobs.bash).
+##	  NEMO_BSD_BUILD is the build dir (default: build-release beside the
+##	  tree), set up from empty every run.
 ##	- Syntax: release.bash
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -45,6 +46,8 @@ source "${ROOT}/cicd/utility/include/echo.bash"
 source "${ROOT}/cicd/utility/include/release-files.bash"
 # shellcheck source=../utility/include/xvfb.bash
 source "${ROOT}/cicd/utility/include/xvfb.bash"
+# shellcheck source=../utility/include/jobs.bash
+source "${ROOT}/cicd/utility/include/jobs.bash"
 
 case "${1:-}" in
 	-h|--help) sed -n '/^##	- Purpose:/,/^##	Copyright/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##	\{0,1\}//'; exit 0 ;;
@@ -55,8 +58,9 @@ esac
 [[ "$(uname -s)" == "FreeBSD" ]] || fDie "this runs on FreeBSD; lane.bash sends it there"
 [[ "${SOURCE_DATE_EPOCH:-}" =~ ^[0-9]+$ ]] || fDie "SOURCE_DATE_EPOCH is not set"
 export SOURCE_DATE_EPOCH
-jobs="${CICD_MAX_JOBS:-4}"
-[[ "$jobs" =~ ^[1-9][0-9]*$ ]] || jobs=4
+fJobs_Default
+jobs="${CICD_MAX_JOBS}"
+[[ "$jobs" =~ ^[1-9][0-9]*$ ]] || fDie "CICD_MAX_JOBS is not a count: ${jobs}"
 
 ## No grep -P here.
 ver="$(sed -n "s/^project(.*[[:space:]]version[[:space:]]*:[[:space:]]*'\([^']*\)'.*/\1/p" "${ROOT}/source/meson.build" | head -1)"
@@ -215,3 +219,5 @@ fEcho_Clean ""
 ##	History:
 ##		- 2026-10-07: Created.
 ##		- 2026-10-19: The extension load test runs in a cell of its own.
+##		- 2026-10-28: Run alone, works out its jobs from this box's CPUs and
+##		  load, not a fixed 4.

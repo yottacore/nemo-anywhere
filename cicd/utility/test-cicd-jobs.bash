@@ -50,6 +50,22 @@ done <<-'EOF'
 	33 0.00   -    16
 EOF
 
+## Another box's numbers, read off FreeBSD's vm.loadavg or Linux's
+## /proc/loadavg: cpus|load line -> cpus load busy.
+while IFS='|' read -r cpus line want; do
+	fJobs_Read "$cpus" "$line"
+	[[ "${jobsCpus} ${jobsLoad} ${jobsBusy}" == "$want" ]] || fFail "fJobs_Read '${cpus}' '${line}': ${jobsCpus} ${jobsLoad} ${jobsBusy}, want ${want}"
+done <<-'EOF'
+	12|{ 7.00 0.50 0.40 }|12 7.00 1
+	12|{ 6.00 0.50 0.40 }|12 6.00 0
+	8|0.12 0.30 0.25 1/345 6789|8 0.12 0
+	8|5.5 0.30 0.25 1/345 6789|8 5.5 1
+	junk|junk|2 0.00 0
+	4||4 0.00 0
+EOF
+# shellcheck disable=SC2154  ## jobsProbe is set in jobs.bash.
+[[ "$(bash -c "$jobsProbe" 2>/dev/null | wc -l)" == 2 ]] || fFail "jobsProbe did not print two lines here"
+
 ## fJobs reads the box, and a pin wins over it.
 unset CICD_MAX_JOBS CICD_JOBS_PIN
 fJobs
@@ -93,3 +109,4 @@ fEcho "OK: half the cpus, a quarter when busy or hard, never 0; one place works 
 
 ##	History:
 ##		- 2026-10-25: Created.
+##		- 2026-10-28: fJobs_Read, for another box's numbers.
