@@ -33,114 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Pinned recipe for the Windows cross build image.
-	- ID: 2026102820195917
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261028-201959
-	- Opened by: 2026102617145788
-	- Parent ID: 2026102617145788
-	- Prereq IDs: 2026102820195801
-	- Requirements:
-		- `nemo-winbuild` comes from `cicd/win/Dockerfile`, with the base by digest, apt from a dated snapshot and the MSYS2 sysroot by version.
-		- It passes the cross build, packing and wine runs that `nemo-winbuild:init` passes, and the pipeline uses it in place of the snapshot.
-		- The snapshot has 2 packages and about 5 GB of later layers that the recipe lacks. The list is in the private notes.
-	- Test case: none yet.
-
-- Pinned recipe for the day-to-day build image.
-	- ID: 2026102820195801
-	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: the full run, `cicd/cicd.bash --backlog-run-full --no-private`, for the steps the quick run skips, now from the recipe image: fuzzing at its full 60 s, the analyzer's Linux lane over the whole build (de8es), and the profiler.
-	- Priority|Severity: High
-	- Opened: 20261028-201958
-	- Opened by: 2026102617145788
-	- Parent ID: 2026102617145788
-	- Prereq IDs: 2026102820481713
-	- Requirements:
-		- `nemo-build-deps` comes from `cicd/linux/Dockerfile.dev`, with the base by digest and apt from a dated snapshot.
-		- It passes the runs that `nemo-build-deps:init` passes, and the pipeline uses it in place of the snapshot.
-	- Progress log:
-		- 20261028: `Dockerfile.dev` pins trixie by digest, the base the old image was built on. apt reads the archive, the security and debug archives included, from snapshot.debian.org at 2026-10-19 22:00 UTC, the last time the old image was updated.
-		- 20261028: `docker-run.bash` runs each step from `nemo-build-deps:<hash>`, the hash taken over the Dockerfile, and builds it the first time that hash is seen. The fresh clone's `:latest` fallback is gone, since every clone now builds from the recipe. The run's docker sweep keeps the newest 2 tags.
-		- 20261028: the new image is 2.3 GB, where `:init` is 60.7 GB. gcc, clang, meson, GTK and GLib are the same versions, and the dbgsym packages match theirs. It differs from `:init` in security point releases from after 2026-09-16, and it lacks 2 packages nothing uses, b3sum and the gsf library. The build took about 7.5 min, mostly snapshot downloads.
-		- 20261028: in the new image the quick gate's lints pass, and the tests pass but for de8bd, de8dm and dec8w, which is 2026102820481713. That gap predates the pin, so the pinned `Dockerfile.dev` and dejma are on `round1028b`, and the switch of the pipeline's default image waits on branch `wip/round1028b-2026102820195801`.
-		- 20261028: the switch is on `round1028b` now, from the wip branch, after the font cache fix of 2026102820481713.
-		- 20261028: ddx67 skipped in the recipe image. `:init` had rar 7.20 in `/usr/local/bin`, put there by hand, so it wasn't in the package list. The recipe now installs Debian's rar 7.20-1 package from snapshot.debian.org, checked by its SHA-256. trixie's own rar is 7.11, and ddx67 fails with it.
-		- 20261028: the run's docker sweep removed `nemo-build-deps:6af684408ce8`. `nemo-build-deps:latest`, 2.2 GB, was removed by hand, since nothing reads it now.
-	- Decisions:
-		- The snapshot is the date of the old image's last update, not today, so the new image matches what passed before. The release image's pin was picked the same way, in 2026092813381427.
-		- Tagged by the recipe's hash, as `nemo-lint` is, so an edit to the recipe builds a new image on the next run.
-		- `nemo-build-deps:init` stays while the long-lived `nemo-build` box runs from it, and goes with that box.
-		- rar 7.20 from a package pinned by hash, rather than trixie's 7.11 from non-free. ddx67's pinned case is tuned to the bytes 7.20 writes, and 7.20 is what `:init` passed with. Debian's package is the same rarlab build. `ADD --checksum` checks it before the layer runs, so the image needs no curl.
-	- Swept: every reader of `nemo-build-deps:init` and `:latest` under `cicd/`: `docker-run.bash`, `test-docker-run.bash`, `test-docker-run-step.bash`, `test-docker-run-host.bash`, `test-fuzz-exit.bash` and `config.bash`, and design.md "Building on Linux". The Windows image is 2026102820195917, and the release image was pinned in 2026092813381427.
-		- 20261028: every test that skipped in the recipe image and not in `:init`, from the skip lists of both suites. Only ddx67 did.
-	- Branch: round1028b
-	- Test case: dejma (`test-dev-image-pin.bash`, lint stage: the base by digest, every apt source on one dated snapshot before apt runs, and nothing left on the live archive). defmw also checks that the tag follows the recipe, that a missing image is built from it with the labels, and that `NEMO_IMAGE` still wins. ddx67 runs rather than skips in the recipe image.
-		- 20261028: defky's no-image case expects `could not build image nemo-build-deps:<tag>`, where it expected `nemo-build-deps`.
-	- Verified: 20261028, dejma fails on the old `Dockerfile.dev` (3 problems) and on a debug source with another date, a security source left on the live archive, and no Valid-Until override, and passes on the new one. defmw fails on the old `docker-run.bash` (20 problems) and passes on the new one. The image builds from the recipe. `cicd/cicd.bash --backlog-run-quick` with every change: lints pass, ddagc and ddf32 among them in the new image, and the tests are 231 OK, 3 failed, 2 skipped, the 3 being 2026102820481713.
-	- Verified: 20261028, on `round1028b` from `nemo-build-deps:91fc9cf1ae15`: `--backlog-run-quick format lint` passed, and `--backlog-run-quick tests` gave 235 OK and 1 skipped, as `:init` did on 20261026, with de8bd, de8dm, dec8w and ddx67 passing. ddx67 failed with trixie's rar 7.11. The sanitizer suite gave 221 OK and 15 skipped, as `:init` did. The fuzz probe and a 3 s pass over the 12 targets were clean, the analyzer self-test found the planted faults in the Linux lane, and the profiler's prefix staged from the build and ran. defmw, defky, ddagc, ddf32 and dejma pass.
-
-- CICD step output: the private runner.
-	- ID: 2026102820110989
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261028-201109
-	- Opened by: 2026102819522603
-	- Parent ID: 2026102819522603
-	- Related IDs: 2026102517333362
-	- Requirements:
-		- The private runner prints its own steps the way the FreeBSD and arm64 lanes do: the 79-dot rule, `<box> N of M; Starting`, then `PASS` or `FAIL`, in local time to the hundredth.
-		- The private runner is in the private repo, which has branches of its own.
-	- Progress log:
-		- 20261028: split from 2026102819522603, whose lanes part is done.
-	- Test case: none yet.
-
-- CICD CPU: the private runner.
-	- ID: 2026102820110967
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261028-201109
-	- Opened by: 2026102517333362
-	- Parent ID: 2026102517333362
-	- Related IDs: 2026102819522603
-	- Requirements:
-		- The same rules as the FreeBSD and arm64 lanes, on the boxes the private runner builds on: `nice -n 19` on macOS and `BelowNormal` on Windows, with jobs from each box's own CPU count and load.
-		- The private runner is in the private repo, which has branches of its own.
-	- Progress log:
-		- 20261028: split from 2026102517333362, whose lanes part is done.
-	- Test case: none yet.
-
-- CICD step output: the FreeBSD and arm64 lanes and the private runner.
-	- ID: 2026102819522603
-	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: a full run with `--long`: the FreeBSD suite and release and the arm64 release print their own steps inside the run's.
-	- Priority|Severity: High
-	- Opened: 20261028-195226
-	- Opened by: 2026102517333373
-	- Parent ID: 2026102517333373
-	- Requirements:
-		- The FreeBSD and arm64 lanes and the private runner print the step lines of `cicd.bash` for their own steps: the 79-dot rule, `Step N of M; Starting`, then `PASS` or `FAIL`, in local time to the hundredth.
-		- Each lane is already one step of `cicd.bash`, so its own steps print inside that one. They need a form that doesn't read as the outer run's step count, such as `FreeBSD 1 of 3`.
-		- `cicd/utility/include/echo.bash`, which the lanes and the release scripts use, still draws a 74-dot rule.
-		- The private runner is in the private repo.
-	- Progress log:
-		- 20261028: the FreeBSD and arm64 lanes and `echo.bash` done. The private runner is in child 2026102820110989.
-	- Decisions:
-		- A lane's steps print as `FreeBSD N of M` or `arm64 N of M`, under the same 79-dot rule, time stamp and `Starting`, `PASS` and `FAIL` words as `cicd.bash`.
-		- The steps are Box ready (the login and clock waits), Send, then Build and suite, or Release build and Bring back. The build step opens with the box's jobs line.
-		- The steps start once the box is held. Taking the lock and starting a VM print before them.
-		- A step still open when the lane stops closes as `FAIL`, as in `cicd.bash`.
-		- `echo.bash` draws the 79-dot rule and has the time stamp and the lane step helpers. `cicd.bash` keeps its own copies, unchanged.
-	- Swept: `analyze.bash` is the only other script that draws `echo.bash`'s rule, and now draws 79. Every test that copies `box-wrap.bash` also copies `jobs.bash`, which it now needs: ddmn7, ddmmv and dehyb.
-	- Branch: round1028b
-	- Test case: ddmn7 and ddmmv (the steps of a passing run, a failing step closing as `FAIL`, and the rule above each step).
-	- Verified: 20261028, ddmn7 and ddmmv pass, and fail on the lanes before the change, with a 78-dot rule, and with no `FAIL` close on a failure.
-
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
@@ -256,6 +148,93 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261028, ddmn7 and ddmmv, and the quick gate.
 	- Verified: 20261028, the FreeBSD lane alone (`lane.bash --tests`) at d7bd529d with vmFreeBSD off: it was started, its login waited for, the suite passed (216 OK, 20 skipped), and it was shut down after. In the full run before, from paused, the lane got in and failed later on the clock, which is 2026102810470587.
 
+- The FreeBSD lane stops on meson clock skew when vmFreeBSD was paused, since a resumed guest keeps its old clock.
+	- ID: 2026102810470587
+	- Type: Bug
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: a full run with `--long`, with vmFreeBSD and vmDebARM64 paused for an hour first and their clocks left alone: both lanes build, or fail before the send naming the clock.
+	- Priority|Severity: High
+	- Opened: 20261028-104705
+	- Opened by: t00mietum
+	- Target OS: FreeBSD
+	- Steps to reproduce: pause vmFreeBSD for some hours, then start a full run.
+	- Incorrect behavior: meson says 'Clock skew detected', a source file 60941 s in the future, and the FreeBSD suite fails.
+	- Expected behavior: the lane sets the guest clock after it wakes the box, or waits for it to be right, before building.
+	- Reproduced: 20261028 on round1028a, full run at 10:43 local.
+	- Possible cause: claude_vm-state.bash resumes a paused guest, and the guest clock doesn't jump forward. From off it boots with the right time. vmDebARM64 likely has the same problem for the arm64 lane.
+	- Actual cause: a guest resumed from paused keeps the clock it stopped with, until its own time sync catches up, if it does. Every file sent from here is then in its future. The lanes never checked the clock.
+	- Actual fix: the VM state helper sets the clock of a guest it wakes from paused, since 20261028. Both lanes now also check the box's clock after its login answers, and before anything is sent. They wait up to 60 s for it to come within 5 s of this one's, then fail naming how far off it is.
+	- Decisions:
+		- The lane checks the clock rather than setting it. bsdtest has no sudo, and setting it takes the admin login the VM state helper already uses. The check still covers the bare host lock, a clock the helper couldn't set, and a guest someone else resumed.
+		- A clock that's ahead fails too. The objects left from the last run would look newer than the sources, and the incremental build would skip them.
+		- A wrong clock is a failure, not a skip, since the box is there, per 2026102808250949.
+		- The skew is taken against the middle of the ssh round trip. Knobs: `BOX_CLOCK_MAX_SKEW` (5 s) and `BOX_CLOCK_WAIT` (60 s).
+		- tar keeps the file times, since the test build dir on the box needs them to stay incremental.
+	- Swept: every lane that sends the tree to another box and builds there: the FreeBSD lane, tests and release, and the arm64 release. The Windows dogfood only copies an exe, so it has no check.
+	- Test case: ddmn7 and ddmmv. A box hours behind, or ahead, fails before anything is sent, and one whose clock is set a moment after the resume is waited for, inside the VM state helper's wrap. Both fail before the fix and pass after.
+	- Verified: 20261028, ddmn7 and ddmmv, both ways, and the quick gate.
+
+- Pinned recipe for the day-to-day build image.
+	- ID: 2026102820195801
+	- Type: Task
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: the full run, `cicd/cicd.bash --backlog-run-full --no-private`, for the steps the quick run skips, now from the recipe image: fuzzing at its full 60 s, the analyzer's Linux lane over the whole build (de8es), and the profiler.
+	- Priority|Severity: High
+	- Opened: 20261028-201958
+	- Opened by: 2026102617145788
+	- Parent ID: 2026102617145788
+	- Prereq IDs: 2026102820481713
+	- Requirements:
+		- `nemo-build-deps` comes from `cicd/linux/Dockerfile.dev`, with the base by digest and apt from a dated snapshot.
+		- It passes the runs that `nemo-build-deps:init` passes, and the pipeline uses it in place of the snapshot.
+	- Progress log:
+		- 20261028: `Dockerfile.dev` pins trixie by digest, the base the old image was built on. apt reads the archive, the security and debug archives included, from snapshot.debian.org at 2026-10-19 22:00 UTC, the last time the old image was updated.
+		- 20261028: `docker-run.bash` runs each step from `nemo-build-deps:<hash>`, the hash taken over the Dockerfile, and builds it the first time that hash is seen. The fresh clone's `:latest` fallback is gone, since every clone now builds from the recipe. The run's docker sweep keeps the newest 2 tags.
+		- 20261028: the new image is 2.3 GB, where `:init` is 60.7 GB. gcc, clang, meson, GTK and GLib are the same versions, and the dbgsym packages match theirs. It differs from `:init` in security point releases from after 2026-09-16, and it lacks 2 packages nothing uses, b3sum and the gsf library. The build took about 7.5 min, mostly snapshot downloads.
+		- 20261028: in the new image the quick gate's lints pass, and the tests pass but for de8bd, de8dm and dec8w, which is 2026102820481713. That gap predates the pin, so the pinned `Dockerfile.dev` and dejma are on `round1028b`, and the switch of the pipeline's default image waits on branch `wip/round1028b-2026102820195801`.
+		- 20261028: the switch is on `round1028b` now, from the wip branch, after the font cache fix of 2026102820481713.
+		- 20261028: ddx67 skipped in the recipe image. `:init` had rar 7.20 in `/usr/local/bin`, put there by hand, so it wasn't in the package list. The recipe now installs Debian's rar 7.20-1 package from snapshot.debian.org, checked by its SHA-256. trixie's own rar is 7.11, and ddx67 fails with it.
+		- 20261028: the run's docker sweep removed `nemo-build-deps:6af684408ce8`. `nemo-build-deps:latest`, 2.2 GB, was removed by hand, since nothing reads it now.
+	- Decisions:
+		- The snapshot is the date of the old image's last update, not today, so the new image matches what passed before. The release image's pin was picked the same way, in 2026092813381427.
+		- Tagged by the recipe's hash, as `nemo-lint` is, so an edit to the recipe builds a new image on the next run.
+		- `nemo-build-deps:init` stays while the long-lived `nemo-build` box runs from it, and goes with that box.
+		- rar 7.20 from a package pinned by hash, rather than trixie's 7.11 from non-free. ddx67's pinned case is tuned to the bytes 7.20 writes, and 7.20 is what `:init` passed with. Debian's package is the same rarlab build. `ADD --checksum` checks it before the layer runs, so the image needs no curl.
+	- Swept: every reader of `nemo-build-deps:init` and `:latest` under `cicd/`: `docker-run.bash`, `test-docker-run.bash`, `test-docker-run-step.bash`, `test-docker-run-host.bash`, `test-fuzz-exit.bash` and `config.bash`, and design.md "Building on Linux". The Windows image is 2026102820195917, and the release image was pinned in 2026092813381427.
+		- 20261028: every test that skipped in the recipe image and not in `:init`, from the skip lists of both suites. Only ddx67 did.
+	- Branch: round1028b
+	- Test case: dejma (`test-dev-image-pin.bash`, lint stage: the base by digest, every apt source on one dated snapshot before apt runs, and nothing left on the live archive). defmw also checks that the tag follows the recipe, that a missing image is built from it with the labels, and that `NEMO_IMAGE` still wins. ddx67 runs rather than skips in the recipe image.
+		- 20261028: defky's no-image case expects `could not build image nemo-build-deps:<tag>`, where it expected `nemo-build-deps`.
+	- Verified: 20261028, dejma fails on the old `Dockerfile.dev` (3 problems) and on a debug source with another date, a security source left on the live archive, and no Valid-Until override, and passes on the new one. defmw fails on the old `docker-run.bash` (20 problems) and passes on the new one. The image builds from the recipe. `cicd/cicd.bash --backlog-run-quick` with every change: lints pass, ddagc and ddf32 among them in the new image, and the tests are 231 OK, 3 failed, 2 skipped, the 3 being 2026102820481713.
+	- Verified: 20261028, on `round1028b` from `nemo-build-deps:91fc9cf1ae15`: `--backlog-run-quick format lint` passed, and `--backlog-run-quick tests` gave 235 OK and 1 skipped, as `:init` did on 20261026, with de8bd, de8dm, dec8w and ddx67 passing. ddx67 failed with trixie's rar 7.11. The sanitizer suite gave 221 OK and 15 skipped, as `:init` did. The fuzz probe and a 3 s pass over the 12 targets were clean, the analyzer self-test found the planted faults in the Linux lane, and the profiler's prefix staged from the build and ran. defmw, defky, ddagc, ddf32 and dejma pass.
+
+- CICD step output: the FreeBSD and arm64 lanes and the private runner.
+	- ID: 2026102819522603
+	- Type: Task
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: a full run with `--long`: the FreeBSD suite and release and the arm64 release print their own steps inside the run's.
+	- Priority|Severity: High
+	- Opened: 20261028-195226
+	- Opened by: 2026102517333373
+	- Parent ID: 2026102517333373
+	- Requirements:
+		- The FreeBSD and arm64 lanes and the private runner print the step lines of `cicd.bash` for their own steps: the 79-dot rule, `Step N of M; Starting`, then `PASS` or `FAIL`, in local time to the hundredth.
+		- Each lane is already one step of `cicd.bash`, so its own steps print inside that one. They need a form that doesn't read as the outer run's step count, such as `FreeBSD 1 of 3`.
+		- `cicd/utility/include/echo.bash`, which the lanes and the release scripts use, still draws a 74-dot rule.
+		- The private runner is in the private repo.
+	- Progress log:
+		- 20261028: the FreeBSD and arm64 lanes and `echo.bash` done. The private runner is in child 2026102820110989.
+	- Decisions:
+		- A lane's steps print as `FreeBSD N of M` or `arm64 N of M`, under the same 79-dot rule, time stamp and `Starting`, `PASS` and `FAIL` words as `cicd.bash`.
+		- The steps are Box ready (the login and clock waits), Send, then Build and suite, or Release build and Bring back. The build step opens with the box's jobs line.
+		- The steps start once the box is held. Taking the lock and starting a VM print before them.
+		- A step still open when the lane stops closes as `FAIL`, as in `cicd.bash`.
+		- `echo.bash` draws the 79-dot rule and has the time stamp and the lane step helpers. `cicd.bash` keeps its own copies, unchanged.
+	- Swept: `analyze.bash` is the only other script that draws `echo.bash`'s rule, and now draws 79. Every test that copies `box-wrap.bash` also copies `jobs.bash`, which it now needs: ddmn7, ddmmv and dehyb.
+	- Branch: round1028b
+	- Test case: ddmn7 and ddmmv (the steps of a passing run, a failing step closing as `FAIL`, and the rule above each step).
+	- Verified: 20261028, ddmn7 and ddmmv pass, and fail on the lanes before the change, with a 78-dot rule, and with no `FAIL` close on a failure.
+
 - Container cleanup: a container per step, for the release build.
 	- ID: 2026102617253220
 	- Type: Task
@@ -280,40 +259,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9. The native release and the packages passed, and no step container was left here. The arm64 lane was left out.
 	- Swept: every `docker exec`, `docker cp`, `docker update` and `docker stop` that named `nemo-build-jammy`, and every `NEMO_RELEASE_CONTAINER` reader, under `cicd/` and `utility/`: `release.bash`, `package.bash`, `release-arm64.bash`, `test-release-arm64.bash`, `test-package-arm64.bash` and `test-deb-size.bash`. `test-release-setup.bash` already ran its own container.
 	- 20261028: not run. Neither full run that day had `--long`, so the arm64 lane was left out.
-
-- With OLE drag on, a GTK drag on Windows may keep its whole drag window.
-	- ID: 2026102112223038
-	- Type: Bug
-	- Status: Open
-		- Filed upstream as GTK issue [#8497](https://gitlab.gnome.org/GNOME/gtk/-/work_items/8497) and MR [!10551](https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/10551). Waits on a GTK 3.24 release with it.
-		- Let's patch our own fork, if it hasn't been merged yet.
-	- Needs external testing: none. Seen on native Windows 20261022.
-	- Priority|Severity: Low
-	- Opened: 20261021-122230
-	- Opened by: t00mietum
-	- Related IDs: 2026102020234500, 2026101916044103
-	- Target OS: Windows
-	- Steps to reproduce:
-		- Turn on GDK's OLE drag, as `nemo_dnd_win32_prepare` does.
-		- Start a GTK drag, such as a tab or a text drag, and stop it.
-	- Incorrect behavior: the drag window is never destroyed, and keeps 4 refs after the drag's context is gone. One per drag, for the life of the app. The app's own file drags don't use it, but GTK's own drag sources do.
-	- Expected behavior: the drag window is destroyed and freed with its context, as it is with GTK's own drag protocol.
-	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. 20261022 on Windows 11, GTK 3.24.52, the same in every mode. Again 20261021 under wine: only when the drag stops before GDK handles another event. One stopped 300 ms in is freed, OLE on or off.
-	- Possible cause: GDK's OLE drag source keeps the context's drag window past the context, or wine's `DoDragDrop` never returns for a drag stopped from GTK's side.
-	- Actual cause: GDK, not wine.
-		- With OLE on, `gdk_drag_begin` leaves a pending OLE drag source that holds a ref on the context. Only the code after `DoDragDrop` lets it go, and `DoDragDrop` starts on the next event GDK handles. GDK's drag abort just sets the state to none, so a drag stopped before then never runs `DoDragDrop`, and the source is never released.
-		- So the context isn't gone. It stays at 1 ref, is never finalized, and never destroys its drag window. The window's 4 refs are what any drag window has until its context's finalize. Dropping the context's last ref by hand destroys and frees the window at once.
-		- The first source left this way also stays GDK's current drag source, so later drops inside the app take their source window from it.
-	- Decisions:
-		- Upstream only. The ref belongs to GDK's pending drag source, which the app can't reach. Dropping it from the app leaves GDK's pointer to the context dangling, and GDK reads it on the next drop into the app.
-		- Drags in the app start from an event, so `DoDragDrop` runs right after and the context is freed. The app never cancels a drag itself. So it stays Low.
-		- An upstream patch is drafted, not filed: GDK's drag abort releases the pending source when `DoDragDrop` hasn't started.
-		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
-		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
-	- Actual fix: none in the app.
-	- Test case: none. The fix is upstream, and nothing in the app hits it.
-	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
-	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
 
 - Other hosts: a box that isn't there is a SKIP.
 	- ID: 2026102808250949
@@ -360,6 +305,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261028, dehyb, and the quick gate.
 	- 20261028: not run. Left for a plain run, since no narrower check covers the refresh.
 
+- With OLE drag on, a GTK drag on Windows may keep its whole drag window.
+	- ID: 2026102112223038
+	- Type: Bug
+	- Status: Open
+		- Filed upstream as GTK issue [#8497](https://gitlab.gnome.org/GNOME/gtk/-/work_items/8497) and MR [!10551](https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/10551). Waits on a GTK 3.24 release with it.
+		- Let's patch our own fork, if it hasn't been merged yet.
+	- Needs external testing: none. Seen on native Windows 20261022.
+	- Priority|Severity: Low
+	- Opened: 20261021-122230
+	- Opened by: t00mietum
+	- Related IDs: 2026102020234500, 2026101916044103
+	- Target OS: Windows
+	- Steps to reproduce:
+		- Turn on GDK's OLE drag, as `nemo_dnd_win32_prepare` does.
+		- Start a GTK drag, such as a tab or a text drag, and stop it.
+	- Incorrect behavior: the drag window is never destroyed, and keeps 4 refs after the drag's context is gone. One per drag, for the life of the app. The app's own file drags don't use it, but GTK's own drag sources do.
+	- Expected behavior: the drag window is destroyed and freed with its context, as it is with GTK's own drag protocol.
+	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. 20261022 on Windows 11, GTK 3.24.52, the same in every mode. Again 20261021 under wine: only when the drag stops before GDK handles another event. One stopped 300 ms in is freed, OLE on or off.
+	- Possible cause: GDK's OLE drag source keeps the context's drag window past the context, or wine's `DoDragDrop` never returns for a drag stopped from GTK's side.
+	- Actual cause: GDK, not wine.
+		- With OLE on, `gdk_drag_begin` leaves a pending OLE drag source that holds a ref on the context. Only the code after `DoDragDrop` lets it go, and `DoDragDrop` starts on the next event GDK handles. GDK's drag abort just sets the state to none, so a drag stopped before then never runs `DoDragDrop`, and the source is never released.
+		- So the context isn't gone. It stays at 1 ref, is never finalized, and never destroys its drag window. The window's 4 refs are what any drag window has until its context's finalize. Dropping the context's last ref by hand destroys and frees the window at once.
+		- The first source left this way also stays GDK's current drag source, so later drops inside the app take their source window from it.
+	- Decisions:
+		- Upstream only. The ref belongs to GDK's pending drag source, which the app can't reach. Dropping it from the app leaves GDK's pointer to the context dangling, and GDK reads it on the next drop into the app.
+		- Drags in the app start from an event, so `DoDragDrop` runs right after and the context is freed. The app never cancels a drag itself. So it stays Low.
+		- An upstream patch is drafted, not filed: GDK's drag abort releases the pending source when `DoDragDrop` hasn't started.
+		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
+		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
+	- Actual fix: none in the app.
+	- Test case: none. The fix is upstream, and nothing in the app hits it.
+	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
+	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
+
 - CICD reset: test IDs.
 	- ID: 2026102416300007
 	- Type: Task
@@ -392,6 +371,85 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261028, full runs at 4be04125: the 12 fuzz targets, 223 sanitizer suite tests, the package checks (ddmn6, ddqjk, ddqv0, ddwhx, ddmn8), dcvpj and da73c each print a PASS line with the ID. The FreeBSD suite's lines come out as PASS, FAIL or SKIP under its awk, but with the project name stuck to the ID, filed as 2026102812032075.
 	- 20261028: native gate not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
 	- Verified: 20261028, FreeBSD lane at 9f7df4c7: every result line reads PASS <id> <name>.
+
+- CICD CPU: `cicd-win.ps1`.
+	- ID: 2026102517333357
+	- Type: Task
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: no
+	- Needs external testing: the native gate on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for the CPU use Windows reports in each step's jobs line, and for ninja, gcc and the suite running at `BelowNormal` under MSYS2.
+	- Priority|Severity: High
+	- Opened: 20261025-173333
+	- Opened by: 2026102416300003
+	- Parent ID: 2026102416300003
+	- Requirements:
+		- `BelowNormal` priority at the top of `cicd-win.ps1`, or `Idle` for the hard steps, set on its own process so its children get it.
+		- Half the logical CPUs, a quarter when busy or for a hard step, worked out once and passed to every tool that runs in parallel. Busy needs a load figure Windows doesn't have; the processor queue length or CPU use over a short sample are the options.
+	- Progress log:
+		- 20261028: `cicd-win.ps1` sets its own process to `BelowNormal` before anything else runs, and Windows hands that down to MSYS2 and what it starts. `fJobs` works out the count before the run and again before each step, and ninja, `meson test` and the MSYS2 shell (as `CICD_MAX_JOBS`) all take it from there. Each step prints its jobs line, and the preflight says the count and the priority.
+	- Decisions:
+		- Busy is CPU use over 50%, from `Win32_Processor`'s `LoadPercentage`, which Windows averages over the last second. That's the same line the load rule draws at half the CPUs, it needs no sampling wait, and it doesn't depend on the language counter names are in. The processor queue length counts only threads waiting, not running ones, and swings a lot from one reading to the next.
+		- When Windows won't say, the line reads "cpu use unknown" and the run takes half.
+		- A run started lower than `BelowNormal`, such as `Idle`, stays there. Priority is never raised.
+		- No step here is hard. The sanitizers, fuzzing, the analyzers and the leak checks don't run on Windows. `fStep -Hard` takes `Idle` and a quarter for when one does.
+		- `CICD_JOBS_PIN` or `CICD_MAX_JOBS` set beforehand pins the count, as in `cicd.bash`. Anything but a whole number over 0 stops the run.
+	- Swept: every `ProcessorCount` and `-j`/`--num-processes` in `cicd-win.ps1` (`fBuild` and `fTests` had their own half). `stage-native.bash`, `pack-portable.ps1` and the GUI smoke run nothing in parallel. `lint.bash`'s C check reads `CICD_MAX_JOBS`, now passed in.
+	- Branch: round1028b
+	- Test case: dejjt (`cicd/utility/test-cicd-win.ps1`, lint stage: the count at 50% and 51%, hard, and 1 CPU; one place reads the CPU count; ninja, `meson test` and the MSYS2 shell get it; busy and pinned jobs lines; a bad pin stops the run; the toolchain check and each step's work run at `BelowNormal` or lower).
+	- Verified: 20261028, dejjt passes, and fails with busy at 90%, with `meson test` given its own count, with a second place reading the CPU count, and with no priority set at the top. `cicd/cicd.bash --backlog-run-quick format lint` passes. PSScriptAnalyzer is clean on both files.
+
+- CICD CPU: the FreeBSD and arm64 lanes and the private runner.
+	- ID: 2026102517333362
+	- Type: Task
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: a full run with `--long`: the FreeBSD suite and release and the arm64 release each print a jobs line worked out from their box, and run there under nice.
+	- Priority|Severity: High
+	- Opened: 20261025-173333
+	- Opened by: 2026102416300003
+	- Parent ID: 2026102416300003
+	- Requirements:
+		- The same rules on each box, with its own CPU count and load: `nice -n 19` on FreeBSD, `nice` and `ionice` on the arm64 box, and its containers capped as on this box.
+		- `bsd/release.bash` and `bsd/lane.bash` take a fixed 4 jobs today, and the arm64 lane `NEMO_ARM_JOBS`, 4 by default. `include/jobs.bash` already reads FreeBSD's load.
+	- Progress log:
+		- 20261028: the FreeBSD and arm64 lanes done. The private runner is in child 2026102820110967.
+		- 20261028: ddmn7's job count for the suite went from 4 to 6, since the fixed 4 is gone and its stand-in box has 12 CPUs.
+	- Decisions:
+		- Each lane reads its box's CPU count and 1-minute load over ssh, just before the build or suite, and works the count out by the same rules as this box, in `include/jobs.bash`. It prints the count the way a step of `cicd.bash` does, naming the box.
+		- `NEMO_BSD_JOBS` and `NEMO_ARM_JOBS` now pin the count, with no fixed default. A pin that isn't a count fails the lane.
+		- On FreeBSD the suite and the release build run under `nice -n 19`. On the arm64 box the release build and the dependency read run under `ionice -c 3` and `nice -n 19`, and their containers get the lane's count as `--cpus`, with `--cpu-shares 256`.
+		- No lane step is a hard one, so each takes half its box's CPUs, or a quarter when that box is busy.
+		- `bsd/release.bash` run alone on FreeBSD works its count out there the same way, rather than taking 4.
+		- The arm64 count is half the VM's own CPUs. On the emulated VM each of those costs this box several, so if the full run shows it, `NEMO_ARM_JOBS` pins it lower.
+	- Swept: every ssh that builds or tests on another box under `cicd/`: the FreeBSD suite and release, and the arm64 release and its dependency read. The Windows dogfood only copies files.
+	- Branch: round1028b
+	- Test case: ddmn7 (FreeBSD lane: half the box's CPUs, a quarter when busy, the pin, a bad pin, nice 19 there), ddmmv (arm64: the same under nice and ionice, and the container's cap), dee7t (reading both kinds of load line).
+	- Verified: 20261028, ddmn7, ddmmv and dee7t pass. ddmn7 and ddmmv fail on the lanes before the change: a fixed 4, no nice and no jobs line.
+
+- CICD step output: `cicd-win.ps1` and the lanes on other boxes.
+	- ID: 2026102517333373
+	- Type: Task
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: no
+	- Needs external testing: the native gate on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for the step lines of a real run.
+	- Priority|Severity: High
+	- Opened: 20261025-173333
+	- Opened by: 2026102416300005
+	- Parent ID: 2026102416300005
+	- Requirements:
+		- `cicd-win.ps1`, its gate included, prints the same step lines as `cicd.bash`: the 79-dot rule, `Step N of M; Starting`, then `PASS` or `FAIL`, with local time to the hundredth, and the plan lists what's turned off.
+		- The FreeBSD and arm64 lanes and the private runner print the same form for their own steps. That part is in child 2026102819522603.
+	- Progress log:
+		- 20261028: `cicd-win.ps1` makes its plan first, from the same switches the steps read, so M is known at step 1. Each step opens under a 79-dot rule with a `Starting` line and closes `PASS` or `FAIL`. A step still open when the run stops, by a failure, a throw or Ctrl+C, closes as `FAIL`. The gate and the full run print the plan's step count and the steps turned off, each with its flag or reason.
+		- 20261028: split the lanes and the private runner into child 2026102819522603.
+	- Decisions:
+		- The steps are the old stages, plus the smoke checks, now their own step in the full run as in the gate: Remote sync, Lints, Build (debug), Tests, Smoke checks, Runtime bundle, Packages, Dogfood, Publish. The names match `cicd.bash`'s where the step is the same.
+		- A missing toolchain, `-NoBuild`, `-NoPack` and a missing Enigma Virtual Box turn steps off in the plan, rather than warning inside the step. Dogfood says which of those turned the pack off.
+		- The old inline "skipped" lines are gone, and so are the preflight lines that only said a step was skipped, since the plan lists those.
+		- The run's timestamps are written in the invariant culture, so a Thai or Hijri calendar doesn't change the year.
+	- Swept: `echo.bash`'s 74-dot rule, which the lanes use, went to the child. Nothing reads the old stage headers: `win-dogfood.bash`, the pre-push hook and their tests only run the script.
+	- Branch: round1028b
+	- Test case: dejjt (`cicd/utility/test-cicd-win.ps1`, lint stage: the gate and the full run with every step on, with steps turned off by each flag, a missing toolchain with and without `-BuildStrict`, no Enigma Virtual Box, and a step that fails, each checked for the rule, numbering, open and close lines and the turned-off list).
+	- Verified: 20261028, dejjt passes, and fails with a 78-dot rule, with no `FAIL` close on a failure, with a step left out of the plan, and with the last step left open. `cicd/cicd.bash --backlog-run-quick format lint` passes.
 
 - Temp files: scripts remove their own temp folders through the guard.
 	- ID: 2026102618083910
@@ -714,31 +772,52 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
 	- Test case: one per child.
 
-- The FreeBSD lane stops on meson clock skew when vmFreeBSD was paused, since a resumed guest keeps its old clock.
-	- ID: 2026102810470587
-	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: a full run with `--long`, with vmFreeBSD and vmDebARM64 paused for an hour first and their clocks left alone: both lanes build, or fail before the send naming the clock.
+- Pinned recipe for the Windows cross build image.
+	- ID: 2026102820195917
+	- Type: Task
+	- Status: Queued
 	- Priority|Severity: High
-	- Opened: 20261028-104705
-	- Opened by: t00mietum
-	- Target OS: FreeBSD
-	- Steps to reproduce: pause vmFreeBSD for some hours, then start a full run.
-	- Incorrect behavior: meson says 'Clock skew detected', a source file 60941 s in the future, and the FreeBSD suite fails.
-	- Expected behavior: the lane sets the guest clock after it wakes the box, or waits for it to be right, before building.
-	- Reproduced: 20261028 on round1028a, full run at 10:43 local.
-	- Possible cause: claude_vm-state.bash resumes a paused guest, and the guest clock doesn't jump forward. From off it boots with the right time. vmDebARM64 likely has the same problem for the arm64 lane.
-	- Actual cause: a guest resumed from paused keeps the clock it stopped with, until its own time sync catches up, if it does. Every file sent from here is then in its future. The lanes never checked the clock.
-	- Actual fix: the VM state helper sets the clock of a guest it wakes from paused, since 20261028. Both lanes now also check the box's clock after its login answers, and before anything is sent. They wait up to 60 s for it to come within 5 s of this one's, then fail naming how far off it is.
-	- Decisions:
-		- The lane checks the clock rather than setting it. bsdtest has no sudo, and setting it takes the admin login the VM state helper already uses. The check still covers the bare host lock, a clock the helper couldn't set, and a guest someone else resumed.
-		- A clock that's ahead fails too. The objects left from the last run would look newer than the sources, and the incremental build would skip them.
-		- A wrong clock is a failure, not a skip, since the box is there, per 2026102808250949.
-		- The skew is taken against the middle of the ssh round trip. Knobs: `BOX_CLOCK_MAX_SKEW` (5 s) and `BOX_CLOCK_WAIT` (60 s).
-		- tar keeps the file times, since the test build dir on the box needs them to stay incremental.
-	- Swept: every lane that sends the tree to another box and builds there: the FreeBSD lane, tests and release, and the arm64 release. The Windows dogfood only copies an exe, so it has no check.
-	- Test case: ddmn7 and ddmmv. A box hours behind, or ahead, fails before anything is sent, and one whose clock is set a moment after the resume is waited for, inside the VM state helper's wrap. Both fail before the fix and pass after.
-	- Verified: 20261028, ddmn7 and ddmmv, both ways, and the quick gate.
+	- Opened: 20261028-201959
+	- Opened by: 2026102617145788
+	- Parent ID: 2026102617145788
+	- Prereq IDs: 2026102820195801
+	- Requirements:
+		- `nemo-winbuild` comes from `cicd/win/Dockerfile`, with the base by digest, apt from a dated snapshot and the MSYS2 sysroot by version.
+		- It passes the cross build, packing and wine runs that `nemo-winbuild:init` passes, and the pipeline uses it in place of the snapshot.
+		- The snapshot has 2 packages and about 5 GB of later layers that the recipe lacks. The list is in the private notes.
+	- Test case: none yet.
+
+- CICD step output: the private runner.
+	- ID: 2026102820110989
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261028-201109
+	- Opened by: 2026102819522603
+	- Parent ID: 2026102819522603
+	- Related IDs: 2026102517333362
+	- Requirements:
+		- The private runner prints its own steps the way the FreeBSD and arm64 lanes do: the 79-dot rule, `<box> N of M; Starting`, then `PASS` or `FAIL`, in local time to the hundredth.
+		- The private runner is in the private repo, which has branches of its own.
+	- Progress log:
+		- 20261028: split from 2026102819522603, whose lanes part is done.
+	- Test case: none yet.
+
+- CICD CPU: the private runner.
+	- ID: 2026102820110967
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261028-201109
+	- Opened by: 2026102517333362
+	- Parent ID: 2026102517333362
+	- Related IDs: 2026102819522603
+	- Requirements:
+		- The same rules as the FreeBSD and arm64 lanes, on the boxes the private runner builds on: `nice -n 19` on macOS and `BelowNormal` on Windows, with jobs from each box's own CPU count and load.
+		- The private runner is in the private repo, which has branches of its own.
+	- Progress log:
+		- 20261028: split from 2026102517333362, whose lanes part is done.
+	- Test case: none yet.
 
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
@@ -1088,59 +1167,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261025: split into children 2026102517333352 (`cicd.bash` and its scripts), 2026102517333357 (`cicd-win.ps1`) and 2026102517333362 (the other boxes).
 	- Test case: none yet.
 
-- CICD CPU: `cicd-win.ps1`.
-	- ID: 2026102517333357
-	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: no
-	- Needs external testing: the native gate on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for the CPU use Windows reports in each step's jobs line, and for ninja, gcc and the suite running at `BelowNormal` under MSYS2.
-	- Priority|Severity: High
-	- Opened: 20261025-173333
-	- Opened by: 2026102416300003
-	- Parent ID: 2026102416300003
-	- Requirements:
-		- `BelowNormal` priority at the top of `cicd-win.ps1`, or `Idle` for the hard steps, set on its own process so its children get it.
-		- Half the logical CPUs, a quarter when busy or for a hard step, worked out once and passed to every tool that runs in parallel. Busy needs a load figure Windows doesn't have; the processor queue length or CPU use over a short sample are the options.
-	- Progress log:
-		- 20261028: `cicd-win.ps1` sets its own process to `BelowNormal` before anything else runs, and Windows hands that down to MSYS2 and what it starts. `fJobs` works out the count before the run and again before each step, and ninja, `meson test` and the MSYS2 shell (as `CICD_MAX_JOBS`) all take it from there. Each step prints its jobs line, and the preflight says the count and the priority.
-	- Decisions:
-		- Busy is CPU use over 50%, from `Win32_Processor`'s `LoadPercentage`, which Windows averages over the last second. That's the same line the load rule draws at half the CPUs, it needs no sampling wait, and it doesn't depend on the language counter names are in. The processor queue length counts only threads waiting, not running ones, and swings a lot from one reading to the next.
-		- When Windows won't say, the line reads "cpu use unknown" and the run takes half.
-		- A run started lower than `BelowNormal`, such as `Idle`, stays there. Priority is never raised.
-		- No step here is hard. The sanitizers, fuzzing, the analyzers and the leak checks don't run on Windows. `fStep -Hard` takes `Idle` and a quarter for when one does.
-		- `CICD_JOBS_PIN` or `CICD_MAX_JOBS` set beforehand pins the count, as in `cicd.bash`. Anything but a whole number over 0 stops the run.
-	- Swept: every `ProcessorCount` and `-j`/`--num-processes` in `cicd-win.ps1` (`fBuild` and `fTests` had their own half). `stage-native.bash`, `pack-portable.ps1` and the GUI smoke run nothing in parallel. `lint.bash`'s C check reads `CICD_MAX_JOBS`, now passed in.
-	- Branch: round1028b
-	- Test case: dejjt (`cicd/utility/test-cicd-win.ps1`, lint stage: the count at 50% and 51%, hard, and 1 CPU; one place reads the CPU count; ninja, `meson test` and the MSYS2 shell get it; busy and pinned jobs lines; a bad pin stops the run; the toolchain check and each step's work run at `BelowNormal` or lower).
-	- Verified: 20261028, dejjt passes, and fails with busy at 90%, with `meson test` given its own count, with a second place reading the CPU count, and with no priority set at the top. `cicd/cicd.bash --backlog-run-quick format lint` passes. PSScriptAnalyzer is clean on both files.
-
-- CICD CPU: the FreeBSD and arm64 lanes and the private runner.
-	- ID: 2026102517333362
-	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: a full run with `--long`: the FreeBSD suite and release and the arm64 release each print a jobs line worked out from their box, and run there under nice.
-	- Priority|Severity: High
-	- Opened: 20261025-173333
-	- Opened by: 2026102416300003
-	- Parent ID: 2026102416300003
-	- Requirements:
-		- The same rules on each box, with its own CPU count and load: `nice -n 19` on FreeBSD, `nice` and `ionice` on the arm64 box, and its containers capped as on this box.
-		- `bsd/release.bash` and `bsd/lane.bash` take a fixed 4 jobs today, and the arm64 lane `NEMO_ARM_JOBS`, 4 by default. `include/jobs.bash` already reads FreeBSD's load.
-	- Progress log:
-		- 20261028: the FreeBSD and arm64 lanes done. The private runner is in child 2026102820110967.
-		- 20261028: ddmn7's job count for the suite went from 4 to 6, since the fixed 4 is gone and its stand-in box has 12 CPUs.
-	- Decisions:
-		- Each lane reads its box's CPU count and 1-minute load over ssh, just before the build or suite, and works the count out by the same rules as this box, in `include/jobs.bash`. It prints the count the way a step of `cicd.bash` does, naming the box.
-		- `NEMO_BSD_JOBS` and `NEMO_ARM_JOBS` now pin the count, with no fixed default. A pin that isn't a count fails the lane.
-		- On FreeBSD the suite and the release build run under `nice -n 19`. On the arm64 box the release build and the dependency read run under `ionice -c 3` and `nice -n 19`, and their containers get the lane's count as `--cpus`, with `--cpu-shares 256`.
-		- No lane step is a hard one, so each takes half its box's CPUs, or a quarter when that box is busy.
-		- `bsd/release.bash` run alone on FreeBSD works its count out there the same way, rather than taking 4.
-		- The arm64 count is half the VM's own CPUs. On the emulated VM each of those costs this box several, so if the full run shows it, `NEMO_ARM_JOBS` pins it lower.
-	- Swept: every ssh that builds or tests on another box under `cicd/`: the FreeBSD suite and release, and the arm64 release and its dependency read. The Windows dogfood only copies files.
-	- Branch: round1028b
-	- Test case: ddmn7 (FreeBSD lane: half the box's CPUs, a quarter when busy, the pin, a bad pin, nice 19 there), ddmmv (arm64: the same under nice and ionice, and the container's cap), dee7t (reading both kinds of load line).
-	- Verified: 20261028, ddmn7, ddmmv and dee7t pass. ddmn7 and ddmmv fail on the lanes before the change: a fixed 4, no nice and no jobs line.
-
 - CICD reset: standard flags.
 	- ID: 2026102416300004
 	- Type: Task
@@ -1225,32 +1251,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261025: split into children 2026102517333367 (`cicd.bash`, the gate included) and 2026102517333373 (`cicd-win.ps1` and the other boxes).
 	- Test case: none yet.
-
-- CICD step output: `cicd-win.ps1` and the lanes on other boxes.
-	- ID: 2026102517333373
-	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: no
-	- Needs external testing: the native gate on vm925w, `pwsh cicd/cicd-win.ps1 -Gate -Yes`, for the step lines of a real run.
-	- Priority|Severity: High
-	- Opened: 20261025-173333
-	- Opened by: 2026102416300005
-	- Parent ID: 2026102416300005
-	- Requirements:
-		- `cicd-win.ps1`, its gate included, prints the same step lines as `cicd.bash`: the 79-dot rule, `Step N of M; Starting`, then `PASS` or `FAIL`, with local time to the hundredth, and the plan lists what's turned off.
-		- The FreeBSD and arm64 lanes and the private runner print the same form for their own steps. That part is in child 2026102819522603.
-	- Progress log:
-		- 20261028: `cicd-win.ps1` makes its plan first, from the same switches the steps read, so M is known at step 1. Each step opens under a 79-dot rule with a `Starting` line and closes `PASS` or `FAIL`. A step still open when the run stops, by a failure, a throw or Ctrl+C, closes as `FAIL`. The gate and the full run print the plan's step count and the steps turned off, each with its flag or reason.
-		- 20261028: split the lanes and the private runner into child 2026102819522603.
-	- Decisions:
-		- The steps are the old stages, plus the smoke checks, now their own step in the full run as in the gate: Remote sync, Lints, Build (debug), Tests, Smoke checks, Runtime bundle, Packages, Dogfood, Publish. The names match `cicd.bash`'s where the step is the same.
-		- A missing toolchain, `-NoBuild`, `-NoPack` and a missing Enigma Virtual Box turn steps off in the plan, rather than warning inside the step. Dogfood says which of those turned the pack off.
-		- The old inline "skipped" lines are gone, and so are the preflight lines that only said a step was skipped, since the plan lists those.
-		- The run's timestamps are written in the invariant culture, so a Thai or Hijri calendar doesn't change the year.
-	- Swept: `echo.bash`'s 74-dot rule, which the lanes use, went to the child. Nothing reads the old stage headers: `win-dogfood.bash`, the pre-push hook and their tests only run the script.
-	- Branch: round1028b
-	- Test case: dejjt (`cicd/utility/test-cicd-win.ps1`, lint stage: the gate and the full run with every step on, with steps turned off by each flag, a missing toolchain with and without `-BuildStrict`, no Enigma Virtual Box, and a step that fails, each checked for the rule, numbering, open and close lines and the turned-off list).
-	- Verified: 20261028, dejjt passes, and fails with a 78-dot rule, with no `FAIL` close on a failure, with a step left out of the plan, and with the last step left open. `cicd/cicd.bash --backlog-run-quick format lint` passes.
 
 - CICD reset: temp files and safe removal.
 	- ID: 2026102416300002
@@ -1965,36 +1965,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
 	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
 
-- The selection rules tests fail in a build image made from its recipe.
-	- ID: 2026102820481713
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The pipeline runs from `nemo-build-deps:init` until 2026102820195801 switches it, and that item runs the suite in the recipe image.
-	- Needs external testing: no
-	- Priority|Severity: High
-	- Opened: 20261028-204817
-	- Opened by: 2026102820195801
-	- Parent ID: 2026102820195801
-	- Related IDs: 2026102821124143
-	- Target OS: Linux
-	- Steps to reproduce: `NEMO_IMAGE=<image> bash cicd/utility/docker-run.bash seltest 'bash /src/cicd/linux/run-tests.bash "de8bd Selection rules test"'`, with an image built from `cicd/linux/Dockerfile.dev`.
-	- Incorrect behavior: de8bd, de8dm and dec8w fail, each on "Enter opens the selected folder" and "a double-click opens the folder", in the list, icon and compact views. The other 231 tests pass.
-	- Expected behavior: they pass, as they do in the hand-made `nemo-build-deps:init`.
-	- Reproduced: 20261028 on Linux, every run, in the pinned image of 2026102820195801 and in the unpinned `nemo-build-deps:latest` of 20260916. So it predates the pin.
-	- Reproduced: 20261028, from one build run in both images: the same binaries pass in `:init` and fail in the recipe image, so it is the image and not the build.
-	- Possible cause: something only the hand-made image has. Ruled out: the package versions, both images' extra packages, `/usr/local/bin/rar`, root's home, and `/etc` and the GLib, GIO, pixbuf and MIME caches, which match. Left: the image's 51 GB `/tmp` layer, which has stale display lock files, and file contents outside those dirs.
-	- Actual cause: the image's font cache. fontconfig keeps each font folder's mtime to the nanosecond, and the saved image keeps whole seconds, so the cache `fc-cache` made during the build reads as stale in every container. Each GTK program then rescans the fonts, and with `/` read-only in the jail it writes a cache of its own under `XDG_CACHE_HOME`, which the test points at `cache` in its home folder. That folder moves `config` and `data` down one place, and the test opens folders by place. `:init` had its caches rewritten in a running box, after the mtimes were rounded, so they match there.
-	- Actual fix: `Dockerfile.dev` rounds every font folder's mtime down to the second and then runs `fc-cache -f`, in a last layer of its own. The image tag moves to `nemo-build-deps:6af684408ce8`.
-	- Decisions:
-		- Fixed in the image rather than the test, since a stale font cache also makes every GTK program in the suite rescan the fonts at start. The test opening folders by place is 2026102821124143, a separate weakness, so it is related rather than a child.
-		- A plain `RUN fc-cache` doesn't do it: the build step still sees the nanoseconds, so its cache is as stale as the first.
-	- Swept: the release image `nemo-build-jammy:latest` writes no user font cache. Not checked: the Windows recipe image, not built yet (2026102820195917).
-	- Branch: round1028b
-	- Test case: de8bd, de8dm and dec8w, run in the recipe image.
-	- Verified: 20261028, de8bd, de8dm and dec8w fail in `nemo-build-deps:41986bd450ac`, and pass from the same build in that image with the font folders rounded and the cache rebuilt. With the edited recipe, `fc-list` writes no user cache and finds the same 113 fonts. The steps to reproduce with `nemo-build-deps:6af684408ce8` pass all 3, built in that image. dejma passes.
-	- Acceptance signoff: Self-closed: de8bd, de8dm and dec8w in the recipe image.
-	- Closed: 20261028-211327
-
 - SMB and SFTP networking is broken.
 	- ID: 2026101417352260
 	- Type: Bug
@@ -2044,6 +2014,36 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddytk, Share folder with a local path lists test. A folder that isn't on this machine but has a path, whose listing refuses that call the way gvfs's does, lists all 3 entries with its link followed, and one file there is looked at once, following links. dbee2, Network win32 test, test_smb_addresses: smb addresses taken as typed, parsed, as a uri and as an argument go to the UNC path, the server's share list or the network, with spaces, escapes, a user, domain and port, an IPv6 address, and upper case where typed. ddzxz, Connect to Server address scheme test: ssh and sftp addresses in any case lose the scheme with SSH chosen, other schemes and plain names are kept, and every alias gvfs's mount files declare is checked where gvfs is installed.
 	- Acceptance signoff: Self-closed: ssh is now a full alias for sftp everywhere, Connect to Server included, and the error seen was there (ddzxz). ddytk pins the smb and sftp listings, and dbee2 the Windows smb addresses, checked natively on vm925w with Connect to Server too. Asking only for server and share on Windows is how Windows connects, as the session.
 	- Closed: 20261025-155000
+
+- The selection rules tests fail in a build image made from its recipe.
+	- ID: 2026102820481713
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The pipeline runs from `nemo-build-deps:init` until 2026102820195801 switches it, and that item runs the suite in the recipe image.
+	- Needs external testing: no
+	- Priority|Severity: High
+	- Opened: 20261028-204817
+	- Opened by: 2026102820195801
+	- Parent ID: 2026102820195801
+	- Related IDs: 2026102821124143
+	- Target OS: Linux
+	- Steps to reproduce: `NEMO_IMAGE=<image> bash cicd/utility/docker-run.bash seltest 'bash /src/cicd/linux/run-tests.bash "de8bd Selection rules test"'`, with an image built from `cicd/linux/Dockerfile.dev`.
+	- Incorrect behavior: de8bd, de8dm and dec8w fail, each on "Enter opens the selected folder" and "a double-click opens the folder", in the list, icon and compact views. The other 231 tests pass.
+	- Expected behavior: they pass, as they do in the hand-made `nemo-build-deps:init`.
+	- Reproduced: 20261028 on Linux, every run, in the pinned image of 2026102820195801 and in the unpinned `nemo-build-deps:latest` of 20260916. So it predates the pin.
+	- Reproduced: 20261028, from one build run in both images: the same binaries pass in `:init` and fail in the recipe image, so it is the image and not the build.
+	- Possible cause: something only the hand-made image has. Ruled out: the package versions, both images' extra packages, `/usr/local/bin/rar`, root's home, and `/etc` and the GLib, GIO, pixbuf and MIME caches, which match. Left: the image's 51 GB `/tmp` layer, which has stale display lock files, and file contents outside those dirs.
+	- Actual cause: the image's font cache. fontconfig keeps each font folder's mtime to the nanosecond, and the saved image keeps whole seconds, so the cache `fc-cache` made during the build reads as stale in every container. Each GTK program then rescans the fonts, and with `/` read-only in the jail it writes a cache of its own under `XDG_CACHE_HOME`, which the test points at `cache` in its home folder. That folder moves `config` and `data` down one place, and the test opens folders by place. `:init` had its caches rewritten in a running box, after the mtimes were rounded, so they match there.
+	- Actual fix: `Dockerfile.dev` rounds every font folder's mtime down to the second and then runs `fc-cache -f`, in a last layer of its own. The image tag moves to `nemo-build-deps:6af684408ce8`.
+	- Decisions:
+		- Fixed in the image rather than the test, since a stale font cache also makes every GTK program in the suite rescan the fonts at start. The test opening folders by place is 2026102821124143, a separate weakness, so it is related rather than a child.
+		- A plain `RUN fc-cache` doesn't do it: the build step still sees the nanoseconds, so its cache is as stale as the first.
+	- Swept: the release image `nemo-build-jammy:latest` writes no user font cache. Not checked: the Windows recipe image, not built yet (2026102820195917).
+	- Branch: round1028b
+	- Test case: de8bd, de8dm and dec8w, run in the recipe image.
+	- Verified: 20261028, de8bd, de8dm and dec8w fail in `nemo-build-deps:41986bd450ac`, and pass from the same build in that image with the font folders rounded and the cache rebuilt. With the edited recipe, `fc-list` writes no user cache and finds the same 113 fonts. The steps to reproduce with `nemo-build-deps:6af684408ce8` pass all 3, built in that image. dejma passes.
+	- Acceptance signoff: Self-closed: de8bd, de8dm and dec8w in the recipe image.
+	- Closed: 20261028-211327
 
 - FreeBSD result lines put meson's project name in front of the test ID.
 	- ID: 2026102812032075
