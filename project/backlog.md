@@ -33,6 +33,63 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- The selection rules tests fail in a build image made from its recipe.
+	- ID: 2026102820481713
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261028-204817
+	- Opened by: 2026102820195801
+	- Parent ID: 2026102820195801
+	- Target OS: Linux
+	- Steps to reproduce: `NEMO_IMAGE=<image> bash cicd/utility/docker-run.bash seltest 'bash /src/cicd/linux/run-tests.bash "de8bd Selection rules test"'`, with an image built from `cicd/linux/Dockerfile.dev`.
+	- Incorrect behavior: de8bd, de8dm and dec8w fail, each on "Enter opens the selected folder" and "a double-click opens the folder", in the list, icon and compact views. The other 231 tests pass.
+	- Expected behavior: they pass, as they do in the hand-made `nemo-build-deps:init`.
+	- Reproduced: 20261028 on Linux, every run, in the pinned image of 2026102820195801 and in the unpinned `nemo-build-deps:latest` of 20260916. So it predates the pin.
+	- Possible cause: something only the hand-made image has. Ruled out: the package versions, both images' extra packages, `/usr/local/bin/rar`, root's home, and `/etc` and the GLib, GIO, pixbuf and MIME caches, which match. Left: the image's 51 GB `/tmp` layer, which has stale display lock files, and file contents outside those dirs.
+	- Test case: de8bd, de8dm and dec8w, run in the recipe image.
+
+- Pinned recipe for the Windows cross build image.
+	- ID: 2026102820195917
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261028-201959
+	- Opened by: 2026102617145788
+	- Parent ID: 2026102617145788
+	- Prereq IDs: 2026102820195801
+	- Requirements:
+		- `nemo-winbuild` comes from `cicd/win/Dockerfile`, with the base by digest, apt from a dated snapshot and the MSYS2 sysroot by version.
+		- It passes the cross build, packing and wine runs that `nemo-winbuild:init` passes, and the pipeline uses it in place of the snapshot.
+		- The snapshot has 2 packages and about 5 GB of later layers that the recipe lacks. The list is in the private notes.
+	- Test case: none yet.
+
+- Pinned recipe for the day-to-day build image.
+	- ID: 2026102820195801
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261028-201958
+	- Opened by: 2026102617145788
+	- Parent ID: 2026102617145788
+	- Prereq IDs: 2026102820481713
+	- Requirements:
+		- `nemo-build-deps` comes from `cicd/linux/Dockerfile.dev`, with the base by digest and apt from a dated snapshot.
+		- It passes the runs that `nemo-build-deps:init` passes, and the pipeline uses it in place of the snapshot.
+	- Progress log:
+		- 20261028: `Dockerfile.dev` pins trixie by digest, the base the old image was built on. apt reads the archive, the security and debug archives included, from snapshot.debian.org at 2026-10-19 22:00 UTC, the last time the old image was updated.
+		- 20261028: `docker-run.bash` runs each step from `nemo-build-deps:<hash>`, the hash taken over the Dockerfile, and builds it the first time that hash is seen. The fresh clone's `:latest` fallback is gone, since every clone now builds from the recipe. The run's docker sweep keeps the newest 2 tags.
+		- 20261028: the new image is 2.3 GB, where `:init` is 60.7 GB. gcc, clang, meson, GTK and GLib are the same versions, and the dbgsym packages match theirs. It differs from `:init` in security point releases from after 2026-09-16, and it lacks 2 packages nothing uses, b3sum and the gsf library. The build took about 7.5 min, mostly snapshot downloads.
+		- 20261028: in the new image the quick gate's lints pass, and the tests pass but for de8bd, de8dm and dec8w, which is 2026102820481713. That gap predates the pin, so the pinned `Dockerfile.dev` and dejma are on `round1028b`, and the switch of the pipeline's default image waits on branch `wip/round1028b-2026102820195801`.
+	- Decisions:
+		- The snapshot is the date of the old image's last update, not today, so the new image matches what passed before. The release image's pin was picked the same way, in 2026092813381427.
+		- Tagged by the recipe's hash, as `nemo-lint` is, so an edit to the recipe builds a new image on the next run.
+		- `nemo-build-deps:init` stays while the long-lived `nemo-build` box runs from it, and goes with that box.
+	- Swept: every reader of `nemo-build-deps:init` and `:latest` under `cicd/`: `docker-run.bash`, `test-docker-run.bash`, `test-docker-run-step.bash`, `test-docker-run-host.bash`, `test-fuzz-exit.bash` and `config.bash`, and design.md "Building on Linux". The Windows image is 2026102820195917, and the release image was pinned in 2026092813381427.
+	- Test case: dejma (`test-dev-image-pin.bash`, lint stage: the base by digest, every apt source on one dated snapshot before apt runs, and nothing left on the live archive). On the wip branch, defmw also checks that the tag follows the recipe, that a missing image is built from it with the labels, and that `NEMO_IMAGE` still wins.
+		- 20261028, on the wip branch: defky's no-image case expects `could not build image nemo-build-deps:<tag>`, where it expected `nemo-build-deps`.
+	- Verified: 20261028, dejma fails on the old `Dockerfile.dev` (3 problems) and on a debug source with another date, a security source left on the live archive, and no Valid-Until override, and passes on the new one. defmw fails on the old `docker-run.bash` (20 problems) and passes on the new one. The image builds from the recipe. `cicd/cicd.bash --backlog-run-quick` with every change: lints pass, ddagc and ddf32 among them in the new image, and the tests are 231 OK, 3 failed, 2 skipped, the 3 being 2026102820481713.
+
 - CICD step output: the private runner.
 	- ID: 2026102820110989
 	- Type: Task
@@ -977,7 +1034,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Every image comes from a pinned recipe in the repo, base by digest and tools by version.
 		- `nemo-build-deps:init` and `nemo-winbuild:init` are hand-made snapshots today. Their recipes have to make images that pass the same runs.
 		- `cicd/linux/Dockerfile.dev` and `cicd/win/Dockerfile` start from `debian:trixie` with no digest.
-	- Test case: none yet.
+	- Progress log:
+		- 20261028: split into children 2026102820195801 (the day-to-day image) and 2026102820195917 (the Windows cross build image). The release image was pinned in 2026092813381427, and the lint image in 2026101009515961.
+	- Test case: from the children, dejma and the Windows child's.
 
 - CICD reset: other hosts and VMs.
 	- ID: 2026102416300001
