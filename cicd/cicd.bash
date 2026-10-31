@@ -37,8 +37,13 @@
 ##	   --no-package        skip the packages stage (.deb/.rpm/installer)
 ##	   --no-private        skip the private runner (PRIVATE_RUNNER in config.bash)
 ##	   --no-remote         skip every step on another box: arm64, the FreeBSD
-##	                       lane, the private runner and remote dogfood, even
-##	                       with --include-arm or --include-bsd
+##	                       lane, the native Windows gate, the private runner
+##	                       and remote dogfood, even with --include-arm or
+##	                       --include-bsd
+##	   --no-win            leave the native Windows gate out. It runs
+##	                       cicd-win.ps1 -Gate on b29w alongside the local
+##	                       steps, or on vm925w in its own step when b29w
+##	                       isn't there
 ##	   --no-container      run on the host. The GTK dev stack never goes on
 ##	                       the host, so that's the lints, with the host's
 ##	                       tools, and the run stops with one line at the
@@ -65,7 +70,8 @@
 ##	                       profiler, the native and Windows release builds and
 ##	                       local dogfood. Skips what is slow or needs another
 ##	                       box: fuzzing, the static analyzers, packages, arm64,
-##	                       the FreeBSD lane, the private runner, remote dogfood,
+##	                       the FreeBSD lane, the native Windows gate, the
+##	                       private runner, remote dogfood,
 ##	                       scroll harness, screenshots, demo video. arm64 and
 ##	                       FreeBSD come back with --include-arm and
 ##	                       --include-bsd
@@ -184,7 +190,7 @@ include_bsd=""; no_bsd=0                                          ## empty = wha
 assume_yes=0; quick=0; long=0; gate=0; no_arm=0; no_fmt=0; include_arm=""; no_sync=0; allow_dirty=0; cli_message=""
 ## checks_only: --backlog-run-full or --merge-gate. run_mode names the one given,
 ## for the plan and the last line.
-checks_only=0; run_mode=""; alias_note=""; areas=(); no_remote=0
+checks_only=0; run_mode=""; alias_note=""; areas=(); no_remote=0; no_win=0
 known_areas="format lint tests"
 ## Whether the config has a remote dogfood at all, before any flag empties it.
 had_remote_df=0; declare -p DOGFOOD_REMOTE &>/dev/null && ((${#DOGFOOD_REMOTE[@]})) && had_remote_df=1
@@ -222,6 +228,7 @@ while (($#)); do case "$1" in
 	--demo)                   DEMO_ENABLE=1; shift ;;
 	--include-bsd)            include_bsd=1; shift ;;
 	--no-bsd)                 no_bsd=1; shift ;;                ## wins over --include-bsd
+	--no-win)                 no_win=1; shift ;;
 	--quick)                  quick=1; PACKAGE_ENABLE=0; shift ;;   ## the quick local steps only
 	--long|--slow)            long=1; shift ;;                  ## adds the arm64 lane
 	--message=*|--msg=*|-m=*) cli_message="${1#*=}"; shift ;;
@@ -245,8 +252,10 @@ fi
 ## Nothing on another box. Each step's own off switch, so the rest below reads
 ## them as before.
 if ((no_remote)); then
-	no_arm=1; no_bsd=1; PRIVATE_RUNNER=""; DOGFOOD_REMOTE=()
+	no_arm=1; no_bsd=1; no_win=1; PRIVATE_RUNNER=""; DOGFOOD_REMOTE=()
 fi
+declare -p WIN_GATE_SIDE_CMD &>/dev/null || WIN_GATE_SIDE_CMD=()   ## a config with no Windows box
+declare -p WIN_GATE_CMD &>/dev/null || WIN_GATE_CMD=()
 
 ## FreeBSD runs unless --quick, and arm64 only with --long, since its emulated box
 ## takes about 98 of a plain run's 152 minutes. Naming either one beats both flags.
@@ -510,9 +519,23 @@ trap 'rc=$?; printf "\n[ CICD ABORTED (exit %s) at line %s: %s ]\n" "$rc" "$LINE
 ## when DOCKER_SWEEP is on. The signal traps turn Ctrl+C into an exit, so the
 ## EXIT trap runs.
 fRunTemp_Make "${EXE_NAME}" "${stamp}" || fDie "could not make a run folder under ${HOST_TEMP:-${TMPDIR:-/tmp}}/${EXE_NAME}"
+## The native Windows gate alongside the local steps, from the build on. In a
+## session of its own, so a TERM reaches the lock's wrap and the lane under
+## it, which stop the gate and clear the box.
+winSidePid=""; winSideLog=""
+fWinSide_Stop(){
+	[[ -n "$winSidePid" ]] || return 0
+	if kill -0 "$winSidePid" 2>/dev/null; then
+		fEcho_Clean "stopping the native Windows gate"
+		kill -TERM -- "-${winSidePid}" 2>/dev/null || kill -TERM "$winSidePid" 2>/dev/null || true
+	fi
+	wait "$winSidePid" 2>/dev/null || true
+	winSidePid=""
+}
 fRunEnd(){
 	local rc=$?
 	if ((rc)) && [[ -n "$stepOpen" ]]; then fStep_Close FAIL; fEcho_Clean; fi
+	fWinSide_Stop || true
 	## || true: a docker hiccup here must not keep the folder from going.
 	if ((${DOCKER_SWEEP:-0})); then fDockerSweep "${CICD_CONTAINERS[@]}" || true; fi
 	fRunTemp_Done || true
@@ -598,6 +621,8 @@ run_cross=$((run_release && BUILD_CROSS && ${#CROSS_TARGETS[@]} > 0))
 run_bsd_tests=$((include_bsd && ${#BSD_TEST_CMD[@]} > 0))
 run_bsd_release=$((run_release && include_bsd && ${#BSD_RELEASE_CMD[@]} > 0))
 bsd_why="$(remote_why "not set up")"; ((no_bsd && ! no_remote)) && bsd_why="--no-bsd"
+run_win=$((! quick && ! no_win && ${#WIN_GATE_SIDE_CMD[@]} + ${#WIN_GATE_CMD[@]} > 0))
+win_why="$(remote_why "not set up")"; ((no_win && ! no_remote)) && win_why="--no-win"
 run_private=0; priv_why="not checked out"
 if   ((quick));     then priv_why="--quick"
 elif ((no_remote)); then priv_why="--no-remote"
@@ -629,6 +654,7 @@ fi
 [[ -z "$arm_why" ]] || ((! (run_release && BUILD_CROSS) )) || fPlan 0 "Release build: ${arm_label}" "$arm_why"
 ((${#BSD_RELEASE_CMD[@]})) && fPlan "$run_bsd_release" "Release build: FreeBSD" "$bsd_why"
 ((${#ANALYZE_CMD[@]})) && fPlan "$((! quick))" "Static analyzers" "--quick"
+((${#WIN_GATE_SIDE_CMD[@]} + ${#WIN_GATE_CMD[@]})) && fPlan "$run_win" "Native Windows gate" "$win_why"
 pkg_why="--no-package"; ((quick)) && pkg_why="--quick"
 fPlan "$((PACKAGE_ENABLE && ! quick))"  "Packages"              "$pkg_why"
 fPlan "$run_private"                    "Private runner"        "$priv_why"
@@ -690,6 +716,11 @@ elif ((quick)); then
 	fEcho_Clean "FreeBSD .............: (skipped --quick)"
 else
 	fEcho_Clean "FreeBSD .............: (not set up)"
+fi
+if ((run_win)); then
+	fEcho_Clean "Native Windows ......: ${WIN_GATE_SIDE_CMD[*]:-(none)} alongside, then ${WIN_GATE_CMD[*]:-(none)} if no box"
+elif ((${#WIN_GATE_SIDE_CMD[@]} + ${#WIN_GATE_CMD[@]})); then
+	fEcho_Clean "Native Windows ......: (skipped ${win_why})"
 fi
 if ((PROFILE_ENABLE)); then
 	fEcho_Clean "Profiler ............: ${PROFILE_SECS}s run -> flamegraph SVG (headless)"
@@ -812,6 +843,17 @@ if ((no_container)); then
 fi
 
 ## Stage 2: debug build.
+## The gate works from the commit, not this build, so it starts here.
+if ((run_win && ! no_container && ${#WIN_GATE_SIDE_CMD[@]})); then
+	winSideLog="${runTempDir}/win-gate.log"
+	if command -v setsid >/dev/null 2>&1; then
+		setsid "${WIN_GATE_SIDE_CMD[@]}" > "$winSideLog" 2>&1 < /dev/null &
+	else
+		"${WIN_GATE_SIDE_CMD[@]}" > "$winSideLog" 2>&1 < /dev/null &
+	fi
+	winSidePid=$!
+	fEcho_Clean "Native Windows gate started alongside, pid ${winSidePid}, log ${winSideLog}"
+fi
 fStep "Build (debug)"
 "${DEBUG_BUILD_CMD[@]}"
 fEcho "OK: debug build"
@@ -1046,6 +1088,25 @@ run_package_checks(){
 		esac
 	done
 }
+## 77 from the side one: b29w isn't there, so the next box gets its own step,
+## since vm925w is a VM on this box and would share its CPUs.
+if ((run_win)); then
+	fStep "Native Windows gate"
+	win_rc=77
+	if [[ -n "$winSidePid" ]]; then
+		tail -n +1 -f --pid="$winSidePid" "$winSideLog" || true
+		win_rc=0; wait "$winSidePid" || win_rc=$?
+		winSidePid=""
+	fi
+	if ((win_rc == 77 && ${#WIN_GATE_CMD[@]})); then
+		win_rc=0; "${WIN_GATE_CMD[@]}" || win_rc=$?
+	fi
+	case "$win_rc" in
+		0)  fEcho "OK: native Windows gate" ;;
+		77) fStep_Skip ;;
+		*)  fDie "native Windows gate (exit ${win_rc})" ;;
+	esac
+fi
 if ((PACKAGE_ENABLE && ! quick)); then
 	fStep "Packages"
 	build_packages

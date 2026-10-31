@@ -33,6 +33,47 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Other hosts: native Windows checks that put a window on screen run on vm925w.
+	- ID: 2026103114202730
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261031-142027
+	- Opened by: 2026102808250959
+	- Parent ID: 2026102808250959
+	- Prereq IDs: 2026103114202710
+	- Requirements:
+		- The gate on b29w runs over ssh with no desktop, so its windowed tests skip. Those run again in a desktop session on vm925w, as its test user, and on b29w under its test account when vm925w isn't there.
+		- The VM is put back the way it was found. Neither box there is a `SKIP`.
+	- Test case: none yet.
+
+- Other hosts: the native Windows gate runs on b29w in the default run.
+	- ID: 2026103114202710
+	- Type: Task
+	- Status: Waiting on automated testing
+	- Priority|Severity: High
+	- Opened: 20261031-142027
+	- Opened by: 2026102808250959
+	- Parent ID: 2026102808250959
+	- Requirements:
+		- A plain run and `--backlog-run-full` run `cicd-win.ps1 -Gate -Yes` on b29w, from a bundle of the commit the run is on. With b29w not there, vm925w, started and put back through the VM state helper. Neither there is a `SKIP`. `--quick` and `--no-remote` leave it out.
+		- It runs in its own folder under the box's temp root, removed at the end, and stale ones of its own are removed too.
+		- It adds little to a run's time.
+	- Needs local test suite run?: a full run, `--backlog-run-full --no-private`: the native Windows gate step, with b29w there, its log in that step, and the run's time against the 2026-10-29 run's.
+	- Decisions:
+		- b29w is another machine, so its gate starts alongside the local steps, at the debug build, and is waited for in a step of its own before the packages. vm925w is a VM on this box, so it runs only in that step, when b29w isn't there, since side by side it would take the run past half the CPUs.
+		- What goes is a bundle of HEAD, as for the Windows dogfood, since the box needs commits to clone. An uncommitted edit isn't in it, and the run says so. A round commits before its full run.
+		- It runs as the ssh login, with no desktop, started outside the ssh session so a dropped connection doesn't stop it, and its log is read every 30 s. `-Gate -Yes -NoSync`, since the run has synced already.
+		- The removal and the stale sweep there take only a `<YYYYmmDD-HHMMSS>_<NNN>` folder right under `%TEMP%\nemo-anywhere`, never a link, and stop the gate's process tree first. A TERM or a failure here does the same.
+		- With no host lock on this box it's a `SKIP`, as for the dogfood, since a box is never reached outside the lock.
+		- A gate that exits 77 is a failure, since 77 is the lane's own skip.
+		- `--no-win` leaves it out, beside `--no-bsd`.
+	- Swept: the other lanes that reach a box (the FreeBSD lane, the arm64 release, the Windows dogfood): each already skips with 77 or returns, and none runs alongside. The `--no-remote` and `--quick` help and design.md's flag bullets name the gate.
+	- Branch: round1031a
+	- Test case: depg0, the lane: b29w first by that name, then vm925w through the VM state helper, the work folder and its name, the gate's switches, its log and exit code, removal after a failure or a TERM, and 77 with no box. ddmmw, the step: the side command alongside, the other only after a 77, `SKIP`, a failing gate stops the run, and `--quick`, `--no-win` and `--no-remote`.
+	- Verified: 20261031, depg0 and ddmmw pass. ddmmw fails 16 checks against the old `cicd.bash`. depg0 fails 4 with the removal and the skip broken, and 1 on the work folder line before its fix.
+	- Verified: 20261031, the lane alone on b29w at e28a25b6, with `-Gate -Yes -NoSync -NoFmt`: the folder made, the gate run in 959 s with its lines printed here, its exit code 1 read back from the 4 failures already on dev (2026102822580302), 190 OK, 19 skipped, and the folder removed. `--backlog-run-quick` lints and tests pass.
+
 - Windows cross build image: the steps run from the recipe.
 	- ID: 2026103113501545
 	- Type: Task
@@ -1025,6 +1066,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The VM is put back the way it was found, through the VM state helper.
 		- Overrides: the native Windows step in the private round settings, run by hand. The rule sending windowed checks to vm925w stays.
 	- Test case: none yet.
+	- 20261031: split into children. The gate on b29w in the default run is 2026103114202710, the windowed checks on vm925w 2026103114202730.
 
 - CICD reset: CPU and priority.
 	- ID: 2026102416300003
