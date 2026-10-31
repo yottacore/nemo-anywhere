@@ -604,7 +604,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD step output: the private runner.
 	- ID: 2026102820110989
 	- Type: Task
-	- Status: Queued
+	- Status: Stalled
 	- Priority|Severity: High
 	- Opened: 20261028-201109
 	- Opened by: 2026102819522603
@@ -615,12 +615,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The private runner is in the private repo, which has branches of its own.
 	- Progress log:
 		- 20261028: split from 2026102819522603, whose lanes part is done.
+		- Held for the private repo's round, since the runner and its branches are there.
 	- Test case: none yet.
 
 - CICD CPU: the private runner.
 	- ID: 2026102820110967
 	- Type: Task
-	- Status: Queued
+	- Status: Stalled
 	- Priority|Severity: High
 	- Opened: 20261028-201109
 	- Opened by: 2026102517333362
@@ -631,6 +632,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The private runner is in the private repo, which has branches of its own.
 	- Progress log:
 		- 20261028: split from 2026102517333362, whose lanes part is done.
+		- Held for the private repo's round, since the runner and its branches are there.
 	- Test case: none yet.
 
 - Nemo Anywhere dim checkmarks: the icon view.
@@ -847,7 +849,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Builds clean up stale artifacts and side-effects.
 	- ID: 2026101910075400
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261019-100754
 	- Opened by: t00mietum
@@ -866,12 +868,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Overrides: the list of images to keep, in the private notes under the dev and test boxes.
 	- Progress log:
 		- 20261025: split into children 2026102516403487 (labels and the sweep at the end of a run), 2026102516403492 (a container per step) and 2026102516403497 (one pass over what came before labels).
-	- Test case: none yet.
+		- 20261031: closed with its 3 children. Temp folders stay with 2026102416300002.
+	- Test case: dee6z and ddrpf (labels and the sweep), defmw, defps, ddmmv and ddmvx (a container per step), from the children.
+	- Closed: 20261031
 
 - Container cleanup: a container per step.
 	- ID: 2026102516403492
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261025-164035
 	- Opened by: 2026101910075400
@@ -883,7 +887,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Cache volumes stay under 2 GB.
 	- Progress log:
 		- 20261026: split into children 2026102617253209 (the day-to-day build and tests), 2026102617253214 (the Windows cross build) and 2026102617253220 (the release build).
-	- Test case: none yet, from the children.
+		- 20261031: closed with its 3 children.
+	- Test case: defmw, ddagc (day-to-day build and tests), defps (cross build, and no script names a long-lived box), ddmmv and ddmvx (release build), from the children.
+	- Closed: 20261031
 
 - CICD reset: containers.
 	- ID: 2026102416300000
