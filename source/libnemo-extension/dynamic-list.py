@@ -21,7 +21,7 @@ for line in listing.splitlines():
 if not names:
     sys.exit("dynamic-list.py: no symbols found in " + archive)
 
-with open(out, "w") as f:
+with open(out, "w", encoding="utf-8") as f:
     if ld64:
         # nm already gives the Mach-O names, underscore and all.
         f.write("".join(name + "\n" for name in sorted(names)))

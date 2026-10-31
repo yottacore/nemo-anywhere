@@ -586,13 +586,16 @@ find_backing_by_contents (const char *data, gsize data_len)
 		while (found == NULL && (name = g_dir_read_name (items)) != NULL) {
 			char *path, *contents = NULL;
 			gsize length = 0;
+			GStatBuf st;
 
 			if (!g_str_has_prefix (name, "$R")) {
 				continue;
 			}
 
+			/* Sized first: an admin reads every user's bin, gigabytes of it. */
 			path = g_build_filename (sid_dir, name, NULL);
-			if (g_file_test (path, G_FILE_TEST_IS_REGULAR) &&
+			if (g_stat (path, &st) == 0 && (guint64) st.st_size == data_len &&
+			    g_file_test (path, G_FILE_TEST_IS_REGULAR) &&
 			    g_file_get_contents (path, &contents, &length, NULL) &&
 			    length == data_len &&
 			    memcmp (contents, data, length) == 0) {

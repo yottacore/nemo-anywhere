@@ -387,6 +387,13 @@ main (int argc, char *argv[])
 	gsize i;
 
 	gtk_init_check (&argc, &argv);
+	/* With no Explorer in the session, as in session 0 over ssh, the shell
+	   keeps its icon cache from in here, and moves files in the real
+	   profile. */
+	if (GetShellWindow () == NULL) {
+		g_print ("SKIP: no shell running in this session\n");
+		return 77;
+	}
 
 	dir = test_scratch_dir ("nemo-shell-icon-XXXXXX", NULL);
 	g_assert (dir != NULL);

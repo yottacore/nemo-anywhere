@@ -188,7 +188,7 @@ def display_taken(num):
     if not lock.exists():
         return False
     try:
-        pid = int(lock.read_text().strip())
+        pid = int(lock.read_text(encoding="utf-8").strip())
     except (ValueError, OSError):
         return True                            # unreadable: treat as taken
     try:
@@ -360,7 +360,7 @@ class Rec:
         # nearly all white.
         self.strut = subprocess.Popen([sys.executable, "-c", BAND_STRUT,
             str(self.size[0]), str(self.band)], env=self.env(),
-            stdout=subprocess.DEVNULL, stderr=open(self.work / "strut.log", "w"))
+            stdout=subprocess.DEVNULL, stderr=open(self.work / "strut.log", "w", encoding="utf-8"))
         time.sleep(0.6)
         if self.strut.poll() is not None:
             log("WARNING: could not reserve the caption band (see strut.log)")
@@ -386,7 +386,7 @@ class Rec:
             f'xfconf-query -c xfwm4 -p /general/theme --create -t string -s "{theme}"; '
             f'xfconf-query -c xfwm4 -p /general/title_font --create -t string -s "Lato Bold {title_pt}"; '
             'xfconf-query -c xfwm4 -p /general/button_layout --create -t string -s "O|HMC"; '            f"exec {wm}"],
-            env=self.wm_env(), stdout=open(self.work / "wm.log", "w"),
+            env=self.wm_env(), stdout=open(self.work / "wm.log", "w", encoding="utf-8"),
             stderr=subprocess.STDOUT, start_new_session=True)
 
     def stop_wm(self):
@@ -438,7 +438,7 @@ class Rec:
             "-c:v", "libx264", "-preset", "ultrafast", "-qp", "0",
             "-pix_fmt", "yuv444p", str(self.raw)],
             env=self.env(), stdin=subprocess.DEVNULL,
-            stderr=open(self.work / "ffmpeg.log", "w"))
+            stderr=open(self.work / "ffmpeg.log", "w", encoding="utf-8"))
         # flash only once frames are actually flowing - a slow-opening ffmpeg would
         # otherwise miss the sync flash and break the whole AV anchor
         prog = self.work / "ffprogress.txt"
@@ -520,7 +520,7 @@ class Rec:
             cmd.append(uri)
         self.launch_e = time.time()
         self.app = subprocess.Popen(cmd, env=self.app_env(),
-            stdout=open(self.work / "nemo.log", "w"), stderr=subprocess.STDOUT)
+            stdout=open(self.work / "nemo.log", "w", encoding="utf-8"), stderr=subprocess.STDOUT)
         self.win = self.wait_for_window()
         self.place_window(self.win)
         time.sleep(2.5)

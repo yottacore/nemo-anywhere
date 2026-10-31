@@ -21,7 +21,12 @@ extend-exclude = [
 # Narrow on purpose. W191 and E101 are the indentation rules this config is
 # really for; F and the E7/E9 group are the ones that catch a real mistake.
 # The rest of pycodestyle is whitespace opinion and is not worth the churn.
-select = ["W191", "E101", "E7", "E9", "F"]
+# PLW1514: open() with no encoding takes the locale's, which is cp1252 under
+# Windows Python, and these scripts read UTF-8. It's a preview rule, so preview
+# is on for the rules named here only.
+select = ["W191", "E101", "E7", "E9", "F", "PLW1514"]
+preview = true
+explicit-preview-rules = true
 
 [tool.ruff.format]
 indent-style = "space"
