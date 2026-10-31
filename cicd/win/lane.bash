@@ -145,7 +145,7 @@ fGate(){
 		rc="$(fOnBox "if exist ${dirW}\\run.rc type ${dirW}\\run.rc" 2> /dev/null | tr -d '\r' || true)"
 		[[ -z "$rc" ]] || break
 		## Gone with no rc: it died.
-		if ! fOnBox "tasklist /fi \"PID eq ${pidW}\" /nh" 2> /dev/null | grep -qw "$pidW"; then
+		if ! grep -qw "$pidW" <<< "$(fOnBox "tasklist /fi \"PID eq ${pidW}\" /nh" 2> /dev/null || true)"; then
 			rc="$(fOnBox "if exist ${dirW}\\run.rc type ${dirW}\\run.rc" 2> /dev/null | tr -d '\r' || true)"
 			[[ -n "$rc" ]] || fDie "the gate on ${box} ended with no exit code"
 			break

@@ -16,7 +16,7 @@
 ##		  %TEMP%\nemo-anywhere, and never one that is a link.
 ##	History: At bottom of script.
 
-##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT

@@ -121,10 +121,11 @@ if ((laneRc == 0)); then
 	grep -q '^lock wrap b29w ' "$log" || fFail "b29w was not taken through the wrap: $(cat "$log")"
 	! grep -q 'b29w-wif\|vm925w' "$log" || fFail "another box was touched while b29w was there"
 	grep -qE "^ssh b29w mkdir ${dirRe}001\$" "$log" || fFail "no work folder _001 under the box's temp root"
+	# shellcheck disable=SC1003  ## a Windows folder, trailing backslash and all
 	grep -qF 'work folder b29w:C:\Users\t\AppData\Local\Temp\nemo-anywhere\' "${scratch}/out.log" || fFail "the work folder's path was not printed as it is"
 	if [[ -f "${scratch}/sent/round.bundle" ]]; then
 		git -C "$repo" bundle verify -q "${scratch}/sent/round.bundle" > /dev/null 2>&1 || fFail "what was sent is not a bundle of this repo"
-		git bundle list-heads "${scratch}/sent/round.bundle" | grep -q "^${head} HEAD\$" || fFail "the bundle is not of HEAD"
+		grep -q "^${head} HEAD\$" <<< "$(git bundle list-heads "${scratch}/sent/round.bundle")" || fFail "the bundle is not of HEAD"
 	else
 		fFail "no bundle was sent"
 	fi
