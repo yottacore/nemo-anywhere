@@ -950,7 +950,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD reset: containers.
 	- ID: 2026102416300000
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261024-163000
 	- Opened by: t00mietum
@@ -965,9 +965,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- File list in the private notes.
 	- Progress log:
 		- 20261026: split into children 2026102617145688 (the host fallback) and 2026102617145788 (pinned image recipes). `--no-container` is 2026102516295605.
+		- 20261031: closed with its 2 children.
 	- Decisions:
 		- 20261026: nothing in a container has the real desktop, a GPU or another platform as its point. Windows is checked natively on vm925w, and FreeBSD and arm64 on their own boxes.
-	- Test case: defky, de54r, from the children. The recipes child names its own.
+	- Test case: defky and de54r (the host fallback), dejma, depf5 and defps (pinned image recipes), from the children.
+	- Closed: 20261031
 
 - Container images from pinned recipes.
 	- ID: 2026102617145788
