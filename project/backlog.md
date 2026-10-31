@@ -33,6 +33,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- The desktop tests step fails on b29w: wintest can't Set-Location into a run folder under collierjr's %TEMP%.
+	- ID: 2026103116395639
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261031-163956
+	- Opened by:
+	- Related IDs: 2026103114202730
+	- Progress log:
+		- 20261031: tried in 2026103114202730, code on `wip/round1031a-2026103114202730` (84161052). The gate passed (191 OK, 22 skipped), the 22 went to a `schtasks /it /ru wintest` task, and `cicd-win.ps1` stopped at `Set-Location -LiteralPath $Root` with access denied on `C:\Users\collierjr\AppData`. wintest has Modify on the run folder, but PowerShell reads each folder above it.
+		- Options: a run folder both users can reach, outside collierjr's profile; or pass whole paths and `-WorkingDirectory` so nothing does a `Set-Location` there. Granting wintest list rights on the profile changes its permissions, so leave that out.
+	- Test case: depg0 and dejjt, then the lane on b29w with the desktop step passing.
+
 - Other hosts: native Windows checks that put a window on screen run on vm925w.
 	- ID: 2026103114202730
 	- Type: Task
@@ -41,7 +54,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261031-142027
 	- Opened by: 2026102808250959
 	- Parent ID: 2026102808250959
-	- Prereq IDs: 2026103114202710
+	- Prereq IDs: 2026103116395639
 	- Requirements:
 		- The gate on b29w runs over ssh with no desktop, so its windowed tests skip. Those run again in a desktop session on vm925w, as its test user, and on b29w under its test account when vm925w isn't there.
 		- The VM is put back the way it was found. Neither box there is a `SKIP`.
@@ -60,6 +73,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: wip/round1031a-2026103114202730
 	- Verified: 20261031, depg0 and dejjt pass on the wip branch. depg0 fails 9 checks against the round branch's `lane.bash`, and dejjt 6 against its `cicd-win.ps1`. `--backlog-run-quick` passes.
 	- 20261031, on b29w, 3 lane runs of the wip changes, `-Gate -Yes -NoSync -NoFmt`: the third gate passed, 191 OK and 22 skipped, the 22 went to the box, and the task ran as wintest in its desktop session. It failed as above. The first 2 gates failed on 2026103116203164 and 2026103116284963, so no desktop step ran.
+	- 20261031: failed its try this round. Held behind 2026103116395639. Its code is on `wip/round1031a-2026103114202730`.
 
 - Other hosts: with the native gate on b29w, its windowed tests go to vm925w when it's there.
 	- ID: 2026103116203063
