@@ -70,6 +70,8 @@ cat > "${scratch}/x_vm-state.bash" <<-EOF
 		state=-; [[ " \${FAKE_VMS:-} " == *" \$2 "* ]] && state=off
 		printf 'host guest state note\n%s %s %s\n' "\$2" "\$2" "\$state"; exit 0
 	fi
+	## Nobody holds anything.
+	[[ "\${1:-}" != check ]] || exit 1
 	echo "lock \$*" >> "${log}"
 	while ((\$#)) && [[ "\$1" != -- ]]; do shift; done
 	shift

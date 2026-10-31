@@ -18,8 +18,9 @@
 ##	  The lane then waits for its own user to log in, since that can lag right
 ##	  after a boot, and for its clock to agree with this one, since a VM
 ##	  resumed from paused keeps the time it stopped at. A box that does not
-##	  answer in time, or whose clock stays off, is an error. One that isn't
-##	  there at all, and isn't a VM here, exits 77, a skip.
+##	  answer in time, or whose clock stays off, is an error. One that doesn't
+##	  answer at all exits 77, a skip, unless it's a paused or off VM here, or
+##	  another session holds it. A VM that's running with no network is a skip.
 ##	- The build and the suite run there under nice 19, with jobs worked out
 ##	  from that box's own CPU count and load, the same way as for a step here
 ##	  (include/jobs.bash), just before they start.
