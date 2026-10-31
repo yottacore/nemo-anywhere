@@ -36,7 +36,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Windows cross build image: the steps run from the recipe.
 	- ID: 2026103113501545
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261031-135015
 	- Opened by: 2026102820195917
@@ -46,7 +46,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- `win-box.bash` runs each step from `nemo-winbuild:<hash>`, the hash taken over the recipe's files, and builds it the first time that hash is seen, the way `docker-run.bash` does for `nemo-build-deps`.
 		- The cross build, packing, the setup exe check, the GUI smoke check, ddf31 and the Windows analyzer lane pass from it, as they do from `nemo-winbuild:init`.
 		- Every reader of `nemo-winbuild:init` under `cicd/` and `utility/`, and design.md's build sections, follow.
-	- Test case: none yet.
+	- Progress log:
+		- 20261031: `win-box.bash` runs each step from `nemo-winbuild:<hash>`, the hash over `cicd/win/Dockerfile`, `fetch-sysroot.bash`, `sysroot-pins.txt`, `win64.cross.txt` and `run-temp.bash`, and builds it with its labels the first time that hash is seen. `NEMO_WIN_IMAGE` still wins, and one it can't find stops the step without a build. The fresh clone's `nemo-winbuild-deps:latest` is gone, since every clone builds from the recipe now.
+		- 20261031: from `nemo-winbuild:e7e0906e6d1f` the cross build relinked 192 targets in the volume in 177 s at 8 jobs, and the GUI smoke check, both packers and the setup exe check passed.
+	- Decisions:
+		- Tagged by the recipe's hash, as `nemo-build-deps` is, so an edit to any file the image copies in builds a new image on the next run.
+		- `nemo-winbuild:init` stays while the long-lived `nemo-winbuild` box runs from it, and goes with that box, as for `nemo-build-deps:init` in 2026102820195801.
+		- ddf31 still skips in a lint stage that runs before the first cross build from a new tag, as it did on a fresh clone, rather than have the lint stage build the image.
+	- Swept: every reader of `nemo-winbuild:init`, `nemo-winbuild-deps` and `fWinBox_Image` under `cicd/` and `utility/`: `win-box.bash`, `test-win-run.bash`, `test-gui-smoke.bash`, `build-cross.bash`, `pack-zip.bash`, `pack-setup.bash`, `win-run.bash`, `run-windows-build-via-wine.bash` and `cicd-win.ps1`, and design.md "Building on Windows".
+	- Test case: defps (`cicd/win/test-win-run.bash`) checks the tag follows the recipe and each file it copies in, that a missing image is built from `cicd/` with the labels, and that `NEMO_WIN_IMAGE` still wins and a missing one isn't built. da73c, ddf31, ddmn8 and de8es run from the new image.
+		- 20261031: defps's fresh-clone case expects the recipe's tag where it expected `nemo-winbuild-deps:latest`, and its no-image case `could not build image nemo-winbuild:<tag>`.
+	- Verified: 20261031, defps fails on the old `win-box.bash` (23 problems), on a hash that leaves out `sysroot-pins.txt`, and with `NEMO_WIN_IMAGE` ignored, and passes on the new one. From `nemo-winbuild:e7e0906e6d1f`: `build-cross.bash` and dcvpj, da73c, `pack-zip.bash`, `pack-setup.bash`, ddmn8, ddf31, and the analyzer self-test with the gcc planted faults found in the Windows lane. `cicd/cicd.bash --backlog-run-quick format lint` passed. No step container was left.
+	- Closed: 20261031-141500
 
 - Windows cross build image: the recipe pinned.
 	- ID: 2026103113501526
@@ -631,7 +642,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Pinned recipe for the Windows cross build image.
 	- ID: 2026102820195917
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261028-201959
 	- Opened by: 2026102617145788
@@ -642,8 +653,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- It passes the cross build, packing and wine runs that `nemo-winbuild:init` passes, and the pipeline uses it in place of the snapshot.
 		- The snapshot has 2 packages and about 5 GB of later layers that the recipe lacks. The list is in the private notes.
 	- Progress log:
-		- 20261031: split into children 2026103113501526 (the recipe pinned) and 2026103113501545 (the steps run from it).
-	- Test case: from the children.
+		- 20261031: split into children 2026103113501526 (the recipe pinned) and 2026103113501545 (the steps run from it). Both are done.
+	- Test case: from the children, depf5 and defps.
+	- Closed: 20261031-141500
 
 - CICD step output: the private runner.
 	- ID: 2026102820110989
