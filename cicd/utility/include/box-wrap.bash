@@ -24,9 +24,11 @@
 ##	  newer than the sources. The VM state helper sets the clock as it wakes a
 ##	  guest; this catches the cases it can't, or the bare host lock.
 ##	- fBoxWrap_IsThere <name> <target> <tool> [ssh opt]... -> 1 when the box
-##	  isn't there: not a VM the VM state helper <tool> can start, and ssh gets
-##	  no answer at all. A login or command that fails still counts as there, so
-##	  the lane fails on it rather than skipping.
+##	  isn't there: ssh gets no answer at all, and it's neither a paused or off
+##	  VM the VM state helper <tool> can wake, nor held by another session in
+##	  the host lock. So a VM that's running but has no network is a skip in
+##	  seconds, not a 10 min wait. A login or command that fails still counts as
+##	  there, so the lane fails on it rather than skipping.
 ##	- fBoxWrap_Jobs <pin> <target> [ssh opt]... -> sets boxJobs, the build and
 ##	  test jobs for that box, from its own CPU count and load by the rules in
 ##	  jobs.bash, or <pin> when that's set, and prints the count the way
@@ -53,13 +55,26 @@ fBoxWrap_Tool(){
 	echo "$tool"
 }
 
+## Held by some other session. A box mid-reboot under someone else is waited for, not skipped.
+fBoxWrap_HeldElsewhere(){
+	local name="$1" tool="$2" lock='' st=''
+	if [[ "$tool" == *windows-host-lock.bash ]]; then lock="$tool"
+	else for lock in "${tool%/*}"/*windows-host-lock.bash; do break; done; fi
+	[[ -f "$lock" ]] || return 1
+	bash "$lock" check "$name" > /dev/null 2>&1 && return 1
+	st="$(bash "$lock" status 2> /dev/null | awk -v h="$name" '$1 == h {print $2; exit}')" || true
+	[[ "$st" == held ]]
+}
+
 fBoxWrap_IsThere(){
 	local name="$1" target="$2" tool="$3" err='' st=''
 	shift 3
 	if [[ "$tool" == *vm-state.bash && -f "$tool" ]]; then
 		st="$(bash "$tool" status "$name" 2> /dev/null | awk -v h="$name" '$1 == h {print $3}')" || true
-		[[ -z "$st" || "$st" == - ]] || return 0
+		## Paused or off gets woken by the helper. Running has to answer now.
+		[[ -z "$st" || "$st" == - || "$st" == running ]] || return 0
 	fi
+	fBoxWrap_HeldElsewhere "$name" "$tool" && return 0
 	## The first ConnectTimeout given wins, so a paused box isn't waited on long.
 	err="$(ssh -o ConnectTimeout=8 "$@" "$target" exit 2>&1 > /dev/null < /dev/null)" && return 0
 	case "$err" in
@@ -141,3 +156,5 @@ fBoxWrap_Jobs(){
 ##		  after a boot. fBoxWrap_IsThere, so a box that isn't there is a skip.
 ##		  fBoxWrap_ClockReady, since a resumed guest keeps its old clock.
 ##		- 2026-10-28: fBoxWrap_Jobs, so a lane works out its box's jobs there.
+##		- 2026-10-31: A running VM that doesn't answer, and that nobody else
+##		  holds, isn't there. vmFreeBSD cost 2 10-minute waits that way.

@@ -20,7 +20,8 @@
 ##	  - A VM still booting is waited for. One that never answers, or a box that
 ##	    isn't FreeBSD, fails before anything is sent, the second without the
 ##	    wait. A box that isn't there, and isn't a VM here, exits 77 before the
-##	    lock is taken.
+##	    lock is taken. So does a VM that's running but doesn't answer, in
+##	    seconds, unless another session holds it.
 ##	  - A box whose clock is hours behind, as a VM resumed from paused is,
 ##	    fails before anything is sent, and so does one that is ahead. One whose
 ##	    clock is set a moment after the resume is waited for.
@@ -151,6 +152,7 @@ cp "${box}/\${1#*:}" "\$2"
 EOF
 cat > "${shim}/lock.bash" <<EOF
 #!/usr/bin/env bash
+case "\${1:-}" in check) exit 1 ;; status) echo "  \${2:-vmFreeBSD}  free"; exit 0 ;; esac
 printf '%s\n' "\$*" >> "${scratch}/lock.log"
 while [[ "\${1:-}" != -- ]]; do shift; done
 shift
@@ -164,6 +166,15 @@ printf '%s\n' "\$*" >> "${scratch}/vm-state.log"
 while [[ "\${1:-}" != -- ]]; do shift; done
 shift
 exec "\$@"
+EOF
+## Beside the helper, as on the box, so the lane can ask who holds it. FAKE_HELD: someone else.
+cat > "${shim}/x_windows-host-lock.bash" <<'EOF'
+#!/usr/bin/env bash
+case "${1:-}" in
+	check) exit 1 ;;
+	status) if [[ -n "${FAKE_HELD:-}" ]]; then echo "  vmFreeBSD  held by someone since 08:00"; else echo "  vmFreeBSD  free"; fi; exit 0 ;;
+esac
+exit 2
 EOF
 chmod +x "${shim}/ssh" "${shim}/scp" "${scratch}/boxbin/"*
 
@@ -296,6 +307,26 @@ elif [[ "$(wc -l < "${scratch}/lock.log")" != "$locks" ]]; then fFail "the lock 
 else fEcho "OK: a box that isn't there is a skip"
 fi
 [[ -e "${box}/nemo-anywhere-ci/src/stale.txt" ]] || fFail "the tree was touched on a box that isn't there"
+
+## A VM that's running but never answers, and nobody else holds: a skip in
+## seconds, rather than the helper's boot wait.
+rm -f "${scratch}/ssh-tries"
+: > "${scratch}/vm-state.log"
+startedAt=$SECONDS
+rc=0; BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=running FAKE_SSH_DOWN=99 BOX_READY_POLL=1 NEMO_BSD_READY_WAIT=2 fLane --tests || rc=$?
+if [[ "$rc" != 77 ]]; then fFail "a running VM with no answer gave exit ${rc}, not 77: $(tail -3 "${scratch}/lane.log")"
+elif [[ -s "${scratch}/vm-state.log" ]]; then fFail "the helper's wrap ran for a running VM with no answer"
+elif ((SECONDS - startedAt >= 5)); then fFail "a running VM with no answer was waited on"
+else fEcho "OK: a running VM with no answer is a skip"
+fi
+## The same, held by another session: may be mid-reboot there, so it waits its turn.
+rm -f "${scratch}/ssh-tries"
+rc=0; BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=running FAKE_HELD=1 FAKE_SSH_DOWN=99 BOX_READY_POLL=1 NEMO_BSD_READY_WAIT=1 fLane --tests || rc=$?
+if [[ "$rc" == 77 ]]; then fFail "a running VM held elsewhere was skipped"
+elif ! grep -q -E -- '^wrap vmFreeBSD ' "${scratch}/vm-state.log"; then fFail "a running VM held elsewhere didn't go to the helper's wrap"
+else fEcho "OK: a running VM held elsewhere isn't skipped"
+fi
+[[ -e "${box}/nemo-anywhere-ci/src/stale.txt" ]] || fFail "the tree was touched on a running VM with no answer"
 
 if FAKE_TESTS_RC=1 fLane --tests; then fFail "--tests passed with a failing suite"; else fEcho "OK: a failing suite fails --tests"; fi
 fSteps "FreeBSD 1 of 3; Starting Box ready|FreeBSD 1 of 3; PASS Box ready|FreeBSD 2 of 3; Starting Send|FreeBSD 2 of 3; PASS Send|FreeBSD 3 of 3; Starting Build and suite|FreeBSD 3 of 3; FAIL Build and suite" \
