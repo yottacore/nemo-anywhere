@@ -2,13 +2,34 @@
 # Refuses a delete or a move outside the test's own folders, from before main
 # on. Linked whole, since nothing calls into it by name; every test executable
 # has it, through test_scratch or on its own.
-test_fence = declare_dependency(
-  link_whole: static_library('test-fence',
-    [ 'test-fence.c' ],
-    include_directories: [ rootInclude, ],
-    dependencies: [ cc.find_library('dl', required: false), dependency('threads') ],
-  ),
-)
+#
+# On macOS it's a dylib instead, the only way to reach GLib's calls there (see
+# FENCED in test-fence.c), plus a small part linked whole that calls into it,
+# since the linker drops a dylib nothing calls.
+if is_macos
+  test_fence = declare_dependency(
+    link_with: shared_library('test-fence',
+      [ 'test-fence.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ dependency('threads') ],
+      install: false,
+    ),
+    link_whole: static_library('test-fence-hold',
+      [ 'test-fence-hold.c' ],
+      include_directories: [ rootInclude, ],
+    ),
+  )
+else
+  # The hold part does nothing needed here, but the analyzers want every file
+  # built on the Linux or Windows lane.
+  test_fence = declare_dependency(
+    link_whole: static_library('test-fence',
+      [ 'test-fence.c', 'test-fence-hold.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ cc.find_library('dl', required: false), dependency('threads') ],
+    ),
+  )
+endif
 
 # Scratch directories made through this are removed when the test exits.
 test_scratch = declare_dependency(

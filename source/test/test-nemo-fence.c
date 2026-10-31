@@ -303,6 +303,25 @@ plant (const char *dir, const char *name)
 	return path;
 }
 
+/* A refused try that has to leave keep where it was. keep is put back first
+   if a try before got through, or every try after it would delete nothing
+   and pass as the harmless delete of something not there. */
+static void
+check_refused (const char *what, const char *a, const char *b, const char *keep)
+{
+	if (!g_file_test (keep, G_FILE_TEST_EXISTS)) {
+		check (g_file_set_contents (keep, "planted", -1, NULL));
+	}
+	if (!try_it (TRUE, what, a, b)) {
+		g_printerr ("FAIL: %s was let through\n", what);
+		failures++;
+	}
+	if (!g_file_test (keep, G_FILE_TEST_EXISTS)) {
+		g_printerr ("FAIL: %s took %s\n", what, keep);
+		failures++;
+	}
+}
+
 static void
 check_refusals (void)
 {
@@ -313,28 +332,31 @@ check_refusals (void)
 	g_autofree char *moved_to = g_build_filename (allowed, "moved-here.txt", NULL);
 	g_autofree char *sneaky = g_build_filename (allowed, "..", "outside", "target.txt", NULL);
 	g_autofree char *up = g_build_filename ("..", "outside", "target.txt", NULL);
+	g_autofree char *inside = NULL;
 
 	check (g_mkdir (folder, 0700) == 0);
 	check (g_mkdir (empty, 0700) == 0);
-	g_free (plant (folder, "inside.txt"));
+	inside = plant (folder, "inside.txt");
 
-	check (try_it (TRUE, "unlink", target, NULL));
-	check (try_it (TRUE, "remove", target, NULL));
+	check_refused ("unlink", target, NULL, target);
+	check_refused ("remove", target, NULL, target);
+	if (!g_file_test (empty, G_FILE_TEST_IS_DIR)) {
+		check (g_mkdir (empty, 0700) == 0);
+	}
 	check (try_it (TRUE, "rmdir", empty, NULL));
-	check (try_it (TRUE, "gio", target, NULL));
-	check (try_it (TRUE, "rename", target, moved_to));
-	check (try_it (TRUE, "rename", mine, target));
-	check (try_it (TRUE, "unlink", sneaky, NULL));
-	check (try_it (TRUE, "relative", allowed, up));
+	check (g_file_test (empty, G_FILE_TEST_IS_DIR));
+	check_refused ("gio", target, NULL, target);
+	check_refused ("rename", target, moved_to, target);
+	check_refused ("rename", mine, target, target);
+	check_refused ("unlink", sneaky, NULL, target);
+	check_refused ("relative", allowed, up, target);
 	/* The app's own tree removal, which a test drives often. */
-	check (try_it (TRUE, "tree", folder, NULL));
+	check_refused ("tree", folder, NULL, inside);
+	check (g_file_test (folder, G_FILE_TEST_IS_DIR));
 #ifndef G_OS_WIN32
-	check (try_it (TRUE, "unlinkat", outside, "target.txt"));
+	check_refused ("unlinkat", outside, "target.txt", target);
 #endif
 
-	check (g_file_test (target, G_FILE_TEST_IS_REGULAR));
-	check (g_file_test (folder, G_FILE_TEST_IS_DIR));
-	check (g_file_test (empty, G_FILE_TEST_IS_DIR));
 	check (g_file_test (mine, G_FILE_TEST_IS_REGULAR));
 	check (!g_file_test (moved_to, G_FILE_TEST_EXISTS));
 }
@@ -378,6 +400,15 @@ check_let_through (void)
 	check (try_it (FALSE, "rename", moved, moved_to));
 	check (try_it (FALSE, "rmdir", folder, NULL));
 	check (try_it (FALSE, "tree", tree, NULL));
+#ifndef G_OS_WIN32
+	{
+		/* By an open folder, whose path the fence has to look up. */
+		g_autofree char *by_fd = plant (allowed, "by-fd.txt");
+
+		check (try_it (FALSE, "unlinkat", allowed, "by-fd.txt"));
+		check (!g_file_test (by_fd, G_FILE_TEST_EXISTS));
+	}
+#endif
 
 	check (!g_file_test (gone, G_FILE_TEST_EXISTS));
 	check (!g_file_test (moved, G_FILE_TEST_EXISTS) && g_file_test (moved_to, G_FILE_TEST_IS_REGULAR));
