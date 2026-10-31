@@ -45,7 +45,66 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- The gate on b29w runs over ssh with no desktop, so its windowed tests skip. Those run again in a desktop session on vm925w, as its test user, and on b29w under its test account when vm925w isn't there.
 		- The VM is put back the way it was found. Neither box there is a `SKIP`.
+	- Decisions:
+		- The tests the gate's Tests step skipped, and only those, run again against its build on the same box, as its test user in that user's desktop session, through a `schtasks /it` task. No second build, so it adds a minute or two to the lane. A test that skips there for its own reason, such as a missing tool, skips again.
+		- The test user gets Modify on the run's folder for it, which goes with the folder.
+		- A session there with no monitor fails the step, since a pass would hide that nothing was drawn.
+		- With the test user not logged on, the lane warns and the gate's pass stands. Logging on over RDP would take b29w's own screen.
+		- Only after a passing gate, since a failed gate fails the lane already.
+		- `NEMO_WIN_DESKTOP=0` leaves it out, and `NEMO_WIN_TEST_USER` names another user.
+		- With the gate on b29w, its windowed tests run there even when vm925w is there. Sending them to vm925w needs a build on vm925w, and that's 2026103116203063.
+	- Swept: the other lanes that reach a box run no windowed tests. Every caller of `lane-box.ps1` and `fTests` in `cicd/`, and design.md's native gate bullet.
+	- Test case: depg0: after a passing gate, only the meson tests its Tests step skipped go to the box and run as wintest, a failing desktop test fails the lane, no wintest session is a warning, a failing gate runs none, and `NEMO_WIN_DESKTOP=0`.
+	- 20261031: split. Windowed tests on vm925w while the gate runs on b29w, and wintest's logon on vm925w after a boot, are 2026103116203063.
+	- 20261031: the work is on `wip/round1031a-2026103114202730`, not on the round branch, since the desktop step fails on b29w. Its task starts as wintest in session 2 with 1 monitor, then `cicd-win.ps1` stops at `Set-Location $Root`, "Access to the path 'C:\Users\collierjr\AppData' is denied". PowerShell reads each folder above the run folder, and wintest can't list the ssh user's profile. Left: a run folder both users can reach, or a way past the profile, then the run on b29w again.
+	- Branch: wip/round1031a-2026103114202730
+	- Verified: 20261031, depg0 and dejjt pass on the wip branch. depg0 fails 9 checks against the round branch's `lane.bash`, and dejjt 6 against its `cicd-win.ps1`. `--backlog-run-quick` passes.
+	- 20261031, on b29w, 3 lane runs of the wip changes, `-Gate -Yes -NoSync -NoFmt`: the third gate passed, 191 OK and 22 skipped, the 22 went to the box, and the task ran as wintest in its desktop session. It failed as above. The first 2 gates failed on 2026103116203164 and 2026103116284963, so no desktop step ran.
+
+- Other hosts: with the native gate on b29w, its windowed tests go to vm925w when it's there.
+	- ID: 2026103116203063
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261031-162030
+	- Opened by: 2026103114202730
+	- Parent ID: 2026103114202730
+	- Requirements:
+		- When vm925w is there, the tests the b29w gate skipped run as wintest in vm925w's desktop session, rather than on b29w, through the VM state helper. That needs a build on vm925w.
+		- vm925w has autologon off, so after a start from off wintest is logged on first.
+		- With vm925w not there, b29w's test account, as now.
 	- Test case: none yet.
+
+- The native gate on b29w sometimes fails on test-nemo-office's leftover folder.
+	- ID: 2026103116203164
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261031-162031
+	- Opened by: 2026103114202730
+	- Target OS: Windows
+	- Steps to reproduce: the native gate on b29w over ssh, `-Gate -Yes -NoSync -NoFmt`.
+	- Incorrect behavior: every test passes, 191 OK and 22 skipped, then the gate fails with "tests left these behind in ...\nemo-suite-...: test-nemo-office.kbj53Z".
+	- Expected behavior: the office tests remove their scratch folder every time.
+	- Reproduced: 20261031 on b29w at round1031a, 1 run of 3.
+	- Possible cause: not looked into. A file still open in the folder at the test's end, such as one a helper process holds, would stop its removal on Windows.
+	- Test case: ddq92, ddqhc and dbxj2 on Windows, with the suite's leftover check.
+
+- ddepv on b29w: the heap grew over 64 rounds again.
+	- ID: 2026103116284963
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261031-162849
+	- Opened by: 2026103114202730
+	- Related IDs: 2026101913541101
+	- Target OS: Windows
+	- Steps to reproduce: the native gate on b29w over ssh, `-Gate -Yes -NoSync -NoFmt`.
+	- Incorrect behavior: ddepv fails at `test-nemo-leaks.c:1187`, "the heap grew 4368 bytes over 64 rounds", after 3 readings were taken again. The run also shows "gdk_monitor_get_geometry: assertion 'GDK_IS_MONITOR (monitor)' failed".
+	- Expected behavior: ddepv passes every time, as on vm925w after 2026101913541101.
+	- Reproduced: 20261031 on b29w at round1031a, 1 run of 3, in session 0.
+	- Possible cause: the same 4 KB COM buffers as 2026101913541101, which closed on vm925w in the desktop session. b29w over ssh is session 0, and has more apps installed. 2026101913541101 has closed once and come back once already.
+	- Test case: ddepv on b29w over ssh.
 
 - Other hosts: the native Windows gate runs on b29w in the default run.
 	- ID: 2026103114202710
