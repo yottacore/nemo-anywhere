@@ -1177,7 +1177,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - dehzr fails on native Windows: lint-report.py reads itself as cp1252.
 	- ID: 2026102823073182
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261028-230731
 	- Opened: 20261028-230731
@@ -1188,13 +1188,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: passes.
 	- Reproduced: 20261028 on b29w, round1028b at 2964120b, which didn't change the file.
 	- Possible cause: `open()` with no encoding takes the locale's, cp1252 under MSYS2's Python, and the header's copyright line is UTF-8. Its other reads of text files have the same shape.
-	- Test case: dehzr itself, on native Windows.
+	- Actual cause: as above. 6 other scripts had opens or pathlib reads and writes with no encoding too.
+	- Actual fix: every text open, read and write in the project's own Python names UTF-8, and ruff's PLW1514 in the Python lint fails a new `open()` with none.
 	- 20261031: High now. The native Windows gate joined the default run and the merge gate in 2026103114202710, so this fails every full run and every push to main.
+	- Decisions:
+		- UTF-8 at each call, not `PYTHONUTF8` set by the pipeline, so a script run by hand on Windows reads the same.
+		- PLW1514 is a preview rule, so preview is on only for rules `select` names. It doesn't catch a pathlib call on a plain variable, so those were done by hand.
+	- Swept: every tracked .py outside the upstream folders pyproject.toml leaves out: analyze.py, flame-report.py, demo-video.py, lint-accels.py, lint-ownership.py, lint-pref-handlers.py and dynamic-list.py.
+	- Branch: round1031a
+	- Commit: 484a8e8b, 87bc05c6
+	- Test case: dehzr, and PLW1514 in the Python lint.
+	- Verified: 20261031, dehzr fails under a locale that isn't UTF-8 before the fix and passes after, and PLW1514 fails the old lint-report.py. `--backlog-run-quick` passes.
+	- Verified: 20261031, native gate on b29w at 76990d2b: dehzr passes in the lint step, and the gate passes.
+	- Acceptance signoff: Self-closed: dehzr passes on native Windows.
+	- Closed: 20261031-155100
 
 - 4 native Windows tests fail with no desktop session: de5kb, debgn, dbxkh, ddqdq.
 	- ID: 2026102822580302
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261028-225803
 	- Opened: 20261028-225802
@@ -1205,13 +1217,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: each passes, or skips with 77 when there's no desktop to draw on, as 19 other window tests in the same run did.
 	- Reproduced: 20261028 on b29w, at round1028b 2964120b and at dev 051f2d14, the same 4 failing and 190 OK, 19 skipped, both times. A gate there at 1694aeb, also with no desktop, failed none.
 	- Possible cause: not looked into. dbxkh is the delete fence catching a move the shell makes on the test's behalf. The other 3 seem to need a desktop and don't check for one.
-	- Test case: the 4 tests themselves, on native Windows with no desktop session, and again in a desktop session.
+	- Actual cause:
+		- de5kb wasn't about the desktop. It read every `$R` item in the Recycle Bin whole, looking for its marker, and an admin reads every user's bin. b29w's held 24 GB.
+		- dbxkh: with no Explorer in the session, the shell keeps its icon cache from inside the test, in the real profile.
+		- debgn and ddqdq need a monitor, and checked only for a display.
+	- Actual fix: de5kb and da8rb read only a bin item of the marker's size. debgn and ddqdq skip with no monitor, as the other window tests do, and dbxkh skips with no shell running in the session.
 	- 20261031: High now. The native Windows gate joined the default run and the merge gate in 2026103114202710, so this fails every full run and every push to main.
+	- Decisions:
+		- Skips, not fixes, for the 3 that need a desktop. 2026103114202730 runs them in one.
+		- dbxkh's skip asks for the shell's window, since that's what decides who writes the icon cache.
+		- ddqdq passed with no monitor at 1694aeb, and doesn't now. That's 2026103115510091.
+	- Swept: the other bin scan by contents, da8rb's, which took minutes on a full bin. Many other tests open a window with no monitor check, and all of them passed or skipped in the same gate.
+	- Branch: round1031a
+	- Commit: 484a8e8b
+	- Test case: de5kb, debgn, dbxkh and ddqdq. da8rb for the bin scan.
+	- Verified: 20261031, native gate on b29w at 76990d2b, from ssh with no desktop: de5kb passes in 14 s, da8rb in 10 s, debgn, dbxkh and ddqdq skip with 77. 191 OK, 0 failed, 22 skipped, and the gate passes.
+	- Acceptance signoff: Self-closed: the gate on b29w passes with no desktop. In a desktop session the new checks don't skip, so the tests run there as before.
+	- Closed: 20261031-155100
 
 - defmw fails on native Windows: its [cap] case lists the link dir too.
 	- ID: 2026102822580271
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261028-225802
 	- Opened: 20261028-225802
@@ -1222,8 +1249,34 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: passes, or skips the link case where MSYS2 can't make a link.
 	- Reproduced: 20261028 on b29w, round1028b at 2964120b. The case is the same on dev, and no native gate had run since defmw came in on 20261026.
 	- Possible cause: `ln -s` under MSYS2 without the symlink privilege makes a copy, so the link dir holds 2 MB of its own. lint.bash already skips the vendor-themes self-test under MSYS2 for the same reason.
-	- Test case: defmw itself, on native Windows.
+	- Actual cause: as above.
+	- Actual fix: the [cap] case leaves the link dir out, and says so, when `ln -s` didn't make a link.
 	- 20261031: High now. The native Windows gate joined the default run and the merge gate in 2026103114202710, so this fails every full run and every push to main.
+	- Decisions:
+		- It checks for a link, not for MSYS2, so a box where `ln -s` copies or fails goes the same way. test-cicd-temp.bash does the same.
+	- Swept: `ln -s` in the other test scripts the lint stage runs. test-cicd-temp.bash already checks, and vendor-themes.bash is skipped under MSYS2.
+	- Branch: round1031a
+	- Commit: 484a8e8b
+	- Test case: defmw.
+	- Verified: 20261031, defmw fails as on b29w with an `ln -s` that copies, and passes after. Native gate on b29w at 76990d2b: defmw passes, with the link case skipped.
+	- Acceptance signoff: Self-closed: defmw passes on native Windows.
+	- Closed: 20261031-155100
+
+- ddqdq with no monitor: the copies never list a titled window.
+	- ID: 2026103115510091
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261031-155100
+	- Opened by: 2026102822580302
+	- Related IDs: 2026102822580302, 2026103114202730
+	- Target OS: Windows
+	- Steps to reproduce: ddqdq on native Windows from ssh, in session 0, with its no-monitor skip taken out.
+	- Incorrect behavior: it times out waiting for the alpha and beta window titles, with "gdk_monitor_get_geometry: assertion 'GDK_IS_MONITOR (monitor)' failed".
+	- Expected behavior: the copies list their windows with titles, as they did at 1694aeb with no monitor. A disconnected session has no monitor either.
+	- Reproduced: 20261028 on b29w, at 2964120b and 051f2d14.
+	- Possible cause: not looked into. Something between 1694aeb and 2964120b, maybe the jail.
+	- Test case: ddqdq, with no monitor.
 
 - CICD reset: temp files and safe removal.
 	- ID: 2026102416300002
