@@ -50,7 +50,7 @@ fWinBox_Start(){
 		[[ -z "${NEMO_WIN_IMAGE:-}" ]] || { echo "[ FAILED: ${label}: image '${NEMO_WIN_IMAGE}' not found ]" >&2; return 1; }
 		image="nemo-winbuild-deps:latest"
 		echo "[ building image nemo-winbuild-deps (first run only, takes a while) ]" >&2
-		docker build --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" -t "${image}" "${root}/cicd/win/" > /dev/null \
+		docker build --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" -t "${image}" -f "${root}/cicd/win/Dockerfile" "${root}/cicd/" > /dev/null \
 			|| { echo "[ FAILED: ${label}: could not build image nemo-winbuild-deps ]" >&2; return 1; }
 	fi
 	if [[ "${2:-}" != --no-build-win ]]; then
@@ -71,3 +71,4 @@ fWinBox_Start(){
 
 ##	History:
 ##		- 2026-10-26: Created. The steps ran in the long-lived nemo-winbuild before.
+##		- 2026-10-31: Builds with cicd/ as the context, which the pinned recipe needs.

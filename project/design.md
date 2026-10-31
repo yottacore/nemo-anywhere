@@ -754,9 +754,9 @@ The Windows build is native, not cross-compiled: MSYS2 with the mingw64 GTK3 too
 
 A cross-compile lane also exists, for checking a Windows build from the Linux box without Windows hardware. It is a developer convenience rather than part of the pipeline, since only Windows can pack the single exe.
 
-- `cicd/win/fetch-sysroot.bash` resolves the dependency closure of a few root packages from the MSYS2 pacman database and unpacks each one into a sysroot. No pacman is needed, since the package database is a tarball of description files.
+- `cicd/win/fetch-sysroot.bash` unpacks the MSYS2 packages listed in `cicd/win/sysroot-pins.txt` into a sysroot, each checked by its sha256. No pacman is needed. `cicd/win/msys2-pins.bash update` writes that list with the hosted build's, as the closure of a few root packages from the same package database, so the cross build links the same DLLs as the hosted build.
 
-- `cicd/win/Dockerfile` builds the image the cross build's step containers run from: the mingw toolchain, the native GLib code generators that have to run on the build host, wine, and the baked sysroot. `cicd/win/win64.cross.txt` is the meson cross file, with wine as the exe wrapper.
+- `cicd/win/Dockerfile` builds the image the cross build's step containers run from: the mingw toolchain, the native GLib code generators that have to run on the build host, wine, and the baked sysroot. Its base is pinned by digest and its packages come from a dated Debian snapshot, as for the Linux images. It builds with `cicd/` as the context. `cicd/win/win64.cross.txt` is the meson cross file, with wine as the exe wrapper.
 
 Deliberately off for Windows either way: XMP and exempi, which aren't packaged for mingw, and the Unix-only pieces (`gio-unix`, `x11`, SELinux), which are guarded in meson by `host_machine.system()` and in the affected C files by `#ifdef`.
 

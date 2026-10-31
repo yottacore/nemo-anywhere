@@ -1,138 +1,60 @@
 #!/usr/bin/env bash
 
-##	- Purpose: Assemble a mingw-w64 GTK3 sysroot for cross-building the Windows target.
-##	  Resolves the transitive dependency closure of a few root packages from the MSYS2
-##	  pacman database, then downloads and unpacks each prebuilt package into the sysroot.
-##	- No pacman needed: we parse the .db (a tarball of 'desc' files) ourselves and pull
-##	  the .pkg.tar.zst files straight from the mirror. Keeps the whole GTK3 Windows stack
-##	  out of both the host and the repo - it lives only inside the build image.
-##	- Syntax: fetch-sysroot.bash [SYSROOT_DIR]   (default /opt/win-sysroot)
+##	- Purpose: Assemble a mingw-w64 GTK3 sysroot for cross-building the Windows target,
+##	  from the MSYS2 packages pinned in sysroot-pins.txt by file name and sha256.
+##	  msys2-pins.bash update writes that list from the same package database as the
+##	  hosted build's, so the cross build links and packs the same DLLs, whatever
+##	  day the image is built.
+##	- No pacman needed: each .pkg.tar.zst comes straight from repo.msys2.org, which
+##	  keeps older versions, and is unpacked into the sysroot. Keeps the whole GTK3
+##	  Windows stack out of both the host and the repo - it lives only inside the
+##	  build image. A file the repo no longer has fails the build, which means it's
+##	  time to move the pins.
+##	- MSYS2_REPO_ROOT points it at another copy of the repo, such as a test's.
+##	- Syntax: fetch-sysroot.bash [SYSROOT_DIR [PINS_FILE]]
+##	  (defaults /opt/win-sysroot and sysroot-pins.txt beside this script)
 ##	  Result layout: $SYSROOT/mingw64/{include,lib,bin,...}; .pc files keep prefix=/mingw64,
 ##	  so the meson cross file points PKG_CONFIG_SYSROOT_DIR at $SYSROOT.
 
 set -euo pipefail
 
-MIRROR="https://mirror.msys2.org/mingw/mingw64"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="${MSYS2_REPO_ROOT:-https://repo.msys2.org}"
 SYSROOT="${1:-/opt/win-sysroot}"
-PFX="mingw-w64-x86_64-"
-
-##	Roots: gtk3 drags in the bulk of the stack (glib2, atk, cairo, gdk-pixbuf2, pango,
-##	json-glib, libepoxy, gettext, icon theme). The rest are our extra meson deps.
-##	Exempi (XMP) is not packaged for mingw - we cross-build with -Dxmp=false instead.
-##	sqlite3 already arrives through the gtk3 chain, but the thumbnail cache links it
-##	directly, so name it here rather than let a refresh of that chain drop it.
-ROOTS=(gtk3 json-glib libexif libarchive sqlite3)
+PINS="${2:-${here}/sysroot-pins.txt}"
 # shellcheck source=../utility/include/run-temp.bash
-source "$(dirname "${BASH_SOURCE[0]}")/../utility/include/run-temp.bash"
+source "${here}/../utility/include/run-temp.bash"
 
 work="$(mktemp -d)"
 trap 'fSafeRm_IfThere "$work"' EXIT
 
 fEcho(){ echo "[ $* ]"; }
+fDie(){ fEcho "FAILED: $*"; exit 1; }
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-#	Pull + unpack the pacman database
+#	Fetch every pinned file and check it before anything is unpacked
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
-fEcho "Fetching package database"
-curl -fsSL "$MIRROR/mingw64.db" -o "$work/db.tar.gz"
-mkdir -p "$work/db"
-tar -xf "$work/db.tar.gz" -C "$work/db"
+files=()
+while read -r repo file sha; do
+	[[ -z "${repo}" || "${repo}" == \#* ]] && continue
+	[[ "${repo}" == mingw/mingw64 && "${file}" != */* && "${file}" == *.pkg.tar.zst && "${sha}" =~ ^[0-9a-f]{64}$ ]] \
+		|| fDie "bad line in ${PINS}: ${repo} ${file} ${sha}"
+	printf 'url = "%s/%s/%s"\noutput = "%s/%s"\n' "${REPO_ROOT}" "${repo}" "${file}" "${work}" "${file}" >> "${work}/curl.cfg"
+	printf '%s  %s\n' "${sha}" "${file}" >> "${work}/sums"
+	files+=("${file}")
+done < "${PINS}"
+((${#files[@]})) || fDie "no packages in ${PINS}"
 
-#•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-#	Parse every 'desc' into name -> filename, name -> depends, provides -> name.
-#	One gawk pass over all desc files (BEGINFILE/ENDFILE) - version constraints stripped.
-#•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-
-fEcho "Indexing packages"
-declare -A FILEOF DEPSOF PROVIDER SHA256OF
-while IFS='|' read -r kind a b; do
-	case "$kind" in
-		F) FILEOF[$a]=$b ;;
-		D) DEPSOF[$a]=$b ;;
-		V) PROVIDER[$a]=$b ;;
-		S) SHA256OF[$a]=$b ;;
-	esac
-done < <(gawk '
-	BEGINFILE { name=""; file=""; deps=""; provs=""; sha=""; sec="" }
-	/^%FILENAME%$/ { sec="F"; next }
-	/^%NAME%$/     { sec="N"; next }
-	/^%DEPENDS%$/  { sec="D"; next }
-	/^%PROVIDES%$/ { sec="V"; next }
-	/^%SHA256SUM%$/{ sec="S"; next }
-	/^%/           { sec="";  next }
-	sec=="F" && NF { file=$0 }
-	sec=="N" && NF { name=$0 }
-	sec=="S" && NF { sha=$0 }
-	sec=="D" && NF { s=$0; sub(/[<>=].*/,"",s); deps=deps" "s }
-	sec=="V" && NF { s=$0; sub(/[<>=].*/,"",s); provs=provs" "s }
-	ENDFILE {
-		if (name!="") {
-			print "F|" name "|" file
-			print "D|" name "|" deps
-			print "S|" name "|" sha
-			n=split(provs,pv," "); for(i=1;i<=n;i++) print "V|" pv[i] "|" name
-		}
-	}
-' "$work"/db/*/desc)
-
-#•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-#	Breadth-first closure from the roots. Unknown names resolve via PROVIDES.
-#•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-
-declare -A SEEN
-queue=()
-for r in "${ROOTS[@]}"; do queue+=("$PFX$r"); done
-
-resolved=()
-while [[ ${#queue[@]} -gt 0 ]]; do
-	pkg="${queue[0]}"; queue=("${queue[@]:1}")
-	[[ -n "${SEEN[$pkg]:-}" ]] && continue
-	real="$pkg"
-	[[ -z "${FILEOF[$real]:-}" && -n "${PROVIDER[$pkg]:-}" ]] && real="${PROVIDER[$pkg]}"
-	if [[ -z "${FILEOF[$real]:-}" ]]; then
-		echo "  warn: no package for '$pkg' (skipped)" >&2
-		continue
-	fi
-	SEEN[$pkg]=1; SEEN[$real]=1
-	resolved+=("$real")
-	for d in ${DEPSOF[$real]:-}; do
-		[[ -n "${SEEN[$d]:-}" ]] || queue+=("$d")
-	done
-done
-
-fEcho "Closure: ${#resolved[@]} packages"
-
-#•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-#	Download + unpack each into the sysroot (skip pacman metadata members).
-#•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+fEcho "Fetching ${#files[@]} pinned packages"
+curl -fsSL --retry 3 --parallel --parallel-max 8 -K "${work}/curl.cfg" || fDie "could not fetch the pinned packages"
+## These libraries ship in the release, so unpacking one unverified is not on.
+(cd "${work}" && sha256sum --quiet --strict -c sums) || fDie "checksum mismatch"
 
 mkdir -p "$SYSROOT"
-for pkg in "${resolved[@]}"; do
-	file="${FILEOF[$pkg]}"
-	fEcho "$pkg"
-	curl -fsSL "$MIRROR/$file" -o "$work/$file"
-
-	## The database carries a checksum for every package and these libraries ship
-	## in the release, so unpacking one unverified is not on.
-	want="${SHA256OF[$pkg]:-}"
-	if [[ -z "$want" ]]; then
-		rm -f "$work/$file"
-		fEcho "FAILED: no checksum in the database for $pkg"
-		exit 1
-	fi
-	got="$(sha256sum "$work/$file" | cut -d' ' -f1)"
-	if [[ "$got" != "$want" ]]; then
-		rm -f "$work/$file"
-		fEcho "FAILED: checksum mismatch for $file"
-		fEcho "  expected $want"
-		fEcho "  got      $got"
-		exit 1
-	fi
-
-	tar --zstd -xf "$work/$file" -C "$SYSROOT" \
+for file in "${files[@]}"; do
+	tar --zstd -xf "${work}/${file}" -C "$SYSROOT" \
 		--exclude='.PKGINFO' --exclude='.BUILDINFO' --exclude='.MTREE' --exclude='.INSTALL'
-	rm -f "$work/$file"
 done
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••

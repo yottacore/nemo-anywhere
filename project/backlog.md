@@ -33,6 +33,48 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Windows cross build image: the steps run from the recipe.
+	- ID: 2026103113501545
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261031-135015
+	- Opened by: 2026102820195917
+	- Parent ID: 2026102820195917
+	- Prereq IDs: 2026103113501526
+	- Requirements:
+		- `win-box.bash` runs each step from `nemo-winbuild:<hash>`, the hash taken over the recipe's files, and builds it the first time that hash is seen, the way `docker-run.bash` does for `nemo-build-deps`.
+		- The cross build, packing, the setup exe check, the GUI smoke check, ddf31 and the Windows analyzer lane pass from it, as they do from `nemo-winbuild:init`.
+		- Every reader of `nemo-winbuild:init` under `cicd/` and `utility/`, and design.md's build sections, follow.
+	- Test case: none yet.
+
+- Windows cross build image: the recipe pinned.
+	- ID: 2026103113501526
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261031-135015
+	- Opened by: 2026102820195917
+	- Parent ID: 2026102820195917
+	- Requirements:
+		- `cicd/win/Dockerfile` pins the base by digest and reads apt from one dated snapshot.
+		- The sysroot comes from MSYS2 package files pinned by name and sha256, not from the day's package database.
+		- The image builds from the recipe, and its packages are compared with `nemo-winbuild:init`.
+	- Progress log:
+		- 20261031: `cicd/win/Dockerfile` pins trixie by digest, the base `:init` was built on. apt reads the archive, the security archive included, from snapshot.debian.org at 2026-10-07 22:00 UTC, the last time `:init` was updated.
+		- 20261031: the sysroot comes from `cicd/win/sysroot-pins.txt`, 64 MSYS2 files by name and sha256. `msys2-pins.bash update` writes it beside `msys2-pins.txt`, as the closure of the sysroot's roots from the same database, so every line of it is in the hosted list. `fetch-sysroot.bash` reads no package database now.
+		- 20261031: the recipe hadn't built since 20261026. `fetch-sysroot.bash` sources `utility/include/run-temp.bash`, which the `cicd/win/` context couldn't reach. The image builds with `cicd/` as the context now, and so does `win-box.bash`'s fresh-clone build.
+		- 20261031: the new image is 5.4 GB, where `:init` is 13.9 GB. The mingw toolchain, wine, meson, ninja, nsis and make are the same versions, and 59 packages differ by a security point release. It lacks 101 packages `:init` has: the 2 hand installs, their recommends and those of the other hand installs, such as ghostscript, fonts, systemd and dbus. No Windows step calls any of them. The build took about 6 min.
+		- 20261031: the sysroot has the hosted build's versions: glib 2.90.1 where `:init` has 2.88.2, cairo 1.18.6, pango 1.58.2, harfbuzz 15.0.0, libarchive 3.8.10 and sqlite 3.54.0. gtk3 and json-glib are the same. libgsf, gsf-office, libgomp, libatomic and libquadmath are gone, since nothing in the closure pulls them in now, and so are the 3 thumbnailer descriptors `:init` still had.
+	- Decisions:
+		- The apt snapshot is the date of `:init`'s last update, as for the day-to-day image in 2026102820195801.
+		- The sysroot takes the hosted build's versions rather than `:init`'s. Nothing lists the files `:init` took in July, and with one list the cross build links and packs the DLLs the hosted release ships. Moving it is the same `msys2-pins.bash update` that moves the hosted pins.
+		- The 2 hand-installed packages stay out, since no Windows step uses them.
+	- Swept: every reader of `fetch-sysroot.bash` and `cicd/win/Dockerfile`: `win-box.bash`, `test-thumbnailers.bash`, `pack-zip.bash`'s comments and design.md "Building on Windows". The image's tag and the switch from `:init` are 2026103113501545.
+	- Test case: depf5 (`cicd/win/test-win-image-pin.bash`, lint stage: the base by digest and apt on one snapshot through dejma's checks, the Dockerfile copying the list and running `fetch-sysroot.bash`, which reads no database; the list well formed, with every root, no package twice, and every line in `msys2-pins.txt`; `fetch-sysroot.bash` unpacking pinned files from a stand-in repo without the pacman metadata, and refusing a bad checksum, a bad line and an empty list).
+	- Verified: 20261031, depf5 fails on the old Dockerfile, the security source left on the live archive, no copy of the list, the old `fetch-sysroot.bash`, gtk3 left out of the list, a sha256 the hosted list doesn't have, a package listed twice, no list, the checksum stop gone, the pacman metadata unpacked and the line check gone, and passes on the new ones. dehzp, the thumbnailer test and defps pass. `msys2-pins.bash update` into a temp folder wrote both lists, the sysroot's part of the hosted one. The image builds from the recipe. `cicd/cicd.bash --backlog-run-quick format lint` passed.
+	- Closed: 20261031-140600
+
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
@@ -599,7 +641,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- `nemo-winbuild` comes from `cicd/win/Dockerfile`, with the base by digest, apt from a dated snapshot and the MSYS2 sysroot by version.
 		- It passes the cross build, packing and wine runs that `nemo-winbuild:init` passes, and the pipeline uses it in place of the snapshot.
 		- The snapshot has 2 packages and about 5 GB of later layers that the recipe lacks. The list is in the private notes.
-	- Test case: none yet.
+	- Progress log:
+		- 20261031: split into children 2026103113501526 (the recipe pinned) and 2026103113501545 (the steps run from it).
+	- Test case: from the children.
 
 - CICD step output: the private runner.
 	- ID: 2026102820110989
