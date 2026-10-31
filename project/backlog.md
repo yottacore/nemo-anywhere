@@ -1637,6 +1637,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- F2 selects the name without the extension, as upstream does.
 	- Test case: none yet.
 
+- Middle-clicking a bookmark to open it in a new tab leaves the Name column too narrow.
+	- ID: 2026103113431790
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261031-134317
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Incorrect behavior: the Name column is too narrow in the new tab.
+	- Workaround: F5 to refresh.
+	- Test case: none yet.
+
 - cicd-win.ps1's step rule comes out as BEL characters when its output is piped.
 	- ID: 2026102822580287
 	- Type: Bug
@@ -1802,6 +1815,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- A drop that offers file contents in place of a path (`FileGroupDescriptorW` and `FileContents`) writes the files into the folder dropped on.
 	- Test case: TBD
+
+- Add the date " (YYYY-mm-DD)" to the end of the build number, for pre-release versions.
+	- ID: 2026103113431800
+	- Type: Feature
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261031-134318
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Test case: none yet.
 
 - Change the accelerator key for the "Copy path(s)" menu item to y.
 	- ID: 2026102218380003
