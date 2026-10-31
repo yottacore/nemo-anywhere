@@ -1178,7 +1178,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026102823073182
 	- Type: Bug
 	- Status: Queued
-	- Priority|Severity: Avg
+	- Priority|Severity: High
 	- Opened: 20261028-230731
 	- Opened: 20261028-230731
 	- Opened by: 2026102416300007
@@ -1189,12 +1189,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261028 on b29w, round1028b at 2964120b, which didn't change the file.
 	- Possible cause: `open()` with no encoding takes the locale's, cp1252 under MSYS2's Python, and the header's copyright line is UTF-8. Its other reads of text files have the same shape.
 	- Test case: dehzr itself, on native Windows.
+	- 20261031: High now. The native Windows gate joined the default run and the merge gate in 2026103114202710, so this fails every full run and every push to main.
 
 - 4 native Windows tests fail with no desktop session: de5kb, debgn, dbxkh, ddqdq.
 	- ID: 2026102822580302
 	- Type: Bug
 	- Status: Queued
-	- Priority|Severity: Avg
+	- Priority|Severity: High
 	- Opened: 20261028-225803
 	- Opened: 20261028-225802
 	- Opened by: 2026102517333373
@@ -1205,12 +1206,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261028 on b29w, at round1028b 2964120b and at dev 051f2d14, the same 4 failing and 190 OK, 19 skipped, both times. A gate there at 1694aeb, also with no desktop, failed none.
 	- Possible cause: not looked into. dbxkh is the delete fence catching a move the shell makes on the test's behalf. The other 3 seem to need a desktop and don't check for one.
 	- Test case: the 4 tests themselves, on native Windows with no desktop session, and again in a desktop session.
+	- 20261031: High now. The native Windows gate joined the default run and the merge gate in 2026103114202710, so this fails every full run and every push to main.
 
 - defmw fails on native Windows: its [cap] case lists the link dir too.
 	- ID: 2026102822580271
 	- Type: Bug
 	- Status: Queued
-	- Priority|Severity: Avg
+	- Priority|Severity: High
 	- Opened: 20261028-225802
 	- Opened: 20261028-225802
 	- Opened by: 2026102517333373
@@ -1221,6 +1223,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261028 on b29w, round1028b at 2964120b. The case is the same on dev, and no native gate had run since defmw came in on 20261026.
 	- Possible cause: `ln -s` under MSYS2 without the symlink privilege makes a copy, so the link dir holds 2 MB of its own. lint.bash already skips the vendor-themes self-test under MSYS2 for the same reason.
 	- Test case: defmw itself, on native Windows.
+	- 20261031: High now. The native Windows gate joined the default run and the merge gate in 2026103114202710, so this fails every full run and every push to main.
 
 - CICD reset: temp files and safe removal.
 	- ID: 2026102416300002
