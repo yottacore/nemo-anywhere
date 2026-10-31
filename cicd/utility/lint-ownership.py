@@ -325,8 +325,8 @@ def self_test():
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         (root / "src").mkdir()
-        (root / "src" / "thing.h").write_text(SELF_TEST_HEADER)
-        (root / "src" / "thing.c").write_text(SELF_TEST_SOURCE)
+        (root / "src" / "thing.h").write_text(SELF_TEST_HEADER, encoding="utf-8")
+        (root / "src" / "thing.c").write_text(SELF_TEST_SOURCE, encoding="utf-8")
         got = [b.split(": ")[-1] for b in run(root)]
     if got != SELF_TEST_EXPECTED:
         print(f"[ FAIL: ownership self-test: reported {got}, expected {SELF_TEST_EXPECTED} ]")

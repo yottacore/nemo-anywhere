@@ -332,12 +332,12 @@ class Rec:
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(base, dst, dirs_exist_ok=True)
         for svg in dst.rglob("*.svg"):
-            text = svg.read_text()
+            text = svg.read_text(encoding="utf-8")
             svg.write_text(text.replace("#09090a", DECO_BG)
-                .replace("#1a1c1e", DECO_BG_OFF).replace("#a3a3a3", DECO_GLYPH))
+                .replace("#1a1c1e", DECO_BG_OFF).replace("#a3a3a3", DECO_GLYPH), encoding="utf-8")
         rc = dst / "themerc"
         rc.write_text(re.sub(r"(?m)^(active_text(_shadow)?_color)=.*",
-            rf"\1={DECO_TEXT}", rc.read_text()))
+            rf"\1={DECO_TEXT}", rc.read_text(encoding="utf-8")), encoding="utf-8")
         return WM_THEME
 
     def start_display(self):
@@ -444,7 +444,7 @@ class Rec:
         prog = self.work / "ffprogress.txt"
         deadline = time.time() + 30
         while time.time() < deadline:
-            if prog.exists() and re.search(r"(?m)^frame=([1-9]\d*)", prog.read_text()):
+            if prog.exists() and re.search(r"(?m)^frame=([1-9]\d*)", prog.read_text(encoding="utf-8")):
                 break
             time.sleep(0.3)
         else:
@@ -884,7 +884,7 @@ def write_file(path, seed):
         return
     suffix = "".join(path.suffixes[-2:]) if name.endswith(".tar.gz") else path.suffix
     body = REPORT_TEXT if "report" in name else f"{path.stem}\n\n"
-    path.write_text(body)
+    path.write_text(body, encoding="utf-8")
     size = SIZE_HINT.get(suffix)
     if size and size > len(body):
         with open(path, "r+b") as f:
@@ -908,7 +908,7 @@ def write_tree(rec, rng):
                 made.append(folder / fname)
     # a couple of hidden entries, so the hidden-files switch has something to show
     (home / ".config").mkdir(exist_ok=True)
-    (home / ".profile").write_text("# nothing here\n")
+    (home / ".profile").write_text("# nothing here\n", encoding="utf-8")
     # every file written in the same second reads as a fixture; spread the dates
     # over the last couple of years, newest at the top of the tree
     now = time.time()
@@ -933,7 +933,7 @@ def write_gtk_settings(rec):
         "gtk-xft-antialias=1\n"
         "gtk-xft-hinting=1\n"
         "gtk-xft-hintstyle=hintslight\n"
-        "gtk-xft-rgba=none\n")
+        "gtk-xft-rgba=none\n", encoding="utf-8")
 
 # what the app starts the recording with. Only non-defaults are listed, the same
 # as the file the app writes itself.
@@ -992,12 +992,12 @@ def render_settings(values):
 def write_settings(rec, values=None):
     rec.settings.parent.mkdir(parents=True, exist_ok=True)
     rec.cfg = dict(START_SETTINGS if values is None else values)
-    rec.settings.write_text(render_settings(rec.cfg))
+    rec.settings.write_text(render_settings(rec.cfg), encoding="utf-8")
 
 def set_cfg(rec, changes, settle=1.6):
     """Change settings the way a hand edit does - the app live-reloads the file."""
     rec.cfg.update(changes)
-    rec.settings.write_text(render_settings(rec.cfg))
+    rec.settings.write_text(render_settings(rec.cfg), encoding="utf-8")
     time.sleep(settle)
 
 def prep_content(rec, rng):
@@ -1216,7 +1216,7 @@ def shape_slice(s, code):
     return s.astype(np.float32)
 
 def load_keypack(work, cache):
-    cfg = json.loads((KEYPACK / "config.json").read_text())
+    cfg = json.loads((KEYPACK / "config.json").read_text(encoding="utf-8"))
     raw = work / "keypack.pcm"
     run(["ffmpeg", "-v", "error", "-y", "-i", str(KEYPACK / cfg["sound"]),
         "-ar", str(SR), "-ac", "2", "-f", "s16le", str(raw)])
@@ -1304,7 +1304,7 @@ def find_flash(raw, work):
         "-vf", f"signalstats,metadata=print:key=lavfi.signalstats.YAVG:file={stats}",
         "-f", "null", "-"])
     best_t, best_y, pts = 0.0, -1.0, 0.0
-    for line in stats.read_text().splitlines():
+    for line in stats.read_text(encoding="utf-8").splitlines():
         mo = re.search(r"pts_time:([0-9.]+)", line)
         if mo:
             pts = float(mo.group(1))
@@ -1317,7 +1317,7 @@ def find_flash(raw, work):
 
 def esc_drawtext(work, i, text):
     f = work / f"banner{i}.txt"
-    f.write_text(text)
+    f.write_text(text, encoding="utf-8")
     return f
 
 def banner_xy(rec):
