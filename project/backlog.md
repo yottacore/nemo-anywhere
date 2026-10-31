@@ -972,7 +972,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Container images from pinned recipes.
 	- ID: 2026102617145788
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261026-171457
 	- Opened by: 2026102416300000
@@ -983,7 +983,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- `cicd/linux/Dockerfile.dev` and `cicd/win/Dockerfile` start from `debian:trixie` with no digest.
 	- Progress log:
 		- 20261028: split into children 2026102820195801 (the day-to-day image) and 2026102820195917 (the Windows cross build image). The release image was pinned in 2026092813381427, and the lint image in 2026101009515961.
-	- Test case: from the children, dejma and the Windows child's.
+		- 20261031: closed with its 2 children.
+	- Test case: dejma (day-to-day image), depf5 and defps (Windows cross build image), from the children.
+	- Closed: 20261031
 
 - CICD reset: other hosts and VMs.
 	- ID: 2026102416300001
@@ -1844,14 +1846,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The Windows zip's libraries are whatever MSYS2 had when the cross build image was made.
 	- ID: 2026102809292792
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261028-092927
 	- Opened by: 2026102416300008
 	- Related IDs: 2026102416300008
 	- Target OS: Windows
 	- Requirements: `fetch-sysroot.bash` takes the current package database, so two images built on different days pack different DLLs into the zip. Pin it like the hosted build, maybe from the same list.
-	- Test case: none yet.
+	- Test case: depf5 (every sysroot pin is in the hosted list, by name and sha256).
+	- Closed: 20261031
+	- 20261031: fixed in 60e3fa37 under 2026103113501526. The cross sysroot comes from `cicd/win/sysroot-pins.txt`, written by `msys2-pins.bash update` from the same database as the hosted build's list.
 
 - The hosted Windows build warns that MSYS2's MINGW64 environment is deprecated.
 	- ID: 2026102809292776
