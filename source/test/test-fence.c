@@ -4,9 +4,10 @@
  * temp dir when a test is run by hand), plus every directory test_scratch_dir
  * made. On POSIX this file takes over unlink, rmdir, remove, rename and their
  * at forms for the whole process, so GLib, GIO, SQLite, libarchive and the
- * app's own code all go through it. On Windows it puts itself in front of the
- * same calls in every loaded module's import table. A refused call ends the
- * test, since an error that comes back is too easy to swallow.
+ * app's own code all go through it. On macOS that takes a dylib, see
+ * FENCED below. On Windows it puts itself in front of the same calls in every
+ * loaded module's import table. A refused call ends the test, since an error
+ * that comes back is too easy to swallow.
  *
  * On Linux the bubblewrap jail (cicd/linux/jail.bash) stands behind this. On
  * the other boxes it's the only wall. A program the test starts, such as the
@@ -76,12 +77,30 @@ static const char *const kind_name[] = {
 #define FENCE_EXPORT
 #endif
 
+/* Mach-O binds each library's imports to the library that had them at link
+   time, so on macOS an unlink defined here would catch only the test's own
+   calls, and GLib's would go straight to libSystem. There, this file is a
+   dylib the test links, and dyld puts each FENCED call in front of the real
+   one for every other image, through the __interpose section at the end.
+   Calls made from inside this dylib still reach the real ones, so those are
+   called by name. */
+#ifdef __APPLE__
+#define FENCE_FN static
+#define FENCED(name) fence_##name
+#else
+#define FENCE_FN FENCE_EXPORT
+#define FENCED(name) name
+#endif
+
 typedef int (*path_fn)      (const char *);
 typedef int (*unlinkat_fn)  (int, const char *, int);
 typedef int (*rename_fn)    (const char *, const char *);
 typedef int (*renameat_fn)  (int, const char *, int, const char *);
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 typedef int (*renameat2_fn) (int, const char *, int, const char *, unsigned int);
+#endif
+#ifdef __APPLE__
+typedef int (*renamex_fn)   (const char *, const char *, unsigned int);
 #endif
 
 static path_fn      real_unlink;
@@ -93,11 +112,21 @@ static renameat_fn  real_renameat;
 #ifdef __linux__
 static renameat2_fn real_renameat2;
 #endif
+#ifdef __APPLE__
+static renamex_fn   real_renamex_np;
+static renameat2_fn real_renameatx_np;
+#endif
 
 static char *roots[MAX_ROOTS];
 static int n_roots;
 static pthread_mutex_t roots_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_once_t once = PTHREAD_ONCE_INIT;
+
+#ifdef __APPLE__
+/* dlsym hands back the FENCED call here too, RTLD_NEXT included. */
+#define REAL_OF(name) (name)
+#else
+#define REAL_OF(name) real_of (#name)
 
 static void *
 real_of (const char *name)
@@ -110,6 +139,7 @@ real_of (const char *name)
 	}
 	return fn;
 }
+#endif
 
 static void
 add_root (const char *dir)
@@ -148,14 +178,18 @@ init (void)
 	const char *cell = getenv ("NEMO_TEST_SCRATCH");
 
 	/* All of them now, so a call never has to look one up halfway. */
-	real_unlink    = (path_fn)     real_of ("unlink");
-	real_rmdir     = (path_fn)     real_of ("rmdir");
-	real_remove    = (path_fn)     real_of ("remove");
-	real_unlinkat  = (unlinkat_fn) real_of ("unlinkat");
-	real_rename    = (rename_fn)   real_of ("rename");
-	real_renameat  = (renameat_fn) real_of ("renameat");
+	real_unlink    = (path_fn)     REAL_OF (unlink);
+	real_rmdir     = (path_fn)     REAL_OF (rmdir);
+	real_remove    = (path_fn)     REAL_OF (remove);
+	real_unlinkat  = (unlinkat_fn) REAL_OF (unlinkat);
+	real_rename    = (rename_fn)   REAL_OF (rename);
+	real_renameat  = (renameat_fn) REAL_OF (renameat);
 #ifdef __linux__
-	real_renameat2 = (renameat2_fn) real_of ("renameat2");
+	real_renameat2 = (renameat2_fn) REAL_OF (renameat2);
+#endif
+#ifdef __APPLE__
+	real_renamex_np   = (renamex_fn)   REAL_OF (renamex_np);
+	real_renameatx_np = (renameat2_fn) REAL_OF (renameatx_np);
 #endif
 
 	if (cell != NULL && cell[0] != '\0') {
@@ -175,11 +209,24 @@ init (void)
 	}
 }
 
+#ifdef __APPLE__
+static void check_in_front (void);
+#endif
+
 /* Runs before main, so a test is fenced from its first line. */
 __attribute__ ((constructor)) static void
 fence_start (void)
 {
 	pthread_once (&once, init);
+#ifdef __APPLE__
+	check_in_front ();
+#endif
+}
+
+void
+test_fence_start (void)
+{
+	fence_start ();
 }
 
 static int
@@ -201,6 +248,9 @@ dir_of_fd (int dirfd, char out[PATH_MAX])
 		out[n] = '\0';
 		return out[0] == '/';
 	}
+#elif defined(__APPLE__)
+	/* PATH_MAX is MAXPATHLEN here, the size F_GETPATH wants. */
+	return fcntl (dirfd, F_GETPATH, out) == 0 && out[0] == '/';
 #elif defined(__FreeBSD__) && defined(F_KINFO)
 	{
 		struct kinfo_file info;
@@ -340,44 +390,44 @@ test_fence_allows (const char *path)
 	return resolve (AT_FDCWD, path, canon) > 0 && inside (canon);
 }
 
-FENCE_EXPORT int
-unlink (const char *path)
+FENCE_FN int
+FENCED (unlink) (const char *path)
 {
 	fence (FENCE_DELETE, AT_FDCWD, path);
 	return real_unlink (path);
 }
 
-FENCE_EXPORT int
-rmdir (const char *path)
+FENCE_FN int
+FENCED (rmdir) (const char *path)
 {
 	fence (FENCE_DELETE, AT_FDCWD, path);
 	return real_rmdir (path);
 }
 
-FENCE_EXPORT int
-remove (const char *path)
+FENCE_FN int
+FENCED (remove) (const char *path)
 {
 	fence (FENCE_DELETE, AT_FDCWD, path);
 	return real_remove (path);
 }
 
-FENCE_EXPORT int
-unlinkat (int dirfd, const char *path, int flags)
+FENCE_FN int
+FENCED (unlinkat) (int dirfd, const char *path, int flags)
 {
 	fence (FENCE_DELETE, dirfd, path);
 	return real_unlinkat (dirfd, path, flags);
 }
 
-FENCE_EXPORT int
-rename (const char *from, const char *to)
+FENCE_FN int
+FENCED (rename) (const char *from, const char *to)
 {
 	fence (FENCE_MOVE, AT_FDCWD, from);
 	fence (FENCE_ONTO, AT_FDCWD, to);
 	return real_rename (from, to);
 }
 
-FENCE_EXPORT int
-renameat (int from_dir, const char *from, int to_dir, const char *to)
+FENCE_FN int
+FENCED (renameat) (int from_dir, const char *from, int to_dir, const char *to)
 {
 	fence (FENCE_MOVE, from_dir, from);
 	fence (FENCE_ONTO, to_dir, to);
@@ -391,6 +441,71 @@ renameat2 (int from_dir, const char *from, int to_dir, const char *to, unsigned 
 	fence (FENCE_MOVE, from_dir, from);
 	fence (FENCE_ONTO, to_dir, to);
 	return real_renameat2 (from_dir, from, to_dir, to, flags);
+}
+#endif
+
+#ifdef __APPLE__
+/* With RENAME_SWAP both paths are moved, and both are already checked. */
+static int
+fence_renamex_np (const char *from, const char *to, unsigned int flags)
+{
+	fence (FENCE_MOVE, AT_FDCWD, from);
+	fence (FENCE_ONTO, AT_FDCWD, to);
+	return real_renamex_np (from, to, flags);
+}
+
+static int
+fence_renameatx_np (int from_dir, const char *from, int to_dir, const char *to, unsigned int flags)
+{
+	fence (FENCE_MOVE, from_dir, from);
+	fence (FENCE_ONTO, to_dir, to);
+	return real_renameatx_np (from_dir, from, to_dir, to, flags);
+}
+
+/* The layout dyld reads: each entry puts the first call in front of the
+   second for every image but this one. */
+typedef struct {
+	const void *mine;
+	const void *real;
+} Interpose;
+
+#define INTERPOSE(name) { (const void *) fence_##name, (const void *) name }
+
+__attribute__ ((used, section ("__DATA,__interpose"))) static const Interpose interposed[] = {
+	INTERPOSE (unlink),
+	INTERPOSE (rmdir),
+	INTERPOSE (remove),
+	INTERPOSE (unlinkat),
+	INTERPOSE (rename),
+	INTERPOSE (renameat),
+	INTERPOSE (renamex_np),
+	INTERPOSE (renameatx_np),
+};
+
+/* In the order above. */
+static const char *const interposed_names[] = {
+	"unlink", "rmdir", "remove", "unlinkat", "rename", "renameat", "renamex_np", "renameatx_np",
+};
+
+_Static_assert (sizeof interposed / sizeof interposed[0] == sizeof interposed_names / sizeof interposed_names[0],
+		"one name per interposed call");
+
+/* dyld skips the section without a word when it won't interpose, such as for
+   a program it treats as restricted, or a dylib loaded after launch. dlsym
+   gives the call the rest of the process gets, so a test that would run with
+   no fence stops here instead. */
+static void
+check_in_front (void)
+{
+	size_t i;
+
+	for (i = 0; i < sizeof interposed / sizeof interposed[0]; i++) {
+		if (dlsym (RTLD_DEFAULT, interposed_names[i]) != interposed[i].mine) {
+			fprintf (stderr, "fence: dyld didn't put the fence in front of %s, so this test would run unfenced\n",
+				 interposed_names[i]);
+			abort ();
+		}
+	}
 }
 #endif
 
@@ -1015,6 +1130,12 @@ fence_init (void)
 
 __attribute__ ((constructor)) static void
 fence_start (void)
+{
+	fence_init ();
+}
+
+void
+test_fence_start (void)
 {
 	fence_init ();
 }
