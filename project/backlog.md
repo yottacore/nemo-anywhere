@@ -33,6 +33,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- da8rb on b29w sometimes takes an old bin item with the same marker, and fails on its purge.
+	- ID: 2026103117575073
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261031-175750
+	- Opened by: 2026103114202710
+	- Related IDs: 2026102822580302, 2026103116284963
+	- Target OS: Windows
+	- Steps to reproduce: the native gate on b29w, with the ssh user's Recycle Bin holding `$RYRVCYC.txt`, a `nemoverify-samecount-small` item from 2026-08-27.
+	- Incorrect behavior: da8rb exits 3 when the delete fence refuses `C:\$Recycle.Bin\<sid>\$IYRVCYC.txt`, outside the test's folders. The case's own item stays in the bin, `$RZIAQBU.txt` on 20261031.
+	- Expected behavior: the same-count case purges only the item it recycled, whatever the bin already holds.
+	- Reproduced: 20261031 on b29w at a406610f, 1 run of 5: the full run's gate. It passed in a second gate and 3 times alone.
+	- Actual cause: `find_backing_by_contents` takes the first `$R` item, in name order, whose contents match the marker, and the marker is the same every run. When the run's own item gets a name that sorts after `$RYRVCYC`, the case takes the 2026-08-27 one, and its purge is a delete outside the test. Each such failure leaves one more item with the marker.
+		- The other callers of `find_backing_by_contents`, and de5kb's `bin_item`, also match a fixed marker.
+	- Test case: da8rb, with a bin item holding the marker left there first.
+
 - The desktop tests step fails on b29w: wintest can't Set-Location into a run folder under collierjr's %TEMP%.
 	- ID: 2026103116395639
 	- Type: Bug
@@ -123,7 +140,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Other hosts: the native Windows gate runs on b29w in the default run.
 	- ID: 2026103114202710
 	- Type: Task
-	- Status: Waiting on automated testing
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261031-142027
 	- Opened by: 2026102808250959
@@ -132,7 +149,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A plain run and `--backlog-run-full` run `cicd-win.ps1 -Gate -Yes` on b29w, from a bundle of the commit the run is on. With b29w not there, vm925w, started and put back through the VM state helper. Neither there is a `SKIP`. `--quick` and `--no-remote` leave it out.
 		- It runs in its own folder under the box's temp root, removed at the end, and stale ones of its own are removed too.
 		- It adds little to a run's time.
-	- Needs local test suite run?: a full run, `--backlog-run-full --no-private`: the native Windows gate step, with b29w there, its log in that step, and the run's time against the 2026-10-29 run's.
 	- Decisions:
 		- b29w is another machine, so its gate starts alongside the local steps, at the debug build, and is waited for in a step of its own before the packages. vm925w is a VM on this box, so it runs only in that step, when b29w isn't there, since side by side it would take the run past half the CPUs.
 		- What goes is a bundle of HEAD, as for the Windows dogfood, since the box needs commits to clone. An uncommitted edit isn't in it, and the run says so. A round commits before its full run.
@@ -146,6 +162,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: depg0, the lane: b29w first by that name, then vm925w through the VM state helper, the work folder and its name, the gate's switches, its log and exit code, removal after a failure or a TERM, and 77 with no box. ddmmw, the step: the side command alongside, the other only after a 77, `SKIP`, a failing gate stops the run, and `--quick`, `--no-win` and `--no-remote`.
 	- Verified: 20261031, depg0 and ddmmw pass. ddmmw fails 16 checks against the old `cicd.bash`. depg0 fails 4 with the removal and the skip broken, and 1 on the work folder line before its fix.
 	- Verified: 20261031, the lane alone on b29w at e28a25b6, with `-Gate -Yes -NoSync -NoFmt`: the folder made, the gate run in 959 s with its lines printed here, its exit code 1 read back from the 4 failures already on dev (2026102822580302), 190 OK, 19 skipped, and the folder removed. `--backlog-run-quick` lints and tests pass.
+	- Verified: 20261031, full run 20261031-164420 at a406610f (`--backlog-run-full --no-private`): the gate on b29w started beside step 1 and was done by 17:00, step 12 printed its log and read its exit 1 at once, and that failure stopped the run before the packages. 69 min to step 12, against about 71 for the 2026-10-29 run without its arm64 release. The 2 failures are the flakes 2026103116284963 and 2026103117575073.
+	- Acceptance signoff: Self-closed: the full run's native gate step on b29w.
+	- Closed: 20261031-175750
 
 - Windows cross build image: the steps run from the recipe.
 	- ID: 2026103113501545
@@ -315,6 +334,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261028, ddmn7 and ddmmv, and the quick gate.
 	- Verified: 20261028, the FreeBSD lane alone (`lane.bash --tests`) at d7bd529d with vmFreeBSD off: it was started, its login waited for, the suite passed (216 OK, 20 skipped), and it was shut down after. In the full run before, from paused, the lane got in and failed later on the clock, which is 2026102810470587.
 	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed: the arm64 lane from paused was ready in 15 s, and the FreeBSD suite and release from paused in under a second each. Neither VM booted from off in it.
+	- 20261031: not run. The round's full run had no `--long`.
 
 - CICD step output: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102819522603
@@ -363,15 +383,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: the other places that name a Windows box in `cicd/`. Only the dogfood names one; the native Windows gate is 2026102808250959.
 	- Test case: dehyb. b29w goes first by that name, vm925w is taken through the VM state helper while off and its login waited for, and no box there is a skip. It fails before the change and passes after.
 	- Verified: 20261028, dehyb, and the quick gate.
+	- 20261031: not run. A round never runs the dogfood.
 	- 20261028: not run. Left for a plain run, since no narrower check covers the refresh.
 	- 20261028: still not run. A round never runs the dogfood, and the step it needs, vm925w started from off, can't happen while the paused vmKt6m holds SPICE port 5900. dehyb covers the rest.
 
 - CICD reset: test IDs.
 	- ID: 2026102416300007
 	- Type: Task
-	- Status: Waiting on automated testing
+	- Status: Done
 	- Needs local test suite run?: no
-	- Needs external testing: the 3 Windows-only script tests' lines (install in-use, ACL and staging checks) in the native gate's Tests step, once the suite gets past 2026102822580302.
 	- Priority|Severity: High
 	- Opened: 20261024-163000
 	- Opened by: t00mietum
@@ -399,7 +419,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- 20261028: native gate not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
 	- Verified: 20261028, FreeBSD lane at 9f7df4c7: every result line reads PASS <id> <name>.
 	- Verified: 20261028, native Windows on b29w at 2964120b: meson's result lines through awk under MSYS2 all read `PASS`, `FAIL` or `SKIP`, then the ID and name, 217 of them. The lint step's 92 script test lines did too, with defmw and dehzr left out of the list (2026102822580271, 2026102823073182). The Tests step stopped on 4 failures already on dev (2026102822580302) before the Windows-only script tests.
+	- Verified: 20261031, native gate on b29w at a406610f: the Tests step passed and printed PASS dd5hz test-install-holders.ps1, PASS ddc6v test-install-acl.ps1 and PASS ddgch test-install-staging.ps1.
 	- Prereq IDs: 2026102822580302
+	- Acceptance signoff: Self-closed: the 3 lines in the native gate on b29w.
+	- Closed: 20261031-175750
 
 - CICD CPU: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102517333362
@@ -493,6 +516,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: c0a7ede
 	- Test case: dd5dm, Compress dialog height test: closed with Reset grayed at the defaults, Reset lit by a change and by a password alone, Reset clearing them and closing Options, opening by itself for remembered choices with the buttons on screen, Reset dropping them from the settings file, and a remembered lock the format can't do opening Options, shown off and grayed, and back on with rar. dcwjb, Archive settings test, test_choices: the defaults match the settings table, each choice off its default counts, a forced off shows off and leaves the choice, saving keeps it with a preset as its size, and the reset drops every key under Options and nothing else.
 	- Stand-in: 20261025 on vm925w at a61c4f91: dd5dm passes on the real desktop, with a 1392 px work area. Options opened by itself and the 787 px dialog stayed on screen. The lower resolution for a short screen didn't take, so that part is still to run.
+	- 20261031: not run. vm925w-iommu still can't start while vmKt6m holds SPICE port 5900.
 	- 20261028: not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
