@@ -105,6 +105,33 @@ check_stale_attribute_is_refused (const char *scratch)
 	check (!nemo_file_digest_read_attr (file, bytes + 1, mtime, back));
 }
 
+/* On Windows a scanner can still hold the file just written, and when it lets
+ * go NTFS stamps the time again, over the one set here. Set it until it holds
+ * for two reads in a row, or the check below blames the checksum write. */
+static gboolean
+set_old_time (const char *path, GStatBuf *st)
+{
+	struct utimbuf old = { 1600000000, 1600000000 };
+	int tries;
+
+	for (tries = 0; tries < 50; tries++) {
+		if (g_utime (path, &old) != 0)
+			return FALSE;
+		if (g_stat (path, st) != 0)
+			return FALSE;
+		if (st->st_mtime == 1600000000) {
+			g_usleep (50000);
+			if (g_stat (path, st) != 0)
+				return FALSE;
+			if (st->st_mtime == 1600000000)
+				return TRUE;
+		}
+		g_usleep (20000);
+	}
+
+	return FALSE;
+}
+
 /* Writing the checksum must not touch the time it was taken at. NTFS counts a
  * write to any stream as a change to the whole file, so a careless write there
  * makes every checksum stale as soon as it is written, and the file reads as edited
@@ -114,7 +141,6 @@ check_write_keeps_file_time (const char *scratch)
 {
 	g_autoptr (GFile) file = write_file (scratch, "kept", "hello");
 	g_autofree char *path = NULL;
-	struct utimbuf old = { 1600000000, 1600000000 };
 	guint8 digest[NEMO_CACHE_DIGEST_LEN];
 	GStatBuf before, after;
 
@@ -123,8 +149,7 @@ check_write_keeps_file_time (const char *scratch)
 		return;
 
 	path = g_file_get_path (file);
-	check (g_utime (path, &old) == 0);
-	check (g_stat (path, &before) == 0);
+	check (set_old_time (path, &before));
 
 	nemo_file_digest_bytes ("hello", 5, digest);
 	check (nemo_file_digest_write_attr (file, 5, (gint64) before.st_mtime * G_USEC_PER_SEC, digest));
