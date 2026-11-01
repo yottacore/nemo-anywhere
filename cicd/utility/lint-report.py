@@ -42,7 +42,7 @@ def even_out(line):
 def flagged(path):
     """Evened-out flagged lines of one log, in first-seen order."""
     out = {}
-    with open(path, errors="replace") as f:
+    with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
             if FLAG_RE.search(line):
                 out.setdefault(even_out(line), None)
@@ -76,11 +76,11 @@ def skip(msg):
 
 
 def self_test():
-    print("[ Test %s lint-report.py --self-test ]" % re.search(r"(?m)^##\tTest ID: (\S+)$", open(__file__).read()).group(1))
+    print("[ Test %s lint-report.py --self-test ]" % re.search(r"(?m)^##\tTest ID: (\S+)$", open(__file__, encoding="utf-8").read()).group(1))
     failures = []
     with tempfile.TemporaryDirectory() as d:
         def log(name, text):
-            with open(os.path.join(d, name), "w") as f:
+            with open(os.path.join(d, name), "w", encoding="utf-8") as f:
                 f.write(text)
         log("run_20261001-100000_day.log",
             "[12/700] Compiling\n(test-a:4242): Gtk-WARNING **: 10:00:01.123: old one\n"
@@ -143,7 +143,7 @@ def main():
     if a.check and not a.force:
         seen = ""
         try:
-            seen = open(marker).read().strip()
+            seen = open(marker, encoding="utf-8").read().strip()
         except OSError:
             pass
         if ts and seen and ts <= seen:
@@ -157,7 +157,7 @@ def main():
 
     if a.check and not a.no_mark and ts:
         try:
-            with open(marker, "w") as f:
+            with open(marker, "w", encoding="utf-8") as f:
                 f.write(ts + "\n")
         except OSError as e:
             sys.stderr.write(f"lint-report: could not write marker: {e}\n")

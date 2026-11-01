@@ -13,6 +13,10 @@
 ##	- A lane that exits 77, for a box that isn't there, closes its step as
 ##	  SKIP, is listed at the end, and the run goes on. A skipped arm64 build
 ##	  takes its packages and check with it.
+##	- The native Windows gate runs by default, its side command alongside the
+##	  local steps, and the other one only when the side one finds no box. A
+##	  gate that fails stops the run. --quick, --no-win and --no-remote leave
+##	  it out.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-arm.bash
 ##	- Test ID: ddmmw
@@ -80,6 +84,8 @@ cat > "${scratch}/cicd/config.bash" <<-EOF
 	)
 	BSD_TEST_CMD=(bash -c '[[ -z "\${FAKE_BOX_GONE:-}" ]] || exit 77; mkdir -p out && touch out/bsd-tests')
 	BSD_RELEASE_CMD=(bash -c '[[ -z "\${FAKE_BOX_GONE:-}" ]] || exit 77; mkdir -p out && touch out/bsd-release')
+	WIN_GATE_SIDE_CMD=(bash -c '[[ -z "\${FAKE_BOX_GONE:-}\${FAKE_WIN_SIDE_GONE:-}" ]] || exit 77; mkdir -p out && touch out/win-side; echo side gate ran; exit "\${FAKE_WIN_RC:-0}"')
+	WIN_GATE_CMD=(bash -c '[[ -z "\${FAKE_BOX_GONE:-}" ]] || exit 77; mkdir -p out && touch out/win-gate')
 	PRIVATE_RUNNER=""
 	PROFILE_ENABLE=0
 	PROFILE_OUT_DIR="profiling"
@@ -176,7 +182,7 @@ rc=0; out="$(cd "$scratch" && FAKE_BOX_GONE=1 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOC
 if [[ "$rc" != 0 ]]; then
 	fFail "a run with no FreeBSD or arm64 box failed (exit ${rc}): $(tail -5 <<< "$out")"
 else
-	for step in "FreeBSD suite" "Release build: Linux arm64 (stand-in)" "Release build: FreeBSD"; do
+	for step in "FreeBSD suite" "Release build: Linux arm64 (stand-in)" "Release build: FreeBSD" "Native Windows gate"; do
 		grep -qF "; SKIP ${step} ]" <<< "$out" || fFail "no SKIP line for ${step}"
 		grep -qxF "    - ${step}" <<< "$out" || fFail "${step} is not in the list of skipped steps at the end"
 	done
@@ -185,6 +191,36 @@ else
 	fEcho "OK: a box that isn't there is a SKIP, and the run goes on"
 fi
 
+## $1 which gate command ran: side, other or none. $2 text the output must
+## have. Then env settings, -- and the options.
+fWin(){
+	local want="$1" text="$2" envs=() out rc=0 got=none
+	shift 2
+	while (($#)) && [[ "$1" != -- ]]; do envs+=("$1"); shift; done
+	shift
+	fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
+	out="$(cd "$scratch" && env "${envs[@]}" CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync "$@" 2>&1 </dev/null)" || rc=$?
+	if [[ "$rc" != 0 ]]; then
+		fFail "[${envs[*]} $*]: the run failed (exit ${rc}): $(tail -5 <<< "$out")"
+		return 0
+	fi
+	[[ -e "${scratch}/out/win-side" ]] && got=side
+	[[ -e "${scratch}/out/win-gate" ]] && got="${got/none/}other"
+	[[ "$got" == "$want" ]] || fFail "[${envs[*]} $*]: wanted the ${want} gate command, ran: ${got}"
+	[[ -z "$text" || "$out" == *"$text"* ]] || fFail "[${envs[*]} $*]: no '${text}' in the output"
+}
+fWin side  "side gate ran"                                --
+fWin side  "OK: native Windows gate"                      -- --backlog-run-full
+fWin other "OK: native Windows gate"                      FAKE_WIN_SIDE_GONE=1 --
+fWin none  "Native Windows ......: (skipped --no-win)"    -- --no-win
+fWin none  "Native Windows ......: (skipped --no-remote)" -- --no-remote
+fWin none  "Native Windows ......: (skipped --quick)"     -- --quick
+fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
+rc=0; out="$(cd "$scratch" && FAKE_WIN_RC=3 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync 2>&1 </dev/null)" || rc=$?
+((rc != 0)) || fFail "a failing native Windows gate did not fail the run"
+[[ "$out" == *"native Windows gate (exit 3)"* ]] || fFail "a failing native Windows gate was not named: $(tail -3 <<< "$out")"
+[[ ! -e "${scratch}/out/pkg-other" ]] || fFail "the packages ran after the native Windows gate failed"
+
 ## --quick leaves arm64 out. Since 2026-10-19 --include-arm brings it back under
 ## --quick, the way --include-bsd does, so that case moved to test-cicd-quick.bash.
 fSafeRm_IfThere "${scratch}/out"
@@ -192,7 +228,7 @@ out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd
 [[ ! -e "${scratch}/out/app-${ver}-linux-arm64.tar.gz" && ! -e "${scratch}/out/pkg-arm64" ]] || fFail "--quick built arm64"
 
 help="$(bash "${root}/cicd/cicd.bash" --help)"
-for opt in --include-arm --no-arm --include-bsd --no-bsd --long --slow; do
+for opt in --include-arm --no-arm --include-bsd --no-bsd --no-win --long --slow; do
 	grep -qE "^ +${opt} " <<< "$help" || fFail "--help has no ${opt}"
 done
 

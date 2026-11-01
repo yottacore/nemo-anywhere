@@ -216,7 +216,7 @@ def check(root):
 
     for path in sorted(p for d in CODE_DIRS for p in (root / d).rglob("*.c")):
         rel = path.relative_to(root.parent)
-        text = strip_comments(path.read_text(errors="replace"))
+        text = strip_comments(path.read_text(encoding="utf-8", errors="replace"))
 
         for match in re.finditer(r'"((?:<\w+>)+[^"<>\s]*)"', text):
             problem = control_problem(match.group(1))
@@ -246,12 +246,12 @@ def check(root):
             problems.append(("action tables", 0, f"{name} must own {key}"))
         ui_path = root / ui
         listed = re.compile(rf'<(?:accelerator|menuitem)\b[^>]*\baction="{re.escape(name)}"')
-        if ui_path.is_file() and not listed.search(ui_path.read_text(errors="replace")):
+        if ui_path.is_file() and not listed.search(ui_path.read_text(encoding="utf-8", errors="replace")):
             problems.append((ui_path.relative_to(root.parent), 0, f"{name} is not listed, so its key does nothing"))
 
     for path in sorted(p for p in root.rglob("*") if p.suffix in UI_SUFFIXES):
         rel = path.relative_to(root.parent)
-        for number, line in enumerate(path.read_text(errors="replace").split("\n"), 1):
+        for number, line in enumerate(path.read_text(encoding="utf-8", errors="replace").split("\n"), 1):
             match = re.search(r'name="accelerator"[^>]*>([^<]*)<', line)
             if not match:
                 continue

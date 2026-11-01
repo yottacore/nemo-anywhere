@@ -422,6 +422,12 @@ main (int argc, char *argv[])
 		g_print ("SKIP: no display\n");
 		return 77;
 	}
+	/* The copies' windows are what it watches, and with no monitor, as in
+	   session 0 over ssh, they never list a title. */
+	if (gdk_display_get_n_monitors (gdk_display_get_default ()) == 0) {
+		g_print ("SKIP: no monitor\n");
+		return 77;
+	}
 	bus_was_up = bus_address_published ();
 	if (bus_was_up) {
 		g_print ("NOTE: another program's session bus is up, so only a bus started here counts\n");

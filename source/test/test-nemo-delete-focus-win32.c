@@ -218,6 +218,12 @@ main (int argc, char **argv)
 		g_printerr ("SKIP: no display\n");
 		return 77;
 	}
+	/* Session 0, as over ssh, has no monitor, and the focus that leaves a
+	   window there never comes back. */
+	if (gdk_display_get_n_monitors (gdk_display_get_default ()) == 0) {
+		g_printerr ("SKIP: no monitor\n");
+		return 77;
+	}
 
 	window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
 	gtk_window_set_default_size (GTK_WINDOW (window), 320, 240);

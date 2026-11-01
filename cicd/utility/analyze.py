@@ -70,7 +70,7 @@ def private_dir(entry):
 # its own -I<target>.p, which holds only objects, so that one doesn't count.
 # The tag names the target when a file has more than one run.
 def load_db(path):
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         entries = json.load(f)
     runs = {}
     for e in entries:
@@ -167,7 +167,7 @@ def cmd_planted(args):
             print("### SKIP no clang in this container")
             return 77
     with tempfile.TemporaryDirectory() as tmp:
-        with open(os.path.join(tmp, "planted.c"), "w") as f:
+        with open(os.path.join(tmp, "planted.c"), "w", encoding="utf-8") as f:
             f.write(PLANTED)
         block = run_one(os.path.join(tmp, "planted.c"),
                         {"directory": tmp, "file": "planted.c", "arguments": [cc, "-Wall", "-c", "planted.c", "-o", "planted.o"]},
@@ -292,13 +292,13 @@ def cmd_count(args):
     # The baseline commit holds upstream 6.6.4 under original/, moved to source/ right after.
     inherited = {re.sub(r"^original/", "source/", f) for f in subprocess.run(
         ["git", "-C", root, "ls-tree", "-r", "--name-only", base], check=True, capture_output=True, text=True).stdout.split()}
-    with open(os.path.join(root, SUPP_FILE)) as f:
+    with open(os.path.join(root, SUPP_FILE), encoding="utf-8") as f:
         supp, problems = parse_supp(f.read())
     for p in problems:
         print("[ FAILED: %s: %s ]" % (SUPP_FILE, p))
     logs = {}
     for p in paths:
-        with open(p, errors="replace") as f:
+        with open(p, encoding="utf-8", errors="replace") as f:
             logs[os.path.basename(p).rsplit(".", 1)[0]] = f.read()
     table, failed, stale = count(logs, inherited, supp)
     print("%-14s %s %7s %10s %9s" % ("log", " ".join("%9s" % a for a in AREAS), "total", "suppressed", "failed"))
@@ -317,7 +317,7 @@ def cmd_count(args):
 
 
 def self_test():
-    own = open(__file__).read()
+    own = open(__file__, encoding="utf-8").read()
     print("[ Test %s analyze.py --self-test ]" % re.search(r"(?m)^# Test ID: (\S+)$", own).group(1))
     bad = []
     log = "\n".join([
@@ -356,7 +356,7 @@ def self_test():
                              "vendor/x/y.c:4 unix.Malloc a\nvendor/x/y.c:4 unix.Malloc b\n")
     if len(problems) != 3:
         bad.append("bad list lines %r, want 3 (no reason, not vendored, twice)" % problems)
-    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", SUPP_FILE)) as f:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", SUPP_FILE), encoding="utf-8") as f:
         problems = parse_supp(f.read())[1]
     bad += ["%s: %s" % (SUPP_FILE, p) for p in problems]
     tracked = {"a.c", "b.c", "c.c", UNUSED + "d.c", UNUSED + "e.c"}
@@ -375,7 +375,7 @@ def self_test():
           entry("source/test/t.c", "test/a", "-Itest"), entry("source/test/t.c", "test/b", "-Itest"),
           entry("source/test/t.c", "test/c", "-Itest"), entry("source/src/s.c", "src/app")]
     with tempfile.TemporaryDirectory() as tmp:
-        with open(os.path.join(tmp, "compile_commands.json"), "w") as f:
+        with open(os.path.join(tmp, "compile_commands.json"), "w", encoding="utf-8") as f:
             json.dump(db, f)
         got = [(full, tag) for full, _, tag in load_db(os.path.join(tmp, "compile_commands.json"))]
     want_r = [("/src/source/src/s.c", ""), ("/src/source/test/t.c", ""),
@@ -405,7 +405,7 @@ def self_test():
 def main():
     args = sys.argv[1:]
     if not args or args[0] in ("-h", "--help"):
-        print(open(__file__).read().split("\n\n")[1].replace("# ", "").replace("#", ""))
+        print(open(__file__, encoding="utf-8").read().split("\n\n")[1].replace("# ", "").replace("#", ""))
         return 0
     if args[0] == "--self-test":
         return self_test()

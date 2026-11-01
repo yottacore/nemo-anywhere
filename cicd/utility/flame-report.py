@@ -204,7 +204,7 @@ def main():
     if a.check and not a.force:
         seen = ""
         try:
-            seen = open(marker).read().strip()
+            seen = open(marker, encoding="utf-8").read().strip()
         except OSError:
             pass
         if ts and seen and ts <= seen:
@@ -218,7 +218,7 @@ def main():
 
     if a.check and not a.no_mark and ts:
         try:
-            open(marker, "w").write(ts + "\n")
+            open(marker, "w", encoding="utf-8").write(ts + "\n")
         except OSError as e:
             sys.stderr.write(f"flame-report: could not write marker: {e}\n")
 

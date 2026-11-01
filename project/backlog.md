@@ -148,6 +148,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261028, ddmn7 and ddmmv, and the quick gate.
 	- Verified: 20261028, the FreeBSD lane alone (`lane.bash --tests`) at d7bd529d with vmFreeBSD off: it was started, its login waited for, the suite passed (216 OK, 20 skipped), and it was shut down after. In the full run before, from paused, the lane got in and failed later on the clock, which is 2026102810470587.
 	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed: the arm64 lane from paused was ready in 15 s, and the FreeBSD suite and release from paused in under a second each. Neither VM booted from off in it.
+	- 20261031: not run. The round's full run had no `--long`.
 
 - CICD step output: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102819522603
@@ -196,43 +197,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: the other places that name a Windows box in `cicd/`. Only the dogfood names one; the native Windows gate is 2026102808250959.
 	- Test case: dehyb. b29w goes first by that name, vm925w is taken through the VM state helper while off and its login waited for, and no box there is a skip. It fails before the change and passes after.
 	- Verified: 20261028, dehyb, and the quick gate.
+	- 20261031: not run. A round never runs the dogfood.
 	- 20261028: not run. Left for a plain run, since no narrower check covers the refresh.
 	- 20261028: still not run. A round never runs the dogfood, and the step it needs, vm925w started from off, can't happen while the paused vmKt6m holds SPICE port 5900. dehyb covers the rest.
-
-- CICD reset: test IDs.
-	- ID: 2026102416300007
-	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: no
-	- Needs external testing: the 3 Windows-only script tests' lines (install in-use, ACL and staging checks) in the native gate's Tests step, once the suite gets past 2026102822580302.
-	- Priority|Severity: High
-	- Opened: 20261024-163000
-	- Opened by: t00mietum
-	- Requirements:
-		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
-		- Per the test ID and per-test line bullets in the testing section of the shared CICD rules. Every test already has an ID, checked in the lint stage. What's left:
-			- IDs move from milliseconds and 8 digits to whole minutes since 2000-01-01 00:00 UTC, in lower-case Crockford base 32, as in `decp8`. When 2 come out the same, the newer one takes the next free minute.
-			- Every existing ID is converted once, from the same time, along with the backlog rows, docs and lints that name it.
-			- The run prints one `PASS`, `FAIL` or `SKIP` line per regression and fuzz test, with its ID and name.
-		- Overrides: the test ID rule in the private project rules, in milliseconds.
-	- Progress log:
-		- 20261028: all 415 IDs converted, from the time each one already held, along with the backlog, the private notes, the suppressions and the lints that name them. 117 moved to a later free minute, by 16 at most.
-		- 20261028: meson's result lines are rewritten as `PASS`, `FAIL` or `SKIP`, then the ID and name, on Linux, FreeBSD and native Windows. The fuzz targets, the C lint checks, the lint stage's script tests and self-tests, the package checks, the jail check, the sanitizer suite, the GUI smokes, the build flags check and the Windows-only script tests print the same line.
-	- Decisions:
-		- IDs are padded to 5 digits. Only the eel test is shorter, `00591` rather than `591`, which would also match other numbers in a search. The ID check wants at least 5 digits and allows up to an hour ahead, for a later free minute.
-		- With no option, `test-id.py` prints the first free minute from now, so a second test made in the same minute doesn't collide.
-		- The meson lines are rewritten as they stream, rather than listed again at the end, so a run still reads as it goes. The time and exit status stay at the end of the line.
-		- A script test in the lint stage that exits 77 is a skip everywhere now. Before, the ones run without the helper stopped the stage on it.
-		- The lint, build and pipeline checks that have no ID stay that way, per 2026092813381445.
-	- Swept: every caller of `meson test` (`run-tests.bash`, which the FreeBSD lane and the sanitizer suite go through, and `cicd-win.ps1`); every script `test-id.py --check` counts as a test, and where it runs.
-	- Branch: round1028a
-	- Test case: dehyx, the result line rewrite and the script test helper. ddf32 checks the fuzz lines and ddaga the package check lines. `test-id.py --check`, in the lint stage, fails on the old 8-digit IDs.
-	- Verified: 20261028, `test-id.py --check` fails on the old IDs and passes after, 410 tests. dehyx fails with the skip mapped to a pass, ddaga with the old package checks, ddf32 with the old fuzz lines; all pass after. `cicd/cicd.bash --backlog-run-quick` passes.
-	- Verified: 20261028, full runs at 4be04125: the 12 fuzz targets, 223 sanitizer suite tests, the package checks (ddmn6, ddqjk, ddqv0, ddwhx, ddmn8), dcvpj and da73c each print a PASS line with the ID. The FreeBSD suite's lines come out as PASS, FAIL or SKIP under its awk, but with the project name stuck to the ID, filed as 2026102812032075.
-	- 20261028: native gate not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
-	- Verified: 20261028, FreeBSD lane at 9f7df4c7: every result line reads PASS <id> <name>.
-	- Verified: 20261028, native Windows on b29w at 2964120b: meson's result lines through awk under MSYS2 all read `PASS`, `FAIL` or `SKIP`, then the ID and name, 217 of them. The lint step's 92 script test lines did too, with defmw and dehzr left out of the list (2026102822580271, 2026102823073182). The Tests step stopped on 4 failures already on dev (2026102822580302) before the Windows-only script tests.
-	- Prereq IDs: 2026102822580302
 
 - CICD CPU: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102517333362
@@ -326,41 +293,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: c0a7ede
 	- Test case: dd5dm, Compress dialog height test: closed with Reset grayed at the defaults, Reset lit by a change and by a password alone, Reset clearing them and closing Options, opening by itself for remembered choices with the buttons on screen, Reset dropping them from the settings file, and a remembered lock the format can't do opening Options, shown off and grayed, and back on with rar. dcwjb, Archive settings test, test_choices: the defaults match the settings table, each choice off its default counts, a forced off shows off and leaves the choice, saving keeps it with a preset as its size, and the reset drops every key under Options and nothing else.
 	- Stand-in: 20261025 on vm925w at a61c4f91: dd5dm passes on the real desktop, with a 1392 px work area. Options opened by itself and the 787 px dialog stayed on screen. The lower resolution for a short screen didn't take, so that part is still to run.
+	- 20261031: not run. vm925w-iommu still can't start while vmKt6m holds SPICE port 5900.
 	- 20261028: not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
-
-- With OLE drag on, a GTK drag on Windows may keep its whole drag window.
-	- ID: 2026102112223038
-	- Type: Bug
-	- Status: Open
-		- Filed upstream as GTK issue [#8497](https://gitlab.gnome.org/GNOME/gtk/-/work_items/8497) and MR [!10551](https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/10551). Waits on a GTK 3.24 release with it.
-		- Let's patch our own fork, if it hasn't been merged yet.
-	- Needs external testing: none. Seen on native Windows 20261022.
-	- Priority|Severity: Low
-	- Opened: 20261021-122230
-	- Opened by: t00mietum
-	- Related IDs: 2026102020234500, 2026101916044103
-	- Target OS: Windows
-	- Steps to reproduce:
-		- Turn on GDK's OLE drag, as `nemo_dnd_win32_prepare` does.
-		- Start a GTK drag, such as a tab or a text drag, and stop it.
-	- Incorrect behavior: the drag window is never destroyed, and keeps 4 refs after the drag's context is gone. One per drag, for the life of the app. The app's own file drags don't use it, but GTK's own drag sources do.
-	- Expected behavior: the drag window is destroyed and freed with its context, as it is with GTK's own drag protocol.
-	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. 20261022 on Windows 11, GTK 3.24.52, the same in every mode. Again 20261021 under wine: only when the drag stops before GDK handles another event. One stopped 300 ms in is freed, OLE on or off.
-	- Possible cause: GDK's OLE drag source keeps the context's drag window past the context, or wine's `DoDragDrop` never returns for a drag stopped from GTK's side.
-	- Actual cause: GDK, not wine.
-		- With OLE on, `gdk_drag_begin` leaves a pending OLE drag source that holds a ref on the context. Only the code after `DoDragDrop` lets it go, and `DoDragDrop` starts on the next event GDK handles. GDK's drag abort just sets the state to none, so a drag stopped before then never runs `DoDragDrop`, and the source is never released.
-		- So the context isn't gone. It stays at 1 ref, is never finalized, and never destroys its drag window. The window's 4 refs are what any drag window has until its context's finalize. Dropping the context's last ref by hand destroys and frees the window at once.
-		- The first source left this way also stays GDK's current drag source, so later drops inside the app take their source window from it.
-	- Decisions:
-		- Upstream only. The ref belongs to GDK's pending drag source, which the app can't reach. Dropping it from the app leaves GDK's pointer to the context dangling, and GDK reads it on the next drop into the app.
-		- Drags in the app start from an event, so `DoDragDrop` runs right after and the context is freed. The app never cancels a drag itself. So it stays Low.
-		- An upstream patch is drafted, not filed: GDK's drag abort releases the pending source when `DoDragDrop` hasn't started.
-		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
-		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
-	- Actual fix: none in the app.
-	- Test case: none. The fix is upstream, and nothing in the app hits it.
-	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
-	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
@@ -418,6 +352,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261026: not seen again. A stand-in `--backlog-run-full` with the private runner last, its output to a file and through the lint log's tee, closed every step once. The lint log of the reported run, `run_20261025-183802.log`, has the line once, followed by the rule. The EXIT trap closes a step only on a failed exit, and `fStep_Close` clears the open step, so a passing run has no second path to that line. The doubled line may have come from how that run's output was watched.
 	- Test case: de54r, counting each step's closing line. A second close of the same step fails it as "closed a step that wasn't open".
+
+- CICD step output: the private runner.
+	- ID: 2026102820110989
+	- Type: Task
+	- Status: Stalled
+	- Priority|Severity: High
+	- Opened: 20261028-201109
+	- Opened by: 2026102819522603
+	- Parent ID: 2026102819522603
+	- Related IDs: 2026102517333362
+	- Requirements:
+		- The private runner prints its own steps the way the FreeBSD and arm64 lanes do: the 79-dot rule, `<box> N of M; Starting`, then `PASS` or `FAIL`, in local time to the hundredth.
+		- The private runner is in the private repo, which has branches of its own.
+	- Progress log:
+		- 20261028: split from 2026102819522603, whose lanes part is done.
+		- Held for the private repo's round, since the runner and its branches are there.
+	- Test case: none yet.
+
+- CICD CPU: the private runner.
+	- ID: 2026102820110967
+	- Type: Task
+	- Status: Stalled
+	- Priority|Severity: High
+	- Opened: 20261028-201109
+	- Opened by: 2026102517333362
+	- Parent ID: 2026102517333362
+	- Related IDs: 2026102819522603
+	- Requirements:
+		- The same rules as the FreeBSD and arm64 lanes, on the boxes the private runner builds on: `nice -n 19` on macOS and `BelowNormal` on Windows, with jobs from each box's own CPU count and load.
+		- The private runner is in the private repo, which has branches of its own.
+	- Progress log:
+		- 20261028: split from 2026102517333362, whose lanes part is done.
+		- Held for the private repo's round, since the runner and its branches are there.
+	- Test case: none yet.
 
 - de025, ddyv6 and ddc84 still fail in the sanitizer lane on a loaded box.
 	- ID: 2026102411433800
@@ -586,52 +554,98 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
 	- Test case: one per child.
 
-- Pinned recipe for the Windows cross build image.
-	- ID: 2026102820195917
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261028-201959
-	- Opened by: 2026102617145788
-	- Parent ID: 2026102617145788
-	- Prereq IDs: 2026102820195801
-	- Requirements:
-		- `nemo-winbuild` comes from `cicd/win/Dockerfile`, with the base by digest, apt from a dated snapshot and the MSYS2 sysroot by version.
-		- It passes the cross build, packing and wine runs that `nemo-winbuild:init` passes, and the pipeline uses it in place of the snapshot.
-		- The snapshot has 2 packages and about 5 GB of later layers that the recipe lacks. The list is in the private notes.
-	- Test case: none yet.
+- With OLE drag on, a GTK drag on Windows may keep its whole drag window.
+	- ID: 2026102112223038
+	- Type: Bug
+	- Status: Open
+		- Filed upstream as GTK issue [#8497](https://gitlab.gnome.org/GNOME/gtk/-/work_items/8497) and MR [!10551](https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/10551). Waits on a GTK 3.24 release with it.
+		- Let's patch our own fork, if it hasn't been merged yet.
+	- Needs external testing: none. Seen on native Windows 20261022.
+	- Priority|Severity: Low
+	- Opened: 20261021-122230
+	- Opened by: t00mietum
+	- Related IDs: 2026102020234500, 2026101916044103
+	- Target OS: Windows
+	- Steps to reproduce:
+		- Turn on GDK's OLE drag, as `nemo_dnd_win32_prepare` does.
+		- Start a GTK drag, such as a tab or a text drag, and stop it.
+	- Incorrect behavior: the drag window is never destroyed, and keeps 4 refs after the drag's context is gone. One per drag, for the life of the app. The app's own file drags don't use it, but GTK's own drag sources do.
+	- Expected behavior: the drag window is destroyed and freed with its context, as it is with GTK's own drag protocol.
+	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. 20261022 on Windows 11, GTK 3.24.52, the same in every mode. Again 20261021 under wine: only when the drag stops before GDK handles another event. One stopped 300 ms in is freed, OLE on or off.
+	- Possible cause: GDK's OLE drag source keeps the context's drag window past the context, or wine's `DoDragDrop` never returns for a drag stopped from GTK's side.
+	- Actual cause: GDK, not wine.
+		- With OLE on, `gdk_drag_begin` leaves a pending OLE drag source that holds a ref on the context. Only the code after `DoDragDrop` lets it go, and `DoDragDrop` starts on the next event GDK handles. GDK's drag abort just sets the state to none, so a drag stopped before then never runs `DoDragDrop`, and the source is never released.
+		- So the context isn't gone. It stays at 1 ref, is never finalized, and never destroys its drag window. The window's 4 refs are what any drag window has until its context's finalize. Dropping the context's last ref by hand destroys and frees the window at once.
+		- The first source left this way also stays GDK's current drag source, so later drops inside the app take their source window from it.
+	- Decisions:
+		- Upstream only. The ref belongs to GDK's pending drag source, which the app can't reach. Dropping it from the app leaves GDK's pointer to the context dangling, and GDK reads it on the next drop into the app.
+		- Drags in the app start from an event, so `DoDragDrop` runs right after and the context is freed. The app never cancels a drag itself. So it stays Low.
+		- An upstream patch is drafted, not filed: GDK's drag abort releases the pending source when `DoDragDrop` hasn't started.
+		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
+		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
+	- Actual fix: none in the app.
+	- Test case: none. The fix is upstream, and nothing in the app hits it.
+	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
+	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
 
-- CICD step output: the private runner.
-	- ID: 2026102820110989
-	- Type: Task
+- da8rb on b29w sometimes takes an old bin item with the same marker, and fails on its purge.
+	- ID: 2026103117575073
+	- Type: Bug
 	- Status: Queued
 	- Priority|Severity: High
-	- Opened: 20261028-201109
-	- Opened by: 2026102819522603
-	- Parent ID: 2026102819522603
-	- Related IDs: 2026102517333362
-	- Requirements:
-		- The private runner prints its own steps the way the FreeBSD and arm64 lanes do: the 79-dot rule, `<box> N of M; Starting`, then `PASS` or `FAIL`, in local time to the hundredth.
-		- The private runner is in the private repo, which has branches of its own.
-	- Progress log:
-		- 20261028: split from 2026102819522603, whose lanes part is done.
-	- Test case: none yet.
+	- Opened: 20261031-175750
+	- Opened by: 2026103114202710
+	- Related IDs: 2026102822580302, 2026103116284963
+	- Target OS: Windows
+	- Steps to reproduce: the native gate on b29w, with the ssh user's Recycle Bin holding `$RYRVCYC.txt`, a `nemoverify-samecount-small` item from 2026-08-27.
+	- Incorrect behavior: da8rb exits 3 when the delete fence refuses `C:\$Recycle.Bin\<sid>\$IYRVCYC.txt`, outside the test's folders. The case's own item stays in the bin, `$RZIAQBU.txt` on 20261031.
+	- Expected behavior: the same-count case purges only the item it recycled, whatever the bin already holds.
+	- Reproduced: 20261031 on b29w at a406610f, 1 run of 5: the full run's gate. It passed in a second gate and 3 times alone.
+	- Actual cause: `find_backing_by_contents` takes the first `$R` item, in name order, whose contents match the marker, and the marker is the same every run. When the run's own item gets a name that sorts after `$RYRVCYC`, the case takes the 2026-08-27 one, and its purge is a delete outside the test. Each such failure leaves one more item with the marker.
+		- The other callers of `find_backing_by_contents`, and de5kb's `bin_item`, also match a fixed marker.
+	- Test case: da8rb, with a bin item holding the marker left there first.
 
-- CICD CPU: the private runner.
-	- ID: 2026102820110967
+- The desktop tests step fails on b29w: wintest can't Set-Location into a run folder under collierjr's %TEMP%.
+	- ID: 2026103116395639
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261031-163956
+	- Opened by:
+	- Related IDs: 2026103114202730
+	- Progress log:
+		- 20261031: tried in 2026103114202730, code on `wip/round1031a-2026103114202730` (84161052). The gate passed (191 OK, 22 skipped), the 22 went to a `schtasks /it /ru wintest` task, and `cicd-win.ps1` stopped at `Set-Location -LiteralPath $Root` with access denied on `C:\Users\collierjr\AppData`. wintest has Modify on the run folder, but PowerShell reads each folder above it.
+		- Options: a run folder both users can reach, outside collierjr's profile; or pass whole paths and `-WorkingDirectory` so nothing does a `Set-Location` there. Granting wintest list rights on the profile changes its permissions, so leave that out.
+	- Test case: depg0 and dejjt, then the lane on b29w with the desktop step passing.
+
+- Other hosts: native Windows checks that put a window on screen run on vm925w.
+	- ID: 2026103114202730
 	- Type: Task
 	- Status: Queued
 	- Priority|Severity: High
-	- Opened: 20261028-201109
-	- Opened by: 2026102517333362
-	- Parent ID: 2026102517333362
-	- Related IDs: 2026102819522603
+	- Opened: 20261031-142027
+	- Opened by: 2026102808250959
+	- Parent ID: 2026102808250959
+	- Prereq IDs: 2026103116395639
 	- Requirements:
-		- The same rules as the FreeBSD and arm64 lanes, on the boxes the private runner builds on: `nice -n 19` on macOS and `BelowNormal` on Windows, with jobs from each box's own CPU count and load.
-		- The private runner is in the private repo, which has branches of its own.
-	- Progress log:
-		- 20261028: split from 2026102517333362, whose lanes part is done.
-	- Test case: none yet.
+		- The gate on b29w runs over ssh with no desktop, so its windowed tests skip. Those run again in a desktop session on vm925w, as its test user, and on b29w under its test account when vm925w isn't there.
+		- The VM is put back the way it was found. Neither box there is a `SKIP`.
+	- Decisions:
+		- The tests the gate's Tests step skipped, and only those, run again against its build on the same box, as its test user in that user's desktop session, through a `schtasks /it` task. No second build, so it adds a minute or two to the lane. A test that skips there for its own reason, such as a missing tool, skips again.
+		- The test user gets Modify on the run's folder for it, which goes with the folder.
+		- A session there with no monitor fails the step, since a pass would hide that nothing was drawn.
+		- With the test user not logged on, the lane warns and the gate's pass stands. Logging on over RDP would take b29w's own screen.
+		- Only after a passing gate, since a failed gate fails the lane already.
+		- `NEMO_WIN_DESKTOP=0` leaves it out, and `NEMO_WIN_TEST_USER` names another user.
+		- With the gate on b29w, its windowed tests run there even when vm925w is there. Sending them to vm925w needs a build on vm925w, and that's 2026103116203063.
+	- Swept: the other lanes that reach a box run no windowed tests. Every caller of `lane-box.ps1` and `fTests` in `cicd/`, and design.md's native gate bullet.
+	- Test case: depg0: after a passing gate, only the meson tests its Tests step skipped go to the box and run as wintest, a failing desktop test fails the lane, no wintest session is a warning, a failing gate runs none, and `NEMO_WIN_DESKTOP=0`.
+	- 20261031: split. Windowed tests on vm925w while the gate runs on b29w, and wintest's logon on vm925w after a boot, are 2026103116203063.
+	- 20261031: the work is on `wip/round1031a-2026103114202730`, not on the round branch, since the desktop step fails on b29w. Its task starts as wintest in session 2 with 1 monitor, then `cicd-win.ps1` stops at `Set-Location $Root`, "Access to the path 'C:\Users\collierjr\AppData' is denied". PowerShell reads each folder above the run folder, and wintest can't list the ssh user's profile. Left: a run folder both users can reach, or a way past the profile, then the run on b29w again.
+	- Branch: wip/round1031a-2026103114202730
+	- Verified: 20261031, depg0 and dejjt pass on the wip branch. depg0 fails 9 checks against the round branch's `lane.bash`, and dejjt 6 against its `cicd-win.ps1`. `--backlog-run-quick` passes.
+	- 20261031, on b29w, 3 lane runs of the wip changes, `-Gate -Yes -NoSync -NoFmt`: the third gate passed, 191 OK and 22 skipped, the 22 went to the box, and the task ran as wintest in its desktop session. It failed as above. The first 2 gates failed on 2026103116203164 and 2026103116284963, so no desktop step ran.
+	- 20261031: failed its try this round. Held behind 2026103116395639. Its code is on `wip/round1031a-2026103114202730`.
 
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
@@ -844,85 +858,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: opened.
 	- Test case: none yet.
 
-- Builds clean up stale artifacts and side-effects.
-	- ID: 2026101910075400
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261019-100754
-	- Opened by: t00mietum
-	- Related IDs: 2026102416300000, 2026102416300002
-	- Requirements:
-		- Before the next cut.
-		- Verify or ensure that builds clean up stale artifacts and side-effects when done: caches, container cruft, tmp files, etc.
-		- 2026-10-24: this is the CICD reset's container cleanup item, per the container bullets in the cleanup section of the shared CICD rules. High now.
-			- Every container, image and volume the pipeline makes gets `dev.project` and `dev.run` labels. Containers are named `<project>-<run folder>-<step>` and run with `--rm`, unless `--keep-temp`.
-			- At the end of a run, on failure and Ctrl+C too, the run's containers go by label, then the project's dangling images and its older tags past the current one and the one before, then `docker builder prune -f --filter until=168h`.
-			- Cache volumes stay under 2 GB. Nothing without the project's label is touched, and never `docker rmi -f` or `docker system prune`.
-			- What the pipeline made before it had labels gets one cleanup pass by hand, by ID.
-			- One line at the end says what was removed and about what it freed, from `docker system df` before and after. Checked with 2 runs, one killed partway.
-			- Temp folders are 2026102416300002.
-		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
-		- Overrides: the list of images to keep, in the private notes under the dev and test boxes.
-	- Progress log:
-		- 20261025: split into children 2026102516403487 (labels and the sweep at the end of a run), 2026102516403492 (a container per step) and 2026102516403497 (one pass over what came before labels).
-	- Test case: none yet.
-
-- Container cleanup: a container per step.
-	- ID: 2026102516403492
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261025-164035
-	- Opened by: 2026101910075400
-	- Parent ID: 2026101910075400
-	- Prereq IDs: 2026102516403487
-	- Related IDs: 2026102416300000
-	- Requirements:
-		- Containers are named `<project>-<run folder>-<step>` and run with `--rm`, unless `--keep-temp`. Today the build and test steps run in the long-lived `nemo-build`, `nemo-winbuild` and `nemo-build-jammy`.
-		- Cache volumes stay under 2 GB.
-	- Progress log:
-		- 20261026: split into children 2026102617253209 (the day-to-day build and tests), 2026102617253214 (the Windows cross build) and 2026102617253220 (the release build).
-	- Test case: none yet, from the children.
-
-- CICD reset: containers.
-	- ID: 2026102416300000
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261024-163000
-	- Opened by: t00mietum
-	- Related IDs: 2026101910075400
-	- Requirements:
-		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
-		- Per the containers section of the shared CICD rules. Build and test already run in containers. What's left:
-			- Every image comes from a pinned recipe in the repo. The day-to-day and cross build images are hand-made snapshots today, and 2 recipes start from a base with no digest.
-			- Fall back to the host, with one line saying so, when docker is missing or the image can't be built. Today the step is skipped instead.
-			- `--no-container` runs on the host on purpose.
-			- Tests whose point is the real desktop, GPU or another platform stay on the host or a test box.
-		- File list in the private notes.
-	- Progress log:
-		- 20261026: split into children 2026102617145688 (the host fallback) and 2026102617145788 (pinned image recipes). `--no-container` is 2026102516295605.
-	- Decisions:
-		- 20261026: nothing in a container has the real desktop, a GPU or another platform as its point. Windows is checked natively on vm925w, and FreeBSD and arm64 on their own boxes.
-	- Test case: defky, de54r, from the children. The recipes child names its own.
-
-- Container images from pinned recipes.
-	- ID: 2026102617145788
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261026-171457
-	- Opened by: 2026102416300000
-	- Parent ID: 2026102416300000
-	- Requirements:
-		- Every image comes from a pinned recipe in the repo, base by digest and tools by version.
-		- `nemo-build-deps:init` and `nemo-winbuild:init` are hand-made snapshots today. Their recipes have to make images that pass the same runs.
-		- `cicd/linux/Dockerfile.dev` and `cicd/win/Dockerfile` start from `debian:trixie` with no digest.
-	- Progress log:
-		- 20261028: split into children 2026102820195801 (the day-to-day image) and 2026102820195917 (the Windows cross build image). The release image was pinned in 2026092813381427, and the lint image in 2026101009515961.
-	- Test case: from the children, dejma and the Windows child's.
-
 - CICD reset: other hosts and VMs.
 	- ID: 2026102416300001
 	- Type: Task
@@ -959,6 +894,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The VM is put back the way it was found, through the VM state helper.
 		- Overrides: the native Windows step in the private round settings, run by hand. The rule sending windowed checks to vm925w stays.
 	- Test case: none yet.
+	- 20261031: split into children. The gate on b29w in the default run is 2026103114202710, the windowed checks on vm925w 2026103114202730.
 
 - CICD reset: CPU and priority.
 	- ID: 2026102416300003
@@ -1066,53 +1002,50 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261025: split into children 2026102517333367 (`cicd.bash`, the gate included) and 2026102517333373 (`cicd-win.ps1` and the other boxes).
 	- Test case: none yet.
 
-- dehzr fails on native Windows: lint-report.py reads itself as cp1252.
-	- ID: 2026102823073182
+- The native gate on b29w sometimes fails on test-nemo-office's leftover folder.
+	- ID: 2026103116203164
 	- Type: Bug
 	- Status: Queued
 	- Priority|Severity: Avg
-	- Opened: 20261028-230731
-	- Opened: 20261028-230731
-	- Opened by: 2026102416300007
+	- Opened: 20261031-162031
+	- Opened by: 2026103114202730
 	- Target OS: Windows
-	- Steps to reproduce: the lint step of `pwsh cicd/cicd-win.ps1` on b29w, past defmw (2026102822580271).
-	- Incorrect behavior: `lint-report.py --self-test` stops with "UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d" at `open(__file__).read()`, and the lint step fails.
-	- Expected behavior: passes.
-	- Reproduced: 20261028 on b29w, round1028b at 2964120b, which didn't change the file.
-	- Possible cause: `open()` with no encoding takes the locale's, cp1252 under MSYS2's Python, and the header's copyright line is UTF-8. Its other reads of text files have the same shape.
-	- Test case: dehzr itself, on native Windows.
+	- Steps to reproduce: the native gate on b29w over ssh, `-Gate -Yes -NoSync -NoFmt`.
+	- Incorrect behavior: every test passes, 191 OK and 22 skipped, then the gate fails with "tests left these behind in ...\nemo-suite-...: test-nemo-office.kbj53Z".
+	- Expected behavior: the office tests remove their scratch folder every time.
+	- Reproduced: 20261031 on b29w at round1031a, 1 run of 3.
+	- Possible cause: not looked into. A file still open in the folder at the test's end, such as one a helper process holds, would stop its removal on Windows.
+	- Test case: ddq92, ddqhc and dbxj2 on Windows, with the suite's leftover check.
 
-- 4 native Windows tests fail with no desktop session: de5kb, debgn, dbxkh, ddqdq.
-	- ID: 2026102822580302
+- ddepv on b29w: the heap grew over 64 rounds again.
+	- ID: 2026103116284963
 	- Type: Bug
 	- Status: Queued
 	- Priority|Severity: Avg
-	- Opened: 20261028-225803
-	- Opened: 20261028-225802
-	- Opened by: 2026102517333373
+	- Opened: 20261031-162849
+	- Opened by: 2026103114202730
+	- Related IDs: 2026101913541101
 	- Target OS: Windows
-	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes -NoFmt` on b29w, started as an admin outside any desktop session, the way a detached run over ssh starts.
-	- Incorrect behavior: de5kb, Delete fence test, times out at 60 s. debgn says "the focus never came back". dbxkh exits 3 after the fence refuses a move of Explorer's `iconcache_idx.db` in the user's profile. ddqdq times out waiting for the alpha and beta window titles. The window tests that fail print "gdk_monitor_get_geometry: assertion 'GDK_IS_MONITOR (monitor)' failed".
-	- Expected behavior: each passes, or skips with 77 when there's no desktop to draw on, as 19 other window tests in the same run did.
-	- Reproduced: 20261028 on b29w, at round1028b 2964120b and at dev 051f2d14, the same 4 failing and 190 OK, 19 skipped, both times. A gate there at 1694aeb, also with no desktop, failed none.
-	- Possible cause: not looked into. dbxkh is the delete fence catching a move the shell makes on the test's behalf. The other 3 seem to need a desktop and don't check for one.
-	- Test case: the 4 tests themselves, on native Windows with no desktop session, and again in a desktop session.
+	- Steps to reproduce: the native gate on b29w over ssh, `-Gate -Yes -NoSync -NoFmt`.
+	- Incorrect behavior: ddepv fails at `test-nemo-leaks.c:1187`, "the heap grew 4368 bytes over 64 rounds", after 3 readings were taken again. The run also shows "gdk_monitor_get_geometry: assertion 'GDK_IS_MONITOR (monitor)' failed".
+	- Expected behavior: ddepv passes every time, as on vm925w after 2026101913541101.
+	- Reproduced: 20261031 on b29w at round1031a, 1 run of 3, in session 0.
+	- Possible cause: the same 4 KB COM buffers as 2026101913541101, which closed on vm925w in the desktop session. b29w over ssh is session 0, and has more apps installed. 2026101913541101 has closed once and come back once already.
+	- Test case: ddepv on b29w over ssh.
 
-- defmw fails on native Windows: its [cap] case lists the link dir too.
-	- ID: 2026102822580271
-	- Type: Bug
+- Other hosts: with the native gate on b29w, its windowed tests go to vm925w when it's there.
+	- ID: 2026103116203063
+	- Type: Task
 	- Status: Queued
 	- Priority|Severity: Avg
-	- Opened: 20261028-225802
-	- Opened: 20261028-225802
-	- Opened by: 2026102517333373
-	- Target OS: Windows
-	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes` on b29w.
-	- Incorrect behavior: the lint step stops at defmw, `test-docker-run-step.bash`: "[cap]: not one line for the one dir", with a line for both `cache/big` and `cache/link`, each "2 MB, past its 1 MB cap".
-	- Expected behavior: passes, or skips the link case where MSYS2 can't make a link.
-	- Reproduced: 20261028 on b29w, round1028b at 2964120b. The case is the same on dev, and no native gate had run since defmw came in on 20261026.
-	- Possible cause: `ln -s` under MSYS2 without the symlink privilege makes a copy, so the link dir holds 2 MB of its own. lint.bash already skips the vendor-themes self-test under MSYS2 for the same reason.
-	- Test case: defmw itself, on native Windows.
+	- Opened: 20261031-162030
+	- Opened by: 2026103114202730
+	- Parent ID: 2026103114202730
+	- Requirements:
+		- When vm925w is there, the tests the b29w gate skipped run as wintest in vm925w's desktop session, rather than on b29w, through the VM state helper. That needs a build on vm925w.
+		- vm925w has autologon off, so after a start from off wintest is logged on first.
+		- With vm925w not there, b29w's test account, as now.
+	- Test case: none yet.
 
 - CICD reset: temp files and safe removal.
 	- ID: 2026102416300002
@@ -1637,6 +1570,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- F2 selects the name without the extension, as upstream does.
 	- Test case: none yet.
 
+- ddqdq with no monitor: the copies never list a titled window.
+	- ID: 2026103115510091
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261031-155100
+	- Opened by: 2026102822580302
+	- Related IDs: 2026102822580302, 2026103114202730
+	- Target OS: Windows
+	- Steps to reproduce: ddqdq on native Windows from ssh, in session 0, with its no-monitor skip taken out.
+	- Incorrect behavior: it times out waiting for the alpha and beta window titles, with "gdk_monitor_get_geometry: assertion 'GDK_IS_MONITOR (monitor)' failed".
+	- Expected behavior: the copies list their windows with titles, as they did at 1694aeb with no monitor. A disconnected session has no monitor either.
+	- Reproduced: 20261028 on b29w, at 2964120b and 051f2d14.
+	- Possible cause: not looked into. Something between 1694aeb and 2964120b, maybe the jail.
+	- Test case: ddqdq, with no monitor.
+
 - Middle-clicking a bookmark to open it in a new tab leaves the Name column too narrow.
 	- ID: 2026103113431790
 	- Type: Bug
@@ -1779,18 +1728,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the folders are found by name, or the harness makes every folder it points the XDG dirs at, so the listing is the same on every box.
 	- Test case: de8bd, de8dm and dec8w, with a `cache` folder made in the home folder before the run.
 
-- The Windows zip's libraries are whatever MSYS2 had when the cross build image was made.
-	- ID: 2026102809292792
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261028-092927
-	- Opened by: 2026102416300008
-	- Related IDs: 2026102416300008
-	- Target OS: Windows
-	- Requirements: `fetch-sysroot.bash` takes the current package database, so two images built on different days pack different DLLs into the zip. Pin it like the hosted build, maybe from the same list.
-	- Test case: none yet.
-
 - The hosted Windows build warns that MSYS2's MINGW64 environment is deprecated.
 	- ID: 2026102809292776
 	- Type: Task
@@ -1916,6 +1853,94 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddytk, Share folder with a local path lists test. A folder that isn't on this machine but has a path, whose listing refuses that call the way gvfs's does, lists all 3 entries with its link followed, and one file there is looked at once, following links. dbee2, Network win32 test, test_smb_addresses: smb addresses taken as typed, parsed, as a uri and as an argument go to the UNC path, the server's share list or the network, with spaces, escapes, a user, domain and port, an IPv6 address, and upper case where typed. ddzxz, Connect to Server address scheme test: ssh and sftp addresses in any case lose the scheme with SSH chosen, other schemes and plain names are kept, and every alias gvfs's mount files declare is checked where gvfs is installed.
 	- Acceptance signoff: Self-closed: ssh is now a full alias for sftp everywhere, Connect to Server included, and the error seen was there (ddzxz). ddytk pins the smb and sftp listings, and dbee2 the Windows smb addresses, checked natively on vm925w with Connect to Server too. Asking only for server and share on Windows is how Windows connects, as the session.
 	- Closed: 20261025-155000
+
+- dehzr fails on native Windows: lint-report.py reads itself as cp1252.
+	- ID: 2026102823073182
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261028-230731
+	- Opened: 20261028-230731
+	- Opened by: 2026102416300007
+	- Target OS: Windows
+	- Steps to reproduce: the lint step of `pwsh cicd/cicd-win.ps1` on b29w, past defmw (2026102822580271).
+	- Incorrect behavior: `lint-report.py --self-test` stops with "UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d" at `open(__file__).read()`, and the lint step fails.
+	- Expected behavior: passes.
+	- Reproduced: 20261028 on b29w, round1028b at 2964120b, which didn't change the file.
+	- Possible cause: `open()` with no encoding takes the locale's, cp1252 under MSYS2's Python, and the header's copyright line is UTF-8. Its other reads of text files have the same shape.
+	- Actual cause: as above. 6 other scripts had opens or pathlib reads and writes with no encoding too.
+	- Actual fix: every text open, read and write in the project's own Python names UTF-8, and ruff's PLW1514 in the Python lint fails a new `open()` with none.
+	- 20261031: High now. The native Windows gate joined the default run and the merge gate in 2026103114202710, so this fails every full run and every push to main.
+	- Decisions:
+		- UTF-8 at each call, not `PYTHONUTF8` set by the pipeline, so a script run by hand on Windows reads the same.
+		- PLW1514 is a preview rule, so preview is on only for rules `select` names. It doesn't catch a pathlib call on a plain variable, so those were done by hand.
+	- Swept: every tracked .py outside the upstream folders pyproject.toml leaves out: analyze.py, flame-report.py, demo-video.py, lint-accels.py, lint-ownership.py, lint-pref-handlers.py and dynamic-list.py.
+	- Branch: round1031a
+	- Commit: 484a8e8b, 87bc05c6
+	- Test case: dehzr, and PLW1514 in the Python lint.
+	- Verified: 20261031, dehzr fails under a locale that isn't UTF-8 before the fix and passes after, and PLW1514 fails the old lint-report.py. `--backlog-run-quick` passes.
+	- Verified: 20261031, native gate on b29w at 76990d2b: dehzr passes in the lint step, and the gate passes.
+	- Acceptance signoff: Self-closed: dehzr passes on native Windows.
+	- Closed: 20261031-155100
+
+- 4 native Windows tests fail with no desktop session: de5kb, debgn, dbxkh, ddqdq.
+	- ID: 2026102822580302
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261028-225803
+	- Opened: 20261028-225802
+	- Opened by: 2026102517333373
+	- Target OS: Windows
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes -NoFmt` on b29w, started as an admin outside any desktop session, the way a detached run over ssh starts.
+	- Incorrect behavior: de5kb, Delete fence test, times out at 60 s. debgn says "the focus never came back". dbxkh exits 3 after the fence refuses a move of Explorer's `iconcache_idx.db` in the user's profile. ddqdq times out waiting for the alpha and beta window titles. The window tests that fail print "gdk_monitor_get_geometry: assertion 'GDK_IS_MONITOR (monitor)' failed".
+	- Expected behavior: each passes, or skips with 77 when there's no desktop to draw on, as 19 other window tests in the same run did.
+	- Reproduced: 20261028 on b29w, at round1028b 2964120b and at dev 051f2d14, the same 4 failing and 190 OK, 19 skipped, both times. A gate there at 1694aeb, also with no desktop, failed none.
+	- Possible cause: not looked into. dbxkh is the delete fence catching a move the shell makes on the test's behalf. The other 3 seem to need a desktop and don't check for one.
+	- Actual cause:
+		- de5kb wasn't about the desktop. It read every `$R` item in the Recycle Bin whole, looking for its marker, and an admin reads every user's bin. b29w's held 24 GB.
+		- dbxkh: with no Explorer in the session, the shell keeps its icon cache from inside the test, in the real profile.
+		- debgn and ddqdq need a monitor, and checked only for a display.
+	- Actual fix: de5kb and da8rb read only a bin item of the marker's size. debgn and ddqdq skip with no monitor, as the other window tests do, and dbxkh skips with no shell running in the session.
+	- 20261031: High now. The native Windows gate joined the default run and the merge gate in 2026103114202710, so this fails every full run and every push to main.
+	- Decisions:
+		- Skips, not fixes, for the 3 that need a desktop. 2026103114202730 runs them in one.
+		- dbxkh's skip asks for the shell's window, since that's what decides who writes the icon cache.
+		- ddqdq passed with no monitor at 1694aeb, and doesn't now. That's 2026103115510091.
+	- Swept: the other bin scan by contents, da8rb's, which took minutes on a full bin. Many other tests open a window with no monitor check, and all of them passed or skipped in the same gate.
+	- Branch: round1031a
+	- Commit: 484a8e8b
+	- Test case: de5kb, debgn, dbxkh and ddqdq. da8rb for the bin scan.
+	- Verified: 20261031, native gate on b29w at 76990d2b, from ssh with no desktop: de5kb passes in 14 s, da8rb in 10 s, debgn, dbxkh and ddqdq skip with 77. 191 OK, 0 failed, 22 skipped, and the gate passes.
+	- Acceptance signoff: Self-closed: the gate on b29w passes with no desktop. In a desktop session the new checks don't skip, so the tests run there as before.
+	- Closed: 20261031-155100
+
+- defmw fails on native Windows: its [cap] case lists the link dir too.
+	- ID: 2026102822580271
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261028-225802
+	- Opened: 20261028-225802
+	- Opened by: 2026102517333373
+	- Target OS: Windows
+	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes` on b29w.
+	- Incorrect behavior: the lint step stops at defmw, `test-docker-run-step.bash`: "[cap]: not one line for the one dir", with a line for both `cache/big` and `cache/link`, each "2 MB, past its 1 MB cap".
+	- Expected behavior: passes, or skips the link case where MSYS2 can't make a link.
+	- Reproduced: 20261028 on b29w, round1028b at 2964120b. The case is the same on dev, and no native gate had run since defmw came in on 20261026.
+	- Possible cause: `ln -s` under MSYS2 without the symlink privilege makes a copy, so the link dir holds 2 MB of its own. lint.bash already skips the vendor-themes self-test under MSYS2 for the same reason.
+	- Actual cause: as above.
+	- Actual fix: the [cap] case leaves the link dir out, and says so, when `ln -s` didn't make a link.
+	- 20261031: High now. The native Windows gate joined the default run and the merge gate in 2026103114202710, so this fails every full run and every push to main.
+	- Decisions:
+		- It checks for a link, not for MSYS2, so a box where `ln -s` copies or fails goes the same way. test-cicd-temp.bash does the same.
+	- Swept: `ln -s` in the other test scripts the lint stage runs. test-cicd-temp.bash already checks, and vendor-themes.bash is skipped under MSYS2.
+	- Branch: round1031a
+	- Commit: 484a8e8b
+	- Test case: defmw.
+	- Verified: 20261031, defmw fails as on b29w with an `ln -s` that copies, and passes after. Native gate on b29w at 76990d2b: defmw passes, with the link case skipped.
+	- Acceptance signoff: Self-closed: defmw passes on native Windows.
+	- Closed: 20261031-155100
 
 - The FreeBSD lane stops on meson clock skew when vmFreeBSD was paused, since a resumed guest keeps its old clock.
 	- ID: 2026102810470587
@@ -2300,6 +2325,230 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. dd8d9 covers it.
 	- Closed: 20261003-112426
+
+- Other hosts: the native Windows gate runs on b29w in the default run.
+	- ID: 2026103114202710
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261031-142027
+	- Opened by: 2026102808250959
+	- Parent ID: 2026102808250959
+	- Requirements:
+		- A plain run and `--backlog-run-full` run `cicd-win.ps1 -Gate -Yes` on b29w, from a bundle of the commit the run is on. With b29w not there, vm925w, started and put back through the VM state helper. Neither there is a `SKIP`. `--quick` and `--no-remote` leave it out.
+		- It runs in its own folder under the box's temp root, removed at the end, and stale ones of its own are removed too.
+		- It adds little to a run's time.
+	- Decisions:
+		- b29w is another machine, so its gate starts alongside the local steps, at the debug build, and is waited for in a step of its own before the packages. vm925w is a VM on this box, so it runs only in that step, when b29w isn't there, since side by side it would take the run past half the CPUs.
+		- What goes is a bundle of HEAD, as for the Windows dogfood, since the box needs commits to clone. An uncommitted edit isn't in it, and the run says so. A round commits before its full run.
+		- It runs as the ssh login, with no desktop, started outside the ssh session so a dropped connection doesn't stop it, and its log is read every 30 s. `-Gate -Yes -NoSync`, since the run has synced already.
+		- The removal and the stale sweep there take only a `<YYYYmmDD-HHMMSS>_<NNN>` folder right under `%TEMP%\nemo-anywhere`, never a link, and stop the gate's process tree first. A TERM or a failure here does the same.
+		- With no host lock on this box it's a `SKIP`, as for the dogfood, since a box is never reached outside the lock.
+		- A gate that exits 77 is a failure, since 77 is the lane's own skip.
+		- `--no-win` leaves it out, beside `--no-bsd`.
+	- Swept: the other lanes that reach a box (the FreeBSD lane, the arm64 release, the Windows dogfood): each already skips with 77 or returns, and none runs alongside. The `--no-remote` and `--quick` help and design.md's flag bullets name the gate.
+	- Branch: round1031a
+	- Test case: depg0, the lane: b29w first by that name, then vm925w through the VM state helper, the work folder and its name, the gate's switches, its log and exit code, removal after a failure or a TERM, and 77 with no box. ddmmw, the step: the side command alongside, the other only after a 77, `SKIP`, a failing gate stops the run, and `--quick`, `--no-win` and `--no-remote`.
+	- Verified: 20261031, depg0 and ddmmw pass. ddmmw fails 16 checks against the old `cicd.bash`. depg0 fails 4 with the removal and the skip broken, and 1 on the work folder line before its fix.
+	- Verified: 20261031, the lane alone on b29w at e28a25b6, with `-Gate -Yes -NoSync -NoFmt`: the folder made, the gate run in 959 s with its lines printed here, its exit code 1 read back from the 4 failures already on dev (2026102822580302), 190 OK, 19 skipped, and the folder removed. `--backlog-run-quick` lints and tests pass.
+	- Verified: 20261031, full run 20261031-164420 at a406610f (`--backlog-run-full --no-private`): the gate on b29w started beside step 1 and was done by 17:00, step 12 printed its log and read its exit 1 at once, and that failure stopped the run before the packages. 69 min to step 12, against about 71 for the 2026-10-29 run without its arm64 release. The 2 failures are the flakes 2026103116284963 and 2026103117575073.
+	- Acceptance signoff: Self-closed: the full run's native gate step on b29w.
+	- Closed: 20261031-175750
+
+- Windows cross build image: the steps run from the recipe.
+	- ID: 2026103113501545
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261031-135015
+	- Opened by: 2026102820195917
+	- Parent ID: 2026102820195917
+	- Prereq IDs: 2026103113501526
+	- Requirements:
+		- `win-box.bash` runs each step from `nemo-winbuild:<hash>`, the hash taken over the recipe's files, and builds it the first time that hash is seen, the way `docker-run.bash` does for `nemo-build-deps`.
+		- The cross build, packing, the setup exe check, the GUI smoke check, ddf31 and the Windows analyzer lane pass from it, as they do from `nemo-winbuild:init`.
+		- Every reader of `nemo-winbuild:init` under `cicd/` and `utility/`, and design.md's build sections, follow.
+	- Progress log:
+		- 20261031: `win-box.bash` runs each step from `nemo-winbuild:<hash>`, the hash over `cicd/win/Dockerfile`, `fetch-sysroot.bash`, `sysroot-pins.txt`, `win64.cross.txt` and `run-temp.bash`, and builds it with its labels the first time that hash is seen. `NEMO_WIN_IMAGE` still wins, and one it can't find stops the step without a build. The fresh clone's `nemo-winbuild-deps:latest` is gone, since every clone builds from the recipe now.
+		- 20261031: from `nemo-winbuild:e7e0906e6d1f` the cross build relinked 192 targets in the volume in 177 s at 8 jobs, and the GUI smoke check, both packers and the setup exe check passed.
+	- Decisions:
+		- Tagged by the recipe's hash, as `nemo-build-deps` is, so an edit to any file the image copies in builds a new image on the next run.
+		- `nemo-winbuild:init` stays while the long-lived `nemo-winbuild` box runs from it, and goes with that box, as for `nemo-build-deps:init` in 2026102820195801.
+		- ddf31 still skips in a lint stage that runs before the first cross build from a new tag, as it did on a fresh clone, rather than have the lint stage build the image.
+	- Swept: every reader of `nemo-winbuild:init`, `nemo-winbuild-deps` and `fWinBox_Image` under `cicd/` and `utility/`: `win-box.bash`, `test-win-run.bash`, `test-gui-smoke.bash`, `build-cross.bash`, `pack-zip.bash`, `pack-setup.bash`, `win-run.bash`, `run-windows-build-via-wine.bash` and `cicd-win.ps1`, and design.md "Building on Windows".
+	- Test case: defps (`cicd/win/test-win-run.bash`) checks the tag follows the recipe and each file it copies in, that a missing image is built from `cicd/` with the labels, and that `NEMO_WIN_IMAGE` still wins and a missing one isn't built. da73c, ddf31, ddmn8 and de8es run from the new image.
+		- 20261031: defps's fresh-clone case expects the recipe's tag where it expected `nemo-winbuild-deps:latest`, and its no-image case `could not build image nemo-winbuild:<tag>`.
+	- Verified: 20261031, defps fails on the old `win-box.bash` (23 problems), on a hash that leaves out `sysroot-pins.txt`, and with `NEMO_WIN_IMAGE` ignored, and passes on the new one. From `nemo-winbuild:e7e0906e6d1f`: `build-cross.bash` and dcvpj, da73c, `pack-zip.bash`, `pack-setup.bash`, ddmn8, ddf31, and the analyzer self-test with the gcc planted faults found in the Windows lane. `cicd/cicd.bash --backlog-run-quick format lint` passed. No step container was left.
+	- Closed: 20261031-141500
+
+- Windows cross build image: the recipe pinned.
+	- ID: 2026103113501526
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261031-135015
+	- Opened by: 2026102820195917
+	- Parent ID: 2026102820195917
+	- Requirements:
+		- `cicd/win/Dockerfile` pins the base by digest and reads apt from one dated snapshot.
+		- The sysroot comes from MSYS2 package files pinned by name and sha256, not from the day's package database.
+		- The image builds from the recipe, and its packages are compared with `nemo-winbuild:init`.
+	- Progress log:
+		- 20261031: `cicd/win/Dockerfile` pins trixie by digest, the base `:init` was built on. apt reads the archive, the security archive included, from snapshot.debian.org at 2026-10-07 22:00 UTC, the last time `:init` was updated.
+		- 20261031: the sysroot comes from `cicd/win/sysroot-pins.txt`, 64 MSYS2 files by name and sha256. `msys2-pins.bash update` writes it beside `msys2-pins.txt`, as the closure of the sysroot's roots from the same database, so every line of it is in the hosted list. `fetch-sysroot.bash` reads no package database now.
+		- 20261031: the recipe hadn't built since 20261026. `fetch-sysroot.bash` sources `utility/include/run-temp.bash`, which the `cicd/win/` context couldn't reach. The image builds with `cicd/` as the context now, and so does `win-box.bash`'s fresh-clone build.
+		- 20261031: the new image is 5.4 GB, where `:init` is 13.9 GB. The mingw toolchain, wine, meson, ninja, nsis and make are the same versions, and 59 packages differ by a security point release. It lacks 101 packages `:init` has: the 2 hand installs, their recommends and those of the other hand installs, such as ghostscript, fonts, systemd and dbus. No Windows step calls any of them. The build took about 6 min.
+		- 20261031: the sysroot has the hosted build's versions: glib 2.90.1 where `:init` has 2.88.2, cairo 1.18.6, pango 1.58.2, harfbuzz 15.0.0, libarchive 3.8.10 and sqlite 3.54.0. gtk3 and json-glib are the same. libgsf, gsf-office, libgomp, libatomic and libquadmath are gone, since nothing in the closure pulls them in now, and so are the 3 thumbnailer descriptors `:init` still had.
+	- Decisions:
+		- The apt snapshot is the date of `:init`'s last update, as for the day-to-day image in 2026102820195801.
+		- The sysroot takes the hosted build's versions rather than `:init`'s. Nothing lists the files `:init` took in July, and with one list the cross build links and packs the DLLs the hosted release has. Moving it is the same `msys2-pins.bash update` that moves the hosted pins.
+		- The 2 hand-installed packages stay out, since no Windows step uses them.
+	- Swept: every reader of `fetch-sysroot.bash` and `cicd/win/Dockerfile`: `win-box.bash`, `test-thumbnailers.bash`, `pack-zip.bash`'s comments and design.md "Building on Windows". The image's tag and the switch from `:init` are 2026103113501545.
+	- Test case: depf5 (`cicd/win/test-win-image-pin.bash`, lint stage: the base by digest and apt on one snapshot through dejma's checks, the Dockerfile copying the list and running `fetch-sysroot.bash`, which reads no database; the list well formed, with every root, no package twice, and every line in `msys2-pins.txt`; `fetch-sysroot.bash` unpacking pinned files from a stand-in repo without the pacman metadata, and refusing a bad checksum, a bad line and an empty list).
+	- Verified: 20261031, depf5 fails on the old Dockerfile, the security source left on the live archive, no copy of the list, the old `fetch-sysroot.bash`, gtk3 left out of the list, a sha256 the hosted list doesn't have, a package listed twice, no list, the checksum stop gone, the pacman metadata unpacked and the line check gone, and passes on the new ones. dehzp, the thumbnailer test and defps pass. `msys2-pins.bash update` into a temp folder wrote both lists, the sysroot's part of the hosted one. The image builds from the recipe. `cicd/cicd.bash --backlog-run-quick format lint` passed.
+	- Closed: 20261031-140600
+
+- CICD reset: test IDs.
+	- ID: 2026102416300007
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: no
+	- Priority|Severity: High
+	- Opened: 20261024-163000
+	- Opened by: t00mietum
+	- Requirements:
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- Per the test ID and per-test line bullets in the testing section of the shared CICD rules. Every test already has an ID, checked in the lint stage. What's left:
+			- IDs move from milliseconds and 8 digits to whole minutes since 2000-01-01 00:00 UTC, in lower-case Crockford base 32, as in `decp8`. When 2 come out the same, the newer one takes the next free minute.
+			- Every existing ID is converted once, from the same time, along with the backlog rows, docs and lints that name it.
+			- The run prints one `PASS`, `FAIL` or `SKIP` line per regression and fuzz test, with its ID and name.
+		- Overrides: the test ID rule in the private project rules, in milliseconds.
+	- Progress log:
+		- 20261028: all 415 IDs converted, from the time each one already held, along with the backlog, the private notes, the suppressions and the lints that name them. 117 moved to a later free minute, by 16 at most.
+		- 20261028: meson's result lines are rewritten as `PASS`, `FAIL` or `SKIP`, then the ID and name, on Linux, FreeBSD and native Windows. The fuzz targets, the C lint checks, the lint stage's script tests and self-tests, the package checks, the jail check, the sanitizer suite, the GUI smokes, the build flags check and the Windows-only script tests print the same line.
+	- Decisions:
+		- IDs are padded to 5 digits. Only the eel test is shorter, `00591` rather than `591`, which would also match other numbers in a search. The ID check wants at least 5 digits and allows up to an hour ahead, for a later free minute.
+		- With no option, `test-id.py` prints the first free minute from now, so a second test made in the same minute doesn't collide.
+		- The meson lines are rewritten as they stream, rather than listed again at the end, so a run still reads as it goes. The time and exit status stay at the end of the line.
+		- A script test in the lint stage that exits 77 is a skip everywhere now. Before, the ones run without the helper stopped the stage on it.
+		- The lint, build and pipeline checks that have no ID stay that way, per 2026092813381445.
+	- Swept: every caller of `meson test` (`run-tests.bash`, which the FreeBSD lane and the sanitizer suite go through, and `cicd-win.ps1`); every script `test-id.py --check` counts as a test, and where it runs.
+	- Branch: round1028a
+	- Test case: dehyx, the result line rewrite and the script test helper. ddf32 checks the fuzz lines and ddaga the package check lines. `test-id.py --check`, in the lint stage, fails on the old 8-digit IDs.
+	- Verified: 20261028, `test-id.py --check` fails on the old IDs and passes after, 410 tests. dehyx fails with the skip mapped to a pass, ddaga with the old package checks, ddf32 with the old fuzz lines; all pass after. `cicd/cicd.bash --backlog-run-quick` passes.
+	- Verified: 20261028, full runs at 4be04125: the 12 fuzz targets, 223 sanitizer suite tests, the package checks (ddmn6, ddqjk, ddqv0, ddwhx, ddmn8), dcvpj and da73c each print a PASS line with the ID. The FreeBSD suite's lines come out as PASS, FAIL or SKIP under its awk, but with the project name stuck to the ID, filed as 2026102812032075.
+	- 20261028: native gate not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
+	- Verified: 20261028, FreeBSD lane at 9f7df4c7: every result line reads PASS <id> <name>.
+	- Verified: 20261028, native Windows on b29w at 2964120b: meson's result lines through awk under MSYS2 all read `PASS`, `FAIL` or `SKIP`, then the ID and name, 217 of them. The lint step's 92 script test lines did too, with defmw and dehzr left out of the list (2026102822580271, 2026102823073182). The Tests step stopped on 4 failures already on dev (2026102822580302) before the Windows-only script tests.
+	- Verified: 20261031, native gate on b29w at a406610f: the Tests step passed and printed PASS dd5hz test-install-holders.ps1, PASS ddc6v test-install-acl.ps1 and PASS ddgch test-install-staging.ps1.
+	- Prereq IDs: 2026102822580302
+	- Acceptance signoff: Self-closed: the 3 lines in the native gate on b29w.
+	- Closed: 20261031-175750
+
+- Pinned recipe for the Windows cross build image.
+	- ID: 2026102820195917
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261028-201959
+	- Opened by: 2026102617145788
+	- Parent ID: 2026102617145788
+	- Prereq IDs: 2026102820195801
+	- Requirements:
+		- `nemo-winbuild` comes from `cicd/win/Dockerfile`, with the base by digest, apt from a dated snapshot and the MSYS2 sysroot by version.
+		- It passes the cross build, packing and wine runs that `nemo-winbuild:init` passes, and the pipeline uses it in place of the snapshot.
+		- The snapshot has 2 packages and about 5 GB of later layers that the recipe lacks. The list is in the private notes.
+	- Progress log:
+		- 20261031: split into children 2026103113501526 (the recipe pinned) and 2026103113501545 (the steps run from it). Both are done.
+	- Test case: from the children, depf5 and defps.
+	- Closed: 20261031-141500
+
+- Builds clean up stale artifacts and side-effects.
+	- ID: 2026101910075400
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261019-100754
+	- Opened by: t00mietum
+	- Related IDs: 2026102416300000, 2026102416300002
+	- Requirements:
+		- Before the next cut.
+		- Verify or ensure that builds clean up stale artifacts and side-effects when done: caches, container cruft, tmp files, etc.
+		- 2026-10-24: this is the CICD reset's container cleanup item, per the container bullets in the cleanup section of the shared CICD rules. High now.
+			- Every container, image and volume the pipeline makes gets `dev.project` and `dev.run` labels. Containers are named `<project>-<run folder>-<step>` and run with `--rm`, unless `--keep-temp`.
+			- At the end of a run, on failure and Ctrl+C too, the run's containers go by label, then the project's dangling images and its older tags past the current one and the one before, then `docker builder prune -f --filter until=168h`.
+			- Cache volumes stay under 2 GB. Nothing without the project's label is touched, and never `docker rmi -f` or `docker system prune`.
+			- What the pipeline made before it had labels gets one cleanup pass by hand, by ID.
+			- One line at the end says what was removed and about what it freed, from `docker system df` before and after. Checked with 2 runs, one killed partway.
+			- Temp folders are 2026102416300002.
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- Overrides: the list of images to keep, in the private notes under the dev and test boxes.
+	- Progress log:
+		- 20261025: split into children 2026102516403487 (labels and the sweep at the end of a run), 2026102516403492 (a container per step) and 2026102516403497 (one pass over what came before labels).
+		- 20261031: closed with its 3 children. Temp folders stay with 2026102416300002.
+	- Test case: dee6z and ddrpf (labels and the sweep), defmw, defps, ddmmv and ddmvx (a container per step), from the children.
+	- Closed: 20261031
+
+- Container cleanup: a container per step.
+	- ID: 2026102516403492
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261025-164035
+	- Opened by: 2026101910075400
+	- Parent ID: 2026101910075400
+	- Prereq IDs: 2026102516403487
+	- Related IDs: 2026102416300000
+	- Requirements:
+		- Containers are named `<project>-<run folder>-<step>` and run with `--rm`, unless `--keep-temp`. Today the build and test steps run in the long-lived `nemo-build`, `nemo-winbuild` and `nemo-build-jammy`.
+		- Cache volumes stay under 2 GB.
+	- Progress log:
+		- 20261026: split into children 2026102617253209 (the day-to-day build and tests), 2026102617253214 (the Windows cross build) and 2026102617253220 (the release build).
+		- 20261031: closed with its 3 children.
+	- Test case: defmw, ddagc (day-to-day build and tests), defps (cross build, and no script names a long-lived box), ddmmv and ddmvx (release build), from the children.
+	- Closed: 20261031
+
+- CICD reset: containers.
+	- ID: 2026102416300000
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261024-163000
+	- Opened by: t00mietum
+	- Related IDs: 2026101910075400
+	- Requirements:
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- Per the containers section of the shared CICD rules. Build and test already run in containers. What's left:
+			- Every image comes from a pinned recipe in the repo. The day-to-day and cross build images are hand-made snapshots today, and 2 recipes start from a base with no digest.
+			- Fall back to the host, with one line saying so, when docker is missing or the image can't be built. Today the step is skipped instead.
+			- `--no-container` runs on the host on purpose.
+			- Tests whose point is the real desktop, GPU or another platform stay on the host or a test box.
+		- File list in the private notes.
+	- Progress log:
+		- 20261026: split into children 2026102617145688 (the host fallback) and 2026102617145788 (pinned image recipes). `--no-container` is 2026102516295605.
+		- 20261031: closed with its 2 children.
+	- Decisions:
+		- 20261026: nothing in a container has the real desktop, a GPU or another platform as its point. Windows is checked natively on vm925w, and FreeBSD and arm64 on their own boxes.
+	- Test case: defky and de54r (the host fallback), dejma, depf5 and defps (pinned image recipes), from the children.
+	- Closed: 20261031
+
+- Container images from pinned recipes.
+	- ID: 2026102617145788
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261026-171457
+	- Opened by: 2026102416300000
+	- Parent ID: 2026102416300000
+	- Requirements:
+		- Every image comes from a pinned recipe in the repo, base by digest and tools by version.
+		- `nemo-build-deps:init` and `nemo-winbuild:init` are hand-made snapshots today. Their recipes have to make images that pass the same runs.
+		- `cicd/linux/Dockerfile.dev` and `cicd/win/Dockerfile` start from `debian:trixie` with no digest.
+	- Progress log:
+		- 20261028: split into children 2026102820195801 (the day-to-day image) and 2026102820195917 (the Windows cross build image). The release image was pinned in 2026092813381427, and the lint image in 2026101009515961.
+		- 20261031: closed with its 2 children.
+	- Test case: dejma (day-to-day image), depf5 and defps (Windows cross build image), from the children.
+	- Closed: 20261031
 
 - Other hosts: a box that isn't there is a SKIP.
 	- ID: 2026102808250949
@@ -8967,6 +9216,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddymm, Bad name characters test: the list, the message, a rename, a new folder path, Edit link, and Rename graying out with the line under the box in both conflict dialogs. dbj6w: extracted names on Windows, and the archive core's list matching the app's. dbj6x: an archive with `*`, `?` and `:` in names unpacks on Windows.
 	- Acceptance signoff: Self-closed: ddymm covers the list, the message and the line under the box, and dbj6x the extract. `_` in extracted names is what 7-Zip does. `/` keeping its old text is fine for now.
 	- Closed: 20261016-130621
+
+- The Windows zip's libraries are whatever MSYS2 had when the cross build image was made.
+	- ID: 2026102809292792
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261028-092927
+	- Opened by: 2026102416300008
+	- Related IDs: 2026102416300008
+	- Target OS: Windows
+	- Requirements: `fetch-sysroot.bash` takes the current package database, so two images built on different days pack different DLLs into the zip. Pin it like the hosted build, maybe from the same list.
+	- Test case: depf5 (every sysroot pin is in the hosted list, by name and sha256).
+	- Closed: 20261031
+	- 20261031: fixed in 60e3fa37 under 2026103113501526. The cross sysroot comes from `cicd/win/sysroot-pins.txt`, written by `msys2-pins.bash update` from the same database as the hosted build's list.
 
 - Rename Preferences to Settings.
 	- ID: 2026100816170996

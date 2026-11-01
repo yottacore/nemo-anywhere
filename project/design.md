@@ -754,9 +754,9 @@ The Windows build is native, not cross-compiled: MSYS2 with the mingw64 GTK3 too
 
 A cross-compile lane also exists, for checking a Windows build from the Linux box without Windows hardware. It is a developer convenience rather than part of the pipeline, since only Windows can pack the single exe.
 
-- `cicd/win/fetch-sysroot.bash` resolves the dependency closure of a few root packages from the MSYS2 pacman database and unpacks each one into a sysroot. No pacman is needed, since the package database is a tarball of description files.
+- `cicd/win/fetch-sysroot.bash` unpacks the MSYS2 packages listed in `cicd/win/sysroot-pins.txt` into a sysroot, each checked by its sha256. No pacman is needed. `cicd/win/msys2-pins.bash update` writes that list with the hosted build's, as the closure of a few root packages from the same package database, so the cross build links the same DLLs as the hosted build.
 
-- `cicd/win/Dockerfile` builds the image the cross build's step containers run from: the mingw toolchain, the native GLib code generators that have to run on the build host, wine, and the baked sysroot. `cicd/win/win64.cross.txt` is the meson cross file, with wine as the exe wrapper.
+- `cicd/win/Dockerfile` builds the image the cross build's step containers run from: the mingw toolchain, the native GLib code generators that have to run on the build host, wine, and the baked sysroot. Its base is pinned by digest and its packages come from a dated Debian snapshot, as for the Linux images. It builds with `cicd/` as the context. It's tagged by a hash of the Dockerfile and the files it copies in, and the pipeline builds it the first time that hash turns up. `cicd/win/win64.cross.txt` is the meson cross file, with wine as the exe wrapper.
 
 Deliberately off for Windows either way: XMP and exempi, which aren't packaged for mingw, and the Unix-only pieces (`gio-unix`, `x11`, SELinux), which are guarded in meson by `host_machine.system()` and in the affected C files by `#ifdef`.
 
@@ -806,11 +806,11 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 
 - The Windows gate runs the lints, build, test suite and smoke test.
 
-- With no options a run does everything but the arm64 release build, to stay near an hour. `--long`, or `--slow`, adds it. `--quick` runs only the steps that are quick and need no other box: the build, the full suite, lints, the sanitizer suite, the profiler, the native and Windows release builds, and local dogfood. It skips fuzzing, packages, arm64, the FreeBSD lane, the Windows dogfood refresh, screenshots and the demo. `--include-arm` and `--include-bsd` bring arm64 and FreeBSD back. On Windows `-Quick` changes nothing yet, since none of those run there.
+- With no options a run does everything but the arm64 release build, to stay near an hour. `--long`, or `--slow`, adds it. `--quick` runs only the steps that are quick and need no other box: the build, the full suite, lints, the sanitizer suite, the profiler, the native and Windows release builds, and local dogfood. It skips fuzzing, packages, arm64, the FreeBSD lane, the native Windows gate, the Windows dogfood refresh, screenshots and the demo. `--include-arm` and `--include-bsd` bring arm64 and FreeBSD back. On Windows `-Quick` changes nothing yet, since none of those run there.
 
 - `--backlog-run-quick` runs the format check, lints and the test suite, in about 4 minutes, or only the areas named: `format`, `lint` and `tests`. `--backlog-run-full` and `--merge-gate` run every check a plain run does, other boxes included. None of the 3 syncs, formats in place, dogfoods, installs, publishes, commits, pushes or prompts, and they leave out screenshots and the demo. `--gate` and `--ci` are other names for `--backlog-run-quick` and `--merge-gate`, and say so when used.
 
-- `--no-remote` leaves out every step on another box, such as arm64, the FreeBSD lane and the Windows dogfood refresh. It wins over `--include-arm` and `--include-bsd`.
+- `--no-remote` leaves out every step on another box, such as arm64, the FreeBSD lane, the native Windows gate and the Windows dogfood refresh. It wins over `--include-arm` and `--include-bsd`.
 
 - Each run works in a folder of its own, `<temp>/nemo-anywhere/<YYYYmmDD-HHMMSS>_<NNN>/`, where `<temp>` is `HOST_TEMP`, or `TMPDIR` when that isn't set. `TMPDIR`, `TEMP` and `TMP` point at it, and its `run.pid` names the run. It's removed at the end, on a failure or Ctrl+C too. `--keep-temp` keeps it and prints where it is. A run also removes the run folders older than 2 days whose process is gone.
 
@@ -818,6 +818,10 @@ The one deliberate exception is a release-only workflow, `.github/workflows/rele
 
 - The FreeBSD lane runs the build and suite on the FreeBSD box in the test stage, and its tarball and pkg in the release stage. It runs on every full run. `--no-bsd` leaves it out, and `--include-bsd` brings it back under `--quick`.
 	- The FreeBSD and arm64 boxes are VMs here. One that's off or paused is started, waited for until the lane's own login answers, and docker too for arm64, then put back the way it was. A box that isn't there, and isn't a VM this box can start, is a `SKIP`, and the run goes on. With arm64 skipped, its packages are too. The Windows dogfood refresh takes b29w first, then vm925w the same way, and skips when neither is there.
+
+- The native Windows gate runs `cicd-win.ps1 -Gate` on b29w, from a bundle of the commit the run is on. It runs alongside the local steps from the debug build on, and is waited for before the packages. When b29w isn't there it runs on vm925w in a step of its own, started and put back the same way, since that VM shares this box's CPUs. Neither there is a `SKIP`. `--no-win` leaves it out, and so do `--quick` and `--no-remote`.
+	- It works in `%TEMP%\nemo-anywhere\<YYYYmmDD-HHMMSS>_<NNN>` on the box, removed at the end, on a failure or Ctrl+C too, along with its own folders there older than 2 days. An uncommitted edit isn't in it, and the run says so.
+	- The login there has no desktop, so the tests that put a window on screen skip.
 
 - The same hook blocks a push to main unless `source/meson.build` is a strict version increase over what is already there.
 

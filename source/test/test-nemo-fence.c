@@ -37,7 +37,8 @@ static char *outside;
 
 #ifdef G_OS_WIN32
 /* The bin item on the same drive as path whose contents are marker, as its $R
-   path. NULL when there's none. */
+   path. NULL when there's none. Sized first, since an admin reads every
+   user's bin, and 24 GB of it took the test past its timeout. */
 static char *
 bin_item (const char *path, const char *marker)
 {
@@ -54,8 +55,11 @@ bin_item (const char *path, const char *marker)
 		while (items != NULL && found == NULL && (name = g_dir_read_name (items)) != NULL) {
 			g_autofree char *item = g_build_filename (sid_dir, name, NULL);
 			g_autofree char *contents = NULL;
+			GStatBuf st;
 
-			if (g_str_has_prefix (name, "$R") && g_file_get_contents (item, &contents, NULL, NULL) &&
+			if (g_str_has_prefix (name, "$R") && g_stat (item, &st) == 0 &&
+			    (guint64) st.st_size == strlen (marker) &&
+			    g_file_get_contents (item, &contents, NULL, NULL) &&
 			    g_strcmp0 (contents, marker) == 0) {
 				found = g_steal_pointer (&item);
 			}

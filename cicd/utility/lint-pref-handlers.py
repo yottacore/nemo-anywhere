@@ -56,7 +56,7 @@ DECLARED = re.compile(r"^extern\s+NemoConfigGroup\s*\*\s*(\w+)\s*;", re.MULTILIN
 
 def groups_pattern(root):
     header = root / GROUPS_HEADER
-    names = DECLARED.findall(header.read_text(errors="replace")) if header.is_file() else []
+    names = DECLARED.findall(header.read_text(encoding="utf-8", errors="replace")) if header.is_file() else []
     if not names:
         raise SystemExit(f"[ FAILED: no config groups declared in {GROUPS_HEADER} ]")
     return "(?:" + "|".join(sorted(names, key=len, reverse=True)) + ")"
@@ -84,7 +84,7 @@ def string_defines(text):
 def key_context(root):
     def read(rel):
         path = root / rel
-        return path.read_text(errors="replace") if path.is_file() else ""
+        return path.read_text(encoding="utf-8", errors="replace") if path.is_file() else ""
 
     keys = set(TABLE_ROW.findall(read(KEYS_TABLE)))
     names = dict(GROUP_NAME.findall(read(GROUP_NAMES)))
@@ -97,7 +97,7 @@ def key_context(root):
 
     macros = {}
     for header in sorted(root.rglob("*.h")):
-        for name, value in string_defines(header.read_text(errors="replace")).items():
+        for name, value in string_defines(header.read_text(encoding="utf-8", errors="replace")).items():
             macros[name] = value if macros.get(name, value) == value else None
     return {"keys": keys, "names": names, "macros": macros}
 
@@ -114,7 +114,7 @@ DEFINE_LINE = re.compile(r"^[ \t]*#[ \t]*define\b")
 
 def unread_keys(root):
     table = root / KEYS_TABLE
-    text = table.read_text(errors="replace") if table.is_file() else ""
+    text = table.read_text(encoding="utf-8", errors="replace") if table.is_file() else ""
     rows = [(line_of(text, m.start()), m.group(1), m.group(2)) for m in TABLE_ROW.finditer(text)]
 
     quoted, words, macros = set(), set(), {}
@@ -123,7 +123,7 @@ def unread_keys(root):
             continue
         if "test" in path.relative_to(root).parts:
             continue
-        code = path.read_text(errors="replace")
+        code = path.read_text(encoding="utf-8", errors="replace")
         for name, value in string_defines(code).items():
             if value:
                 macros.setdefault(value, set()).add(name)
@@ -386,7 +386,7 @@ def key_problems(text, groups, context):
 
 
 def check_file(path, pats, groups, context=None):
-    text = path.read_text(errors="replace")
+    text = path.read_text(encoding="utf-8", errors="replace")
     problems = []
 
     by_func = {}
@@ -727,15 +727,15 @@ def self_test():
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         (root / GROUPS_HEADER).parent.mkdir(parents=True)
-        (root / GROUPS_HEADER).write_text(SELF_TEST_HEADER)
-        (root / KEYS_TABLE).write_text(SELF_TEST_KEYS)
-        (root / GROUP_NAMES).write_text(SELF_TEST_NAMES)
+        (root / GROUPS_HEADER).write_text(SELF_TEST_HEADER, encoding="utf-8")
+        (root / KEYS_TABLE).write_text(SELF_TEST_KEYS, encoding="utf-8")
+        (root / GROUP_NAMES).write_text(SELF_TEST_NAMES, encoding="utf-8")
         groups = groups_pattern(root)
         pats = patterns(groups)
         context = key_context(root)
 
         for name, source, expected in SELF_TEST_CASES:
-            (root / name).write_text(source)
+            (root / name).write_text(source, encoding="utf-8")
             left = check_file(root / name, pats, groups, context)
             for kind, piece in expected:
                 found = next((p for p in left if p[1] == kind and piece in p[2]), None)
@@ -752,7 +752,7 @@ def self_test():
         root = Path(tmp)
         for rel, text in SELF_TEST_UNREAD.items():
             (root / rel).parent.mkdir(parents=True, exist_ok=True)
-            (root / rel).write_text(text)
+            (root / rel).write_text(text, encoding="utf-8")
         unread = sorted(key for _, _, key in unread_keys(root))
         if unread != SELF_TEST_UNREAD_WANT:
             print(f"[ FAIL: self-test: unread keys: got {unread}, want {SELF_TEST_UNREAD_WANT} ]")

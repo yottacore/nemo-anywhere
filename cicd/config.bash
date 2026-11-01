@@ -196,6 +196,15 @@ CROSS_TARGETS=(
 BSD_TEST_CMD=(bash cicd/bsd/lane.bash --tests)
 BSD_RELEASE_CMD=(bash cicd/bsd/lane.bash --release)
 
+## The native Windows gate, cicd-win.ps1 -Gate from a bundle of the commit, on
+## every full run, left out by --quick, --no-win or --no-remote. b29w is
+## another machine, so the side command runs alongside the local steps from the
+## debug build on, and is waited for before the packages. When it finds no box
+## (77), the other command runs then, in that step, since vm925w is a VM here
+## and shares this box's CPUs. See win/lane.bash.
+WIN_GATE_SIDE_CMD=(bash cicd/win/lane.bash b29w)
+WIN_GATE_CMD=(bash cicd/win/lane.bash vm925w)
+
 ## Stage 5 (after builds): collect versioned artifacts + sha256sums.
 ## The artifacts themselves come from the per-platform release lanes, not from this
 ## engine stage: cicd/linux/release.bash writes the Linux tarball + the sums file

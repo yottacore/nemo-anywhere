@@ -124,10 +124,17 @@ mkdir -p "${cache}/big/sub" "${cache}/small" "${cache}/linked-to" "${scratch}/re
 head -c 2097152 /dev/urandom > "${cache}/big/sub/blob"
 head -c 2097152 /dev/urandom > "${cache}/linked-to/blob"
 printf 'x' > "${cache}/small/file"
-ln -s "${cache}/linked-to" "${cache}/link"
 head -c 2097152 /dev/urandom > "${scratch}/rel/keep/blob"
+capArgs=("${cache}/big" "${cache}/small" "${cache}/link" rel)
+## MSYS2's ln -s copies the dir when it can't make a link, which is a dir of
+## its own past the cap. Leave that case out there.
+ln -s "${cache}/linked-to" "${cache}/link" 2> /dev/null || true
+if [[ ! -L "${cache}/link" ]]; then
+	echo "[ cap: link case skipped: ln -s made a copy, no symlink privilege here ]"
+	capArgs=("${cache}/big" "${cache}/small" rel)
+fi
 rc=0
-out="$(cd "${scratch}" && CICD_CACHE_CAP_KB=1024 bash "${here}/../linux/cache-cap.bash" "${cache}/big" "${cache}/small" "${cache}/link" rel 2>&1)" || rc=$?
+out="$(cd "${scratch}" && CICD_CACHE_CAP_KB=1024 bash "${here}/../linux/cache-cap.bash" "${capArgs[@]}" 2>&1)" || rc=$?
 [[ "$rc" == 0 ]] || fFail "[cap]: exit ${rc}, said: ${out}"
 [[ -d "${cache}/big" && -z "$(ls -A "${cache}/big")" ]] || fFail "[cap]: the dir past its cap wasn't emptied, or went itself"
 [[ "$out" == *"${cache}/big cache was 2 MB, past its 1 MB cap, so it starts empty"* ]] || fFail "[cap]: said: ${out}"
@@ -148,3 +155,4 @@ fEcho "OK: docker-run runs each step in a named container of its own, on this cl
 ##	History:
 ##		- 2026-10-26: Created.
 ##		- 2026-10-28: The image is tagged by the recipe's hash, and built from it.
+##		- 2026-10-31: The link case is left out where ln -s makes a copy.

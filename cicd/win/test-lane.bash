@@ -1,0 +1,194 @@
+#!/usr/bin/env bash
+
+##	- Purpose: Check the Linux side of the native Windows gate, with no box.
+##	  A copy of lane.bash runs in a scratch repo, with an ssh, scp and VM state
+##	  helper on PATH that answer as a Windows box would and log what they're
+##	  asked.
+##	  - b29w is taken through the lock's wrap, by that name. A bundle of HEAD
+##	    goes to a folder of its own under the box's temp root, named
+##	    <YYYYmmDD-HHMMSS>_<NNN>, counting up past a name that's taken.
+##	  - The gate gets -Gate -Yes -NoSync, its log is printed here, and its exit
+##	    code is the lane's. The folder is removed after, on a failure too.
+##	  - With b29w gone, vm925w is taken through the VM state helper, even
+##	    while it's off. With neither there, the lane exits 77 before any lock
+##	    is taken or anything is sent.
+##	  - A TERM mid-gate removes the folder, which stops the gate there.
+##	  - An uncommitted edit is named as left out.
+##	- Needs git; exit 77 without it.
+##	- Runs in the lint stage.
+##	- Syntax: cicd/win/test-lane.bash
+##	- Test ID: depg0
+
+##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
+##	Licensed under The MIT License (MIT). Full text at:
+##		https://mit-license.org/
+##	SPDX-License-Identifier: MIT
+
+set -Eeuo pipefail
+echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
+
+fEcho(){ echo "[ $* ]"; }
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=../utility/include/run-temp.bash
+source "${root}/cicd/utility/include/run-temp.bash"
+
+if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then fEcho "Windows lane check skipped: Linux only"; exit 77; fi
+if ! command -v git >/dev/null 2>&1; then fEcho "Windows lane check skipped: no git"; exit 77; fi
+
+scratch="$(mktemp -d "${TMPDIR:-/tmp}/win-lane-check.XXXXXX")"
+trap 'fSafeRm_IfThere "${scratch}"' EXIT
+
+failures=0
+fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
+
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+unset GIT_CONFIG_COUNT GIT_DIR GIT_WORK_TREE
+
+repo="${scratch}/repo"
+log="${scratch}/calls.log"
+mkdir -p "${repo}/cicd/win" "${repo}/cicd/utility/include" "${scratch}/bin" "${scratch}/sent"
+cp "${root}/cicd/win/lane.bash" "${root}/cicd/win/lane-box.ps1" "${repo}/cicd/win/"
+for inc in echo box-wrap jobs; do cp "${root}/cicd/utility/include/${inc}.bash" "${repo}/cicd/utility/include/"; done
+git -C "$repo" -c user.name=test -c user.email=test@example.invalid init -q
+git -C "$repo" add -A
+git -C "$repo" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m base
+head="$(git -C "$repo" rev-parse HEAD)"
+
+## FAKE_GONE: the hosts that never answer. FAKE_TAKEN: folder names already
+## there. FAKE_RC: what run.rc holds, none while the gate runs.
+cat > "${scratch}/bin/ssh" <<-EOF
+	#!/usr/bin/env bash
+	while [[ "\${1:-}" == -o ]]; do shift 2; done
+	host="\$1"; shift
+	if [[ " \${FAKE_GONE:-} " == *" \${host} "* ]]; then echo "ssh: connect to host \${host} port 22: Connection timed out" >&2; exit 255; fi
+	cmd="\$*"
+	echo "ssh \${host} \${cmd}" >> "${log}"
+	case "\$cmd" in
+		exit) ;;
+		'echo %TEMP%') printf 'C:\\\\Users\\\\t\\\\AppData\\\\Local\\\\Temp\\r\\n' ;;
+		mkdir*)
+			for t in \${FAKE_TAKEN:-}; do [[ "\$cmd" != *"_\${t}" ]] || exit 1; done ;;
+		*' -Start '*) printf 'pid=4242\\r\\n' ;;
+		'if exist '*'run.rc') [[ -z "\${FAKE_RC:-}" ]] || printf 'rc=%s secs=7\\r\\n' "\${FAKE_RC}" ;;
+		tasklist*) printf 'pwsh.exe   4242 Services   0   90,000 K\\r\\n' ;;
+	esac
+	exit 0
+EOF
+## What goes to the box is kept, and the gate's log comes back from it.
+cat > "${scratch}/bin/scp" <<-EOF
+	#!/usr/bin/env bash
+	while [[ "\${1:-}" == -q || "\${1:-}" == -o ]]; do [[ "\$1" == -o ]] && shift; shift; done
+	echo "scp \$*" >> "${log}"
+	if [[ "\$1" == *:*/gate.log ]]; then
+		printf 'PASS ddzzz a test on the box\\r\\nOK: 1 tests\\r\\n' > "\$2"; exit 0
+	fi
+	n=\$((\$# - 1))
+	cp "\${@:1:n}" "${scratch}/sent/"
+EOF
+## FAKE_VMS: the hosts that are VMs here, all of them off.
+cat > "${scratch}/x_vm-state.bash" <<-EOF
+	if [[ "\${1:-}" == status ]]; then
+		state=-; [[ " \${FAKE_VMS:-} " == *" \$2 "* ]] && state=off
+		printf 'host guest state note\n%s %s %s\n' "\$2" "\$2" "\$state"; exit 0
+	fi
+	## Nobody holds anything.
+	[[ "\${1:-}" != check ]] || exit 1
+	echo "lock \$*" >> "${log}"
+	while ((\$#)) && [[ "\$1" != -- ]]; do shift; done
+	shift
+	exec "\$@"
+EOF
+cp "${scratch}/x_vm-state.bash" "${scratch}/x_windows-host-lock.bash"
+chmod +x "${scratch}/bin/"*
+
+laneRc=0
+## $1 the lock tool, then env settings, then -- and the lane's own args.
+fLane(){
+	local tool="$1" envs=()
+	shift
+	while (($#)) && [[ "$1" != -- ]]; do envs+=("$1"); shift; done
+	shift
+	rm -f "$log" "${scratch}/sent/"*; touch "$log"
+	laneRc=0
+	## A home of its own, so the real lock tools are never found.
+	(cd "$repo" && env -u WINDOWS_HOST_LOCK "${envs[@]}" HOME="${scratch}/home" PATH="${scratch}/bin:${PATH}" BOX_WRAP_TOOL="$tool" BOX_READY_POLL=0 NEMO_WIN_POLL=0 \
+		bash cicd/win/lane.bash "$@") > "${scratch}/out.log" 2>&1 || laneRc=$?
+}
+dirRe='C:\\Users\\t\\AppData\\Local\\Temp\\nemo-anywhere\\[0-9]{8}-[0-9]{6}_'
+
+fLane "${scratch}/x_vm-state.bash" FAKE_VMS=vm925w FAKE_RC=0 -- b29w vm925w
+if ((laneRc == 0)); then
+	grep -q '^lock wrap b29w ' "$log" || fFail "b29w was not taken through the wrap: $(cat "$log")"
+	! grep -q 'b29w-wif\|vm925w' "$log" || fFail "another box was touched while b29w was there"
+	grep -qE "^ssh b29w mkdir ${dirRe}001\$" "$log" || fFail "no work folder _001 under the box's temp root"
+	# shellcheck disable=SC1003  ## a Windows folder, trailing backslash and all
+	grep -qF 'work folder b29w:C:\Users\t\AppData\Local\Temp\nemo-anywhere\' "${scratch}/out.log" || fFail "the work folder's path was not printed as it is"
+	if [[ -f "${scratch}/sent/round.bundle" ]]; then
+		git -C "$repo" bundle verify -q "${scratch}/sent/round.bundle" > /dev/null 2>&1 || fFail "what was sent is not a bundle of this repo"
+		grep -q "^${head} HEAD\$" <<< "$(git bundle list-heads "${scratch}/sent/round.bundle")" || fFail "the bundle is not of HEAD"
+	else
+		fFail "no bundle was sent"
+	fi
+	cmp -s "${scratch}/sent/lane-box.ps1" "${repo}/cicd/win/lane-box.ps1" || fFail "lane-box.ps1 was not sent"
+	grep -qE "^ssh b29w pwsh .*lane-box\\.ps1 -Dir ${dirRe}001 -Start -GateArgs Gate,Yes,NoSync\$" "$log" || fFail "the gate was not started with -Gate -Yes -NoSync"
+	grep -q '^PASS ddzzz a test on the box$' "${scratch}/out.log" || fFail "the gate's log was not printed"
+	grep -qE "^ssh b29w pwsh .*lane-box\\.ps1 -Dir ${dirRe}001 -Remove\$" "$log" || fFail "the work folder was not removed"
+	grep -q 'Windows 3 of 3; PASS Gate ]' "${scratch}/out.log" || fFail "no PASS line for the gate"
+	! grep -q 'uncommitted' "${scratch}/out.log" || fFail "a clean tree was said to have uncommitted edits"
+	fEcho "OK: b29w runs the gate in its own folder, removed after"
+else
+	fFail "the lane failed with b29w there (exit ${laneRc}): $(tail -3 "${scratch}/out.log")"
+fi
+
+fLane "${scratch}/x_vm-state.bash" FAKE_RC=1 FAKE_TAKEN="001 002" -- b29w
+if ((laneRc == 1)); then
+	grep -qE "^ssh b29w mkdir ${dirRe}003\$" "$log" || fFail "a taken folder name was not counted past"
+	grep -qE "^ssh b29w pwsh .*-Dir ${dirRe}003 -Remove\$" "$log" || fFail "the work folder was not removed after a failure"
+	grep -q 'Windows 3 of 3; FAIL Gate ]' "${scratch}/out.log" || fFail "no FAIL line for the gate"
+	fEcho "OK: a failing gate fails the lane, and its folder still goes"
+else
+	fFail "a failing gate gave exit ${laneRc}, not 1: $(tail -3 "${scratch}/out.log")"
+fi
+
+fLane "${scratch}/x_vm-state.bash" FAKE_VMS=vm925w FAKE_GONE=b29w FAKE_RC=0 -- b29w vm925w
+if ((laneRc == 0)); then
+	grep -q '^lock wrap vm925w ' "$log" || fFail "vm925w, off, was not taken through the VM state helper: $(cat "$log")"
+	! grep -q '^lock wrap b29w' "$log" || fFail "b29w was taken while gone"
+	grep -q '^ssh vm925w pwsh .* -Start ' "$log" || fFail "the gate did not start on vm925w"
+	fEcho "OK: with b29w gone, vm925w is started through the VM state helper"
+else
+	fFail "the lane failed with vm925w off (exit ${laneRc}): $(tail -3 "${scratch}/out.log")"
+fi
+
+fLane "${scratch}/x_windows-host-lock.bash" FAKE_GONE="b29w vm925w" FAKE_RC=0 --
+if ((laneRc == 77)); then
+	! grep -q '^lock ' "$log" || fFail "a box was taken with none there"
+	! grep -qv ' exit$' "$log" || fFail "more than the probe went to a box that isn't there: $(cat "$log")"
+	grep -q 'SKIP: no Windows box there (b29w vm925w)' "${scratch}/out.log" || fFail "no line saying the gate was skipped"
+	fEcho "OK: no box there exits 77, before the lock"
+else
+	fFail "no box there gave exit ${laneRc}, not 77: $(tail -3 "${scratch}/out.log")"
+fi
+
+## A gate that never ends, stopped from here, the way cicd.bash stops it.
+if command -v setsid > /dev/null 2>&1; then
+	rm -f "$log"; touch "$log"
+	(cd "$repo" && exec env -u WINDOWS_HOST_LOCK HOME="${scratch}/home" PATH="${scratch}/bin:${PATH}" BOX_WRAP_TOOL="${scratch}/x_vm-state.bash" BOX_READY_POLL=0 NEMO_WIN_POLL=1 \
+		setsid bash cicd/win/lane.bash b29w) > "${scratch}/out.log" 2>&1 &
+	lanePid=$!
+	for _ in $(seq 1 100); do grep -q ' -Start ' "$log" && break; sleep 0.1; done
+	sleep 0.5
+	kill -TERM -- "-${lanePid}" 2> /dev/null || true
+	laneRc=0; wait "$lanePid" || laneRc=$?
+	((laneRc != 0)) || fFail "a TERM mid-gate gave exit 0"
+	grep -qE "^ssh b29w pwsh .*-Dir ${dirRe}001 -Remove\$" "$log" || fFail "a TERM mid-gate left the work folder: $(tail -3 "${scratch}/out.log")"
+	fEcho "OK: a TERM mid-gate removes the work folder"
+fi
+
+echo edit >> "${repo}/cicd/win/lane-box.ps1"
+fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 -- b29w
+grep -q 'WARNING: uncommitted edits here are not in the native Windows gate' "${scratch}/out.log" || fFail "an uncommitted edit was not named"
+cmp -s "${scratch}/sent/lane-box.ps1" "${repo}/cicd/win/lane-box.ps1" || fFail "the lane-box.ps1 sent is not this tree's"
+
+if ((failures)); then fEcho "${failures} Windows lane check(s) failed"; exit 1; fi
+fEcho "Windows lane checks passed"

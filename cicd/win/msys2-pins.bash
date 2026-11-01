@@ -8,6 +8,9 @@
 ##	  base install already has. That base comes from the dated installer the
 ##	  pinned setup-msys2 commit unpacks, so BASE_DATE, SETUP_MSYS2 and the
 ##	  `uses:` line in release-win.yml move together. Run by hand, then commit.
+##	  It also writes sysroot-pins.txt, the part of the same closure the cross
+##	  build image's sysroot takes (fetch-sysroot.bash), so the cross build
+##	  links the same DLLs as the hosted build.
 ##	- install: under MSYS2, fetches every listed file, checks each sha256 and
 ##	  installs them all in one pacman -U. A file the repo no longer has fails
 ##	  the run, which means it's time to move the pins.
@@ -28,6 +31,13 @@ BASE_DATE="2026-09-27"
 ## and nothing here runs.
 MINGW_ROOTS=(gcc gtk3 libarchive json-glib libexif meson ninja pkgconf)
 MSYS_ROOTS=(intltool)
+## The cross build's sysroot. gtk3 drags in the bulk of the stack (glib2, atk,
+## cairo, gdk-pixbuf2, pango, json-glib, libepoxy, gettext, icon theme). The rest
+## are our extra meson deps. Exempi (XMP) is not packaged for mingw - we
+## cross-build with -Dxmp=false instead. sqlite3 already arrives through the gtk3
+## chain, but the thumbnail cache links it directly, so name it here rather than
+## let a refresh of that chain drop it.
+SYSROOT_ROOTS=(gtk3 json-glib libexif libarchive sqlite3)
 
 msys2PinsHere="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../utility/include/run-temp.bash
@@ -112,16 +122,25 @@ fMsys2Pins_Update(){
 	tar -xf "${work}/mingw.db" -C "${work}/mingw"
 	tar -xf "${work}/msys.db" -C "${work}/msys"
 
-	local mingwRoots=()
+	local mingwRoots=() sysRoots=() sysPins
+	sysPins="$(dirname "${pins}")/sysroot-pins.txt"
 	for r in "${MINGW_ROOTS[@]}"; do mingwRoots+=("mingw-w64-x86_64-${r}"); done
+	for r in "${SYSROOT_ROOTS[@]}"; do sysRoots+=("mingw-w64-x86_64-${r}"); done
 	{
 		echo "# The MSYS2 packages release-win.yml installs, written by msys2-pins.bash update."
 		echo "# setup-msys2 ${SETUP_MSYS2}, base ${BASE_DATE}"
 		fMsys2Pins_Closure mingw/mingw64 "${work}/mingw" "" "${mingwRoots[@]}"
 		fMsys2Pins_Closure msys/x86_64 "${work}/msys" "${work}/base.txt" "${MSYS_ROOTS[@]}"
 	} > "${work}/pins.txt"
+	{
+		echo "# The cross build image's sysroot (fetch-sysroot.bash), written by msys2-pins.bash update."
+		echo "# Part of msys2-pins.txt, from the same package database."
+		fMsys2Pins_Closure mingw/mingw64 "${work}/mingw" "" "${sysRoots[@]}"
+	} > "${work}/sysroot-pins.txt"
 	mv -f "${work}/pins.txt" "${pins}"
+	mv -f "${work}/sysroot-pins.txt" "${sysPins}"
 	fEcho "Wrote ${pins}: $(grep -vc '^#' "${pins}") packages"
+	fEcho "Wrote ${sysPins}: $(grep -vc '^#' "${sysPins}") packages"
 }
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
@@ -163,3 +182,4 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then fMain "$@"; fi
 
 ##	History:
 ##		- 20261028: Created.
+##		- 20261031: Writes the cross build sysroot's list too.
