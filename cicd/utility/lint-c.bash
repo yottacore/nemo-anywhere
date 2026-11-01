@@ -738,6 +738,25 @@ fCheckTestScratchDirs(){
 }
 fRun fCheckTestScratchDirs
 
+## g_utime on Windows is the C runtime's, which goes through local time with
+## today's daylight saving offset. Set a summer time in winter and the file
+## gets it an hour off, while the C runtime's own stat hides that. dcy08 failed
+## on b29w the day the clocks went back. Set times through GIO, which
+## test_set_mtime does.
+## Test ID: deqxc
+fCheckNoUtime(){
+	local bad
+
+	bad="$(grep -rnE '(^|[^[:alnum:]_])(g_)?utime[[:space:]]*\(' source --include='*.c' --include='*.h' \
+		| grep -vE '^source/unused/|^[^:]+:[0-9]+:[[:space:]]*//' || true)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: g_utime sets the wrong time on Windows - use test_set_mtime or GIO"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckNoUtime
+
 ## A test that starts a file job opens nemo_preferences first. The job queue
 ## watches a setting there from when it's made, and 4 tests made it with none
 ## open, which only logged a critical (2026101416534029).
