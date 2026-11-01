@@ -42,7 +42,6 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <utime.h>
 
 #include <gio/gio.h>
 #include <glib/gstdio.h>
@@ -298,7 +297,6 @@ static char **
 make_pictures (const char *folder, int count, int scale)
 {
 	char **uris = g_new0 (char *, count + 1);
-	struct utimbuf old = { 978307200, 978307200 };	/* 2001-01-01 */
 	int i;
 
 	g_mkdir_with_parents (folder, 0700);
@@ -312,7 +310,7 @@ make_pictures (const char *folder, int count, int scale)
 
 		gdk_pixbuf_fill (pixbuf, 0x10203000u + (guint32) i * 0x13110700u);
 		check (gdk_pixbuf_save (pixbuf, path, "png", NULL, NULL));
-		check (g_utime (path, &old) == 0);
+		check (test_set_mtime (path, 978307200));	/* 2001-01-01 */
 		uris[i] = g_filename_to_uri (path, NULL, NULL);
 
 		g_object_unref (pixbuf);

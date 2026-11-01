@@ -83,11 +83,7 @@ notify_one (void (*notify) (GList *), const char *path)
 static void
 make_old (const char *path, time_t old)
 {
-	GFile *file = g_file_new_for_path (path);
-
-	check (g_file_set_attribute_uint64 (file, G_FILE_ATTRIBUTE_TIME_MODIFIED, (guint64) old,
-					    G_FILE_QUERY_INFO_NONE, NULL, NULL));
-	g_object_unref (file);
+	check (test_set_mtime (path, (gint64) old));
 #ifdef G_OS_WIN32
 	notify_one (nemo_directory_notify_files_changed, path);
 #endif

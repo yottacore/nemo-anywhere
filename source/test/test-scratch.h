@@ -63,6 +63,11 @@ double test_slowness (void);
 gboolean test_pixbuf_reads  (const char *name);
 gboolean test_pixbuf_writes (const char *name);
 
+/* Sets a file or folder's modified time, in seconds since 1970. Use it
+   rather than g_utime, which on Windows sets the time an hour off when
+   daylight saving differs between then and now. */
+gboolean test_set_mtime (const char *path, gint64 secs);
+
 /* Removes every directory made so far. Runs on its own at exit. */
 void  test_scratch_cleanup (void);
 

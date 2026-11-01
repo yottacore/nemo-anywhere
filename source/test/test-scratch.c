@@ -464,6 +464,15 @@ test_pixbuf_writes (const char *name)
 	return format != NULL && gdk_pixbuf_format_is_writable (format);
 }
 
+gboolean
+test_set_mtime (const char *path, gint64 secs)
+{
+	g_autoptr (GFile) file = g_file_new_for_path (path);
+
+	return g_file_set_attribute_uint64 (file, G_FILE_ATTRIBUTE_TIME_MODIFIED, (guint64) secs,
+					    G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, NULL, NULL);
+}
+
 #ifndef G_OS_WIN32
 static volatile pid_t kept_child = 0;
 

@@ -41,7 +41,6 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <utime.h>
 
 #include <gio/gio.h>
 #include <glib/gstdio.h>
@@ -287,7 +286,6 @@ check_activation_file (const char *exe)
 	char *path = g_build_filename (dir, SERVICE_NAME, NULL);
 	char *want = wanted_service (exe);
 	GStatBuf before, after;
-	struct utimbuf old = { 978307200, 978307200 };	/* 2001-01-01 */
 	GPid pid;
 
 	/* One left by a copy somewhere else, which has to be replaced. */
@@ -301,7 +299,7 @@ check_activation_file (const char *exe)
 	stop (pid);
 
 	/* One that already names this copy stays as it is. */
-	check (g_utime (path, &old) == 0);
+	check (test_set_mtime (path, 978307200));	/* 2001-01-01 */
 	check (g_stat (path, &before) == 0);
 
 	pid = launch (exe, root, TRUE, err_path);
