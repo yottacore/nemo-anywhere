@@ -81,10 +81,18 @@ fTidy(){
 		fi
 		rm -f "${cell}/left"
 	else
-		chmod -R u+rwx "${cell}/home" 2>/dev/null || true
-		rm -rf "${cell:?}/home" || true
-		if ! rmdir "${cell}/tmp" 2>/dev/null; then
-			echo "[ jail: ${name} left files in ${cell}/tmp ]" >&2
+		## A virus scanner can hold a file the test just wrote for a moment,
+		## and Windows refuses the delete until it lets go, so try for 5 s.
+		local tries
+		for ((tries = 0; tries < 50; tries++)); do
+			chmod -R u+rwx "${cell}/home" 2>/dev/null || true
+			rm -rf "${cell:?}/home" 2>/dev/null || true
+			[[ ! -e "${cell}/home" ]] && rmdir "${cell}/tmp" 2>/dev/null && break
+			sleep 0.1
+		done
+		if [[ -e "${cell}/home" || -e "${cell}/tmp" ]]; then
+			ls -AlR "${cell}/home" "${cell}/tmp" > "${cell}/left" 2>&1 || true
+			echo "[ jail: ${name} left files in ${cell}; the list is in ${cell}/left ]" >&2
 			return 0
 		fi
 	fi

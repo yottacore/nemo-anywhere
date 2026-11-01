@@ -439,7 +439,15 @@ function fTests {
 	} finally { $env:MSYS2_PATH_TYPE = $savedPathType }
 	if ($script:MingwRc -ne 0) { fDie "test suite failed (exit $($script:MingwRc)); anything a test left is in $runDir" }
 	$left = @(Get-ChildItem -LiteralPath $runDir -Force -ErrorAction SilentlyContinue)
-	if ($left.Count -gt 0) { fDie "tests left these behind in ${runDir}: $(($left | ForEach-Object Name) -join ', ')" }
+	if ($left.Count -gt 0) {
+		## jail.bash writes what a test left into its cell, and the run folder
+		## goes with the gate's folder, so print it here.
+		foreach ($cell in $left) {
+			$list = Join-Path $cell.FullName 'left'
+			if (Test-Path -LiteralPath $list) { Get-Content -LiteralPath $list | Select-Object -First 40 | ForEach-Object { "  $_" } }
+		}
+		fDie "tests left these behind in ${runDir}: $(($left | ForEach-Object Name) -join ', ')"
+	}
 	Remove-Item -LiteralPath $runDir -Force
 	fEcho "OK: test suite"
 	## The installer's in-use check needs a real process to find, so it runs
