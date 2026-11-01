@@ -88,6 +88,21 @@ remove_tree (GFile *dir, guint32 device)
 	g_file_delete (dir, NULL, NULL);
 }
 
+/* A virus scanner can hold a file a test just wrote for a moment, and Windows
+   refuses the delete until it lets go. So there it is tried again for up to
+   5 s. */
+static void
+remove_tree_waiting (GFile *dir, guint32 device)
+{
+	remove_tree (dir, device);
+#ifdef G_OS_WIN32
+	for (int tries = 0; tries < 50 && g_file_query_exists (dir, NULL); tries++) {
+		g_usleep (100000);
+		remove_tree (dir, device);
+	}
+#endif
+}
+
 static void
 remove_made (const char *path, const char *base)
 {
@@ -125,7 +140,7 @@ remove_made (const char *path, const char *base)
 #endif
 
 	if (owned) {
-		remove_tree (file, device_of (info));
+		remove_tree_waiting (file, device_of (info));
 		if (g_file_query_exists (file, NULL)) {
 			g_printerr ("scratch: could not remove all of %s\n", path);
 		}
@@ -236,7 +251,7 @@ test_scratch_remove_tree (const char *path)
 	info = g_file_query_info (file, WALK_ATTRIBUTES,
 				  G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, NULL, NULL);
 	if (info != NULL && is_real_dir (info)) {
-		remove_tree (file, device_of (info));
+		remove_tree_waiting (file, device_of (info));
 		ok = !g_file_query_exists (file, NULL);
 	}
 
