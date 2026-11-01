@@ -757,6 +757,24 @@ fCheckNoUtime(){
 }
 fRun fCheckNoUtime
 
+## A cancellable source cancelled from another thread, while the thread that
+## owns its context tears both down, writes into freed memory on GLib 2.84. A
+## thumbnail job cancelled at quit hung the app that way (ddc84). Use
+## g_cancellable_connect, and g_cancellable_disconnect before the teardown.
+## Test ID: der15
+fCheckNoCancellableSource(){
+	local bad
+
+	bad="$(grep -rnE '(^|[^[:alnum:]_])g_cancellable_source_new[[:space:]]*\(' source --include='*.c' --include='*.h' \
+		| grep -vE '^source/unused/|^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)' || true)"
+	if [[ -n "$bad" ]]; then
+		fEcho "FAIL: a cancellable source isn't safe to cancel from another thread - use g_cancellable_connect"
+		printf '%s\n' "$bad"
+		exit 2
+	fi
+}
+fRun fCheckNoCancellableSource
+
 ## A test that starts a file job opens nemo_preferences first. The job queue
 ## watches a setting there from when it's made, and 4 tests made it with none
 ## open, which only logged a critical (2026101416534029).
