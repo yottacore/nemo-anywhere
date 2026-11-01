@@ -1407,16 +1407,18 @@ script_timed_out (gpointer data)
   return G_SOURCE_REMOVE;
 }
 
-/* Nothing wants the picture any more, so the helper is ended like a timeout. */
-static gboolean
+/* Nothing wants the picture any more, so the helper is ended like a timeout.
+ * Runs on the thread that cancelled. g_subprocess_force_exit is safe from any
+ * thread, and the disconnect after the loop waits for this to finish. A
+ * cancellable source on the private context instead let a cancel from another
+ * thread write into the context after it was freed, and quitting hung. */
+static void
 script_cancelled (G_GNUC_UNUSED GCancellable *cancellable, gpointer data)
 {
   ScriptRun *run = data;
 
   run->stopped = TRUE;
   g_subprocess_force_exit (run->proc);
-
-  return G_SOURCE_REMOVE;
 }
 
 static void
@@ -1437,7 +1439,7 @@ run_thumbnailer_script (const char *command_line, GCancellable *cancellable)
 {
   GMainContext *context;
   GSource *timeout;
-  GSource *stop = NULL;
+  gulong stop = 0;
   GSubprocess *proc;
   ScriptRun run = { 0 };
   gchar **argv = NULL;
@@ -1472,15 +1474,12 @@ run_thumbnailer_script (const char *command_line, GCancellable *cancellable)
   g_source_attach (timeout, context);
 
   if (cancellable != NULL)
-    {
-      stop = g_cancellable_source_new (cancellable);
-      g_source_set_callback (stop, G_SOURCE_FUNC (script_cancelled), &run, NULL);
-      g_source_attach (stop, context);
-    }
+    stop = g_cancellable_connect (cancellable, G_CALLBACK (script_cancelled), &run, NULL);
 
   /* Killing the child completes the wait, so the loop still ends by itself
    * and the process is reaped rather than left behind. */
   g_main_loop_run (run.loop);
+  g_cancellable_disconnect (cancellable, stop);
 
   if (run.timed_out)
     g_warning ("Thumbnailer took longer than %d seconds, gave up on it: %s",
@@ -1488,11 +1487,6 @@ run_thumbnailer_script (const char *command_line, GCancellable *cancellable)
 
   ok = run.ok && !run.stopped;
 
-  if (stop != NULL)
-    {
-      g_source_destroy (stop);
-      g_source_unref (stop);
-    }
   g_source_destroy (timeout);
   g_source_unref (timeout);
   g_main_loop_unref (run.loop);

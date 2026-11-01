@@ -270,15 +270,13 @@ run_timed_out (gpointer data)
 
 /* Nothing wants the picture any more. A cancelled communicate would leave
  * the program running, so it is ended instead, the same way as a timeout. */
-static gboolean
+static void
 run_cancelled (G_GNUC_UNUSED GCancellable *cancellable, gpointer data)
 {
 	Run *run = data;
 
 	run->stopped = TRUE;
 	g_subprocess_force_exit (run->proc);
-
-	return G_SOURCE_REMOVE;
 }
 
 static void
@@ -345,7 +343,7 @@ run_magick (char **argv, const char *path, GCancellable *cancellable)
 	g_autoptr (GBytes) input = NULL;
 	GMainContext *context;
 	GSource *timeout;
-	GSource *stop = NULL;
+	gulong stop = 0;
 	GdkPixbuf *pixbuf = NULL;
 	Run run = { 0 };
 
@@ -374,14 +372,15 @@ run_magick (char **argv, const char *path, GCancellable *cancellable)
 		g_source_set_callback (timeout, run_timed_out, &run, NULL);
 		g_source_attach (timeout, context);
 
+		/* Not a cancellable source on the private context: see
+		 * script_cancelled in nemo-desktop-thumbnail.c. */
 		if (cancellable != NULL) {
-			stop = g_cancellable_source_new (cancellable);
-			g_source_set_callback (stop, G_SOURCE_FUNC (run_cancelled), &run, NULL);
-			g_source_attach (stop, context);
+			stop = g_cancellable_connect (cancellable, G_CALLBACK (run_cancelled), &run, NULL);
 		}
 
 		/* A killed child closes its output, so the loop still ends. */
 		g_main_loop_run (run.loop);
+		g_cancellable_disconnect (cancellable, stop);
 
 		if (run.timed_out) {
 			g_warning ("ImageMagick took longer than %d seconds, gave up on %s",
@@ -390,10 +389,6 @@ run_magick (char **argv, const char *path, GCancellable *cancellable)
 			pixbuf = decode_png (run.out);
 		}
 
-		if (stop != NULL) {
-			g_source_destroy (stop);
-			g_source_unref (stop);
-		}
 		g_source_destroy (timeout);
 		g_source_unref (timeout);
 		g_main_loop_unref (run.loop);

@@ -409,17 +409,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual cause:
 		- de025 and ddyv6: a 180 ms bar is there to tell the old 200 ms timer from a fixed build, so it can't be scaled for a slow box (2026101613310525). A sanitizer build on a loaded box goes past it with the fix in.
 		- ddc84: not found. The close of the busy folder took 0.5 to 2.9 s in 30 quits at load 21 to 30, against more than 156 s in the failed run. So it hung, and a longer wait isn't the fix.
+		- ddc84, 20261101: at quit the feeder cancels running jobs under `thumbnails_mutex`. A job's cancellable had a cancellable source on the private context its thumbnailer script runs in, which the worker frees when the script ends. A cancel from another thread right then writes into the freed context in GLib 2.84, and here it waited for good on a lock in that memory. Every worker then waited on `thumbnails_mutex`, so the app never exited. `nemo-magick.c` had the same pattern.
 	- Progress log:
 		- 20261024: de025, 4 at once at load about 22 in a sanitizer build: the quickest varied folder took 172 to 224 ms, so 3 of 4 were over the bar.
 		- 20261024: ddc84, 6 at once at load 21 to 30, and in the whole sanitizer suite at 8 jobs: no hang.
 		- 20261024: in the sanitizer suite at c7194950 all 3 pass at load about 15, and again at load 50 to 60 beside a full run's arm64 step. ddc84 ran 38 and 55 s in all there. The selection rules tests failed in those runs instead, filed as 2026102413432024, and de7aj once, filed as 2026102413432124.
 		- 20261025: de025, ddyv6 and ddc84 pass in the sanitizer stage of full run 1 of round1025 at f4c13824, at load 45 to 72. ddc84 took 35 s. Nothing is left for de025 and ddyv6.
+		- 20261101: ddc84 hung at quit in the plain suite of a full run at 580003d3, load about 12, and its stacks named the cause. A small program doing what the script runner did, while another thread cancels, crashed within seconds in 3 of 3 runs on the dev image's GLib 2.84.4. With `g_cancellable_connect` and `g_cancellable_disconnect` it ran about 6.8 million rounds clean, 3 times.
 	- Decisions:
 		- The sanitizer lane runs both timed tests for the memory checks and the item counts, and leaves their time bars to the plain suite, which every gate runs.
 		- ddyv6 and ddc84 were each closed once before for the same failure under load (2026101613310525, 2026101513290717). So ddc84's wait isn't raised again until its cause is known.
 	- Actual fix:
 		- A sanitizer build doesn't hold the time bars of de025 and ddyv6 (`TEST_TIME_BARS_HOLD` in `test-scratch.h`), and ddyv6 runs once there.
 		- ddc84 prints how long each quit took. A copy that doesn't quit in time has its threads listed, with their stacks when gdb is there, and is killed, so it no longer runs on into the next run.
+		- 20261101: the thumbnailer script and ImageMagick runners connect to the cancellable rather than attach a cancellable source, and disconnect before freeing their context. The handler only ends the program. Lint der15 refuses `g_cancellable_source_new` in `source/`.
 	- Swept: every test with a fixed time bar; only these two have one. Every exit wait in ddc84, the `--quit` copy's included, goes through the same report.
 	- Branch: round1024b
 	- Commit: ac5d30ac
