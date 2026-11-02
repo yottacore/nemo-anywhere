@@ -390,8 +390,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - de025, ddyv6 and ddc84 still fail in the sanitizer lane on a loaded box.
 	- ID: 2026102411433800
 	- Type: Bug
-	- Status: Stalled
-		- Held for: ddc84 hanging at quit again, since its log then lists the stuck copy's threads. Its cause isn't known, so the item stays open.
+	- Status: Done
 	- Needs local test suite run?: no. Passed in a full run's sanitizer stage on a loaded box, 20261025.
 	- Priority|Severity: Low
 	- Opened: 20261024-114338
@@ -424,11 +423,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- ddc84 prints how long each quit took. A copy that doesn't quit in time has its threads listed, with their stacks when gdb is there, and is killed, so it no longer runs on into the next run.
 		- 20261101: the thumbnailer script and ImageMagick runners connect to the cancellable rather than attach a cancellable source, and disconnect before freeing their context. The handler only ends the program. Lint der15 refuses `g_cancellable_source_new` in `source/`.
 	- Swept: every test with a fixed time bar; only these two have one. Every exit wait in ddc84, the `--quit` copy's included, goes through the same report.
-	- Branch: round1024b
-	- Commit: ac5d30ac
+	- Branch: round1024b, thumbcancel
+	- Commit: ac5d30ac, 71104410
 	- Test case: de025, ddyv6 and ddc84 themselves, in the sanitizer lane with the cores loaded.
 	- Verified: 20261024, the 3 tests pass in a sanitizer build, and so does the whole sanitizer suite, 220 OK and 15 skipped, at load about 15. de025 passes 4 of 4 at once at load about 22, where 3 of 4 were over its bar. In a plain build the 3 pass with the bars held. A copy held past ddc84's exit wait was listed with its threads and stacks and killed, and the test went on through its other runs. C lint clean, and the test ID check passes.
 	- Verified: 20261025, full run 1 of round1025 at f4c13824, at load 45 to 72: de025, ddyv6 and ddc84 pass in the sanitizer stage, and in the plain suite.
+	- Verified: 20261101, full run at 6562926c: ddc84 passes in the plain suite and the sanitizer stage. Lint der15 fails on the old `nemo-magick.c` and passes after.
+	- Acceptance signoff: Self-closed: the hang's stacks named the cause, a small program shows it on this GLib, and the same program with the new pattern runs clean. der15 keeps the pattern out.
+	- Closed: 20261101-171500
 
 - dd42v can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
