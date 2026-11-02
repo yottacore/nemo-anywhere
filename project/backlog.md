@@ -10508,6 +10508,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Done 20260925: moved to a newer `dev` copy, with the calls asked for here. Neither replaces the app's own code yet. Clearing a comment would also take a note written above a key, and the info block call misses a block that is no longer at the end of the file.
 	- Note: a later SHCL may back up and convert a file in an older format itself. Look for a call that does or helps with that before wiring in a new version. If it does the job, use it in place of ours in `nemo-config.c`. Never run both on the same file.
 	- Test case: none yet, not started.
+	- Held for: a SHCL 3.0.0-beta.1 tag.
 
 - **Stop here (in old format) for a next release**.
 
