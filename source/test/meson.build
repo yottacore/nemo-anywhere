@@ -2742,3 +2742,18 @@ if is_windows
     args: []
   )
 endif
+
+if is_macos
+  add_languages('objc', native: false, required: true)
+
+  test('der9s Drop from another window quartz test',
+    executable('test-nemo-drop-quartz',
+      [ 'test-nemo-drop-quartz.m' ],
+      include_directories: [ rootInclude, ],
+      objc_args: [ '-Wno-deprecated-declarations', ],
+      dependencies: [ gtk, nemo_private, test_fence,
+        dependency('appleframeworks', modules: [ 'AppKit' ]), ],
+    ),
+    args: []
+  )
+endif
