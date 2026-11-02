@@ -23,6 +23,7 @@
 #include <config.h>
 
 #include "nemo-psd.h"
+#include "nemo-file-utilities.h"
 
 #include <string.h>
 
@@ -497,10 +498,21 @@ nemo_psd_type_ok (const char *mime_type)
 		"application/x-photoshop",
 	};
 	guint i;
+#ifdef __APPLE__
+	g_autofree char *mime = NULL;
+#endif
 
 	if (mime_type == NULL) {
 		return FALSE;
 	}
+
+#ifdef __APPLE__
+	/* A UTI there, and never an extension. */
+	if (mime_type[0] != '.') {
+		mime = nemo_content_type_get_mime_type (mime_type);
+		mime_type = mime;
+	}
+#endif
 
 	/* On Windows the type is the extension, and with no Photoshop installed
 	 * nothing maps it to a mime type. */

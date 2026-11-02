@@ -173,6 +173,17 @@ test_type_helpers (void)
 	check (nemo_content_type_equals ("application/x-desktop", "application/x-desktop"));
 	check (!nemo_content_type_equals ("application/x-theme", "application/x-desktop"));
 #endif
+
+	/* An extension, a MIME type or a UTI, whichever GIO gives here. */
+	{
+		g_autofree char *guessed = g_content_type_guess ("docs.desktop", NULL, 0, NULL);
+		g_autofree char *text = g_content_type_guess ("notes.txt", NULL, 0, NULL);
+
+		check (nemo_content_type_equals (guessed, "application/x-desktop"));
+		check (nemo_content_type_is_a (guessed, "application/x-desktop"));
+		check (nemo_content_type_is_a (text, "text/plain"));
+		check (!nemo_content_type_equals (text, "application/x-desktop"));
+	}
 }
 
 int

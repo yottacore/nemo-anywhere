@@ -287,21 +287,27 @@ void     nemo_archive_mount_init (void);
 gboolean nemo_archive_mount_supported (void);
 GFile   *nemo_archive_mount_location (GFile *archive);
 
-/* g_content_type_is_a, but also right on Windows for a mime pattern such as
-   "image/" plus a star, and for the types nemo_content_type_get_mime_type
-   knows when nothing has registered them, such as a .desktop link file. A
-   content type there is a file extension, which never matches one.
+/* GIO's content type is a file extension on Windows and a UTI on macOS, so
+   one never equals a MIME type there without converting it first. */
+#if defined (G_OS_WIN32) || defined (__APPLE__)
+#define NEMO_CONTENT_TYPE_NOT_MIME 1
+#endif
+
+/* g_content_type_is_a, but also right on Windows and macOS for a mime pattern
+   such as "image/" plus a star, and for the types
+   nemo_content_type_get_mime_type knows when nothing has registered them, such
+   as a .desktop link file.
    Safe from any thread. */
 gboolean nemo_content_type_is_a (const char *content_type, const char *mime_type);
 
-/* g_content_type_equals, with the same Windows mapping as above. NULL is equal
-   to nothing.
+/* g_content_type_equals, with the same mapping as above. NULL is equal to
+   nothing.
    Safe from any thread. */
 gboolean nemo_content_type_equals (const char *content_type, const char *mime_type);
 
-/* The MIME type of a content type, which on Windows is a file extension. The
-   formats a search converter or a thumbnailer ships for are known there even
-   when nothing installed has registered them.
+/* The MIME type of a content type, which on Windows is a file extension and
+   on macOS a UTI. The formats a search converter or a thumbnailer ships for
+   are known there even when nothing installed has registered them.
    Safe from any thread.
    Returns: (transfer full): free with g_free */
 char *nemo_content_type_get_mime_type (const char *content_type);

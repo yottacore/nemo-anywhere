@@ -636,7 +636,7 @@ nemo_desktop_thumbnail_factory_is_disabled (NemoDesktopThumbnailFactory *factory
         return TRUE;
     }
 
-#ifdef G_OS_WIN32
+#ifdef NEMO_CONTENT_TYPE_NOT_MIME
   {
     g_autofree gchar *real_mime = nemo_content_type_get_mime_type (mime_type);
 
@@ -651,8 +651,8 @@ nemo_desktop_thumbnail_factory_is_disabled (NemoDesktopThumbnailFactory *factory
   return FALSE;
 }
 
-/* On Windows a file's type is its extension, and a thumbnailer lists MIME
- * types. Caller holds priv->lock.
+/* On Windows a file's type is its extension and on macOS a UTI, while a
+ * thumbnailer lists MIME types. Caller holds priv->lock.
  * Returns: (transfer none) */
 static Thumbnailer *
 lookup_thumbnailer (NemoDesktopThumbnailFactory *factory,
@@ -660,7 +660,7 @@ lookup_thumbnailer (NemoDesktopThumbnailFactory *factory,
 {
   Thumbnailer *thumb = g_hash_table_lookup (factory->priv->mime_types_map, mime_type);
 
-#ifdef G_OS_WIN32
+#ifdef NEMO_CONTENT_TYPE_NOT_MIME
   if (thumb == NULL)
     {
       g_autofree gchar *real_mime = nemo_content_type_get_mime_type (mime_type);
