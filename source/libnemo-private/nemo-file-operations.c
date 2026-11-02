@@ -3678,8 +3678,7 @@ verify_destination (CommonJob *job,
 	}
 
 	if (!job_aborted (job) &&
-	    g_file_info_get_attribute_boolean (fsinfo,
-					       G_FILE_ATTRIBUTE_FILESYSTEM_READONLY)) {
+	    nemo_filesystem_is_read_only (dest, fsinfo)) {
 		primary = f (_("Error while copying to \"%B\"."), dest);
 		secondary = f (_("The destination is read-only."));
 
@@ -5544,7 +5543,7 @@ copy_files (CopyMoveJob *job,
 	if (source_dir) {
 		inf = g_file_query_filesystem_info (source_dir, "filesystem::readonly", NULL, NULL);
 		if (inf != NULL) {
-			readonly_source_fs = g_file_info_get_attribute_boolean (inf, "filesystem::readonly");
+			readonly_source_fs = nemo_filesystem_is_read_only (source_dir, inf);
 			g_object_unref (inf);
 		}
 		g_object_unref (source_dir);

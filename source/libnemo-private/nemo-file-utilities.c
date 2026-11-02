@@ -56,6 +56,7 @@
 #ifdef __APPLE__
 #include <limits.h>
 #include <mach-o/dyld.h>
+#include <sys/mount.h>
 #endif
 
 #if defined(__FreeBSD__) || defined(__DragonFly__)
@@ -3863,4 +3864,23 @@ nemo_name_is_on_pathext (const char *name, const char *pathext)
 	}
 
 	return FALSE;
+}
+
+gboolean
+nemo_filesystem_is_read_only (GFile *file, GFileInfo *fs_info)
+{
+#ifdef __APPLE__
+	/* GLib answers for /, the sealed system volume, whatever the path.
+	   Not knowing counts as writable, as with no fs_info. */
+	g_autofree char *path = g_file_get_path (file);
+	struct statfs sfs;
+
+	if (path != NULL) {
+		return statfs (path, &sfs) == 0 && (sfs.f_flags & MNT_RDONLY) != 0;
+	}
+#else
+	(void) file;
+#endif
+	return fs_info != NULL &&
+	       g_file_info_get_attribute_boolean (fs_info, G_FILE_ATTRIBUTE_FILESYSTEM_READONLY);
 }

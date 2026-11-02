@@ -316,4 +316,11 @@ char *nemo_content_type_get_mime_type (const char *content_type);
    @pathext, a PATHEXT list, in any case. NULL means cmd's own list when
    PATHEXT is unset. */
 gboolean nemo_name_is_on_pathext (const char *name, const char *pathext);
+
+/* Whether @file's filesystem is mounted read-only. @fs_info is from
+   g_file_query_filesystem_info with filesystem::readonly asked for, and may be
+   NULL. Read this rather than the attribute: on macOS GLib gives every local
+   path the flags of the sealed system volume at /.
+   May block, so call it from a job thread. */
+gboolean nemo_filesystem_is_read_only (GFile *file, GFileInfo *fs_info);
 #endif /* NEMO_FILE_UTILITIES_H */
