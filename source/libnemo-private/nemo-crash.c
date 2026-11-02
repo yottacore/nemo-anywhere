@@ -282,6 +282,30 @@ number_written_path (gsize stem, char n)
 
 #ifndef G_OS_WIN32
 
+/* mkdir makes one level, and the config root is not always there: a fresh
+   HOME has no Library/Application Support on macOS, and a new account need
+   not have ~/.config yet. Only string work and mkdir, so it is safe in a
+   signal handler. */
+static void
+make_report_dirs (void)
+{
+	char path[CRASH_PATH_MAX];
+	gsize i;
+
+	if (mkdir (report_parent, DEFAULT_NEMO_DIRECTORY_MODE) != 0 && errno == ENOENT) {
+		memcpy (path, report_parent, sizeof path);
+		for (i = 1; path[i] != '\0'; i++) {
+			if (path[i] == '/') {
+				path[i] = '\0';
+				mkdir (path, DEFAULT_NEMO_DIRECTORY_MODE);
+				path[i] = '/';
+			}
+		}
+		mkdir (report_parent, DEFAULT_NEMO_DIRECTORY_MODE);
+	}
+	mkdir (report_dir, 0700);
+}
+
 static int
 open_report (void)
 {
@@ -468,8 +492,7 @@ crash_signal_handler (int sig, siginfo_t *info, void *context)
 
 	/* mkdir is a bare syscall wrapper, so it is safe here. It and the open
 	   are both allowed to fail: stderr still gets the report. */
-	mkdir (report_parent, DEFAULT_NEMO_DIRECTORY_MODE);
-	mkdir (report_dir, 0700);
+	make_report_dirs ();
 	fd = open_report ();
 
 	/* Everything known for certain goes out before the stack is collected.

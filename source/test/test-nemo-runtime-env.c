@@ -12,6 +12,7 @@
 
 #include <gio/gio.h>
 #include <glib/gstdio.h>
+#include <stdlib.h>
 
 #include <string.h>
 
@@ -111,6 +112,7 @@ main (int argc, char *argv[])
 	char *path;
 	char *data_dir;
 	char *locale_dir;
+	char *real;
 
 	if (argc > 1 && strcmp (argv[1], "--report") == 0) {
 		return report ();
@@ -119,8 +121,13 @@ main (int argc, char *argv[])
 	tmp = test_scratch_dir ("nemo-runtime-env-XXXXXX", NULL);
 	g_assert_nonnull (tmp);
 
-	bin = g_build_filename (tmp, "bin", NULL);
-	share = g_build_filename (tmp, "share", NULL);
+	/* The app resolves its own path, so the prefix it reports has no links
+	 * in it. On macOS the temp dir is under /var, a link to /private/var. */
+	real = realpath (tmp, NULL);
+	g_assert_nonnull (real);
+
+	bin = g_build_filename (real, "bin", NULL);
+	share = g_build_filename (real, "share", NULL);
 	g_mkdir_with_parents (bin, 0755);
 	g_mkdir_with_parents (share, 0755);
 
@@ -200,6 +207,7 @@ main (int argc, char *argv[])
 	g_free (self);
 	g_free (share);
 	g_free (bin);
+	free (real);
 
 	{
 		char *cmd[] = { (char *) "rm", (char *) "-rf", tmp, NULL };

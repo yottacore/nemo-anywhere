@@ -629,6 +629,25 @@ main (int argc, char *argv[])
 	child_result_clear (&result);
 #endif
 
+#ifndef G_OS_WIN32
+	/* A config root that isn't there yet, such as a new account with no
+	   ~/.config. Windows always has roaming AppData. */
+	{
+		g_autofree char *fresh = g_build_filename (config_root, "fresh", "home", NULL);
+
+		result = run_crashing_child (argv[0], fresh, "fault", TRUE);
+		if (result.spawned) {
+			check_died_of (result.status, SIGSEGV, 0xc0000005UL);
+			check (g_str_has_prefix (result.report_path, fresh));
+
+			if (result.report_path[0] != '\0') {
+				g_free (check_report (result.report_path, FAULT_CAUSE));
+			}
+		}
+		child_result_clear (&result);
+	}
+#endif
+
 	/* Switched off, a real crash leaves nothing behind. */
 	before = crash_dir != NULL ? count_reports (crash_dir) : 0;
 	check (before > 0);

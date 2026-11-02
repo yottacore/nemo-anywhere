@@ -25,6 +25,46 @@ OUTSIDE = re.compile(r'(^|[/\\])(gtk|gdk|gdk-pixbuf|pango|cairo|atk|harfbuzz|lib
 APP_SYMBOL = re.compile(r'^_?(gtk|gdk|nemo|eel|pango|cairo|atk)_')
 
 
+# Where a stack is installed says nothing about what it holds: a GLib built
+# with GTK's own build tools can sit under ~/gtk/<stack>/inst. So only the
+# part from include or lib on is read.
+PREFIX_END = ('include', 'lib', 'lib64')
+
+
+def past_prefix(path):
+    parts = re.split(r'[/\\]', path)
+    for i, part in enumerate(parts):
+        if part in PREFIX_END:
+            return '/'.join(parts[i:])
+    return path
+
+
+def is_outside(path):
+    return OUTSIDE.search(past_prefix(path)) is not None
+
+
+# What the rule above has to say about some install layouts. A bare include
+# folder that GLib and GTK share is fine, since GTK's headers sit a level down.
+SELF_CHECK = [
+    ('/usr/include/glib-2.0', False),
+    ('/usr/lib/x86_64-linux-gnu/glib-2.0/include', False),
+    ('/Users/u/gtk/stack/inst/include', False),
+    ('/Users/u/gtk/stack/inst/include/glib-2.0', False),
+    ('/Users/u/gtk/stack/inst/lib/glib-2.0/include', False),
+    ('C:\\gtk-build\\gtk\\x64\\release\\include\\glib-2.0', False),
+    ('/usr/include/gtk-3.0', True),
+    ('/usr/include/pango-1.0', True),
+    ('/usr/lib/gtk-2.0/include', True),
+    ('/Users/u/gtk/stack/inst/include/gtk-3.0', True),
+    ('/Users/u/gtk/stack/inst/include/cairo', True),
+]
+
+
+def check_rule():
+    return ['the include rule says %s for %s' % ('outside' if not want else 'fine', path)
+            for path, want in SELF_CHECK if is_outside(path) != want]
+
+
 def inside(path, root):
     return path == root or path.startswith(root + os.sep)
 
@@ -54,7 +94,11 @@ def check_compiles(source_root, build_root):
                 continue
             full = os.path.realpath(os.path.join(entry['directory'], path))
             project = inside(full, source_root) or inside(full, build_root)
-            if OUTSIDE.search(full) or (project and not any(inside(full, o) for o in own)):
+            if project:
+                wrong = not any(inside(full, o) for o in own)
+            else:
+                wrong = is_outside(full)
+            if wrong:
                 bad.append('%s: -I%s' % (entry['file'], path))
     if found == 0:
         bad.append('no archive core file in compile_commands.json')
@@ -82,7 +126,7 @@ def main():
     library = sys.argv[3]
     nm = sys.argv[4] if len(sys.argv) > 4 else ''
 
-    bad = check_compiles(source_root, build_root)
+    bad = check_rule() + check_compiles(source_root, build_root)
     if nm:
         bad += check_symbols(library, nm)
     if bad:

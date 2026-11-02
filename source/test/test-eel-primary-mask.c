@@ -22,6 +22,19 @@ expect_mask (GdkModifierType got, GdkModifierType want, const char *what)
 	}
 }
 
+/* A key can be named by its real modifier bit, as event state has it, or by
+ * a virtual one, as an accelerator has it. On macOS Command is Mod2 in an
+ * event and Meta in <Primary>. Both spellings, so either form compares. */
+static GdkModifierType
+both_spellings (GdkModifierType mask)
+{
+	GdkKeymap *keymap = gdk_keymap_get_default ();
+
+	gdk_keymap_add_virtual_modifiers (keymap, &mask);
+	gdk_keymap_map_virtual_modifiers (keymap, &mask);
+	return mask;
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -39,15 +52,20 @@ main (int argc, char *argv[])
 	}
 
 	gtk_accelerator_parse ("<Primary>a", &key, &parsed);
-	expect_mask (eel_gtk_primary_mask (NULL), parsed, "matches <Primary>");
+	expect_mask (both_spellings (eel_gtk_primary_mask (NULL)), both_spellings (parsed),
+		     "matches <Primary>");
 
 	window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
 	gtk_widget_realize (window);
-	expect_mask (eel_gtk_primary_mask (gtk_widget_get_window (window)), parsed,
-		     "from a window");
+	expect_mask (both_spellings (eel_gtk_primary_mask (gtk_widget_get_window (window))),
+		     both_spellings (parsed), "from a window");
 	gtk_widget_destroy (window);
 
-#ifndef __APPLE__
+#ifdef __APPLE__
+	/* Command, as a click's event state carries it. */
+	expect_mask (eel_gtk_primary_mask (NULL), GDK_MOD2_MASK, "the mask is Command here");
+#else
+	expect_mask (eel_gtk_primary_mask (NULL), GDK_CONTROL_MASK, "the mask is Control here");
 	expect_mask (parsed, GDK_CONTROL_MASK, "<Primary> is Control here");
 #endif
 

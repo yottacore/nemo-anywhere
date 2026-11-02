@@ -56,9 +56,12 @@ main (void)
 	xdg     = g_build_filename (sandbox, "xdg", NULL);
 	roaming = g_build_filename (sandbox, "roaming", NULL);
 
-	/* Before the first call: GLib caches its XDG answer, and so do we. */
+	/* Before the first call: GLib caches its XDG answer, and so do we. HOME
+	 * too, since the macOS root is under it, and the move below must not
+	 * reach a real config folder. */
 	g_setenv ("XDG_CONFIG_HOME", xdg, TRUE);
 	g_setenv ("APPDATA", roaming, TRUE);
+	g_setenv ("HOME", sandbox, TRUE);
 
 	root = nemo_get_user_config_root ();
 	check (root != NULL && *root != '\0');
