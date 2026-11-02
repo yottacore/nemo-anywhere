@@ -7989,7 +7989,7 @@ action_paste_files_callback (G_GNUC_UNUSED GtkAction *action,
 	view = NEMO_VIEW (callback_data);
 
 	g_object_ref (view);
-	gtk_clipboard_request_contents (nemo_clipboard_get (GTK_WIDGET (view)),
+	nemo_clipboard_request_contents (nemo_clipboard_get (GTK_WIDGET (view)),
 					copied_files_atom,
 					paste_clipboard_received_callback,
 					view);
@@ -8009,7 +8009,7 @@ paste_into (NemoView *view,
 	data->view = g_object_ref (view);
 	data->target = nemo_file_ref (target);
 
-	gtk_clipboard_request_contents (nemo_clipboard_get (GTK_WIDGET (view)),
+	nemo_clipboard_request_contents (nemo_clipboard_get (GTK_WIDGET (view)),
 					copied_files_atom,
 					paste_into_clipboard_received_callback,
 					data);

@@ -794,9 +794,9 @@ update_menu_states (FMTreeView *view,
     set_action_sensitive (view->details->tv_action_group, NEMO_ACTION_PASTE, FALSE);
 
     if (is_dir && can_write) {
-        gtk_clipboard_request_contents (nemo_clipboard_get (GTK_WIDGET (view->details->tree_widget)),
-                                        copied_files_atom,
-                                        clipboard_contents_received_callback, g_object_ref (view));
+        nemo_clipboard_request_contents (nemo_clipboard_get (GTK_WIDGET (view->details->tree_widget)),
+                                         copied_files_atom,
+                                         clipboard_contents_received_callback, g_object_ref (view));
     }
 
     can_move_file_to_trash = nemo_file_can_trash (file);
@@ -1114,7 +1114,7 @@ static void
 fm_tree_view_paste_cb (G_GNUC_UNUSED GtkAction *action,
 		       FMTreeView *view)
 {
-	gtk_clipboard_request_contents (nemo_clipboard_get (GTK_WIDGET (view->details->tree_widget)),
+	nemo_clipboard_request_contents (nemo_clipboard_get (GTK_WIDGET (view->details->tree_widget)),
 					copied_files_atom,
 					paste_into_clipboard_received_callback, g_object_ref (view));
 }

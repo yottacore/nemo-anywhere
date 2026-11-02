@@ -46,6 +46,14 @@ void nemo_clipboard_clear_if_colliding_uris    (GtkWidget          *widget,
 						    const GList        *item_uris,
 						    GdkAtom             copied_files_atom);
 GtkClipboard* nemo_clipboard_get                (GtkWidget          *widget);
+/* Use these to read copied files, which GTK on macOS can't read back. */
+GtkSelectionData* nemo_clipboard_wait_for_contents
+						   (GtkClipboard       *clipboard,
+						    GdkAtom             target);
+void nemo_clipboard_request_contents            (GtkClipboard       *clipboard,
+						    GdkAtom             target,
+						    GtkClipboardReceivedFunc callback,
+						    gpointer            user_data);
 void nemo_clipboard_set_text                    (GtkWidget          *widget,
 						    const char         *text);
 /* Put a cut or copy of @files (a NemoFile list) on the clipboard, and remember
