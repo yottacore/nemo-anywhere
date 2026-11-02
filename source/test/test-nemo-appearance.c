@@ -16,6 +16,7 @@
 
 #include <libnemo-private/nemo-appearance.h>
 #include <libnemo-private/nemo-config.h>
+#include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-global-preferences.h>
 
 #include "test-scratch.h"
@@ -762,7 +763,7 @@ main (int argc, char *argv[])
 	nemo_global_preferences_init ();
 
 	/* The drop-in folders nemo_appearance_get_theme_roots () points at. */
-	root = g_build_filename (tmp, "nemo-anywhere", NULL);
+	root = nemo_get_user_directory ();
 
 	make_icon_theme ("ZzTestPair", NULL);
 	make_icon_theme ("ZzTestPair-dark", NULL);

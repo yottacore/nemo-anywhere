@@ -10,6 +10,7 @@
 #include <gio/gio.h>
 #include <glib/gstdio.h>
 
+#include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-metadata-store.h>
 
 #include "test-scratch.h"
@@ -38,12 +39,13 @@ info_string (const char *uri, const char *key)
  * straight over it. It is set aside whole instead, and the next save starts a
  * new file beside it. The warning it logs is expected. */
 static void
-test_damaged_file_set_aside (const char *tmpdir)
+test_damaged_file_set_aside (void)
 {
 	const char *damaged = "{ \"file:///tmp/kept\": { \"nemo-icon-view-zoom\": ";
 	char *dir, *store_file, *aside, *contents = NULL, *value;
 
-	dir = g_build_filename (tmpdir, "nemo-anywhere", NULL);
+	/* Under Library/Application Support on macOS, not the scratch home itself. */
+	dir = nemo_get_user_directory ();
 	store_file = g_build_filename (dir, "metadata.json", NULL);
 	aside = g_strconcat (store_file, ".bad", NULL);
 	check (g_mkdir_with_parents (dir, 0700) == 0);
@@ -86,7 +88,7 @@ main (void)
 	tmpdir = test_scratch_config_home ("nemo-metastore-test-XXXXXX");
 	g_assert (tmpdir != NULL);
 
-	test_damaged_file_set_aside (tmpdir);
+	test_damaged_file_set_aside ();
 
 	/* set / read back */
 	nemo_metadata_store_set_string ("file:///tmp/a", "test-key", "hello");
@@ -144,7 +146,12 @@ main (void)
 	 * fresh process (approximated here by checking the JSON contains
 	 * what we set - the loader is exercised on every app start) */
 	nemo_metadata_store_flush ();
-	store_file = g_build_filename (tmpdir, "nemo-anywhere", "metadata.json", NULL);
+	{
+		char *dir = nemo_get_user_directory ();
+
+		store_file = g_build_filename (dir, "metadata.json", NULL);
+		g_free (dir);
+	}
 	check (g_file_test (store_file, G_FILE_TEST_EXISTS));
 	contents = NULL;
 	check (g_file_get_contents (store_file, &contents, NULL, NULL));

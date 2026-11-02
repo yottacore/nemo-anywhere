@@ -1105,20 +1105,26 @@ should_skip_child (SearchThreadData *data, G_GNUC_UNUSED GFileInfo *info, GFile 
 
 /* Win32 calls the extension the content type (".txt"), and an extension it does not
  * know maps to application/x-ext-<ext>, so the plain is_a() check answers no for every
- * file. Convert first, and when the answer is still nothing useful, read the head of the
- * file and let GIO decide from the bytes. */
+ * file. macOS gives a UTI, and public.data for a name with no extension. Convert first,
+ * and when the answer is still nothing useful, read the head of the file and let GIO
+ * decide from the bytes. */
 static gboolean
 content_type_is_text (const gchar  *content_type,
                       GFile        *file,
                       GCancellable *cancellable)
 {
-#ifdef G_OS_WIN32
+#ifdef NEMO_CONTENT_TYPE_NOT_MIME
     gchar buf[4096];
     gsize len = 0;
     GFileInputStream *stream;
     gboolean is_text = FALSE;
+    g_autofree gchar *mime = NULL;
 
-    g_autofree gchar *mime = content_type != NULL ? g_content_type_get_mime_type (content_type) : NULL;
+    if (nemo_content_type_is_a (content_type, "text/plain")) {
+        return TRUE;
+    }
+
+    mime = content_type != NULL ? g_content_type_get_mime_type (content_type) : NULL;
 
     if (mime != NULL) {
         if (g_content_type_is_a (mime, "text/plain")) {
@@ -1140,9 +1146,8 @@ content_type_is_text (const gchar  *content_type,
 
     if (g_input_stream_read_all (G_INPUT_STREAM (stream), buf, sizeof (buf), &len, cancellable, NULL) && len > 0) {
         g_autofree gchar *guessed = g_content_type_guess (NULL, (const guchar *) buf, len, NULL);
-        g_autofree gchar *guessed_mime = guessed != NULL ? g_content_type_get_mime_type (guessed) : NULL;
 
-        is_text = guessed_mime != NULL && g_content_type_is_a (guessed_mime, "text/plain");
+        is_text = nemo_content_type_is_a (guessed, "text/plain");
     }
 
     g_object_unref (stream);
@@ -1152,7 +1157,7 @@ content_type_is_text (const gchar  *content_type,
     (void) file;
     (void) cancellable;
 
-    return g_content_type_is_a (content_type, "text/plain");
+    return nemo_content_type_is_a (content_type, "text/plain");
 #endif
 }
 

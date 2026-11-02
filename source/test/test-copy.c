@@ -71,6 +71,10 @@ main (int argc, char* argv[])
 	g_mkdir_with_parents (dst_dir, 0700);
 
 	src_file = write_file (src_dir, "copied.txt", "payload");
+#ifndef G_OS_WIN32
+	/* Not a mode a umask gives, so default permissions on the copy show. */
+	check (g_chmod (src_file, 0750) == 0);
+#endif
 	sources = g_list_prepend (sources, g_file_new_for_path (src_file));
 	dest = g_file_new_for_path (dst_dir);
 
@@ -100,6 +104,16 @@ main (int argc, char* argv[])
 	} else {
 		check (FALSE);
 	}
+
+#ifndef G_OS_WIN32
+	/* The copy keeps the mode unless the source's filesystem is read-only.
+	   GLib on macOS calls every volume read-only. */
+	{
+		GStatBuf st;
+
+		check (g_stat (dest_file, &st) == 0 && (st.st_mode & 0777) == 0750);
+	}
+#endif
 
 	/* The source is a copy, not a move. */
 	check (g_file_test (src_file, G_FILE_TEST_IS_REGULAR));

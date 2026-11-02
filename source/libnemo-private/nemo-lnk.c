@@ -887,6 +887,19 @@ find_ignoring_case (const char *dir, const char *name)
 	return found;
 }
 
+/* A volume that ignores case finds any spelling, and would hand back the
+   link's rather than the disk's. Only macOS can say so. */
+static gboolean
+folds_case (const char *dir)
+{
+#ifdef _PC_CASE_SENSITIVE
+	return pathconf (dir, _PC_CASE_SENSITIVE) == 0;
+#else
+	(void) dir;
+	return FALSE;
+#endif
+}
+
 /* Walk a Windows path down from base, one name at a time, each one taken as
    spelled or else by case. NULL as soon as a step is not there. */
 static char *
@@ -909,6 +922,13 @@ walk_path (const char *base, const char *windows_rest)
 			if (!g_file_test (next, G_FILE_TEST_EXISTS)) {
 				g_free (next);
 				next = find_ignoring_case (current, parts[i]);
+			} else if (folds_case (current)) {
+				char *spelled = find_ignoring_case (current, parts[i]);
+
+				if (spelled != NULL) {
+					g_free (next);
+					next = spelled;
+				}
 			}
 		}
 		g_free (current);

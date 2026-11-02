@@ -56,6 +56,7 @@
 #ifdef __APPLE__
 #include <limits.h>
 #include <mach-o/dyld.h>
+#include <sys/mount.h>
 #endif
 
 #if defined(__FreeBSD__) || defined(__DragonFly__)
@@ -3660,9 +3661,9 @@ nemo_self_check_file_utilities (void)
 
 #endif /* !NEMO_OMIT_SELF_CHECK */
 
-#ifdef G_OS_WIN32
+#ifdef NEMO_CONTENT_TYPE_NOT_MIME
 /* An extension Windows has no registration for comes back as
-   application/x-ext-<ext>. */
+   application/x-ext-<ext>, and on macOS as a dynamic UTI with no MIME type. */
 static const struct {
 	const char *ext;
 	const char *mime;
@@ -3697,6 +3698,40 @@ static const struct {
 };
 #endif
 
+#ifdef __APPLE__
+/* An unknown extension's UTI is made from the extension alone, so the type a
+   made-up name gets is the type every file with that extension gets. */
+static const char *
+known_mime_for_uti (const char *uti)
+{
+	static GHashTable *by_uti;
+	static gsize ready;
+
+	if (g_once_init_enter (&ready)) {
+		GHashTable *table = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+		guint i;
+
+		for (i = 0; i < G_N_ELEMENTS (known_types); i++) {
+			g_autofree char *name = g_strconcat ("x.", known_types[i].ext, NULL);
+			char *guessed = g_content_type_guess (name, NULL, 0, NULL);
+
+			/* public.data is every name with no extension too. */
+			if (guessed == NULL || strcmp (guessed, "public.data") == 0 ||
+			    g_hash_table_contains (table, guessed)) {
+				g_free (guessed);
+				continue;
+			}
+			g_hash_table_insert (table, guessed, (gpointer) known_types[i].mime);
+		}
+
+		by_uti = table;
+		g_once_init_leave (&ready, 1);
+	}
+
+	return g_hash_table_lookup (by_uti, uti);
+}
+#endif
+
 /* Returns: (transfer full): free with g_free */
 char *
 nemo_content_type_get_mime_type (const char *content_type)
@@ -3727,6 +3762,24 @@ nemo_content_type_get_mime_type (const char *content_type)
 	}
 
 	return mime != NULL ? mime : g_strdup (content_type);
+#elif defined (__APPLE__)
+	char *mime;
+	const char *known;
+
+	if (strchr (content_type, '/') != NULL) {
+		return g_strdup (content_type);
+	}
+
+	mime = g_content_type_get_mime_type (content_type);
+	if (mime == NULL || strcmp (mime, "application/octet-stream") == 0) {
+		known = known_mime_for_uti (content_type);
+		if (known != NULL) {
+			g_free (mime);
+			return g_strdup (known);
+		}
+	}
+
+	return mime != NULL ? mime : g_strdup (content_type);
 #else
 	return g_content_type_get_mime_type (content_type);
 #endif
@@ -3743,7 +3796,13 @@ nemo_content_type_is_a (const char *content_type, const char *mime_type)
 		return TRUE;
 	}
 
-#ifdef G_OS_WIN32
+#ifdef NEMO_CONTENT_TYPE_NOT_MIME
+#ifdef __APPLE__
+	/* GIO turns image and text patterns into the UTI they all conform to. */
+	if (g_content_type_is_mime_type (content_type, mime_type)) {
+		return TRUE;
+	}
+#endif
 	{
 		g_autofree char *mime = nemo_content_type_get_mime_type (content_type);
 		gsize len = strlen (mime_type);
@@ -3772,7 +3831,7 @@ nemo_content_type_equals (const char *content_type, const char *mime_type)
 		return TRUE;
 	}
 
-#ifdef G_OS_WIN32
+#ifdef NEMO_CONTENT_TYPE_NOT_MIME
 	{
 		g_autofree char *mime = nemo_content_type_get_mime_type (content_type);
 
@@ -3805,4 +3864,23 @@ nemo_name_is_on_pathext (const char *name, const char *pathext)
 	}
 
 	return FALSE;
+}
+
+gboolean
+nemo_filesystem_is_read_only (GFile *file, GFileInfo *fs_info)
+{
+#ifdef __APPLE__
+	/* GLib answers for /, the sealed system volume, whatever the path.
+	   Not knowing counts as writable, as with no fs_info. */
+	g_autofree char *path = g_file_get_path (file);
+	struct statfs sfs;
+
+	if (path != NULL) {
+		return statfs (path, &sfs) == 0 && (sfs.f_flags & MNT_RDONLY) != 0;
+	}
+#else
+	(void) file;
+#endif
+	return fs_info != NULL &&
+	       g_file_info_get_attribute_boolean (fs_info, G_FILE_ATTRIBUTE_FILESYSTEM_READONLY);
 }

@@ -49,6 +49,7 @@
 #include <libnemo-private/nemo-appearance.h>
 #include <libnemo-private/nemo-config.h>
 #include <libnemo-private/nemo-dir-enum.h>
+#include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-global-preferences.h>
 
 #include "test-scratch.h"
@@ -136,10 +137,11 @@ add_mixed_unit_transition (GtkWidget *widget)
 /* A Linux build carries no bundled set, so the vendored themes go in as
    drop-ins, the loader a user's own theme takes. Returns the folder. */
 static char *
-offer_vendored_themes (const char *tmp)
+offer_vendored_themes (void)
 {
 	GFile *vendored = g_file_new_for_path (VENDOR_THEMES_DIR);
-	char *dropins = g_build_filename (tmp, "nemo-anywhere", "themes", NULL);
+	char *user_dir = nemo_get_user_directory ();
+	char *dropins = g_build_filename (user_dir, "themes", NULL);
 	GFileEnumerator *children;
 	GFileInfo *info;
 
@@ -159,6 +161,7 @@ offer_vendored_themes (const char *tmp)
 	}
 	g_clear_object (&children);
 	g_object_unref (vendored);
+	g_free (user_dir);
 
 	return dropins;
 }
@@ -229,7 +232,7 @@ main (int argc, char *argv[])
 		return 77;
 	}
 	g_object_set (gtk_settings_get_default (), "gtk-enable-animations", TRUE, NULL);
-	dropins = offer_vendored_themes (tmp);
+	dropins = offer_vendored_themes ();
 	nemo_global_preferences_init ();
 	nemo_appearance_init ();
 

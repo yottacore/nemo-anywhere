@@ -469,6 +469,15 @@ test_types (void)
 	check (nemo_psd_type_ok (".psb"));
 	check (!nemo_psd_type_ok ("image/png"));
 	check (!nemo_psd_type_ok (NULL));
+
+	/* What GIO calls one here: a MIME type, an extension or a UTI. */
+	{
+		g_autofree char *guessed = g_content_type_guess ("x.psd", NULL, 0, NULL);
+		g_autofree char *png = g_content_type_guess ("x.png", NULL, 0, NULL);
+
+		check (nemo_psd_type_ok (guessed));
+		check (!nemo_psd_type_ok (png));
+	}
 }
 
 /* The thumbnail factory is where the render thread asks, so a reader nothing

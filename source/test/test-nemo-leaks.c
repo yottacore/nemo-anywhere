@@ -246,8 +246,8 @@ teardown_clipboard (ClipboardCase *clip)
 	GtkSelectionData *held;
 
 	/* Still there, so every round had something to read. */
-	held = gtk_clipboard_wait_for_contents (nemo_clipboard_get (clip->window),
-						gdk_atom_intern_static_string ("x-special/gnome-copied-files"));
+	held = nemo_clipboard_wait_for_contents (nemo_clipboard_get (clip->window),
+						 gdk_atom_intern_static_string ("x-special/gnome-copied-files"));
 	check (held != NULL);
 	if (held != NULL) {
 		gtk_selection_data_free (held);

@@ -23,6 +23,7 @@
 #include <config.h>
 
 #include "nemo-raw.h"
+#include "nemo-file-utilities.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -776,10 +777,21 @@ nemo_raw_type_ok (const char *mime_type)
 		".srf", ".erf", ".3fr", ".iiq",
 	};
 	guint i;
+#ifdef __APPLE__
+	g_autofree char *mime = NULL;
+#endif
 
 	if (mime_type == NULL) {
 		return FALSE;
 	}
+
+#ifdef __APPLE__
+	/* A UTI there, and never an extension. */
+	if (mime_type[0] != '.') {
+		mime = nemo_content_type_get_mime_type (mime_type);
+		mime_type = mime;
+	}
+#endif
 
 	for (i = 0; i < G_N_ELEMENTS (extensions); i++) {
 		if (g_ascii_strcasecmp (mime_type, extensions[i]) == 0) {

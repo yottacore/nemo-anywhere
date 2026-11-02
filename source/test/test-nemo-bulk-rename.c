@@ -94,6 +94,88 @@ test_platform (const char *root)
 	g_free (first);
 	g_free (programs);
 }
+#elif defined (__APPLE__)
+#define FIRST "NameChanger"
+#define LAST  "A Better Finder Rename 12"
+#define LIST  "open -a " FIRST "\nopen -a Transnomino\nopen -a Renamer\nopen -a \"" LAST "\""
+
+/* /Applications is the machine's, so a check that depends on what isn't in
+ * it runs only when none of these are there. */
+static gboolean
+any_in_system_apps (int upto)
+{
+	static const char *const names[] = { FIRST, "Transnomino", "Renamer", LAST };
+	gboolean found = FALSE;
+	int i;
+
+	for (i = 0; i < upto && !found; i++) {
+		char *app = g_strconcat ("/Applications/", names[i], ".app", NULL);
+
+		found = g_file_test (app, G_FILE_TEST_IS_DIR);
+		g_free (app);
+	}
+	return found;
+}
+
+static void
+make_app (const char *apps, const char *name, gboolean bundle)
+{
+	char *app = g_strconcat (name, ".app", NULL);
+	char *path = g_build_filename (apps, app, NULL);
+
+	if (bundle) {
+		check (g_mkdir_with_parents (path, 0700) == 0);
+	} else {
+		make_file (apps, app, FALSE);
+	}
+	g_free (path);
+	g_free (app);
+}
+
+/* Apps, opened with open -a, from /Applications or the user's own. HOME is
+ * the scratch root here. */
+static void
+test_platform (const char *root)
+{
+	char *apps = g_build_filename (root, "Applications", NULL);
+	char *first;
+
+	g_mkdir_with_parents (apps, 0700);
+	g_unsetenv ("XDG_CURRENT_DESKTOP");
+
+	expect ("the list", nemo_bulk_rename_known_commands (), LIST);
+
+	if (!any_in_system_apps (4)) {
+		expect ("nothing installed", nemo_bulk_rename_find_default (), "open -a " FIRST);
+	}
+
+	make_app (apps, LAST, TRUE);
+	if (!any_in_system_apps (3)) {
+		expect ("only the last installed", nemo_bulk_rename_find_default (),
+			"open -a \"" LAST "\"");
+	}
+
+	/* A file with the name is not an app. */
+	make_app (apps, FIRST, FALSE);
+	if (!any_in_system_apps (3)) {
+		expect ("a file named like the first", nemo_bulk_rename_find_default (),
+			"open -a \"" LAST "\"");
+	}
+
+	first = g_build_filename (apps, FIRST ".app", NULL);
+	check (g_remove (first) == 0);
+	make_app (apps, FIRST, TRUE);
+	expect ("first installed", nemo_bulk_rename_find_default (), "open -a " FIRST);
+
+	/* A KDE setting means nothing here. */
+	g_setenv ("XDG_CURRENT_DESKTOP", "KDE", TRUE);
+	expect ("KDE named on macOS", nemo_bulk_rename_find_default (), "open -a " FIRST);
+	expect ("the list, KDE", nemo_bulk_rename_known_commands (), LIST);
+	g_unsetenv ("XDG_CURRENT_DESKTOP");
+
+	g_free (first);
+	g_free (apps);
+}
 #else
 #define GTK_ONE "thunar --bulk-rename"
 #define QT_ONE  "krename"

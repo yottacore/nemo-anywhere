@@ -1286,17 +1286,18 @@ gboolean
 nemo_can_thumbnail_internally (NemoFile *file)
 {
     g_autofree gchar *mime_type = NULL;
-#ifdef G_OS_WIN32
+#ifdef NEMO_CONTENT_TYPE_NOT_MIME
     g_autofree gchar *real_mime = NULL;
 #endif
 
     mime_type = nemo_file_get_mime_type (file);
 
-#ifdef G_OS_WIN32
-    /* On win32 the "mime type" is the extension (".png"); everything else that
-     * looks at it converts first. Without that this never matched, so the
-     * full-resolution path never ran and large zoom levels stayed blurry. */
-    real_mime = mime_type != NULL ? g_content_type_get_mime_type (mime_type) : NULL;
+#ifdef NEMO_CONTENT_TYPE_NOT_MIME
+    /* On win32 the "mime type" is the extension (".png"), and on macOS a UTI;
+     * everything else that looks at it converts first. Without that this never
+     * matched, so the full-resolution path never ran and large zoom levels
+     * stayed blurry. */
+    real_mime = mime_type != NULL ? nemo_content_type_get_mime_type (mime_type) : NULL;
     if (real_mime != NULL) {
         return pixbuf_can_load_type (real_mime);
     }

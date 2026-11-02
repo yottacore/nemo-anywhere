@@ -616,6 +616,89 @@ nemo_clipboard_get (GtkWidget *widget)
 					      GDK_SELECTION_CLIPBOARD);
 }
 
+#ifdef GDK_WINDOWING_QUARTZ
+/* From macOS 11 GDK offers a target under a UTI it makes from the MIME type,
+ * then reads it back under the bare MIME type and finds nothing. This is that
+ * UTI for the copied files type, "?0=6:3=x-special/gnome-copied-files"
+ * encoded. */
+#define COPIED_FILES_UTI "dyn.ah62d4rv4gq81uppxsbw0g4pbru10s5xtrzww425tsby0n3brq3y023px"
+
+static GtkSelectionData *
+wait_for_copied_files_by_uti (GtkClipboard *clipboard,
+			      GdkAtom       target)
+{
+	GtkSelectionData *data;
+	guchar *bytes;
+	int length;
+
+	data = gtk_clipboard_wait_for_contents (clipboard,
+						gdk_atom_intern_static_string (COPIED_FILES_UTI));
+	if (data == NULL) {
+		return NULL;
+	}
+
+	length = gtk_selection_data_get_length (data);
+	if (length <= 0) {
+		gtk_selection_data_free (data);
+		return NULL;
+	}
+
+	/* Callers check the type, so it goes back under the one asked for. */
+	bytes = g_memdup2 (gtk_selection_data_get_data (data), (gsize) length);
+	gtk_selection_data_set (data, target, 8, bytes, length);
+	g_free (bytes);
+
+	return data;
+}
+#endif
+
+/* gtk_clipboard_wait_for_contents, which also finds copied files on macOS.
+ * Returns: (transfer full) (nullable): free with gtk_selection_data_free */
+GtkSelectionData *
+nemo_clipboard_wait_for_contents (GtkClipboard *clipboard,
+				  GdkAtom       target)
+{
+	GtkSelectionData *data;
+
+	data = gtk_clipboard_wait_for_contents (clipboard, target);
+
+#ifdef GDK_WINDOWING_QUARTZ
+	if ((data == NULL || gtk_selection_data_get_length (data) <= 0)
+	    && target == gdk_atom_intern_static_string ("x-special/gnome-copied-files")) {
+		GtkSelectionData *by_uti = wait_for_copied_files_by_uti (clipboard, target);
+
+		if (by_uti != NULL) {
+			if (data != NULL) {
+				gtk_selection_data_free (data);
+			}
+			data = by_uti;
+		}
+	}
+#endif
+
+	return data;
+}
+
+/* gtk_clipboard_request_contents, which also finds copied files on macOS. */
+void
+nemo_clipboard_request_contents (GtkClipboard            *clipboard,
+				 GdkAtom                  target,
+				 GtkClipboardReceivedFunc callback,
+				 gpointer                 user_data)
+{
+#ifdef GDK_WINDOWING_QUARTZ
+	/* GTK's own request waits there too. */
+	GtkSelectionData *data = nemo_clipboard_wait_for_contents (clipboard, target);
+
+	callback (clipboard, data, user_data);
+	if (data != NULL) {
+		gtk_selection_data_free (data);
+	}
+#else
+	gtk_clipboard_request_contents (clipboard, target, callback, user_data);
+#endif
+}
+
 /* Plain text on the clipboard, from a widget in the window doing the copying. */
 void
 nemo_clipboard_set_text (GtkWidget  *widget,
@@ -727,8 +810,8 @@ nemo_clipboard_clear_if_colliding_uris (GtkWidget *widget,
 	gboolean collision;
 
 	collision = FALSE;
-	data = gtk_clipboard_wait_for_contents (nemo_clipboard_get (widget),
-						copied_files_atom);
+	data = nemo_clipboard_wait_for_contents (nemo_clipboard_get (widget),
+						 copied_files_atom);
 	if (data == NULL) {
 		return;
 	}

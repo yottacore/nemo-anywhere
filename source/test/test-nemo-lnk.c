@@ -433,8 +433,17 @@ typedef struct {
 static void
 machine_init (Machine *machine)
 {
-	machine->root = test_scratch_dir ("nemo-lnk-XXXXXX", NULL);
-	g_assert (machine->root != NULL);
+	char *scratch = test_scratch_dir ("nemo-lnk-XXXXXX", NULL);
+	char *real;
+
+	g_assert (scratch != NULL);
+	/* The writer reads the gvfs folder off the target's real path, and the
+	   temp folder is behind a link on macOS. */
+	real = realpath (scratch, NULL);
+	g_assert (real != NULL);
+	machine->root = g_strdup (real);
+	free (real);
+	g_free (scratch);
 	machine->mountinfo = g_build_filename (machine->root, "mountinfo", NULL);
 	machine->by_uuid = g_build_filename (machine->root, "by-uuid", NULL);
 	machine->gvfs = g_build_filename (machine->root, "gvfs", NULL);
@@ -501,7 +510,7 @@ static void
 test_resolve_volume (void)
 {
 	Machine machine;
-	char *ntfs, *fat, *uri, *want, *lnk_path;
+	char *ntfs, *fat, *uri, *want, *lnk_path, *twin;
 	Spec spec = { .local_base = "C:\\DATA\\report.TXT", .serial = 0x89abcdef };
 
 	machine_init (&machine);
@@ -536,12 +545,24 @@ test_resolve_volume (void)
 	check (uri == NULL);
 	g_free (uri);
 
-	/* Two names that differ only in case, and neither spelled as asked. */
+	/* Two names that differ only in case, and neither spelled as asked. A
+	   volume that ignores case keeps only one, which is the answer, spelled
+	   as on disk. */
 	spec.serial = 0x89abcdef;
 	spec.local_base = "C:\\Twin\\PAIR.txt";
 	uri = resolve (&spec, lnk_path);
-	check (uri == NULL);
+	twin = g_build_filename (ntfs, "Twin", "PAIR.txt", NULL);
+	if (g_file_test (twin, G_FILE_TEST_EXISTS)) {
+		char *path = uri != NULL ? g_filename_from_uri (uri, NULL, NULL) : NULL;
+
+		check (path != NULL && g_file_test (path, G_FILE_TEST_EXISTS) &&
+		       !g_str_has_suffix (path, "PAIR.txt"));
+		g_free (path);
+	} else {
+		check (uri == NULL);
+	}
 	g_free (uri);
+	g_free (twin);
 
 	spec.local_base = "C:\\Twin\\Pair.txt";
 	uri = resolve (&spec, lnk_path);
