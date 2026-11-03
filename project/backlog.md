@@ -664,7 +664,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: all 3 pass there, as debgn does on vm925w in its desktop session.
 	- Reproduced: 20261102, 1 of 1.
 	- Possible cause: not looked into. debgn and dcd70 both need the foreground or a menu, so the console session may be locked or have something in front. ddqdq's titles may be cut by the path's length.
-	- Test case: debgn, dcd70 and ddqdq, in the lane's desktop step on b29w.
+	- Actual cause:
+		- debgn and dcd70: wintest's console session on b29w is locked (`WTSSessionInfoEx` says so, and LogonUI and LockApp run in it). No window there gets the foreground: a fresh window's `SetForegroundWindow` fails and the foreground stays 0. The power plan turns the display off after 30 min on AC, which likely locks it.
+		- ddqdq: the window fits its full path title to its own width, with "..." for the folders it leaves out, as designed. b29w's screen is 1280x720, and the run folder under `%ProgramData%` made the path about 20 characters longer, so the title no longer held `nemo-copies-`, which the test took as the sign of a whole path.
+	- Actual fix: `lane-box.ps1 -Desktop` says "locked" for a locked test user session, and the lane warns and lets the gate's pass stand, as with no session. ddqdq looks for the folder at the end of a path in the title, whatever the window cut from the middle. `lane.bash`, `lane-box.ps1`, `test-lane.bash` and design.md's native gate bullet.
+	- Decisions:
+		- A locked session is a warning, not a failure, the same as a test user with no session. It's the box's state, not the app's, and failing would fail every full run once b29w sits idle for half an hour.
+		- The lane checks the lock once, before the task starts, not each test. One check in one place, with one clear line.
+		- A disconnected session reads as locked to Windows (b29w's session 1 did), so it warns too, where before its tests ran. Whether the focus tests pass in one wasn't known.
+		- ddqdq's check is a test fix, not an app change. The shortened title is what design.md's window title bullet asks for.
+		- Whether b29w should stop locking wintest's session is in questions.md, on child 2026110216492601, along with debgn and dcd70 passing there.
+	- Swept: the lane's `nosession` branch, which warns the same way. The only other test that sets full path titles, dcrph, checks the title functions with no window, so no width cuts it.
+	- Branch: round1102a
+	- Commit: 9736011e
+	- Test case: depg0 (a locked session is a warning), ddqdq, and debgn and dcd70 in child 2026110216492601.
+	- Verified: 20261102, depg0 passes, and fails against the old `lane.bash`, "the desktop tests did not start on b29w: locked". On b29w, `lane-box.ps1 -Desktop` prints "locked" for wintest's session and for collierjr's disconnected one, and "nosession" for a user with none. The gate at 9736011e passed there (382 s). Then ddqdq, debgn and dcd70 ran against its build as wintest in the locked session 2, 1280x720 with 1 monitor: ddqdq passed, where it failed at 1fb45b42 in the same session. debgn and dcd70 failed as before, as expected while it's locked. `--backlog-run-quick format lint` passes.
+	- 20261102: debgn and dcd70 passing on b29w with the session unlocked is child 2026110216492601.
+
+- debgn and dcd70 pass in wintest's unlocked desktop session on b29w.
+	- ID: 2026110216492601
+	- Type: Task
+	- Status: Waiting for answers
+		- Waits on the 2026110216492601 question in questions.md: whether b29w should stop locking wintest's session.
+	- Needs external testing: debgn and dcd70 through `cicd/win/lane.bash b29w`, with wintest's session unlocked.
+	- Priority|Severity: Avg
+	- Opened: 20261102-164926
+	- Opened by: 2026110216323705
+	- Parent ID: 2026110216323705
+	- Related IDs: 2026103114202730
+	- Target OS: Windows
+	- Test environment: b29w, the native lane's desktop step, as wintest in session 2.
+	- Requirements:
+		- With wintest's session unlocked, debgn and dcd70 pass in the lane's desktop step, as debgn does on vm925w.
+		- The session stays unlocked between runs, or the step keeps warning.
+	- Test case: debgn and dcd70, in the lane's desktop step on b29w.
 
 - Other hosts: native Windows checks that put a window on screen run on vm925w.
 	- ID: 2026103114202730

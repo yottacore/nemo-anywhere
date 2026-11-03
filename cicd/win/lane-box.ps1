@@ -158,7 +158,8 @@ if ($Desktop) {
 	$session = @(& query.exe session 2>$null | Where-Object { $_ -match "^.\S*\s+$([regex]::Escape($TestUser))\s+\d+\s+(Active|Disc)" })
 	if ($session.Count -eq 0) { 'nosession'; exit 0 }
 	## A locked session draws, but no window there gets the focus, so the
-	## tests that need it fail for no fault of the app.
+	## tests that need it fail for no fault of the app. A disconnected one
+	## reads as locked too.
 	if ((Test-SessionLocked ([int]($session[0] -replace "^.\S*\s+\S+\s+(\d+).*", '$1')))) { 'locked'; exit 0 }
 	& icacls.exe $Dir /grant "${TestUser}:(OI)(CI)M" /Q *> $null
 	if ($LASTEXITCODE -ne 0) { throw "could not give $TestUser Modify on $Dir" }
