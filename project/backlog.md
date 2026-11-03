@@ -66,11 +66,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere dim checkmarks: the list view column.
 	- ID: 2026102411133409
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs local test suite run?: no
 	- Prereq IDs: 2026102510323600
 	- Needs external testing: no. dec8w and dec8v pass in the FreeBSD lane. Neither is built for Windows, since both preload a probe.
-	- Needs hand testing: how the dim mark looks on selected rows, in a light and a dark theme.
+	- Needs hand testing: no. The look was checked in a light and a dark theme on 20261102.
 	- Priority|Severity: High
 	- Opened: 20261024-111334
 	- Opened by: t00mietum
@@ -99,7 +99,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261024, dec8w and dec8v pass in the FreeBSD lane at c7194950.
 	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9.
 	- Stand-in: none (20261028). Turns on how the dim mark looks in a light and a dark theme.
-	- Left at signoff for the look of the dim mark on selected rows.
+	- Verified: 20261102 at fdce4acd, the list view under Nemo Anywhere in Adwaita and Adwaita dark, with 3 of 10 rows picked by a click and two Ctrl+clicks: a thin column left of Name, a dim mark on each picked row and none on the rest, names unchanged. The mark sits about halfway between the selection color and the row's text in both, so it reads without competing with the name.
+	- Acceptance signoff: Self-closed: the look checked at fdce4acd in Adwaita light and dark.
+	- Closed: 20261102-172818
 
 - README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
 	- ID: 2026101417352264
@@ -260,9 +262,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
 	- ID: 2026100516274646
 	- Type: Enhancement
-	- Status: Waiting on automated testing
+	- Status: Waiting on signoff
+		- Only the Reset button's look is left.
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
-	- Needs external testing: dd5dm on vm925w with wintest's screen at a lower resolution, so the dialog opens by itself on a short screen. Under wine it opened and reset with neither 7-Zip nor rar.
+	- Needs external testing: no. dd5dm passed on vm925w with a 560 px work area on 20261102.
 	- Needs hand testing: the Reset button's look beside Options on a real desktop.
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
@@ -295,6 +298,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Stand-in: 20261025 on vm925w at a61c4f91: dd5dm passes on the real desktop, with a 1392 px work area. Options opened by itself and the 787 px dialog stayed on screen. The lower resolution for a short screen didn't take, so that part is still to run.
 	- 20261031: not run. vm925w-iommu still can't start while vmKt6m holds SPICE port 5900.
 	- 20261028: not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
+	- Verified: 20261102 on vm925w, dd5dm from round1102a at 1aadd7b9 (nothing under Compress changed after it), with the work area cut to 560 px in two ways, 3 runs: each passed, Options got 272 px and scrolled, and the 543 px dialog stayed inside the work area. The screen kept its size, since the dialog sizes itself to the work area and not the screen.
+	- Stand-in: none (20261102). Only the look of Reset beside Options is left, which turns on taste. In Adwaita at fdce4acd its text sits about 8 px below the Options label's, grayed and lit alike, as the 20261013 note says.
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
