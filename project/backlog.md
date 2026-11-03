@@ -596,7 +596,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - da8rb on b29w sometimes takes an old bin item with the same marker, and fails on its purge.
 	- ID: 2026103117575073
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261031-175750
 	- Opened by: 2026103114202710
@@ -608,7 +608,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261031 on b29w at a406610f, 1 run of 5: the full run's gate. It passed in a second gate and 3 times alone.
 	- Actual cause: `find_backing_by_contents` takes the first `$R` item, in name order, whose contents match the marker, and the marker is the same every run. When the run's own item gets a name that sorts after `$RYRVCYC`, the case takes the 2026-08-27 one, and its purge is a delete outside the test. Each such failure leaves one more item with the marker.
 		- The other callers of `find_backing_by_contents`, and de5kb's `bin_item`, also match a fixed marker.
-	- Test case: da8rb, with a bin item holding the marker left there first.
+	- Actual fix: every name and marker da8rb recycles carries a tag made new each run, so an earlier run's item never matches. The bin scan by contents fails the test on 2 matches rather than taking the first. The round-trip case no longer deletes an earlier run's `report.2026.txt` before it starts, which the fence would refuse too.
+	- Decisions:
+		- A per-run tag, not a list of what the bin held before each case. One string covers every lookup, by contents and by display name.
+		- de5kb's `bin_item` stays as it was. Its markers already hold the process ID and the time, so the second line of Actual cause doesn't hold for it.
+		- The old `nemoverify` items in b29w's bin stay there. da8rb now leaves them alone, and plants one of its own to check that.
+	- Swept: every bin lookup in da8rb, by contents and by display name. de5kb's `bin_item`. The archive combos test's bin purge, which matches on the run's own scratch home.
+	- Branch: round1102a
+	- Test case: da8rb. It first recycles an item holding the fresh-parent marker of another run, and checks at the end that it's still in the bin.
+	- Verified: 20261102, native gate on b29w from ssh, with 6 old `nemoverify` items in the user's bin, 3 of them `nemoverify-fresh.txt`. da8rb passes in 2 gates and 4 times alone, and the bin holds 157 entries before and after. Built with the planted item given this run's marker, da8rb fails on "2 bin items hold the same marker", with nothing deleted outside the test.
+	- Acceptance signoff: Self-closed: da8rb passes on b29w with old marker items in the bin.
+	- Closed: 20261102-160328
 
 - The desktop tests step fails on b29w: wintest can't Set-Location into a run folder under collierjr's %TEMP%.
 	- ID: 2026103116395639
