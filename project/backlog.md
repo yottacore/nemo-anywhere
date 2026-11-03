@@ -931,6 +931,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: `cicd.bash --help`, the config comments, the `analyze.bash` header and design.md's run lengths line. `cicd-win.ps1` has no fuzzing or analyzers, and building.md and README.md don't give run lengths.
 	- Test case: de54r: `--quick` runs the short fuzz command, `--long` and `--slow` the long analyzer one, and a config with no short fuzz command leaves fuzzing out of `--quick`. dddq3's config has the short command too.
 	- Verified: 20261103, de54r, dddq3, ddmmw, desha and the other cicd step tests pass. The new de54r fails on `cicd.bash` from before the change. The real fuzz stage at 5 s a target took 91 s with a cold fuzz build, all 12 targets clean.
+	- Verified: 20261103, `cicd.bash -y --quick --no-sync --no-dogfood --no-publish` passed all 8 steps in 14.7 min, fuzzing 1.4 of it, at a load of 13 to 41 on 32 CPUs.
+	- Progress log:
+		- 20261103: `--quick` is still about 5 min over 10, which is in child 2026110314093130.
+
+- CICD flags: `--quick` down to about 10 minutes.
+	- ID: 2026110314093130
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261103-140931
+	- Opened by: 2026102516165479
+	- Parent ID: 2026102516165479
+	- Requirements:
+		- `--quick` takes about 10 minutes, with fuzzing at a short budget still in it.
+	- Progress log:
+		- 20261103: a `--quick` run took 14.7 min at a load of 13 to 41 on 32 CPUs: tests 1.5, lints 2.6, fuzzing 1.4, sanitizer suite 2.9, native release build 1.8, Windows cross build 4.0, and the build and profiler under 1 together. No one step is the cause.
+		- Options: run the Windows cross build alongside the local steps from the start, the way the native Windows gate does, since it has a container of its own. Or leave the cross build or the sanitizer suite out of `--quick`, which undoes part of 2026101816495201.
+	- Test case: none yet.
 
 - CICD flags: `cicd-win.ps1` takes the same flags.
 	- ID: 2026102516165482
