@@ -914,7 +914,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD flags: run lengths.
 	- ID: 2026102516165479
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: yes. A plain `--backlog-run-full`, without `--long`, to time the whole run and the Static analyzers step at the 2 min cap.
 	- Priority|Severity: High
 	- Opened: 20261025-161654
 	- Opened by: 2026102416300004
@@ -922,7 +923,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- The default run fits in about an hour. Time it, and move the slowest steps to `--long` if it doesn't.
 		- `--quick` keeps to about 10 minutes, with fuzzing at a short budget in it.
-	- Test case: none yet.
+	- Decisions:
+		- Timed from the run logs: a plain run took 68 to 77 min from 2026-10-25 to 2026-11-03. Static analyzers was 36 to 39 min of that, fuzzing 12, and no other step over 5.
+		- The analyzers stay in a plain run, since the compile list check and the planted faults are there. What moves to `--long` is their per-file cap: 2 min in a plain run, 15 with `--long`. gcc at `-O0` never finishes `nemo-config.c` or blake3's AVX2 and SSE4.1 files even in 15, and waiting on those 3 was most of the step. Of the biggest of ours, the slowest, `nemo-file.c`, took 39 s. A file cut off shows as not analyzed in the counts, so a new slow one doesn't go unseen. A plain run should come to about 50 min.
+		- `--quick` fuzzes each target for 5 s, through `FUZZ_QUICK_CMD` in the config. A config without one leaves fuzzing out of `--quick`, as before.
+		- An `ANALYZE_TU_TIMEOUT` set by hand still wins over both caps.
+	- Swept: `cicd.bash --help`, the config comments, the `analyze.bash` header and design.md's run lengths line. `cicd-win.ps1` has no fuzzing or analyzers, and building.md and README.md don't give run lengths.
+	- Test case: de54r: `--quick` runs the short fuzz command, `--long` and `--slow` the long analyzer one, and a config with no short fuzz command leaves fuzzing out of `--quick`. dddq3's config has the short command too.
+	- Verified: 20261103, de54r, dddq3, ddmmw, desha and the other cicd step tests pass. The new de54r fails on `cicd.bash` from before the change. The real fuzz stage at 5 s a target took 91 s with a cold fuzz build, all 12 targets clean.
 
 - CICD flags: `cicd-win.ps1` takes the same flags.
 	- ID: 2026102516165482

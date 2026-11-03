@@ -116,11 +116,12 @@ LINT_CMD=(bash cicd/utility/lint.bash)
 ## Needs clang and the libFuzzer runtime inside the container; without either the
 ## probe fails and the stage skips with a warning. The ordinary gcc build still
 ## compiles the same targets and replays their seed corpus as tests, so nothing
-## rots when this stage is skipped. Left out of --quick and out of the gate,
-## where three minutes of searching does not belong.
+## rots when this stage is skipped. Left out of the gate. --quick runs
+## FUZZ_QUICK_CMD instead, 5 s a target, about a minute for the lot rather than 12.
 FUZZ_SECS=60
 FUZZ_PROBE=(bash "${DOCKER_RUN}" "fuzz probe" "bash \${CICD_SRC:-/src}/cicd/linux/fuzz.bash --probe")
 FUZZ_CMD=(bash "${DOCKER_RUN}" "fuzz" "FUZZ_SECS=${FUZZ_SECS} NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash \${CICD_SRC:-/src}/cicd/linux/fuzz.bash")
+FUZZ_QUICK_CMD=(bash "${DOCKER_RUN}" "fuzz" "FUZZ_SECS=5 NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash \${CICD_SRC:-/src}/cicd/linux/fuzz.bash")
 
 ## Stage 3 (after fuzzing): the suite again, built with the address and undefined
 ## behavior sanitizers, leak checks on - READY. It builds into a directory of its
@@ -133,7 +134,11 @@ SANITIZE_CMD=(bash "${DOCKER_RUN}" "sanitizers" "NEMO_TEST_JOBS=\${CICD_MAX_JOBS
 ## both compile lists - READY, report only for now. Fails on a tracked .c that
 ## neither build compiles, or a missed planted fault. Left out of --quick and the
 ## gate. Backlog 2026101619020505.
-ANALYZE_CMD=(bash cicd/utility/analyze.bash)
+## A plain run cuts a file off at 2 min, --long at 15. gcc at -O0 never finishes
+## nemo-config.c or blake3's AVX2 and SSE4.1 files even in 15, and waiting on
+## those 3 was most of the step's 36 min. Our slowest other file takes about 40 s.
+ANALYZE_CMD=(env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-120}" bash cicd/utility/analyze.bash)
+ANALYZE_LONG_CMD=(env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-900}" bash cicd/utility/analyze.bash)
 
 ## Stage 3 (after lints): dependency policy (licenses/advisories). NOT READY - unset.
 ## NEEDS: a C-world equivalent if wanted (there is no Cargo.lock to police); likely

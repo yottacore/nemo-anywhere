@@ -73,17 +73,17 @@
 ##	                       stage 3, the tarball and pkg in stage 5
 ##	   --no-bsd            leave the FreeBSD lane out, even with --include-bsd
 ##	   --quick             run only the quick steps on this box: the build, the
-##	                       full test suite, lints, the sanitizer suite, the
-##	                       profiler, the native and Windows release builds and
-##	                       local dogfood. Skips what is slow or needs another
-##	                       box: fuzzing, the static analyzers, packages, arm64,
-##	                       the FreeBSD lane, the native Windows gate, the
-##	                       private runner, remote dogfood,
-##	                       scroll harness, screenshots, demo video. arm64 and
-##	                       FreeBSD come back with --include-arm and
-##	                       --include-bsd
+##	                       full test suite, lints, fuzzing at a short budget,
+##	                       the sanitizer suite, the profiler, the native and
+##	                       Windows release builds and local dogfood. Skips what
+##	                       is slow or needs another box: the static analyzers,
+##	                       packages, arm64, the FreeBSD lane, the native Windows
+##	                       gate, the private runner, remote dogfood, scroll
+##	                       harness, screenshots, demo video. arm64 and FreeBSD
+##	                       come back with --include-arm and --include-bsd
 ##	   --long              everything, the arm64 release build included, which
-##	                       a plain run leaves out to stay near an hour
+##	                       a plain run leaves out to stay near an hour. The
+##	                       static analyzers get 15 min a file, not 2
 ##	   --slow              same as --long
 ##	   --backlog-run-quick [<area>...]
 ##	                       what a backlog worker runs before a commit, about 4
@@ -177,7 +177,7 @@ source "${here}/utility/include/run-temp.bash"                    ## the run fol
 source "${here}/utility/include/docker-sweep.bash"                ## fDockerSweep() at the end of a run
 declare -p FMT_CMD &>/dev/null || FMT_CMD=()                      ## tolerate a config without the fmt stage
 declare -p FMT_CHECK_CMD &>/dev/null || FMT_CHECK_CMD=()
-for v in LINT_CMD FUZZ_CMD SANITIZE_CMD ANALYZE_CMD DENY_CMD SCROLL_HARNESS; do
+for v in LINT_CMD FUZZ_CMD FUZZ_QUICK_CMD SANITIZE_CMD ANALYZE_CMD ANALYZE_LONG_CMD DENY_CMD SCROLL_HARNESS; do
 	declare -p "$v" &>/dev/null || declare -a "$v=()"
 done
 ## NOT-READY (Rust origin): the source pipeline also exported CARGO_BUILD_JOBS and
@@ -276,6 +276,11 @@ declare -p WIN_GATE_CMD &>/dev/null || WIN_GATE_CMD=()
 declare -p BSD_TEST_CMD &>/dev/null || BSD_TEST_CMD=()           ## a config with no FreeBSD box
 declare -p BSD_RELEASE_CMD &>/dev/null || BSD_RELEASE_CMD=()
 ((${#BSD_TEST_CMD[@]} + ${#BSD_RELEASE_CMD[@]})) || include_bsd=0
+## --quick fuzzes at the short budget of FUZZ_QUICK_CMD, or not at all without
+## one, and --long gives the analyzers ANALYZE_LONG_CMD's longer cap a file.
+run_fuzz=$((${#FUZZ_CMD[@]} > 0 && ! quick))
+if ((quick && ${#FUZZ_QUICK_CMD[@]})); then FUZZ_CMD=("${FUZZ_QUICK_CMD[@]}"); run_fuzz=1; fi
+if ((long && ${#ANALYZE_LONG_CMD[@]})); then ANALYZE_CMD=("${ANALYZE_LONG_CMD[@]}"); fi
 
 ## The arm64 box here is emulated and takes about an hour. Native x86_64 is
 ## untouched; the Windows/Linux x86_64 crosses stay.
@@ -650,7 +655,7 @@ fPlan "$run_fmt"                        "$fmt_step"             "$fmt_why"
 fPlan 1                                 "Build (debug)"         ""
 fPlan 1                                 "Tests"                 ""
 fPlan "$((${#LINT_CMD[@]} > 0))"        "Lints"                 "no lint stage set up"
-((${#FUZZ_CMD[@]})) && fPlan "$((! quick))" "Fuzzing"           "--quick"
+((${#FUZZ_CMD[@]})) && fPlan "$run_fuzz" "Fuzzing"               "--quick"
 fPlan "$((${#SANITIZE_CMD[@]} > 0))"    "Sanitizer suite"       "--no-sanitize"
 ((${#BSD_TEST_CMD[@]})) && fPlan "$run_bsd_tests" "FreeBSD suite" "$bsd_why"
 ((${#DENY_CMD[@]})) && fPlan 1          "Dependency check"      ""
@@ -879,9 +884,9 @@ fStep "Tests"
 "${TEST_CMD[@]}"
 fEcho "OK: tests passed"
 ((${#LINT_CMD[@]})) && fLints
-## Bounded fuzzing of the parsers that read outside input. Slow by design, so it
-## is left out of --quick; the gate never runs it at all.
-if ((! quick)) && ((${#FUZZ_CMD[@]})); then
+## Bounded fuzzing of the parsers that read outside input. --quick runs it at a
+## short budget; the gate never runs it at all.
+if ((run_fuzz)); then
 	fStep "Fuzzing" hard
 	if "${FUZZ_PROBE[@]}" >/dev/null 2>&1; then
 		"${FUZZ_CMD[@]}"

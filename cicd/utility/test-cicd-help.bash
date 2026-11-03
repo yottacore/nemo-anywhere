@@ -54,7 +54,7 @@ printf '#!/usr/bin/env bash\n' > "${scratch}/private.bash"; chmod +x "${scratch}
 cat > "${scratch}/cicd/config.bash" <<-CFG
 	APP_NAME="App"; EXE_NAME="app"; CICD_CONTAINERS=()
 	FMT_CMD=(true); FMT_CHECK_CMD=(true); DEBUG_BUILD_CMD=(false); TEST_CMD=(true)
-	LINT_PROBE=(true); LINT_CMD=(true); FUZZ_PROBE=(true); FUZZ_CMD=(true); SANITIZE_CMD=(true); ANALYZE_CMD=(true)
+	LINT_PROBE=(true); LINT_CMD=(true); FUZZ_PROBE=(true); FUZZ_CMD=(true); FUZZ_QUICK_CMD=(true); SANITIZE_CMD=(true); ANALYZE_CMD=(true)
 	SCROLL_HARNESS=(true); BSD_TEST_CMD=(true); BSD_RELEASE_CMD=(true)
 	PROFILE_ENABLE=1; PROFILE_SECS=1; PROFILE_CMD=(true); PROFILE_OUT_DIR="out"; PROFILE_STRICT=0
 	RELEASE_ENABLE=1; RELEASE_NATIVE_CMD=(true); RELEASE_NATIVE_BIN="x"; BUILD_CROSS=1
