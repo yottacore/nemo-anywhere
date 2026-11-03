@@ -33,23 +33,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- debgn and dcd70 pass in wintest's unlocked desktop session on b29w.
+- debgn and dcd70 pass in wintest's unlocked desktop session on vm925w-iommu.
 	- ID: 2026110216492601
 	- Type: Task
-	- Status: Waiting for answers
-		- Waits on the 2026110216492601 question in questions.md: whether b29w should stop locking wintest's session.
-	- Needs external testing: debgn and dcd70 through `cicd/win/lane.bash b29w`, with wintest's session unlocked.
+	- Status: Queued
+		- Decided: b29w keeps its lock, since its screen is the laptop's own. The windowed tests go to vm925w-iommu instead, where wintest's session is set never to lock. Not started: vm925w-iommu won't start while paused vmKt6m holds SPICE port 5900.
+	- Needs external testing: debgn and dcd70 in the lane's desktop step on vm925w-iommu, with wintest's session unlocked.
 	- Priority|Severity: Avg
 	- Opened: 20261102-164926
 	- Opened by: 2026110216323705
 	- Parent ID: 2026110216323705
 	- Related IDs: 2026103114202730
 	- Target OS: Windows
-	- Test environment: b29w, the native lane's desktop step, as wintest in session 2.
+	- Test environment: vm925w-iommu, the native lane's desktop step, as wintest.
 	- Requirements:
-		- With wintest's session unlocked, debgn and dcd70 pass in the lane's desktop step, as debgn does on vm925w.
-		- The session stays unlocked between runs, or the step keeps warning.
-	- Test case: debgn and dcd70, in the lane's desktop step on b29w.
+		- vm925w-iommu never locks wintest's session.
+		- When b29w's session is locked, the windowed tests the gate skipped run on vm925w-iommu, and debgn and dcd70 pass there.
+		- With neither box free, the step warns and the gate's pass stands, as now.
+	- Test case: debgn and dcd70, in the lane's desktop step on vm925w-iommu.
 
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
