@@ -33,6 +33,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- pack-zip.bash's header says Copyright (c) 2026 Bubbles.
+	- ID: 2026110315153026
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261103-151530
+	- Opened by:
+	- Target OS: all
+	- Incorrect behavior: cicd/win/pack-zip.bash has the header line Copyright (c) 2026 Bubbles, which matches neither the project's copyright holder nor its form.
+	- Expected behavior: the project's usual copyright line. Grep the tree for other stray headers like it.
+
 - ddagc fails in a round worktree, so the lint stage stops before the tests after it.
 	- ID: 2026110313162837
 	- Type: Bug
@@ -1128,6 +1139,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- `cicd-win.ps1` gets the same run folder, `run.pid`, removal at the end, keep switch and stale sweep as `cicd.bash`, on the Windows boxes.
 		- A PowerShell copy of the guard. The 29 `Remove-Item -Recurse` lines in 14 scripts go through it. File list in the private notes.
 	- Test case: none yet.
+	- 20261103: install.ps1 still removes the prefix with a bare Remove-Item -Recurse, near line 619. Cover it here.
 
 - Temp files: the same on the test VMs.
 	- ID: 2026102516403481
