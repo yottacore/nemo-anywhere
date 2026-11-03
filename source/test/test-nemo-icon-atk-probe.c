@@ -24,14 +24,18 @@
 /* Preloaded into the real program by test-nemo-icon-atk. Once the window
  * shows $NEMO_ATK_FOLDER and its icons are placed, it asks every icon in
  * sight for its extents, on screen and in the window, and for its picture's
- * place and size. With $NEMO_ATK_SCROLL set it scrolls part way down first. One "ok" or "FAIL" line per check goes to $NEMO_ATK_OUT,
- * and "done" at the end.
+ * place and size. With $NEMO_ATK_SCROLL set it scrolls part way down first.
+ * Then it deletes one file of $NEMO_ATK_DIR and checks that the container's
+ * accessible object sends children_changed::remove, naming a child and an
+ * index that were still valid. One "ok" or "FAIL" line per check goes to
+ * $NEMO_ATK_OUT, and "done" at the end.
  *
  * No symbol of the program is used. Where an icon really is comes from the
  * canvas item behind its accessible object. */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <glib/gstdio.h>
 
 #include <gtk/gtk.h>
 #include <eel/eel-canvas.h>
@@ -48,6 +52,13 @@ static GtkWidget  *window;
 static GtkWidget  *pane;
 static int         waited;
 static int         complaints;
+static const char *folder_dir;
+static int         children_before;
+static int         removed_count;
+static int         removed_index = -1;
+static gboolean    removed_child_ok;
+static gboolean    removal_started;
+static int         removal_waited;
 static GLogFunc    old_handler;
 static gpointer    old_handler_data;
 
@@ -281,6 +292,56 @@ check_icons (void)
 	g_free (image_bad);
 }
 
+static void
+on_child_removed (G_GNUC_UNUSED AtkObject *parent, gint index, AtkObject *child,
+		  G_GNUC_UNUSED gpointer data)
+{
+	GObject *object = child != NULL && ATK_IS_GOBJECT_ACCESSIBLE (child) ?
+		atk_gobject_accessible_get_object (ATK_GOBJECT_ACCESSIBLE (child)) : NULL;
+
+	removed_count++;
+	removed_index = index;
+	removed_child_ok = object != NULL &&
+		g_type_is_a (G_OBJECT_TYPE (object), g_type_from_name ("EelCanvasItem"));
+}
+
+static void
+start_removal (void)
+{
+	AtkObject *accessible = gtk_widget_get_accessible (pane);
+	GDir *dir = g_dir_open (folder_dir, 0, NULL);
+	const char *name = dir != NULL ? g_dir_read_name (dir) : NULL;
+	char *path;
+
+	children_before = atk_object_get_n_accessible_children (accessible);
+	g_signal_connect (accessible, "children_changed::remove",
+			  G_CALLBACK (on_child_removed), NULL);
+	if (name != NULL) {
+		path = g_build_filename (folder_dir, name, NULL);
+		g_unlink (path);
+		g_free (path);
+	}
+	if (dir != NULL) {
+		g_dir_close (dir);
+	}
+	removal_started = TRUE;
+}
+
+static void
+check_removal (void)
+{
+	char *line;
+
+	line = g_strdup_printf ("removing an icon sends children_changed::remove once (%d)",
+				removed_count);
+	report (removed_count == 1, line);
+	g_free (line);
+	line = g_strdup_printf ("it names the icon's item and a valid index (%d of %d)",
+				removed_index, children_before);
+	report (removed_child_ok && removed_index >= 0 && removed_index < children_before, line);
+	g_free (line);
+}
+
 /* Up to ten seconds for the window and its icons. */
 static gboolean
 tick (G_GNUC_UNUSED gpointer data)
@@ -325,7 +386,16 @@ tick (G_GNUC_UNUSED gpointer data)
 		return G_SOURCE_CONTINUE;
 	}
 
-	check_icons ();
+	if (!removal_started) {
+		check_icons ();
+		start_removal ();
+		return G_SOURCE_CONTINUE;
+	}
+	/* The file monitor takes a moment; up to five seconds. */
+	if (removed_count == 0 && ++removal_waited < 50) {
+		return G_SOURCE_CONTINUE;
+	}
+	check_removal ();
 	fprintf (out, "done\n");
 	fflush (out);
 	return G_SOURCE_REMOVE;
@@ -337,9 +407,10 @@ probe_start (void)
 	const char *path = g_getenv ("NEMO_ATK_OUT");
 
 	folder_name = g_getenv ("NEMO_ATK_FOLDER");
+	folder_dir = g_getenv ("NEMO_ATK_DIR");
 	compact = g_strcmp0 (g_getenv ("NEMO_ATK_VIEW"), "compact-view") == 0;
 	scroll = g_getenv ("NEMO_ATK_SCROLL") != NULL;
-	if (path == NULL || folder_name == NULL) {
+	if (path == NULL || folder_name == NULL || folder_dir == NULL) {
 		return;
 	}
 	out = fopen (path, "w");

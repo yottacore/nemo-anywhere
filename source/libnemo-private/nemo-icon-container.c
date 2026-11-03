@@ -6513,11 +6513,12 @@ nemo_icon_container_remove (NemoIconContainer *container,
 	}
 
     gtk_widget_set_tooltip_text (GTK_WIDGET (EEL_CANVAS_ITEM (icon->item)->canvas), "");
+
+	/* Before the destroy, so the accessible still finds the icon and its index. */
+	g_signal_emit (container, signals[ICON_REMOVED], 0, data);
+
 	icon_destroy (container, icon);
 	schedule_redo_layout (container);
-
-	/* The signal takes the data. icon is freed by now. */
-	g_signal_emit (container, signals[ICON_REMOVED], 0, data);
 
 	return TRUE;
 }

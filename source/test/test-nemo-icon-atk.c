@@ -24,7 +24,9 @@
  * and asking for its picture's place logged a critical. Now both answer, and
  * the extents are where the icon is drawn. The built program runs once per
  * view, and once more in the icon view scrolled part way down, with
- * test-nemo-icon-atk-probe preloaded to ask and measure.
+ * test-nemo-icon-atk-probe preloaded to ask and measure. Each run also
+ * deletes one file and checks that the container's accessible object says
+ * which child went.
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Runs
  * on an X server of its own. Linux and FreeBSD only, since it works by
@@ -87,7 +89,7 @@ run_view (const char *exe, const char *probe, const char *view, int files, gbool
 	GError *error = NULL;
 	GPid pid = 0;
 	gboolean done = FALSE;
-	int i, results = 0, expected = scroll ? 6 : 5;
+	int i, results = 0, expected = scroll ? 8 : 7;
 
 	g_mkdir_with_parents (folder, 0700);
 	/* Names of different lengths, so labels differ in width and wrap. */
@@ -117,6 +119,7 @@ run_view (const char *exe, const char *probe, const char *view, int files, gbool
 	envp = g_environ_setenv (envp, "LD_PRELOAD", probe, TRUE);
 	envp = g_environ_setenv (envp, "NEMO_ATK_OUT", out, TRUE);
 	envp = g_environ_setenv (envp, "NEMO_ATK_FOLDER", "iconatk", TRUE);
+	envp = g_environ_setenv (envp, "NEMO_ATK_DIR", folder, TRUE);
 	envp = g_environ_setenv (envp, "NEMO_ATK_VIEW", view, TRUE);
 	if (scroll) {
 		envp = g_environ_setenv (envp, "NEMO_ATK_SCROLL", "1", TRUE);

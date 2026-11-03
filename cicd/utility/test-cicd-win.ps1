@@ -107,7 +107,7 @@ function fStub {
 function fRemoteSync { fStub fRemoteSync }
 function fLint { fStub fLint }
 function fBuild { fStub fBuild }
-function fTests { fStub fTests }
+function fTests { param([string[]]$Names = @()); fStub fTests; if ($Names) { fEcho_Clean "names $($Names -join '|')" } }
 function fSmoke { param($Exe, $RuntimeBin); fStub fSmoke }
 function fGuiSmoke { param($Exe, $RuntimeBin); fStub fGuiSmoke }
 function fStage { fStub fStage }
@@ -185,6 +185,16 @@ function fPublish { param($Msg); fStub fPublish }
 	if (-not ($out -match '^probe at priority (Idle|BelowNormal)$')) { fFail "gate: the toolchain probe didn't run at low priority" }
 
 	fRun 'gate -NoFmt' @('-Gate', '-NoFmt') -Steps $gate[1..3] -Off 'Lints (-NoFmt)' | Out-Null
+	## -TestList: the named tests only, against the build already there.
+	$list = Join-Path $scratch 'tests.txt'
+	Set-Content -LiteralPath $list -Value "ddzzw a windowed test`n`n  ddzzx another  `n" -NoNewline
+	New-Item -ItemType Directory -Force -Path (Join-Path $scratch 'cicd/artifacts/build-win') | Out-Null
+	$out = @(& pwsh -NoProfile -File $copy -TestList $list 2>&1 | ForEach-Object { "$_" })
+	if ($LASTEXITCODE -ne 1 -or -not ($out -match 'FAILED: no build to test')) { fFail "tests named, no build: exit $LASTEXITCODE, not 1 with a line saying so" }
+	Set-Content -LiteralPath (Join-Path $scratch 'cicd/artifacts/build-win/build.ninja') -Value ''
+	$out = fRun 'tests named' @('-TestList', $list) -Steps @('Tests')
+	if (-not ($out -match '^names ddzzw a windowed test\|ddzzx another$')) { fFail "tests named: fTests didn't get the 2 names: $(($out -match '^names ') -join ', ')" }
+	if (@($out -match '^ran ').Count -ne 1) { fFail "tests named: something other than the tests ran" }
 	fRun 'gate, tests fail' @('-Gate') -Vars @{ T_FAIL = 'fTests' } -Steps $gate -Rc 1 -Failed 'Tests' | Out-Null
 	$out = fRun 'gate, no toolchain' @('-Gate') -Vars @{ T_TOOLMISS = '1' } -Steps @() -Off ($gate | ForEach-Object { "$_ (toolchain missing)" })
 	if (-not ($out -match 'gate: SKIPPED')) { fFail "gate, no toolchain: no SKIPPED line" }

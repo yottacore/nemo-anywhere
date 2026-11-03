@@ -29,6 +29,37 @@ static gboolean real_bin_ran = FALSE;
 static char *trash_files_dir;
 static char *trash_info_dir;
 
+/* In every name and marker a case recycles, so an item an earlier run left in
+ * the bin is never taken for this run's own. Purging that one is a delete
+ * outside the test, which the fence refuses. Fixed width, so the size check
+ * in the bin scan can't tell two runs apart either. */
+static char run_tag[25];
+
+static void
+make_tag (char tag[sizeof run_tag])
+{
+	g_snprintf (tag, sizeof run_tag, "%016llx%08x",
+		    (unsigned long long) g_get_real_time (), g_random_int ());
+}
+
+/* The tag goes before the first dot, so "report.2026.txt" keeps its shape. */
+static char *
+tagged (const char *name)
+{
+	const char *dot = strchr (name, '.');
+
+	if (dot == NULL) {
+		return g_strconcat (name, "-", run_tag, NULL);
+	}
+	return g_strdup_printf ("%.*s-%s%s", (int) (dot - name), name, run_tag, dot);
+}
+
+static char *
+fresh_marker (const char *tag)
+{
+	return g_strconcat ("nemoverify-fresh-parent-marker-", tag, NULL);
+}
+
 /* A fixture that quietly failed to be written would make every check after it
  * meaningless, so say so instead. */
 static void
@@ -208,10 +239,11 @@ test_trashed_folder (void)
 	char *dir, *base, *nested, *uri;
 	GFile *item;
 	GError *error = NULL;
+	g_autofree char *name = tagged ("nemo-trashdir-test");
 
 	/* Under the home rather than the temp dir - a volume or folder the bin does
 	 * not cover would recycle nothing and the case would prove nothing. */
-	dir = g_build_filename (g_get_home_dir (), "nemo-trashdir-test", NULL);
+	dir = g_build_filename (g_get_home_dir (), name, NULL);
 	nested = g_build_filename (dir, "inner", NULL);
 	g_mkdir_with_parents (nested, 0700);
 
@@ -230,7 +262,7 @@ test_trashed_folder (void)
 	}
 	g_free (dir);
 
-	uri = find_item_uri ("nemo-trashdir-test");
+	uri = find_item_uri (name);
 	check (uri != NULL);
 
 	/* The pre-delete count walks in here, so a trashed folder that refuses to
@@ -241,9 +273,7 @@ test_trashed_folder (void)
 		g_object_unref (item);
 	}
 
-	/* Every match goes, not just the first - a run that failed here left its
-	 * folder in the bin, and inheriting it would fail the next run too.
-	 * Without the whole tree coming out this is NOT_EMPTY, which is where both
+	/* Without the whole tree coming out this is NOT_EMPTY, which is where both
 	 * "Empty Trash" and permanently deleting the folder used to stop. */
 	while (uri != NULL) {
 		item = g_file_new_for_uri (uri);
@@ -258,7 +288,7 @@ test_trashed_folder (void)
 		g_object_unref (item);
 		g_free (uri);
 
-		uri = find_item_uri ("nemo-trashdir-test");
+		uri = find_item_uri (name);
 	}
 }
 
@@ -296,12 +326,14 @@ static void
 test_junction_in_bin (void)
 {
 	char *outside, *precious, *dir, *link, *bare;
+	g_autofree char *dir_name = tagged ("nemo-trashjunc-test");
+	g_autofree char *bare_name = tagged ("nemo-trashjunc-bare");
 
 	outside = g_build_filename (g_get_home_dir (), "nemo-trashjunc-outside", NULL);
 	precious = g_build_filename (outside, "precious.txt", NULL);
-	dir = g_build_filename (g_get_home_dir (), "nemo-trashjunc-test", NULL);
+	dir = g_build_filename (g_get_home_dir (), dir_name, NULL);
 	link = g_build_filename (dir, "link-out", NULL);
-	bare = g_build_filename (g_get_home_dir (), "nemo-trashjunc-bare", NULL);
+	bare = g_build_filename (g_get_home_dir (), bare_name, NULL);
 
 	g_mkdir_with_parents (outside, 0700);
 	g_mkdir_with_parents (dir, 0700);
@@ -319,10 +351,10 @@ test_junction_in_bin (void)
 	}
 	check (g_file_test (precious, G_FILE_TEST_EXISTS));
 
-	remove_items_named ("nemo-trashjunc-test");
+	remove_items_named (dir_name);
 	check (g_file_test (precious, G_FILE_TEST_EXISTS));
 
-	remove_items_named ("nemo-trashjunc-bare");
+	remove_items_named (bare_name);
 	check (g_file_test (precious, G_FILE_TEST_EXISTS));
 
 	real_bin_ran = TRUE;
@@ -355,21 +387,14 @@ test_real_bin_roundtrip (void)
 	GFile *item, *dest;
 	GFileInfo *info;
 	GError *error = NULL;
+	g_autofree char *name = tagged ("report.2026.txt");
 
 	/* Under the home, not the temp dir: a volume the bin does not cover would
 	 * recycle nothing and the case would prove nothing. */
 	dir = g_build_filename (g_get_home_dir (), "nemoverify-trash", NULL);
 	g_mkdir_with_parents (dir, 0700);
-	orig = g_build_filename (dir, "report.2026.txt", NULL);
+	orig = g_build_filename (dir, name, NULL);
 	write_fixture (orig, "round trip");
-
-	/* An earlier run that died mid-case would otherwise be found instead. */
-	while ((uri = find_item_uri ("report.2026.txt")) != NULL) {
-		item = g_file_new_for_uri (uri);
-		g_file_delete (item, NULL, NULL);
-		g_object_unref (item);
-		g_free (uri);
-	}
 
 	if (!recycle_quietly (orig)) {
 		g_printerr ("SKIP real-bin round trip: could not recycle %s\n", orig);
@@ -381,7 +406,7 @@ test_real_bin_roundtrip (void)
 
 	/* Found by its full name at all is the first half of the claim: the shell's
 	 * in-folder name is what the listing shows and what a restore writes. */
-	uri = find_item_uri ("report.2026.txt");
+	uri = find_item_uri (name);
 	check (uri != NULL);
 	if (uri == NULL) {
 		g_free (orig);
@@ -393,7 +418,7 @@ test_real_bin_roundtrip (void)
 	info = g_file_query_info (item, "standard::*,trash::*", 0, NULL, &error);
 	check (info != NULL);
 	if (info != NULL) {
-		check (g_strcmp0 (g_file_info_get_display_name (info), "report.2026.txt") == 0);
+		check (g_strcmp0 (g_file_info_get_display_name (info), name) == 0);
 
 		/* The restore target. A wrong one here is how a file comes back under
 		 * the wrong name or into the wrong folder. */
@@ -463,6 +488,7 @@ test_outside_bin_refused (void)
 	GFile *item, *dest;
 	GFileInputStream *stream;
 	GError *error = NULL;
+	g_autofree char *bait_name = tagged ("bait.txt");
 
 	outside = g_build_filename (g_get_home_dir (), "nemoverify-outside.txt", NULL);
 	write_fixture (outside, "keep me");
@@ -503,11 +529,11 @@ test_outside_bin_refused (void)
 	/* --- the traversal half: a real bin item with "\..\.." walked off it --- */
 	dir = g_build_filename (g_get_home_dir (), "nemoverify-bait", NULL);
 	g_mkdir_with_parents (dir, 0700);
-	bait = g_build_filename (dir, "bait.txt", NULL);
+	bait = g_build_filename (dir, bait_name, NULL);
 	write_fixture (bait, "bait");
 
 	if (recycle_quietly (bait)) {
-		uri = find_item_uri ("bait.txt");
+		uri = find_item_uri (bait_name);
 		check (uri != NULL);
 
 		if (uri != NULL) {
@@ -538,7 +564,7 @@ test_outside_bin_refused (void)
 		}
 
 		/* Take the bait back out of the bin, every match of it. */
-		while ((uri = find_item_uri ("bait.txt")) != NULL) {
+		while ((uri = find_item_uri (bait_name)) != NULL) {
 			item = g_file_new_for_uri (uri);
 			g_file_delete (item, NULL, NULL);
 			g_object_unref (item);
@@ -559,7 +585,8 @@ test_outside_bin_refused (void)
 /* The backing file of a bin item whose contents are exactly @marker, found by
  * reading the bin off disk. Going through the trash enumerator would refresh the
  * snapshot, which is the very thing the freshly-trashed case has to do without.
- * NULL if it is not there, or if the per-user folder cannot be read. */
+ * NULL if it is not there, or if the per-user folder cannot be read. Two matches
+ * fail the test rather than pick one, since the wrong one isn't ours to purge. */
 static char *
 find_backing_by_contents (const char *data, gsize data_len)
 {
@@ -567,13 +594,14 @@ find_backing_by_contents (const char *data, gsize data_len)
 	GDir *sids;
 	const char *sid;
 	char *found = NULL;
+	guint matches = 0;
 
 	sids = g_dir_open (bin_root, 0, NULL);
 	if (sids == NULL) {
 		return NULL;
 	}
 
-	while (found == NULL && (sid = g_dir_read_name (sids)) != NULL) {
+	while ((sid = g_dir_read_name (sids)) != NULL) {
 		char *sid_dir = g_build_filename (bin_root, sid, NULL);
 		GDir *items = g_dir_open (sid_dir, 0, NULL);
 		const char *name;
@@ -583,7 +611,7 @@ find_backing_by_contents (const char *data, gsize data_len)
 			continue;
 		}
 
-		while (found == NULL && (name = g_dir_read_name (items)) != NULL) {
+		while ((name = g_dir_read_name (items)) != NULL) {
 			char *path, *contents = NULL;
 			gsize length = 0;
 			GStatBuf st;
@@ -599,6 +627,8 @@ find_backing_by_contents (const char *data, gsize data_len)
 			    g_file_get_contents (path, &contents, &length, NULL) &&
 			    length == data_len &&
 			    memcmp (contents, data, length) == 0) {
+				matches++;
+				g_free (found);
 				found = path;
 			} else {
 				g_free (path);
@@ -611,6 +641,12 @@ find_backing_by_contents (const char *data, gsize data_len)
 	}
 
 	g_dir_close (sids);
+
+	if (matches > 1) {
+		g_printerr ("FAIL %u bin items hold the same marker\n", matches);
+		failures++;
+		g_clear_pointer (&found, g_free);
+	}
 	return found;
 }
 
@@ -648,7 +684,7 @@ purge_backing (const char *backing_path)
 static void
 test_fresh_item_parent (void)
 {
-	const char *marker = "nemoverify-fresh-parent-marker";
+	g_autofree char *marker = fresh_marker (run_tag);
 	char *fixture, *backing, *uri;
 	GFile *root, *item, *parent;
 
@@ -731,7 +767,7 @@ note_monitor_fired (G_GNUC_UNUSED GFileMonitor *monitor, G_GNUC_UNUSED GFile *fi
 static void
 test_same_count_change_noticed (void)
 {
-	const char *small = "nemoverify-samecount-small";
+	g_autofree char *small = g_strconcat ("nemoverify-samecount-small-", run_tag, NULL);
 	char *fixture_a, *fixture_b, *backing_a, *backing_b, *big;
 	GFile *root;
 	GFileMonitor *monitor;
@@ -748,6 +784,7 @@ test_same_count_change_noticed (void)
 	for (i = 0; i < big_len; i++) {
 		big[i] = (char) ('a' + (i % 26));
 	}
+	memcpy (big, run_tag, strlen (run_tag));
 
 	write_fixture (fixture_a, small);
 	if (!recycle_quietly (fixture_a)) {
@@ -851,7 +888,8 @@ out:
 static void
 test_vanished_item_not_healthy (void)
 {
-	const char *marker = "nemoverify-vanish-marker";
+	g_autofree char *marker = g_strconcat ("nemoverify-vanish-marker-", run_tag, NULL);
+	g_autofree char *folder_name = tagged ("nemoverify-vanish-dir");
 	char *fixture, *backing, *wanted_name;
 	GFile *root;
 	GFileEnumerator *enumerator;
@@ -862,7 +900,7 @@ test_vanished_item_not_healthy (void)
 
 	/* A folder alongside it, to confirm the other half of the same answer: a
 	 * directory in the bin is reported as a directory. */
-	folder_fixture = g_build_filename (g_get_home_dir (), "nemoverify-vanish-dir", NULL);
+	folder_fixture = g_build_filename (g_get_home_dir (), folder_name, NULL);
 	inner = g_build_filename (folder_fixture, "inner.txt", NULL);
 	g_mkdir_with_parents (folder_fixture, 0700);
 	write_fixture (inner, "inner");
@@ -921,8 +959,7 @@ test_vanished_item_not_healthy (void)
 					info, G_FILE_ATTRIBUTE_STANDARD_IS_VIRTUAL));
 			}
 
-			if (g_strcmp0 (g_file_info_get_display_name (info),
-				       "nemoverify-vanish-dir") == 0) {
+			if (g_strcmp0 (g_file_info_get_display_name (info), folder_name) == 0) {
 				folder_seen = TRUE;
 				check (g_file_info_get_file_type (info) == G_FILE_TYPE_DIRECTORY);
 			}
@@ -950,7 +987,7 @@ test_vanished_item_not_healthy (void)
 	{
 		char *uri;
 
-		while ((uri = find_item_uri ("nemoverify-vanish-dir")) != NULL) {
+		while ((uri = find_item_uri (folder_name)) != NULL) {
 			GFile *item = g_file_new_for_uri (uri);
 
 			g_file_delete (item, NULL, NULL);
@@ -966,6 +1003,27 @@ test_vanished_item_not_healthy (void)
 	g_object_unref (root);
 }
 
+/* An item an earlier run left behind: the fresh-parent case's fixture, holding
+ * that run's marker. Each case has to find its own item and leave this one be.
+ * NULL where the bin can't be worked. */
+static char *
+plant_earlier_item (void)
+{
+	char earlier[sizeof run_tag];
+	g_autofree char *marker = NULL;
+	g_autofree char *fixture = NULL;
+
+	make_tag (earlier);
+	marker = fresh_marker (earlier);
+	fixture = g_build_filename (g_get_home_dir (), "nemoverify-fresh.txt", NULL);
+	write_fixture (fixture, marker);
+	if (!recycle_quietly (fixture)) {
+		g_unlink (fixture);
+		return NULL;
+	}
+	return find_backing_by_contents (marker, strlen (marker));
+}
+
 /* meson reports this exit code as SKIP rather than a pass. */
 #define TEST_SKIPPED 77
 
@@ -976,8 +1034,12 @@ main (void)
 	char *home_root, *uri, *dest_path, *contents;
 	GFile *item, *dest;
 	GFileInfo *info;
+	char *earlier;
 
 	nemo_trash_win32_register ();
+	make_tag (run_tag);
+	earlier = plant_earlier_item ();
+
 	test_trashed_folder ();
 	test_junction_in_bin ();
 	test_real_bin_roundtrip ();
@@ -985,6 +1047,15 @@ main (void)
 	test_fresh_item_parent ();
 	test_same_count_change_noticed ();
 	test_vanished_item_not_healthy ();
+
+	if (earlier != NULL) {
+		if (!g_file_test (earlier, G_FILE_TEST_IS_REGULAR)) {
+			g_printerr ("  the earlier run's item left the bin\n");
+		}
+		check (g_file_test (earlier, G_FILE_TEST_IS_REGULAR));
+		purge_backing (earlier);
+		g_free (earlier);
+	}
 
 	/* The seeded cases plant files into wine's unix-style XDG trash layout, which
 	 * does not exist on real Windows. Everything above works the shell bin itself,

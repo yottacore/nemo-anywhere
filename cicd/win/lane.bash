@@ -10,17 +10,26 @@
 ##	  VM that is off or paused is started and put back after. None there exits
 ##	  77, a skip, before any lock is taken, and so does a box with no host
 ##	  lock here.
-##	- The gate runs in its own folder under the box's temp root,
-##	  %TEMP%\nemo-anywhere\<YYYYmmDD-HHMMSS>_<NNN>, started there outside the
-##	  ssh session (win/lane-box.ps1) and polled, with its log printed here as
-##	  it goes. At the end, a failure and a TERM included, the gate is stopped
-##	  and the folder removed, along with the project's stale ones there.
+##	- The gate runs in its own folder,
+##	  %ProgramData%\nemo-anywhere\<YYYYmmDD-HHMMSS>_<NNN>, started there outside
+##	  the ssh session (win/lane-box.ps1) and polled, with its log printed here
+##	  as it goes. At the end, a failure and a TERM included, the gate is
+##	  stopped and the folder removed, along with the project's stale ones
+##	  there. Not under the ssh login's %TEMP%, since the test user's desktop
+##	  tests run in the same folder, and PowerShell as that user reads every
+##	  folder above a path it works in, which another user's profile refuses.
 ##	- The ssh login is in session 0, with no desktop, so the tests that put a
-##	  window on screen skip there.
+##	  window on screen skip there. After a passing gate, the meson tests it
+##	  skipped run again against its build, in the test user's desktop
+##	  session on the same box, through a schtasks /it task. A test user with
+##	  no session there, or a locked one, is a warning, and the gate's pass
+##	  stands, since no window gets the focus in a locked session.
 ##	- NEMO_WIN_READY_WAIT is the seconds to wait for the login after a boot
 ##	  (default 600), NEMO_WIN_POLL the seconds between looks at the log
 ##	  (default 30), NEMO_WIN_GATE_ARGS what cicd-win.ps1 gets (default
-##	  "-Gate -Yes -NoSync").
+##	  "-Gate -Yes -NoSync"), NEMO_WIN_TEST_USER the user whose desktop the
+##	  skipped tests run in (default wintest), NEMO_WIN_DESKTOP=0 leaves that
+##	  part out.
 ##	- Exit: the gate's own, 77 with no box there, 1 for a lane failure.
 ##	- Syntax: win/lane.bash [<box>...]
 
@@ -36,6 +45,8 @@ readonly SLUG="nemo-anywhere"
 readyWaitSec="${NEMO_WIN_READY_WAIT:-600}"
 pollSec="${NEMO_WIN_POLL:-30}"
 gateArgs="${NEMO_WIN_GATE_ARGS:--Gate -Yes -NoSync}"
+testUser="${NEMO_WIN_TEST_USER:-wintest}"
+desktopOn="${NEMO_WIN_DESKTOP:-1}"
 ## A Windows build plus the suite runs well past the lock's default lease, and
 ## the wait is for whoever holds the box to finish.
 readonly lockWaitSec=1800
@@ -70,27 +81,27 @@ fCleanUp(){
 	elif [[ -n "$dirW" ]]; then
 		fOnBox "rmdir ${dirW}" || fSay "could not remove ${box}:${dirW}"
 	fi
-	if [[ -n "$scratch" ]]; then rm -f -- "${scratch}/round.bundle" "${scratch}/gate.log"; rmdir -- "$scratch"; fi
+	if [[ -n "$scratch" ]]; then rm -f -- "${scratch}/round.bundle" "${scratch}/gate.log" "${scratch}/desktop.log" "${scratch}/desktop.txt"; rmdir -- "$scratch"; fi
 	fLaneStep_OnExit "$rc"
 	exit "$rc"
 }
 
 ## The folder name is made with a plain mkdir, counting up when it's taken.
 fMakeBoxDir(){
-	local tempW stamp n
-	tempW="$(fOnBox 'echo %TEMP%' | tr -d '\r' | head -n 1)"
-	[[ "$tempW" =~ ^[A-Za-z]:\\ && "$tempW" != *%* ]] || fDieW "${box} gave an odd temp folder: ${tempW}"
-	fOnBox "if not exist ${tempW}\\${SLUG} mkdir ${tempW}\\${SLUG}" || fDieW "could not make ${tempW}\\${SLUG} on ${box}"
+	local rootW stamp n
+	rootW="$(fOnBox 'echo %ProgramData%' | tr -d '\r' | head -n 1)"
+	[[ "$rootW" =~ ^[A-Za-z]:\\ && "$rootW" != *%* ]] || fDieW "${box} gave an odd ProgramData folder: ${rootW}"
+	fOnBox "if not exist ${rootW}\\${SLUG} mkdir ${rootW}\\${SLUG}" || fDieW "could not make ${rootW}\\${SLUG} on ${box}"
 	stamp="$(date +%Y%m%d-%H%M%S)"
 	for n in 001 002 003 004 005 006 007 008 009; do
-		if fOnBox "mkdir ${tempW}\\${SLUG}\\${stamp}_${n}" 2> /dev/null; then
-			dirW="${tempW}\\${SLUG}\\${stamp}_${n}"
+		if fOnBox "mkdir ${rootW}\\${SLUG}\\${stamp}_${n}" 2> /dev/null; then
+			dirW="${rootW}\\${SLUG}\\${stamp}_${n}"
 			dirS="${dirW//\\//}"
 			fSay "work folder ${box}:${dirW}"
 			return 0
 		fi
 	done
-	fDieW "no free work folder name under ${tempW}\\${SLUG} on ${box}"
+	fDieW "no free work folder name under ${rootW}\\${SLUG} on ${box}"
 }
 
 ## lane-box.ps1 takes "-Gate -Yes" as Gate,Yes.
@@ -103,15 +114,76 @@ fGateArgList(){
 	printf '%s' "$out"
 }
 
-## Prints the log lines past the first $1, and sets logLines.
+## Prints the lines of the box's log $1 (default gate.log) past the first
+## logLines, and moves logLines on.
 logLines=0
 fShowLog(){
-	local log="${scratch}/gate.log" n
-	scp -q "${sshOpts[@]}" "${box}:${dirS}/gate.log" "$log" 2> /dev/null < /dev/null || return 0
+	local name="${1:-gate.log}" log n
+	log="${scratch}/${name}"
+	scp -q "${sshOpts[@]}" "${box}:${dirS}/${name}" "$log" 2> /dev/null < /dev/null || return 0
 	n="$(wc -l < "$log")"
 	((n > logLines)) || return 0
 	tail -n "+$((logLines + 1))" "$log" | head -n "$((n - logLines))" | tr -d '\r'
 	logLines="$n"
+}
+
+## The meson tests the gate's Tests step skipped, by meson's name, one a line.
+## A meson line has its time after a double space; a script test's has none.
+fSkippedTests(){
+	tr -d '\r' < "${scratch}/gate.log" | awk '
+		/; Starting Tests \]$/ { on = 1; next }
+		/; (PASS|FAIL) Tests \]$/ || /; Starting / { on = 0 }
+		on && /^SKIP [0-9a-z]+ / && match($0, /  +[0-9.]+s( |$)/) { print substr($0, 6, RSTART - 6) }'
+}
+
+## Waits for the box's file $1 and sets waitRc to what it holds; fails when
+## task $2 stopped without writing it.
+waitRc=""
+fWaitRc(){
+	local rcFile="$1" task="$2"
+	waitRc=""
+	while :; do
+		sleep "$pollSec"
+		fShowLog desktop.log
+		waitRc="$(fOnBox "if exist ${dirW}\\${rcFile} type ${dirW}\\${rcFile}" 2> /dev/null | tr -d '\r' || true)"
+		[[ -z "$waitRc" ]] || break
+		if ! grep -q 'Running' <<< "$(fOnBox "schtasks /query /tn ${task} /fo list" 2> /dev/null || true)"; then
+			waitRc="$(fOnBox "if exist ${dirW}\\${rcFile} type ${dirW}\\${rcFile}" 2> /dev/null | tr -d '\r' || true)"
+			[[ -n "$waitRc" ]] || fDie "the task ${task} on ${box} ended with no exit code"
+			break
+		fi
+	done
+	fShowLog desktop.log
+}
+
+## The tests the gate skipped, again in the test user's desktop session.
+fDesktop(){
+	local names out task rc code
+	fLaneStep "Desktop tests"
+	names="$(fSkippedTests)"
+	if [[ -z "$names" ]]; then fEcho_Clean "the gate skipped no tests"; return 0; fi
+	printf '%s\n' "$names" > "${scratch}/desktop.txt"
+	fEcho_Clean "$(wc -l < "${scratch}/desktop.txt") skipped tests, again as ${testUser} in a desktop session on ${box}"
+	scp -q "${sshOpts[@]}" "${scratch}/desktop.txt" "${box}:${dirS}/" < /dev/null || fDie "could not send the test list to ${box}"
+	out="$(fBoxPs -Desktop -TestUser "$testUser")"
+	if [[ "$out" == *nosession* ]]; then
+		fEcho "WARNING: ${testUser} has no session on ${box}, so its windowed tests did not run"
+		return 0
+	fi
+	if [[ "$out" == *locked* ]]; then
+		fEcho "WARNING: ${testUser}'s session on ${box} is locked, so its windowed tests did not run"
+		return 0
+	fi
+	task="$(sed -n 's/^task=\([A-Za-z0-9_-]*\)$/\1/p' <<< "$out" | head -n 1)"
+	[[ -n "$task" ]] || fDie "the desktop tests did not start on ${box}: ${out}"
+	logLines=0
+	fWaitRc desktop.rc "$task"
+	rc="$waitRc"
+	code="$(sed -n 's/^rc=\(-\{0,1\}[0-9][0-9]*\).*/\1/p' <<< "$rc" | head -n 1)"
+	[[ -n "$code" ]] || fDie "the desktop tests on ${box} left an unreadable exit code: ${rc}"
+	fEcho_Clean "the desktop tests on ${box} exited ${code} (${rc#* })"
+	((code != 77)) || code=1
+	return "$code"
 }
 
 fGate(){
@@ -121,7 +193,8 @@ fGate(){
 	trap 'exit 143' TERM; trap 'exit 130' INT; trap 'exit 129' HUP
 	fEcho_Clean ""
 	fEcho "Native Windows gate on ${box}"
-	fLaneStep_Plan Windows "Box ready" "Send" "Gate"
+	if [[ "$desktopOn" == 0 ]]; then fLaneStep_Plan Windows "Box ready" "Send" "Gate"
+	else fLaneStep_Plan Windows "Box ready" "Send" "Gate" "Desktop tests"; fi
 
 	fLaneStep "Box ready"
 	fBoxWrap_WaitReady "$box" "$readyWaitSec" exit "${sshOpts[@]}" || fDie "${box} did not answer in ${readyWaitSec}s"
@@ -157,7 +230,8 @@ fGate(){
 	fEcho_Clean "the gate on ${box} exited ${code} (${rc#* })"
 	## 77 is this lane's skip, so a gate that says so is a failure here.
 	((code != 77)) || code=1
-	return "$code"
+	((code == 0)) || return "$code"
+	[[ "$desktopOn" == 0 ]] || fDesktop
 }
 
 fMain(){
@@ -186,4 +260,9 @@ fMain "${@}"
 
 
 ##	History:
+##		- 2026-11-02: A locked test user session is a warning, as no session is.
+##		- 2026-11-02: The work folder is under %ProgramData%, not the ssh
+##		  login's %TEMP%, so the test user's desktop tests can work in it.
+##		- 2026-10-31: The tests the gate skipped run again in the test user's
+##		  desktop session.
 ##		- 2026-10-31: Created.
