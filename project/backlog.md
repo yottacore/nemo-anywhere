@@ -623,15 +623,48 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The desktop tests step fails on b29w: wintest can't Set-Location into a run folder under collierjr's %TEMP%.
 	- ID: 2026103116395639
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261031-163956
 	- Opened by:
-	- Related IDs: 2026103114202730
+	- Related IDs: 2026103114202730, 2026110216323705
+	- Target OS: Windows
+	- Test environment: b29w, the lane from b23, the desktop step as wintest in session 2.
 	- Progress log:
 		- 20261031: tried in 2026103114202730, code on `wip/round1031a-2026103114202730` (84161052). The gate passed (191 OK, 22 skipped), the 22 went to a `schtasks /it /ru wintest` task, and `cicd-win.ps1` stopped at `Set-Location -LiteralPath $Root` with access denied on `C:\Users\collierjr\AppData`. wintest has Modify on the run folder, but PowerShell reads each folder above it.
 		- Options: a run folder both users can reach, outside collierjr's profile; or pass whole paths and `-WorkingDirectory` so nothing does a `Set-Location` there. Granting wintest list rights on the profile changes its permissions, so leave that out.
-	- Test case: depg0 and dejjt, then the lane on b29w with the desktop step passing.
+		- 20261102: the code from `wip/round1031a-2026103114202730` is on round1102a with the fix.
+	- Actual cause: as wintest, PowerShell fails on any path under collierjr's profile that it resolves through its provider, not only `Set-Location`. On b29w, `Remove-Item -Recurse` there fails the same way, and `pwsh -WorkingDirectory` there doesn't take: the task's pwsh stayed in `C:\Windows\System32`. `Resolve-Path`, `New-Item`, `Get-ChildItem`, `Out-File` and MSYS2's `cd` work.
+	- Actual fix: the lane's run folder is `%ProgramData%\nemo-anywhere\<YYYYmmDD-HHMMSS>_<NNN>` on the box, where both users can list each folder above it. wintest still gets Modify on the run folder only. `lane.bash`, `lane-box.ps1`, `test-lane.bash` and design.md's native gate bullet.
+	- Decisions:
+		- A run folder outside the profile, not a way round each call, since `Remove-Item` and `-WorkingDirectory` fail there too, and the tests' own temp folders sit under the run folder. No permission change on collierjr's profile.
+		- `%ProgramData%`, since non-admins can list it and can't change a folder another user made there. Not `C:\Windows\Temp`, which non-admins can't list.
+		- Old folders under `%TEMP%\nemo-anywhere` from before this are no longer swept by the lane.
+		- The desktop step runs its tests now, and 3 of them fail there on their own: debgn, dcd70 and ddqdq. That's 2026110216323705, so the step doesn't pass yet.
+	- Branch: round1102a
+	- Commit: 1fb45b42
+	- Test case: depg0 (the work folder under `%ProgramData%`) and dejjt.
+	- Verified: 20261102, depg0 fails against the old `lane.bash`, "b29w gave an odd temp folder", and passes after. dejjt passes. On b29w, the lane with `-Gate -Yes -NoSync -NoFmt` at 1fb45b42: the gate passed, 191 OK and 22 skipped, and the 22 ran as wintest in session 2 with 1 monitor, from `C:\ProgramData\nemo-anywhere\...`: 12 OK, 7 skipped for their own reasons, 3 failed (2026110216323705). The run folder and its task were removed after.
+	- Swept: the other lanes that reach a Windows box run as the ssh login only. Every script under `cicd/` that uses `GetTempPath` runs as the user whose `TEMP` it is.
+	- Acceptance signoff: Self-closed: the desktop step gets past `Set-Location` on b29w and runs its tests as wintest.
+	- Closed: 20261102-163600
+
+- On b29w, debgn, dcd70 and ddqdq fail in wintest's desktop session.
+	- ID: 2026110216323705
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261102-163237
+	- Opened by: 2026103116395639
+	- Related IDs: 2026103114202730
+	- Target OS: Windows
+	- Test environment: b29w, the native lane's desktop step, as wintest in session 2 with 1 monitor.
+	- Steps to reproduce: `NEMO_WIN_GATE_ARGS='-Gate -Yes -NoSync -NoFmt' cicd/win/lane.bash b29w` at 1fb45b42.
+	- Incorrect behavior: debgn, "the focus never came back". dcd70, "no context menu" with the caret in the entry, over a word and over the whole path. ddqdq, the window titles show the folder path cut short with `...` where the whole path is wanted, after "can't write" and "can't read" of the settings file and "Nemo is already running".
+	- Expected behavior: all 3 pass there, as debgn does on vm925w in its desktop session.
+	- Reproduced: 20261102, 1 of 1.
+	- Possible cause: not looked into. debgn and dcd70 both need the foreground or a menu, so the console session may be locked or have something in front. ddqdq's titles may be cut by the path's length.
+	- Test case: debgn, dcd70 and ddqdq, in the lane's desktop step on b29w.
 
 - Other hosts: native Windows checks that put a window on screen run on vm925w.
 	- ID: 2026103114202730
