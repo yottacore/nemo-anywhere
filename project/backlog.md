@@ -674,7 +674,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261031-142027
 	- Opened by: 2026102808250959
 	- Parent ID: 2026102808250959
-	- Prereq IDs: 2026103116395639
+	- Prereq IDs: 2026110216323705
 	- Requirements:
 		- The gate on b29w runs over ssh with no desktop, so its windowed tests skip. Those run again in a desktop session on vm925w, as its test user, and on b29w under its test account when vm925w isn't there.
 		- The VM is put back the way it was found. Neither box there is a `SKIP`.
@@ -690,10 +690,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: depg0: after a passing gate, only the meson tests its Tests step skipped go to the box and run as wintest, a failing desktop test fails the lane, no wintest session is a warning, a failing gate runs none, and `NEMO_WIN_DESKTOP=0`.
 	- 20261031: split. Windowed tests on vm925w while the gate runs on b29w, and wintest's logon on vm925w after a boot, are 2026103116203063.
 	- 20261031: the work is on `wip/round1031a-2026103114202730`, not on the round branch, since the desktop step fails on b29w. Its task starts as wintest in session 2 with 1 monitor, then `cicd-win.ps1` stops at `Set-Location $Root`, "Access to the path 'C:\Users\collierjr\AppData' is denied". PowerShell reads each folder above the run folder, and wintest can't list the ssh user's profile. Left: a run folder both users can reach, or a way past the profile, then the run on b29w again.
-	- Branch: wip/round1031a-2026103114202730
+	- Branch: round1102a
 	- Verified: 20261031, depg0 and dejjt pass on the wip branch. depg0 fails 9 checks against the round branch's `lane.bash`, and dejjt 6 against its `cicd-win.ps1`. `--backlog-run-quick` passes.
 	- 20261031, on b29w, 3 lane runs of the wip changes, `-Gate -Yes -NoSync -NoFmt`: the third gate passed, 191 OK and 22 skipped, the 22 went to the box, and the task ran as wintest in its desktop session. It failed as above. The first 2 gates failed on 2026103116203164 and 2026103116284963, so no desktop step ran.
 	- 20261031: failed its try this round. Held behind 2026103116395639. Its code is on `wip/round1031a-2026103114202730`.
+	- 20261102: the wip work is on round1102a with the run folder moved to ProgramData (2026103116395639). The desktop step now runs as wintest on b29w, and debgn, dcd70 and ddqdq fail there, so it waits on 2026110216323705.
 
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
