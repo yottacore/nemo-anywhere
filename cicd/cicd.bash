@@ -51,6 +51,12 @@
 ##	   --no-profile        skip the profiler stage
 ##	   --no-sanitize       skip the test suite built with the address and
 ##	                       undefined behavior sanitizers
+##	   --leakcheck         run the slow leak and static checks (CodeQL, the
+##	                       clang analyzer across files, the heap growth soak
+##	                       test). On in a plain run and off under --quick, so
+##	                       this adds them back there
+##	   --no-leakcheck      leave those out of a plain run. Whichever of the two
+##	                       comes last on the command line wins
 ##	   --no-dogfood        skip installing the native release locally
 ##	   --no-publish        skip the git backup + publish stage
 ##	   --allow-dirty       let publish commit an uncommitted working tree (it
@@ -187,6 +193,7 @@ fSetSourceDate "${root}"
 
 ## Parse options.
 include_bsd=""; no_bsd=0                                          ## empty = whatever --quick says
+leakcheck=""                                                      ## empty = whatever --quick says
 assume_yes=0; quick=0; long=0; gate=0; no_arm=0; no_fmt=0; include_arm=""; no_sync=0; allow_dirty=0; cli_message=""
 ## checks_only: --backlog-run-full or --merge-gate. run_mode names the one given,
 ## for the plan and the last line.
@@ -220,6 +227,8 @@ while (($#)); do case "$1" in
 	--no-container)           shift ;;                          ## read before config.bash, above
 	--no-profile)             PROFILE_ENABLE=0; shift ;;
 	--no-sanitize)            SANITIZE_CMD=(); shift ;;
+	--leakcheck)              leakcheck=1; shift ;;             ## the last of these 2 wins
+	--no-leakcheck)           leakcheck=0; shift ;;
 	--no-dogfood)             DOGFOOD_FIXED_DESTS=(); DOGFOOD_ROTATING_DESTS=(); DOGFOOD_CROSS_DESTS=(); DOGFOOD_HOOK=(); DOGFOOD_REMOTE=(); shift ;;
 	--no-publish)             GIT_PUBLISH=(); shift ;;
 	--allow-dirty)            allow_dirty=1; shift ;;
@@ -260,6 +269,7 @@ declare -p WIN_GATE_CMD &>/dev/null || WIN_GATE_CMD=()
 ## FreeBSD runs unless --quick, and arm64 only with --long, since its emulated box
 ## takes about 98 of a plain run's 152 minutes. Naming either one beats both flags.
 [[ -n "$include_arm" ]] || include_arm=$((long))
+[[ -n "$leakcheck" ]] || leakcheck=$((! quick))
 [[ -n "$include_bsd" ]] || include_bsd=$((! quick))
 ((! no_bsd)) || include_bsd=0
 declare -p BSD_TEST_CMD &>/dev/null || BSD_TEST_CMD=()           ## a config with no FreeBSD box
@@ -703,6 +713,7 @@ if [[ -n "${SANITIZE_CMD+x}" ]] && ((${#SANITIZE_CMD[@]})); then
 else
 	fEcho_Clean "Sanitizers ..........: (skipped)"
 fi
+fEcho_Clean "Leak checks .........: $( ((leakcheck)) && echo on || echo off )"
 if ((quick)); then
 	fEcho_Clean "Static analyzers ....: (skipped --quick)"
 elif [[ -n "${ANALYZE_CMD+x}" ]] && ((${#ANALYZE_CMD[@]})); then
@@ -1349,6 +1360,7 @@ fEcho_Clean
 ##		- 2026-10-15: arm64 and FreeBSD on by default, off under --quick; --no-bsd.
 ##		- 2026-10-19: --quick keeps the sanitizers, profiler and Windows cross
 ##		  build; --include-arm works under --quick.
+##		- 2026-11-02: --leakcheck and --no-leakcheck.
 ##		- 2026-10-21: static analyzer stage after the cross build, report only.
 ##		- 2026-10-24: --long (or --slow) adds arm64, now off in a plain run.
 ##		- 2026-10-25: --backlog-run-quick, --backlog-run-full and --merge-gate;

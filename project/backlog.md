@@ -1473,7 +1473,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - cicd.bash gets `--leakcheck` and `--no-leakcheck`.
 	- ID: 2026101911105600
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261019-111056
 	- Opened by: t00mietum
@@ -1484,7 +1484,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The last one on the command line wins.
 		- Both are in `--help`.
 	- Estimated effort: Low
-	- Test case: a pipeline option test that checks each flag, and both together in either order.
+	- Decisions:
+		- The flags set one switch, shown as a "Leak checks" line in the plan. It is on in a plain run and off under `--quick`. No stage reads it yet; 2026102114400592 and the heap soak item do.
+		- `--quiet` and `-q` only mean unattended here, so they don't change it. `--no-leakcheck` is how to leave the checks out of such a run.
+		- Not in the plan's step list, since there is no step to skip until those items land.
+	- Test case: desha (`cicd/utility/test-cicd-leakcheck.bash`, in the lint stage): each flag, both in either order, with `--quick` and with `-q`, and both in `--help`.
+	- Verified: it passes, and fails with `--no-leakcheck` set to turn the checks on. The help and quick pipeline tests still pass.
+	- Swept: the other places `--no-sanitize` and `--quick` are read in `cicd.bash`, and the help text. `cicd-win.ps1` takes the same flags under 2026102416300004, not here.
+	- Closed: 20261102-171500
 
 - Tree view: Right and Left arrow expand and collapse the folder, the way they do in the content view.
 	- ID: 2026102018234900
