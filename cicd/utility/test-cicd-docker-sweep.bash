@@ -3,9 +3,9 @@
 ##	- Purpose: Check the docker cleanup at the end of a cicd.bash run. It
 ##	  removes the run's labeled containers but the long-lived ones the config
 ##	  names, the project's dangling images and its tags past the newest 2 of
-##	  each repository, and build cache over a week old, then says what went in
-##	  one line. A failed step and SIGTERM get the same. --keep-temp keeps the
-##	  containers. Never rmi -f or a prune other than the build cache's. Off
+##	  each repository, then says what went in one line. A failed step and
+##	  SIGTERM get the same. --keep-temp keeps the containers. Never rmi -f, and
+##	  no prune, the shared build cache's included. Off
 ##	  without DOCKER_SWEEP, and quiet when docker isn't there. A refused
 ##	  docker system df leaves the size unknown and the rest going. A copy of
 ##	  cicd.bash runs in a scratch dir with a stand-in docker.
@@ -95,9 +95,9 @@ fSwept(){
 	fHas "$tag" "rmi app-x:old"
 	fHas "$tag" "rmi app-x:older"
 	fNot "$tag" "^rmi (app-x:new|app-x:prev|app-y:only)$"
-	fNot "$tag" "^rmi .*-f|prune -a|system prune|image prune|container prune|volume prune"
-	fHas "$tag" "builder prune -f --filter until=168h"
-	[[ "$lastOut" == *"[ docker: removed 1 container(s) and 3 image(s), and build cache over a week old; about 1.3 GB freed ]"* ]] \
+	fNot "$tag" "^rmi .*-f|prune"
+	fNot "$tag" "^(builder|buildx) "
+	[[ "$lastOut" == *"[ docker: removed 1 container(s) and 3 image(s); about 1.3 GB freed ]"* ]] \
 		|| fFail "[${tag}]: no summary line: $(tail -3 <<< "$lastOut")"
 }
 
@@ -115,7 +115,7 @@ fNot down "^(system|ps|rm|rmi|images|builder) "
 ## A df the daemon refuses leaves the size unknown, and the rest goes ahead.
 DF_FAIL=1 fRun "" 0
 fHas df "rm -f c1"
-[[ "$lastOut" == *"[ docker: removed 1 container(s) and 3 image(s), and build cache over a week old; size not known ]"* ]] \
+[[ "$lastOut" == *"[ docker: removed 1 container(s) and 3 image(s); size not known ]"* ]] \
 	|| fFail "[df]: no summary line with the size not known: $(tail -3 <<< "$lastOut")"
 runName="$(sed -n 's/.*label=dev\.run=\([^ ]*\).*/\1/p' "$log" | head -1)"
 [[ -n "$runName" && ! -e "${scratch}/host-temp/app/${runName}" ]] || fFail "[df]: the run folder ${runName} is still there"
@@ -124,4 +124,4 @@ if ((failures)); then
 	fEcho "FAILED: docker cleanup, ${failures} problem(s)"
 	exit 1
 fi
-fEcho "OK: a run removes its own containers, the project's old images and old build cache, and nothing else"
+fEcho "OK: a run removes its own containers and the project's old images, and nothing else"

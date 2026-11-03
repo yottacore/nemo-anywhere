@@ -96,7 +96,8 @@ TEST_CMD=(bash "${DOCKER_RUN}" "tests" "NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash
 ## utility/include/step-box.bash.
 CICD_CONTAINERS=()
 ## At the end of a run, remove the run's labeled containers, other than the ones
-## above, the project's dangling and older images, and week-old build cache.
+## above, and the project's dangling and older images. The build cache is the
+## daemon's to trim, through builder.gc, since every project shares it.
 DOCKER_SWEEP=1
 
 ## Stage 3 (after tests): lints - READY. cicd/utility/lint.bash runs the C check

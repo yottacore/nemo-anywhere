@@ -480,7 +480,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The pipeline prunes every project's docker build cache
 	- ID: 2026110311291909
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261103-112919
 	- Opened by: JC
@@ -490,7 +490,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Do it once b23's `/etc/docker/daemon.json` has the `builder.gc` block. `grep -q '"gc"' /etc/docker/daemon.json` checks. Until then the prune stays.
 	- Decisions:
 		- Don't move to a buildx builder of the project's own instead. shcl tried that on 2026-11-02. A cold build of a 2 GB image took 299 s against 266 s on the default builder, and the builder kept a second 3 GB copy of the layers for a week. shcl is going back to the default builder. (JC, me)
+		- b23's `daemon.json` has the `builder.gc` block (checked 20261103), so the prune is gone now.
+		- No build cache prune of any kind, not even one scoped by a filter. The default builder's cache isn't labeled by project, so no filter keeps to this project's part. The test now fails on any `builder` or `buildx` call and on any `prune`.
+		- Another box that runs `cicd.bash` with docker relies on its own daemon's `builder.gc`. Only b23 was checked.
 	- Estimated effort: Low
+	- Actual cause: `fDockerSweep` ran `docker builder prune -f --filter until=168h`, per the 2026-10-24 shared cleanup rule.
+	- Actual fix: `fDockerSweep` no longer prunes the build cache. The summary line drops "and build cache over a week old". `config.bash` and design.md "Branches and the merge gate" say the daemon trims it.
+	- Test case: dee6z, which now checks that the sweep makes no `builder` or `buildx` call and no prune, and the summary line without the build cache.
+	- Verified: 20261103, dee6z fails on the old `docker-sweep.bash` (10 problems) and with only the prune line put back (2 per run), and passes on the new one. `cicd/cicd.bash --backlog-run-quick format lint` in the round worktree passed every check up to ddagc, dee6z and shellcheck included. ddagc fails there because the build volumes belong to the main clone, which a run in flight uses, so the tests after it didn't run. None of them reads `docker-sweep.bash`.
+	- Swept: every `builder prune`, `buildx prune`, "build cache" and `DOCKER_SWEEP` mention under the worktree: `docker-sweep.bash`, `test-cicd-docker-sweep.bash`, `config.bash` and design.md. The other tests that copy `docker-sweep.bash` (the `test-cicd-arm`, `-quick`, `-leakcheck`, `-temp` and `-help` scripts) don't check the prune, and passed in the run above.
+	- Closed: 20261103-131540
 
 - On b29w, debgn, dcd70 and ddqdq fail in wintest's desktop session.
 	- ID: 2026110216323705

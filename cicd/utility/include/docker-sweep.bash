@@ -5,11 +5,13 @@
 ##	  this project's.
 ##	- fDockerSweep [name...] -> removes this run's containers, except the named
 ##	  ones (the long-lived build boxes), then the project's dangling images and
-##	  its tags past the newest 2 of each repository, then build cache older
-##	  than a week. Prints one line with what went and about what it freed.
+##	  its tags past the newest 2 of each repository. Prints one line with what
+##	  went and about what it freed.
 ##	  Needs CICD_PROJECT and CICD_RUN, which fRunTemp_Make sets. With
 ##	  runTempKeep=1 the run's containers stay.
 ##	- Never docker rmi -f or docker system prune, so an image in use stays put.
+##	- No build cache prune either. The default builder is shared by every
+##	  project, and the daemon trims it through builder.gc in daemon.json.
 ##	- Syntax: source this file; it defines functions only.
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -55,16 +57,16 @@ fDockerSweep(){
 		if [[ -n "${ref}" ]] && docker rmi "${ref}" > /dev/null 2>&1; then images=$((images + 1)); fi
 	done < <(docker images --filter "label=dev.project=${project}" --format '{{.Repository}} {{.Tag}}' 2> /dev/null \
 		| awk '$2 != "<none>" && seen[$1]++ >= 2 { print $1 ":" $2 }')
-	docker builder prune -f --filter until=168h > /dev/null 2>&1 || true
 	after="$(fDockerSweep_Bytes)"
 	freed="size not known"
 	if [[ "${before}" =~ ^[0-9]+$ && "${after}" =~ ^[0-9]+$ ]]; then
 		freed="$(awk -v b="$((before > after ? before - after : 0))" 'BEGIN { if (b >= 1e9) printf "%.1f GB", b / 1e9; else printf "%.0f MB", b / 1e6 }')"
 		freed="about ${freed} freed"
 	fi
-	printf '[ docker: removed %d container(s) and %d image(s), and build cache over a week old; %s ]\n' "${containers}" "${images}" "${freed}"
+	printf '[ docker: removed %d container(s) and %d image(s); %s ]\n' "${containers}" "${images}" "${freed}"
 }
 
 
 ##	History:
 ##		- 2026-10-25: Created.
+##		- 2026-11-03: No build cache prune. It reached other projects' cache.
