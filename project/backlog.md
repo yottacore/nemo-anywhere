@@ -33,6 +33,56 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Temp files: `install.ps1` and `n8runfm.ps1` get their own copy of the guard.
+	- ID: 2026110315185015
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261103-151850
+	- Opened by: 2026102516403476
+	- Parent ID: 2026102516403476
+	- Prereq IDs: 2026110315184948
+	- Requirements:
+		- Both run on their own, from a download or the launcher, so they need their own copy, as `install.bash` has. `install.ps1` removes the prefix with a bare `Remove-Item -Recurse` near line 619.
+
+- Temp files: the PowerShell scripts under `cicd/` remove through the guard.
+	- ID: 2026110315184983
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261103-151849
+	- Opened by: 2026102516403476
+	- Parent ID: 2026102516403476
+	- Prereq IDs: 2026110315184948
+	- Requirements:
+		- Each `Remove-Item -Recurse` in the scripts under `cicd/` goes through the PowerShell guard. File list in the private notes.
+		- A test that fails on a new bare `Remove-Item -Recurse`, as defnq does for `rm -r`.
+
+- Temp files: the run folder in `cicd-win.ps1`, and a PowerShell copy of the guard.
+	- ID: 2026110315184948
+	- Type: Task
+	- Status: Waiting on automated testing
+	- Needs external testing: the native gate on b29w through `cicd/win/lane.bash`, for the run folder under the lane's, its removal, the suite's longer paths, and detts with junctions and a held file.
+	- Priority|Severity: Avg
+	- Opened: 20261103-151849
+	- Opened by: 2026102516403476
+	- Parent ID: 2026102516403476
+	- Prereq IDs: 2026102516403466
+	- Requirements:
+		- `cicd-win.ps1` gets the same run folder, `run.pid`, removal at the end, keep switch and stale sweep as `cicd.bash`.
+		- A PowerShell copy of the guard, in one include the other scripts can dot-source.
+	- Progress log:
+		- 20261103: `cicd/utility/include/run-temp.ps1` has `New-RunTemp`, `Remove-StaleRunTemp` and `Remove-SafeTree`, the PowerShell copy of the guard. `Remove-SafeTree` takes the tmp folder rule, or with `-Under` the one parent rule, as `fSafeRm` and `fSafeRm_Under` do. It walks the tree itself, so a link or junction inside goes as a link and isn't followed, and hidden, system and read-only files go too. Windows tries again for 5 s, for a virus scanner holding a file.
+		- 20261103: `cicd-win.ps1` makes its run folder first thing in every mode, names it in the plan, sweeps stale ones, and removes it in its last `finally`, which a failure, a throw and Ctrl+C all reach. `-KeepTemp` keeps it and says where.
+	- Decisions:
+		- On Windows `TMPDIR` is cleared rather than pointed at the run folder. MSYS2 mounts `/tmp` on `TEMP`, so its tools land there anyway, and a Windows `TMPDIR` comes out as `/c/.../Temp/...`, which the bash guard's tmp folder rule refuses.
+		- A folder named `Temp`, in any case, counts as a tmp folder on Windows, since that's what `%TEMP%` is called there. Elsewhere it's `tmp` only, as in the bash guard.
+		- It also refuses the temp root and a project's whole folder right under it, as the machine's own guard does.
+		- One that's gone is skipped, as `Remove-Item -Force` callers expect. It warns for each refusal and returns `$false`, rather than throwing, so a `finally` or a trap carries on.
+		- Under the lane the run folder sits inside the lane's own, so the lane's removal still covers what a killed run leaves.
+	- Test case: detts (`cicd/utility/test-safe-rm.ps1`, lint stage: each refusal, a tree with hidden, read-only and linked entries, `-Under`, a held file, the run folder counter, `run.pid` and environment, and the sweep's live, missing, junk and linked `run.pid` cases), and dejjt (the plan names the run folder, every run removes it, failed or not, `-KeepTemp` keeps it, and the next run sweeps an old one).
+	- Verified: 20261103, detts and dejjt pass. detts fails with the link, through-a-link, tmp folder, under, `..`, project folder, live process, `run.pid` or linked sweep check taken out, with hidden files skipped, with links followed, and with the delete error not caught. dejjt fails with the removal, the sweep, `-KeepTemp` or the plan line taken out. PSScriptAnalyzer is clean. `cicd/cicd.bash --backlog-run-quick` passed.
+
 - pack-zip.bash's header says Copyright (c) 2026 Bubbles.
 	- ID: 2026110315153026
 	- Type: Bug
@@ -1138,6 +1188,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- `cicd-win.ps1` gets the same run folder, `run.pid`, removal at the end, keep switch and stale sweep as `cicd.bash`, on the Windows boxes.
 		- A PowerShell copy of the guard. The 29 `Remove-Item -Recurse` lines in 14 scripts go through it. File list in the private notes.
+	- Progress log:
+		- 20261103: split into children 2026110315184948 (the run folder in `cicd-win.ps1`, and the guard), 2026110315184983 (the scripts under `cicd/`) and 2026110315185015 (`install.ps1` and `n8runfm.ps1`, the prefix removal near line 619 included).
 	- Test case: none yet.
 	- 20261103: install.ps1 still removes the prefix with a bare Remove-Item -Recurse, near line 619. Cover it here.
 

@@ -8,6 +8,9 @@
 ##		  the full run: each step opens under a 79-dot rule and closes PASS, or
 ##		  FAIL when it dies, numbered out of the steps the plan has on, and the
 ##		  plan lists the ones turned off with why.
+##		- Each run makes its own run folder, names it in the plan, and removes
+##		  it at the end, failed or not, unless -KeepTemp keeps it. An old one a
+##		  dead run left is swept.
 ##		- Runs in the lint stage.
 ##	Syntax:
 ##		pwsh -NoProfile -File cicd/utility/test-cicd-win.ps1
@@ -119,6 +122,13 @@ function fPublish { param($Msg); fStub fPublish }
 	$body = $body.Replace($guard, 'if ($false) {').Replace($msys, '$MsysRoot = Join-Path $Root "no-msys"').Replace($entry, $stubs + $entry)
 	$copy = Join-Path $copyDir 'cicd-win.ps1'
 	Set-Content -LiteralPath $copy -Value $body -NoNewline
+	New-Item -ItemType Directory -Path (Join-Path $copyDir 'utility/include') | Out-Null
+	Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'include/run-temp.ps1') -Destination (Join-Path $copyDir 'utility/include/run-temp.ps1')
+	## The copy's run folders go here, so its sweep sees only what this test made.
+	$savedHostTemp = $env:HOST_TEMP
+	$env:HOST_TEMP = Join-Path $scratch 'host'
+	New-Item -ItemType Directory -Path $env:HOST_TEMP | Out-Null
+	$runBase = Join-Path (Get-Item -LiteralPath $env:HOST_TEMP).FullName 'nemo-anywhere'
 	New-Item -ItemType Directory -Path (Join-Path $scratch 'source') | Out-Null
 	Set-Content -LiteralPath (Join-Path $scratch 'source/meson.build') -Value "project('x', 'c', version : '1.2.3')"
 
@@ -136,6 +146,13 @@ function fPublish { param($Msg); fStub fPublish }
 		$lines = @(& pwsh -NoProfile -File $copy @CopyArgs 2>&1 | ForEach-Object { "$_" })
 		$exit = $LASTEXITCODE
 		if ($exit -ne $Rc) { fFail "${Label}: exit $exit, not $Rc"; $lines | Select-Object -Last 15 | ForEach-Object { Write-Host "    $_" } }
+		$runDirs = @($lines | Where-Object { $_ -match '^Run folder \.+: ' } | ForEach-Object { ($_ -replace '^Run folder \.+: ', '') -replace '  \(kept, -KeepTemp\)$', '' })
+		if ($runDirs.Count -ne 1 -or (Split-Path -Parent $runDirs[0]) -ne $runBase -or (Split-Path -Leaf $runDirs[0]) -notmatch '^\d{8}-\d{6}_\d{3}$') {
+			fFail "${Label}: the plan names the run folder '$($runDirs -join ', ')', not one under $runBase"
+		} elseif ($CopyArgs -contains '-KeepTemp') {
+			if (-not (Test-Path -LiteralPath (Join-Path $runDirs[0] 'run.pid'))) { fFail "${Label}: -KeepTemp didn't keep $($runDirs[0])" }
+			if (-not ($lines -match '^\[ kept the run folder: ')) { fFail "${Label}: no line saying the run folder was kept" }
+		} elseif (Test-Path -LiteralPath $runDirs[0]) { fFail "${Label}: left its run folder $($runDirs[0])" }
 		$want = $Steps.Count
 		$opened = [Collections.Generic.List[string]]::new()
 		$closed = @{}
@@ -185,12 +202,23 @@ function fPublish { param($Msg); fStub fPublish }
 	if (-not ($out -match '^probe at priority (Idle|BelowNormal)$')) { fFail "gate: the toolchain probe didn't run at low priority" }
 
 	fRun 'gate -NoFmt' @('-Gate', '-NoFmt') -Steps $gate[1..3] -Off 'Lints (-NoFmt)' | Out-Null
+	## Kept, and an old one a dead run left goes at the next run.
+	$out = fRun 'gate -KeepTemp' @('-Gate', '-KeepTemp') -Steps $gate
+	$kept = @($out | Where-Object { $_ -match '^\[ kept the run folder: (.+) \]$' } | ForEach-Object { $Matches[1] })
+	if ($kept.Count -ne 1) { fFail "gate -KeepTemp: no one folder kept" } else {
+		$old = Join-Path $runBase '20200101-000000_001'
+		Move-Item -LiteralPath $kept[0] -Destination $old
+		fRun 'gate after a kept one' @('-Gate') -Steps $gate | Out-Null
+		if (Test-Path -LiteralPath $old) { fFail "an old run folder whose run wasn't live wasn't swept" }
+	}
 	## -TestList: the named tests only, against the build already there.
 	$list = Join-Path $scratch 'tests.txt'
 	Set-Content -LiteralPath $list -Value "ddzzw a windowed test`n`n  ddzzx another  `n" -NoNewline
 	New-Item -ItemType Directory -Force -Path (Join-Path $scratch 'cicd/artifacts/build-win') | Out-Null
 	$out = @(& pwsh -NoProfile -File $copy -TestList $list 2>&1 | ForEach-Object { "$_" })
 	if ($LASTEXITCODE -ne 1 -or -not ($out -match 'FAILED: no build to test')) { fFail "tests named, no build: exit $LASTEXITCODE, not 1 with a line saying so" }
+	$left = @(Get-ChildItem -LiteralPath $runBase -Force)
+	if ($left.Count) { fFail "a run that died before its plan left $($left.Name -join ', ')" }
 	Set-Content -LiteralPath (Join-Path $scratch 'cicd/artifacts/build-win/build.ninja') -Value ''
 	$out = fRun 'tests named' @('-TestList', $list) -Steps @('Tests')
 	if (-not ($out -match '^names ddzzw a windowed test\|ddzzx another$')) { fFail "tests named: fTests didn't get the 2 names: $(($out -match '^names ') -join ', ')" }
@@ -224,8 +252,11 @@ function fPublish { param($Msg); fStub fPublish }
 	fRun 'full, -BuildStrict, no toolchain' @('-Yes', '-Message', 'x', '-BuildStrict') -Vars @{ T_TOOLMISS = '1' } -Steps (@($full[0]) + $full[2..8]) `
 		-Off 'Lints (toolchain missing)' -Rc 1 -Failed 'Build (debug)' | Out-Null
 	fRun 'full, pack fails' @('-Yes', '-Message', 'x') -Vars @{ T_FAIL = 'fPack' } -Steps $full -Rc 1 -Failed 'Packages' | Out-Null
+	$left = @(Get-ChildItem -LiteralPath $runBase -Force)
+	if ($left.Count) { fFail "run folders left: $($left.Name -join ', ')" }
 } finally {
 	foreach ($name in $saved.Keys) { [Environment]::SetEnvironmentVariable($name, $saved[$name]) }
+	if (Test-Path variable:savedHostTemp) { $env:HOST_TEMP = $savedHostTemp }
 	## Only the folder this test made, right under the one parent it may use.
 	$item = Get-Item -LiteralPath $scratch -Force -ErrorAction SilentlyContinue
 	if ($item -and -not $item.LinkType -and (Split-Path -Parent $item.FullName) -eq (Get-Item -LiteralPath $base).FullName) {
