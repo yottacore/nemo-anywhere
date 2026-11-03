@@ -3,7 +3,8 @@
 ##	- Purpose: Check that docker-run.bash runs each step in a container of its
 ##	  own: named <project>-<run folder>-<step>, labeled, with --rm unless
 ##	  CICD_KEEP_TEMP=1, the next number when the name is taken, the 2 cache
-##	  volumes made for this clone and refused for another, and the cache cap
+##	  volumes made for this clone and refused for another, a set of its own
+##	  for a linked worktree or CICD_VOLUME_PREFIX, and the cache cap
 ##	  run before the step. The image is tagged by a hash of Dockerfile.dev, and
 ##	  built from it with the labels when that tag isn't there, so an edit to the
 ##	  recipe gives a new image. A copy runs in a scratch dir with a stand-in docker.
@@ -65,7 +66,7 @@ fRun(){
 	local label="$1"; shift
 	: > "$log"
 	rc=0
-	out="$(env -u CICD_NO_CONTAINER -u CICD_KEEP_TEMP -u CICD_RUN -u CICD_PROJECT -u NEMO_IMAGE -u STUB_VOL_SRC -u STUB_NAMES -u STUB_BUILD_OK \
+	out="$(env -u CICD_NO_CONTAINER -u CICD_KEEP_TEMP -u CICD_RUN -u CICD_PROJECT -u NEMO_IMAGE -u CICD_VOLUME_PREFIX -u STUB_VOL_SRC -u STUB_NAMES -u STUB_BUILD_OK \
 		PATH="${scratch}/bin:${PATH}" DOCKER_LOG="$log" SOURCE_DATE_EPOCH=946684800 CICD_MAX_JOBS=1 STUB_IMAGES="${tag}" "$@" \
 		bash "${repo}/cicd/utility/docker-run.bash" "$label" 'echo the-step' 2>&1 < /dev/null)" || rc=$?
 	runLine="$(grep '^run ' "$log" || true)"
@@ -104,6 +105,15 @@ fRun "check" "${inRun[@]}" STUB_VOL_SRC=/some/other/clone
 
 fRun "check" STUB_VOL_SRC="$realRepo"
 [[ "$runLine" == *" --name nemo-anywhere-none-check-"[0-9]*" --label dev.project=nemo-anywhere --label dev.run=none "* ]] || fFail "[no run]: ${runLine:-no run}"
+
+fRun "check" "${inRun[@]}" CICD_VOLUME_PREFIX=pick
+[[ "$runLine" == *" -v pick-build:/build -v pick-build-fuzz:/build-fuzz "* ]] || fFail "[CICD_VOLUME_PREFIX]: ${runLine:-no run}"
+
+## A linked worktree's .git is a file.
+printf 'gitdir: /elsewhere\n' > "${repo}/.git"
+fRun "check" "${inRun[@]}"
+[[ "$runLine" == *" -v nemo-anywhere-wt-repo-build:/build -v nemo-anywhere-wt-repo-build-fuzz:/build-fuzz "* ]] || fFail "[worktree]: ${runLine:-no run}"
+rm -f "${repo}/.git"
 
 fRun "check" "${inRun[@]}" STUB_IMAGES="nemo-build-deps:init nemo-build-deps:latest" STUB_BUILD_OK=1
 grep -qxF "build --label dev.project=nemo-anywhere --label dev.run=20261026-120000_001 -t ${tag} -f ${repo}/cicd/linux/Dockerfile.dev ${repo}/cicd/linux/" "$log" \

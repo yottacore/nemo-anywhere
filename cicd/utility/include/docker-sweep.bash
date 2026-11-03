@@ -5,8 +5,9 @@
 ##	  this project's.
 ##	- fDockerSweep [name...] -> removes this run's containers, except the named
 ##	  ones (the long-lived build boxes), then the project's dangling images and
-##	  its tags past the newest 2 of each repository. Prints one line with what
-##	  went and about what it freed.
+##	  its tags past the newest 2 of each repository, then the project's cache
+##	  volumes whose clone is gone, such as a removed worktree's. Prints one
+##	  line with what went and about what it freed.
 ##	  Needs CICD_PROJECT and CICD_RUN, which fRunTemp_Make sets. With
 ##	  runTempKeep=1 the run's containers stay.
 ##	- Never docker rmi -f or docker system prune, so an image in use stays put.
@@ -37,8 +38,8 @@ fDockerSweep_Bytes(){
 }
 
 fDockerSweep(){
-	local project="${CICD_PROJECT:-}" run="${CICD_RUN:-}" before after freed id name ref
-	local containers=0 images=0
+	local project="${CICD_PROJECT:-}" run="${CICD_RUN:-}" before after freed id name ref src
+	local containers=0 images=0 volumes=0
 	[[ -n "${project}" && -n "${run}" ]] || return 0
 	if ! command -v docker > /dev/null 2>&1 || ! timeout 10 docker info > /dev/null 2>&1; then return 0; fi
 	before="$(fDockerSweep_Bytes)"
@@ -57,16 +58,23 @@ fDockerSweep(){
 		if [[ -n "${ref}" ]] && docker rmi "${ref}" > /dev/null 2>&1; then images=$((images + 1)); fi
 	done < <(docker images --filter "label=dev.project=${project}" --format '{{.Repository}} {{.Tag}}' 2> /dev/null \
 		| awk '$2 != "<none>" && seen[$1]++ >= 2 { print $1 ":" $2 }')
+	## dev.src is the clone a volume was made for. docker refuses one in use.
+	while read -r name src; do
+		if [[ -n "${name}" && "${src}" == /* && ! -e "${src}" ]] && docker volume rm "${name}" > /dev/null 2>&1; then
+			volumes=$((volumes + 1))
+		fi
+	done < <(docker volume ls --filter "label=dev.project=${project}" --format '{{.Name}} {{.Label "dev.src"}}' 2> /dev/null)
 	after="$(fDockerSweep_Bytes)"
 	freed="size not known"
 	if [[ "${before}" =~ ^[0-9]+$ && "${after}" =~ ^[0-9]+$ ]]; then
 		freed="$(awk -v b="$((before > after ? before - after : 0))" 'BEGIN { if (b >= 1e9) printf "%.1f GB", b / 1e9; else printf "%.0f MB", b / 1e6 }')"
 		freed="about ${freed} freed"
 	fi
-	printf '[ docker: removed %d container(s) and %d image(s); %s ]\n' "${containers}" "${images}" "${freed}"
+	printf '[ docker: removed %d container(s), %d image(s) and %d volume(s); %s ]\n' "${containers}" "${images}" "${volumes}" "${freed}"
 }
 
 
 ##	History:
 ##		- 2026-10-25: Created.
 ##		- 2026-11-03: No build cache prune. It reached other projects' cache.
+##		- 2026-11-03: Removes the cache volumes of a clone that's gone.

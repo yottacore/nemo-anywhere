@@ -10,6 +10,10 @@
 ##	- fStepBox_Volume <volume> [label] -> makes the cache volume for this clone, or
 ##	  checks it's this clone's. 1 with one line when another clone has it, 2 when
 ##	  it can't be made.
+##	- fStepBox_VolPrefix -> what the cache volume names start with:
+##	  CICD_VOLUME_PREFIX when set, else the project, or for a linked worktree
+##	  <project>-wt-<its folder name>, so a round's worktree builds on a set of its
+##	  own. The run's docker sweep removes a set once its clone is gone.
 ##	- fStepBox_Start <label> <image> [docker run args]... -> starts it detached,
 ##	  with the step's CPU cap and share, and sets stepBox to its name.
 ##	- fStepBox_Stop -> for the EXIT trap. --rm makes the stop a removal.
@@ -51,6 +55,19 @@ fStepBox_Volume(){
 	docker volume create --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" --label "dev.src=${here}" "${vol}" > /dev/null || return 2
 }
 
+fStepBox_VolPrefix(){
+	local project="${CICD_PROJECT:-nemo-anywhere}" here wt
+	[[ -z "${CICD_VOLUME_PREFIX:-}" ]] || { printf '%s\n' "${CICD_VOLUME_PREFIX}"; return 0; }
+	here="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
+	## A linked worktree's .git is a file.
+	if [[ -f "${here}/.git" ]]; then
+		wt="${here##*/}"; wt="${wt,,}"; wt="${wt//[^a-z0-9_.-]/-}"
+		printf '%s\n' "${project}-wt-${wt}"
+	else
+		printf '%s\n' "${project}"
+	fi
+}
+
 fStepBox_Start(){
 	local label="$1" image="$2" keep=(--rm); shift 2
 	[[ "${CICD_KEEP_TEMP:-0}" != 1 ]] || keep=()
@@ -79,3 +96,4 @@ fStepBox_ImageTag(){
 ##	History:
 ##		- 2026-10-26: Created, from docker-run.bash.
 ##		- 2026-10-28: fStepBox_ImageTag, for images built from a pinned recipe.
+##		- 2026-11-03: fStepBox_VolPrefix, a set of cache volumes per worktree.

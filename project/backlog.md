@@ -36,7 +36,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ddagc fails in a round worktree, so the lint stage stops before the tests after it.
 	- ID: 2026110313162837
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261103-131628
 	- Opened by:
@@ -46,6 +46,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: ddagc (test-docker-run.bash) fails, and the lint stage stops there, so the 17 tests after it in lint.bash never run. Every worker gate and the gate step of a worktree round lose them.
 	- Expected behavior: a worktree gate runs every lint-stage test. A test that needs the clone-owned volumes uses its own scratch volume, or skips with 77 and a reason.
 	- Reproduced: 20261103, 1 of 1, round1103a worker on 2026110311291909.
+	- Actual cause: ddagc's first case runs `docker-run.bash` from the clone it's in and expects the step to run, on the real cache volumes. In a worktree those belong to the main clone, so the step is refused. ddf32 runs through `docker-run.bash` the same way, and failed in a worktree too, once ddagc no longer stopped the stage first.
+	- Actual fix: `docker-run.bash` and `win-box.bash` take their cache volume names from one helper. A linked worktree gets a set of its own, `nemo-anywhere-wt-<folder>-build` and so on, so the tests stage runs in a round worktree too. The main clone keeps `nemo-anywhere-build` and the rest. `CICD_VOLUME_PREFIX` names another set, and ddagc and ddf32 each use one of their own, removed after. ddagc now also checks that its volumes were made for this clone. The docker sweep at the end of a run removes the project's cache volumes whose clone is gone, such as a removed worktree's.
+	- Decisions:
+		- A set of volumes per test run, rather than a skip with 77, so the clone check still runs in a worktree.
+		- A set per linked worktree changes the 2026102617253209 decision of one set per project. Rounds work in worktrees now, and the gate's tests stage was refused in every one of them. Each set still belongs to one clone, so no clone builds on another's objects. A worktree's set starts cold, about 1.2 GB, plus about 600 MB once it cross builds. The sweep removes it at the end of the first run after the worktree goes, from any clone.
+		- Only a linked worktree, told by its `.git` file, gets its own set by default. A second full clone is still refused, so the main clone's volume names don't change.
+		- A volume is removed only when its `dev.src` label names a path that isn't there. docker refuses one in use. A clone on a mount that's down loses its cache, which only costs a cold build.
+		- A test killed before its trap leaves its 2 small volumes, labeled with the worktree it ran in, and the sweep takes them once that worktree goes.
+		- "ddagc fails in any worktree" was noted on 6 closed items since 20261014. This fixes the cause rather than another note.
+	- Test case: ddagc, ddf32, defmw (a linked worktree's set and `CICD_VOLUME_PREFIX`), dee6z (a gone clone's volume removed, a live one and an unlabeled one kept).
+		- 20261103: dee6z's summary line went from "removed 1 container(s) and 3 image(s)" to "removed 1 container(s), 3 image(s) and 1 volume(s)".
+	- Verified: 20261103, ddagc and ddf32 as they were fail from a clone that doesn't own the volumes, and pass from the round worktree now. ddagc fails with the clone check turned off (2 problems). defmw fails with no worktree set, and dee6z with no volume removal (7 problems). `cicd/cicd.bash --backlog-run-quick format lint` in the round worktree passed twice, 111 PASS and no SKIP, ddagc, ddf32, defmw, dee6z and defps among them. No test volume was left after any run.
+	- Verified: 20261103, `cicd/cicd.bash --backlog-run-quick tests` in the round worktree built all 790 targets cold in `nemo-anywhere-wt-worktree_round1103a-build` and ran the suite: 234 OK, 1 skipped, 1 failed. The failure was de5hg, which also fails at times on dev (2026101914184878), and it passed alone in the same volume, with nothing to rebuild. The sweep removed a volume labeled with a path that isn't there and kept the main clone's and the worktree's.
+	- Swept: every lint-stage test that starts a real step container: ddagc, ddf32, and ddf31, which mounts no cache volume (`--no-build-win`). defmw, defky and defps use a stand-in docker. The `fStepBox_Volume` callers are `docker-run.bash` and `win-box.bash`. The docs that said a worktree is refused: design.md "Building on Linux".
+	- Closed: 20261103-133300
 
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100

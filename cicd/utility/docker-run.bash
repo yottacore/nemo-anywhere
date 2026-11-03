@@ -17,6 +17,10 @@
 ##   <label> names the step, and the container after it.
 ##   NEMO_IMAGE          the image (default nemo-build-deps:<hash>, built from the
 ##                       pinned linux/Dockerfile.dev the first time its hash is seen).
+##   CICD_VOLUME_PREFIX  the cache volumes are <prefix>-build and <prefix>-build-fuzz
+##                       (default the project, or <project>-wt-<folder> in a linked
+##                       worktree). A test gives its own, so it never needs the
+##                       clone that owns the real ones.
 ##   The command finds the tree at ${CICD_SRC} and builds under ${CICD_BUILD_ROOT}:
 ##   /src and empty in the container, the clone and its build/host on the host.
 ##   stdin reaches the command when it isn't a terminal.
@@ -51,6 +55,7 @@ fSetSourceDate "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=include/step-box.bash
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/include/step-box.bash"
 fJobs_Default
+vols="$(fStepBox_VolPrefix)"
 image="${NEMO_IMAGE:-}"
 [[ -n "$image" ]] || image="$(fStepBox_ImageTag nemo-build-deps "${repo}/cicd/linux/Dockerfile.dev")" \
 	|| { fEcho "FAILED: ${label}: no linux/Dockerfile.dev to build the image from" >&2; exit 1; }
@@ -100,11 +105,11 @@ if ! docker image inspect "$image" >/dev/null 2>&1; then
 fi
 
 for vol in build build-fuzz; do
-	rc=0; fStepBox_Volume "${project}-${vol}" "${label}" || rc=$?
+	rc=0; fStepBox_Volume "${vols}-${vol}" "${label}" || rc=$?
 	case "${rc}" in
 		0) ;;
 		1) exit 1 ;;
-		*) fOnHost "could not make volume ${project}-${vol}" ;;
+		*) fOnHost "could not make volume ${vols}-${vol}" ;;
 	esac
 done
 name="$(fStepBox_Name "${label}")"
@@ -125,6 +130,6 @@ stdin=(); [[ -t 0 ]] || stdin=(-i)
 exec docker run "${keep[@]}" "${stdin[@]}" --init --ulimit core=0 --shm-size=2g --cpus "${CICD_MAX_JOBS}" --cpu-shares 256 --name "$name" \
 	--label "dev.project=${project}" --label "dev.run=${run}" \
 	--security-opt seccomp=unconfined --security-opt apparmor=unconfined \
-	-v "${repo}:/src" -v "${project}-build:/build" -v "${project}-build-fuzz:/build-fuzz" -w /src \
+	-v "${repo}:/src" -v "${vols}-build:/build" -v "${vols}-build-fuzz:/build-fuzz" -w /src \
 	-e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-0}" -e "CICD_MAX_JOBS=${CICD_MAX_JOBS}" -e CICD_SRC=/src -e CICD_BUILD_ROOT= -e CICD_CACHE_CAP_KB \
 	"$image" nice -n 19 sh -c "ulimit -c 0; ionice -c 3 -p \$\$ 2>/dev/null; bash /src/cicd/linux/cache-cap.bash /build /build-fuzz || true; $cmd"

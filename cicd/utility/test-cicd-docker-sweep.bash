@@ -3,7 +3,8 @@
 ##	- Purpose: Check the docker cleanup at the end of a cicd.bash run. It
 ##	  removes the run's labeled containers but the long-lived ones the config
 ##	  names, the project's dangling images and its tags past the newest 2 of
-##	  each repository, then says what went in one line. A failed step and
+##	  each repository, and the cache volumes of a clone that's gone, then says
+##	  what went in one line. A failed step and
 ##	  SIGTERM get the same. --keep-temp keeps the containers. Never rmi -f, and
 ##	  no prune, the shared build cache's included. Off
 ##	  without DOCKER_SWEEP, and quiet when docker isn't there. A refused
@@ -54,6 +55,7 @@ cat > "${scratch}/bin/docker" <<-'EOF'
 		        if [[ -e "${DOCKER_LOG}.df" ]]; then printf '1GB\n0B\n0B\n1.5GB\n'; else touch "${DOCKER_LOG}.df"; printf '1.5GB\n300MB\n0B\n2GB\n'; fi ;;
 		ps)     printf 'c1 app-run-step\nc2 app-box\n' ;;
 		images) if [[ " $* " == *" -q "* ]]; then echo d1; else printf 'app-x new\napp-x prev\napp-x <none>\napp-x old\napp-y only\napp-x older\n'; fi ;;
+		volume) [[ "$2" != ls ]] || printf 'app-build /gone/clone\napp-live /\napp-bare \n' ;;
 	esac
 	exit 0
 EOF
@@ -97,7 +99,10 @@ fSwept(){
 	fNot "$tag" "^rmi (app-x:new|app-x:prev|app-y:only)$"
 	fNot "$tag" "^rmi .*-f|prune"
 	fNot "$tag" "^(builder|buildx) "
-	[[ "$lastOut" == *"[ docker: removed 1 container(s) and 3 image(s); about 1.3 GB freed ]"* ]] \
+	fHas "$tag" "volume ls --filter label=dev\.project=app .*"
+	fHas "$tag" "volume rm app-build"
+	fNot "$tag" "^volume rm (app-live|app-bare)"
+	[[ "$lastOut" == *"[ docker: removed 1 container(s), 3 image(s) and 1 volume(s); about 1.3 GB freed ]"* ]] \
 		|| fFail "[${tag}]: no summary line: $(tail -3 <<< "$lastOut")"
 }
 
@@ -115,7 +120,7 @@ fNot down "^(system|ps|rm|rmi|images|builder) "
 ## A df the daemon refuses leaves the size unknown, and the rest goes ahead.
 DF_FAIL=1 fRun "" 0
 fHas df "rm -f c1"
-[[ "$lastOut" == *"[ docker: removed 1 container(s) and 3 image(s); size not known ]"* ]] \
+[[ "$lastOut" == *"[ docker: removed 1 container(s), 3 image(s) and 1 volume(s); size not known ]"* ]] \
 	|| fFail "[df]: no summary line with the size not known: $(tail -3 <<< "$lastOut")"
 runName="$(sed -n 's/.*label=dev\.run=\([^ ]*\).*/\1/p' "$log" | head -1)"
 [[ -n "$runName" && ! -e "${scratch}/host-temp/app/${runName}" ]] || fFail "[df]: the run folder ${runName} is still there"

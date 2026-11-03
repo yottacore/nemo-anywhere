@@ -3,6 +3,8 @@
 ##	- Purpose: Check that docker-run.bash refuses to run from a clone other
 ##	  than the one its build cache volumes belong to, such as a second
 ##	  worktree. Else the gate would build on the other clone's objects.
+##	- Uses cache volumes of its own, so it runs from any clone, a worktree
+##	  included, whoever owns the real ones, and never touches those.
 ##	- Needs docker and the build image; exit 77 without them.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-docker-run.bash
@@ -34,18 +36,26 @@ fi
 failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
+## Volumes of its own, made by the first run below and removed after.
+export CICD_VOLUME_PREFIX="nemo-anywhere-ddagc-$$"
+fCleanup(){
+	docker volume rm "${CICD_VOLUME_PREFIX}-build" "${CICD_VOLUME_PREFIX}-build-fuzz" > /dev/null 2>&1 || true
+	fSafeRm_IfThere "${scratch:-}"
+}
+trap fCleanup EXIT
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/docker-run-test.XXXXXX")"
-trap 'fSafeRm_IfThere "${scratch}"' EXIT
 mkdir -p "${scratch}/cicd/utility/include" "${scratch}/cicd/linux"
 cp "${here}/../linux/Dockerfile.dev" "${scratch}/cicd/linux/"
 cp "${here}/docker-run.bash" "${scratch}/cicd/utility/"
 cp "${here}/include/source-date.bash" "${scratch}/cicd/utility/include/"
 cp "${here}/include/jobs.bash" "${here}/include/step-box.bash" "${scratch}/cicd/utility/include/"
 
-## This clone first, which makes the volumes for it on a fresh box.
+## This clone first, which makes the volumes for it.
 rc=0
 out="$(bash "${here}/docker-run.bash" check 'echo inside-the-box' 2>&1)" || rc=$?
 [[ "$rc" == 0 && "$out" == *"inside-the-box"* ]] || fFail "refused the clone the volumes belong to (exit ${rc}); said: ${out}"
+src="$(docker volume inspect "${CICD_VOLUME_PREFIX}-build" --format '{{index .Labels "dev.src"}}' 2>&1)" || true
+[[ "$src" == "$(cd "${here}/../.." && pwd -P)" ]] || fFail "${CICD_VOLUME_PREFIX}-build not made for this clone; its dev.src: ${src}"
 
 rc=0
 out="$(bash "${scratch}/cicd/utility/docker-run.bash" check 'echo inside-the-box' 2>&1)" || rc=$?

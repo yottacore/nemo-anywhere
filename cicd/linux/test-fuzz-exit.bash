@@ -31,6 +31,10 @@ if [[ "${1:-}" != "--inside" ]]; then
 		fEcho "fuzz exit check skipped: no build image"
 		exit 77
 	fi
+	## Cache volumes of its own, which it doesn't read, so it runs from any
+	## clone, a worktree included.
+	export CICD_VOLUME_PREFIX="nemo-anywhere-ddf32-$$"
+	trap 'docker volume rm "${CICD_VOLUME_PREFIX}-build" "${CICD_VOLUME_PREFIX}-build-fuzz" > /dev/null 2>&1 || true' EXIT
 	rc=0
 	# shellcheck disable=SC2016  ## expanded by the shell in the container
 	tar -C "${here}/.." -cf - linux/fuzz.bash linux/test-fuzz-exit.bash utility/check-werror.bash utility/meson-setup.bash \
