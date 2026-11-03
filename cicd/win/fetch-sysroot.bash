@@ -46,8 +46,11 @@ while read -r repo file sha; do
 done < "${PINS}"
 ((${#files[@]})) || fDie "no packages in ${PINS}"
 
+## Under MSYSTEM=MINGW64 a native mingw64 curl can come first, and it can't open MSYS paths like /tmp.
+curlBin="$(command -v curl || true)"
+[[ "${curlBin}" == /mingw* && -x /usr/bin/curl ]] && curlBin=/usr/bin/curl
 fEcho "Fetching ${#files[@]} pinned packages"
-curl -fsSL --retry 3 --parallel --parallel-max 8 -K "${work}/curl.cfg" || fDie "could not fetch the pinned packages"
+"${curlBin:-curl}" -fsSL --retry 3 --parallel --parallel-max 8 -K "${work}/curl.cfg" || fDie "could not fetch the pinned packages"
 ## These libraries ship in the release, so unpacking one unverified is not on.
 (cd "${work}" && sha256sum --quiet --strict -c sums) || fDie "checksum mismatch"
 

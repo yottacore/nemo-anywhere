@@ -148,7 +148,7 @@ fMsys2Pins_Update(){
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
 fMsys2Pins_Install(){
-	local pins="$1" work repo file sha files=()
+	local pins="$1" work repo file sha curlBin files=()
 	[[ "$(uname -o 2>/dev/null)" == "Msys" ]] || fDie "install runs under MSYS2 only"
 	work="$(mktemp -d)"
 	# shellcheck disable=SC2064 # the path is fixed now, on purpose
@@ -162,8 +162,11 @@ fMsys2Pins_Install(){
 		files+=("${work}/${file}")
 	done < "${pins}"
 	[[ ${#files[@]} -gt 0 ]] || fDie "no packages in ${pins}"
+	## Under MSYSTEM=MINGW64 a native mingw64 curl can come first, and it can't open MSYS paths like /tmp.
+	curlBin="$(command -v curl || true)"
+	[[ "${curlBin}" == /mingw* && -x /usr/bin/curl ]] && curlBin=/usr/bin/curl
 	fEcho "Fetching ${#files[@]} pinned packages"
-	curl -fsSL --retry 3 --parallel --parallel-max 8 -K "${work}/curl.cfg"
+	"${curlBin:-curl}" -fsSL --retry 3 --parallel --parallel-max 8 -K "${work}/curl.cfg"
 	(cd "${work}" && sha256sum --quiet --strict -c sums) || fDie "checksum mismatch"
 	pacman -U --noconfirm "${files[@]}"
 }
@@ -183,3 +186,4 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then fMain "$@"; fi
 ##	History:
 ##		- 20261028: Created.
 ##		- 20261031: Writes the cross build sysroot's list too.
+##		- 20261103: Uses MSYS curl when a native mingw64 one comes first.
