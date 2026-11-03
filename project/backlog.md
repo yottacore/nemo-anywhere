@@ -33,6 +33,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- ddagc fails in a round worktree, so the lint stage stops before the tests after it.
+	- ID: 2026110313162837
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261103-131628
+	- Opened by:
+	- Target OS: Linux
+	- Test environment: a round worktree beside repo/, while the build volumes nemo-anywhere-build and nemo-anywhere-build-fuzz belong to the main clone.
+	- Steps to reproduce: cicd/cicd.bash --backlog-run-quick format lint, from a worktree made by git worktree add.
+	- Incorrect behavior: ddagc (test-docker-run.bash) fails, and the lint stage stops there, so the 17 tests after it in lint.bash never run. Every worker gate and the gate step of a worktree round lose them.
+	- Expected behavior: a worktree gate runs every lint-stage test. A test that needs the clone-owned volumes uses its own scratch volume, or skips with 77 and a reason.
+	- Reproduced: 20261103, 1 of 1, round1103a worker on 2026110311291909.
+
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
