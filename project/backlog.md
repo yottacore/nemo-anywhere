@@ -128,8 +128,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Need to wait longer after powering up VMs, to connect via SSH.
 	- ID: 2026102808084300
 	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: the arm64 release with vmDebARM64 off rather than paused, in a full run with `--long`, so its boot is waited for.
+	- Status: Done
+	- Needs local test suite run?: no. The arm64 release from off passed in the full run of 20261102.
 	- Priority|Severity: High
 	- Opened: 20261028-080843
 	- Opened by: t00mietum
@@ -151,6 +151,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261028, the FreeBSD lane alone (`lane.bash --tests`) at d7bd529d with vmFreeBSD off: it was started, its login waited for, the suite passed (216 OK, 20 skipped), and it was shut down after. In the full run before, from paused, the lane got in and failed later on the clock, which is 2026102810470587.
 	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed: the arm64 lane from paused was ready in 15 s, and the FreeBSD suite and release from paused in under a second each. Neither VM booted from off in it.
 	- 20261031: not run. The round's full run had no `--long`.
+	- Verified: 20261102, full run 20261102-172236 at fdce4acd (`--backlog-run-full --long`), all 15 steps passed. vmDebARM64 was off: the arm64 lane started it, its Box ready step waited about 16 s for the login and docker and passed, and the build passed (119 min on the box), then the VM was shut down again. The FreeBSD suite and release woke vmFreeBSD from paused and were ready in under a second each.
+	- Closed: 20261102-204017
 
 - CICD step output: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102819522603
@@ -179,6 +181,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddmn7 and ddmmv (the steps of a passing run, a failing step closing as `FAIL`, and the rule above each step).
 	- Verified: 20261028, ddmn7 and ddmmv pass, and fail on the lanes before the change, with a 78-dot rule, and with no `FAIL` close on a failure.
 	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed: the FreeBSD suite (FreeBSD 1 to 3 of 3), the FreeBSD release (1 to 4 of 4) and the arm64 release (arm64 1 to 4 of 4) each printed their own steps inside the run's step, under the rule, with `Starting` and `PASS`.
+	- 20261102: the full run at fdce4acd passed every step, `--long` included. The FreeBSD suite (1 to 3 of 3), the FreeBSD release (1 to 4 of 4) and the arm64 release (1 to 4 of 4) printed their steps the same way. The private runner passed but printed no step lines of its own, so this item waits on 2026102820110989.
 
 - Other hosts: the Windows dogfood takes b29w by that name, and its box through the VM state helper.
 	- ID: 2026102808250954
@@ -200,6 +203,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: dehyb. b29w goes first by that name, vm925w is taken through the VM state helper while off and its login waited for, and no box there is a skip. It fails before the change and passes after.
 	- Verified: 20261028, dehyb, and the quick gate.
 	- 20261031: not run. A round never runs the dogfood.
+	- 20261102: not run, as above. dehyb passed in the full run at fdce4acd.
 	- 20261028: not run. Left for a plain run, since no narrower check covers the refresh.
 	- 20261028: still not run. A round never runs the dogfood, and the step it needs, vm925w started from off, can't happen while the paused vmKt6m holds SPICE port 5900. dehyb covers the rest.
 
@@ -230,6 +234,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddmn7 (FreeBSD lane: half the box's CPUs, a quarter when busy, the pin, a bad pin, nice 19 there), ddmmv (arm64: the same under nice and ionice, and the container's cap), dee7t (reading both kinds of load line).
 	- Verified: 20261028, ddmn7, ddmmv and dee7t pass. ddmn7 and ddmmv fail on the lanes before the change: a fixed 4, no nice and no jobs line.
 	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed: the FreeBSD suite and release printed "jobs 4 (load 1.65 on 8 cpus on bsdtest@vmFreeBSD)" and "jobs 4 (load 0.85 ...)", and the arm64 release "jobs 4 (load 1.31 on 8 cpus on tester@vmDebARM64)". nice and the container caps there are checked by ddmn7 and ddmmv, which passed in the same run.
+	- 20261102: the full run at fdce4acd passed every step. The lanes printed "jobs 4 (load 1.40 on 8 cpus on bsdtest@vmFreeBSD)" and "jobs 4 (load 3.07 on 8 cpus on tester@vmDebARM64)". The private runner printed only this box's jobs line, none for b26, so this item waits on 2026102820110967.
 
 - CICD step output: `cicd-win.ps1` and the lanes on other boxes.
 	- ID: 2026102517333373
@@ -248,6 +253,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261028: `cicd-win.ps1` makes its plan first, from the same switches the steps read, so M is known at step 1. Each step opens under a 79-dot rule with a `Starting` line and closes `PASS` or `FAIL`. A step still open when the run stops, by a failure, a throw or Ctrl+C, closes as `FAIL`. The gate and the full run print the plan's step count and the steps turned off, each with its flag or reason.
 		- 20261028: split the lanes and the private runner into child 2026102819522603.
 		- 20261029: open only for its child 2026102819522603, which waits on the private runner's child 2026102820110989.
+		- 20261102: still open for that child. The full run at fdce4acd passed the private runner, but it printed no step lines of its own.
 	- Decisions:
 		- The steps are the old stages, plus the smoke checks, now their own step in the full run as in the gate: Remote sync, Lints, Build (debug), Tests, Smoke checks, Runtime bundle, Packages, Dogfood, Publish. The names match `cicd.bash`'s where the step is the same.
 		- A missing toolchain, `-NoBuild`, `-NoPack` and a missing Enigma Virtual Box turn steps off in the plan, rather than warning inside the step. Dogfood says which of those turned the pack off.
