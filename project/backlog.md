@@ -33,6 +33,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- debgn and dcd70 pass in wintest's unlocked desktop session on b29w.
+	- ID: 2026110216492601
+	- Type: Task
+	- Status: Waiting for answers
+		- Waits on the 2026110216492601 question in questions.md: whether b29w should stop locking wintest's session.
+	- Needs external testing: debgn and dcd70 through `cicd/win/lane.bash b29w`, with wintest's session unlocked.
+	- Priority|Severity: Avg
+	- Opened: 20261102-164926
+	- Opened by: 2026110216323705
+	- Parent ID: 2026110216323705
+	- Related IDs: 2026103114202730
+	- Target OS: Windows
+	- Test environment: b29w, the native lane's desktop step, as wintest in session 2.
+	- Requirements:
+		- With wintest's session unlocked, debgn and dcd70 pass in the lane's desktop step, as debgn does on vm925w.
+		- The session stays unlocked between runs, or the step keeps warning.
+	- Test case: debgn and dcd70, in the lane's desktop step on b29w.
+
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
@@ -63,46 +81,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 2da98315
 	- Test case: de5he on Windows, which answers 77 there until GLib has the fix.
 
-- Nemo Anywhere dim checkmarks: the list view column.
-	- ID: 2026102411133409
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: no
-	- Prereq IDs: 2026102510323600
-	- Needs external testing: no. dec8w and dec8v pass in the FreeBSD lane. Neither is built for Windows, since both preload a probe.
-	- Needs hand testing: no. The look was checked in a light and a dark theme on 20261102.
-	- Priority|Severity: High
-	- Opened: 20261024-111334
-	- Opened by: t00mietum
-	- Parent ID: 2026102407515571
-	- Target OS: All
-	- Requirements:
-		- Only under Nemo Anywhere. A dim checkmark on every selected row, and none on the rest. The text doesn't change.
-		- A thin new column left of Name, with nothing else in it. It can't be hidden or moved, and isn't in the column chooser.
-		- It comes and goes with the selection model setting, live.
-		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
-	- Progress log:
-		- 20261024: opened.
-		- 20261024: a checkmark column, first in the list view under Nemo Anywhere, with a mark on each selected row. Under the other models it isn't in the tree view at all. It follows the setting live, can't be moved, and isn't in the column chooser. Name keeps the expanders.
-		- 20261024: de8bd, de8dm and dec8w expect 72 list view results, up from 71, for the new check on the column.
-		- 20261024: dec8w and dec8v pass on vmFreeBSD at c7194950.
-	- Decisions:
-		- The mark is a checkmark glyph (U+2713) in the selected row's text color, drawn with the theme's insensitive look. The selection color itself would vanish on the selection background, so this departs from the note on the parent until the per-theme color step.
-		- Under the other models the column is out of the tree view, so their column numbers don't move.
-		- Its width is the glyph's, taken off the row before the other columns share it.
-	- Not covered by a test yet: the column coming and going when the setting changes while the window is open.
-	- Swept: every walk of the list view's columns (the column chooser and its toggle, the saved order, applying the column settings, layout, measuring, the width drag), and every `gtk_tree_view_get_column (..., 0)` in the app and the tests. The list model's drag geometry now takes the expander column, which is Name.
-	- Branch: round1024b
-	- Test case: dec8w and dec8v, where every list view check also checks the marks, the bands included. de8bd, de8dm and dec8w check the column is there only under Nemo Anywhere, thin, and without the expanders.
-	- Verified: 20261024, dec8w, dec8v, de8bd, ddy5f, de8dm and de8ec pass. The full Linux suite, 234 OK and 1 skipped. The build and the Windows cross build with warnings as errors, the C lint, and the test ID check pass.
-	- Verified: 20261024, dec8w and dec8v pass in the FreeBSD lane at c7194950.
-	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9.
-	- Stand-in: none (20261028). Turns on how the dim mark looks in a light and a dark theme.
-	- Verified: 20261102 at fdce4acd, the list view under Nemo Anywhere in Adwaita and Adwaita dark, with 3 of 10 rows picked by a click and two Ctrl+clicks: a thin column left of Name, a dim mark on each picked row and none on the rest, names unchanged. The mark sits about halfway between the selection color and the row's text in both, so it reads without competing with the name.
-	- Acceptance signoff: Self-closed: the look checked at fdce4acd in Adwaita light and dark.
-	- Closed: 20261102-172818
-
 - README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
 	- ID: 2026101417352264
 	- Type: Task
@@ -125,34 +103,47 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none new, docs only. The lint stage passes, and its prose check now reads install.md and building.md.
 	- Stand-in: none (20261028). File names, layout and the license line are calls for a person.
 
-- Need to wait longer after powering up VMs, to connect via SSH.
-	- ID: 2026102808084300
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. The arm64 release from off passed in the full run of 20261102.
-	- Priority|Severity: High
-	- Opened: 20261028-080843
-	- Opened by: t00mietum
-	- Target OS: FreeBSD, Linux
+- Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
+	- ID: 2026100516274646
+	- Type: Enhancement
+	- Status: Waiting on signoff
+		- Only the Reset button's look is left.
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: no. dd5dm passed on vm925w with a 560 px work area on 20261102.
+	- Needs hand testing: the Reset button's look beside Options on a real desktop.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274386
+	- Target OS: Linux, Windows
+	- Design: [Options expander](design_docs/20260929-101432_compression.md#options-expander) and [Options the writer can't do](design_docs/20260929-101432_compression.md#options-the-writer-cant-do).
 	- Requirements:
-		- Before the next cut.
-	- Incorrect behavior: need to wait longer after powering up VMs, to connect via SSH. Especially ARM64, which takes forever. It looks like it didn't wait long enough for vmFreeBSD to boot.
-	- Expected behavior: a lane that starts its VM waits until the VM has booted and takes ssh, then connects.
-	- Possible cause: the VM helper's ssh check passes before the lane's own ssh target is ready, or the lane's 8 second connect timeout is too short right after boot. The FreeBSD lane and the arm64 release both go through `cicd/utility/include/box-wrap.bash`.
-	- Actual cause: not seen on a real boot yet. The VM helper waits for ssh as the person running it, with 5 s tries. Each lane then made one try as its own user with an 8 s timeout, and arm64 also needed docker up by then. A login or docker that lags behind the first ssh, or a slow answer from a VM just booted on a busy host, fails the lane at once. The helper's boot wait is 600 s, short for the emulated arm64 VM.
-		- Ruled out: the failures of 20261026 and 20261027 at 11:25 came before the lanes took their box through the VM helper, so nothing waited for a boot. The two full runs after that change passed from off and from paused.
-	- Actual fix: both lanes wait for their own login, polling every 5 s, before anything is sent: 600 s for FreeBSD, 1200 s for arm64, which also waits for docker. A box that answers but is the wrong kind fails at once, and a name that doesn't resolve fails without the wait. arm64 raises the helper's boot wait to 1200 s. Both lanes' connect timeout is 30 s, from 8.
-	- Decisions:
-		- The wait runs the lane's own check, as the lane's user, rather than relying on the helper's. It covers the bare host lock too, and a box someone else is booting.
-		- Knobs: `NEMO_BSD_READY_WAIT` and `NEMO_ARM_READY_WAIT`. The Windows dogfood does the same since 2026102808250954, with `NEMO_WIN_READY_WAIT`.
-	- Swept: every ssh to a test box in `cicd/`. The FreeBSD lane and the arm64 release were the only ones that start a VM.
-	- Test case: ddmn7 and ddmmv. A box whose ssh, or docker on arm64, comes up after a few tries is waited for, and one that never does fails before anything is sent. Both new cases fail before the fix and pass after.
-	- Verified: 20261028, ddmn7 and ddmmv, and the quick gate.
-	- Verified: 20261028, the FreeBSD lane alone (`lane.bash --tests`) at d7bd529d with vmFreeBSD off: it was started, its login waited for, the suite passed (216 OK, 20 skipped), and it was shut down after. In the full run before, from paused, the lane got in and failed later on the clock, which is 2026102810470587.
-	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed: the arm64 lane from paused was ready in 15 s, and the FreeBSD suite and release from paused in under a second each. Neither VM booted from off in it.
-	- 20261031: not run. The round's full run had no `--long`.
-	- Verified: 20261102, full run 20261102-172236 at fdce4acd (`--backlog-run-full --long`), all 15 steps passed. vmDebARM64 was off: the arm64 lane started it, its Box ready step waited about 16 s for the login and docker and passed, and the build passed (119 min on the box), then the VM was shut down again. The FreeBSD suite and release woke vmFreeBSD from paused and were ready in under a second each.
-	- Closed: 20261102-204017
+		- Options opens when a remembered choice isn't the default, one the format forced off included.
+		- A button beside Options puts every choice under it back to default, drops the remembered ones from the settings file, and collapses Options. It is disabled when all are at default.
+		- An option the writer can't do is unticked and disabled. That doesn't overwrite the remembered choice, so switching back restores it.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261013-084544: built. Left at signoff for the look, and for these calls:
+			- The button is a flat "Reset" to the right of Options, with Alt+E. It sits a few pixels lower than the Options label, and makes the closed dialog a little taller.
+			- Options opens once the dialog is on screen, the way a click opens it, so it scrolls on a short screen. The dialog shows closed for a moment first.
+			- The password and the delete box count as choices under Options: either one set lights Reset, and Reset clears them. Neither is remembered.
+			- The format and Compress each item separately sit above Options, so Reset leaves them alone.
+			- A password the format can't take shows as none rather than as dots in a grayed field.
+			- Follow nested and other filesystems show off as well as grayed when nothing selected has a folder or link. dd5dm's check that nested stays ticked there is commented out with the reason.
+			- The compression level is a slider, so a format with no levels leaves it where it was, grayed.
+		- 20261016: still at signoff for the look. The Reset button sitting a few pixels below the Options label needs an eye on a real desktop.
+	- Done: the dialog keeps the choices under Options as chosen, and every box shows what the format can do of them, the same way a grayed store choice from 2026100516274386 shows as Ignore. A box the format can't do is unticked and grayed, and comes back with a format that can. What's remembered is what was chosen, so a forced off doesn't overwrite it. Options opens by itself when what's remembered isn't the defaults, a forced off one included. Reset puts everything under Options back, drops the remembered ones from the settings file, and closes Options; it's grayed while everything is at its default. Compress each item separately, grayed for one item, no longer overwrites what was remembered for it either.
+	- Swept: every control under Options goes through the one kept-and-shown path: the 7 boxes, the password, the level, the volume size, the 2 radio groups, the 2 filesystem boxes and the delete box. The dialog's two callers, the view and the test. Saving and loading moved into `nemo-archive-host.c` beside the link choices, which were the only other place the keys were read or written. Reset drops the 2 retired link keys too.
+	- Verified: 20261013, dd5dm and dcwjb went red with each of: no opening by itself, the lock left out of the default check, Symlinks left out of the reset, a forced off box left ticked, a forced off written back over the choice, Options left open after Reset, Reset always lit, the password not counted, and a preset saved with its note. Both pass on Linux and under wine. Full Linux suite 196 of 196, the Windows cross build, lint clean apart from ddagc.
+	- Branch: optreset
+	- Commit: c0a7ede
+	- Test case: dd5dm, Compress dialog height test: closed with Reset grayed at the defaults, Reset lit by a change and by a password alone, Reset clearing them and closing Options, opening by itself for remembered choices with the buttons on screen, Reset dropping them from the settings file, and a remembered lock the format can't do opening Options, shown off and grayed, and back on with rar. dcwjb, Archive settings test, test_choices: the defaults match the settings table, each choice off its default counts, a forced off shows off and leaves the choice, saving keeps it with a preset as its size, and the reset drops every key under Options and nothing else.
+	- Stand-in: 20261025 on vm925w at a61c4f91: dd5dm passes on the real desktop, with a 1392 px work area. Options opened by itself and the 787 px dialog stayed on screen. The lower resolution for a short screen didn't take, so that part is still to run.
+	- 20261031: not run. vm925w-iommu still can't start while vmKt6m holds SPICE port 5900.
+	- 20261028: not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
+	- Verified: 20261102 on vm925w, dd5dm from round1102a at 1aadd7b9 (nothing under Compress changed after it), with the work area cut to 560 px in two ways, 3 runs: each passed, Options got 272 px and scrolled, and the 543 px dialog stayed inside the work area. The screen kept its size, since the dialog sizes itself to the work area and not the screen.
+	- Stand-in: none (20261102). Only the look of Reset beside Options is left, which turns on taste. In Adwaita at fdce4acd its text sits about 8 px below the Options label's, grayed and lit alike, as the 20261013 note says.
 
 - CICD step output: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102819522603
@@ -265,47 +256,36 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261028, dejjt passes, and fails with a 78-dot rule, with no `FAIL` close on a failure, with a step left out of the plan, and with the last step left open. `cicd/cicd.bash --backlog-run-quick format lint` passes.
 	- Verified: 20261028, native gate on b29w at 2964120b: the plan gave the step count and listed each step turned off with its flag, each step opened under a 79-character rule with `Starting`, and the failing Lints and Tests steps closed as `FAIL`. The rule's bullets come out as 0x07 in a piped log, which predates the round and is 2026102822580287.
 
-- Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
-	- ID: 2026100516274646
-	- Type: Enhancement
-	- Status: Waiting on signoff
-		- Only the Reset button's look is left.
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
-	- Needs external testing: no. dd5dm passed on vm925w with a 560 px work area on 20261102.
-	- Needs hand testing: the Reset button's look beside Options on a real desktop.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274386
-	- Target OS: Linux, Windows
-	- Design: [Options expander](design_docs/20260929-101432_compression.md#options-expander) and [Options the writer can't do](design_docs/20260929-101432_compression.md#options-the-writer-cant-do).
+- Other hosts: native Windows checks that put a window on screen run on vm925w.
+	- ID: 2026103114202730
+	- Type: Task
+	- Status: Waiting on automated testing
+	- Priority|Severity: High
+	- Opened: 20261031-142027
+	- Opened by: 2026102808250959
+	- Parent ID: 2026102808250959
+	- Prereq IDs: 2026110216492601
 	- Requirements:
-		- Options opens when a remembered choice isn't the default, one the format forced off included.
-		- A button beside Options puts every choice under it back to default, drops the remembered ones from the settings file, and collapses Options. It is disabled when all are at default.
-		- An option the writer can't do is unticked and disabled. That doesn't overwrite the remembered choice, so switching back restores it.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261013-084544: built. Left at signoff for the look, and for these calls:
-			- The button is a flat "Reset" to the right of Options, with Alt+E. It sits a few pixels lower than the Options label, and makes the closed dialog a little taller.
-			- Options opens once the dialog is on screen, the way a click opens it, so it scrolls on a short screen. The dialog shows closed for a moment first.
-			- The password and the delete box count as choices under Options: either one set lights Reset, and Reset clears them. Neither is remembered.
-			- The format and Compress each item separately sit above Options, so Reset leaves them alone.
-			- A password the format can't take shows as none rather than as dots in a grayed field.
-			- Follow nested and other filesystems show off as well as grayed when nothing selected has a folder or link. dd5dm's check that nested stays ticked there is commented out with the reason.
-			- The compression level is a slider, so a format with no levels leaves it where it was, grayed.
-		- 20261016: still at signoff for the look. The Reset button sitting a few pixels below the Options label needs an eye on a real desktop.
-	- Done: the dialog keeps the choices under Options as chosen, and every box shows what the format can do of them, the same way a grayed store choice from 2026100516274386 shows as Ignore. A box the format can't do is unticked and grayed, and comes back with a format that can. What's remembered is what was chosen, so a forced off doesn't overwrite it. Options opens by itself when what's remembered isn't the defaults, a forced off one included. Reset puts everything under Options back, drops the remembered ones from the settings file, and closes Options; it's grayed while everything is at its default. Compress each item separately, grayed for one item, no longer overwrites what was remembered for it either.
-	- Swept: every control under Options goes through the one kept-and-shown path: the 7 boxes, the password, the level, the volume size, the 2 radio groups, the 2 filesystem boxes and the delete box. The dialog's two callers, the view and the test. Saving and loading moved into `nemo-archive-host.c` beside the link choices, which were the only other place the keys were read or written. Reset drops the 2 retired link keys too.
-	- Verified: 20261013, dd5dm and dcwjb went red with each of: no opening by itself, the lock left out of the default check, Symlinks left out of the reset, a forced off box left ticked, a forced off written back over the choice, Options left open after Reset, Reset always lit, the password not counted, and a preset saved with its note. Both pass on Linux and under wine. Full Linux suite 196 of 196, the Windows cross build, lint clean apart from ddagc.
-	- Branch: optreset
-	- Commit: c0a7ede
-	- Test case: dd5dm, Compress dialog height test: closed with Reset grayed at the defaults, Reset lit by a change and by a password alone, Reset clearing them and closing Options, opening by itself for remembered choices with the buttons on screen, Reset dropping them from the settings file, and a remembered lock the format can't do opening Options, shown off and grayed, and back on with rar. dcwjb, Archive settings test, test_choices: the defaults match the settings table, each choice off its default counts, a forced off shows off and leaves the choice, saving keeps it with a preset as its size, and the reset drops every key under Options and nothing else.
-	- Stand-in: 20261025 on vm925w at a61c4f91: dd5dm passes on the real desktop, with a 1392 px work area. Options opened by itself and the 787 px dialog stayed on screen. The lower resolution for a short screen didn't take, so that part is still to run.
-	- 20261031: not run. vm925w-iommu still can't start while vmKt6m holds SPICE port 5900.
-	- 20261028: not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
-	- Verified: 20261102 on vm925w, dd5dm from round1102a at 1aadd7b9 (nothing under Compress changed after it), with the work area cut to 560 px in two ways, 3 runs: each passed, Options got 272 px and scrolled, and the 543 px dialog stayed inside the work area. The screen kept its size, since the dialog sizes itself to the work area and not the screen.
-	- Stand-in: none (20261102). Only the look of Reset beside Options is left, which turns on taste. In Adwaita at fdce4acd its text sits about 8 px below the Options label's, grayed and lit alike, as the 20261013 note says.
+		- The gate on b29w runs over ssh with no desktop, so its windowed tests skip. Those run again in a desktop session on vm925w, as its test user, and on b29w under its test account when vm925w isn't there.
+		- The VM is put back the way it was found. Neither box there is a `SKIP`.
+	- Decisions:
+		- The tests the gate's Tests step skipped, and only those, run again against its build on the same box, as its test user in that user's desktop session, through a `schtasks /it` task. No second build, so it adds a minute or two to the lane. A test that skips there for its own reason, such as a missing tool, skips again.
+		- The test user gets Modify on the run's folder for it, which goes with the folder.
+		- A session there with no monitor fails the step, since a pass would hide that nothing was drawn.
+		- With the test user not logged on, the lane warns and the gate's pass stands. Logging on over RDP would take b29w's own screen.
+		- Only after a passing gate, since a failed gate fails the lane already.
+		- `NEMO_WIN_DESKTOP=0` leaves it out, and `NEMO_WIN_TEST_USER` names another user.
+		- With the gate on b29w, its windowed tests run there even when vm925w is there. Sending them to vm925w needs a build on vm925w, and that's 2026103116203063.
+	- Swept: the other lanes that reach a box run no windowed tests. Every caller of `lane-box.ps1` and `fTests` in `cicd/`, and design.md's native gate bullet.
+	- Test case: depg0: after a passing gate, only the meson tests its Tests step skipped go to the box and run as wintest, a failing desktop test fails the lane, no wintest session is a warning, a failing gate runs none, and `NEMO_WIN_DESKTOP=0`.
+	- 20261031: split. Windowed tests on vm925w while the gate runs on b29w, and wintest's logon on vm925w after a boot, are 2026103116203063.
+	- 20261031: the work is on `wip/round1031a-2026103114202730`, not on the round branch, since the desktop step fails on b29w. Its task starts as wintest in session 2 with 1 monitor, then `cicd-win.ps1` stops at `Set-Location $Root`, "Access to the path 'C:\Users\collierjr\AppData' is denied". PowerShell reads each folder above the run folder, and wintest can't list the ssh user's profile. Left: a run folder both users can reach, or a way past the profile, then the run on b29w again.
+	- Branch: round1102a
+	- Verified: 20261031, depg0 and dejjt pass on the wip branch. depg0 fails 9 checks against the round branch's `lane.bash`, and dejjt 6 against its `cicd-win.ps1`. `--backlog-run-quick` passes.
+	- 20261031, on b29w, 3 lane runs of the wip changes, `-Gate -Yes -NoSync -NoFmt`: the third gate passed, 191 OK and 22 skipped, the 22 went to the box, and the task ran as wintest in its desktop session. It failed as above. The first 2 gates failed on 2026103116203164 and 2026103116284963, so no desktop step ran.
+	- 20261031: failed its try this round. Held behind 2026103116395639. Its code is on `wip/round1031a-2026103114202730`.
+	- 20261102: the wip work is on round1102a with the run folder moved to ProgramData (2026103116395639). The desktop step now runs as wintest on b29w, and debgn, dcd70 and ddqdq fail there, so it waits on 2026110216323705.
+	- 20261102: the desktop step passes the gate on b29w, and warns when wintest's session is locked (2026110216323705). Left: a lane run on b29w with the session unlocked, so debgn and dcd70 run there.
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
@@ -397,51 +377,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261028: split from 2026102517333362, whose lanes part is done.
 		- Held for the private repo's round, since the runner and its branches are there.
 	- Test case: none yet.
-
-- de025, ddyv6 and ddc84 still fail in the sanitizer lane on a loaded box.
-	- ID: 2026102411433800
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: no. Passed in a full run's sanitizer stage on a loaded box, 20261025.
-	- Priority|Severity: Low
-	- Opened: 20261024-114338
-	- Opened by: t00mietum
-	- Related IDs: 2026101613310525, 2026101513290717
-	- Target OS: Linux
-	- Steps to reproduce: a full run's sanitizer stage while other builds load the cores. On 20261024 the load was 23 to 35 on 32 cores.
-	- Incorrect behavior: all 3 failed in one sanitizer stage, which stopped the full run there. Each passed 3 of 3 alone right after, at load 10.
-		- de025: the quickest varied folder took 327 ms to show all rows and the quickest plain one 490 ms, against a 180 ms bar.
-		- ddyv6: the first folder took 340 ms and the quickest 181 ms, against 180 ms.
-		- ddc84: the wait for the program to exit ran out at `test-nemo-cache-quit.c:461`, after 181 s, and the journal was still there at line 463.
-	- Expected behavior: they pass under load, or a slow box makes them skip or retry rather than fail the stage.
-	- Reproduced: 20261024 on Linux, once, in the full run of round1024b at 196653ba.
-	- Possible cause: the time bars and the exit wait were last tuned at load 21. The sanitizer build is about 3 times slower, and a full run beside another project's pipeline goes well past that load.
-	- Actual cause:
-		- de025 and ddyv6: a 180 ms bar is there to tell the old 200 ms timer from a fixed build, so it can't be scaled for a slow box (2026101613310525). A sanitizer build on a loaded box goes past it with the fix in.
-		- ddc84: not found. The close of the busy folder took 0.5 to 2.9 s in 30 quits at load 21 to 30, against more than 156 s in the failed run. So it hung, and a longer wait isn't the fix.
-		- ddc84, 20261101: at quit the feeder cancels running jobs under `thumbnails_mutex`. A job's cancellable had a cancellable source on the private context its thumbnailer script runs in, which the worker frees when the script ends. A cancel from another thread right then writes into the freed context in GLib 2.84, and here it waited for good on a lock in that memory. Every worker then waited on `thumbnails_mutex`, so the app never exited. `nemo-magick.c` had the same pattern.
-	- Progress log:
-		- 20261024: de025, 4 at once at load about 22 in a sanitizer build: the quickest varied folder took 172 to 224 ms, so 3 of 4 were over the bar.
-		- 20261024: ddc84, 6 at once at load 21 to 30, and in the whole sanitizer suite at 8 jobs: no hang.
-		- 20261024: in the sanitizer suite at c7194950 all 3 pass at load about 15, and again at load 50 to 60 beside a full run's arm64 step. ddc84 ran 38 and 55 s in all there. The selection rules tests failed in those runs instead, filed as 2026102413432024, and de7aj once, filed as 2026102413432124.
-		- 20261025: de025, ddyv6 and ddc84 pass in the sanitizer stage of full run 1 of round1025 at f4c13824, at load 45 to 72. ddc84 took 35 s. Nothing is left for de025 and ddyv6.
-		- 20261101: ddc84 hung at quit in the plain suite of a full run at 580003d3, load about 12, and its stacks named the cause. A small program doing what the script runner did, while another thread cancels, crashed within seconds in 3 of 3 runs on the dev image's GLib 2.84.4. With `g_cancellable_connect` and `g_cancellable_disconnect` it ran about 6.8 million rounds clean, 3 times.
-	- Decisions:
-		- The sanitizer lane runs both timed tests for the memory checks and the item counts, and leaves their time bars to the plain suite, which every gate runs.
-		- ddyv6 and ddc84 were each closed once before for the same failure under load (2026101613310525, 2026101513290717). So ddc84's wait isn't raised again until its cause is known.
-	- Actual fix:
-		- A sanitizer build doesn't hold the time bars of de025 and ddyv6 (`TEST_TIME_BARS_HOLD` in `test-scratch.h`), and ddyv6 runs once there.
-		- ddc84 prints how long each quit took. A copy that doesn't quit in time has its threads listed, with their stacks when gdb is there, and is killed, so it no longer runs on into the next run.
-		- 20261101: the thumbnailer script and ImageMagick runners connect to the cancellable rather than attach a cancellable source, and disconnect before freeing their context. The handler only ends the program. Lint der15 refuses `g_cancellable_source_new` in `source/`.
-	- Swept: every test with a fixed time bar; only these two have one. Every exit wait in ddc84, the `--quit` copy's included, goes through the same report.
-	- Branch: round1024b, thumbcancel
-	- Commit: ac5d30ac, 71104410
-	- Test case: de025, ddyv6 and ddc84 themselves, in the sanitizer lane with the cores loaded.
-	- Verified: 20261024, the 3 tests pass in a sanitizer build, and so does the whole sanitizer suite, 220 OK and 15 skipped, at load about 15. de025 passes 4 of 4 at once at load about 22, where 3 of 4 were over its bar. In a plain build the 3 pass with the bars held. A copy held past ddc84's exit wait was listed with its threads and stacks and killed, and the test went on through its other runs. C lint clean, and the test ID check passes.
-	- Verified: 20261025, full run 1 of round1025 at f4c13824, at load 45 to 72: de025, ddyv6 and ddc84 pass in the sanitizer stage, and in the plain suite.
-	- Verified: 20261101, full run at 6562926c: ddc84 passes in the plain suite and the sanitizer stage. Lint der15 fails on the old `nemo-magick.c` and passes after.
-	- Acceptance signoff: Self-closed: the hang's stacks named the cause, a small program shows it on this GLib, and the same program with the new pattern runs clean. der15 keeps the pattern out.
-	- Closed: 20261101-171500
 
 - dd42v can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
@@ -570,6 +505,58 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
 	- Test case: one per child.
 
+- On b29w, debgn, dcd70 and ddqdq fail in wintest's desktop session.
+	- ID: 2026110216323705
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261102-163237
+	- Opened by: 2026103116395639
+	- Related IDs: 2026103114202730
+	- Target OS: Windows
+	- Test environment: b29w, the native lane's desktop step, as wintest in session 2 with 1 monitor.
+	- Steps to reproduce: `NEMO_WIN_GATE_ARGS='-Gate -Yes -NoSync -NoFmt' cicd/win/lane.bash b29w` at 1fb45b42.
+	- Incorrect behavior: debgn, "the focus never came back". dcd70, "no context menu" with the caret in the entry, over a word and over the whole path. ddqdq, the window titles show the folder path cut short with `...` where the whole path is wanted, after "can't write" and "can't read" of the settings file and "Nemo is already running".
+	- Expected behavior: all 3 pass there, as debgn does on vm925w in its desktop session.
+	- Reproduced: 20261102, 1 of 1.
+	- Possible cause: not looked into. debgn and dcd70 both need the foreground or a menu, so the console session may be locked or have something in front. ddqdq's titles may be cut by the path's length.
+	- Actual cause:
+		- debgn and dcd70: wintest's console session on b29w is locked (`WTSSessionInfoEx` says so, and LogonUI and LockApp run in it). No window there gets the foreground: a fresh window's `SetForegroundWindow` fails and the foreground stays 0. The power plan turns the display off after 30 min on AC, which likely locks it.
+		- ddqdq: the window fits its full path title to its own width, with "..." for the folders it leaves out, as designed. b29w's screen is 1280x720, and the run folder under `%ProgramData%` made the path about 20 characters longer, so the title no longer held `nemo-copies-`, which the test took as the sign of a whole path.
+	- Actual fix: `lane-box.ps1 -Desktop` says "locked" for a locked test user session, and the lane warns and lets the gate's pass stand, as with no session. ddqdq looks for the folder at the end of a path in the title, whatever the window cut from the middle. `lane.bash`, `lane-box.ps1`, `test-lane.bash` and design.md's native gate bullet.
+	- Decisions:
+		- A locked session is a warning, not a failure, the same as a test user with no session. It's the box's state, not the app's, and failing would fail every full run once b29w sits idle for half an hour.
+		- The lane checks the lock once, before the task starts, not each test. One check in one place, with one clear line.
+		- A disconnected session reads as locked to Windows (b29w's session 1 did), so it warns too, where before its tests ran. Whether the focus tests pass in one wasn't known.
+		- ddqdq's check is a test fix, not an app change. The shortened title is what design.md's window title bullet asks for.
+		- Whether b29w should stop locking wintest's session is in questions.md, on child 2026110216492601, along with debgn and dcd70 passing there.
+	- Swept: the lane's `nosession` branch, which warns the same way. The only other test that sets full path titles, dcrph, checks the title functions with no window, so no width cuts it.
+	- Branch: round1102a
+	- Commit: 9736011e
+	- Test case: depg0 (a locked session is a warning), ddqdq, and debgn and dcd70 in child 2026110216492601.
+	- Verified: 20261102, depg0 passes, and fails against the old `lane.bash`, "the desktop tests did not start on b29w: locked". On b29w, `lane-box.ps1 -Desktop` prints "locked" for wintest's session and for collierjr's disconnected one, and "nosession" for a user with none. The gate at 9736011e passed there (382 s). Then ddqdq, debgn and dcd70 ran against its build as wintest in the locked session 2, 1280x720 with 1 monitor: ddqdq passed, where it failed at 1fb45b42 in the same session. debgn and dcd70 failed as before, as expected while it's locked. `--backlog-run-quick format lint` passes.
+	- 20261102: debgn and dcd70 passing on b29w with the session unlocked is child 2026110216492601.
+
+- Nemo Anywhere dim checkmarks: the icon view.
+	- ID: 2026102411133414
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-111334
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515571
+	- Prereq IDs: 2026102411133409
+	- Target OS: All
+	- Requirements:
+		- Only under Nemo Anywhere. A dim checkmark on every selected icon, and none on the rest. The text doesn't change.
+		- In the top-left corner of the icon, on a small scrim that reads on any thumbnail.
+		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
+	- Progress log:
+		- 20261024: opened.
+	- Test case: none yet.
+
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
 	- Type: Bug
@@ -603,163 +590,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none. The fix is upstream, and nothing in the app hits it.
 	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
 	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
-
-- da8rb on b29w sometimes takes an old bin item with the same marker, and fails on its purge.
-	- ID: 2026103117575073
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: High
-	- Opened: 20261031-175750
-	- Opened by: 2026103114202710
-	- Related IDs: 2026102822580302, 2026103116284963
-	- Target OS: Windows
-	- Steps to reproduce: the native gate on b29w, with the ssh user's Recycle Bin holding `$RYRVCYC.txt`, a `nemoverify-samecount-small` item from 2026-08-27.
-	- Incorrect behavior: da8rb exits 3 when the delete fence refuses `C:\$Recycle.Bin\<sid>\$IYRVCYC.txt`, outside the test's folders. The case's own item stays in the bin, `$RZIAQBU.txt` on 20261031.
-	- Expected behavior: the same-count case purges only the item it recycled, whatever the bin already holds.
-	- Reproduced: 20261031 on b29w at a406610f, 1 run of 5: the full run's gate. It passed in a second gate and 3 times alone.
-	- Actual cause: `find_backing_by_contents` takes the first `$R` item, in name order, whose contents match the marker, and the marker is the same every run. When the run's own item gets a name that sorts after `$RYRVCYC`, the case takes the 2026-08-27 one, and its purge is a delete outside the test. Each such failure leaves one more item with the marker.
-		- The other callers of `find_backing_by_contents`, and de5kb's `bin_item`, also match a fixed marker.
-	- Actual fix: every name and marker da8rb recycles carries a tag made new each run, so an earlier run's item never matches. The bin scan by contents fails the test on 2 matches rather than taking the first. The round-trip case no longer deletes an earlier run's `report.2026.txt` before it starts, which the fence would refuse too.
-	- Decisions:
-		- A per-run tag, not a list of what the bin held before each case. One string covers every lookup, by contents and by display name.
-		- de5kb's `bin_item` stays as it was. Its markers already hold the process ID and the time, so the second line of Actual cause doesn't hold for it.
-		- The old `nemoverify` items in b29w's bin stay there. da8rb now leaves them alone, and plants one of its own to check that.
-	- Swept: every bin lookup in da8rb, by contents and by display name. de5kb's `bin_item`. The archive combos test's bin purge, which matches on the run's own scratch home.
-	- Branch: round1102a
-	- Test case: da8rb. It first recycles an item holding the fresh-parent marker of another run, and checks at the end that it's still in the bin.
-	- Verified: 20261102, native gate on b29w from ssh, with 6 old `nemoverify` items in the user's bin, 3 of them `nemoverify-fresh.txt`. da8rb passes in 2 gates and 4 times alone, and the bin holds 157 entries before and after. Built with the planted item given this run's marker, da8rb fails on "2 bin items hold the same marker", with nothing deleted outside the test.
-	- Acceptance signoff: Self-closed: da8rb passes on b29w with old marker items in the bin.
-	- Closed: 20261102-160328
-
-- The desktop tests step fails on b29w: wintest can't Set-Location into a run folder under collierjr's %TEMP%.
-	- ID: 2026103116395639
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: High
-	- Opened: 20261031-163956
-	- Opened by:
-	- Related IDs: 2026103114202730, 2026110216323705
-	- Target OS: Windows
-	- Test environment: b29w, the lane from b23, the desktop step as wintest in session 2.
-	- Progress log:
-		- 20261031: tried in 2026103114202730, code on `wip/round1031a-2026103114202730` (84161052). The gate passed (191 OK, 22 skipped), the 22 went to a `schtasks /it /ru wintest` task, and `cicd-win.ps1` stopped at `Set-Location -LiteralPath $Root` with access denied on `C:\Users\collierjr\AppData`. wintest has Modify on the run folder, but PowerShell reads each folder above it.
-		- Options: a run folder both users can reach, outside collierjr's profile; or pass whole paths and `-WorkingDirectory` so nothing does a `Set-Location` there. Granting wintest list rights on the profile changes its permissions, so leave that out.
-		- 20261102: the code from `wip/round1031a-2026103114202730` is on round1102a with the fix.
-	- Actual cause: as wintest, PowerShell fails on any path under collierjr's profile that it resolves through its provider, not only `Set-Location`. On b29w, `Remove-Item -Recurse` there fails the same way, and `pwsh -WorkingDirectory` there doesn't take: the task's pwsh stayed in `C:\Windows\System32`. `Resolve-Path`, `New-Item`, `Get-ChildItem`, `Out-File` and MSYS2's `cd` work.
-	- Actual fix: the lane's run folder is `%ProgramData%\nemo-anywhere\<YYYYmmDD-HHMMSS>_<NNN>` on the box, where both users can list each folder above it. wintest still gets Modify on the run folder only. `lane.bash`, `lane-box.ps1`, `test-lane.bash` and design.md's native gate bullet.
-	- Decisions:
-		- A run folder outside the profile, not a way round each call, since `Remove-Item` and `-WorkingDirectory` fail there too, and the tests' own temp folders sit under the run folder. No permission change on collierjr's profile.
-		- `%ProgramData%`, since non-admins can list it and can't change a folder another user made there. Not `C:\Windows\Temp`, which non-admins can't list.
-		- Old folders under `%TEMP%\nemo-anywhere` from before this are no longer swept by the lane.
-		- The desktop step runs its tests now, and 3 of them fail there on their own: debgn, dcd70 and ddqdq. That's 2026110216323705, so the step doesn't pass yet.
-	- Branch: round1102a
-	- Commit: 1fb45b42
-	- Test case: depg0 (the work folder under `%ProgramData%`) and dejjt.
-	- Verified: 20261102, depg0 fails against the old `lane.bash`, "b29w gave an odd temp folder", and passes after. dejjt passes. On b29w, the lane with `-Gate -Yes -NoSync -NoFmt` at 1fb45b42: the gate passed, 191 OK and 22 skipped, and the 22 ran as wintest in session 2 with 1 monitor, from `C:\ProgramData\nemo-anywhere\...`: 12 OK, 7 skipped for their own reasons, 3 failed (2026110216323705). The run folder and its task were removed after.
-	- Swept: the other lanes that reach a Windows box run as the ssh login only. Every script under `cicd/` that uses `GetTempPath` runs as the user whose `TEMP` it is.
-	- Acceptance signoff: Self-closed: the desktop step gets past `Set-Location` on b29w and runs its tests as wintest.
-	- Closed: 20261102-163600
-
-- On b29w, debgn, dcd70 and ddqdq fail in wintest's desktop session.
-	- ID: 2026110216323705
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261102-163237
-	- Opened by: 2026103116395639
-	- Related IDs: 2026103114202730
-	- Target OS: Windows
-	- Test environment: b29w, the native lane's desktop step, as wintest in session 2 with 1 monitor.
-	- Steps to reproduce: `NEMO_WIN_GATE_ARGS='-Gate -Yes -NoSync -NoFmt' cicd/win/lane.bash b29w` at 1fb45b42.
-	- Incorrect behavior: debgn, "the focus never came back". dcd70, "no context menu" with the caret in the entry, over a word and over the whole path. ddqdq, the window titles show the folder path cut short with `...` where the whole path is wanted, after "can't write" and "can't read" of the settings file and "Nemo is already running".
-	- Expected behavior: all 3 pass there, as debgn does on vm925w in its desktop session.
-	- Reproduced: 20261102, 1 of 1.
-	- Possible cause: not looked into. debgn and dcd70 both need the foreground or a menu, so the console session may be locked or have something in front. ddqdq's titles may be cut by the path's length.
-	- Actual cause:
-		- debgn and dcd70: wintest's console session on b29w is locked (`WTSSessionInfoEx` says so, and LogonUI and LockApp run in it). No window there gets the foreground: a fresh window's `SetForegroundWindow` fails and the foreground stays 0. The power plan turns the display off after 30 min on AC, which likely locks it.
-		- ddqdq: the window fits its full path title to its own width, with "..." for the folders it leaves out, as designed. b29w's screen is 1280x720, and the run folder under `%ProgramData%` made the path about 20 characters longer, so the title no longer held `nemo-copies-`, which the test took as the sign of a whole path.
-	- Actual fix: `lane-box.ps1 -Desktop` says "locked" for a locked test user session, and the lane warns and lets the gate's pass stand, as with no session. ddqdq looks for the folder at the end of a path in the title, whatever the window cut from the middle. `lane.bash`, `lane-box.ps1`, `test-lane.bash` and design.md's native gate bullet.
-	- Decisions:
-		- A locked session is a warning, not a failure, the same as a test user with no session. It's the box's state, not the app's, and failing would fail every full run once b29w sits idle for half an hour.
-		- The lane checks the lock once, before the task starts, not each test. One check in one place, with one clear line.
-		- A disconnected session reads as locked to Windows (b29w's session 1 did), so it warns too, where before its tests ran. Whether the focus tests pass in one wasn't known.
-		- ddqdq's check is a test fix, not an app change. The shortened title is what design.md's window title bullet asks for.
-		- Whether b29w should stop locking wintest's session is in questions.md, on child 2026110216492601, along with debgn and dcd70 passing there.
-	- Swept: the lane's `nosession` branch, which warns the same way. The only other test that sets full path titles, dcrph, checks the title functions with no window, so no width cuts it.
-	- Branch: round1102a
-	- Commit: 9736011e
-	- Test case: depg0 (a locked session is a warning), ddqdq, and debgn and dcd70 in child 2026110216492601.
-	- Verified: 20261102, depg0 passes, and fails against the old `lane.bash`, "the desktop tests did not start on b29w: locked". On b29w, `lane-box.ps1 -Desktop` prints "locked" for wintest's session and for collierjr's disconnected one, and "nosession" for a user with none. The gate at 9736011e passed there (382 s). Then ddqdq, debgn and dcd70 ran against its build as wintest in the locked session 2, 1280x720 with 1 monitor: ddqdq passed, where it failed at 1fb45b42 in the same session. debgn and dcd70 failed as before, as expected while it's locked. `--backlog-run-quick format lint` passes.
-	- 20261102: debgn and dcd70 passing on b29w with the session unlocked is child 2026110216492601.
-
-- debgn and dcd70 pass in wintest's unlocked desktop session on b29w.
-	- ID: 2026110216492601
-	- Type: Task
-	- Status: Waiting for answers
-		- Waits on the 2026110216492601 question in questions.md: whether b29w should stop locking wintest's session.
-	- Needs external testing: debgn and dcd70 through `cicd/win/lane.bash b29w`, with wintest's session unlocked.
-	- Priority|Severity: Avg
-	- Opened: 20261102-164926
-	- Opened by: 2026110216323705
-	- Parent ID: 2026110216323705
-	- Related IDs: 2026103114202730
-	- Target OS: Windows
-	- Test environment: b29w, the native lane's desktop step, as wintest in session 2.
-	- Requirements:
-		- With wintest's session unlocked, debgn and dcd70 pass in the lane's desktop step, as debgn does on vm925w.
-		- The session stays unlocked between runs, or the step keeps warning.
-	- Test case: debgn and dcd70, in the lane's desktop step on b29w.
-
-- Other hosts: native Windows checks that put a window on screen run on vm925w.
-	- ID: 2026103114202730
-	- Type: Task
-	- Status: Waiting on automated testing
-	- Priority|Severity: High
-	- Opened: 20261031-142027
-	- Opened by: 2026102808250959
-	- Parent ID: 2026102808250959
-	- Prereq IDs: 2026110216492601
-	- Requirements:
-		- The gate on b29w runs over ssh with no desktop, so its windowed tests skip. Those run again in a desktop session on vm925w, as its test user, and on b29w under its test account when vm925w isn't there.
-		- The VM is put back the way it was found. Neither box there is a `SKIP`.
-	- Decisions:
-		- The tests the gate's Tests step skipped, and only those, run again against its build on the same box, as its test user in that user's desktop session, through a `schtasks /it` task. No second build, so it adds a minute or two to the lane. A test that skips there for its own reason, such as a missing tool, skips again.
-		- The test user gets Modify on the run's folder for it, which goes with the folder.
-		- A session there with no monitor fails the step, since a pass would hide that nothing was drawn.
-		- With the test user not logged on, the lane warns and the gate's pass stands. Logging on over RDP would take b29w's own screen.
-		- Only after a passing gate, since a failed gate fails the lane already.
-		- `NEMO_WIN_DESKTOP=0` leaves it out, and `NEMO_WIN_TEST_USER` names another user.
-		- With the gate on b29w, its windowed tests run there even when vm925w is there. Sending them to vm925w needs a build on vm925w, and that's 2026103116203063.
-	- Swept: the other lanes that reach a box run no windowed tests. Every caller of `lane-box.ps1` and `fTests` in `cicd/`, and design.md's native gate bullet.
-	- Test case: depg0: after a passing gate, only the meson tests its Tests step skipped go to the box and run as wintest, a failing desktop test fails the lane, no wintest session is a warning, a failing gate runs none, and `NEMO_WIN_DESKTOP=0`.
-	- 20261031: split. Windowed tests on vm925w while the gate runs on b29w, and wintest's logon on vm925w after a boot, are 2026103116203063.
-	- 20261031: the work is on `wip/round1031a-2026103114202730`, not on the round branch, since the desktop step fails on b29w. Its task starts as wintest in session 2 with 1 monitor, then `cicd-win.ps1` stops at `Set-Location $Root`, "Access to the path 'C:\Users\collierjr\AppData' is denied". PowerShell reads each folder above the run folder, and wintest can't list the ssh user's profile. Left: a run folder both users can reach, or a way past the profile, then the run on b29w again.
-	- Branch: round1102a
-	- Verified: 20261031, depg0 and dejjt pass on the wip branch. depg0 fails 9 checks against the round branch's `lane.bash`, and dejjt 6 against its `cicd-win.ps1`. `--backlog-run-quick` passes.
-	- 20261031, on b29w, 3 lane runs of the wip changes, `-Gate -Yes -NoSync -NoFmt`: the third gate passed, 191 OK and 22 skipped, the 22 went to the box, and the task ran as wintest in its desktop session. It failed as above. The first 2 gates failed on 2026103116203164 and 2026103116284963, so no desktop step ran.
-	- 20261031: failed its try this round. Held behind 2026103116395639. Its code is on `wip/round1031a-2026103114202730`.
-	- 20261102: the wip work is on round1102a with the run folder moved to ProgramData (2026103116395639). The desktop step now runs as wintest on b29w, and debgn, dcd70 and ddqdq fail there, so it waits on 2026110216323705.
-	- 20261102: the desktop step passes the gate on b29w, and warns when wintest's session is locked (2026110216323705). Left: a lane run on b29w with the session unlocked, so debgn and dcd70 run there.
-
-- Nemo Anywhere dim checkmarks: the icon view.
-	- ID: 2026102411133414
-	- Type: Enhancement
-	- Status: Queued
-	- Needs local test suite run?: Yes
-	- Priority|Severity: High
-	- Opened: 20261024-111334
-	- Opened by: t00mietum
-	- Parent ID: 2026102407515571
-	- Prereq IDs: 2026102411133409
-	- Target OS: All
-	- Requirements:
-		- Only under Nemo Anywhere. A dim checkmark on every selected icon, and none on the rest. The text doesn't change.
-		- In the top-left corner of the icon, on a small scrim that reads on any thumbnail.
-		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
-	- Progress log:
-		- 20261024: opened.
-	- Test case: none yet.
 
 - Nemo Anywhere dim checkmarks: the compact view.
 	- ID: 2026102411133419
@@ -1481,29 +1311,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Before the next cut.
 	- Test case: none yet.
 
-- cicd.bash gets `--leakcheck` and `--no-leakcheck`.
-	- ID: 2026101911105600
-	- Type: Enhancement
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261019-111056
-	- Opened by: t00mietum
-	- Parent ID: 2026101619020505
-	- Requirements:
-		- `--leakcheck` turns the slow checks on. It's the way to add them back under `--quick`.
-		- `--no-leakcheck` turns them off. It's the way to leave them out of a default run, or one with `--quiet`.
-		- The last one on the command line wins.
-		- Both are in `--help`.
-	- Estimated effort: Low
-	- Decisions:
-		- The flags set one switch, shown as a "Leak checks" line in the plan. It is on in a plain run and off under `--quick`. No stage reads it yet; 2026102114400592 and the heap soak item do.
-		- `--quiet` and `-q` only mean unattended here, so they don't change it. `--no-leakcheck` is how to leave the checks out of such a run.
-		- Not in the plan's step list, since there is no step to skip until those items land.
-	- Test case: desha (`cicd/utility/test-cicd-leakcheck.bash`, in the lint stage): each flag, both in either order, with `--quick` and with `-q`, and both in `--help`.
-	- Verified: it passes, and fails with `--no-leakcheck` set to turn the checks on. The help and quick pipeline tests still pass.
-	- Swept: the other places `--no-sanitize` and `--quick` are read in `cicd.bash`, and the help text. `cicd-win.ps1` takes the same flags under 2026102416300004, not here.
-	- Closed: 20261102-171500
-
 - Tree view: Right and Left arrow expand and collapse the folder, the way they do in the content view.
 	- ID: 2026102018234900
 	- Type: Enhancement
@@ -1671,6 +1478,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- F2 selects the name without the extension, as upstream does.
 	- Test case: none yet.
 
+- lint-report counts a test's OK line that names a warning as a warning.
+	- ID: 2026110220410883
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261102-204108
+	- Opened by:
+	- Steps to reproduce: `python3 cicd/utility/lint-report.py --check` after the 20261102 full run.
+	- Incorrect behavior: it lists depg0's lines `[ OK: with no wintest session, a warning and the gate's pass ]` and `[ OK: with wintest's session locked, a warning and the gate's pass ]` as new warnings.
+	- Expected behavior: an OK, PASS or SKIP line is never a warning line.
+	- Test case: a lint-report test with an OK line naming a warning, and a real WARNING line.
+
 - ddqdq with no monitor: the copies never list a titled window.
 	- ID: 2026103115510091
 	- Type: Bug
@@ -1798,31 +1617,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: not seen. The selection rules and drag select tests lost a click or key sent while GDK still had a closed menu's grab on record. The other tests that close a menu weren't checked: the menu key, tab move, Places focus, long press, find history, entry menu and eel context menu tests.
 	- Expected behavior: a step after a closed menu waits until no pointer or keyboard grab is on record.
 	- Test case: the tests above themselves, with the X server held up after each menu closes.
-
-- In the icon views, removing an icon never tells the accessibility tree.
-	- ID: 2026102412590587
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20261024-125905
-	- Opened by: t00mietum
-	- Related IDs: 2026102412254361
-	- Steps to reproduce [Bug]:
-		- With a screen reader or an accessibility inspector on, delete or move a file out of a folder shown in an icon view.
-	- Incorrect behavior [Bug]: no `children_changed::remove` is sent for the icon.
-	- Expected behavior [Bug]: the accessible parent says which child went.
-	- Reproduced [Bug]: Yes, 20261102, Linux. With the removal check in ddgd0 and the old order, no `children_changed::remove` arrives.
-	- Possible cause [Bug]: `nemo_icon_container_accessible_icon_removed_cb` looks the icon up in `icon_set`, but `icon_removed` is sent after `icon_destroy` has taken it out, so the lookup always misses. Until `...4361` the signal was also sent the icon in place of its data, the wrong key.
-	- Estimated effort: Low
-	- Actual cause: as above.
-	- Actual effort: Low
-	- Actual fix: `nemo_icon_container_remove` now sends `icon_removed` before `icon_destroy`, so the handler finds the icon, its item and its index. The signal still takes the icon's data.
-	- Swept: `icon_removed` has one connected handler (the accessible's) and one empty class handler in the grid container. `icon_added` is sent after the icon is in, so it was right. `cleared` needs no icon.
-	- Branch: round1102a
-	- Test case: ddgd0, Icon accessible extents test. Each run now deletes a file and expects one `children_changed::remove` with the icon's item and a valid index. Fails before the fix, passes after.
-	- Verified: 20261102, `cicd/cicd.bash --backlog-run-quick tests`: ddgd0 fails with the old order and the suite passes with the fix. Linux only.
-	- Acceptance signoff: Self-closed: ddgd0 fails before the fix and passes after.
-	- Closed: 20261102-170958
 
 - The selection rules tests open folders by their place in the home folder, which depends on the box.
 	- ID: 2026102821124143
@@ -1962,6 +1756,91 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddytk, Share folder with a local path lists test. A folder that isn't on this machine but has a path, whose listing refuses that call the way gvfs's does, lists all 3 entries with its link followed, and one file there is looked at once, following links. dbee2, Network win32 test, test_smb_addresses: smb addresses taken as typed, parsed, as a uri and as an argument go to the UNC path, the server's share list or the network, with spaces, escapes, a user, domain and port, an IPv6 address, and upper case where typed. ddzxz, Connect to Server address scheme test: ssh and sftp addresses in any case lose the scheme with SSH chosen, other schemes and plain names are kept, and every alias gvfs's mount files declare is checked where gvfs is installed.
 	- Acceptance signoff: Self-closed: ssh is now a full alias for sftp everywhere, Connect to Server included, and the error seen was there (ddzxz). ddytk pins the smb and sftp listings, and dbee2 the Windows smb addresses, checked natively on vm925w with Connect to Server too. Asking only for server and share on Windows is how Windows connects, as the session.
 	- Closed: 20261025-155000
+
+- Need to wait longer after powering up VMs, to connect via SSH.
+	- ID: 2026102808084300
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. The arm64 release from off passed in the full run of 20261102.
+	- Priority|Severity: High
+	- Opened: 20261028-080843
+	- Opened by: t00mietum
+	- Target OS: FreeBSD, Linux
+	- Requirements:
+		- Before the next cut.
+	- Incorrect behavior: need to wait longer after powering up VMs, to connect via SSH. Especially ARM64, which takes forever. It looks like it didn't wait long enough for vmFreeBSD to boot.
+	- Expected behavior: a lane that starts its VM waits until the VM has booted and takes ssh, then connects.
+	- Possible cause: the VM helper's ssh check passes before the lane's own ssh target is ready, or the lane's 8 second connect timeout is too short right after boot. The FreeBSD lane and the arm64 release both go through `cicd/utility/include/box-wrap.bash`.
+	- Actual cause: not seen on a real boot yet. The VM helper waits for ssh as the person running it, with 5 s tries. Each lane then made one try as its own user with an 8 s timeout, and arm64 also needed docker up by then. A login or docker that lags behind the first ssh, or a slow answer from a VM just booted on a busy host, fails the lane at once. The helper's boot wait is 600 s, short for the emulated arm64 VM.
+		- Ruled out: the failures of 20261026 and 20261027 at 11:25 came before the lanes took their box through the VM helper, so nothing waited for a boot. The two full runs after that change passed from off and from paused.
+	- Actual fix: both lanes wait for their own login, polling every 5 s, before anything is sent: 600 s for FreeBSD, 1200 s for arm64, which also waits for docker. A box that answers but is the wrong kind fails at once, and a name that doesn't resolve fails without the wait. arm64 raises the helper's boot wait to 1200 s. Both lanes' connect timeout is 30 s, from 8.
+	- Decisions:
+		- The wait runs the lane's own check, as the lane's user, rather than relying on the helper's. It covers the bare host lock too, and a box someone else is booting.
+		- Knobs: `NEMO_BSD_READY_WAIT` and `NEMO_ARM_READY_WAIT`. The Windows dogfood does the same since 2026102808250954, with `NEMO_WIN_READY_WAIT`.
+	- Swept: every ssh to a test box in `cicd/`. The FreeBSD lane and the arm64 release were the only ones that start a VM.
+	- Test case: ddmn7 and ddmmv. A box whose ssh, or docker on arm64, comes up after a few tries is waited for, and one that never does fails before anything is sent. Both new cases fail before the fix and pass after.
+	- Verified: 20261028, ddmn7 and ddmmv, and the quick gate.
+	- Verified: 20261028, the FreeBSD lane alone (`lane.bash --tests`) at d7bd529d with vmFreeBSD off: it was started, its login waited for, the suite passed (216 OK, 20 skipped), and it was shut down after. In the full run before, from paused, the lane got in and failed later on the clock, which is 2026102810470587.
+	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed: the arm64 lane from paused was ready in 15 s, and the FreeBSD suite and release from paused in under a second each. Neither VM booted from off in it.
+	- 20261031: not run. The round's full run had no `--long`.
+	- Verified: 20261102, full run 20261102-172236 at fdce4acd (`--backlog-run-full --long`), all 15 steps passed. vmDebARM64 was off: the arm64 lane started it, its Box ready step waited about 16 s for the login and docker and passed, and the build passed (119 min on the box), then the VM was shut down again. The FreeBSD suite and release woke vmFreeBSD from paused and were ready in under a second each.
+	- Closed: 20261102-204017
+
+- da8rb on b29w sometimes takes an old bin item with the same marker, and fails on its purge.
+	- ID: 2026103117575073
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261031-175750
+	- Opened by: 2026103114202710
+	- Related IDs: 2026102822580302, 2026103116284963
+	- Target OS: Windows
+	- Steps to reproduce: the native gate on b29w, with the ssh user's Recycle Bin holding `$RYRVCYC.txt`, a `nemoverify-samecount-small` item from 2026-08-27.
+	- Incorrect behavior: da8rb exits 3 when the delete fence refuses `C:\$Recycle.Bin\<sid>\$IYRVCYC.txt`, outside the test's folders. The case's own item stays in the bin, `$RZIAQBU.txt` on 20261031.
+	- Expected behavior: the same-count case purges only the item it recycled, whatever the bin already holds.
+	- Reproduced: 20261031 on b29w at a406610f, 1 run of 5: the full run's gate. It passed in a second gate and 3 times alone.
+	- Actual cause: `find_backing_by_contents` takes the first `$R` item, in name order, whose contents match the marker, and the marker is the same every run. When the run's own item gets a name that sorts after `$RYRVCYC`, the case takes the 2026-08-27 one, and its purge is a delete outside the test. Each such failure leaves one more item with the marker.
+		- The other callers of `find_backing_by_contents`, and de5kb's `bin_item`, also match a fixed marker.
+	- Actual fix: every name and marker da8rb recycles carries a tag made new each run, so an earlier run's item never matches. The bin scan by contents fails the test on 2 matches rather than taking the first. The round-trip case no longer deletes an earlier run's `report.2026.txt` before it starts, which the fence would refuse too.
+	- Decisions:
+		- A per-run tag, not a list of what the bin held before each case. One string covers every lookup, by contents and by display name.
+		- de5kb's `bin_item` stays as it was. Its markers already hold the process ID and the time, so the second line of Actual cause doesn't hold for it.
+		- The old `nemoverify` items in b29w's bin stay there. da8rb now leaves them alone, and plants one of its own to check that.
+	- Swept: every bin lookup in da8rb, by contents and by display name. de5kb's `bin_item`. The archive combos test's bin purge, which matches on the run's own scratch home.
+	- Branch: round1102a
+	- Test case: da8rb. It first recycles an item holding the fresh-parent marker of another run, and checks at the end that it's still in the bin.
+	- Verified: 20261102, native gate on b29w from ssh, with 6 old `nemoverify` items in the user's bin, 3 of them `nemoverify-fresh.txt`. da8rb passes in 2 gates and 4 times alone, and the bin holds 157 entries before and after. Built with the planted item given this run's marker, da8rb fails on "2 bin items hold the same marker", with nothing deleted outside the test.
+	- Acceptance signoff: Self-closed: da8rb passes on b29w with old marker items in the bin.
+	- Closed: 20261102-160328
+
+- The desktop tests step fails on b29w: wintest can't Set-Location into a run folder under collierjr's %TEMP%.
+	- ID: 2026103116395639
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261031-163956
+	- Opened by:
+	- Related IDs: 2026103114202730, 2026110216323705
+	- Target OS: Windows
+	- Test environment: b29w, the lane from b23, the desktop step as wintest in session 2.
+	- Progress log:
+		- 20261031: tried in 2026103114202730, code on `wip/round1031a-2026103114202730` (84161052). The gate passed (191 OK, 22 skipped), the 22 went to a `schtasks /it /ru wintest` task, and `cicd-win.ps1` stopped at `Set-Location -LiteralPath $Root` with access denied on `C:\Users\collierjr\AppData`. wintest has Modify on the run folder, but PowerShell reads each folder above it.
+		- Options: a run folder both users can reach, outside collierjr's profile; or pass whole paths and `-WorkingDirectory` so nothing does a `Set-Location` there. Granting wintest list rights on the profile changes its permissions, so leave that out.
+		- 20261102: the code from `wip/round1031a-2026103114202730` is on round1102a with the fix.
+	- Actual cause: as wintest, PowerShell fails on any path under collierjr's profile that it resolves through its provider, not only `Set-Location`. On b29w, `Remove-Item -Recurse` there fails the same way, and `pwsh -WorkingDirectory` there doesn't take: the task's pwsh stayed in `C:\Windows\System32`. `Resolve-Path`, `New-Item`, `Get-ChildItem`, `Out-File` and MSYS2's `cd` work.
+	- Actual fix: the lane's run folder is `%ProgramData%\nemo-anywhere\<YYYYmmDD-HHMMSS>_<NNN>` on the box, where both users can list each folder above it. wintest still gets Modify on the run folder only. `lane.bash`, `lane-box.ps1`, `test-lane.bash` and design.md's native gate bullet.
+	- Decisions:
+		- A run folder outside the profile, not a way round each call, since `Remove-Item` and `-WorkingDirectory` fail there too, and the tests' own temp folders sit under the run folder. No permission change on collierjr's profile.
+		- `%ProgramData%`, since non-admins can list it and can't change a folder another user made there. Not `C:\Windows\Temp`, which non-admins can't list.
+		- Old folders under `%TEMP%\nemo-anywhere` from before this are no longer swept by the lane.
+		- The desktop step runs its tests now, and 3 of them fail there on their own: debgn, dcd70 and ddqdq. That's 2026110216323705, so the step doesn't pass yet.
+	- Branch: round1102a
+	- Commit: 1fb45b42
+	- Test case: depg0 (the work folder under `%ProgramData%`) and dejjt.
+	- Verified: 20261102, depg0 fails against the old `lane.bash`, "b29w gave an odd temp folder", and passes after. dejjt passes. On b29w, the lane with `-Gate -Yes -NoSync -NoFmt` at 1fb45b42: the gate passed, 191 OK and 22 skipped, and the 22 ran as wintest in session 2 with 1 monitor, from `C:\ProgramData\nemo-anywhere\...`: 12 OK, 7 skipped for their own reasons, 3 failed (2026110216323705). The run folder and its task were removed after.
+	- Swept: the other lanes that reach a Windows box run as the ssh login only. Every script under `cicd/` that uses `GetTempPath` runs as the user whose `TEMP` it is.
+	- Acceptance signoff: Self-closed: the desktop step gets past `Set-Location` on b29w and runs its tests as wintest.
+	- Closed: 20261102-163600
 
 - dehzr fails on native Windows: lint-report.py reads itself as cp1252.
 	- ID: 2026102823073182
@@ -2434,6 +2313,46 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. dd8d9 covers it.
 	- Closed: 20261003-112426
+
+- Nemo Anywhere dim checkmarks: the list view column.
+	- ID: 2026102411133409
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no
+	- Prereq IDs: 2026102510323600
+	- Needs external testing: no. dec8w and dec8v pass in the FreeBSD lane. Neither is built for Windows, since both preload a probe.
+	- Needs hand testing: no. The look was checked in a light and a dark theme on 20261102.
+	- Priority|Severity: High
+	- Opened: 20261024-111334
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515571
+	- Target OS: All
+	- Requirements:
+		- Only under Nemo Anywhere. A dim checkmark on every selected row, and none on the rest. The text doesn't change.
+		- A thin new column left of Name, with nothing else in it. It can't be hidden or moved, and isn't in the column chooser.
+		- It comes and goes with the selection model setting, live.
+		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
+	- Progress log:
+		- 20261024: opened.
+		- 20261024: a checkmark column, first in the list view under Nemo Anywhere, with a mark on each selected row. Under the other models it isn't in the tree view at all. It follows the setting live, can't be moved, and isn't in the column chooser. Name keeps the expanders.
+		- 20261024: de8bd, de8dm and dec8w expect 72 list view results, up from 71, for the new check on the column.
+		- 20261024: dec8w and dec8v pass on vmFreeBSD at c7194950.
+	- Decisions:
+		- The mark is a checkmark glyph (U+2713) in the selected row's text color, drawn with the theme's insensitive look. The selection color itself would vanish on the selection background, so this departs from the note on the parent until the per-theme color step.
+		- Under the other models the column is out of the tree view, so their column numbers don't move.
+		- Its width is the glyph's, taken off the row before the other columns share it.
+	- Not covered by a test yet: the column coming and going when the setting changes while the window is open.
+	- Swept: every walk of the list view's columns (the column chooser and its toggle, the saved order, applying the column settings, layout, measuring, the width drag), and every `gtk_tree_view_get_column (..., 0)` in the app and the tests. The list model's drag geometry now takes the expander column, which is Name.
+	- Branch: round1024b
+	- Test case: dec8w and dec8v, where every list view check also checks the marks, the bands included. de8bd, de8dm and dec8w check the column is there only under Nemo Anywhere, thin, and without the expanders.
+	- Verified: 20261024, dec8w, dec8v, de8bd, ddy5f, de8dm and de8ec pass. The full Linux suite, 234 OK and 1 skipped. The build and the Windows cross build with warnings as errors, the C lint, and the test ID check pass.
+	- Verified: 20261024, dec8w and dec8v pass in the FreeBSD lane at c7194950.
+	- Verified: 20261026, `cicd/cicd.bash --backlog-run-full --no-remote --no-sanitize` at d159e1b3 passed all 9 steps (cicd/artifacts/lint/run_20261026-191128.log); the gate and the sanitizer suite passed in the run before it at 3c855be9.
+	- Stand-in: none (20261028). Turns on how the dim mark looks in a light and a dark theme.
+	- Verified: 20261102 at fdce4acd, the list view under Nemo Anywhere in Adwaita and Adwaita dark, with 3 of 10 rows picked by a click and two Ctrl+clicks: a thin column left of Name, a dim mark on each picked row and none on the rest, names unchanged. The mark sits about halfway between the selection color and the row's text in both, so it reads without competing with the name.
+	- Acceptance signoff: Self-closed: the look checked at fdce4acd in Adwaita light and dark.
+	- Closed: 20261102-172818
 
 - Other hosts: the native Windows gate runs on b29w in the default run.
 	- ID: 2026103114202710
@@ -5257,6 +5176,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: de025 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
 
+- cicd.bash gets `--leakcheck` and `--no-leakcheck`.
+	- ID: 2026101911105600
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261019-111056
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Requirements:
+		- `--leakcheck` turns the slow checks on. It's the way to add them back under `--quick`.
+		- `--no-leakcheck` turns them off. It's the way to leave them out of a default run, or one with `--quiet`.
+		- The last one on the command line wins.
+		- Both are in `--help`.
+	- Estimated effort: Low
+	- Decisions:
+		- The flags set one switch, shown as a "Leak checks" line in the plan. It is on in a plain run and off under `--quick`. No stage reads it yet; 2026102114400592 and the heap soak item do.
+		- `--quiet` and `-q` only mean unattended here, so they don't change it. `--no-leakcheck` is how to leave the checks out of such a run.
+		- Not in the plan's step list, since there is no step to skip until those items land.
+	- Test case: desha (`cicd/utility/test-cicd-leakcheck.bash`, in the lint stage): each flag, both in either order, with `--quick` and with `-q`, and both in `--help`.
+	- Verified: it passes, and fails with `--no-leakcheck` set to turn the checks on. The help and quick pipeline tests still pass.
+	- Swept: the other places `--no-sanitize` and `--quick` are read in `cicd.bash`, and the help text. `cicd-win.ps1` takes the same flags under 2026102416300004, not here.
+	- Closed: 20261102-171500
+
 - Temp files: scripts remove their own temp folders through the guard.
 	- ID: 2026102618083910
 	- Type: Task
@@ -6315,6 +6257,76 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddf4w Config old formats test.
 	- Acceptance signoff: Self-closed: ddf4w is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- de025, ddyv6 and ddc84 still fail in the sanitizer lane on a loaded box.
+	- ID: 2026102411433800
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. Passed in a full run's sanitizer stage on a loaded box, 20261025.
+	- Priority|Severity: Low
+	- Opened: 20261024-114338
+	- Opened by: t00mietum
+	- Related IDs: 2026101613310525, 2026101513290717
+	- Target OS: Linux
+	- Steps to reproduce: a full run's sanitizer stage while other builds load the cores. On 20261024 the load was 23 to 35 on 32 cores.
+	- Incorrect behavior: all 3 failed in one sanitizer stage, which stopped the full run there. Each passed 3 of 3 alone right after, at load 10.
+		- de025: the quickest varied folder took 327 ms to show all rows and the quickest plain one 490 ms, against a 180 ms bar.
+		- ddyv6: the first folder took 340 ms and the quickest 181 ms, against 180 ms.
+		- ddc84: the wait for the program to exit ran out at `test-nemo-cache-quit.c:461`, after 181 s, and the journal was still there at line 463.
+	- Expected behavior: they pass under load, or a slow box makes them skip or retry rather than fail the stage.
+	- Reproduced: 20261024 on Linux, once, in the full run of round1024b at 196653ba.
+	- Possible cause: the time bars and the exit wait were last tuned at load 21. The sanitizer build is about 3 times slower, and a full run beside another project's pipeline goes well past that load.
+	- Actual cause:
+		- de025 and ddyv6: a 180 ms bar is there to tell the old 200 ms timer from a fixed build, so it can't be scaled for a slow box (2026101613310525). A sanitizer build on a loaded box goes past it with the fix in.
+		- ddc84: not found. The close of the busy folder took 0.5 to 2.9 s in 30 quits at load 21 to 30, against more than 156 s in the failed run. So it hung, and a longer wait isn't the fix.
+		- ddc84, 20261101: at quit the feeder cancels running jobs under `thumbnails_mutex`. A job's cancellable had a cancellable source on the private context its thumbnailer script runs in, which the worker frees when the script ends. A cancel from another thread right then writes into the freed context in GLib 2.84, and here it waited for good on a lock in that memory. Every worker then waited on `thumbnails_mutex`, so the app never exited. `nemo-magick.c` had the same pattern.
+	- Progress log:
+		- 20261024: de025, 4 at once at load about 22 in a sanitizer build: the quickest varied folder took 172 to 224 ms, so 3 of 4 were over the bar.
+		- 20261024: ddc84, 6 at once at load 21 to 30, and in the whole sanitizer suite at 8 jobs: no hang.
+		- 20261024: in the sanitizer suite at c7194950 all 3 pass at load about 15, and again at load 50 to 60 beside a full run's arm64 step. ddc84 ran 38 and 55 s in all there. The selection rules tests failed in those runs instead, filed as 2026102413432024, and de7aj once, filed as 2026102413432124.
+		- 20261025: de025, ddyv6 and ddc84 pass in the sanitizer stage of full run 1 of round1025 at f4c13824, at load 45 to 72. ddc84 took 35 s. Nothing is left for de025 and ddyv6.
+		- 20261101: ddc84 hung at quit in the plain suite of a full run at 580003d3, load about 12, and its stacks named the cause. A small program doing what the script runner did, while another thread cancels, crashed within seconds in 3 of 3 runs on the dev image's GLib 2.84.4. With `g_cancellable_connect` and `g_cancellable_disconnect` it ran about 6.8 million rounds clean, 3 times.
+	- Decisions:
+		- The sanitizer lane runs both timed tests for the memory checks and the item counts, and leaves their time bars to the plain suite, which every gate runs.
+		- ddyv6 and ddc84 were each closed once before for the same failure under load (2026101613310525, 2026101513290717). So ddc84's wait isn't raised again until its cause is known.
+	- Actual fix:
+		- A sanitizer build doesn't hold the time bars of de025 and ddyv6 (`TEST_TIME_BARS_HOLD` in `test-scratch.h`), and ddyv6 runs once there.
+		- ddc84 prints how long each quit took. A copy that doesn't quit in time has its threads listed, with their stacks when gdb is there, and is killed, so it no longer runs on into the next run.
+		- 20261101: the thumbnailer script and ImageMagick runners connect to the cancellable rather than attach a cancellable source, and disconnect before freeing their context. The handler only ends the program. Lint der15 refuses `g_cancellable_source_new` in `source/`.
+	- Swept: every test with a fixed time bar; only these two have one. Every exit wait in ddc84, the `--quit` copy's included, goes through the same report.
+	- Branch: round1024b, thumbcancel
+	- Commit: ac5d30ac, 71104410
+	- Test case: de025, ddyv6 and ddc84 themselves, in the sanitizer lane with the cores loaded.
+	- Verified: 20261024, the 3 tests pass in a sanitizer build, and so does the whole sanitizer suite, 220 OK and 15 skipped, at load about 15. de025 passes 4 of 4 at once at load about 22, where 3 of 4 were over its bar. In a plain build the 3 pass with the bars held. A copy held past ddc84's exit wait was listed with its threads and stacks and killed, and the test went on through its other runs. C lint clean, and the test ID check passes.
+	- Verified: 20261025, full run 1 of round1025 at f4c13824, at load 45 to 72: de025, ddyv6 and ddc84 pass in the sanitizer stage, and in the plain suite.
+	- Verified: 20261101, full run at 6562926c: ddc84 passes in the plain suite and the sanitizer stage. Lint der15 fails on the old `nemo-magick.c` and passes after.
+	- Acceptance signoff: Self-closed: the hang's stacks named the cause, a small program shows it on this GLib, and the same program with the new pattern runs clean. der15 keeps the pattern out.
+	- Closed: 20261101-171500
+
+- In the icon views, removing an icon never tells the accessibility tree.
+	- ID: 2026102412590587
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261024-125905
+	- Opened by: t00mietum
+	- Related IDs: 2026102412254361
+	- Steps to reproduce [Bug]:
+		- With a screen reader or an accessibility inspector on, delete or move a file out of a folder shown in an icon view.
+	- Incorrect behavior [Bug]: no `children_changed::remove` is sent for the icon.
+	- Expected behavior [Bug]: the accessible parent says which child went.
+	- Reproduced [Bug]: Yes, 20261102, Linux. With the removal check in ddgd0 and the old order, no `children_changed::remove` arrives.
+	- Possible cause [Bug]: `nemo_icon_container_accessible_icon_removed_cb` looks the icon up in `icon_set`, but `icon_removed` is sent after `icon_destroy` has taken it out, so the lookup always misses. Until `...4361` the signal was also sent the icon in place of its data, the wrong key.
+	- Estimated effort: Low
+	- Actual cause: as above.
+	- Actual effort: Low
+	- Actual fix: `nemo_icon_container_remove` now sends `icon_removed` before `icon_destroy`, so the handler finds the icon, its item and its index. The signal still takes the icon's data.
+	- Swept: `icon_removed` has one connected handler (the accessible's) and one empty class handler in the grid container. `icon_added` is sent after the icon is in, so it was right. `cleared` needs no icon.
+	- Branch: round1102a
+	- Test case: ddgd0, Icon accessible extents test. Each run now deletes a file and expects one `children_changed::remove` with the icon's item and a valid index. Fails before the fix, passes after.
+	- Verified: 20261102, `cicd/cicd.bash --backlog-run-quick tests`: ddgd0 fails with the old order and the suite passes with the fix. Linux only.
+	- Acceptance signoff: Self-closed: ddgd0 fails before the fix and passes after.
+	- Closed: 20261102-170958
 
 - ddepg failed once in a full run's suite on a loaded box, the heap growing 1600 bytes over 64 rounds.
 	- ID: 2026102518200000
