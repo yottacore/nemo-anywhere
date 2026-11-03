@@ -24,13 +24,18 @@
 ##	  session on the same box, through a schtasks /it task. A test user with
 ##	  no session there, or a locked one, is a warning, and the gate's pass
 ##	  stands, since no window gets the focus in a locked session.
+##	- NEMO_WIN_DESKTOP_ELSEWHERE=1 leaves those tests for the next box: after
+##	  a passing gate that skipped any, the lane exits 75 without running
+##	  them, and cicd.bash sends the gate to vm925w, whose wintest session
+##	  never locks and whose screen is no one's.
 ##	- NEMO_WIN_READY_WAIT is the seconds to wait for the login after a boot
 ##	  (default 600), NEMO_WIN_POLL the seconds between looks at the log
 ##	  (default 30), NEMO_WIN_GATE_ARGS what cicd-win.ps1 gets (default
 ##	  "-Gate -Yes -NoSync"), NEMO_WIN_TEST_USER the user whose desktop the
 ##	  skipped tests run in (default wintest), NEMO_WIN_DESKTOP=0 leaves that
 ##	  part out.
-##	- Exit: the gate's own, 77 with no box there, 1 for a lane failure.
+##	- Exit: the gate's own, 77 with no box there, 75 for a passing gate whose
+##	  windowed tests are left for another box, 1 for a lane failure.
 ##	- Syntax: win/lane.bash [<box>...]
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -162,6 +167,11 @@ fDesktop(){
 	fLaneStep "Desktop tests"
 	names="$(fSkippedTests)"
 	if [[ -z "$names" ]]; then fEcho_Clean "the gate skipped no tests"; return 0; fi
+	if [[ "${NEMO_WIN_DESKTOP_ELSEWHERE:-0}" == 1 ]]; then
+		fEcho_Clean "$(wc -l <<< "$names") skipped tests are left for the next box"
+		fLaneStep_Close SKIP
+		return 75
+	fi
 	printf '%s\n' "$names" > "${scratch}/desktop.txt"
 	fEcho_Clean "$(wc -l < "${scratch}/desktop.txt") skipped tests, again as ${testUser} in a desktop session on ${box}"
 	scp -q "${sshOpts[@]}" "${scratch}/desktop.txt" "${box}:${dirS}/" < /dev/null || fDie "could not send the test list to ${box}"
@@ -260,6 +270,8 @@ fMain "${@}"
 
 
 ##	History:
+##		- 2026-11-03: NEMO_WIN_DESKTOP_ELSEWHERE, so cicd.bash can take the
+##		  windowed tests to vm925w rather than b29w's own screen.
 ##		- 2026-11-02: A locked test user session is a warning, as no session is.
 ##		- 2026-11-02: The work folder is under %ProgramData%, not the ssh
 ##		  login's %TEMP%, so the test user's desktop tests can work in it.

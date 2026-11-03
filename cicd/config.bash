@@ -201,7 +201,10 @@ BSD_RELEASE_CMD=(bash cicd/bsd/lane.bash --release)
 ## another machine, so the side command runs alongside the local steps from the
 ## debug build on, and is waited for before the packages. When it finds no box
 ## (77), the other command runs then, in that step, since vm925w is a VM here
-## and shares this box's CPUs. See win/lane.bash.
+## and shares this box's CPUs. The same goes when b29w's gate passes and
+## leaves its windowed tests (75), since b29w's screen is the laptop's own:
+## vm925w runs the gate again with no lints, then those tests in wintest's
+## session there, which never locks. See win/lane.bash.
 WIN_GATE_SIDE_CMD=(bash cicd/win/lane.bash b29w)
 WIN_GATE_CMD=(bash cicd/win/lane.bash vm925w)
 

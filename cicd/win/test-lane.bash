@@ -19,7 +19,8 @@
 ##	    those, go to the box and run as wintest in its desktop session. Their
 ##	    exit code is the lane's. With no wintest session there, or a locked
 ##	    one, it's a warning and the gate's pass stands. A failing gate runs
-##	    none.
+##	    none. NEMO_WIN_DESKTOP_ELSEWHERE=1 leaves them for the next box, and
+##	    a passing gate then exits 75.
 ##	- Needs git; exit 77 without it.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/win/test-lane.bash
@@ -226,6 +227,21 @@ if ((laneRc == 0)); then
 else
 	fFail "a locked wintest session gave exit ${laneRc}, not 0: $(tail -3 "${scratch}/out.log")"
 fi
+
+fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 FAKE_DRC=0 NEMO_WIN_DESKTOP_ELSEWHERE=1 -- b29w
+if ((laneRc == 75)); then
+	! grep -q ' -Desktop ' "$log" || fFail "NEMO_WIN_DESKTOP_ELSEWHERE=1 still ran the desktop tests on b29w"
+	grep -q '1 skipped tests are left for the next box' "${scratch}/out.log" || fFail "no line saying the windowed tests go to the next box"
+	grep -q 'Windows 4 of 4; SKIP Desktop tests ]' "${scratch}/out.log" || fFail "no SKIP line for the desktop tests"
+	! grep -q 'FAIL Desktop tests' "${scratch}/out.log" || fFail "the desktop tests were called failed"
+	grep -qE "^ssh b29w pwsh .*-Dir ${dirRe}001 -Remove\$" "$log" || fFail "the work folder was not removed"
+	fEcho "OK: NEMO_WIN_DESKTOP_ELSEWHERE=1 leaves the windowed tests to the next box, exit 75"
+else
+	fFail "NEMO_WIN_DESKTOP_ELSEWHERE=1 gave exit ${laneRc}, not 75: $(tail -3 "${scratch}/out.log")"
+fi
+
+fLane "${scratch}/x_vm-state.bash" FAKE_RC=1 NEMO_WIN_DESKTOP_ELSEWHERE=1 -- b29w
+((laneRc == 1)) || fFail "a failing gate with NEMO_WIN_DESKTOP_ELSEWHERE=1 gave exit ${laneRc}, not 1"
 
 fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 NEMO_WIN_DESKTOP=0 -- b29w
 if ((laneRc == 0)); then

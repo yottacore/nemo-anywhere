@@ -33,40 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- The pipeline prunes every project's docker build cache
-	- ID: 2026110311291909
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261103-112919
-	- Opened by: JC
-	- Related IDs: common 2026110311291900
-	- Incorrect behavior: The pipeline runs `docker builder prune` after a run, in `cicd/utility/include/docker-sweep.bash` and `cicd/utility/test-cicd-docker-sweep.bash`. That prunes docker's default builder, which every project shares, so a run here drops any other project's cache once it's a week unused. common's `Cleanup after a run` rule said to do it.
-	- Expected behavior: The pipeline doesn't prune docker's build cache at all. Docker trims the cache itself on b23, through `builder.gc` in `/etc/docker/daemon.json`. Cache unused for a week goes first, then the rest is cut to 120 GB, or further when the disk is under 10% free, but never below 20 GB. The label cleanup of this project's containers, dangling images and old tags stays.
-		- Do it once b23's `/etc/docker/daemon.json` has the `builder.gc` block. `grep -q '"gc"' /etc/docker/daemon.json` checks. Until then the prune stays.
-	- Decisions:
-		- Don't move to a buildx builder of the project's own instead. shcl tried that on 2026-11-02. A cold build of a 2 GB image took 299 s against 266 s on the default builder, and the builder kept a second 3 GB copy of the layers for a week. shcl is going back to the default builder. (JC, me)
-	- Estimated effort: Low
-
-- debgn and dcd70 pass in wintest's unlocked desktop session on vm925w-iommu.
-	- ID: 2026110216492601
-	- Type: Task
-	- Status: Queued
-		- Decided: b29w keeps its lock, since its screen is the laptop's own. The windowed tests go to vm925w-iommu instead, where wintest's session is set never to lock. Not started: vm925w-iommu won't start while paused vmKt6m holds SPICE port 5900.
-	- Needs external testing: debgn and dcd70 in the lane's desktop step on vm925w-iommu, with wintest's session unlocked.
-	- Priority|Severity: Avg
-	- Opened: 20261102-164926
-	- Opened by: 2026110216323705
-	- Parent ID: 2026110216323705
-	- Related IDs: 2026103114202730
-	- Target OS: Windows
-	- Test environment: vm925w-iommu, the native lane's desktop step, as wintest.
-	- Requirements:
-		- vm925w-iommu never locks wintest's session.
-		- When b29w's session is locked, the windowed tests the gate skipped run on vm925w-iommu, and debgn and dcd70 pass there.
-		- With neither box free, the step warns and the gate's pass stands, as now.
-	- Test case: debgn and dcd70, in the lane's desktop step on vm925w-iommu.
-
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
@@ -160,6 +126,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- 20261028: not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
 	- Verified: 20261102 on vm925w, dd5dm from round1102a at 1aadd7b9 (nothing under Compress changed after it), with the work area cut to 560 px in two ways, 3 runs: each passed, Options got 272 px and scrolled, and the 543 px dialog stayed inside the work area. The screen kept its size, since the dialog sizes itself to the work area and not the screen.
 	- Stand-in: none (20261102). Only the look of Reset beside Options is left, which turns on taste. In Adwaita at fdce4acd its text sits about 8 px below the Options label's, grayed and lit alike, as the 20261013 note says.
+
+- Other hosts: with the native gate on b29w, its windowed tests go to vm925w when it's there.
+	- ID: 2026103116203063
+	- Type: Task
+	- Status: Waiting on a full CICD run
+	- Priority|Severity: Avg
+	- Opened: 20261031-162030
+	- Opened by: 2026103114202730
+	- Parent ID: 2026103114202730
+	- Related IDs: 2026110216492601
+	- Requirements:
+		- When vm925w is there, the tests the b29w gate skipped run as wintest in vm925w's desktop session, rather than on b29w, through the VM state helper. That needs a build on vm925w.
+		- vm925w has autologon off, so after a start from off wintest is logged on first.
+		- With vm925w not there, b29w's test account, as now.
+	- Decisions:
+		- `cicd.bash` starts the b29w lane with `NEMO_WIN_DESKTOP_ELSEWHERE=1` when it has a second gate command. After a passing gate that skipped any tests, the lane leaves them and exits 75. The Native Windows gate step then runs the vm925w lane with `-Gate -Yes -NoSync -NoFmt`: a build, the suite again and the smokes, then the desktop step. That adds about 15 min to a full run, in its own step, so it doesn't share b23's CPUs with the local steps.
+		- vm925w now signs in as wintest at boot (2026110216492601).
+		- Changed my mind on the third point. When vm925w can't be had after b29w left its tests, it's a warning and b29w's pass stands, rather than a second b29w gate. vm925w is a VM here that the VM state helper starts on demand, so that's rare, and b29w's session is usually locked anyway. The lane on its own, with no `NEMO_WIN_DESKTOP_ELSEWHERE`, still runs them on whichever box it took.
+	- Test case: depg0 (`NEMO_WIN_DESKTOP_ELSEWHERE=1` exits 75 after a passing gate, runs nothing on the box's desktop, and still removes the folder) and ddmmw (the side gate is told, a 75 runs the other gate with `-NoFmt`, and a 77 from it keeps the pass with a warning).
+	- Branch: deskvm
+	- Verified: 20261103, depg0 and ddmmw pass, and fail against dev's `lane.bash` and `cicd.bash`. `--backlog-run-quick lint` passes. A lane run on vm925w from off passed, desktop step included. Left: a full run, for the b29w then vm925w path end to end.
 
 - CICD step output: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102819522603
@@ -271,37 +258,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: dejjt (`cicd/utility/test-cicd-win.ps1`, lint stage: the gate and the full run with every step on, with steps turned off by each flag, a missing toolchain with and without `-BuildStrict`, no Enigma Virtual Box, and a step that fails, each checked for the rule, numbering, open and close lines and the turned-off list).
 	- Verified: 20261028, dejjt passes, and fails with a 78-dot rule, with no `FAIL` close on a failure, with a step left out of the plan, and with the last step left open. `cicd/cicd.bash --backlog-run-quick format lint` passes.
 	- Verified: 20261028, native gate on b29w at 2964120b: the plan gave the step count and listed each step turned off with its flag, each step opened under a 79-character rule with `Starting`, and the failing Lints and Tests steps closed as `FAIL`. The rule's bullets come out as 0x07 in a piped log, which predates the round and is 2026102822580287.
-
-- Other hosts: native Windows checks that put a window on screen run on vm925w.
-	- ID: 2026103114202730
-	- Type: Task
-	- Status: Waiting on automated testing
-	- Priority|Severity: High
-	- Opened: 20261031-142027
-	- Opened by: 2026102808250959
-	- Parent ID: 2026102808250959
-	- Prereq IDs: 2026110216492601
-	- Requirements:
-		- The gate on b29w runs over ssh with no desktop, so its windowed tests skip. Those run again in a desktop session on vm925w, as its test user, and on b29w under its test account when vm925w isn't there.
-		- The VM is put back the way it was found. Neither box there is a `SKIP`.
-	- Decisions:
-		- The tests the gate's Tests step skipped, and only those, run again against its build on the same box, as its test user in that user's desktop session, through a `schtasks /it` task. No second build, so it adds a minute or two to the lane. A test that skips there for its own reason, such as a missing tool, skips again.
-		- The test user gets Modify on the run's folder for it, which goes with the folder.
-		- A session there with no monitor fails the step, since a pass would hide that nothing was drawn.
-		- With the test user not logged on, the lane warns and the gate's pass stands. Logging on over RDP would take b29w's own screen.
-		- Only after a passing gate, since a failed gate fails the lane already.
-		- `NEMO_WIN_DESKTOP=0` leaves it out, and `NEMO_WIN_TEST_USER` names another user.
-		- With the gate on b29w, its windowed tests run there even when vm925w is there. Sending them to vm925w needs a build on vm925w, and that's 2026103116203063.
-	- Swept: the other lanes that reach a box run no windowed tests. Every caller of `lane-box.ps1` and `fTests` in `cicd/`, and design.md's native gate bullet.
-	- Test case: depg0: after a passing gate, only the meson tests its Tests step skipped go to the box and run as wintest, a failing desktop test fails the lane, no wintest session is a warning, a failing gate runs none, and `NEMO_WIN_DESKTOP=0`.
-	- 20261031: split. Windowed tests on vm925w while the gate runs on b29w, and wintest's logon on vm925w after a boot, are 2026103116203063.
-	- 20261031: the work is on `wip/round1031a-2026103114202730`, not on the round branch, since the desktop step fails on b29w. Its task starts as wintest in session 2 with 1 monitor, then `cicd-win.ps1` stops at `Set-Location $Root`, "Access to the path 'C:\Users\collierjr\AppData' is denied". PowerShell reads each folder above the run folder, and wintest can't list the ssh user's profile. Left: a run folder both users can reach, or a way past the profile, then the run on b29w again.
-	- Branch: round1102a
-	- Verified: 20261031, depg0 and dejjt pass on the wip branch. depg0 fails 9 checks against the round branch's `lane.bash`, and dejjt 6 against its `cicd-win.ps1`. `--backlog-run-quick` passes.
-	- 20261031, on b29w, 3 lane runs of the wip changes, `-Gate -Yes -NoSync -NoFmt`: the third gate passed, 191 OK and 22 skipped, the 22 went to the box, and the task ran as wintest in its desktop session. It failed as above. The first 2 gates failed on 2026103116203164 and 2026103116284963, so no desktop step ran.
-	- 20261031: failed its try this round. Held behind 2026103116395639. Its code is on `wip/round1031a-2026103114202730`.
-	- 20261102: the wip work is on round1102a with the run folder moved to ProgramData (2026103116395639). The desktop step now runs as wintest on b29w, and debgn, dcd70 and ddqdq fail there, so it waits on 2026110216323705.
-	- 20261102: the desktop step passes the gate on b29w, and warns when wintest's session is locked (2026110216323705). Left: a lane run on b29w with the session unlocked, so debgn and dcd70 run there.
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
@@ -521,6 +477,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
 	- Test case: one per child.
 
+- The pipeline prunes every project's docker build cache
+	- ID: 2026110311291909
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261103-112919
+	- Opened by: JC
+	- Related IDs: common 2026110311291900
+	- Incorrect behavior: The pipeline runs `docker builder prune` after a run, in `cicd/utility/include/docker-sweep.bash` and `cicd/utility/test-cicd-docker-sweep.bash`. That prunes docker's default builder, which every project shares, so a run here drops any other project's cache once it's a week unused. common's `Cleanup after a run` rule said to do it.
+	- Expected behavior: The pipeline doesn't prune docker's build cache at all. Docker trims the cache itself on b23, through `builder.gc` in `/etc/docker/daemon.json`. Cache unused for a week goes first, then the rest is cut to 120 GB, or further when the disk is under 10% free, but never below 20 GB. The label cleanup of this project's containers, dangling images and old tags stays.
+		- Do it once b23's `/etc/docker/daemon.json` has the `builder.gc` block. `grep -q '"gc"' /etc/docker/daemon.json` checks. Until then the prune stays.
+	- Decisions:
+		- Don't move to a buildx builder of the project's own instead. shcl tried that on 2026-11-02. A cold build of a 2 GB image took 299 s against 266 s on the default builder, and the builder kept a second 3 GB copy of the layers for a week. shcl is going back to the default builder. (JC, me)
+	- Estimated effort: Low
+
 - On b29w, debgn, dcd70 and ddqdq fail in wintest's desktop session.
 	- ID: 2026110216323705
 	- Type: Bug
@@ -573,6 +544,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: opened.
 	- Test case: none yet.
 
+- Nemo Anywhere dim checkmarks: the compact view.
+	- ID: 2026102411133419
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-111334
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515571
+	- Prereq IDs: 2026102411133414
+	- Target OS: All
+	- Requirements:
+		- Only under Nemo Anywhere. A dim checkmark on every selected item, and none on the rest. The text doesn't change.
+		- Left of the name text.
+		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
+	- Notes:
+		- Shares the icon container's drawing with the icon view, so it follows that child.
+	- Progress log:
+		- 20261024: opened.
+	- Test case: none yet.
+
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
 	- Type: Bug
@@ -606,28 +599,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none. The fix is upstream, and nothing in the app hits it.
 	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
 	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
-
-- Nemo Anywhere dim checkmarks: the compact view.
-	- ID: 2026102411133419
-	- Type: Enhancement
-	- Status: Queued
-	- Needs local test suite run?: Yes
-	- Priority|Severity: High
-	- Opened: 20261024-111334
-	- Opened by: t00mietum
-	- Parent ID: 2026102407515571
-	- Prereq IDs: 2026102411133414
-	- Target OS: All
-	- Requirements:
-		- Only under Nemo Anywhere. A dim checkmark on every selected item, and none on the rest. The text doesn't change.
-		- Left of the name text.
-		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
-	- Notes:
-		- Shares the icon container's drawing with the icon view, so it follows that child.
-	- Progress log:
-		- 20261024: opened.
-	- Test case: none yet.
 
 - Nemo Anywhere: the focus outline and the keyboard rules, per view.
 	- ID: 2026102407515572
@@ -972,20 +943,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261031 on b29w at round1031a, 1 run of 3, in session 0.
 	- Possible cause: the same 4 KB COM buffers as 2026101913541101, which closed on vm925w in the desktop session. b29w over ssh is session 0, and has more apps installed. 2026101913541101 has closed once and come back once already.
 	- Test case: ddepv on b29w over ssh.
-
-- Other hosts: with the native gate on b29w, its windowed tests go to vm925w when it's there.
-	- ID: 2026103116203063
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261031-162030
-	- Opened by: 2026103114202730
-	- Parent ID: 2026103114202730
-	- Requirements:
-		- When vm925w is there, the tests the b29w gate skipped run as wintest in vm925w's desktop session, rather than on b29w, through the VM state helper. That needs a build on vm925w.
-		- vm925w has autologon off, so after a start from off wintest is logged on first.
-		- With vm925w not there, b29w's test account, as now.
-	- Test case: none yet.
 
 - CICD reset: temp files and safe removal.
 	- ID: 2026102416300002
@@ -2329,6 +2286,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. dd8d9 covers it.
 	- Closed: 20261003-112426
+
+- Other hosts: native Windows checks that put a window on screen run on vm925w.
+	- ID: 2026103114202730
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261031-142027
+	- Opened by: 2026102808250959
+	- Parent ID: 2026102808250959
+	- Prereq IDs: 2026110216492601
+	- Requirements:
+		- The gate on b29w runs over ssh with no desktop, so its windowed tests skip. Those run again in a desktop session on vm925w, as its test user, and on b29w under its test account when vm925w isn't there.
+		- The VM is put back the way it was found. Neither box there is a `SKIP`.
+	- Decisions:
+		- The tests the gate's Tests step skipped, and only those, run again against its build on the same box, as its test user in that user's desktop session, through a `schtasks /it` task. No second build, so it adds a minute or two to the lane. A test that skips there for its own reason, such as a missing tool, skips again.
+		- The test user gets Modify on the run's folder for it, which goes with the folder.
+		- A session there with no monitor fails the step, since a pass would hide that nothing was drawn.
+		- With the test user not logged on, the lane warns and the gate's pass stands. Logging on over RDP would take b29w's own screen.
+		- Only after a passing gate, since a failed gate fails the lane already.
+		- `NEMO_WIN_DESKTOP=0` leaves it out, and `NEMO_WIN_TEST_USER` names another user.
+		- With the gate on b29w, its windowed tests run there even when vm925w is there. Sending them to vm925w needs a build on vm925w, and that's 2026103116203063.
+	- Swept: the other lanes that reach a box run no windowed tests. Every caller of `lane-box.ps1` and `fTests` in `cicd/`, and design.md's native gate bullet.
+	- Test case: depg0: after a passing gate, only the meson tests its Tests step skipped go to the box and run as wintest, a failing desktop test fails the lane, no wintest session is a warning, a failing gate runs none, and `NEMO_WIN_DESKTOP=0`.
+	- 20261031: split. Windowed tests on vm925w while the gate runs on b29w, and wintest's logon on vm925w after a boot, are 2026103116203063.
+	- 20261031: the work is on `wip/round1031a-2026103114202730`, not on the round branch, since the desktop step fails on b29w. Its task starts as wintest in session 2 with 1 monitor, then `cicd-win.ps1` stops at `Set-Location $Root`, "Access to the path 'C:\Users\collierjr\AppData' is denied". PowerShell reads each folder above the run folder, and wintest can't list the ssh user's profile. Left: a run folder both users can reach, or a way past the profile, then the run on b29w again.
+	- Branch: round1102a
+	- Verified: 20261031, depg0 and dejjt pass on the wip branch. depg0 fails 9 checks against the round branch's `lane.bash`, and dejjt 6 against its `cicd-win.ps1`. `--backlog-run-quick` passes.
+	- 20261031, on b29w, 3 lane runs of the wip changes, `-Gate -Yes -NoSync -NoFmt`: the third gate passed, 191 OK and 22 skipped, the 22 went to the box, and the task ran as wintest in its desktop session. It failed as above. The first 2 gates failed on 2026103116203164 and 2026103116284963, so no desktop step ran.
+	- 20261031: failed its try this round. Held behind 2026103116395639. Its code is on `wip/round1031a-2026103114202730`.
+	- 20261102: the wip work is on round1102a with the run folder moved to ProgramData (2026103116395639). The desktop step now runs as wintest on b29w, and debgn, dcd70 and ddqdq fail there, so it waits on 2026110216323705.
+	- 20261102: the desktop step passes the gate on b29w, and warns when wintest's session is locked (2026110216323705). Left: a lane run on b29w with the session unlocked, so debgn and dcd70 run there.
+	- 20261103: b29w keeps its lock. The windowed tests run on vm925w-iommu instead, whose wintest session never locks (2026110216492601). A lane run there from off passed the gate and the desktop step, 16 OK, 0 failed, and put the VM back off.
+	- Acceptance signoff: Self-closed: the skipped tests run again as wintest in a desktop session, on vm925w-iommu, and the VM is put back as found (depg0, and the 20261103 lane run).
+	- Closed: 20261103-114500
 
 - Nemo Anywhere dim checkmarks: the list view column.
 	- ID: 2026102411133409
@@ -5191,6 +5182,30 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de025, Folder open time test. Goes into 9 folders of 120 from the list view, and back up after each. 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
 	- Acceptance signoff: Self-closed: de025 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
+
+- debgn and dcd70 pass in wintest's unlocked desktop session on vm925w-iommu.
+	- ID: 2026110216492601
+	- Type: Task
+	- Status: Done
+		- Decided: b29w keeps its lock, since its screen is the laptop's own. The windowed tests go to vm925w-iommu instead, where wintest's session never locks.
+	- Priority|Severity: Avg
+	- Opened: 20261102-164926
+	- Opened by: 2026110216323705
+	- Parent ID: 2026110216323705
+	- Related IDs: 2026103114202730
+	- Target OS: Windows
+	- Test environment: vm925w-iommu, the native lane's desktop step, as wintest.
+	- Requirements:
+		- vm925w-iommu never locks wintest's session.
+		- debgn and dcd70 pass in the lane's desktop step there.
+	- Decisions:
+		- vm925w-iommu signs in as wintest at boot (`AutoAdminLogon`), since the VM state helper starts it from off for a lane and shuts it down after. Its console lock, display off and sleep on AC were already off, and wintest has no screen saver. The old Winlogon values are kept on b23.
+		- Its SPICE port, which only Looking Glass input uses, moved from 5900 to 5999, so a guest that takes the first free port can't stop it starting. Looking Glass's `client.ini` names the new port.
+		- Sending the windowed tests there from a b29w gate is 2026103116203063.
+	- Test case: debgn and dcd70, in the lane's desktop step on vm925w-iommu.
+	- 20261103: two lane runs on vm925w-iommu from off. The first stopped at depf5, since vm925w has a native mingw64 curl that comes first under MINGW64 and can't read MSYS paths. `fetch-sysroot.bash` and `msys2-pins.bash` now use MSYS's curl then (`curlpick`, merged). The second passed: the gate, then the desktop step as wintest with 16 OK, 0 failed, 2 skipped, debgn, dcd70 and ddqdq included.
+	- Acceptance signoff: Self-closed: debgn and dcd70 pass in wintest's session on vm925w-iommu, started from off, which signed in by itself and reads as unlocked.
+	- Closed: 20261103-114500
 
 - cicd.bash gets `--leakcheck` and `--no-leakcheck`.
 	- ID: 2026101911105600
