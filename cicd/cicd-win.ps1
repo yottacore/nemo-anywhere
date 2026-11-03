@@ -46,6 +46,10 @@
 ##		                   (reserved: none run here yet, so the build, tests,
 ##		                   pack and dogfood all still run)
 ##		   -Gate           merge gate only: lint + build + tests + smokes, then exit (no stage/publish)
+##		   -TestList FILE  only the meson tests named in FILE, one per line, against
+##		                   the build already there, then exit. The native lane
+##		                   runs the ones the gate skipped this way, in a desktop
+##		                   session (win/lane-box.ps1)
 ##		   -NoSync         skip the remote sync check (stage 0)
 ##		   -NoFmt          skip the lint stage
 ##		   -NoBuild        skip the build + tests + stage stages
@@ -69,6 +73,7 @@ param(
 	[switch]$Quiet,
 	[switch]$Quick,
 	[switch]$Gate,
+	[string]$TestList = "",
 	[switch]$NoSync,
 	[switch]$NoFmt,
 	[switch]$NoBuild,
@@ -419,6 +424,7 @@ function fTestLine {
 ## The meson suite against the debug build. The mingw64 shell has the GTK DLLs on
 ## PATH. A crash would otherwise stop the run behind a modal box.
 function fTests {
+	param([string[]]$Names = @())
 	## The login shell keeps only the system folders of the Windows PATH, so a
 	## test that looks for an installed program, ImageMagick say, never found it.
 	$savedPathType = $env:MSYS2_PATH_TYPE
@@ -433,9 +439,10 @@ function fTests {
 	## meson starts the wrapper as a Windows program, and that search tries
 	## System32 before PATH, so a bare bash is WSL's.
 	$wrapBash = $MsysBash -replace '\\', '/'
+	$only = ($Names | ForEach-Object { " '$($_ -replace "'", "'\''")'" }) -join ''
 	try {
 		## Each result line becomes "PASS|FAIL|SKIP <id> <name>", as on Linux.
-		fMingw "set -o pipefail; NEMO_NO_CRASH_DIALOG=1 TMPDIR='$runDirU' meson test -C $BuildRel --no-rebuild --num-processes $($script:Jobs) --print-errorlogs --wrapper '$wrapBash $jail' | awk -f cicd/utility/include/result-lines.awk"
+		fMingw "set -o pipefail; NEMO_NO_CRASH_DIALOG=1 TMPDIR='$runDirU' meson test -C $BuildRel --no-rebuild --num-processes $($script:Jobs) --print-errorlogs --wrapper '$wrapBash $jail'$only | awk -f cicd/utility/include/result-lines.awk"
 	} finally { $env:MSYS2_PATH_TYPE = $savedPathType }
 	if ($script:MingwRc -ne 0) { fDie "test suite failed (exit $($script:MingwRc)); anything a test left is in $runDir" }
 	$left = @(Get-ChildItem -LiteralPath $runDir -Force -ErrorAction SilentlyContinue)
@@ -450,6 +457,7 @@ function fTests {
 	}
 	Remove-Item -LiteralPath $runDir -Force
 	fEcho "OK: test suite"
+	if ($Names.Count -gt 0) { return }
 	## The installer's in-use check needs a real process to find, so it runs
 	## here rather than beside the other script tests in lint.
 	$test = Join-Path $Root "cicd\win\test-install-holders.ps1"
@@ -766,6 +774,21 @@ function fMain {
 	fJobs
 	$toolMiss = fToolchainMissing
 
+	## Named tests only, against the build already there.
+	if ($TestList) {
+		$names = @(Get-Content -LiteralPath $TestList -Encoding utf8 | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+		if ($names.Count -eq 0) { fDie "no test names in $TestList" }
+		if (-not (Test-Path -LiteralPath (Join-Path $BuildDir 'build.ninja'))) { fDie "no build to test in $BuildDir" }
+		fPlan $true 'Tests' ''
+		fSection "$AppName tests: $($names.Count) named"
+		fPlan_Show
+		fStep 'Tests'
+		fTests -Names $names
+		fStep_Close 'PASS'
+		fEcho_Clean
+		return
+	}
+
 	## Gate mode: lint + build + tests + smoke, then exit. The local verification
 	## for a push. Nothing is staged or published.
 	if ($Gate) {
@@ -911,6 +934,8 @@ try {
 
 
 ##	History:
+##		- 2026-10-31: -TestList runs only the meson tests it names, against the
+##		  build already there.
 ##		- 2026-10-28: BelowNormal priority, which the tools it starts inherit, and
 ##		  job counts from one place, a quarter when CPU use is over 50%. Each step
 ##		  opens and closes with a timestamped "Step N of M" line under a 79-dot
