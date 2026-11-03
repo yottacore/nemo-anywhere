@@ -1784,7 +1784,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - In the icon views, removing an icon never tells the accessibility tree.
 	- ID: 2026102412590587
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261024-125905
 	- Opened by: t00mietum
@@ -1793,10 +1793,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- With a screen reader or an accessibility inspector on, delete or move a file out of a folder shown in an icon view.
 	- Incorrect behavior [Bug]: no `children_changed::remove` is sent for the icon.
 	- Expected behavior [Bug]: the accessible parent says which child went.
-	- Reproduced [Bug]: No. Read from the code only.
+	- Reproduced [Bug]: Yes, 20261102, Linux. With the removal check in ddgd0 and the old order, no `children_changed::remove` arrives.
 	- Possible cause [Bug]: `nemo_icon_container_accessible_icon_removed_cb` looks the icon up in `icon_set`, but `icon_removed` is sent after `icon_destroy` has taken it out, so the lookup always misses. Until `...4361` the signal was also sent the icon in place of its data, the wrong key.
 	- Estimated effort: Low
-	- Test case: none yet.
+	- Actual cause: as above.
+	- Actual effort: Low
+	- Actual fix: `nemo_icon_container_remove` now sends `icon_removed` before `icon_destroy`, so the handler finds the icon, its item and its index. The signal still takes the icon's data.
+	- Swept: `icon_removed` has one connected handler (the accessible's) and one empty class handler in the grid container. `icon_added` is sent after the icon is in, so it was right. `cleared` needs no icon.
+	- Branch: round1102a
+	- Test case: ddgd0, Icon accessible extents test. Each run now deletes a file and expects one `children_changed::remove` with the icon's item and a valid index. Fails before the fix, passes after.
+	- Verified: 20261102, `cicd/cicd.bash --backlog-run-quick tests`: ddgd0 fails with the old order and the suite passes with the fix. Linux only.
+	- Acceptance signoff: Self-closed: ddgd0 fails before the fix and passes after.
+	- Closed: 20261102-170958
 
 - The selection rules tests open folders by their place in the home folder, which depends on the box.
 	- ID: 2026102821124143
