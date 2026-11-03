@@ -702,12 +702,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Other hosts: native Windows checks that put a window on screen run on vm925w.
 	- ID: 2026103114202730
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
 	- Priority|Severity: High
 	- Opened: 20261031-142027
 	- Opened by: 2026102808250959
 	- Parent ID: 2026102808250959
-	- Prereq IDs: 2026110216323705
+	- Prereq IDs: 2026110216492601
 	- Requirements:
 		- The gate on b29w runs over ssh with no desktop, so its windowed tests skip. Those run again in a desktop session on vm925w, as its test user, and on b29w under its test account when vm925w isn't there.
 		- The VM is put back the way it was found. Neither box there is a `SKIP`.
@@ -728,6 +728,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- 20261031, on b29w, 3 lane runs of the wip changes, `-Gate -Yes -NoSync -NoFmt`: the third gate passed, 191 OK and 22 skipped, the 22 went to the box, and the task ran as wintest in its desktop session. It failed as above. The first 2 gates failed on 2026103116203164 and 2026103116284963, so no desktop step ran.
 	- 20261031: failed its try this round. Held behind 2026103116395639. Its code is on `wip/round1031a-2026103114202730`.
 	- 20261102: the wip work is on round1102a with the run folder moved to ProgramData (2026103116395639). The desktop step now runs as wintest on b29w, and debgn, dcd70 and ddqdq fail there, so it waits on 2026110216323705.
+	- 20261102: the desktop step passes the gate on b29w, and warns when wintest's session is locked (2026110216323705). Left: a lane run on b29w with the session unlocked, so debgn and dcd70 run there.
 
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
