@@ -58,10 +58,11 @@ fWinBox_Start "wine run" && boxUp=1
 if [[ ! -x "${DEST}/app/nemo-anywhere.exe" ]] || (( restage )); then
 	(( boxUp )) || { fEcho "FAILED: no staged copy, and no cross-build container to stage it from"; exit 1; }
 	fEcho "Staging wine runtime from $CONTAINER"
-	docker exec "$CONTAINER" sh -c '
+	docker exec "$CONTAINER" bash -c '
 		set -e
 		D=/src/cicd/artifacts/win-run
-		rm -rf "$D"
+		. /src/cicd/utility/include/run-temp.bash
+		fSafeRm_Under /src/cicd/artifacts "$D"
 		mkdir -p "$D/mingw64/bin" "$D/mingw64/lib" "$D/mingw64/share/glib-2.0" "$D/app"
 		cd /opt/win-sysroot/mingw64
 		cp bin/*.dll "$D/mingw64/bin/"

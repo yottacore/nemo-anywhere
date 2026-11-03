@@ -669,7 +669,7 @@ fBuildIconTheme(){
 	(( found > 0 )) || { fEcho "SKIPPED: $outName resolved nothing"; return 0; }
 
 	local dest="$vendor/icons/$outName"
-	rm -rf "$dest"; mkdir -p "$dest"
+	fSafeRm_Under "$vendor/icons" "$dest"; mkdir -p "$dest"
 	"$python" "$svgMin" --tree "$staged" "$dest" >/dev/null
 	fCopyLicense "$repo" "$dest"
 	fWriteIconIndex "$dest" "$outName" "$style" "$modes" "$counterpart" "$inherits"
@@ -678,7 +678,7 @@ fBuildIconTheme(){
 
 	if (( darkFound > 0 )); then
 		local darkDest="$vendor/icons/$counterpart"
-		rm -rf "$darkDest"; mkdir -p "$darkDest"
+		fSafeRm_Under "$vendor/icons" "$darkDest"; mkdir -p "$darkDest"
 		"$python" "$svgMin" --tree "$darkStaged" "$darkDest" >/dev/null
 		fCopyLicense "$repo" "$darkDest"
 		fWriteIconIndex "$darkDest" "$counterpart" "$style" "dark" "$outName" "$outName,Adwaita,hicolor"
@@ -752,7 +752,7 @@ fBuildWidgetTheme(){
 	[[ -d "$base" ]] || { fEcho "SKIPPED: $subdir not in $url"; return 0; }
 
 	dest="$vendor/themes/$outName"
-	rm -rf "$dest"; mkdir -p "$dest/gtk-3.0"
+	fSafeRm_Under "$vendor/themes" "$dest"; mkdir -p "$dest/gtk-3.0"
 
 	if [[ "$layout" == "fluent" ]]; then
 		## 44 rules reference assets/, 14 more assets/scalable/.
@@ -766,7 +766,7 @@ fBuildWidgetTheme(){
 		for d in gtk-3.24 gtk-3.22 gtk-3.20 gtk-3.0 3.0; do
 			if [[ -f "$base/$d/gtk.css" ]]; then src="$base/$d"; break; fi
 		done
-		[[ -n "$src" ]] || { fEcho "SKIPPED: no gtk.css under $subdir"; rm -rf "$dest"; return 0; }
+		[[ -n "$src" ]] || { fEcho "SKIPPED: no gtk.css under $subdir"; fSafeRm_Under "$vendor/themes" "$dest"; return 0; }
 
 		## Everything the sheet can reference, and nothing else - no gtk-2.0,
 		## metacity, xfwm4, gnome-shell or cinnamon parts, which we never load.
@@ -774,7 +774,7 @@ fBuildWidgetTheme(){
 			! -name 'gtk-3.*' ! -name 'thumbnail.png' -exec cp -r {} "$dest/gtk-3.0/" \; )
 	fi
 
-	[[ -f "$dest/gtk-3.0/gtk.css" ]] || { fEcho "SKIPPED: $outName produced no gtk.css"; rm -rf "$dest"; return 0; }
+	[[ -f "$dest/gtk-3.0/gtk.css" ]] || { fEcho "SKIPPED: $outName produced no gtk.css"; fSafeRm_Under "$vendor/themes" "$dest"; return 0; }
 
 	## A theme with its own dark sheet needs no counterpart - GTK swaps for it.
 	## Where the catalog names one anyway the pair wins, because that dark half

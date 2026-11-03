@@ -40,12 +40,15 @@ source "${REPO}/cicd/utility/include/source-date.bash"
 source "${REPO}/cicd/utility/include/pixbuf-loaders.bash"
 # shellcheck source=../utility/include/thumbnailers.bash
 source "${REPO}/cicd/utility/include/thumbnailers.bash"
+# shellcheck source=../utility/include/run-temp.bash
+source "${REPO}/cicd/utility/include/run-temp.bash"
 fSetSourceDate "$REPO"
 
 [[ -f "${BUILD}/src/nemo-anywhere.exe" ]] || { fEcho "FAILED: no exe at ${BUILD}/src/nemo-anywhere.exe"; exit 1; }
 
+[[ "${DEST}" == /* ]] || DEST="${PWD}/${DEST}"
 fEcho "Staging native runtime -> ${DEST}"
-rm -rf "${DEST}"
+fSafeRm_Under "${REPO}/cicd/artifacts" "${DEST}"
 mkdir -p "${DEST}/app" "${DEST}/mingw64/bin" "${DEST}/mingw64/lib" \
 	"${DEST}/mingw64/share/glib-2.0" "${DEST}/mingw64/etc"
 

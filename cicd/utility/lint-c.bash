@@ -43,6 +43,8 @@ cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fEcho(){ echo "[ $* ]"; }
 # shellcheck source=include/result-line.bash
 source cicd/utility/include/result-line.bash
+# shellcheck source=include/run-temp.bash
+source cicd/utility/include/run-temp.bash
 
 ## Each check prints its test ID, read from the "## Test ID:" line above it, so
 ## the comment stays the only copy. A check fails by exiting, hence the trap.
@@ -56,7 +58,7 @@ curTest=""
 cacheDir=""
 fCleanCache(){
 	[[ "$cacheDir" == cicd/artifacts/cppcheck.* && -d "$cacheDir" ]] || return 0
-	rm -rf -- "$cacheDir"
+	fSafeRm_Under "${PWD}/cicd/artifacts" "${PWD}/${cacheDir}" || true
 }
 trap 'fCleanCache; [[ -n "$curTest" ]] && printf "FAIL %s %s\n" "${testIds[$curTest]:-?}" "${curTest#fCheck}"' EXIT
 fRun(){

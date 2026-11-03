@@ -35,7 +35,7 @@ trap 'fSafeRm_IfThere "${scratch}"' EXIT
 repo="${scratch}/repo"
 mkdir -p "${repo}/cicd/utility/include"
 cp "${here}/lint-c.bash" "${repo}/cicd/utility/"
-cp "${here}/include/result-line.bash" "${repo}/cicd/utility/include/"
+cp "${here}/include/result-line.bash" "${here}/include/run-temp.bash" "${repo}/cicd/utility/include/"
 g(){ git -C "$repo" "$@"; }
 g init -q -b main
 g config user.name test

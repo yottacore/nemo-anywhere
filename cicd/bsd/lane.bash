@@ -53,6 +53,8 @@ lockWaitSec=1800
 
 # shellcheck source=../utility/include/echo.bash
 source "${ROOT}/cicd/utility/include/echo.bash"
+# shellcheck source=../utility/include/run-temp.bash
+source "${ROOT}/cicd/utility/include/run-temp.bash"
 # shellcheck source=../utility/include/source-date.bash
 source "${ROOT}/cicd/utility/include/source-date.bash"
 # shellcheck source=../utility/include/release-files.bash
@@ -128,7 +130,7 @@ fRelease(){
 	[[ "$name" == "${SLUG}-${ver}-bsd-"* ]] || fDie "no ${SLUG}-${ver}-bsd-*.pkg on ${bsdHost}"
 
 	mkdir -p "$OUT"
-	rm -rf "${OUT:?}/${name}" "${OUT}/${name}.tar.gz" "${OUT}/${name}.pkg"
+	fSafeRm_Under "${OUT}" "${OUT}/${name}" "${OUT}/${name}.tar.gz" "${OUT}/${name}.pkg"
 	scp -q "${sshOpts[@]}" "${bsdHost}:${remoteDir}/cicd/artifacts/release/${name}.pkg" "${OUT}/${name}.pkg"
 	ssh "${sshOpts[@]}" "$bsdHost" "tar -cf - -C ${remoteDir}/cicd/artifacts/release ${name}" | tar -xf - -C "$OUT"
 	[[ -x "${OUT}/${name}/bin/${SLUG}" ]] || fDie "the prefix that came back has no bin/${SLUG}"
@@ -136,7 +138,7 @@ fRelease(){
 	tar -czf "${OUT}/${name}.tar.gz" -C "$OUT" \
 		--owner=0 --group=0 --numeric-owner --sort=name --mtime="@${SOURCE_DATE_EPOCH}" \
 		"${name}"
-	rm -rf "${OUT:?}/${name}"
+	fSafeRm_Under "${OUT}" "${OUT}/${name}"
 
 	fWriteReleaseSums "$OUT" "$SLUG" "$ver"
 

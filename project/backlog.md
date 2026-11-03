@@ -1063,7 +1063,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Temp files: removals outside a temp root go through a guard that names its parent.
 	- ID: 2026102617555865
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: `cicd/cicd.bash --backlog-run-full`, for the FreeBSD lane's tests and release, the packages step, and the native Windows gate, where `jail.bash` without a jail, `lint-c.bash` and `stage-native.bash` run under MSYS2.
 	- Priority|Severity: Avg
 	- Opened: 20261026-175558
 	- Opened by: 2026102516403471
@@ -1074,7 +1075,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A guard of the same kind as `fSafeRm`, which names the one parent it may remove under and refuses the rest.
 		- `fuzz.bash` and `stage-prefix.bash` also make a `mktemp` folder. `fuzz.bash` runs from a copy that test-fuzz-exit sends into a container, so the copy needs `run-temp.bash` too.
 		- The FreeBSD lane has no `realpath -e` or `rm --one-file-system`, so the guard needs a form that works there.
-	- Test case: defnq, with each script taken off its list.
+	- Progress log:
+		- 20261103: `fSafeRm_Under <parent> <path>...` in `include/run-temp.bash`. Each path must sit strictly under the parent, with no link between the two. It's quiet, and skips a path that's gone, as `rm -rf` did. 35 lines in 14 scripts call it now, or `fSafeRm_IfThere` for their own `mktemp` folders.
+		- 20261103: the guard and `fSafeRm` use plain `realpath` after a check that the path is there, and `rm -x` where `rm` has no `--one-file-system`, as on FreeBSD and macOS.
+		- 20261103: the FreeBSD lane test, the C lint scope test and the fuzz exit check copy `run-temp.bash` into their scratch copies too.
+		- 20261103: the dogfood swaps in `cicd.bash` run only on a plain run, which no round does.
+	- Decisions:
+		- One helper with the parent first, rather than a check at each site, so each line reads like the `rm -rf` it replaced.
+		- The parent may sit behind a link, and only the part below it must be free of links. FreeBSD's `/home` and macOS's `/var` are links, and a dogfood folder can be a synced one.
+		- `release-setup.bash` empties `/build-release` rather than removing it, since a top-level dir has no parent to name. meson sets up an empty dir the same as a new one.
+		- `run-windows-build-via-wine.bash` still clears the staged runtime in its container, under `bash -c` now, since the files are root's until the `chown` after.
+		- `stage-native.bash` takes a dest only under `cicd/artifacts`. Both callers pass `cicd/artifacts/win-run`, relative, which it now makes absolute.
+	- Test case: defnq (every `rm -r` is on the list or gone, a script that calls the guard sources it, and `fSafeRm_Under`: under the parent only, not the parent itself, `..`, a link, a path through a link, `/` or a relative parent, a parent behind a link, and both guards without GNU `realpath` and `rm`).
+	- Verified: 20261103, defnq passes, and fails with the link check, the under check, the link-between check or the parent check taken out, with `realpath -e` put back, with the GNU form forced, and with the `source` line taken out of a script. `--backlog-run-quick format lint` and `--backlog-run-quick tests` passed. bsd test-lane, test-lint-scope, test-jail, test-prefix, test-deb-size, test-release-setup, ddf32, test-release-arm64, test-vendor-forks, test-thumbnailers, test-win-dogfood, win test-lane and the cicd.bash flag tests pass when run alone. `stage-prefix.bash` run twice into one dest in the build container replaced it and left no scratch. `jail.bash`'s no-jail path removed a cell's home. The wine runner's staging ran twice in a cross-build step container.
+	- Swept: every `rm -r` in tracked bash scripts; what's left is the guard's own line and the 4 scripts of 2026102617555870. Every test that copies a script it touched into a scratch repo.
 
 - Temp files: the installer, and removals inside a container.
 	- ID: 2026102617555870

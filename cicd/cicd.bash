@@ -1095,7 +1095,7 @@ fi
 ## ready to attach to a release as plain uploads. A project whose release lane
 ## already writes its own artifacts sets RELEASE_COLLECT=0 and keeps the dir.
 if [[ -n "${RELEASE_ARTIFACT_DIR:-}" ]] && ((${RELEASE_COLLECT:-1})); then
-	rm -rf "${art_dir}"; mkdir -p "${art_dir}"
+	fSafeRm_Under "${root}" "${art_dir}"; mkdir -p "${art_dir}"
 	for pair in "${built_arts[@]}"; do
 		osarch="${pair%%|*}"; src="${pair#*|}"
 		ext=""; [[ "$src" == *.exe ]] && ext=".exe"
@@ -1253,9 +1253,9 @@ if ((${#DOGFOOD_FIXED_DESTS[@]})); then
 			if in_use "$df_app"; then
 				fEcho "WARNING: ${df_app} is running; left as is"
 			else
-				rm -rf "${df_app}.new"
+				fSafeRm_Under "${fixed_dest}" "${df_app}.new"
 				cp -a "${df_src}" "${df_app}.new"
-				rm -rf "${df_app}"
+				fSafeRm_Under "${fixed_dest}" "${df_app}"
 				mv "${df_app}.new" "${df_app}"
 				fEcho "OK: published (fixed) -> ${df_app}"
 			fi
@@ -1274,7 +1274,7 @@ if ((${#DOGFOOD_ROTATING_DESTS[@]})) && [[ -n "${DOGFOOD_PREFIX:-}" ]]; then
 	[[ -z "$rot_dest" && -n "$rot_target" ]] && mkdir -p "$rot_target" 2>/dev/null && rot_dest="$rot_target"
 	if [[ -n "$rot_dest" && -w "$rot_dest" ]]; then
 		df_name="${DOGFOOD_PREFIX}_$(date -r "${df_stamp_from}" +%Y%m%d-%H%M%S)${DOGFOOD_TAG:+_${DOGFOOD_TAG}}"
-		rm -rf "${rot_dest:?}/${df_name}"
+		fSafeRm_Under "${rot_dest}" "${rot_dest}/${df_name}"
 		if [[ -n "${DOGFOOD_PREFIX_SRC:-}" ]]; then
 			cp -a "${df_src}" "${rot_dest}/${df_name}"
 		else
@@ -1289,7 +1289,7 @@ if ((${#DOGFOOD_ROTATING_DESTS[@]})) && [[ -n "${DOGFOOD_PREFIX:-}" ]]; then
 			if in_use "$old"; then
 				fEcho_Clean "kept (running): $(basename "$old")"
 			else
-				rm -rf "$old" && pruned=$((pruned + 1))
+				fSafeRm_Under "${rot_dest}" "$old" && pruned=$((pruned + 1))
 			fi
 		done
 		if ((pruned)); then fEcho_Clean "pruned ${pruned} old copy(ies) not in use"; fi
@@ -1336,9 +1336,9 @@ if ((${#DOGFOOD_FIXED_DESTS[@]})); then
 		fi
 		pd_app="${pd_dest}/${EXE_NAME}"
 		[[ "$pd_app" == /*/"${EXE_NAME}" ]] || fDie "refusing to replace ${pd_app}"
-		rm -rf "${pd_app}.new"
+		fSafeRm_Under "${pd_dest}" "${pd_app}.new"
 		cp -a "${pd_src}" "${pd_app}.new"
-		rm -rf "${pd_app}"
+		fSafeRm_Under "${pd_dest}" "${pd_app}"
 		mv "${pd_app}.new" "${pd_app}"
 		fEcho "OK: published (private) -> ${pd_app}"
 		df_did=1

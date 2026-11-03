@@ -22,6 +22,9 @@
 
 set -Eeuo pipefail
 
+# shellcheck source=../utility/include/run-temp.bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../utility/include/run-temp.bash"
+
 build="${BUILD_DIR:-${CICD_BUILD_ROOT:-}/build-fuzz}"
 secs="${FUZZ_SECS:-60}"
 hangSecs="${FUZZ_TIMEOUT:-25}"
@@ -63,7 +66,7 @@ fProbe() {
 	local ok=0
 	clang -fsanitize=fuzzer -o "${probeDir}/probe" "${probeDir}/probe.c" >/dev/null 2>&1 || ok=1
 
-	rm -rf -- "${probeDir}"
+	fSafeRm_IfThere "${probeDir}"
 
 	if ((ok)); then
 		echo "clang is present but cannot link -fsanitize=fuzzer (libFuzzer runtime missing?)" >&2
@@ -142,7 +145,7 @@ for entry in "${targets[@]}"; do
 	## libFuzzer writes back into the first corpus directory it is given, and the
 	## seeds are checked in, so it gets a copy to scribble on.
 	work="${build}/work/${seedName}"
-	rm -rf -- "${work}"
+	fSafeRm_Under "${build}/work" "${work}"
 	mkdir -p "${work}"
 	cp -- "${seeds}"/* "${work}/"
 

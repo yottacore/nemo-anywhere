@@ -88,7 +88,7 @@ if [[ -z "$bin" ]]; then
 	if [[ ! -x "${PREFIX}/bin/${SLUG}" ]]; then
 		fEcho_Clean
 		fEcho "Staging the debug build"
-		rm -rf "$PREFIX"
+		fSafeRm_Under "${ROOT}/cicd/artifacts" "$PREFIX"
 		mkdir -p "$PREFIX"
 		# shellcheck disable=SC2016  ## expanded in the step's container
 		bash "${HERE}/docker-run.bash" "profile prefix" \

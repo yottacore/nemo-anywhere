@@ -25,6 +25,8 @@ DEST="${2:?usage: stage-prefix.bash <build-dir> <dest-dir>}"
 SLUG="nemo-anywhere"
 
 fEcho(){ echo "[ $* ]"; }
+# shellcheck source=../utility/include/run-temp.bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../utility/include/run-temp.bash"
 
 [[ -x "${BUILD}/src/${SLUG}" ]] || { fEcho "FAILED: no binary at ${BUILD}/src/${SLUG}"; exit 1; }
 
@@ -34,7 +36,7 @@ fEcho(){ echo "[ $* ]"; }
 
 fEcho "Staging Linux prefix -> ${DEST}"
 staging="$(mktemp -d)"
-trap 'rm -rf "${staging}"' EXIT
+trap 'fSafeRm_IfThere "${staging}" || true' EXIT
 DESTDIR="${staging}" meson install -C "${BUILD}" >/dev/null
 
 ## The configured prefix is wherever bin/<slug> ended up under the scratch root; take
@@ -48,7 +50,7 @@ prefix="$(cd "$(dirname "${installed}")/.." && pwd)"
 [[ "${DEST:0:1}" == "/" ]] || { fEcho "FAILED: dest must be an absolute path: ${DEST}"; exit 1; }
 [[ "$(basename "${DEST}")" == "${SLUG}" ]] || { fEcho "FAILED: dest must be named ${SLUG}: ${DEST}"; exit 1; }
 
-rm -rf "${DEST}"
+fSafeRm_Under "${DEST%/*}" "${DEST}"
 mkdir -p "$(dirname "${DEST}")"
 mv "${prefix}" "${DEST}"
 
@@ -66,7 +68,7 @@ gtk-update-icon-cache -qtf "${DEST}/share/icons/hicolor" 2>/dev/null || true
 
 ## Nothing here is meant to be built against - the SDK headers, pkg-config files and
 ## the .so devel symlink only matter to someone compiling an extension.
-rm -rf "${DEST}/include" "${DEST}"/lib/*/pkgconfig
+fSafeRm_Under "${DEST}" "${DEST}/include" "${DEST}"/lib/*/pkgconfig
 if [[ -d "${DEST}/lib" ]]; then
 	find "${DEST}/lib" -maxdepth 2 -type l -name "lib${SLUG}-extension.so" -delete
 	find "${DEST}/lib" -type d -empty -delete
@@ -82,8 +84,7 @@ fi
 ##  - dbus-1: activation, which the app now writes into the user's own service dir
 ##            at startup, naming the path this copy actually runs from
 fEcho "Dropping data only a system install would use"
-rm -rf "${DEST}/share/mime" "${DEST}/share/polkit-1" "${DEST}/share/man" "${DEST}/share/dbus-1"
-rm -rf "${DEST}"/share/gtksourceview-*
+fSafeRm_Under "${DEST}" "${DEST}/share/mime" "${DEST}/share/polkit-1" "${DEST}/share/man" "${DEST}/share/dbus-1" "${DEST}"/share/gtksourceview-*
 
 ## Same again for the icons. Every one the app draws with is compiled into the
 ## binary, so what is installed here is the copy a system icon theme would serve

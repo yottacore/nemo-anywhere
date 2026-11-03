@@ -62,7 +62,7 @@ mkdir -p "${repo}/cicd/bsd" "${repo}/cicd/utility/include" "${repo}/source"
 cp "${root}/cicd/bsd/lane.bash" "${repo}/cicd/bsd/"
 cp "${root}/cicd/utility/include/echo.bash" "${root}/cicd/utility/include/source-date.bash" \
 	"${root}/cicd/utility/include/release-files.bash" "${root}/cicd/utility/include/box-wrap.bash" \
-	"${root}/cicd/utility/include/jobs.bash" "${repo}/cicd/utility/include/"
+	"${root}/cicd/utility/include/jobs.bash" "${root}/cicd/utility/include/run-temp.bash" "${repo}/cicd/utility/include/"
 printf "project('nemo-anywhere', 'c', version : '9.9.9-rc1')\n" > "${repo}/source/meson.build"
 printf 'cicd/artifacts/\nignored.txt\n' > "${repo}/.gitignore"
 printf 'tracked\n' > "${repo}/tracked.txt"

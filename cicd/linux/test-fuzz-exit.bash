@@ -37,7 +37,7 @@ if [[ "${1:-}" != "--inside" ]]; then
 	trap 'docker volume rm "${CICD_VOLUME_PREFIX}-build" "${CICD_VOLUME_PREFIX}-build-fuzz" > /dev/null 2>&1 || true' EXIT
 	rc=0
 	# shellcheck disable=SC2016  ## expanded by the shell in the container
-	tar -C "${here}/.." -cf - linux/fuzz.bash linux/test-fuzz-exit.bash utility/check-werror.bash utility/meson-setup.bash \
+	tar -C "${here}/.." -cf - linux/fuzz.bash linux/test-fuzz-exit.bash utility/check-werror.bash utility/meson-setup.bash utility/include/run-temp.bash \
 		| timeout -k 5 360 bash "${here}/../utility/docker-run.bash" "fuzz exit check" \
 			'd="$(mktemp -d /tmp/test_fuzz-exit.XXXXXX)" && tar -C "$d" -xf - && { rc=0; bash "$d/linux/test-fuzz-exit.bash" --inside "$d/linux" || rc=$?; rm -rf -- "$d"; exit "$rc"; }' \
 		|| rc=$?

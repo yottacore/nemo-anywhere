@@ -23,6 +23,9 @@
 
 set -Eeuo pipefail
 
+# shellcheck source=../utility/include/run-temp.bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../utility/include/run-temp.bash"
+
 ## 99 is meson's "test could not run", which is what this is.
 fDie(){ echo "[ jail: $* ]" >&2; exit 99; }
 
@@ -86,7 +89,7 @@ fTidy(){
 		local tries
 		for ((tries = 0; tries < 50; tries++)); do
 			chmod -R u+rwx "${cell}/home" 2>/dev/null || true
-			rm -rf "${cell:?}/home" 2>/dev/null || true
+			fSafeRm_Under "${cell}" "${cell}/home" 2>/dev/null || true
 			[[ ! -e "${cell}/home" ]] && rmdir "${cell}/tmp" 2>/dev/null && break
 			sleep 0.1
 		done
