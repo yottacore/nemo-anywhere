@@ -495,7 +495,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On b29w, debgn, dcd70 and ddqdq fail in wintest's desktop session.
 	- ID: 2026110216323705
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261102-163237
 	- Opened by: 2026103116395639
@@ -522,6 +522,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 9736011e
 	- Test case: depg0 (a locked session is a warning), ddqdq, and debgn and dcd70 in child 2026110216492601.
 	- Verified: 20261102, depg0 passes, and fails against the old `lane.bash`, "the desktop tests did not start on b29w: locked". On b29w, `lane-box.ps1 -Desktop` prints "locked" for wintest's session and for collierjr's disconnected one, and "nosession" for a user with none. The gate at 9736011e passed there (382 s). Then ddqdq, debgn and dcd70 ran against its build as wintest in the locked session 2, 1280x720 with 1 monitor: ddqdq passed, where it failed at 1fb45b42 in the same session. debgn and dcd70 failed as before, as expected while it's locked. `--backlog-run-quick format lint` passes.
+	- Acceptance signoff: Self-closed: its child 2026110216492601 closed, with debgn and dcd70 passing in the lane's desktop step on vm925w-iommu, and depg0 and ddqdq passing.
+	- Closed: 20261103-131217
 	- 20261102: debgn and dcd70 passing on b29w with the session unlocked is child 2026110216492601.
 
 - Nemo Anywhere dim checkmarks: the icon view.
@@ -793,7 +795,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Other hosts: the native Windows gate in the default run.
 	- ID: 2026102808250959
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261028-082509
 	- Opened by: 2026102416300001
@@ -804,7 +806,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Each Windows box gets the project's own work folder under its temp root, removed at the end.
 		- The VM is put back the way it was found, through the VM state helper.
 		- Overrides: the native Windows step in the private round settings, run by hand. The rule sending windowed checks to vm925w stays.
-	- Test case: none yet.
+	- Test case: depg0 and ddmmw, from children 2026103114202710 and 2026103114202730.
+	- Acceptance signoff: Self-closed: both children closed with their tests passing.
+	- Closed: 20261103-131217
 	- 20261031: split into children. The gate on b29w in the default run is 2026103114202710, the windowed checks on vm925w 2026103114202730.
 
 - CICD reset: CPU and priority.
