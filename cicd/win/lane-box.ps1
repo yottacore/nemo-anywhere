@@ -13,7 +13,8 @@
 ##		  the test user's desktop session, through a schtasks /it task named
 ##		  for the run folder, on the meson tests named in desktop.txt. The
 ##		  user is given Modify on the run folder first. Prints "task=<name>",
-##		  or "nosession" when the user has no session on the box.
+##		  "nosession" when the user has no session on the box, or "locked"
+##		  when it's locked.
 ##		- -DesktopRun runs cicd-win.ps1 -TestList desktop.txt in the clone, to
 ##		  desktop.log, then writes "rc=<n> secs=<n>" to desktop.rc. A session
 ##		  with no monitor is a failure, since that's what it's there for.
@@ -80,6 +81,22 @@ function Stop-RunTree([int]$RunPid) {
 	& taskkill.exe /PID $RunPid /T /F 2>&1 | Out-Null
 }
 
+## WTS_SESSIONSTATE_LOCK, from WTSINFOEX_LEVEL1's SessionFlags. Unknown reads
+## as unlocked.
+function Test-SessionLocked([int]$SessionId) {
+	Add-Type -Namespace LaneBox -Name Wts -MemberDefinition @'
+[DllImport("wtsapi32.dll")] public static extern bool WTSQuerySessionInformationW(System.IntPtr server, int session, int infoClass, out System.IntPtr buffer, out int bytes);
+[DllImport("wtsapi32.dll")] public static extern void WTSFreeMemory(System.IntPtr memory);
+'@
+	$buffer = [IntPtr]::Zero; $bytes = 0
+	## WTSSessionInfoEx
+	if (-not [LaneBox.Wts]::WTSQuerySessionInformationW([IntPtr]::Zero, $SessionId, 25, [ref]$buffer, [ref]$bytes)) { return $false }
+	try {
+		## Level, then the union at 8, whose SessionFlags follow SessionId and SessionState.
+		return [Runtime.InteropServices.Marshal]::ReadInt32($buffer, 16) -eq 0
+	} finally { [LaneBox.Wts]::WTSFreeMemory($buffer) }
+}
+
 ## One per run folder, so a stale sweep can find it from the folder's name.
 function Get-TaskName([string]$Path) { return "nemo-anywhere-$(Split-Path -Leaf $Path)" }
 
@@ -140,6 +157,9 @@ if ($Desktop) {
 	## A disconnected session still draws, and takes a task's windows.
 	$session = @(& query.exe session 2>$null | Where-Object { $_ -match "^.\S*\s+$([regex]::Escape($TestUser))\s+\d+\s+(Active|Disc)" })
 	if ($session.Count -eq 0) { 'nosession'; exit 0 }
+	## A locked session draws, but no window there gets the focus, so the
+	## tests that need it fail for no fault of the app.
+	if ((Test-SessionLocked ([int]($session[0] -replace "^.\S*\s+\S+\s+(\d+).*", '$1')))) { 'locked'; exit 0 }
 	& icacls.exe $Dir /grant "${TestUser}:(OI)(CI)M" /Q *> $null
 	if ($LASTEXITCODE -ne 0) { throw "could not give $TestUser Modify on $Dir" }
 	$self = Join-Path $Dir 'lane-box.ps1'
@@ -208,6 +228,7 @@ throw 'need -Start, -Run, -Desktop, -DesktopRun, -Stop or -Remove'
 
 
 ##	History:
+##		- 2026-11-02: -Desktop says "locked" for a locked session.
 ##		- 2026-11-02: Run folders are under %ProgramData%, where the test user
 ##		  can reach them.
 ##		- 2026-10-31: -Desktop and -DesktopRun, for the tests the gate skipped

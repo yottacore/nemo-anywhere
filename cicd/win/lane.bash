@@ -22,7 +22,8 @@
 ##	  window on screen skip there. After a passing gate, the meson tests it
 ##	  skipped run again against its build, in the test user's desktop
 ##	  session on the same box, through a schtasks /it task. A test user with
-##	  no session there is a warning, and the gate's pass stands.
+##	  no session there, or a locked one, is a warning, and the gate's pass
+##	  stands, since no window gets the focus in a locked session.
 ##	- NEMO_WIN_READY_WAIT is the seconds to wait for the login after a boot
 ##	  (default 600), NEMO_WIN_POLL the seconds between looks at the log
 ##	  (default 30), NEMO_WIN_GATE_ARGS what cicd-win.ps1 gets (default
@@ -169,6 +170,10 @@ fDesktop(){
 		fEcho "WARNING: ${testUser} has no session on ${box}, so its windowed tests did not run"
 		return 0
 	fi
+	if [[ "$out" == *locked* ]]; then
+		fEcho "WARNING: ${testUser}'s session on ${box} is locked, so its windowed tests did not run"
+		return 0
+	fi
 	task="$(sed -n 's/^task=\([A-Za-z0-9_-]*\)$/\1/p' <<< "$out" | head -n 1)"
 	[[ -n "$task" ]] || fDie "the desktop tests did not start on ${box}: ${out}"
 	logLines=0
@@ -255,6 +260,7 @@ fMain "${@}"
 
 
 ##	History:
+##		- 2026-11-02: A locked test user session is a warning, as no session is.
 ##		- 2026-11-02: The work folder is under %ProgramData%, not the ssh
 ##		  login's %TEMP%, so the test user's desktop tests can work in it.
 ##		- 2026-10-31: The tests the gate skipped run again in the test user's

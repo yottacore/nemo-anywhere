@@ -256,8 +256,19 @@ first_window (const char *copy, char **title)
 	return id;
 }
 
+/* Whether the title ends a path in wanted, rather than naming it alone. A window
+ * shortens the path to its own width, with "..." for the folders it leaves out,
+ * so how much of the rest shows depends on the screen and the scratch folder. */
 static gboolean
-wait_for_title (const char *copy, const char *wanted, gboolean whole_path, int seconds)
+shown_as_path (const char *title, const char *wanted)
+{
+	const char *at = strstr (title, wanted);
+
+	return at != NULL && at > title && (at[-1] == '\\' || at[-1] == '/');
+}
+
+static gboolean
+wait_for_title (const char *copy, const char *wanted, gboolean as_path, int seconds)
 {
 	gint64 end = deadline (seconds);
 	char *title = NULL;
@@ -268,7 +279,7 @@ wait_for_title (const char *copy, const char *wanted, gboolean whole_path, int s
 		g_free (title);
 		first_window (copy, &title);
 		match = title != NULL && strstr (title, wanted) != NULL &&
-		        (strstr (title, "nemo-copies-") != NULL) == whole_path;
+		        shown_as_path (title, wanted) == as_path;
 		if (match) {
 			g_free (title);
 			return TRUE;
@@ -279,7 +290,7 @@ wait_for_title (const char *copy, const char *wanted, gboolean whole_path, int s
 		wait_with_a_look (200, "waiting for a title");
 	}
 	g_printerr ("  %s: title %s, wanted %s%s\n", copy, title != NULL ? title : "(none)",
-	            wanted, whole_path ? " as a whole path" : "");
+	            wanted, as_path ? " as a path" : "");
 	g_free (title);
 	return FALSE;
 }

@@ -17,8 +17,9 @@
 ##	  - An uncommitted edit is named as left out.
 ##	  - After a passing gate, the meson tests its Tests step skipped, and only
 ##	    those, go to the box and run as wintest in its desktop session. Their
-##	    exit code is the lane's. With no wintest session there it's a
-##	    warning and the gate's pass stands. A failing gate runs none.
+##	    exit code is the lane's. With no wintest session there, or a locked
+##	    one, it's a warning and the gate's pass stands. A failing gate runs
+##	    none.
 ##	- Needs git; exit 77 without it.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/win/test-lane.bash
@@ -61,7 +62,8 @@ head="$(git -C "$repo" rev-parse HEAD)"
 
 ## FAKE_GONE: the hosts that never answer. FAKE_TAKEN: folder names already
 ## there. FAKE_RC: what run.rc holds, none while the gate runs. FAKE_DRC: the
-## same for desktop.rc. FAKE_NOSESSION: wintest has no session.
+## same for desktop.rc. FAKE_NOSESSION: wintest has no session. FAKE_LOCKED:
+## its session is locked.
 cat > "${scratch}/bin/ssh" <<-EOF
 	#!/usr/bin/env bash
 	while [[ "\${1:-}" == -o ]]; do shift 2; done
@@ -75,7 +77,7 @@ cat > "${scratch}/bin/ssh" <<-EOF
 		mkdir*)
 			for t in \${FAKE_TAKEN:-}; do [[ "\$cmd" != *"_\${t}" ]] || exit 1; done ;;
 		*' -Start '*) printf 'pid=4242\\r\\n' ;;
-		*' -Desktop '*) if [[ -n "\${FAKE_NOSESSION:-}" ]]; then printf 'nosession\\r\\n'; else printf 'task=nemo-anywhere-x_001\\r\\n'; fi ;;
+		*' -Desktop '*) if [[ -n "\${FAKE_NOSESSION:-}" ]]; then printf 'nosession\\r\\n'; elif [[ -n "\${FAKE_LOCKED:-}" ]]; then printf 'locked\\r\\n'; else printf 'task=nemo-anywhere-x_001\\r\\n'; fi ;;
 		'if exist '*'desktop.rc') [[ -z "\${FAKE_DRC:-}" ]] || printf 'rc=%s secs=3\\r\\n' "\${FAKE_DRC}" ;;
 		schtasks*) printf 'Status: Running\\r\\n' ;;
 		'if exist '*'run.rc') [[ -z "\${FAKE_RC:-}" ]] || printf 'rc=%s secs=7\\r\\n' "\${FAKE_RC}" ;;
@@ -214,6 +216,15 @@ if ((laneRc == 0)); then
 	fEcho "OK: with no wintest session, a warning and the gate's pass"
 else
 	fFail "no wintest session gave exit ${laneRc}, not 0: $(tail -3 "${scratch}/out.log")"
+fi
+
+fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 FAKE_LOCKED=1 -- b29w
+if ((laneRc == 0)); then
+	grep -q "WARNING: wintest's session on b29w is locked" "${scratch}/out.log" || fFail "no warning for a locked wintest session"
+	! grep -q 'if exist .*desktop.rc' "$log" || fFail "desktop.rc was waited for in a locked session"
+	fEcho "OK: with wintest's session locked, a warning and the gate's pass"
+else
+	fFail "a locked wintest session gave exit ${laneRc}, not 0: $(tail -3 "${scratch}/out.log")"
 fi
 
 fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 NEMO_WIN_DESKTOP=0 -- b29w
