@@ -30,6 +30,7 @@
 param()
 
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot 'include/run-temp.ps1')
 $ErrorActionPreference = "Stop"
 $ProgressPreference    = "SilentlyContinue"
 $PSNativeCommandUseErrorActionPreference = $false
@@ -158,7 +159,7 @@ try {
 
 	foreach ($way in @("copy", "aside", "swap")) {
 		## A fresh old install each time, and nothing else beside it.
-		if (Test-Path -LiteralPath $parent) { Remove-Item -LiteralPath $parent -Recurse -Force }
+		if (-not (Remove-SafeTree -LiteralPath $parent)) { throw "could not clear $parent" }
 		$oldExe  = Join-Path $prefix $exeRel
 		$oldIcon = Join-Path $prefix "share/icons/icon.txt"
 		New-Item -ItemType Directory -Path (Split-Path -Parent $oldExe), (Split-Path -Parent $oldIcon) -Force | Out-Null
@@ -182,7 +183,7 @@ try {
 			$script:case = ""
 			if ($state.work) {
 				if (-not $onWindows) { & chmod -R u+rwX $state.work 2>$null }
-				Remove-Item -LiteralPath $state.work -Recurse -Force -ErrorAction SilentlyContinue
+				Remove-SafeTree -LiteralPath $state.work | Out-Null
 				$state.work = $null
 			}
 		}
@@ -200,7 +201,7 @@ try {
 } finally {
 	foreach ($name in $saved.Keys) { [Environment]::SetEnvironmentVariable($name, $saved[$name]) }
 	if (-not $onWindows) { & chmod -R u+rwX $root 2>$null }
-	Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+	Remove-SafeTree -LiteralPath $root | Out-Null
 }
 
 if ($failures) {

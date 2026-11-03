@@ -29,6 +29,7 @@
 ##	SPDX-License-Identifier: MIT
 
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot '../utility/include/run-temp.ps1')
 $ErrorActionPreference = "Stop"
 $ProgressPreference    = "SilentlyContinue"
 Write-Host "[ Test $((Select-String -LiteralPath $PSCommandPath -Pattern '^##\s+Test ID: (\S+)$').Matches[0].Groups[1].Value) $(Split-Path -Leaf $PSCommandPath) ]"
@@ -159,7 +160,7 @@ try {
 	} catch {
 		fProblem "the install failed: $(fInnerMessage $_)"
 	} finally {
-		if ($state.work) { Remove-Item -LiteralPath $state.work -Recurse -Force -ErrorAction SilentlyContinue }
+		if ($state.work) { Remove-SafeTree -LiteralPath $state.work | Out-Null }
 	}
 
 	$prefix = Join-Path $programs "Nemo Anywhere"
@@ -179,7 +180,7 @@ try {
 	if (-not $script:fakePath.Contains($prefix)) { fProblem "the install folder did not go on PATH" }
 } finally {
 	foreach ($name in $saved.Keys) { Set-Item -LiteralPath "env:${name}" -Value $saved[$name] }
-	Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+	Remove-SafeTree -LiteralPath $root | Out-Null
 }
 
 if ($failures) {

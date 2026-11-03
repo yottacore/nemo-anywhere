@@ -529,12 +529,8 @@ function fRetireOldDogfood {
 	$oldRoot = "C:\opt\0-0\common\exec\synced\util\mswin\gui\by-self\win64"
 	foreach ($stale in @((Join-Path $oldRoot "$ExeName.exe"), (Join-Path $oldRoot $ExeName))) {
 		if (-not (Test-Path -LiteralPath $stale)) { continue }
-		try {
-			Remove-Item -LiteralPath $stale -Recurse -Force -ErrorAction Stop
-			fNote "retired the old dogfood drop: $stale"
-		} catch {
-			fWarn "couldn't remove $stale ($($_.Exception.Message))"
-		}
+		if (Remove-SafeTree -LiteralPath $stale -Under $oldRoot) { fNote "retired the old dogfood drop: $stale" }
+		else { fWarn "couldn't remove $stale" }
 	}
 }
 

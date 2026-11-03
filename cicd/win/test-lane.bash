@@ -56,6 +56,7 @@ log="${scratch}/calls.log"
 mkdir -p "${repo}/cicd/win" "${repo}/cicd/utility/include" "${scratch}/bin" "${scratch}/sent"
 cp "${root}/cicd/win/lane.bash" "${root}/cicd/win/lane-box.ps1" "${repo}/cicd/win/"
 for inc in echo box-wrap jobs; do cp "${root}/cicd/utility/include/${inc}.bash" "${repo}/cicd/utility/include/"; done
+cp "${root}/cicd/utility/include/run-temp.ps1" "${repo}/cicd/utility/include/"
 git -C "$repo" -c user.name=test -c user.email=test@example.invalid init -q
 git -C "$repo" add -A
 git -C "$repo" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m base
@@ -154,6 +155,7 @@ if ((laneRc == 0)); then
 		fFail "no bundle was sent"
 	fi
 	cmp -s "${scratch}/sent/lane-box.ps1" "${repo}/cicd/win/lane-box.ps1" || fFail "lane-box.ps1 was not sent"
+	cmp -s "${scratch}/sent/run-temp.ps1" "${repo}/cicd/utility/include/run-temp.ps1" || fFail "run-temp.ps1 was not sent"
 	grep -qE "^ssh b29w pwsh .*lane-box\\.ps1 -Dir ${dirRe}001 -Start -GateArgs Gate,Yes,NoSync\$" "$log" || fFail "the gate was not started with -Gate -Yes -NoSync"
 	grep -q '^PASS ddzzz a test on the box  0.10s$' "${scratch}/out.log" || fFail "the gate's log was not printed"
 	grep -qE "^ssh b29w pwsh .*lane-box\\.ps1 -Dir ${dirRe}001 -Remove\$" "$log" || fFail "the work folder was not removed"

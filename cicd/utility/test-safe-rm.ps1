@@ -5,6 +5,10 @@
 ##		  Remove-SafeTree refuses and what it removes, with -Under too, and the
 ##		  run folder New-RunTemp makes and Remove-StaleRunTemp sweeps. The
 ##		  bash guard's cases are in test-safe-rm.bash.
+##		- Every recursive removal in the tracked PowerShell goes through it,
+##		  but for the scripts still to move, each with its count. A new one
+##		  anywhere else fails, and so does a count that drops without the
+##		  list.
 ##		- Runs in the lint stage.
 ##	Syntax:
 ##		pwsh -NoProfile -File cicd/utility/test-safe-rm.ps1
@@ -211,6 +215,37 @@ try {
 		if (-not (Remove-SafeTree -LiteralPath $scratch -Under (Split-Path -Parent $item.FullName))) { fFail "couldn't remove $scratch" }
 	}
 }
+
+## Still to move: they run on their own, so they get a copy of their own
+## (2026110315185015).
+$toMove = @{ 'install.ps1' = 7; 'utility/n8runfm.ps1' = 6 }
+$repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+$files = @(& git -C $repo ls-files '*.ps1' '*.psm1' 2>$null)
+if ($LASTEXITCODE -ne 0 -or $files.Count -eq 0) { fFail "no PowerShell files from git ls-files" }
+$isRecursive = {
+	param($node)
+	if ($node -is [Management.Automation.Language.CommandAst]) {
+		if ($node.GetCommandName() -notin 'Remove-Item', 'rm', 'rmdir', 'rd', 'del', 'erase', 'ri') { return $false }
+		return [bool]@($node.CommandElements | Where-Object { $_ -is [Management.Automation.Language.CommandParameterAst] -and $_.ParameterName -and 'recurse'.StartsWith($_.ParameterName.ToLower()) }).Count
+	}
+	## [IO.Directory]::Delete(path, $true) and DirectoryInfo.Delete($true).
+	if ($node -is [Management.Automation.Language.InvokeMemberExpressionAst] -and "$($node.Member)" -eq 'Delete' -and $node.Arguments) {
+		$last = "$($node.Arguments[-1])"
+		return ($node.Arguments.Count -eq 2 -and $last -ne '$false') -or ($node.Arguments.Count -eq 1 -and $last -eq '$true')
+	}
+	return $false
+}
+$found = @{}
+foreach ($rel in $files) {
+	$ast = [Management.Automation.Language.Parser]::ParseFile((Join-Path $repo $rel), [ref]$null, [ref]$null)
+	$hits = @($ast.FindAll($isRecursive, $true)).Count
+	if ($hits) { $found[$rel] = $hits }
+}
+foreach ($rel in $found.Keys) {
+	if (-not $toMove.ContainsKey($rel)) { fFail "${rel}: $($found[$rel]) recursive removal(s) not through Remove-SafeTree" }
+	elseif ($found[$rel] -ne $toMove[$rel]) { fFail "${rel}: $($found[$rel]) recursive removal(s), and the list says $($toMove[$rel])" }
+}
+foreach ($rel in $toMove.Keys) { if (-not $found.ContainsKey($rel)) { fFail "${rel}: on the list, but has none left" } }
 
 if ($failures) { Write-Host "[ FAILED: $failures problem(s) ]"; exit 1 }
 Write-Host "[ OK: the PowerShell guard and run folder ]"

@@ -25,6 +25,7 @@
 param()
 
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot 'include/run-temp.ps1')
 $ErrorActionPreference = "Stop"
 Write-Host "[ Test $((Select-String -LiteralPath $PSCommandPath -Pattern '^##\s+Test ID: (\S+)$').Matches[0].Groups[1].Value) $(Split-Path -Leaf $PSCommandPath) ]"
 
@@ -158,7 +159,7 @@ try {
 	if ($other.TargetPath -ne 'C:\Tools\other.exe') { fFail "foreign: another program's shortcut was changed" }
 } finally {
 	if ((Test-Path -LiteralPath $scratch) -and $scratch.StartsWith([System.IO.Path]::GetTempPath())) {
-		Remove-Item -LiteralPath $scratch -Recurse -Force
+		Remove-SafeTree -LiteralPath $scratch | Out-Null
 	}
 }
 

@@ -47,6 +47,7 @@ param(
 )
 
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot '../utility/include/run-temp.ps1')
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $false
 
@@ -121,7 +122,7 @@ if ($Start) {
 	## leftover from the previous run.
 	$AppTree = Join-Path $Share "app"
 	$AppOne  = Join-Path $Share "nemo-anywhere.exe"
-	Remove-Item -LiteralPath $AppTree -Recurse -Force -ErrorAction SilentlyContinue
+	Remove-SafeTree -LiteralPath $AppTree -Under $Share | Out-Null
 	Remove-Item -LiteralPath $AppOne -Force -ErrorAction SilentlyContinue
 	if ($Dir) {
 		$mb = [int]((Get-ChildItem -LiteralPath $Dir -Recurse -File | Measure-Object Length -Sum).Sum / 1MB)

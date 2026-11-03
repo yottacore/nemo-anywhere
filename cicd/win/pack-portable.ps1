@@ -41,6 +41,7 @@ param(
 )
 
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot '../utility/include/run-temp.ps1')
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $false
 
@@ -91,7 +92,7 @@ function fFlatten {
 		fDie "no staged bundle at $StageDir (run the stage step first)"
 	}
 	fEcho "Flattening bundle -> $FlatDir"
-	if (Test-Path -LiteralPath $FlatDir) { Remove-Item -LiteralPath $FlatDir -Recurse -Force }
+	if (-not (Remove-SafeTree -LiteralPath $FlatDir -Under (Split-Path -Parent $FlatDir))) { fDie "could not clear $FlatDir" }
 	New-Item -ItemType Directory -Path $FlatDir | Out-Null
 	## -Recurse: without it any subfolder is created empty and its contents are
 	## silently dropped out of the packed exe.

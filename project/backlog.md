@@ -44,11 +44,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026110315184948
 	- Requirements:
 		- Both run on their own, from a download or the launcher, so they need their own copy, as `install.bash` has. `install.ps1` removes the prefix with a bare `Remove-Item -Recurse` near line 619.
+		- Take each one off detts' list as it moves. One of `install.ps1`'s 7 removes the Settings, Apps registry key, not a folder, so it leaves the list some other way.
 
 - Temp files: the PowerShell scripts under `cicd/` remove through the guard.
 	- ID: 2026110315184983
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs external testing: the native gate on b29w through `cicd/win/lane.bash`, for `lane-box.ps1`'s removal with `run-temp.ps1` sent beside it, and the traps in test-install-holders, test-install-acl and the GUI launch smoke. `pack-portable.ps1` in a full `cicd-win.ps1` run's Packages step, and `sandbox.ps1 -Start` on a box with Windows Sandbox.
 	- Priority|Severity: Avg
 	- Opened: 20261103-151849
 	- Opened by: 2026102516403476
@@ -57,6 +59,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Each `Remove-Item -Recurse` in the scripts under `cicd/` goes through the PowerShell guard. File list in the private notes.
 		- A test that fails on a new bare `Remove-Item -Recurse`, as defnq does for `rm -r`.
+	- Progress log:
+		- 20261103: the 18 removals in 14 scripts under `cicd/` go through `Remove-SafeTree`. A test's scratch under the temp folder takes the tmp folder rule. `pack-portable.ps1`'s flat tree, `sandbox.ps1`'s app tree, `lane-box.ps1`'s run folder and `cicd-win.ps1`'s old dogfood drop take `-Under` their one parent. `lane.bash` sends `run-temp.ps1` beside `lane-box.ps1`, since the box has only those two before the clone.
+	- Decisions:
+		- Where the old line had `-ErrorAction SilentlyContinue`, the new one drops the result, and a refusal still prints its warning. Where a failed removal stopped the script or failed a test, it still does.
+		- detts finds the removals through the parser, not a text match: `Remove-Item` and its aliases with `-Recurse` or any short form of it, and `.Delete` with a recursive flag. So a comment or a string doesn't count, and `ri -r` does.
+	- Test case: detts (every recursive removal in the tracked PowerShell goes through the guard, but for the list of scripts still to move, each with its count), depg0 (`run-temp.ps1` is sent to the box), and the tests that run each changed script: dd5fx, ddkd9, ddqv0, ddwhx, ddrhb, dejjt and ddgch.
+	- Verified: 20261103, detts fails with a bare `Remove-Item -Recurse`, a `ri -r` or a `[IO.Directory]::Delete` put back, and with a count on its list that's off. detts, dejjt, depg0, dd5fx, ddkd9, ddqv0, ddwhx, ddrhb and ddgch pass, and left nothing in the temp folder. PSScriptAnalyzer is clean. `cicd/cicd.bash --backlog-run-quick` passed.
+	- Swept: every `Remove-Item -Recurse`, its aliases and recursive `.Delete` in tracked PowerShell, through detts. Only `install.ps1` (7) and `n8runfm.ps1` (6) are left, for 2026110315185015.
 
 - Temp files: the run folder in `cicd-win.ps1`, and a PowerShell copy of the guard.
 	- ID: 2026110315184948

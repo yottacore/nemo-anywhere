@@ -22,6 +22,7 @@
 ##	SPDX-License-Identifier: MIT
 
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot 'include/run-temp.ps1')
 $ErrorActionPreference = "Stop"
 Write-Host "[ Test $((Select-String -LiteralPath $PSCommandPath -Pattern '^##\s+Test ID: (\S+)$').Matches[0].Groups[1].Value) $(Split-Path -Leaf $PSCommandPath) ]"
 
@@ -260,7 +261,7 @@ function fPublish { param($Msg); fStub fPublish }
 	## Only the folder this test made, right under the one parent it may use.
 	$item = Get-Item -LiteralPath $scratch -Force -ErrorAction SilentlyContinue
 	if ($item -and -not $item.LinkType -and (Split-Path -Parent $item.FullName) -eq (Get-Item -LiteralPath $base).FullName) {
-		Remove-Item -LiteralPath $scratch -Recurse -Force
+		if (-not (Remove-SafeTree -LiteralPath $item.FullName -Under (Split-Path -Parent $item.FullName))) { fFail "couldn't remove $scratch" }
 	}
 }
 

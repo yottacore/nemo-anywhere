@@ -24,6 +24,7 @@
 param()
 
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot 'include/run-temp.ps1')
 $ErrorActionPreference = "Stop"
 Write-Host "[ Test $((Select-String -LiteralPath $PSCommandPath -Pattern '^##\s+Test ID: (\S+)$').Matches[0].Groups[1].Value) $(Split-Path -Leaf $PSCommandPath) ]"
 
@@ -212,7 +213,7 @@ try {
 		fFail "second rotation left [$($again -join ', ')], expected [$($wantAgain -join ', ')]"
 	}
 } finally {
-	Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue
+	Remove-SafeTree -LiteralPath $scratch | Out-Null
 }
 
 if ($failures) {

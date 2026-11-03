@@ -30,6 +30,7 @@ param(
 )
 
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot 'include/run-temp.ps1')
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
@@ -122,7 +123,7 @@ function Invoke-SelfTest {
 		Remove-Item -LiteralPath (Join-Path $tree $AppExe)
 		if (@(Test-Bundle $tree).Count -eq 0) { Write-Host "[ FAILED: a bundle with no app was let through ]"; $failures++ }
 	} finally {
-		Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue
+		Remove-SafeTree -LiteralPath $scratch | Out-Null
 	}
 	if ($failures) {
 		Write-Host "[ FAILED: bundle exe check self-test, ${failures} problem(s) ]"
