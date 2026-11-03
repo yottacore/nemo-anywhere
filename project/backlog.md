@@ -1057,7 +1057,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- The 93 `rm -r` lines in 47 scripts go through the repo copy of the guard, or a guard of the same kind that names the one parent it may remove under. File list in the private notes.
 	- Progress log:
-		- 20261026: split into children 2026102618083910 (removals in a temp folder), 2026102617555865 (removals outside a temp root) and 2026102617555870 (the installer, and removals inside a container). The first is in.
+		- 20261026: split into children 2026102618083910 (removals in a temp folder), 2026102617555865 (removals outside a temp root) and 2026102617555870 (the installer, and removals inside a container). The first is in. The third is in too, and waits on a FreeBSD run.
 	- Test case: defnq, once the last child is in.
 
 - Temp files: removals outside a temp root go through a guard that names its parent.
@@ -1093,7 +1093,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Temp files: the installer, and removals inside a container.
 	- ID: 2026102617555870
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs external testing: on vmFreeBSD, `install.bash --from` the `-bsd-` tarball into a scratch home: install, install again, then `--uninstall`, for its guard's `rm -x` form.
 	- Priority|Severity: Avg
 	- Opened: 20261026-175558
 	- Opened by: 2026102516403471
@@ -1102,7 +1103,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- `install.bash` runs on its own, from a download, under Bash 3.2, and some of its removals are as root. It needs its own copy of the guard, built on the prefix check it already has.
 		- `docker exec ... rm -rf` in `build-cross.bash`, `pack-zip.bash` and `pack-setup.bash`, and the `bash -c` strings in test-fuzz-exit and test-gui-smoke, run inside a container, where the repo's include isn't sourced.
-	- Test case: defnq, with each script taken off its list.
+	- Progress log:
+		- 20261103: `install.bash` has its own `fSafeRm_Under`, the same rule as the repo's, with `cd -P` in place of `realpath`, which macOS before 13 doesn't have. It stays on one file system with `--one-file-system` or `-x`, whichever `rm` takes; busybox's takes neither. `fRmBesidePrefix` runs `fCheckPrefix`, then removes under the prefix's parent. All 7 removals go through one or the other, the temp folder's included. Installer version 1.3.2.
+		- 20261103: a prefix that's a link is refused before the plan, on install and uninstall. Before, an install swapped the link for a folder and an uninstall removed just the link, and the files it pointed at stayed either way.
+		- 20261103: the removals in `pack-zip.bash` and in the test-fuzz-exit and test-gui-smoke command strings are gone. Each ran in a step container that's new and goes at exit, `/tmp` with it. `build-cross.bash` and `pack-setup.bash` had only single-file `rm -f` left after 2026102617253214.
+	- Decisions:
+		- Drop the removals inside step containers rather than bring the guard in. Those command strings run under `sh`, the container is removed at exit, and with `--keep-temp` keeping what's left is the point.
+		- Refuse a prefix that's a link rather than unlink it, as the guard refuses a link. `install.ps1` is unchanged.
+		- Trim the slash macOS puts at the end of `TMPDIR`, which the guard would refuse as `//`.
+	- Test case: defnq, with each script taken off its list. The list is now the two guards' own lines. It also checks install.bash's guard: the same cases as `fSafeRm_Under` with no `realpath` at all, the `rm` going through `priv`, one file system with GNU, BSD and busybox `rm`, and a prefix that's a link refused. dd3s7 and dd5fv run the installer.
+	- Verified: 20261103, defnq passes, and fails on install.bash as it was, and with the link, link-between, under, parent or prefix link check taken out, with `priv` or the one file system flag dropped, with `realpath` used, and with a bare `rm -rf` put back. dd3s7, dd5fv, ddf31 and ddf32 pass, and `pack-zip.bash` packed the zip. Under Bash 3.2 with busybox, install.bash installed, installed again with a `TMPDIR` ending in a slash, and uninstalled, leaving no temp folder, and refused a prefix that's a link on install and uninstall with its files left alone. `--backlog-run-quick lint` passed.
+	- Swept: every `rm -r` in tracked bash scripts, through defnq; only the two guards' lines are left. Every `rm` in install.bash. The tests that read the changed scripts: dd3s7, dd5fv and test-thumbnailers' check of `pack-zip.bash`.
 
 - Temp files: `cicd-win.ps1` and the PowerShell scripts.
 	- ID: 2026102516403476

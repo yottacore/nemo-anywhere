@@ -6,7 +6,8 @@
 ##	  shrinks as the rest move over. A script that calls the guard must source
 ##	  it, or its trap fails quietly and leaves the folder. Also checks
 ##	  fSafeRm_IfThere, fSafeRm_Under, that fSafeRm works with no HOST_TEMP
-##	  set, and both without GNU realpath and rm.
+##	  set, and both without GNU realpath and rm. install.bash has its own
+##	  copy of fSafeRm_Under, checked the same way, with no realpath at all.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-safe-rm.bash
 ##	- Test ID: defnq
@@ -26,14 +27,11 @@ root="$(cd "${here}/../.." && pwd)"
 failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
-## Still to move: the installer and the ones that run in a container
-## (2026102617555870). The guard's own rm stays.
+## The guards' own rm lines. install.bash runs alone, from a download, so it
+## has its own copy.
 declare -A left=(
 	[cicd/utility/include/run-temp.bash]=1
-	[install.bash]=7
-	[cicd/linux/test-fuzz-exit.bash]=1
-	[cicd/win/test-gui-smoke.bash]=1
-	[cicd/win/pack-zip.bash]=2
+	[install.bash]=1
 )
 
 ## rm with an r in its flags, or --recursive, outside a comment.
@@ -46,6 +44,7 @@ for f in "${scripts[@]}"; do
 	n="$(sed -E -e '/^[[:space:]]*#/d' -e 's/[[:space:]]#[[:space:]].*$//' "${root}/${f}" | grep -c -E -- "$rmRe" || true)"
 	((n)) && seen["$f"]="$n"
 	if [[ "$f" != cicd/utility/include/run-temp.bash ]] && grep -q -E '(^|[^[:alnum:]_])fSafeRm(_IfThere|_Under)?[[:space:]]' "${root}/${f}" \
+		&& ! grep -q -E '^fSafeRm(_IfThere|_Under)?\(\)' "${root}/${f}" \
 		&& ! grep -q -E '^[[:space:]]*(source|\.)[[:space:]].*include/run-temp\.bash' "${root}/${f}"; then
 		fFail "${f} calls the guard but doesn't source include/run-temp.bash"
 	fi
@@ -62,7 +61,7 @@ done
 # shellcheck source=include/run-temp.bash
 source "${here}/include/run-temp.bash"
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/safe-rm-check.XXXXXX")"
-trap 'fSafeRm_IfThere "${scratch}"' EXIT
+trap 'unset -f realpath rm; fSafeRm_IfThere "${scratch}"' EXIT
 mkdir -p "${scratch}/a/deep" "${scratch}/b"
 touch "${scratch}/a/deep/file" "${scratch}/c"
 out="$(fSafeRm_IfThere "${scratch}/a" "${scratch}/nosuch" "${scratch}/c" 2>&1)" || fFail "fSafeRm_IfThere failed on a folder, a file and a missing path: ${out}"
@@ -113,6 +112,74 @@ out="$(
 )" || rc=$?
 [[ "$rc" == 0 && ! -e "${par}/bsd" && ! -e "${scratch}/bsdtmp" ]] || fFail "the guard without GNU realpath and rm: exit ${rc}, ${out}"
 
+## install.bash's copy, renamed so it sits beside the one above. No realpath,
+## since macOS before 13 has none.
+inst="$(sed -n -e '/^fCheckPrefix(){/,/^}/p' -e '/^fSafeRm_Under(){/,/^}/p' -e '/^__rmOneFs=/p' -e '/^if rm --version/p' -e '/^fRmBesidePrefix(){/p' "${root}/install.bash")"
+inst="${inst//fSafeRm_Under/fInst_SafeRm_Under}"
+eval "${inst}"
+for f in fCheckPrefix fInst_SafeRm_Under fRmBesidePrefix; do declare -F "$f" > /dev/null || fFail "install.bash has no ${f/fInst_/f}"; done
+if command rm --version > /dev/null 2>&1; then oneFs=--one-file-system; else oneFs=-x; fi
+[[ "${__rmOneFs:-}" == "${oneFs}" ]] || fFail "install.bash doesn't keep rm on one file system: '${__rmOneFs:-}', not ${oneFs}"
+# shellcheck disable=SC2034  ## read by the eval'd functions
+priv='' EXE_NAME=nemo-anywhere
+fWarn(){ echo "WARNING: $*" >&2; }
+fDie(){ echo "FAILED: $*" >&2; exit 1; }
+# shellcheck disable=SC2329  ## stands in for any realpath the guard might call
+realpath(){ return 64; }
+fIUnder(){ rc=0; out="$(fInst_SafeRm_Under "$@" 2>&1)" || rc=$?; }
+ipar="${scratch}/ipar"
+mkdir -p "${ipar}/build/sub" "${ipar}/keep" "${scratch}/ioutside"
+touch "${ipar}/build/sub/f" "${ipar}/file" "${scratch}/ioutside/f"
+ln -s "${scratch}/ioutside" "${ipar}/link"
+ln -s "${ipar}" "${scratch}/iparlink"
+fIUnder "${ipar}" "${ipar}/build" "${ipar}/file" "${ipar}/nosuch"
+[[ "$rc" == 0 && -z "$out" && ! -e "${ipar}/build" && ! -e "${ipar}/file" && -d "${ipar}/keep" ]] || fFail "installer guard over a folder, a file and a missing path: exit ${rc}, ${out}"
+fIUnder "${ipar}" "${scratch}/ioutside"
+[[ "$rc" == 1 && -d "${scratch}/ioutside" ]] || fFail "installer guard took a path beside its parent: exit ${rc}, ${out}"
+fIUnder "${ipar}" "${ipar}"
+[[ "$rc" == 1 && -d "${ipar}" ]] || fFail "installer guard took its parent itself: exit ${rc}, ${out}"
+fIUnder "${ipar}" "${ipar}/keep/../../ioutside"
+[[ "$rc" == 1 && -d "${scratch}/ioutside" ]] || fFail "installer guard took a path with ..: exit ${rc}, ${out}"
+fIUnder "${ipar}" "${ipar}/link"
+[[ "$rc" == 1 && -L "${ipar}/link" ]] || fFail "installer guard took a link: exit ${rc}, ${out}"
+fIUnder "${ipar}" "${ipar}/link/f"
+[[ "$rc" == 1 && "$out" == *"through a link"* && -f "${scratch}/ioutside/f" ]] || fFail "installer guard went through a link: exit ${rc}, ${out}"
+fIUnder / /nonexistent-safe-rm-check
+[[ "$rc" == 1 ]] || fFail "installer guard took / as its parent: exit ${rc}, ${out}"
+fIUnder ipar "ipar/keep"
+[[ "$rc" == 1 && -d "${ipar}/keep" ]] || fFail "installer guard took a relative parent: exit ${rc}, ${out}"
+fIUnder "${scratch}/iparlink" "${scratch}/iparlink/keep"
+[[ "$rc" == 0 && ! -e "${ipar}/keep" ]] || fFail "installer guard refused a parent behind a link: exit ${rc}, ${out}"
+## The prefix and what sits beside it, as root through priv.
+mkdir -p "${ipar}/nemo-anywhere/bin" "${ipar}/.nemo-anywhere-install.1" "${ipar}/nemo-anywhere.old.1"
+fPrivLog(){ echo "$*" >> "${scratch}/priv.log"; "$@"; }
+rc=0
+# shellcheck disable=SC2034  ## read by fRmBesidePrefix
+out="$(priv=fPrivLog prefix="${ipar}/nemo-anywhere"; fRmBesidePrefix "${ipar}/.nemo-anywhere-install.1" "${ipar}/nemo-anywhere.old.1" "${prefix}" 2>&1)" || rc=$?
+[[ "$rc" == 0 && ! -e "${ipar}/nemo-anywhere" && ! -e "${ipar}/.nemo-anywhere-install.1" && ! -e "${ipar}/nemo-anywhere.old.1" ]] || fFail "fRmBesidePrefix over the prefix, staging and backup: exit ${rc}, ${out}"
+[[ "$(cat "${scratch}/priv.log" 2> /dev/null)" == "rm -rf ${oneFs} -- ${ipar}/.nemo-anywhere-install.1"*"rm -rf ${oneFs} -- ${ipar}/nemo-anywhere" ]] || fFail "the installer guard's rm didn't go through priv: $(cat "${scratch}/priv.log" 2> /dev/null)"
+ln -s "${scratch}/ioutside" "${ipar}/nemo-anywhere"
+rc=0
+out="$(prefix="${ipar}/nemo-anywhere"; fRmBesidePrefix "${prefix}" 2>&1)" || rc=$?
+[[ "$rc" == 1 && "$out" == *"prefix that's a link"* && -L "${ipar}/nemo-anywhere" && -f "${scratch}/ioutside/f" ]] || fFail "fRmBesidePrefix took a prefix that's a link: exit ${rc}, ${out}"
+rc=0
+out="$(prefix="${ipar}/other"; fRmBesidePrefix "${ipar}/link" 2>&1)" || rc=$?
+[[ "$rc" == 1 && "$out" == *"not named"* ]] || fFail "fRmBesidePrefix took a prefix not named nemo-anywhere: exit ${rc}, ${out}"
+## BSD and macOS rm, then busybox's, which has neither --version nor -x.
+for form in bsd busybox; do
+	mkdir -p "${ipar}/${form}/sub"
+	rc=0
+	out="$(
+		# shellcheck disable=SC2329  ## stands in for the guard's rm
+		rm(){ case "$1" in --version) return 64 ;; -fx) [[ "$form" == bsd ]] || return 64 ;; -rf) shift; [[ "$1" != -x || "$form" == bsd ]] || return 64; [[ "$1" != -x ]] || shift; command rm -rf "$@" ;; *) return 64 ;; esac; }
+		eval "$(sed -n -e '/^__rmOneFs=/p' -e '/^if rm --version/p' "${root}/install.bash")"
+		[[ "${__rmOneFs}" == "$([[ "$form" == bsd ]] && echo -x)" ]] || { echo "rm flag ${__rmOneFs}"; exit 1; }
+		fInst_SafeRm_Under "${ipar}" "${ipar}/${form}" 2>&1
+	)" || rc=$?
+	[[ "$rc" == 0 && ! -e "${ipar}/${form}" ]] || fFail "the installer guard with ${form} rm: exit ${rc}, ${out}"
+done
+unset -f realpath
+
 if ((failures)); then
 	fEcho "FAILED: safe removal, ${failures} problem(s)"
 	exit 1
@@ -123,3 +190,4 @@ fEcho "OK: every rm -r goes through the guard, but the ${#left[@]} scripts liste
 ##	History:
 ##		- 2026-10-26: Created.
 ##		- 2026-11-03: fSafeRm_Under, and the removals outside a temp root off the list.
+##		- 2026-11-03: install.bash's own guard; the rest off the list.

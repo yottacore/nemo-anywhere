@@ -39,7 +39,7 @@ if [[ "${1:-}" != "--inside" ]]; then
 	# shellcheck disable=SC2016  ## expanded by the shell in the container
 	tar -C "${here}/.." -cf - linux/fuzz.bash linux/test-fuzz-exit.bash utility/check-werror.bash utility/meson-setup.bash utility/include/run-temp.bash \
 		| timeout -k 5 360 bash "${here}/../utility/docker-run.bash" "fuzz exit check" \
-			'd="$(mktemp -d /tmp/test_fuzz-exit.XXXXXX)" && tar -C "$d" -xf - && { rc=0; bash "$d/linux/test-fuzz-exit.bash" --inside "$d/linux" || rc=$?; rm -rf -- "$d"; exit "$rc"; }' \
+			'd="$(mktemp -d /tmp/test_fuzz-exit.XXXXXX)" && tar -C "$d" -xf - && bash "$d/linux/test-fuzz-exit.bash" --inside "$d/linux"' \
 		|| rc=$?
 	exit "${rc}"
 fi

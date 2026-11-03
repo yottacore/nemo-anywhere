@@ -34,7 +34,7 @@
 set -Eeuo pipefail
 
 REPO="yottacore/nemo-anywhere"
-INSTALLER_VERSION="1.3.1"
+INSTALLER_VERSION="1.3.2"
 APP_NAME="Nemo Anywhere"
 EXE_NAME="nemo-anywhere"
 
@@ -170,7 +170,46 @@ fCheckWritable(){
 fCheckPrefix(){
 	[[ "${prefix:0:1}" == "/" ]] || fDie "refusing to touch a non-absolute prefix: ${prefix}"
 	[[ "$(basename "$prefix")" == "$EXE_NAME" ]] || fDie "refusing to touch a prefix not named ${EXE_NAME}: ${prefix}"
+	## Replacing or removing it would leave the files it points at behind.
+	[[ ! -L "$prefix" ]] || fDie "refusing to touch a prefix that's a link: ${prefix} -> $(readlink "$prefix" || true)"
 }
+
+## rm -rf of each path strictly under <parent>, with no link between the two;
+## the parent itself may sit behind one, as macOS's /var does. One that's gone
+## is skipped. The same rule as the repo's fSafeRm_Under, but with cd -P, since
+## macOS before 13 has no realpath. Returns 1 if any was refused.
+fSafeRm_Under(){ ## parent path...
+	local parent="${1:-}" p real realParent='' rc=0
+	(($#)) && shift
+	parent="${parent%/}"
+	if [[ "$parent" != /?* || "$parent" == *..* || "$parent" == *//* || "$parent" == *$'\n'* ]]; then
+		fWarn "won't remove anything under \"${parent}\""; return 1
+	fi
+	for p in "$@"; do
+		p="${p%/}"
+		if [[ "$p" != "${parent}"/?* || "$p" == *..* || "$p" == *//* || "$p" == *$'\n'* ]]; then
+			fWarn "won't remove \"${p}\", it's not under ${parent}"; rc=1; continue
+		fi
+		if [[ -L "$p" ]]; then fWarn "won't remove ${p}, it's a link"; rc=1; continue; fi
+		[[ -e "$p" ]] || continue
+		if [[ -z "$realParent" ]] && ! realParent="$(cd -P -- "$parent" 2>/dev/null && pwd -P)"; then
+			fWarn "won't remove anything under ${parent}, it isn't there"; return 1
+		fi
+		real="$(cd -P -- "${p%/*}" 2>/dev/null && pwd -P)/${p##*/}" || real=''
+		if [[ "$real" != "${realParent%/}${p#"${parent}"}" ]]; then
+			fWarn "won't remove ${p}, it goes through a link"; rc=1; continue
+		fi
+		$priv rm -rf ${__rmOneFs:+"$__rmOneFs"} -- "$p" || rc=1
+	done
+	return "$rc"
+}
+
+## GNU rm says --one-file-system, BSD and macOS say -x, and busybox has neither.
+__rmOneFs=""
+if rm --version >/dev/null 2>&1; then __rmOneFs="--one-file-system"; elif rm -fx 2>/dev/null; then __rmOneFs="-x"; fi
+
+## Removals beside the prefix: the prefix, and the staging and backup copies.
+fRmBesidePrefix(){ fCheckPrefix; fSafeRm_Under "$(dirname "$prefix")" "$@"; }
 
 
 #••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
@@ -321,7 +360,7 @@ if ((do_uninstall)); then
 		esac
 	fi
 	if [[ -f "$launcher" ]]; then $priv rm -f  "$launcher"; fEcho_Clean "removed ${launcher}"; fi
-	if [[ -d "$prefix"   ]]; then $priv rm -rf "$prefix";   fEcho_Clean "removed ${prefix}";   fi
+	if [[ -d "$prefix"   ]]; then fRmBesidePrefix "$prefix" || fDie "couldn't remove ${prefix}"; fEcho_Clean "removed ${prefix}"; fi
 	command -v update-desktop-database >/dev/null 2>&1 && $priv update-desktop-database "$appdir" 2>/dev/null || true
 
 	fEcho_Clean ""
@@ -334,8 +373,10 @@ fi
 #••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 # Resolve what to install
 
-work="$(mktemp -d "${TMPDIR:-/tmp}/${EXE_NAME}-install.XXXXXX")"
-trap 'rm -rf "${work}"' EXIT
+## macOS's TMPDIR ends in a slash.
+tmp_root="${TMPDIR:-/tmp}"; tmp_root="${tmp_root%/}"
+work="$(mktemp -d "${tmp_root}/${EXE_NAME}-install.XXXXXX")"
+trap 'fSafeRm_Under "$tmp_root" "$work" || true' EXIT
 
 fEcho_Clean ""
 fEcho "Resolving"
@@ -456,22 +497,22 @@ fi
 $priv mkdir -p "$(dirname "$prefix")"
 staging="$(dirname "$prefix")/.${EXE_NAME}-install.$$"
 backup="${prefix}.old.$$"
-$priv rm -rf "$staging" "$backup"
-$priv cp -a "$tree" "$staging" || { $priv rm -rf "$staging"; fDie "couldn't stage the new install"; }
+fRmBesidePrefix "$staging" "$backup" || fDie "couldn't clear an earlier staging folder"
+$priv cp -a "$tree" "$staging" || { fRmBesidePrefix "$staging" || true; fDie "couldn't stage the new install"; }
 if [[ "$target" == "system" ]]; then
 	## Staged as the invoking user; a system prefix must not stay user-writable.
 	$priv chown -R 0:0 "$staging" 2>/dev/null || true
 	$priv chmod -R a+rX "$staging"
 fi
 if [[ -e "$prefix" ]]; then
-	$priv mv "$prefix" "$backup" || { $priv rm -rf "$staging"; fDie "couldn't move the existing install aside"; }
+	$priv mv "$prefix" "$backup" || { fRmBesidePrefix "$staging" || true; fDie "couldn't move the existing install aside"; }
 fi
 if ! $priv mv "$staging" "$prefix"; then
 	[[ -e "$backup" ]] && $priv mv "$backup" "$prefix"
-	$priv rm -rf "$staging"
+	fRmBesidePrefix "$staging" || true
 	fDie "couldn't move the new install into place"
 fi
-$priv rm -rf "$backup"
+fRmBesidePrefix "$backup" || true
 fEcho_Clean "prefix installed at ${prefix}"
 
 fInstallLauncher
@@ -510,3 +551,5 @@ fEcho_Clean ""
 ##		- 2026-10-03 JC: A release with no checksums file stops the install,
 ##		  -y or not, unless --no-verify is given.
 ##		- 2026-10-04 JC: The no-checksums override is named --no-verify.
+##		- 2026-11-03 JC: Every rm -rf goes through a guard that names its parent,
+##		  and a prefix that's a link is refused.
