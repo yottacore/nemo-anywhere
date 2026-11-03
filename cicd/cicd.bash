@@ -320,6 +320,13 @@ declare -p PACKAGE_ENABLE &>/dev/null || PACKAGE_ENABLE=0        ## tolerate a c
 declare -p DOGFOOD_CROSS_DESTS &>/dev/null || DOGFOOD_CROSS_DESTS=()   ## ditto, cross dogfood
 declare -p DOGFOOD_HOOK &>/dev/null || DOGFOOD_HOOK=()                 ## ditto, post-dogfood hook
 declare -p DOGFOOD_REMOTE &>/dev/null || DOGFOOD_REMOTE=()             ## ditto, dogfood built on another box
+declare -p CROSS_ALONGSIDE &>/dev/null || CROSS_ALONGSIDE=()           ## ditto, every cross target in its own step
+## True when the cross target labeled $1 starts alongside the local steps.
+fCross_Alongside(){
+	local x
+	for x in "${CROSS_ALONGSIDE[@]}"; do [[ "$x" == "$1" ]] && return 0; done
+	return 1
+}
 
 ## Publish commit message: -m wins, then config, then whatever the auto-message
 ## helper makes of the tree when unattended - one place owns the wording, so this
@@ -548,10 +555,44 @@ fWinSide_Stop(){
 	wait "$winSidePid" 2>/dev/null || true
 	winSidePid=""
 }
+## The cross targets in CROSS_ALONGSIDE start with the debug build too, since
+## each has a container of its own and needs nothing the steps before its own
+## make. Its step then waits for it and shows its log. A quarter of the cpus,
+## since it shares the box with every step until then.
+sideLabels=(); sidePids=(); sideLogs=()
+fCrossSide_Start(){
+	local t label cmd log
+	for t in "${CROSS_TARGETS[@]}"; do
+		label="${t%%|*}"; cmd="${t#*|}"; cmd="${cmd#*|}"; cmd="${cmd#*|}"
+		fCross_Alongside "$label" || continue
+		log="${runTempDir}/cross-${#sideLogs[@]}.log"
+		## The subshell's fJobs leaves the run's own count alone.
+		if command -v setsid >/dev/null 2>&1; then
+			(fJobs hard; echo "jobs ${CICD_MAX_JOBS} (alongside, load ${jobsLoad} on ${jobsCpus} cpus)"; exec setsid bash -c "$cmd") > "$log" 2>&1 < /dev/null &
+		else
+			(fJobs hard; echo "jobs ${CICD_MAX_JOBS} (alongside, load ${jobsLoad} on ${jobsCpus} cpus)"; exec bash -c "$cmd") > "$log" 2>&1 < /dev/null &
+		fi
+		sideLabels+=("$label"); sidePids+=("$!"); sideLogs+=("$log")
+		fEcho_Clean "${label} started alongside, pid ${!}, log ${log}"
+	done
+}
+fCrossSide_Stop(){
+	local i
+	for i in "${!sidePids[@]}"; do
+		[[ -n "${sidePids[i]}" ]] || continue
+		if kill -0 "${sidePids[i]}" 2>/dev/null; then
+			fEcho_Clean "stopping ${sideLabels[i]}"
+			kill -TERM -- "-${sidePids[i]}" 2>/dev/null || kill -TERM "${sidePids[i]}" 2>/dev/null || true
+		fi
+		wait "${sidePids[i]}" 2>/dev/null || true
+		sidePids[i]=""
+	done
+}
 fRunEnd(){
 	local rc=$?
 	if ((rc)) && [[ -n "$stepOpen" ]]; then fStep_Close FAIL; fEcho_Clean; fi
 	fWinSide_Stop || true
+	fCrossSide_Stop || true
 	## || true: a docker hiccup here must not keep the folder from going.
 	if ((${DOCKER_SWEEP:-0})); then fDockerSweep "${CICD_CONTAINERS[@]}" || true; fi
 	fRunTemp_Done || true
@@ -749,7 +790,10 @@ fi
 fEcho_Clean "Release (native) ....: ${RELEASE_NATIVE_CMD[*]} -> ${RELEASE_NATIVE_BIN}"
 if ((BUILD_CROSS)) && ((${#CROSS_TARGETS[@]})); then
 	fEcho_Clean "Release (cross) .....:${arm_note}"
-	for t in "${CROSS_TARGETS[@]}"; do fEcho_Clean "    - ${t%%|*}"; done
+	for t in "${CROSS_TARGETS[@]}"; do
+		if fCross_Alongside "${t%%|*}"; then fEcho_Clean "    - ${t%%|*} (alongside, from the debug build on)"
+		else fEcho_Clean "    - ${t%%|*}"; fi
+	done
 else
 	fEcho_Clean "Release (cross) .....: (skipped$( ((include_arm && ! no_arm)) && echo ', arm64 too'))"
 fi
@@ -874,6 +918,7 @@ if ((run_win && ! no_container && ${#WIN_GATE_SIDE_CMD[@]})); then
 	winSidePid=$!
 	fEcho_Clean "Native Windows gate started alongside, pid ${winSidePid}, log ${winSideLog}"
 fi
+((! run_cross)) || fCrossSide_Start
 fStep "Build (debug)"
 "${DEBUG_BUILD_CMD[@]}"
 fEcho "OK: debug build"
@@ -1015,7 +1060,15 @@ if ((run_cross)); then
 		local_label="${t%%|*}"; rest="${t#*|}"; osarch="${rest%%|*}"; rest="${rest#*|}"; art="${rest%%|*}"; cmd="${rest#*|}"
 		art="${art//@VER@/${ver}}"   ## for a lane that puts the version in the file name
 		fStep "Release build: ${local_label}"
-		lane_rc=0; eval "${cmd}" || lane_rc=$?
+		lane_rc=0; side=""
+		for i in "${!sideLabels[@]}"; do [[ "${sideLabels[i]}" != "$local_label" ]] || side="$i"; done
+		if [[ -n "$side" ]]; then
+			tail -n +1 -f --pid="${sidePids[side]}" "${sideLogs[side]}" || true
+			wait "${sidePids[side]}" || lane_rc=$?
+			sidePids[side]=""
+		else
+			eval "${cmd}" || lane_rc=$?
+		fi
 		if ((lane_rc == 77)); then
 			fStep_Skip
 			case "$osarch" in *arm64*|*aarch64*) fDropArmPackages ;; esac
@@ -1380,6 +1433,8 @@ fEcho_Clean
 ##		- 2026-10-19: --quick keeps the sanitizers, profiler and Windows cross
 ##		  build; --include-arm works under --quick.
 ##		- 2026-11-02: --leakcheck and --no-leakcheck.
+##		- 2026-11-03: the cross targets in CROSS_ALONGSIDE start with the debug
+##		  build, and their step waits for them.
 ##		- 2026-10-21: static analyzer stage after the cross build, report only.
 ##		- 2026-10-24: --long (or --slow) adds arm64, now off in a plain run.
 ##		- 2026-10-25: --backlog-run-quick, --backlog-run-full and --merge-gate;

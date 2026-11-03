@@ -15,7 +15,9 @@
 ##	  Each step opens with a Starting line and closes with PASS, or FAIL for
 ##	  one that fails, numbered out of the steps that run, under a rule of 79
 ##	  dots. The plan lists what's turned off, and a hard step gets a quarter
-##	  of the cpus. A copy of cicd.bash runs in a scratch git repo
+##	  of the cpus. A cross target in CROSS_ALONGSIDE starts with the debug
+##	  build, its step shows its log and fails when it does, and a run that
+##	  stops early stops it. A copy of cicd.bash runs in a scratch git repo
 ##	  with every step a stand-in that leaves a marker file.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-quick.bash
@@ -74,7 +76,7 @@ cat > "${scratch}/cicd/config.bash" <<-EOF
 	FMT_CHECK_CMD=(bash -c '$(mark fmt-check)')
 	CICD_CONTAINERS=()
 	DEBUG_BUILD_CMD=(bash -c '$(mark build)')
-	TEST_CMD=(bash -c '[ -z "\${CHECK_FAIL_TESTS:-}" ] || exit 3; $(mark tests)')
+	TEST_CMD=(bash -c '[ -z "\${CHECK_ALONGSIDE:-}" ] || { for i in \$(seq 100); do [ -f out/windows-pid ] && break; sleep 0.1; done; [ -f out/windows-pid ] || exit 4; }; [ -z "\${CHECK_FAIL_TESTS:-}" ] || exit 3; $(mark tests)')
 	LINT_PROBE=(true)
 	LINT_CMD=(bash -c '$(mark lint); echo "\${NEMO_LINT_HOST:-}" > out/lint-host')
 	FUZZ_PROBE=(true)
@@ -98,9 +100,11 @@ cat > "${scratch}/cicd/config.bash" <<-EOF
 	RELEASE_NATIVE_BIN="native.bin"
 	BUILD_CROSS=1
 	CROSS_TARGETS=(
-		"Windows x86_64 (stand-in)|windows-x86_64|out/windows|$(mark windows)"
+		'Windows x86_64 (stand-in)|windows-x86_64|out/windows|echo \$\$ > out/windows-pid; [ -z "\${CHECK_SLOW_CROSS:-}" ] || sleep 30; [ -z "\${CHECK_FAIL_CROSS:-}" ] || exit 5; echo stand-in cross log; $(mark windows)'
 		"Linux arm64 (stand-in)|linux-arm64|out/arm64|$(mark arm64)"
 	)
+	CROSS_ALONGSIDE=("Windows x86_64 (stand-in)")
+	[ -z "\${CHECK_INLINE_CROSS:-}" ] || CROSS_ALONGSIDE=()
 	RELEASE_ARTIFACT_DIR="out"
 	RELEASE_COLLECT=0
 	VERSION_MANIFEST="meson.build"
@@ -296,6 +300,34 @@ grep -q -E '; FAIL Tests \]$' <<< "$out" || fFail "[failing tests]: no FAIL line
 for off in "Static analyzers (--quick)" "Release build: Linux arm64 (stand-in) (--quick)" "Packages (--quick)"; do
 	grep -q -x -F -- "    - ${off}" <<< "$out" || fFail "[--quick]: the plan doesn't list ${off} as turned off"
 done
+## The cross target in CROSS_ALONGSIDE starts with the debug build: the tests
+## stand-in waits for it to start, and fails without it. Its step, in the same
+## place, shows its log. Without CROSS_ALONGSIDE it runs in its step as before.
+CHECK_ALONGSIDE=1 fRun "${quickSteps}" --quick
+[[ "$lastOut" == *"Windows x86_64 (stand-in) started alongside, pid "* ]] || fFail "[--quick]: the Windows cross build didn't start alongside"
+crossStep="$(sed -n '/Starting Release build: Windows x86_64 (stand-in) ]$/,/PASS Release build: Windows x86_64 (stand-in) ]$/p' <<< "$lastOut")"
+grep -q -x -F 'stand-in cross log' <<< "$crossStep" || fFail "[--quick]: the Windows cross build's step doesn't show its log"
+CHECK_INLINE_CROSS=1 fRun "${quickSteps}" --quick
+[[ "$lastOut" != *"started alongside"* ]] || fFail "[--quick, nothing alongside]: a cross build started alongside"
+[[ "$lastOut" == *"stand-in cross log"* ]] || fFail "[--quick, nothing alongside]: no cross build log"
+## A side build that fails fails its own step, once the steps before it passed.
+rc=0
+out="$(cd "$scratch" && CHECK_FAIL_CROSS=1 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 env -u CICD_MAX_JOBS bash cicd/cicd.bash -y --quick 2>&1 </dev/null)" || rc=$?
+[[ "$rc" != 0 ]] || fFail "[failing side build]: the run passed"
+fSteps "$out" 0 1 "failing side build"
+grep -q -E '; FAIL Release build: Windows x86_64 \(stand-in\) \]$' <<< "$out" || fFail "[failing side build]: no FAIL line for its step"
+[[ -f "${scratch}/out/native" ]] || fFail "[failing side build]: the native release before it didn't run"
+## A run that stops early stops the side build too, rather than leaving it.
+fSafeRm_IfThere "${scratch}/out"; mkdir -p "${scratch}/out"
+rc=0; t0=${SECONDS}
+out="$(cd "$scratch" && CHECK_ALONGSIDE=1 CHECK_SLOW_CROSS=1 CHECK_FAIL_TESTS=1 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 env -u CICD_MAX_JOBS bash cicd/cicd.bash -y --quick 2>&1 </dev/null)" || rc=$?
+[[ "$rc" != 0 ]] || fFail "[failing tests, slow side build]: the run passed"
+((SECONDS - t0 < 25)) || fFail "[failing tests, slow side build]: the run waited for the side build"
+sidePid="$(cat "${scratch}/out/windows-pid" 2>/dev/null || true)"
+if [[ -z "$sidePid" ]]; then fFail "[failing tests, slow side build]: the side build never started"
+elif kill -0 "$sidePid" 2>/dev/null; then fFail "[failing tests, slow side build]: the side build is still running"; kill -TERM -- "-${sidePid}" 2>/dev/null || kill -TERM "$sidePid" 2>/dev/null || true; fi
+[[ "$out" == *"stopping Windows x86_64 (stand-in)"* ]] || fFail "[failing tests, slow side build]: no line saying it stopped the side build"
+[[ ! -f "${scratch}/out/windows" ]] || fFail "[failing tests, slow side build]: the side build ran to the end"
 ## A hard step gets a quarter of the cpus, busy or not.
 # shellcheck source=include/jobs.bash
 source "${here}/include/jobs.bash"

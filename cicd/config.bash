@@ -186,6 +186,12 @@ CROSS_TARGETS=(
 	"Windows x86_64 (mingw)|windows-x86_64|cicd/artifacts/cross/nemo-anywhere.exe|rm -f cicd/artifacts/cross/nemo-anywhere.exe && bash cicd/win/build-cross.bash && bash cicd/win/win-run.bash 'gui smoke' 'bash /src/cicd/win/gui-smoke.bash'"
 	"Linux arm64 (arm64 box)|linux-arm64|cicd/artifacts/release/${EXE_NAME}-@VER@-linux-arm64.tar.gz|bash cicd/linux/release-arm64.bash"
 )
+## Cross targets that start alongside the local steps, from the debug build on,
+## by label. The Windows one has a step container and cache volume of its own,
+## and reads only the source, so its 4 minutes come off the run's length. Its
+## step, in the same place as before, waits for it and shows its log. arm64
+## stays in line, since its box is emulated on this one.
+CROSS_ALONGSIDE=("Windows x86_64 (mingw)")
 #	Rust-era original (reference only - cargo/zig cross, not applicable to meson):
 #	CROSS_TARGETS=(
 #		"Windows x86_64 (mingw)|windows-x86_64|target/x86_64-pc-windows-gnu/release/${EXE_NAME}.exe|cargo build --release --target x86_64-pc-windows-gnu"

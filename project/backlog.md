@@ -933,12 +933,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261103, de54r, dddq3, ddmmw, desha and the other cicd step tests pass. The new de54r fails on `cicd.bash` from before the change. The real fuzz stage at 5 s a target took 91 s with a cold fuzz build, all 12 targets clean.
 	- Verified: 20261103, `cicd.bash -y --quick --no-sync --no-dogfood --no-publish` passed all 8 steps in 14.7 min, fuzzing 1.4 of it, at a load of 13 to 41 on 32 CPUs.
 	- Progress log:
-		- 20261103: `--quick` is still about 5 min over 10, which is in child 2026110314093130.
+		- 20261103: `--quick` was still about 5 min over 10, which is in child 2026110314093130. It now takes 10.1 min, with the Windows cross build alongside.
 
 - CICD flags: `--quick` down to about 10 minutes.
 	- ID: 2026110314093130
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261103-140931
 	- Opened by: 2026102516165479
@@ -948,7 +948,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261103: a `--quick` run took 14.7 min at a load of 13 to 41 on 32 CPUs: tests 1.5, lints 2.6, fuzzing 1.4, sanitizer suite 2.9, native release build 1.8, Windows cross build 4.0, and the build and profiler under 1 together. No one step is the cause.
 		- Options: run the Windows cross build alongside the local steps from the start, the way the native Windows gate does, since it has a container of its own. Or leave the cross build or the sanitizer suite out of `--quick`, which undoes part of 2026101816495201.
-	- Test case: none yet.
+		- 20261103: the Windows cross build now starts with the debug build and runs alongside the local steps.
+	- Decisions:
+		- Of the options, the cross build alongside. It has a step container and cache volume of its own and reads only the source, so nothing it needs is made by the steps before it. The sanitizer suite and the cross build stay in `--quick`, as 2026101816495201 has them.
+		- `CROSS_ALONGSIDE` in `config.bash` names the cross targets that start this way, by label. arm64 stays in line, since its box is emulated on this one and takes about an hour.
+		- In every run that has the cross build, not only `--quick`. That's the same 4 min or so off a full run, and one path to keep working.
+		- It gets a quarter of the CPUs, as a hard step does, since it shares the box with every step until its own.
+		- Its step keeps its place and number after the native release build, waits for it there and shows its log, so the plan, the step lines and the analyzers' read of the Windows compile list don't change. A failed side build fails that step. A run that stops early stops the side build too.
+	- Swept: the native Windows gate's side start and stop, which this follows. design.md's pipeline notes, the `cicd.bash` history and the preflight list, which marks the target as alongside. `--help` gives no step order, and building.md and README.md don't give run lengths. Nothing else reads the cross volume before the cross step: the lint checks that use the cross image run with `--no-build-win`.
+	- Test case: de54r: the tests stand-in waits for the side build to start and fails without it, the step shows its log, a failing side build fails its step after the native release ran, and a run that fails early stops the side build. A run with nothing in `CROSS_ALONGSIDE` builds in its step as before.
+	- Verified: 20261103, de54r passes. It fails 4 ways on `cicd.bash` from before the change, and catches a side build left running when the stop is taken out of the exit path.
+	- Verified: 20261103, `cicd.bash -y --quick --no-sync --no-dogfood --no-publish` passed all 8 steps in 10.1 min, at a load of 6 to 32 on 32 CPUs: tests 1.4, lints 2.2, fuzzing 1.3, sanitizer suite 3.0, native release build 1.7, and the cross build's step 0.0, since the build had finished alongside in under a minute.
+	- Branch: round1103a
+	- Acceptance signoff: Self-closed: `--quick` runs in about 10 min with the short fuzz, and de54r pins the cross build alongside.
+	- Closed: 20261103-143216
 
 - CICD flags: `cicd-win.ps1` takes the same flags.
 	- ID: 2026102516165482
