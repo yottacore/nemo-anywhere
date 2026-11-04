@@ -375,6 +375,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- No app-side way out. Every folder view watches with the same code, so a rename in any open folder leaks too. Watching the folder instead of the file goes through the same call. A save that writes in place gives up the atomic replace, and a poll monitor or one of our own would be a second monitor to keep for a few dozen bytes a save.
 		- The case doesn't subtract a known loss. An allowance would hide an app leak of the same size, and go stale once GLib is fixed.
 		- Instead the case asks the GLib that is loaded: it renames a watched file away and back 64 times and reads the heap. It answers 77 only while that grows, so it runs again by itself once the box has the fix. Linux skips the check.
+		- Wait for a GLib release with the fix. No patch sent to MSYS2's package, and no GLib build of our own in the bundle. The loss is about 32 bytes a rename, freed when the window closes, which isn't worth a GLib build to keep up.
 	- Progress log:
 		- 20261021: upstream patch and issue text written, not filed.
 		- 20261021: it goes upstream as an issue plus MR, from t00mietum. The patch still applies to GLib main.
