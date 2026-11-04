@@ -7,7 +7,8 @@
 ##		  of the script with every step's work stubbed out, through the gate and
 ##		  the full run: each step opens under a 79-dot rule and closes PASS, or
 ##		  FAIL when it dies, numbered out of the steps the plan has on, and the
-##		  plan lists the ones turned off with why.
+##		  plan lists the ones turned off with why. -NoTests leaves the tests
+##		  and smoke checks out, in the gate and the full run.
 ##		- Each run makes its own run folder, names it in the plan, and removes
 ##		  it at the end, failed or not, unless -KeepTemp keeps it. An old one a
 ##		  dead run left is swept.
@@ -203,6 +204,10 @@ function fPublish { param($Msg); fStub fPublish }
 	if (-not ($out -match '^probe at priority (Idle|BelowNormal)$')) { fFail "gate: the toolchain probe didn't run at low priority" }
 
 	fRun 'gate -NoFmt' @('-Gate', '-NoFmt') -Steps $gate[1..3] -Off 'Lints (-NoFmt)' | Out-Null
+	## A build only, for the tests another box left.
+	$out = fRun 'gate -NoFmt -NoTests' @('-Gate', '-NoFmt', '-NoTests') -Steps @('Build (debug)') -Off 'Lints (-NoFmt)', 'Tests (-NoTests)', 'Smoke checks (-NoTests)'
+	$ran = @($out | Where-Object { $_ -match '^ran ' })
+	if ($ran.Count -ne 1 -or $ran[0] -notmatch '^ran fBuild ') { fFail "gate -NoTests: ran '$($ran -join ', ')', not the build alone" }
 	## Kept, and an old one a dead run left goes at the next run.
 	$out = fRun 'gate -KeepTemp' @('-Gate', '-KeepTemp') -Steps $gate
 	$kept = @($out | Where-Object { $_ -match '^\[ kept the run folder: (.+) \]$' } | ForEach-Object { $Matches[1] })
@@ -248,6 +253,8 @@ function fPublish { param($Msg); fStub fPublish }
 		-Off 'Packages (Enigma Virtual Box not installed)', 'Dogfood (no pack: Enigma Virtual Box not installed)' | Out-Null
 	fRun 'full, -NoBuild' @('-Yes', '-Message', 'x', '-NoBuild') -Steps 'Remote sync', 'Lints', 'Publish' `
 		-Off 'Build (debug) (-NoBuild)', 'Tests (-NoBuild)', 'Smoke checks (-NoBuild)', 'Runtime bundle (-NoBuild)', 'Packages (-NoBuild)', 'Dogfood (no pack: -NoBuild)' | Out-Null
+	fRun 'full, -NoTests' @('-Yes', '-Message', 'x', '-NoTests') -Steps ($full[0..2] + $full[5..8]) `
+		-Off 'Tests (-NoTests)', 'Smoke checks (-NoTests)' | Out-Null
 	fRun 'full, no toolchain' @('-Yes', '-Message', 'x') -Vars @{ T_TOOLMISS = '1' } -Steps 'Remote sync', 'Publish' `
 		-Off 'Lints (toolchain missing)', 'Build (debug) (toolchain missing)', 'Tests (toolchain missing)', 'Smoke checks (toolchain missing)', 'Runtime bundle (toolchain missing)', 'Packages (toolchain missing)', 'Dogfood (no pack: toolchain missing)' | Out-Null
 	fRun 'full, -BuildStrict, no toolchain' @('-Yes', '-Message', 'x', '-BuildStrict') -Vars @{ T_TOOLMISS = '1' } -Steps (@($full[0]) + $full[2..8]) `

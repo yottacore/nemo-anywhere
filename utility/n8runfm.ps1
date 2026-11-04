@@ -478,7 +478,7 @@ function fCopyIfNewer {
 	$clock = [System.Diagnostics.Stopwatch]::StartNew()
 	fItem "-" "copy" "$($src.FullName) -> $(Split-Path $dst -Leaf)"
 	try {
-		if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Recurse -Force }
+		if (-not (fSafeRm_Under $TargetDir @($tmp))) { throw "couldn't clear ${tmp}" }
 		if ($PayloadIsFile) { Copy-Item -LiteralPath $src.FullName -Destination $tmp -Force -ErrorAction Stop }
 		else                { Copy-Item -LiteralPath $src.FullName -Destination $tmp -Recurse -Force -ErrorAction Stop }
 		## A synced-sourced exe can carry a mark-of-the-web; clear it so the launch
@@ -489,7 +489,7 @@ function fCopyIfNewer {
 		fItem "ok" "copy" ("done, {0} in {1:n2}s" -f (fHumanSize (fPayloadSize $dst)), $clock.Elapsed.TotalSeconds)
 	} catch {
 		fWarn -Gui "couldn't copy the build ($($_.Exception.Message))"
-		Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+		$null = fSafeRm_Under $TargetDir @($tmp)
 	}
 }
 
@@ -707,6 +707,75 @@ function fParseStamp {
 }
 
 
+## Why a path can't take part in a removal, or "" when it can: absolute, not a
+## share, with no .., doubled separator or newline.
+function fSafeRm_BadPath {
+	param([string]$Path)
+	if (-not [System.IO.Path]::IsPathFullyQualified($Path) -or $Path.StartsWith('\\') -or $Path.Contains('..') -or
+		$Path.Contains("`n") -or $Path.Contains("`r") -or $Path.Substring(1) -match '[\\/]{2}') {
+		return "bad path: `"${Path}`""
+	}
+	return ""
+}
+
+
+## Depth first, taking a link or mounted volume off as the entry it is rather
+## than going into it. Hidden and system files too.
+function fSafeRm_Tree {
+	param([System.IO.FileSystemInfo]$Item)
+	$isLink = [bool]($Item.Attributes -band [System.IO.FileAttributes]::ReparsePoint)
+	if ($Item -is [System.IO.DirectoryInfo] -and -not $isLink) {
+		foreach ($child in $Item.GetFileSystemInfos()) { fSafeRm_Tree $child }
+	}
+	if (-not $isLink -and ($Item.Attributes -band [System.IO.FileAttributes]::ReadOnly)) {
+		$Item.Attributes = $Item.Attributes -band -bnot [System.IO.FileAttributes]::ReadOnly
+	}
+	## Windows takes a folder link off as a folder, and elsewhere a link is a file.
+	if ($Item -is [System.IO.DirectoryInfo] -and -not ($isLink -and -not $IsWindows)) { [System.IO.Directory]::Delete($Item.FullName, $false) }
+	else { [System.IO.File]::Delete($Item.FullName) }
+}
+
+
+## Removes each path, and what's in it, strictly under the parent, with no link
+## between the two; the parent itself may sit behind one. The same rule as
+## install.ps1's copy, which has the repo's. A link inside goes as a link, never
+## followed, and one that's gone is skipped. Warns for a refusal, and returns
+## $false if any was refused or couldn't go, such as a copy that's held open.
+function fSafeRm_Under {
+	param([string]$Parent, [string[]]$Paths)
+	$sep   = if ($IsWindows) { '[\\/]' } else { '/' }
+	$case  = if ($IsWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+	$under = "$Parent".TrimEnd('\', '/')
+	if ((fSafeRm_BadPath "$Parent") -or $under -eq "" -or $under -match '^[A-Za-z]:$') {
+		fWarn "won't remove anything under `"${Parent}`""
+		return $false
+	}
+	$ok = $true
+	foreach ($path in $Paths) {
+		$p = "$path".TrimEnd('\', '/')
+		if ((fSafeRm_BadPath "$path") -or $p.Length -le $under.Length + 1 -or -not $p.StartsWith($under, $case) -or $p.Substring($under.Length, 1) -notmatch $sep) {
+			fWarn "won't remove `"${p}`", it's not under ${under}"; $ok = $false; continue
+		}
+		## Each step below the parent, the path itself last, must not be a link.
+		$cur = $under
+		$why = ""
+		foreach ($part in ($p.Substring($under.Length + 1) -split $sep)) {
+			$cur  = $cur + [System.IO.Path]::DirectorySeparatorChar + $part
+			$item = Get-Item -LiteralPath $cur -Force -ErrorAction SilentlyContinue
+			if (-not $item) { $why = "gone"; break }
+			if ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+				$why = if ($cur.Length -eq $p.Length) { "it's a link" } else { "it goes through a link" }
+				break
+			}
+		}
+		if ($why -eq "gone") { continue }
+		if ($why) { fWarn "won't remove ${p}, ${why}"; $ok = $false; continue }
+		try { fSafeRm_Tree $item } catch { $ok = $false }
+	}
+	return $ok
+}
+
+
 ## Delete one version unless something is running out of it, or it is locked.
 ## Returns $true if deleted.
 function fRemoveIfIdle {
@@ -726,13 +795,9 @@ function fRemoveIfIdle {
 		fItem "-" "kept" "running: $($Copy.Name)"
 		return $false
 	}
-	try {
-		Remove-Item -LiteralPath $Copy.Payload.FullName -Recurse -Force -ErrorAction Stop
-		return $true
-	} catch {
-		fItem "-" "kept" "locked: $($Copy.Name)"
-		return $false
-	}
+	if (fSafeRm_Under $TargetDir @($Copy.Payload.FullName)) { return $true }
+	fItem "-" "kept" "locked: $($Copy.Name)"
+	return $false
 }
 
 
@@ -771,7 +836,7 @@ function fDeleteStalePartials {
 		Where-Object { $_.LastWriteTime -lt $cutoff } |
 		ForEach-Object {
 			## A partial still held open belongs to a run that is still going.
-			Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+			$null = fSafeRm_Under $TargetDir @($_.FullName)
 			if (-not (Test-Path -LiteralPath $_.FullName)) {
 				fItem "ok" "cleaned" "stale partial copy: $($_.Name)"
 			}
@@ -809,10 +874,9 @@ function fRetireLegacyIn {
 				fItem "-" "kept" "running, old layout: $($item.Name)"
 				return
 			}
-			try {
-				Remove-Item -LiteralPath $item.FullName -Recurse -Force -ErrorAction Stop
+			if (fSafeRm_Under $Dir @($item.FullName)) {
 				fItem "ok" "retired" "copy from the old layout: $($item.Name)"
-			} catch {
+			} else {
 				fItem "-" "kept" "locked, old layout: $($item.Name)"
 			}
 		}
@@ -824,10 +888,9 @@ function fRetireLegacyIn {
 function fRetireLegacyLaunchers {
 	foreach ($path in $LegacyLaunchers) {
 		if (-not (Test-Path -LiteralPath $path)) { continue }
-		try {
-			Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop
+		if (fSafeRm_Under (Split-Path -Parent $path) @($path)) {
 			fItem "ok" "retired" "stray from the old layout: $path"
-		} catch {
+		} else {
 			fItem "-" "kept" "locked: $path"
 		}
 	}
@@ -1573,6 +1636,9 @@ exit 0
 
 
 ##	History:
+##		- 2026-11-04: Every recursive removal goes through a guard of its own that
+##		  names the one parent it may remove under, and refuses a link or a path
+##		  through one.
 ##		- 2026-09-08: Each platform's source dir gets a second spelling, since 'synced'
 ##		  is a link that not every box has. The menu icon is published beside the pool
 ##		  under a fixed name, so an entry no longer goes dark when the version it

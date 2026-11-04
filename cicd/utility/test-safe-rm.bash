@@ -129,10 +129,10 @@ out="$(
 
 ## install.bash's copy, renamed so it sits beside the one above. No realpath,
 ## since macOS before 13 has none.
-inst="$(sed -n -e '/^fCheckPrefix(){/,/^}/p' -e '/^fSafeRm_Under(){/,/^}/p' -e '/^__rmOneFs=/p' -e '/^if rm --version/p' -e '/^fRmBesidePrefix(){/p' "${root}/install.bash")"
+inst="$(sed -n -e '/^fCheckPrefix(){/,/^}/p' -e '/^fSafeRm_Under(){/,/^}/p' -e '/^__rmOneFs=/p' -e '/^if rm --version/p' -e '/^fRmBesidePrefix(){/p' -e '/^fRmPrefix(){/,/^}/p' "${root}/install.bash")"
 inst="${inst//fSafeRm_Under/fInst_SafeRm_Under}"
 eval "${inst}"
-for f in fCheckPrefix fInst_SafeRm_Under fRmBesidePrefix; do declare -F "$f" > /dev/null || fFail "install.bash has no ${f/fInst_/f}"; done
+for f in fCheckPrefix fInst_SafeRm_Under fRmBesidePrefix fRmPrefix; do declare -F "$f" > /dev/null || fFail "install.bash has no ${f/fInst_/f}"; done
 if command rm --version > /dev/null 2>&1; then oneFs=--one-file-system; else oneFs=-x; fi
 [[ "${__rmOneFs:-}" == "${oneFs}" ]] || fFail "install.bash doesn't keep rm on one file system: '${__rmOneFs:-}', not ${oneFs}"
 # shellcheck disable=SC2034  ## read by the eval'd functions
@@ -176,11 +176,36 @@ rc=0
 out="$(priv=fPrivLog prefix="${ipar}/nemo-anywhere"; fRmBesidePrefix "${ipar}/.nemo-anywhere-install.1" "${ipar}/nemo-anywhere.old.1" "${prefix}" 2>&1)" || rc=$?
 [[ "$rc" == 0 && ! -e "${ipar}/nemo-anywhere" && ! -e "${ipar}/.nemo-anywhere-install.1" && ! -e "${ipar}/nemo-anywhere.old.1" ]] || fFail "fRmBesidePrefix over the prefix, staging and backup: exit ${rc}, ${out}"
 [[ "$(cat "${scratch}/priv.log" 2> /dev/null)" == "rm -rf ${oneFs} -- ${ipar}/.nemo-anywhere-install.1"*"rm -rf ${oneFs} -- ${ipar}/nemo-anywhere" ]] || fFail "the installer guard's rm didn't go through priv: $(cat "${scratch}/priv.log" 2> /dev/null)"
+mkdir -p "${ipar}/nemo-anywhere/bin"
+rc=0
+out="$(prefix="${ipar}/nemo-anywhere"; fRmPrefix 2>&1)" || rc=$?
+[[ "$rc" == 0 && ! -e "${ipar}/nemo-anywhere" ]] || fFail "fRmPrefix didn't remove the prefix: exit ${rc}, ${out}"
+## A prefix that's a link is followed. What goes beside it goes beside where it
+## points, and fRmPrefix empties that, and leaves it and the link.
 if ((haveLinks)); then
+	idisk="${scratch}/idisk"
+	mkdir -p "${idisk}/nemo-anywhere/bin" "${idisk}/nemo-anywhere.old.1"
+	touch "${idisk}/nemo-anywhere/bin/f" "${idisk}/nemo-anywhere/.hidden"
+	fLink "${idisk}/nemo-anywhere" "${ipar}/nemo-anywhere" || fFail "made links above, but not for the prefix"
+	rc=0
+	out="$(prefix="${ipar}/nemo-anywhere"; fRmBesidePrefix "${idisk}/nemo-anywhere.old.1" 2>&1)" || rc=$?
+	[[ "$rc" == 0 && ! -e "${idisk}/nemo-anywhere.old.1" && -L "${ipar}/nemo-anywhere" && -f "${idisk}/nemo-anywhere/bin/f" ]] || fFail "fRmBesidePrefix didn't remove beside where a linked prefix points: exit ${rc}, ${out}"
+	rc=0
+	out="$(prefix="${ipar}/nemo-anywhere"; fRmBesidePrefix "${ipar}/nemo-anywhere" 2>&1)" || rc=$?
+	[[ "$rc" == 1 && -L "${ipar}/nemo-anywhere" && -f "${idisk}/nemo-anywhere/bin/f" ]] || fFail "fRmBesidePrefix took a linked prefix's link: exit ${rc}, ${out}"
+	rc=0
+	out="$(prefix="${ipar}/nemo-anywhere"; fRmPrefix 2>&1)" || rc=$?
+	[[ "$rc" == 0 && -L "${ipar}/nemo-anywhere" && -d "${idisk}/nemo-anywhere" && -z "$(ls -A "${idisk}/nemo-anywhere")" ]] || fFail "fRmPrefix didn't empty where a linked prefix points, and keep it and the link: exit ${rc}, ${out}"
+	## A link to nothing is left alone, and one to a folder named otherwise is refused.
+	rmdir "${idisk}/nemo-anywhere"
+	rc=0
+	out="$(prefix="${ipar}/nemo-anywhere"; fRmPrefix 2>&1 && fRmBesidePrefix "${idisk}/x" 2>&1)" || rc=$?
+	[[ "$rc" == 1 && "$out" == *"link to nothing"* && -L "${ipar}/nemo-anywhere" ]] || fFail "a linked prefix that points at nothing: exit ${rc}, ${out}"
+	rm -f "${ipar}/nemo-anywhere"
 	fLink "${scratch}/ioutside" "${ipar}/nemo-anywhere" || fFail "made links above, but not for the prefix"
 	rc=0
-	out="$(prefix="${ipar}/nemo-anywhere"; fRmBesidePrefix "${prefix}" 2>&1)" || rc=$?
-	[[ "$rc" == 1 && "$out" == *"prefix that's a link"* && -L "${ipar}/nemo-anywhere" && -f "${scratch}/ioutside/f" ]] || fFail "fRmBesidePrefix took a prefix that's a link: exit ${rc}, ${out}"
+	out="$(prefix="${ipar}/nemo-anywhere"; fRmPrefix 2>&1)" || rc=$?
+	[[ "$rc" == 1 && "$out" == *"not named"* && -L "${ipar}/nemo-anywhere" && -f "${scratch}/ioutside/f" ]] || fFail "fRmPrefix took a linked prefix that points at a folder not named nemo-anywhere: exit ${rc}, ${out}"
 fi
 rc=0
 out="$(prefix="${ipar}/other"; fRmBesidePrefix "${ipar}/link" 2>&1)" || rc=$?
@@ -213,3 +238,5 @@ fEcho "OK: every rm -r goes through the guard, but the ${#left[@]} scripts liste
 ##		- 2026-11-03: install.bash's own guard; the rest off the list.
 ##		- 2026-11-03: Real links or junctions under MSYS2, where ln -s copies,
 ##		  and the link cases skipped where neither can be made.
+##		- 2026-11-04: install.bash follows a prefix that's a link, rather than
+##		  refusing it.

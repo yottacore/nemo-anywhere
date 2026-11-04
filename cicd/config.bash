@@ -116,8 +116,9 @@ LINT_CMD=(bash cicd/utility/lint.bash)
 ## Needs clang and the libFuzzer runtime inside the container; without either the
 ## probe fails and the stage skips with a warning. The ordinary gcc build still
 ## compiles the same targets and replays their seed corpus as tests, so nothing
-## rots when this stage is skipped. Left out of the gate. --quick runs
-## FUZZ_QUICK_CMD instead, 5 s a target, about a minute for the lot rather than 12.
+## rots when this stage is skipped. Left out of the gate. The targets run up to
+## 4 at a time, so 60 s a target comes to about 3 minutes for the lot. --quick
+## runs FUZZ_QUICK_CMD instead, 5 s a target, under a minute.
 FUZZ_SECS=60
 FUZZ_PROBE=(bash "${DOCKER_RUN}" "fuzz probe" "bash \${CICD_SRC:-/src}/cicd/linux/fuzz.bash --probe")
 FUZZ_CMD=(bash "${DOCKER_RUN}" "fuzz" "FUZZ_SECS=${FUZZ_SECS} NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash \${CICD_SRC:-/src}/cicd/linux/fuzz.bash")
@@ -215,8 +216,9 @@ BSD_RELEASE_CMD=(bash cicd/bsd/lane.bash --release)
 ## (77), the other command runs then, in that step, since vm925w is a VM here
 ## and shares this box's CPUs. The same goes when b29w's gate passes and
 ## leaves its windowed tests (75), since b29w's screen is the laptop's own:
-## vm925w runs the gate again with no lints, then those tests in wintest's
-## session there, which never locks. See win/lane.bash.
+## vm925w builds the same commit, with no lints, tests or smokes, then runs
+## only those tests in wintest's session there, which never locks. See
+## win/lane.bash.
 WIN_GATE_SIDE_CMD=(bash cicd/win/lane.bash b29w)
 WIN_GATE_CMD=(bash cicd/win/lane.bash vm925w)
 

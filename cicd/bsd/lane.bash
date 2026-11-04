@@ -10,8 +10,12 @@
 ##	              pkg comes back beside it, and the sums file is rewritten.
 ##	- What goes over is the files git knows about, tracked and untracked but not
 ##	  ignored, as they are in the working tree, the way release-arm64.bash sends
-##	  them. The source dir there is emptied and refilled every run; tar keeps the
-##	  file times, so the test build dir beside it stays incremental.
+##	  them. They go to a run folder of this run's own on the box,
+##	  <temp>/nemo-anywhere/<YYYYmmDD-HHMMSS>_<NNN>/src, with the build dir
+##	  beside them, and the folder is removed at the end, a failure included,
+##	  along with the project's stale ones there (include/box-wrap.bash). The
+##	  build there was never incremental, since the reconfigure rebuilt it all.
+##	  --keep-temp on cicd.bash keeps it.
 ##	- The box is shared, so it is taken for the run through the VM state helper
 ##	  or the host lock, whichever is on this box (include/box-wrap.bash). The
 ##	  helper starts a VM that is off, waits for its ssh, and puts it back after.
@@ -45,9 +49,6 @@ bsdHost="${NEMO_BSD_HOST:-bsdtest@vmFreeBSD}"
 lockName="${NEMO_BSD_LOCK:-vmFreeBSD}"
 jobsPin="${NEMO_BSD_JOBS:-}"
 readyWaitSec="${NEMO_BSD_READY_WAIT:-600}"
-## Under the remote home.
-remoteBase="nemo-anywhere-ci"
-remoteDir="${remoteBase}/src"
 ## A cold build plus the suite runs past the lock's default lease.
 lockWaitSec=1800
 
@@ -69,6 +70,18 @@ sshOpts=(-o ConnectTimeout=30 -o BatchMode=yes -o LogLevel=ERROR)
 ## FreeBSD has no ionice.
 remoteNice="nice -n 19"
 
+## Set by fSend, once the box has its run folder.
+remoteDir=""
+
+## The step closes first, so its line says how the work went, not the cleanup.
+fOnExit(){
+	local rc=$?
+	trap - EXIT INT TERM HUP
+	fLaneStep_OnExit "$rc"
+	fBoxWrap_RunDirDone "$bsdHost" "${sshOpts[@]}" || true
+	exit "$rc"
+}
+
 ## Every remote command is put together on this side.
 # shellcheck disable=SC2029
 fSend(){
@@ -84,7 +97,9 @@ fSend(){
 	esac
 	fBoxWrap_ClockReady "$bsdHost" "${sshOpts[@]}" || fDie "${bsdHost} has the wrong time, and meson would stop on it"
 	fLaneStep "Send"
-	ssh "${sshOpts[@]}" "$bsdHost" "mkdir -p ${remoteDir} && find ${remoteDir} -mindepth 1 -delete"
+	fBoxWrap_RunDir "$SLUG" "$bsdHost" "${sshOpts[@]}" || fDie "could not make a run folder on ${bsdHost}"
+	remoteDir="${boxRunDir}/src"
+	ssh "${sshOpts[@]}" "$bsdHost" "mkdir ${remoteDir}"
 	## --ignore-failed-read: a file deleted in the tree but not yet in git is
 	## still listed, and the Linux build would not see it either.
 	( cd "$ROOT" && git ls-files -z --cached --others --exclude-standard \
@@ -101,7 +116,7 @@ fTests(){
 	fSend
 	fLaneStep "Build and suite"
 	fBoxWrap_Jobs "$jobsPin" "$bsdHost" "${sshOpts[@]}" || fDie "could not read the CPU count and load on ${bsdHost}"
-	ssh "${sshOpts[@]}" "$bsdHost" "cd ${remoteDir} && BUILD_DIR=\$HOME/${remoteBase}/build NEMO_TEST_JOBS=${boxJobs} ${remoteNice} bash cicd/linux/run-tests.bash"
+	ssh "${sshOpts[@]}" "$bsdHost" "$(fBoxWrap_RunCmd) BUILD_DIR=${boxRunDir}/build NEMO_TEST_JOBS=${boxJobs} ${remoteNice} bash cicd/linux/run-tests.bash"
 }
 
 # shellcheck disable=SC2029
@@ -120,7 +135,7 @@ fRelease(){
 	fLaneStep "Release build"
 	fBoxWrap_Jobs "$jobsPin" "$bsdHost" "${sshOpts[@]}" || fDie "could not read the CPU count and load on ${bsdHost}"
 	started="$(date +%s)"
-	ssh "${sshOpts[@]}" "$bsdHost" "cd ${remoteDir} && SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH} CICD_MAX_JOBS=${boxJobs} ${remoteNice} bash cicd/bsd/release.bash"
+	ssh "${sshOpts[@]}" "$bsdHost" "$(fBoxWrap_RunCmd) SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH} CICD_MAX_JOBS=${boxJobs} ${remoteNice} bash cicd/bsd/release.bash"
 	secs=$(( $(date +%s) - started ))
 
 	fLaneStep "Bring back"
@@ -158,7 +173,8 @@ fMain(){
 		exit 77
 	fi
 	if [[ "${2:-}" == "--locked" || ! -f "$lockTool" ]]; then
-		trap 'fLaneStep_OnExit $?' EXIT
+		trap fOnExit EXIT
+		trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 129' HUP
 		case "$mode" in
 			--tests)   fTests ;;
 			--release) fRelease ;;
@@ -180,3 +196,5 @@ fMain "${@}"
 ##		  before the send.
 ##		- 2026-10-28: Prints its steps as cicd.bash does. The jobs come from the
 ##		  box's own CPU count and load, and its side runs under nice 19.
+##		- 2026-11-04: Works in a run folder under the box's temp root, removed
+##		  at the end, rather than a fixed folder in its home.

@@ -545,7 +545,7 @@ fRunTemp_Make "${EXE_NAME}" "${stamp}" || fDie "could not make a run folder unde
 ## The native Windows gate alongside the local steps, from the build on. In a
 ## session of its own, so a TERM reaches the lock's wrap and the lane under
 ## it, which stop the gate and clear the box.
-winSidePid=""; winSideLog=""
+winSidePid=""; winSideLog=""; winDeskList=""
 fWinSide_Stop(){
 	[[ -n "$winSidePid" ]] || return 0
 	if kill -0 "$winSidePid" 2>/dev/null; then
@@ -907,13 +907,14 @@ fi
 ## The gate works from the commit, not this build, so it starts here.
 if ((run_win && ! no_container && ${#WIN_GATE_SIDE_CMD[@]})); then
 	winSideLog="${runTempDir}/win-gate.log"
+	winDeskList="${runTempDir}/win-desktop.txt"
 	## With another box to go to, a passing gate leaves its windowed tests to
 	## it and exits 75, since b29w's only screen is the laptop's own.
 	winElsewhere=$((${#WIN_GATE_CMD[@]} > 0))
 	if command -v setsid >/dev/null 2>&1; then
-		NEMO_WIN_DESKTOP_ELSEWHERE="$winElsewhere" setsid "${WIN_GATE_SIDE_CMD[@]}" > "$winSideLog" 2>&1 < /dev/null &
+		NEMO_WIN_DESKTOP_ELSEWHERE="$winElsewhere" NEMO_WIN_DESKTOP_LIST="$winDeskList" setsid "${WIN_GATE_SIDE_CMD[@]}" > "$winSideLog" 2>&1 < /dev/null &
 	else
-		NEMO_WIN_DESKTOP_ELSEWHERE="$winElsewhere" "${WIN_GATE_SIDE_CMD[@]}" > "$winSideLog" 2>&1 < /dev/null &
+		NEMO_WIN_DESKTOP_ELSEWHERE="$winElsewhere" NEMO_WIN_DESKTOP_LIST="$winDeskList" "${WIN_GATE_SIDE_CMD[@]}" > "$winSideLog" 2>&1 < /dev/null &
 	fi
 	winSidePid=$!
 	fEcho_Clean "Native Windows gate started alongside, pid ${winSidePid}, log ${winSideLog}"
@@ -1162,7 +1163,7 @@ run_package_checks(){
 	done
 }
 ## 77 from the side one: b29w isn't there, so the next box gets its own step,
-## and 75 sends the gate there again for its windowed tests,
+## and 75 sends its windowed tests there, to a build of the same commit,
 ## since vm925w is a VM on this box and would share its CPUs.
 if ((run_win)); then
 	fStep "Native Windows gate"
@@ -1175,10 +1176,11 @@ if ((run_win)); then
 	if ((win_rc == 77 && ${#WIN_GATE_CMD[@]})); then
 		win_rc=0; "${WIN_GATE_CMD[@]}" || win_rc=$?
 	elif ((win_rc == 75 && ${#WIN_GATE_CMD[@]})); then
-		## The side gate passed and left its windowed tests. The next box runs
-		## the gate again, lints aside, then those tests in its desktop session.
+		## The side gate passed and left its windowed tests. The next box only
+		## builds, since the suite and smokes passed on the side one, then runs
+		## those tests in its desktop session.
 		fEcho_Clean "the side gate passed, and its windowed tests go to: ${WIN_GATE_CMD[*]}"
-		win_rc=0; NEMO_WIN_GATE_ARGS="-Gate -Yes -NoSync -NoFmt" "${WIN_GATE_CMD[@]}" || win_rc=$?
+		win_rc=0; NEMO_WIN_GATE_ARGS="-Gate -Yes -NoSync -NoFmt -NoTests" NEMO_WIN_DESKTOP_LIST="$winDeskList" "${WIN_GATE_CMD[@]}" || win_rc=$?
 		if ((win_rc == 77)); then
 			fEcho "WARNING: no box there for the windowed tests, so the side gate's pass stands"
 			win_rc=0

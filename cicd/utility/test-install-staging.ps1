@@ -15,6 +15,8 @@
 ##		  profile and temp folders pointed into a scratch folder. The system
 ##		  target is never run. Besides the stand-ins and the unix launcher, only
 ##		  the registry PATH read and write are swapped for a variable.
+##		- Also an install into a prefix that's a link, which goes where it points
+##		  and keeps the link. On Windows -Uninstall then empties that folder.
 ##		- Runs in cicd-win.ps1's test stage, and in the lint stage elsewhere.
 ##	Syntax:
 ##		pwsh -NoProfile -File cicd/utility/test-install-staging.ps1
@@ -198,6 +200,31 @@ try {
 		}
 		if ($left.Count -eq 0 -and $kept) { Write-Host "  ${way}: failed as it should ($failedWith), nothing left behind" }
 	}
+
+	## A prefix that's a link, as when the folder was moved to another disk and
+	## linked back: the swap is done where it points, and the link stays. On
+	## Windows, where the install runs to the end, -Uninstall then empties that
+	## folder and leaves it and the link.
+	if (-not (Remove-SafeTree -LiteralPath $parent)) { throw "could not clear $parent" }
+	$real = Join-Path $root "disk2/$(Split-Path -Leaf $prefix)"
+	New-Item -ItemType Directory -Path $parent, (Join-Path $real "share") -Force | Out-Null
+	Set-Content -LiteralPath (Join-Path $real "share/old.txt") -Value "old"
+	New-Item -ItemType $(if ($onWindows) { "Junction" } else { "SymbolicLink" }) -Path $prefix -Target $real | Out-Null
+	$linkedOk = $true
+	foreach ($pass in @("install") + @(if ($onWindows) { "uninstall" })) {
+		$script:Uninstall = $pass -eq "uninstall"
+		try { fMain 6>$null } catch { $null = $_ } finally {
+			$script:Uninstall = $false
+			if ($state.work) { Remove-SafeTree -LiteralPath $state.work | Out-Null; $state.work = $null }
+		}
+		$link = Get-Item -LiteralPath $prefix -Force -ErrorAction SilentlyContinue
+		if (-not $link -or -not ($link.Attributes -band [System.IO.FileAttributes]::ReparsePoint)) { fProblem "linked ${pass}: the prefix isn't a link any more"; $linkedOk = $false }
+		$inReal = @(Get-ChildItem -LiteralPath $real -Force -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
+		if ($pass -eq "install" -and ($inReal -contains "old.txt" -or -not (Test-Path -LiteralPath (Join-Path $real $exeRel)))) { fProblem "linked install: the new install isn't where the link points ($($inReal -join ', '))"; $linkedOk = $false }
+		if ($pass -eq "uninstall" -and (-not (Test-Path -LiteralPath $real) -or $inReal.Count)) { fProblem "linked uninstall: didn't empty where the link points, or removed it ($($inReal -join ', '))"; $linkedOk = $false }
+		foreach ($item in @(Get-ChildItem -LiteralPath (Split-Path -Parent $real), $parent -Force | Where-Object { $_.Name -ne (Split-Path -Leaf $prefix) })) { fProblem "linked ${pass}: left behind: $($item.Name)"; $linkedOk = $false }
+	}
+	if ($linkedOk) { Write-Host "  linked: installed where the link points, and the link kept" }
 } finally {
 	foreach ($name in $saved.Keys) { [Environment]::SetEnvironmentVariable($name, $saved[$name]) }
 	if (-not $onWindows) { & chmod -R u+rwX $root 2>$null }

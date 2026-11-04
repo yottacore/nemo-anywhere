@@ -20,7 +20,10 @@
 ##	    exit code is the lane's. With no wintest session there, or a locked
 ##	    one, it's a warning and the gate's pass stands. A failing gate runs
 ##	    none. NEMO_WIN_DESKTOP_ELSEWHERE=1 leaves them for the next box, and
-##	    a passing gate then exits 75.
+##	    a passing gate then exits 75, having written them to the file
+##	    NEMO_WIN_DESKTOP_LIST names. Given that file without
+##	    NEMO_WIN_DESKTOP_ELSEWHERE, the next box runs the tests named there,
+##	    and a missing or empty one fails the lane.
 ##	- Needs git; exit 77 without it.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/win/test-lane.bash
@@ -240,6 +243,38 @@ if ((laneRc == 75)); then
 	fEcho "OK: NEMO_WIN_DESKTOP_ELSEWHERE=1 leaves the windowed tests to the next box, exit 75"
 else
 	fFail "NEMO_WIN_DESKTOP_ELSEWHERE=1 gave exit ${laneRc}, not 75: $(tail -3 "${scratch}/out.log")"
+fi
+
+handList="${scratch}/hand-on.txt"
+fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 NEMO_WIN_DESKTOP_ELSEWHERE=1 NEMO_WIN_DESKTOP_LIST="$handList" -- b29w
+if ((laneRc == 75)); then
+	[[ "$(cat "$handList" 2> /dev/null)" == 'ddzzw a windowed test' ]] || fFail "the tests left for the next box were not written to NEMO_WIN_DESKTOP_LIST: $(cat "$handList" 2> /dev/null)"
+	! grep -q ' -Desktop ' "$log" || fFail "NEMO_WIN_DESKTOP_LIST with NEMO_WIN_DESKTOP_ELSEWHERE=1 ran the desktop tests"
+	fEcho "OK: the tests left for the next box go to the NEMO_WIN_DESKTOP_LIST file"
+else
+	fFail "NEMO_WIN_DESKTOP_ELSEWHERE=1 with a list file gave exit ${laneRc}, not 75: $(tail -3 "${scratch}/out.log")"
+fi
+
+printf 'ddzzq one handed on\n\nddzzr another\n' > "$handList"
+fLane "${scratch}/x_vm-state.bash" FAKE_VMS=vm925w FAKE_RC=0 FAKE_DRC=0 NEMO_WIN_DESKTOP_LIST="$handList" NEMO_WIN_GATE_ARGS="-Gate -Yes -NoSync -NoFmt -NoTests" -- vm925w
+if ((laneRc == 0)); then
+	grep -qE "^ssh vm925w pwsh .*lane-box\.ps1 -Dir ${dirRe}001 -Start -GateArgs Gate,Yes,NoSync,NoFmt,NoTests\$" "$log" || fFail "the next box's gate did not get -NoTests: $(grep -- '-Start' "$log")"
+	[[ "$(cat "${scratch}/sent/desktop.txt" 2> /dev/null)" == $'ddzzq one handed on\nddzzr another' ]] || fFail "the desktop list is not the one handed on: $(cat "${scratch}/sent/desktop.txt" 2> /dev/null)"
+	grep -q '^ssh vm925w pwsh .* -Desktop -TestUser wintest$' "$log" || fFail "the handed-on tests did not run as wintest"
+	grep -q 'Windows 4 of 4; PASS Desktop tests ]' "${scratch}/out.log" || fFail "no PASS line for the handed-on tests"
+	fEcho "OK: given NEMO_WIN_DESKTOP_LIST, the next box runs the tests named there"
+else
+	fFail "a lane given NEMO_WIN_DESKTOP_LIST gave exit ${laneRc}: $(tail -3 "${scratch}/out.log")"
+fi
+
+: > "$handList"
+fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 FAKE_DRC=0 NEMO_WIN_DESKTOP_LIST="$handList" -- b29w
+if ((laneRc == 1)); then
+	! grep -q ' -Desktop ' "$log" || fFail "an empty NEMO_WIN_DESKTOP_LIST still ran the desktop tests"
+	grep -qE "^ssh b29w pwsh .*-Dir ${dirRe}001 -Remove\$" "$log" || fFail "the work folder was not removed after an empty list"
+	fEcho "OK: an empty NEMO_WIN_DESKTOP_LIST fails the lane"
+else
+	fFail "an empty NEMO_WIN_DESKTOP_LIST gave exit ${laneRc}, not 1: $(tail -3 "${scratch}/out.log")"
 fi
 
 fLane "${scratch}/x_vm-state.bash" FAKE_RC=1 NEMO_WIN_DESKTOP_ELSEWHERE=1 -- b29w

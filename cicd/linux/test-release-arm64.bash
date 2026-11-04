@@ -5,8 +5,10 @@
 ##	  runs in a scratch repo with stand-in ssh, scp and host lock on PATH. The
 ##	  "box" is a scratch dir, and its release.bash only writes a tarball naming
 ##	  the stamp, job count and arch it was handed.
-##	- Checks: the lock is taken by the box's name, an old tree on the box is
-##	  cleared, ignored files stay here, the stamp and job count reach the
+##	- Checks: the lock is taken by the box's name, the tree goes to a new run
+##	  folder under the box's temp root, where the build runs with run.pid
+##	  naming it and TMPDIR on that folder, and the folder is gone at the end,
+##	  a failure included, along with a stale one, ignored files stay here, the stamp and job count reach the
 ##	  build, the tarball comes back beside the x86_64 one with both in the sums
 ##	  file, the .deb's dependency line is read on the box by package.bash and
 ##	  kept here against the tarball's sha256 before the build container is
@@ -73,14 +75,20 @@ echo "x86_64 build" > "${repo}/cicd/artifacts/release/${x86Name}"
 cat > "${repo}/cicd/linux/release.bash" <<-EOF
 	set -eu
 	mkdir -p cicd/artifacts/release
+	printf 'pwd=%s tmp=%s,%s,%s pid=%s\n' "\${PWD}" "\${TMPDIR:-}" "\${TEMP:-}" "\${TMP:-}" "\$( [[ "\$(cat ../run.pid)" == "\$\$" ]] && echo ok || echo wrong)" > "${scratch}/where.log"
+	find . -type f | sort > "${scratch}/sent.txt"
+	[[ -z "\${FAKE_BUILD_FAIL:-}" ]] || exit 1
 	echo "\${SOURCE_DATE_EPOCH} \${CICD_MAX_JOBS} \$(uname -m)" > cicd/artifacts/release/${armName}
 EOF
 git -C "$repo" init -q
 git -C "$repo" add source/meson.build
 
-## A tree left on the box from the run before.
-mkdir -p "${box}/nemo-anywhere-arm64/src"
-echo "old" > "${box}/nemo-anywhere-arm64/src/stale.txt"
+## The box's temp root, with a run folder left from a run long gone.
+boxTemp="${box}/tmp/nemo-anywhere"
+mkdir -p "${boxTemp}/20200101-000000_001"
+echo 999999999 > "${boxTemp}/20200101-000000_001/run.pid"
+## No run folder left under the box's temp root.
+fNoneLeft(){ local left; left="$(find "${boxTemp}" -mindepth 1 -maxdepth 1)"; [[ -z "$left" ]] || { fFail "$1: left ${left}"; return 1; }; }
 
 mkdir -p "${scratch}/bin" "${scratch}/boxbin"
 realUname="$(command -v uname)"
@@ -143,14 +151,15 @@ cat > "${scratch}/bin/ssh" <<-EOF
 	shift
 	echo "cmd \$*" >> "${log}"
 	cd "${box}"
-	exec env -i HOME="${box}" PATH="${scratch}/boxbin:\${PATH}" FAKE_CPUS="\${FAKE_CPUS:-}" FAKE_LOAD="\${FAKE_LOAD:-}" FAKE_ARCH="\${FAKE_ARCH:-}" FAKE_DOCKER_DOWN="\${FAKE_DOCKER_DOWN:-}" FAKE_DOCKER_FAIL="\${FAKE_DOCKER_FAIL:-}" FAKE_CLOCK_BEHIND="\${FAKE_CLOCK_BEHIND:-}" bash -c "\$*"
+	exec env -i HOME="${box}" TMPDIR="${box}/tmp" PATH="${scratch}/boxbin:\${PATH}" FAKE_CPUS="\${FAKE_CPUS:-}" FAKE_LOAD="\${FAKE_LOAD:-}" FAKE_ARCH="\${FAKE_ARCH:-}" FAKE_DOCKER_DOWN="\${FAKE_DOCKER_DOWN:-}" FAKE_DOCKER_FAIL="\${FAKE_DOCKER_FAIL:-}" FAKE_CLOCK_BEHIND="\${FAKE_CLOCK_BEHIND:-}" FAKE_BUILD_FAIL="\${FAKE_BUILD_FAIL:-}" bash -c "\$*"
 EOF
 ## scp [-q] [-o opt]... host:path dest
 cat > "${scratch}/bin/scp" <<-EOF
 	#!/usr/bin/env bash
 	args=()
 	while ((\$#)); do case "\$1" in -q) shift ;; -o) shift 2 ;; *) args+=("\$1"); shift ;; esac; done
-	cp "${box}/\${args[0]#*:}" "\${args[1]}"
+	from="\${args[0]#*:}"; [[ "\$from" == /* ]] || from="${box}/\${from}"
+	cp "\$from" "\${args[1]}"
 EOF
 cat > "${scratch}/lock.bash" <<-EOF
 	echo "lock \$*" >> "${log}"
@@ -189,11 +198,16 @@ else
 		grep -q "  ${name}\$" "$sums" 2>/dev/null || fFail "${name} is not in the sums file"
 	done
 	( cd "${repo}/cicd/artifacts/release" && sha256sum -c --quiet "$sumsName" >/dev/null 2>&1 ) || fFail "the sums file does not verify"
-	[[ ! -e "${box}/nemo-anywhere-arm64/src/stale.txt" ]] || fFail "the old tree on the box was not cleared"
-	[[ -f "${box}/nemo-anywhere-arm64/src/source/meson.build" ]] || fFail "a tracked file was not sent"
-	[[ -f "${box}/nemo-anywhere-arm64/src/cicd/linux/release-arm64.bash" ]] || fFail "an untracked file was not sent"
-	[[ ! -e "${box}/nemo-anywhere-arm64/src/ignored.txt" ]] || fFail "an ignored file was sent"
-	[[ ! -e "${box}/nemo-anywhere-arm64/src/cicd/artifacts/release/${x86Name}" ]] || fFail "this side's artifacts were sent"
+	runDir="$(sed -n 's/^work folder tester@armbox://p' <<< "$out" | tail -1)"
+	[[ "$runDir" =~ ^${boxTemp}/[0-9]{8}-[0-9]{6}_001$ ]] || fFail "run folder '${runDir}', not a new one under the box's temp root"
+	[[ "$(cat "${scratch}/where.log" 2>/dev/null || true)" == "pwd=${runDir}/src tmp=${runDir},${runDir},${runDir} pid=ok" ]] \
+		|| fFail "the build ran with '$(cat "${scratch}/where.log" 2>/dev/null || true)'"
+	[[ "$out" == *"removed stale tester@armbox:${boxTemp}/20200101-000000_001"* ]] || fFail "no line for the stale run folder swept"
+	fNoneLeft "after a pass"
+	grep -q -x -F './source/meson.build' "${scratch}/sent.txt" || fFail "a tracked file was not sent"
+	grep -q -x -F './cicd/linux/release-arm64.bash' "${scratch}/sent.txt" || fFail "an untracked file was not sent"
+	! grep -q -x -F './ignored.txt' "${scratch}/sent.txt" || fFail "an ignored file was sent"
+	! grep -q -x -F "./cicd/artifacts/release/${x86Name}" "${scratch}/sent.txt" || fFail "this side's artifacts were sent"
 	grep -q '^lock wrap armbox ' "$log" || fFail "the box was not locked by its name"
 	grep -q '^ssh tester@armbox$' "$log" || fFail "ssh did not go to NEMO_ARM_HOST"
 	grep -q '^docker stop -t 2 nemo-anywhere-' "$log" || fFail "the build container was not stopped"
@@ -207,9 +221,9 @@ else
 	readAt="$(grep -n 'exec -i nemo-anywhere-' "$log" | head -1 | cut -d: -f1)"
 	stopAt="$(grep -n '^docker stop -t 2 nemo-anywhere-' "$log" | head -1 | cut -d: -f1)"
 	[[ -n "$readAt" && -n "$stopAt" && "$readAt" -lt "$stopAt" ]] || fFail "the dependencies were not read in the box's container before it was stopped"
-	grep -q -F 'cmd cd nemo-anywhere-arm64/src && SOURCE_DATE_EPOCH=1791244781 CICD_MAX_JOBS=3 ionice -c 3 nice -n 19 bash cicd/linux/release.bash' "$log" \
+	grep -q -F 'SOURCE_DATE_EPOCH=1791244781 CICD_MAX_JOBS=3 ionice -c 3 nice -n 19 bash cicd/linux/release.bash' "$log" \
 		|| fFail "the build did not run under nice and ionice with its jobs: $(grep -F release.bash "$log" || true)"
-	grep -q -F 'cmd cd nemo-anywhere-arm64/src && CICD_MAX_JOBS=3 ionice -c 3 nice -n 19 bash cicd/linux/package.bash --depends-only' "$log" \
+	grep -q -F "TMP=${runDir} CICD_MAX_JOBS=3 ionice -c 3 nice -n 19 bash cicd/linux/package.bash --depends-only" "$log" \
 		|| fFail "the dependency read did not run under nice and ionice with its jobs: $(grep -F package.bash "$log" || true)"
 	grep -q -E '^docker run .*--cpus 3 --cpu-shares 256 ' "$log" || fFail "the box's container did not get the count as its cap: $(grep '^docker run' "$log" || true)"
 	[[ "$out" == *"jobs 3 (pinned, load 1.00 on 8 cpus on tester@armbox)"* ]] || fFail "no jobs line for the box"
@@ -254,14 +268,29 @@ else
 	grep -q '^docker stop -t 2 nemo-anywhere-' "$log" || fFail "the build container was not stopped after a failed read"
 fi
 
+## The build fails there: its step closes as FAIL, and the run folder still goes.
+rm -f "${repo}/cicd/artifacts/release/${armName}"
+rc=0; out="$(FAKE_BUILD_FAIL=1 fRunLane)" || rc=$?
+[[ "$rc" != 0 ]] || fFail "the lane passed with a failing build"
+fSteps "arm64 1 of 4; Starting Box ready|arm64 1 of 4; PASS Box ready|arm64 2 of 4; Starting Send|arm64 2 of 4; PASS Send|arm64 3 of 4; Starting Release build|arm64 3 of 4; FAIL Release build" "$out" \
+	&& fNoneLeft "after a failing build" && fEcho "OK: a failing build closes as FAIL and leaves no run folder"
+## CICD_KEEP_TEMP=1 keeps it, and says where.
+rc=0; out="$(CICD_KEEP_TEMP=1 fRunLane)" || rc=$?
+runDir="$(sed -n 's/^work folder tester@armbox://p' <<< "$out" | tail -1)"
+if [[ "$rc" == 0 && -n "$runDir" && -d "${runDir}/src" && "$out" == *"[ kept the run folder: tester@armbox:${runDir} ]"* ]]; then
+	fEcho "OK: CICD_KEEP_TEMP=1 keeps the run folder and names it"
+else
+	fFail "CICD_KEEP_TEMP=1 (exit ${rc}): ${out}"
+fi
+[[ -n "$runDir" && -d "$runDir" ]] && fSafeRm "$runDir" > /dev/null
+
 ## A box that answers but is not arm64.
 rm -f "${repo}/cicd/artifacts/release/${armName}" "$log"
-echo "old" > "${box}/nemo-anywhere-arm64/src/stale.txt"
 rc=0; out="$(FAKE_ARCH=x86_64 fRunLane)" || rc=$?
 [[ "$rc" != 0 ]] || fFail "an x86_64 box was taken as arm64"
 [[ "$out" == *"is not an arm64 box"* ]] || fFail "no reason given for the x86_64 box: ${out}"
 fSteps "arm64 1 of 4; Starting Box ready|arm64 1 of 4; FAIL Box ready" "$out" && fEcho "OK: a step that fails closes as FAIL"
-[[ -e "${box}/nemo-anywhere-arm64/src/stale.txt" ]] || fFail "the tree on an x86_64 box was touched"
+fNoneLeft "a run folder on an x86_64 box"
 [[ ! -e "${repo}/cicd/artifacts/release/${armName}" ]] || fFail "an arm64 tarball came from an x86_64 box"
 
 ## ssh, then docker, still coming up: waited for.
@@ -276,19 +305,17 @@ fi
 
 ## docker never comes up: fails before the send.
 rm -f "${repo}/cicd/artifacts/release/${armName}" "${scratch}/ssh-tries" "${scratch}/docker-tries"
-echo "old" > "${box}/nemo-anywhere-arm64/src/stale.txt"
 rc=0; out="$(FAKE_DOCKER_DOWN=99 BOX_READY_POLL=1 NEMO_ARM_READY_WAIT=1 fRunLane)" || rc=$?
 [[ "$rc" != 0 ]] || fFail "a box with no docker was used"
 [[ "$out" == *"did not answer as that user with docker up"* ]] || fFail "no reason given for a box with no docker: ${out}"
-[[ -e "${box}/nemo-anywhere-arm64/src/stale.txt" ]] || fFail "the tree on a box with no docker was touched"
+fNoneLeft "a run folder on a box with no docker"
 
 ## Resumed from paused with its old clock: fails before the send.
 rm -f "${repo}/cicd/artifacts/release/${armName}" "${scratch}/ssh-tries" "${scratch}/docker-tries" "${scratch}/clock-reads"
-echo "old" > "${box}/nemo-anywhere-arm64/src/stale.txt"
 rc=0; out="$(BOX_WRAP_TOOL="${scratch}/x_vm-state.bash" FAKE_VM_STATE=paused FAKE_CLOCK_BEHIND=60941 BOX_CLOCK_WAIT=1 BOX_READY_POLL=1 fRunLane)" || rc=$?
 [[ "$rc" != 0 ]] || fFail "a box hours behind was used"
 [[ "$out" == *"has the wrong time"* && "$out" == *"s behind, still after"* ]] || fFail "no reason given for a box hours behind: ${out}"
-[[ -e "${box}/nemo-anywhere-arm64/src/stale.txt" ]] || fFail "the tree on a box hours behind was touched"
+fNoneLeft "a run folder on a box hours behind"
 
 ## Not there, and not a VM here: a skip, before the lock.
 rm -f "${scratch}/ssh-tries" "$log"
@@ -296,7 +323,7 @@ rc=0; out="$(FAKE_SSH_DOWN=99 fRunLane)" || rc=$?
 [[ "$rc" == 77 ]] || fFail "a box that isn't there gave exit ${rc}, not 77: ${out}"
 [[ "$out" == *"SKIP: tester@armbox isn't there"* ]] || fFail "no SKIP line for a box that isn't there"
 ! grep -q '^lock ' "$log" 2>/dev/null || fFail "the lock was taken for a box that isn't there"
-[[ -e "${box}/nemo-anywhere-arm64/src/stale.txt" ]] || fFail "the tree was touched on a box that isn't there"
+fNoneLeft "a run folder on a box that isn't there"
 
 if ((failures)); then
 	fEcho "FAILED: arm64 lane, ${failures} problem(s)"

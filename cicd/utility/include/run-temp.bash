@@ -14,8 +14,9 @@
 ##	- fRunTemp_Done -> for the EXIT trap. Removes the run folder, or with
 ##	  runTempKeep=1 keeps it and says where it is.
 ##	- fSafeRm <path> -> rm -rf of one absolute path under a folder named tmp, or
-##	  under ${HOST_TEMP}/<project>/. Refuses .., //, a newline, a link, a path
-##	  through a link, or one that isn't there. Stays on one file system.
+##	  under ${HOST_TEMP}/<project>/. Refuses .., //, a newline, ${HOST_TEMP}
+##	  or a project's whole folder right under it, a link, a path through a
+##	  link, or one that isn't there. Stays on one file system.
 ##	  The project is projectName, or CICD_PROJECT in a step's child.
 ##	- fSafeRm_IfThere <path>... -> fSafeRm of each one that's there, with no
 ##	  "removed" line. For a script's scratch dir and the paths in it.
@@ -43,6 +44,11 @@ fSafeRm(){
 	p="${p%/}"
 	if ! [[ "${p}" =~ ^/(.+/)?tmp/[^/]+(/[^/]+)*$ || ( -n "${own}" && "${p}" == "${own}"/?* ) ]]; then
 		printf 'safe-rm: refused, not under a tmp folder: %s\n' "${p}" >&2; return 1
+	fi
+	## Other runs and sessions keep theirs there. -ef compares the folders
+	## themselves, so a link on either side can't hide one.
+	if [[ -n "${HOST_TEMP:-}" && ( "${p}" -ef "${HOST_TEMP}" || "${p%/*}" -ef "${HOST_TEMP}" ) ]]; then
+		printf "safe-rm: refused, the temp root or a project's whole folder: %s\n" "${p}" >&2; return 1
 	fi
 	if [[ -L "${p}" ]]; then printf 'safe-rm: refused, a link: %s\n' "${p}" >&2; return 1; fi
 	if [[ ! -e "${p}" ]] || ! real="$(realpath -- "${p}" 2> /dev/null)"; then printf 'safe-rm: refused, not there: %s\n' "${p}" >&2; return 1; fi
@@ -102,8 +108,10 @@ fRunTemp_Make(){
 	local stamp="${2:?}" base dir n=1
 	projectName="${1:?}"
 	## Resolved once, since macOS's temp folder sits behind the /var link and
-	## the guard compares real paths.
-	HOST_TEMP="$(realpath -e -- "${HOST_TEMP:-${TMPDIR:-/tmp}}")" || return 1
+	## the guard compares real paths. No realpath -e, which FreeBSD lacks.
+	HOST_TEMP="${HOST_TEMP:-${TMPDIR:-/tmp}}"
+	[[ -d "${HOST_TEMP}" ]] || return 1
+	HOST_TEMP="$(realpath -- "${HOST_TEMP}")" || return 1
 	export HOST_TEMP
 	base="${HOST_TEMP}/${projectName}"
 	mkdir -p -- "${base}" || return 1
@@ -148,3 +156,6 @@ fRunTemp_Done(){
 ##		- 2026-10-26: Exports CICD_KEEP_TEMP.
 ##		- 2026-10-26: fSafeRm_IfThere; fSafeRm works outside a run.
 ##		- 2026-11-03: fSafeRm_Under; works on FreeBSD and macOS.
+##		- 2026-11-04: fRunTemp_Make works on FreeBSD, for the lanes' run folder
+##		  there.
+##		- 2026-11-04: fSafeRm refuses ${HOST_TEMP} and a project's whole folder.

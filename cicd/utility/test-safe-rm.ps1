@@ -9,6 +9,8 @@
 ##		  but for the scripts still to move, each with its count. A new one
 ##		  anywhere else fails, and so does a count that drops without the
 ##		  list.
+##		- The copies in install.ps1 and n8runfm.ps1, which run on their own,
+##		  take the same -Under cases.
 ##		- Runs in the lint stage.
 ##	Syntax:
 ##		pwsh -NoProfile -File cicd/utility/test-safe-rm.ps1
@@ -141,6 +143,11 @@ try {
 	fTouch (Join-Path $t 'proj/run/f')
 	fRefused 'a project whole folder' @((Join-Path $t 'proj')) -Says "project's whole folder"
 	if ((Remove-SafeTree -LiteralPath (Join-Path $t 'proj/run')) -ne $true -or (fThere (Join-Path $t 'proj/run'))) { fFail "a run folder under HOST_TEMP: not removed" }
+	## HOST_TEMP as a box may set it, through a link to the real folder.
+	fLink (Join-Path $scratch 'ht-link') $t
+	$env:HOST_TEMP = Join-Path $scratch 'ht-link'
+	fRefused 'a project whole folder, HOST_TEMP through a link' @((Join-Path $t 'proj')) -Says "project's whole folder"
+	fRefused 'the temp root, HOST_TEMP through a link' @($t) -Says "project's whole folder"
 	$env:HOST_TEMP = $null; $env:CICD_PROJECT = $null
 
 	## Links.
@@ -207,6 +214,93 @@ try {
 	}
 	if (-not (fThere (Join-Path $t 'linked-run/run.pid'))) { fFail "sweep: went into a linked run folder" }
 	if (-not (fThere $one) -or -not (fThere $two)) { fFail "sweep: took a new run folder" }
+
+	## The copies in install.ps1 and n8runfm.ps1, which run on their own and
+	## can't dot-source the include. Lifted out through the parser and run in a
+	## scope of their own, with the -Under cases.
+	$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+	foreach ($rel in 'install.ps1', 'utility/n8runfm.ps1') {
+		$copyAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot $rel), [ref]$null, [ref]$null)
+		$lift = @('fSafeRm_Under', 'fSafeRm_BadPath', 'fSafeRm_Tree') + @(if ($rel -eq 'install.ps1') { 'fSh' })
+		$defs = @($copyAst.FindAll({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -in $lift }, $true))
+		if ($defs.Count -ne $lift.Count) { fFail "${rel}: has $(@($defs | ForEach-Object Name) -join ', ') of $($lift -join ', ')"; continue }
+		$c = Join-Path $scratch ('copy-' + (Split-Path -LeafBase $rel))
+		& {
+			foreach ($def in $defs) { . ([scriptblock]::Create($def.Extent.Text)) }
+			$warns = [Collections.Generic.List[string]]::new()
+			$sudoLog = [Collections.Generic.List[string]]::new()
+			## Read by the lifted functions; install.ps1's rm goes through sudo below.
+			$state = @{ windows = $IsWindows; rmOneFs = $null }
+			$priv = $true
+			$null = $state, $priv
+			function fWarn { param([string]$Msg) $warns.Add($Msg) }
+			function fInnerMessage { param($ErrorRecord) return $ErrorRecord.Exception.Message }
+			function sudo { $sudoLog.Add($args -join ' '); $cmd = $args[0]; $rest = @($args | Select-Object -Skip 1); & $cmd @rest }
+			function fCopyRefused {
+				param([string]$Label, [string]$Parent, [string[]]$Paths, [string]$Says)
+				$before = @($Paths | Where-Object { $_ -and -not $_.Contains("`n") } | Where-Object { fThere $_ })
+				$warns.Clear()
+				$got = fSafeRm_Under $Parent $Paths
+				if ($got -ne $false) { fFail "${rel} ${Label}: returned $got, not False" }
+				if (-not ($warns | Where-Object { $_ -like "*$Says*" })) { fFail "${rel} ${Label}: no '$Says' warning: $($warns -join '; ')" }
+				foreach ($p in $before) { if (-not (fThere $p)) { fFail "${rel} ${Label}: $p went anyway" } }
+			}
+
+			$u = Join-Path $c 'u'
+			fTouch (Join-Path $u 'a/sub/deep/f')
+			fTouch (Join-Path $u 'a/.hidden')
+			fTouch (Join-Path $u 'a/ro.txt')
+			$ro = [IO.FileInfo]::new((Join-Path $u 'a/ro.txt'))
+			$ro.Attributes = $ro.Attributes -bor [IO.FileAttributes]::ReadOnly
+			fTouch (Join-Path $c 'keep/kept.txt')
+			fLink (Join-Path $u 'a/out') (Join-Path $c 'keep')
+			fTouch (Join-Path $u 'file')
+			$got = fSafeRm_Under $u @((Join-Path $u 'a'), (Join-Path $u 'file'), (Join-Path $u 'nosuch'))
+			if ($got -ne $true -or (fThere (Join-Path $u 'a')) -or (fThere (Join-Path $u 'file'))) { fFail "${rel}: a tree, a file and a missing path under the parent: returned $got, $($warns -join '; ')" }
+			if (-not [IO.File]::Exists((Join-Path $c 'keep/kept.txt'))) { fFail "${rel}: a link in the tree: what it pointed at went too" }
+			if (-not $IsWindows -and $rel -eq 'install.ps1') {
+				& rm --version *> $null
+				$want = if ($LASTEXITCODE -eq 0) { '--one-file-system' } else { '-x' }
+				if (-not ($sudoLog | Where-Object { $_ -eq "rm -rf $want -- $(Join-Path $u 'a')" })) { fFail "${rel}: the rm didn't go through priv, on one file system: $($sudoLog -join '; ')" }
+			}
+			fTouch (Join-Path $c 'other/f')
+			fCopyRefused 'elsewhere' $u @((Join-Path $c 'other')) 'not under'
+			fTouch (Join-Path $c 'v/x/f')
+			fCopyRefused 'elsewhere, as long a name' $u @((Join-Path $c 'v/x')) 'not under'
+			fCopyRefused 'a sibling sharing the name' $u @("$u-x") 'not under'
+			fMkdir "$u-x"
+			fCopyRefused 'a sibling sharing the name, there' $u @("$u-x") 'not under'
+			fCopyRefused 'the parent itself' $u @($u) 'not under'
+			fTouch (Join-Path $u 'b/f')
+			fCopyRefused 'a ..' $u @("$u$($sep)b$($sep)..$($sep)b") 'not under'
+			fCopyRefused 'a newline' $u @("$u$($sep)b`n") 'not under'
+			fCopyRefused 'a relative parent' 'u' @('u/b') 'anything under'
+			fCopyRefused 'the root as parent' $root @("$($root)nosuch-safe-rm-check") 'anything under'
+			fMkdir (Join-Path $c 'elsewhere/x')
+			fLink (Join-Path $u 'l') (Join-Path $c 'elsewhere')
+			fCopyRefused 'a link' $u @((Join-Path $u 'l')) "it's a link"
+			fCopyRefused 'through a link' $u @((Join-Path $u 'l/x')) 'goes through a link'
+			if (-not (fThere (Join-Path $c 'elsewhere/x'))) { fFail "${rel}: through a link: the target lost its folder" }
+			fLink (Join-Path $c 'ulink') $u
+			$got = fSafeRm_Under (Join-Path $c 'ulink') @((Join-Path $c 'ulink/b'))
+			if ($got -ne $true -or (fThere (Join-Path $u 'b'))) { fFail "${rel}: a parent behind a link: returned $got, $($warns -join '; ')" }
+
+			## One that can't go: False, not a throw.
+			$locked = Join-Path $u 'locked'
+			fTouch (Join-Path $locked 'in/f')
+			$hold = $null
+			if ($IsWindows) { $hold = [IO.File]::Open((Join-Path $locked 'in/f'), 'Open', 'Read', 'None') }
+			else { [IO.File]::SetUnixFileMode((Join-Path $locked 'in'), [IO.UnixFileMode]'UserRead, UserExecute') }
+			try {
+				$got = fSafeRm_Under $u @($locked) 2>$null
+				if ($got -ne $false) { fFail "${rel}: one that can't go: returned $got" }
+				if (-not [IO.File]::Exists((Join-Path $locked 'in/f'))) { fFail "${rel}: one that can't go: went" }
+			} finally {
+				if ($hold) { $hold.Dispose() } else { [IO.File]::SetUnixFileMode((Join-Path $locked 'in'), [IO.UnixFileMode]'UserRead, UserWrite, UserExecute') }
+			}
+			if ((fSafeRm_Under $u @($locked)) -ne $true -or (fThere $locked)) { fFail "${rel}: one that can't go: not removed once it could" }
+		}
+	}
 } finally {
 	foreach ($name in $saved.Keys) { [Environment]::SetEnvironmentVariable($name, $saved[$name]) }
 	## Only the folder this test made, right under the one parent it may use.
@@ -216,9 +310,9 @@ try {
 	}
 }
 
-## Still to move: they run on their own, so they get a copy of their own
-## (2026110315185015).
-$toMove = @{ 'install.ps1' = 7; 'utility/n8runfm.ps1' = 6 }
+## Still to move, each with its count. install.ps1 and n8runfm.ps1 have their
+## own copies of the guard, checked above.
+$toMove = @{}
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $files = @(& git -C $repo ls-files '*.ps1' '*.psm1' 2>$null)
 if ($LASTEXITCODE -ne 0 -or $files.Count -eq 0) { fFail "no PowerShell files from git ls-files" }

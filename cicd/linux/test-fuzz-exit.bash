@@ -2,7 +2,8 @@
 
 ##	- Purpose: Check that the fuzz stage reports a hang, a memory error and
 ##	  running out of memory each as a find with its saved input, and still runs
-##	  the targets after one.
+##	  the targets after one. The targets run side by side, FUZZ_JOBS at a
+##	  time, and their lines still come in the order of the list.
 ##	- Runs a copy of fuzz.bash in a build container of its own, with meson and ninja
 ##	  stood in for. The targets are small real libFuzzer programs that hang,
 ##	  overflow a buffer or ask for too much memory on any input.
@@ -134,6 +135,23 @@ fExpect fuzz-raw PASS
 fExpect fuzz-office PASS
 fExpect fuzz-ole2 PASS
 fExpect fuzz-lnk PASS
+fExpect fuzz-lnk-edit PASS
+
+order="$(sed -n -E 's/^(PASS|FAIL) [a-z0-9]+ +(fuzz-[a-z0-9-]+) .*/\2/p' <<<"${out}" | tr '\n' ' ')"
+[[ "${order}" == "fuzz-shcl fuzz-dnd fuzz-command-template fuzz-xls fuzz-ppt fuzz-doc fuzz-psd fuzz-raw fuzz-office fuzz-ole2 fuzz-lnk fuzz-lnk-edit " ]] \
+	|| fFail "the targets' lines are not in the order of the list: ${order}"
+
+## One at a time, the 12 targets take at least 12 budgets of 2 s, and the
+## hang 3 s more. Side by side, about the slowest one.
+build="${work}/build-side"
+rc=0
+t0="${SECONDS}"
+out="$(env PATH="${stubs}:${PATH}" STUB_PROGS="${progs}" BUILD_DIR="${build}" FUZZ_SECS=2 FUZZ_TIMEOUT=3 FUZZ_JOBS=12 \
+	timeout -k 5 240 bash "${work}/fuzz.bash" 2>&1)" || rc=$?
+took=$((SECONDS - t0))
+[[ "${rc}" == "86" ]] || fFail "side by side, the stage exited ${rc}, not 86 for a find"
+((took < 16)) || fFail "12 targets with FUZZ_JOBS=12 took ${took}s, not side by side"
+fExpect fuzz-dnd FAIL timeout
 fExpect fuzz-lnk-edit PASS
 
 if ((failures)); then

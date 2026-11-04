@@ -108,7 +108,7 @@ param(
 # Configuration
 
 $Repo    = "yottacore/nemo-anywhere"
-$InstallerVersion = "1.4.0"
+$InstallerVersion = "1.5.0"
 $AppName = "Nemo Anywhere"
 $ExeName = "nemo-anywhere"
 
@@ -117,7 +117,10 @@ $ExeName = "nemo-anywhere"
 ## window along with the error it just printed. So failures travel as an
 ## exception, and only a real script file turns that into an exit code.
 $runningAsScriptFile = -not [string]::IsNullOrEmpty($MyInvocation.MyCommand.Path)
-$state = @{ failed = $false; work = $null }
+$state = @{ failed = $false; work = $null; tmpRoot = $null; rmOneFs = $null; windows = ($PSVersionTable.PSEdition -eq "Desktop" -or $IsWindows) }
+## fMain sets its own. This one is for the temp folder's removal after it,
+## which is the user's own whatever the target.
+$priv = $false
 
 
 #------------------------------------------------------------------------------
@@ -251,19 +254,136 @@ function fResolveTag {
 	return $ranked[0]
 }
 
+## Why a path can't take part in a removal, or "" when it can: absolute, on a
+## drive on Windows, with no .., doubled separator or newline.
+function fSafeRm_BadPath {
+	param([string]$Path)
+	$absolute = if ($state.windows) { $Path -match '^[A-Za-z]:[\\/]' } else { $Path.StartsWith('/') }
+	if (-not $absolute -or $Path.Contains('..') -or $Path.Contains("`n") -or $Path.Contains("`r") -or $Path.Substring(1) -match '[\\/]{2}') {
+		return "bad path: `"${Path}`""
+	}
+	return ""
+}
+
+## The path with each link in it swapped for where it points, or $null when
+## part of it isn't there.
+function fRealPath {
+	param([string]$Path, [int]$Depth = 0)
+	if ($Depth -gt 40) { return $null }
+	$root = [System.IO.Path]::GetPathRoot($Path)
+	$cur  = $root
+	foreach ($part in @($Path.Substring($root.Length) -split '[\\/]' | Where-Object { $_ })) {
+		$next = Join-Path $cur $part
+		$item = Get-Item -LiteralPath $next -Force -ErrorAction SilentlyContinue
+		if (-not $item) { return $null }
+		if ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+			$to = @($item.Target)[0]
+			if (-not $to) { return $null }
+			if (-not [System.IO.Path]::IsPathRooted($to)) { $to = Join-Path $cur $to }
+			$next = fRealPath ([System.IO.Path]::GetFullPath($to)) ($Depth + 1)
+			if (-not $next) { return $null }
+		}
+		$cur = $next
+	}
+	return $cur
+}
+
+## Depth first, taking a link or mounted volume off as the entry it is rather
+## than going into it. Hidden and system files too.
+function fSafeRm_Tree {
+	param([System.IO.FileSystemInfo]$Item)
+	$isLink = [bool]($Item.Attributes -band [System.IO.FileAttributes]::ReparsePoint)
+	if ($Item -is [System.IO.DirectoryInfo] -and -not $isLink) {
+		foreach ($child in $Item.GetFileSystemInfos()) { fSafeRm_Tree $child }
+	}
+	if (-not $isLink -and ($Item.Attributes -band [System.IO.FileAttributes]::ReadOnly)) {
+		$Item.Attributes = $Item.Attributes -band -bnot [System.IO.FileAttributes]::ReadOnly
+	}
+	if ($Item -is [System.IO.DirectoryInfo]) { [System.IO.Directory]::Delete($Item.FullName, $false) } else { [System.IO.File]::Delete($Item.FullName) }
+}
+
+## Removes each path, and what's in it, strictly under the parent, with no link
+## between the two; the parent itself may sit behind one. The same rule as
+## install.bash's fSafeRm_Under. A link inside goes as a link, never followed,
+## and one that's gone is skipped. Warns, and returns $false, for each one
+## refused or that couldn't go.
+function fSafeRm_Under {
+	param([string]$Parent, [string[]]$Paths)
+	$sep   = if ($state.windows) { '[\\/]' } else { '/' }
+	$case  = if ($state.windows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+	$under = "$Parent".TrimEnd('\', '/')
+	if ((fSafeRm_BadPath "$Parent") -or $under -eq "" -or $under -match '^[A-Za-z]:$') {
+		fWarn "won't remove anything under `"${Parent}`""
+		return $false
+	}
+	$ok = $true
+	foreach ($path in $Paths) {
+		$p = "$path".TrimEnd('\', '/')
+		if ((fSafeRm_BadPath "$path") -or $p.Length -le $under.Length + 1 -or -not $p.StartsWith($under, $case) -or $p.Substring($under.Length, 1) -notmatch $sep) {
+			fWarn "won't remove `"${p}`", it's not under ${under}"; $ok = $false; continue
+		}
+		## Each step below the parent, the path itself last, must not be a link.
+		$cur = $under
+		$why = ""
+		foreach ($part in ($p.Substring($under.Length + 1) -split $sep)) {
+			$cur  = $cur + [System.IO.Path]::DirectorySeparatorChar + $part
+			$item = Get-Item -LiteralPath $cur -Force -ErrorAction SilentlyContinue
+			if (-not $item) { $why = "gone"; break }
+			if ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+				$why = if ($cur.Length -eq $p.Length) { "it's a link" } else { "it goes through a link" }
+				break
+			}
+		}
+		if ($why -eq "gone") { continue }
+		if ($why) { fWarn "won't remove ${p}, ${why}"; $ok = $false; continue }
+		if (-not $state.windows) {
+			## GNU rm says --one-file-system, BSD says -x, and busybox has neither.
+			if ($null -eq $state.rmOneFs) {
+				$state.rmOneFs = @()
+				& rm --version *> $null
+				if ($LASTEXITCODE -eq 0) { $state.rmOneFs = @("--one-file-system") }
+				else { & rm -fx *> $null; if ($LASTEXITCODE -eq 0) { $state.rmOneFs = @("-x") } }
+			}
+			fSh -Argv (@("rm", "-rf") + $state.rmOneFs + @("--", $p)) -Soft
+			if ($LASTEXITCODE -ne 0) { fWarn "couldn't remove ${p}"; $ok = $false }
+			continue
+		}
+		## A virus scanner can hold a file just written for a moment, and Windows
+		## then refuses the delete.
+		for ($try = 1; ; $try++) {
+			try { fSafeRm_Tree $item; break } catch {
+				if ($try -ge 10) { fWarn "couldn't remove ${p}: $(fInnerMessage $_)"; $ok = $false; break }
+				Start-Sleep -Milliseconds 500
+				$item.Refresh()
+				if (-not $item.Exists) { break }
+			}
+		}
+	}
+	return $ok
+}
+
+## Uninstall's removal. A prefix that's a link is emptied where it points, and
+## the link and that folder stay, as they were set up.
+function fRmPrefix {
+	if (-not $prefixIsLink) { return (fSafeRm_Under (Split-Path -Parent $prefix) @($prefix)) }
+	$kids = @(Get-ChildItem -LiteralPath $realPrefix -Force | ForEach-Object { $_.FullName })
+	if ($kids.Count -eq 0) { return $true }
+	return (fSafeRm_Under $realPrefix $kids)
+}
+
 
 #------------------------------------------------------------------------------
 # Functions - Windows
 
-## Names of the running processes executing something inside the given folder -
+## Names of the running processes executing something inside the given folders -
 ## Windows can't replace files that are still open.
 function fHoldersOf {
-	param([string]$Folder)
+	param([string[]]$Folder)
 	## Win32_Process exposes ExecutablePath for processes whose handle Get-Process
 	## cannot open (protected or cross-session), so a running instance is not read
 	## as absent. Match on the folder plus a separator so C:\foo doesn't hit
 	## C:\foobar.
-	$full  = [System.IO.Path]::GetFullPath($Folder).TrimEnd('\') + '\'
+	$fulls = @($Folder | ForEach-Object { [System.IO.Path]::GetFullPath($_).TrimEnd('\') + '\' })
 	$names = @()
 	foreach ($proc in (Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)) {
 		$path = $proc.ExecutablePath
@@ -272,8 +392,11 @@ function fHoldersOf {
 		## from an 8.3 short path still reports the short one, and then a real
 		## holder reads as absent. A '~' is what marks a short name.
 		if ($path.Contains('~')) { $path = [System.IO.Path]::GetFullPath($path) }
-		if ($path.StartsWith($full, [StringComparison]::OrdinalIgnoreCase)) {
-			$names += [System.IO.Path]::GetFileName($path)
+		foreach ($full in $fulls) {
+			if ($path.StartsWith($full, [StringComparison]::OrdinalIgnoreCase)) {
+				$names += [System.IO.Path]::GetFileName($path)
+				break
+			}
 		}
 	}
 	return @($names | Sort-Object -Unique)
@@ -284,13 +407,13 @@ function fHoldersOf {
 ## so closing the app is not enough on its own. Wait it out, then say what is
 ## actually holding the folder rather than blaming the app.
 function fWaitUntilFree {
-	param([string]$Folder, [int]$Seconds = 10)
+	param([string[]]$Folder, [int]$Seconds = 10)
 	for ($i = 0; $i -lt $Seconds; $i++) {
 		## @() on the way out of every call: an empty array unrolls to $null on
 		## return, and reading .Count off that throws under strict mode.
 		$holders = @(fHoldersOf $Folder)
 		if ($holders.Count -eq 0) { return @() }
-		if ($i -eq 0) { fEcho_Clean "waiting for $($holders -join ', ') to finish with ${Folder}" }
+		if ($i -eq 0) { fEcho_Clean "waiting for $($holders -join ', ') to finish with $($Folder -join ' and ')" }
 		Start-Sleep -Seconds 1
 	}
 	return (fHoldersOf $Folder)
@@ -537,7 +660,8 @@ function fMain {
 			$menuDir   = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
 			$pathScope = "User"
 			## Same key name the setup exe writes. It only ever installs for one user.
-			$setupKey  = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\${ExeName}"
+			$setupSubKey = "Software\Microsoft\Windows\CurrentVersion\Uninstall\${ExeName}"
+			$setupKey    = "HKCU:\${setupSubKey}"
 		}
 		$shortcut = Join-Path $menuDir "${AppName}.lnk"
 		$exePath  = Join-Path $prefix "${ExeName}.exe"
@@ -570,12 +694,29 @@ function fMain {
 	## Guard every destructive path: an unexpected prefix must never reach a delete.
 	if ((Split-Path -Leaf $prefix) -ne $leafName) { fFail "refusing to touch a folder not named '${leafName}': ${prefix}" }
 
+	## A prefix that's a link, such as a folder moved to another disk and linked
+	## back, is followed: installed into and emptied where it points, and the
+	## link stays. $realPrefix is $null when that's not a folder that's there.
+	$realPrefix   = $prefix
+	$prefixItem   = Get-Item -LiteralPath $prefix -Force -ErrorAction SilentlyContinue
+	$prefixIsLink = $prefixItem -and ($prefixItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint)
+	$prefixShown  = $prefix
+	if ($prefixIsLink) {
+		$realPrefix = fRealPath $prefix
+		if ($realPrefix -and -not (Test-Path -LiteralPath $realPrefix -PathType Container)) { $realPrefix = $null }
+		$prefixShown = "${prefix} -> $(if ($realPrefix) { $realPrefix } else { @($prefixItem.Target)[0] })"
+		if ($realPrefix -and (fSafeRm_BadPath $realPrefix)) { fFail "refusing to touch ${prefixShown}, $(fSafeRm_BadPath $realPrefix)" }
+		if ($realPrefix -and (Split-Path -Leaf $realPrefix) -ne $leafName) { fFail "refusing to touch a folder not named '${leafName}': ${prefixShown}" }
+	}
+	$holderDirs = @($prefix) + @($realPrefix | Where-Object { $_ -and $_ -ne $prefix })
+
 
 	#------------------------------------------------------------------------------
 	# Uninstall
 
 	if ($Uninstall) {
-		$havePrefix = Test-Path -LiteralPath $prefix
+		$havePrefix = if ($prefixIsLink) { $realPrefix -and @(Get-ChildItem -LiteralPath $realPrefix -Force).Count -gt 0 } else { Test-Path -LiteralPath $prefix }
+		$prefixNote = if (-not $havePrefix) { "   (not present)" } elseif ($prefixIsLink) { "   (emptied; the link stays)" } else { "" }
 
 		fEcho_Clean ""
 		fEcho "Uninstall plan"
@@ -584,7 +725,7 @@ function fMain {
 			$havePath     = fPathContains $pathScope $prefix
 			$haveEntry    = fSetupEntry $setupKey $prefix
 			$haveAnything = $havePrefix -or $haveShortcut -or $havePath -or $haveEntry
-			fEcho_Clean ("Folder ....: {0}{1}" -f $prefix,   $(if ($havePrefix)   { "" } else { "   (not present)" }))
+			fEcho_Clean "Folder ....: ${prefixShown}${prefixNote}"
 			fEcho_Clean ("Shortcut ..: {0}{1}" -f $shortcut, $(if ($haveShortcut) { "" } else { "   (not present)" }))
 			fEcho_Clean ("PATH ......: {0} ({1}){2}" -f $prefix, $pathScope, $(if ($havePath) { "" } else { "   (not present)" }))
 			if ($haveEntry) { fEcho_Clean "Apps entry : the one the setup exe added" }
@@ -592,7 +733,7 @@ function fMain {
 			$haveLauncher = Test-Path -LiteralPath $launcher
 			$linkTarget   = fLinkTarget $symlink
 			$haveAnything = $havePrefix -or $haveLauncher -or $linkTarget
-			fEcho_Clean ("Prefix ....: {0}{1}" -f $prefix,   $(if ($havePrefix)   { "" } else { "   (not present)" }))
+			fEcho_Clean "Prefix ....: ${prefixShown}${prefixNote}"
 			fEcho_Clean ("Launcher ..: {0}{1}" -f $launcher, $(if ($haveLauncher) { "" } else { "   (not present)" }))
 			fEcho_Clean ("Symlink ...: {0}{1}" -f $symlink,  $(if ($linkTarget)   { "" } else { "   (not present)" }))
 			if ($priv) { fEcho_Clean "Privileges : sudo (system target)" }
@@ -612,13 +753,19 @@ function fMain {
 		fEcho "Removing"
 		if ($os -eq "windows") {
 			if ($havePrefix) {
-				$holders = @(fWaitUntilFree $prefix)
+				$holders = @(fWaitUntilFree $holderDirs)
 				if ($holders.Count -gt 0) { fFail "$($holders -join ', ') still running from ${prefix} - close it and try again" }
 			}
 			if ($haveShortcut) { Remove-Item -LiteralPath $shortcut -Force; fEcho_Clean "removed ${shortcut}" }
-			if ($havePrefix)   { Remove-Item -LiteralPath $prefix -Recurse -Force; fEcho_Clean "removed ${prefix}" }
+			if ($havePrefix) {
+				if (-not (fRmPrefix)) { fFail "couldn't remove ${prefix}" }
+				fEcho_Clean $(if ($prefixIsLink) { "emptied ${realPrefix}, and left the link ${prefix}" } else { "removed ${prefix}" })
+			}
 			if (fPathRemove $pathScope $prefix) { fEcho_Clean "removed ${prefix} from the ${pathScope} PATH" }
-			if ($haveEntry) { Remove-Item -LiteralPath $setupKey -Recurse -Force; fEcho_Clean "removed the Settings, Apps entry" }
+			if ($haveEntry) {
+				[Microsoft.Win32.Registry]::CurrentUser.DeleteSubKeyTree($setupSubKey, $false)
+				fEcho_Clean "removed the Settings, Apps entry"
+			}
 			$settings = "%APPDATA%\${ExeName}"
 		} else {
 			## Only unlink a symlink that actually points into our prefix.
@@ -630,7 +777,10 @@ function fMain {
 				}
 			}
 			if ($haveLauncher) { fSh @("rm", "-f",  $launcher); fEcho_Clean "removed ${launcher}" }
-			if ($havePrefix)   { fSh @("rm", "-rf", $prefix);   fEcho_Clean "removed ${prefix}" }
+			if ($havePrefix) {
+				if (-not (fRmPrefix)) { fFail "couldn't remove ${prefix}" }
+				fEcho_Clean $(if ($prefixIsLink) { "emptied ${realPrefix}, and left the link ${prefix}" } else { "removed ${prefix}" })
+			}
 			if (Get-Command update-desktop-database -ErrorAction SilentlyContinue) {
 				fSh @("update-desktop-database", $appDir) -Soft
 			}
@@ -647,9 +797,11 @@ function fMain {
 	#------------------------------------------------------------------------------
 	# Resolve what to install
 
+	if ($prefixIsLink -and -not $realPrefix) { fFail "${prefixShown} isn't a folder that's there - mount it, or remove the link" }
 	$archiveExt = if ($os -eq "windows") { "zip" } else { "tar.gz" }
 
-	$work = Join-Path ([System.IO.Path]::GetTempPath()) "${ExeName}-install-$([System.IO.Path]::GetRandomFileName())"
+	$state.tmpRoot = [System.IO.Path]::GetTempPath().TrimEnd('\', '/')
+	$work = Join-Path $state.tmpRoot "${ExeName}-install-$([System.IO.Path]::GetRandomFileName())"
 	New-Item -ItemType Directory -Path $work -Force | Out-Null
 	$state.work = $work
 
@@ -711,16 +863,16 @@ function fMain {
 	fEcho_Clean "Platform ..: ${os}-${arch}"
 	fEcho_Clean "Download ..: ${sourceDesc}"
 	fEcho_Clean "Verify ....: ${verifyDesc}"
-	$replaces = if (Test-Path -LiteralPath $prefix) { "   (replaces the install already there)" } else { "" }
+	$replaces = if (@(Get-ChildItem -LiteralPath $realPrefix -Force -ErrorAction SilentlyContinue).Count) { "   (replaces the install already there)" } else { "" }
 	if ($os -eq "windows") {
 		$uninstaller = Join-Path $prefix "uninstall.exe"
 		$keepSetup   = (fSetupEntry $setupKey $prefix) -and (Test-Path -LiteralPath $uninstaller)
-		fEcho_Clean ("Folder ....: {0}{1}" -f $prefix, $replaces)
+		fEcho_Clean "Folder ....: ${prefixShown}${replaces}"
 		fEcho_Clean "Shortcut ..: ${shortcut}"
 		fEcho_Clean "PATH ......: adds ${prefix} to the ${pathScope} PATH"
 		if ($keepSetup) { fEcho_Clean "Apps entry : keeps the one the setup exe added, and its uninstaller" }
 	} else {
-		fEcho_Clean ("Prefix ....: {0}{1}" -f $prefix, $replaces)
+		fEcho_Clean "Prefix ....: ${prefixShown}${replaces}"
 		fEcho_Clean "Launcher ..: ${launcher}"
 		fEcho_Clean "Symlink ...: ${symlink} -> ${exePath}"
 		if ($priv) { fEcho_Clean "Privileges : sudo (system target)" }
@@ -806,13 +958,14 @@ function fMain {
 
 	if ($os -eq "windows") {
 		if (Test-Path -LiteralPath $prefix) {
-			$holders = @(fWaitUntilFree $prefix)
+			$holders = @(fWaitUntilFree $holderDirs)
 			if ($holders.Count -gt 0) { fFail "$($holders -join ', ') still running from ${prefix} - close it and try again" }
 		}
+		$parent = Split-Path -Parent $realPrefix
 		try {
-			New-Item -ItemType Directory -Path (Split-Path -Parent $prefix) -Force | Out-Null
+			New-Item -ItemType Directory -Path $parent -Force | Out-Null
 		} catch {
-			fFileError $_ "couldn't create the install folder" (Split-Path -Parent $prefix)
+			fFileError $_ "couldn't create the install folder" $parent
 		}
 		## Stage beside the prefix, then swap with same-volume renames. Copying the
 		## new tree in before removing the old one means a cross-volume or disk-full
@@ -820,11 +973,11 @@ function fMain {
 		## the new one is in place.
 		## Copied, never moved, out of the temp folder: a move on one volume keeps
 		## the temp folder's permissions, so other accounts could not run a system
-		## install. New files take the install folder's own.
-		$staging = "${prefix}.new.${PID}"
-		$backup  = "${prefix}.old.${PID}"
-		if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
-		if (Test-Path -LiteralPath $backup)  { Remove-Item -LiteralPath $backup  -Recurse -Force }
+		## install. New files take the install folder's own. A prefix that's a link
+		## keeps it, and the swap is done where it points.
+		$staging = "${realPrefix}.new.${PID}"
+		$backup  = "${realPrefix}.old.${PID}"
+		if (-not (fSafeRm_Under $parent @($staging, $backup))) { fFail "couldn't clear an earlier staging folder" }
 		## Once in place the staging folder is gone, so the finally only finds one
 		## a failure left behind.
 		try {
@@ -834,9 +987,9 @@ function fMain {
 				fFileError $_ "couldn't stage the new install" $staging
 			}
 			if ($keepSetup) { Copy-Item -LiteralPath $uninstaller -Destination $staging -Force }
-			if (Test-Path -LiteralPath $prefix) {
+			if (Test-Path -LiteralPath $realPrefix) {
 				try {
-					fRenameFolder $prefix $backup
+					fRenameFolder $realPrefix $backup
 				} catch {
 					## Something has the folder open that the process scan cannot see - a
 					## scanner, a shell window sitting in it, a handle from another session.
@@ -844,18 +997,18 @@ function fMain {
 				}
 			}
 			try {
-				fRenameFolder $staging $prefix
+				fRenameFolder $staging $realPrefix
 			} catch {
-				if (Test-Path -LiteralPath $backup) { fRenameFolder $backup $prefix }
+				if (Test-Path -LiteralPath $backup) { fRenameFolder $backup $realPrefix }
 				throw
 			}
 		} finally {
 			if (Test-Path -LiteralPath $staging) {
-				Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+				$null = fSafeRm_Under $parent @($staging)
 				if (Test-Path -LiteralPath $staging) { fWarn "couldn't remove ${staging} - delete it by hand" }
 			}
 		}
-		if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Recurse -Force }
+		if (-not (fSafeRm_Under $parent @($backup))) { fWarn "couldn't remove ${backup} - delete it by hand" }
 		fEcho_Clean "folder installed at ${prefix}"
 		if ($keepSetup) {
 			if ($relVersion) { Set-ItemProperty -LiteralPath $setupKey -Name "DisplayVersion" -Value $relVersion }
@@ -880,11 +1033,11 @@ function fMain {
 		## the copy out of the temp folder is done before the old install is
 		## touched. Then swap with same-filesystem renames, which cannot fail
 		## partway and leave neither install.
-		$parent  = Split-Path -Parent $prefix
+		$parent  = Split-Path -Parent $realPrefix
 		$staging = Join-Path $parent ".${ExeName}-install.${PID}"
-		$backup  = "${prefix}.old.${PID}"
+		$backup  = "${realPrefix}.old.${PID}"
 		fSh @("mkdir", "-p", $parent)
-		fSh @("rm", "-rf", $staging, $backup)
+		if (-not (fSafeRm_Under $parent @($staging, $backup))) { fFail "couldn't clear an earlier staging folder" }
 		try {
 			fSh @("cp", "-a", $tree, $staging)
 			if ($Target -eq "system") {
@@ -892,17 +1045,17 @@ function fMain {
 				fSh @("chown", "-R", "0:0", $staging) -Soft
 				fSh @("chmod", "-R", "a+rX", $staging)
 			}
-			if (Test-Path -LiteralPath $prefix) { fSh @("mv", $prefix, $backup) }
+			if (Test-Path -LiteralPath $realPrefix) { fSh @("mv", $realPrefix, $backup) }
 			try {
-				fSh @("mv", $staging, $prefix)
+				fSh @("mv", $staging, $realPrefix)
 			} catch {
-				if (Test-Path -LiteralPath $backup) { fSh @("mv", $backup, $prefix) -Soft }
+				if (Test-Path -LiteralPath $backup) { fSh @("mv", $backup, $realPrefix) -Soft }
 				throw
 			}
 		} finally {
-			if (Test-Path -LiteralPath $staging) { fSh @("rm", "-rf", $staging) -Soft }
+			if (Test-Path -LiteralPath $staging) { $null = fSafeRm_Under $parent @($staging) }
 		}
-		fSh @("rm", "-rf", $backup)
+		$null = fSafeRm_Under $parent @($backup)
 		fEcho_Clean "prefix installed at ${prefix}"
 
 		fInstallLauncher
@@ -955,7 +1108,7 @@ function fMain {
 		Write-Host ""
 		$state.failed = $true
 	} finally {
-		if ($state.work) { Remove-Item -LiteralPath $state.work -Recurse -Force -ErrorAction SilentlyContinue }
+		if ($state.work) { $null = fSafeRm_Under $state.tmpRoot @($state.work) }
 	}
 }
 if ($state.failed -and $runningAsScriptFile) { exit 1 }
@@ -987,3 +1140,7 @@ if ($state.failed -and $runningAsScriptFile) { exit 1 }
 ##		- 2026-10-07 JC: Works alongside the Windows setup exe. A reinstall over
 ##		  its install keeps its uninstaller and Settings, Apps entry, and
 ##		  -Uninstall removes that entry too.
+##		- 2026-11-04 JC: Every recursive removal goes through a guard that names
+##		  its parent, as in install.bash. A prefix that's a link is followed. An
+##		  install replaces the folder it points at and keeps the link, and
+##		  -Uninstall empties that folder and leaves both.
