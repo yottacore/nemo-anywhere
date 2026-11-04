@@ -1151,6 +1151,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261103: the guard and `fSafeRm` use plain `realpath` after a check that the path is there, and `rm -x` where `rm` has no `--one-file-system`, as on FreeBSD and macOS.
 		- 20261103: the FreeBSD lane test, the C lint scope test and the fuzz exit check copy `run-temp.bash` into their scratch copies too.
 		- 20261103: the dogfood swaps in `cicd.bash` run only on a plain run, which no round does.
+		- 20261103: defnq failed its 7 link cases in the native gate on b29w, since MSYS2's `ln -s` makes a copy. It now asks MSYS2 for a real link, else makes a junction, and skips the link cases with a SKIP line where it can make neither. Under MSYS2 on b29w it fails as before with the old test, and passes with real links, with junctions, and on the skip path.
 	- Decisions:
 		- One helper with the parent first, rather than a check at each site, so each line reads like the `rm -rf` it replaced.
 		- The parent may sit behind a link, and only the part below it must be free of links. FreeBSD's `/home` and macOS's `/var` are links, and a dogfood folder can be a synced one.
@@ -1178,6 +1179,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261103: `install.bash` has its own `fSafeRm_Under`, the same rule as the repo's, with `cd -P` in place of `realpath`, which macOS before 13 doesn't have. It stays on one file system with `--one-file-system` or `-x`, whichever `rm` takes; busybox's takes neither. `fRmBesidePrefix` runs `fCheckPrefix`, then removes under the prefix's parent. All 7 removals go through one or the other, the temp folder's included. Installer version 1.3.2.
 		- 20261103: a prefix that's a link is refused before the plan, on install and uninstall. Before, an install swapped the link for a folder and an uninstall removed just the link, and the files it pointed at stayed either way.
 		- 20261103: the removals in `pack-zip.bash` and in the test-fuzz-exit and test-gui-smoke command strings are gone. Each ran in a step container that's new and goes at exit, `/tmp` with it. `build-cross.bash` and `pack-setup.bash` had only single-file `rm -f` left after 2026102617253214.
+		- 20261103: defnq's installer guard link cases run on b29w under MSYS2 too, with real links or junctions, as in 2026102617555865.
 	- Decisions:
 		- Drop the removals inside step containers rather than bring the guard in. Those command strings run under `sh`, the container is removed at exit, and with `--keep-temp` keeping what's left is the point.
 		- Refuse a prefix that's a link rather than unlink it, as the guard refuses a link. `install.ps1` is unchanged.

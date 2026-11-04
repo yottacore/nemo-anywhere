@@ -74,12 +74,23 @@ rc=0
 out="$(unset HOST_TEMP projectName CICD_PROJECT; fSafeRm "${scratch}/b" 2>&1)" || rc=$?
 [[ "$rc" == 0 && ! -e "${scratch}/b" ]] || fFail "fSafeRm with no HOST_TEMP didn't remove a folder under tmp: exit ${rc}, ${out}"
 
+## MSYS2's ln -s copies by default, so ask it for a real link, which needs
+## the symlink privilege, and else make a junction, which doesn't. Both read
+## as a link there, as on Windows they are one. Where neither can be made, the
+## link cases are skipped rather than run against a copy.
+fLink(){ ## target name
+	MSYS="${MSYS:+${MSYS} }winsymlinks:nativestrict" ln -s "$1" "$2" 2> /dev/null && [[ -L "$2" ]] && return 0
+	[[ ! -e "$2" && ! -L "$2" && -d "$1" ]] && command -v cygpath > /dev/null || return 1
+	cmd //c mklink //J "$(cygpath -w "$2")" "$(cygpath -w "$1")" > /dev/null 2>&1 && [[ -L "$2" ]]
+}
+
 ## fSafeRm_Under: only strictly under the one parent, never through a link.
 par="${scratch}/par"
 mkdir -p "${par}/build/sub" "${par}/keep" "${scratch}/outside"
 touch "${par}/build/sub/f" "${par}/file" "${scratch}/outside/f"
-ln -s "${scratch}/outside" "${par}/link"
-ln -s "${par}" "${scratch}/parlink"
+haveLinks=0
+fLink "${scratch}/outside" "${par}/link" && fLink "${par}" "${scratch}/parlink" && haveLinks=1
+((haveLinks)) || fEcho "SKIP: the link cases, no symlink or junction could be made here"
 fUnder(){ rc=0; out="$(fSafeRm_Under "$@" 2>&1)" || rc=$?; }
 fUnder "${par}" "${par}/build" "${par}/file" "${par}/nosuch"
 [[ "$rc" == 0 && -z "$out" && ! -e "${par}/build" && ! -e "${par}/file" && -d "${par}/keep" ]] || fFail "fSafeRm_Under over a folder, a file and a missing path: exit ${rc}, ${out}"
@@ -89,17 +100,21 @@ fUnder "${par}" "${par}"
 [[ "$rc" == 1 && -d "${par}" ]] || fFail "fSafeRm_Under took its parent itself: exit ${rc}, ${out}"
 fUnder "${par}" "${par}/keep/../../outside"
 [[ "$rc" == 1 && -d "${scratch}/outside" ]] || fFail "fSafeRm_Under took a path with ..: exit ${rc}, ${out}"
-fUnder "${par}" "${par}/link"
-[[ "$rc" == 1 && "$out" == *"refused, a link"* && -L "${par}/link" ]] || fFail "fSafeRm_Under took a link: exit ${rc}, ${out}"
-fUnder "${par}" "${par}/link/f"
-[[ "$rc" == 1 && "$out" == *"through a link"* && -f "${scratch}/outside/f" ]] || fFail "fSafeRm_Under went through a link: exit ${rc}, ${out}"
+if ((haveLinks)); then
+	fUnder "${par}" "${par}/link"
+	[[ "$rc" == 1 && "$out" == *"refused, a link"* && -L "${par}/link" ]] || fFail "fSafeRm_Under took a link: exit ${rc}, ${out}"
+	fUnder "${par}" "${par}/link/f"
+	[[ "$rc" == 1 && "$out" == *"through a link"* && -f "${scratch}/outside/f" ]] || fFail "fSafeRm_Under went through a link: exit ${rc}, ${out}"
+fi
 fUnder / /nonexistent-safe-rm-check
 [[ "$rc" == 1 && "$out" == *"bad parent"* ]] || fFail "fSafeRm_Under took / as its parent: exit ${rc}, ${out}"
 fUnder par "par/keep"
 [[ "$rc" == 1 && "$out" == *"bad parent"* && -d "${par}/keep" ]] || fFail "fSafeRm_Under took a relative parent: exit ${rc}, ${out}"
 ## A parent behind a link is fine, as with macOS's /var or a synced folder.
-fUnder "${scratch}/parlink" "${scratch}/parlink/keep"
-[[ "$rc" == 0 && ! -e "${par}/keep" ]] || fFail "fSafeRm_Under refused a parent behind a link: exit ${rc}, ${out}"
+if ((haveLinks)); then
+	fUnder "${scratch}/parlink" "${scratch}/parlink/keep"
+	[[ "$rc" == 0 && ! -e "${par}/keep" ]] || fFail "fSafeRm_Under refused a parent behind a link: exit ${rc}, ${out}"
+fi
 
 ## The FreeBSD form: no realpath -e and no rm --one-file-system, as there.
 mkdir -p "${par}/bsd/sub" "${scratch}/bsdtmp"
@@ -130,8 +145,7 @@ fIUnder(){ rc=0; out="$(fInst_SafeRm_Under "$@" 2>&1)" || rc=$?; }
 ipar="${scratch}/ipar"
 mkdir -p "${ipar}/build/sub" "${ipar}/keep" "${scratch}/ioutside"
 touch "${ipar}/build/sub/f" "${ipar}/file" "${scratch}/ioutside/f"
-ln -s "${scratch}/ioutside" "${ipar}/link"
-ln -s "${ipar}" "${scratch}/iparlink"
+((! haveLinks)) || { fLink "${scratch}/ioutside" "${ipar}/link" && fLink "${ipar}" "${scratch}/iparlink"; } || fFail "made links above, but not for the installer guard"
 fIUnder "${ipar}" "${ipar}/build" "${ipar}/file" "${ipar}/nosuch"
 [[ "$rc" == 0 && -z "$out" && ! -e "${ipar}/build" && ! -e "${ipar}/file" && -d "${ipar}/keep" ]] || fFail "installer guard over a folder, a file and a missing path: exit ${rc}, ${out}"
 fIUnder "${ipar}" "${scratch}/ioutside"
@@ -140,16 +154,20 @@ fIUnder "${ipar}" "${ipar}"
 [[ "$rc" == 1 && -d "${ipar}" ]] || fFail "installer guard took its parent itself: exit ${rc}, ${out}"
 fIUnder "${ipar}" "${ipar}/keep/../../ioutside"
 [[ "$rc" == 1 && -d "${scratch}/ioutside" ]] || fFail "installer guard took a path with ..: exit ${rc}, ${out}"
-fIUnder "${ipar}" "${ipar}/link"
-[[ "$rc" == 1 && -L "${ipar}/link" ]] || fFail "installer guard took a link: exit ${rc}, ${out}"
-fIUnder "${ipar}" "${ipar}/link/f"
-[[ "$rc" == 1 && "$out" == *"through a link"* && -f "${scratch}/ioutside/f" ]] || fFail "installer guard went through a link: exit ${rc}, ${out}"
+if ((haveLinks)); then
+	fIUnder "${ipar}" "${ipar}/link"
+	[[ "$rc" == 1 && -L "${ipar}/link" ]] || fFail "installer guard took a link: exit ${rc}, ${out}"
+	fIUnder "${ipar}" "${ipar}/link/f"
+	[[ "$rc" == 1 && "$out" == *"through a link"* && -f "${scratch}/ioutside/f" ]] || fFail "installer guard went through a link: exit ${rc}, ${out}"
+fi
 fIUnder / /nonexistent-safe-rm-check
 [[ "$rc" == 1 ]] || fFail "installer guard took / as its parent: exit ${rc}, ${out}"
 fIUnder ipar "ipar/keep"
 [[ "$rc" == 1 && -d "${ipar}/keep" ]] || fFail "installer guard took a relative parent: exit ${rc}, ${out}"
-fIUnder "${scratch}/iparlink" "${scratch}/iparlink/keep"
-[[ "$rc" == 0 && ! -e "${ipar}/keep" ]] || fFail "installer guard refused a parent behind a link: exit ${rc}, ${out}"
+if ((haveLinks)); then
+	fIUnder "${scratch}/iparlink" "${scratch}/iparlink/keep"
+	[[ "$rc" == 0 && ! -e "${ipar}/keep" ]] || fFail "installer guard refused a parent behind a link: exit ${rc}, ${out}"
+fi
 ## The prefix and what sits beside it, as root through priv.
 mkdir -p "${ipar}/nemo-anywhere/bin" "${ipar}/.nemo-anywhere-install.1" "${ipar}/nemo-anywhere.old.1"
 fPrivLog(){ echo "$*" >> "${scratch}/priv.log"; "$@"; }
@@ -158,10 +176,12 @@ rc=0
 out="$(priv=fPrivLog prefix="${ipar}/nemo-anywhere"; fRmBesidePrefix "${ipar}/.nemo-anywhere-install.1" "${ipar}/nemo-anywhere.old.1" "${prefix}" 2>&1)" || rc=$?
 [[ "$rc" == 0 && ! -e "${ipar}/nemo-anywhere" && ! -e "${ipar}/.nemo-anywhere-install.1" && ! -e "${ipar}/nemo-anywhere.old.1" ]] || fFail "fRmBesidePrefix over the prefix, staging and backup: exit ${rc}, ${out}"
 [[ "$(cat "${scratch}/priv.log" 2> /dev/null)" == "rm -rf ${oneFs} -- ${ipar}/.nemo-anywhere-install.1"*"rm -rf ${oneFs} -- ${ipar}/nemo-anywhere" ]] || fFail "the installer guard's rm didn't go through priv: $(cat "${scratch}/priv.log" 2> /dev/null)"
-ln -s "${scratch}/ioutside" "${ipar}/nemo-anywhere"
-rc=0
-out="$(prefix="${ipar}/nemo-anywhere"; fRmBesidePrefix "${prefix}" 2>&1)" || rc=$?
-[[ "$rc" == 1 && "$out" == *"prefix that's a link"* && -L "${ipar}/nemo-anywhere" && -f "${scratch}/ioutside/f" ]] || fFail "fRmBesidePrefix took a prefix that's a link: exit ${rc}, ${out}"
+if ((haveLinks)); then
+	fLink "${scratch}/ioutside" "${ipar}/nemo-anywhere" || fFail "made links above, but not for the prefix"
+	rc=0
+	out="$(prefix="${ipar}/nemo-anywhere"; fRmBesidePrefix "${prefix}" 2>&1)" || rc=$?
+	[[ "$rc" == 1 && "$out" == *"prefix that's a link"* && -L "${ipar}/nemo-anywhere" && -f "${scratch}/ioutside/f" ]] || fFail "fRmBesidePrefix took a prefix that's a link: exit ${rc}, ${out}"
+fi
 rc=0
 out="$(prefix="${ipar}/other"; fRmBesidePrefix "${ipar}/link" 2>&1)" || rc=$?
 [[ "$rc" == 1 && "$out" == *"not named"* ]] || fFail "fRmBesidePrefix took a prefix not named nemo-anywhere: exit ${rc}, ${out}"
@@ -191,3 +211,5 @@ fEcho "OK: every rm -r goes through the guard, but the ${#left[@]} scripts liste
 ##		- 2026-10-26: Created.
 ##		- 2026-11-03: fSafeRm_Under, and the removals outside a temp root off the list.
 ##		- 2026-11-03: install.bash's own guard; the rest off the list.
+##		- 2026-11-03: Real links or junctions under MSYS2, where ln -s copies,
+##		  and the link cases skipped where neither can be made.
