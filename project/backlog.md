@@ -33,6 +33,36 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- On vm925w, dcd70 can find its entry menu not mapped yet.
+	- ID: 2026110413033064
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261104-130330
+	- Opened by: 2026102516165479
+	- Related IDs: 2026102516165479, 2026110216492601
+	- Steps to reproduce: the full run's native gate, where vm925w runs the 22 windowed tests b29w left, 4 at a time, in wintest's session.
+	- Incorrect behavior: `FAIL ../../../source/test/test-nemo-entry-menu.c:179: gtk_widget_get_mapped (menu)`, exit 1 after 2.50s. The menu was there and was a `GtkMenu`, but not mapped when the check ran.
+	- Expected behavior: passes every time.
+	- Reproduced: 20261104, once, in the full run at d7b3c702 on vm925w-iommu after a `-NoTests` build, with 21 other windowed tests alongside. Control: the same build path with only dcd70 in the list passed 3 times out of 3 (7.3s, 1.6s, 5.6s), and dcd70 passed on vm925w on 20261103.
+	- Possible cause: `wait_for_menu` returns once the menu exists and pending events are drained, which can be before the map, more so on a busy box. Waiting for the menu's `map` (or `gtk_widget_get_mapped`) with a timeout would cover it.
+	- Test case: dcd70.
+
+- The native Windows gate never runs the PowerShell tests in its lint step.
+	- ID: 2026110412543196
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261104-125431
+	- Opened by: 2026110315185015
+	- Related IDs: 2026110315185015
+	- Steps to reproduce: run `cicd-win.ps1 -Gate -Yes` on b29w and read its Lints step.
+	- Incorrect behavior: it prints "install.ps1 PATH, n8runfm pool and shortcut, bundle exe and settings, evb project, cicd-win.ps1 and PowerShell guard tests skipped: no pwsh", so dd5fw, dd5fx, ddkd9, ddqv0, ddwhx, the evb project test, dejjt and detts never run on Windows in a gate. Their Windows-only cases, such as detts' junctions and held files, go unchecked.
+	- Expected behavior: the gate runs them under the box's pwsh 7, or says plainly that it leaves them to another step that does.
+	- Reproduced: 20261104, in the full run at d7b3c702 on b29w. Control: pwsh 7 is on b29w at `C:\Program Files\PowerShell\7`, and detts passes there run on its own.
+	- Possible cause: `lint.bash` looks for pwsh with `command -v`, and finds none on the path the Lints step runs with, though the Tests step's path names the pwsh folder.
+	- Test case: none yet.
+
 - README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
 	- ID: 2026101417352264
 	- Type: Task
@@ -445,9 +475,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD flags: run lengths.
 	- ID: 2026102516165479
 	- Type: Task
-	- Status: Waiting on automated testing
-		- Waits on a plain full run, timed whole, with b29w and vm925w there.
-	- Needs local test suite run?: yes. A plain `--backlog-run-full`, without `--long`, timed whole in one go, with b29w and vm925w both there, so the Native Windows gate step takes the b29w then vm925w path. Time the Fuzzing step and the vm925w part of the Native Windows gate step, and check that the 18 desktop tests pass on vm925w after a build with no suite.
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261025-161654
 	- Opened by: 2026102416300004
@@ -473,10 +501,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261103, de54r, dddq3, ddmmw, desha and the other cicd step tests pass. The new de54r fails on `cicd.bash` from before the change. The real fuzz stage at 5 s a target took 91 s with a cold fuzz build, all 12 targets clean.
 	- Verified: 20261103, `cicd.bash -y --quick --no-sync --no-dogfood --no-publish` passed all 8 steps in 14.7 min, fuzzing 1.4 of it, at a load of 13 to 41 on 32 CPUs.
 	- Verified: 20261104, depg0, ddmmw, dejjt and ddf32 pass. Against the files from before the change, depg0 fails 3 checks, ddmmw 2, dejjt 13, and ddf32 its side by side check, with 12 targets taking 36 s. The real fuzz stage at 5 s a target, 4 at a time, took 31 s with a warm fuzz build, all 12 clean. `--backlog-run-quick` passes.
+	- Verified: 20261104, a plain `--backlog-run-full` at d7b3c702, with b29w and vm925w both there, ran steps 1 to 12 in 40.6 min: Fuzzing 3.2, Static analyzers 9.5, and the Native Windows gate 10.3 after the local steps. b29w's gate passed alongside them. vm925w's part was its start from off 1.6 min, the `-NoTests` build 4.2 and the 22 windowed tests b29w left 3.8. With Packages (3.1) and the private runner (4.6) from the 20261103 runs, which didn't run after the gate's failure, a plain run comes to about 48 min. Of the 22 windowed tests, 19 passed, de5he and dcbcb skipped, and dcd70 failed once on its menu not being mapped yet. It passed 3 times out of 3 alone after the same `-NoTests` build, so that's the flake in 2026110413033064.
 	- Progress log:
 		- 20261103: `--quick` was still about 5 min over 10, which is in child 2026110314093130. It now takes 10.1 min, with the Windows cross build alongside.
 		- 20261103: Static analyzers took 9.5 min in the plain full run at d9733893 and 9.3 in the one at 92fc2c77, from 36 to 39 before. Put together from the two runs, a plain run comes to about 61 min: steps 1 to 11 in 38.5 at d9733893, then at 92fc2c77 the Native Windows gate 15.2 (its vm925w part, since b29w runs alongside the local steps), Packages 3.1 and the private runner 4.6. The run at 92fc2c77, with sanitizers, the profiler and FreeBSD off, took 50.8 min whole.
 		- 20261104: a plain run at 29dc6c7b, timed whole, took 85.4 min, or 75.4 without the two dogfood steps and publish. Static analyzers 10.8 at the 2 min cap, fuzzing 12.3, and the Native Windows gate 27.4. b29w's gate finished alongside the local steps, then vm925w started from off, ran its whole gate again (17 min) and then its 18 desktop tests (3 min). No other step was over 5.
+	- Closed: 20261104
 
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
@@ -888,8 +918,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Temp files: `install.ps1` and `n8runfm.ps1` get their own copy of the guard.
 	- ID: 2026110315185015
 	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs external testing: on b29w, the native gate (`pwsh cicd/cicd-win.ps1 -Gate -Yes`) for detts' copy cases, ddgch's linked case on a junction, dd5hz and ddc6v. Then `install.ps1` under Windows PowerShell 5.1, into a scratch `LOCALAPPDATA` and `APPDATA` with `-From` a zip: install, install again, `-Uninstall`, and the same with the install folder a junction to another folder named `Nemo Anywhere`.
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261103-151850
 	- Opened by: 2026102516403476
@@ -908,7 +937,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A removal that fails after the new install is in place warns rather than failing the install, as the staging folder's already did.
 	- Test case: detts (the copies in both scripts, lifted through the parser: under the parent only, not the parent itself, a sibling sharing the name, `..`, a newline, a relative or root parent, a link, a path through a link, a parent behind a link, a held or locked one, and `install.ps1`'s `rm` through `sudo` on one file system; and no recursive removal left outside the guard), ddgch (a linked prefix, installed where it points with the link kept, and on Windows emptied by `-Uninstall`), dd3s7 (both installers through a prefix that's a link), dd5fx, ddkd9, dd5fw.
 	- Verified: 20261104, detts, ddgch, dd3s7, dd5fx, ddkd9 and dd5fw pass on Linux. detts fails with either copy's link check, under check or sibling check taken out, with the tree walk following links, with the `rm` not through `sudo`, with a root parent let through, with a failed delete thrown, and with a bare `Remove-Item -Recurse` put back. ddgch and dd3s7 fail on `install.ps1` as it was: the link was swapped for a folder. PSScriptAnalyzer is clean.
+	- Verified: 20261104, on b29w at d7b3c702: dd5hz, ddc6v and ddgch pass in the native gate, ddgch's linked case on a junction with its `-Uninstall` included. detts passes there under pwsh 7, run on its own, since the gate's lint step skips it with no pwsh on the MSYS2 path (2026110412543196). `install.ps1` under Windows PowerShell 5.1, into a scratch `LOCALAPPDATA` and `APPDATA` with `-From` the Windows zip: install, install again and `-Uninstall` all exit 0, the exe, Start Menu shortcut and user PATH entry come and go, and nothing is left beside the install. The same through a junction to another `Nemo Anywhere` keeps the junction on both installs, installs where it points, and `-Uninstall` empties the target and keeps it. The user PATH and the Apps key come out as found.
 	- Swept: every `Remove-Item -Recurse`, its aliases and recursive `.Delete` in tracked PowerShell, through detts. Every caller of `fHoldersOf` and `fWaitUntilFree`, and the tests that lift `install.ps1`'s and `n8runfm.ps1`'s functions: ddgch, ddc6v, dd5hz, dd5fx and ddkd9.
+	- Closed: 20261104
 
 - CICD reset: temp files and safe removal.
 	- ID: 2026102416300002
