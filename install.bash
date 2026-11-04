@@ -34,7 +34,7 @@
 set -Eeuo pipefail
 
 REPO="yottacore/nemo-anywhere"
-INSTALLER_VERSION="1.3.2"
+INSTALLER_VERSION="1.4.0"
 APP_NAME="Nemo Anywhere"
 EXE_NAME="nemo-anywhere"
 
@@ -159,7 +159,7 @@ fi
 fCheckWritable(){
 	[[ -n "$priv" ]] && return 0
 	local dir
-	for dir in "$(dirname "$prefix")" "$appdir" "$bindir"; do
+	for dir in "$(dirname "$realPrefix")" "$appdir" "$bindir"; do
 		while [[ ! -e "$dir" ]]; do dir="$(dirname "$dir")"; done
 		[[ -w "$dir" ]] || fDie "no write access to ${dir} - check who owns it with: ls -ld ${dir}"
 	done
@@ -170,8 +170,13 @@ fCheckWritable(){
 fCheckPrefix(){
 	[[ "${prefix:0:1}" == "/" ]] || fDie "refusing to touch a non-absolute prefix: ${prefix}"
 	[[ "$(basename "$prefix")" == "$EXE_NAME" ]] || fDie "refusing to touch a prefix not named ${EXE_NAME}: ${prefix}"
-	## Replacing or removing it would leave the files it points at behind.
-	[[ ! -L "$prefix" ]] || fDie "refusing to touch a prefix that's a link: ${prefix} -> $(readlink "$prefix" || true)"
+	## A prefix that's a link, such as a folder moved to another disk and linked
+	## back, is followed. realPrefix is where it points, or empty when that's not
+	## a folder that's there.
+	realPrefix="$prefix"
+	[[ -L "$prefix" ]] || return 0
+	realPrefix="$(cd -P -- "$prefix" 2>/dev/null && pwd -P)" || { realPrefix=""; return 0; }
+	[[ "$(basename "$realPrefix")" == "$EXE_NAME" && "$realPrefix" != *$'\n'* ]] || fDie "refusing to touch a folder not named ${EXE_NAME}: ${prefix} -> ${realPrefix}"
 }
 
 ## rm -rf of each path strictly under <parent>, with no link between the two;
@@ -208,8 +213,20 @@ fSafeRm_Under(){ ## parent path...
 __rmOneFs=""
 if rm --version >/dev/null 2>&1; then __rmOneFs="--one-file-system"; elif rm -fx 2>/dev/null; then __rmOneFs="-x"; fi
 
-## Removals beside the prefix: the prefix, and the staging and backup copies.
-fRmBesidePrefix(){ fCheckPrefix; fSafeRm_Under "$(dirname "$prefix")" "$@"; }
+## Removals beside the prefix, or beside where it points: the prefix, and the
+## staging and backup copies.
+fRmBesidePrefix(){ fCheckPrefix; [[ -n "$realPrefix" ]] || { fWarn "won't remove anything beside ${prefix}, it's a link to nothing"; return 1; }; fSafeRm_Under "$(dirname "$realPrefix")" "$@"; }
+
+## Uninstall's removal. A prefix that's a link is emptied where it points, and
+## the link and that folder stay, as they were set up.
+fRmPrefix(){
+	local kids
+	fCheckPrefix
+	if [[ "$realPrefix" == "$prefix" ]]; then fRmBesidePrefix "$prefix"; return; fi
+	[[ -n "$realPrefix" ]] || return 0
+	shopt -s nullglob dotglob; kids=("$realPrefix"/*); shopt -u nullglob dotglob
+	((${#kids[@]} == 0)) || fSafeRm_Under "$realPrefix" "${kids[@]}"
+}
 
 
 #••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
@@ -332,14 +349,22 @@ fEcho_Clean "${APP_NAME} installer"
 
 if ((do_uninstall)); then
 	fCheckPrefix
+	havePrefix=0
+	if [[ "$realPrefix" == "$prefix" ]]; then
+		prefixLine="$prefix"
+		if [[ -d "$prefix" ]]; then havePrefix=1; fi
+	else
+		prefixLine="${prefix} -> ${realPrefix:-$(readlink "$prefix" || true)}"
+		if [[ -n "$realPrefix" && -n "$(ls -A "$realPrefix")" ]]; then havePrefix=1; prefixLine="${prefixLine}   (emptied; the link stays)"; fi
+	fi
 	fEcho_Clean ""
 	fEcho "Uninstall plan"
-	fEcho_Clean "Prefix ....: ${prefix}$([[ -d "$prefix" ]] || echo '   (not present)')"
+	fEcho_Clean "Prefix ....: ${prefixLine}$([[ "$havePrefix" == 1 ]] || echo '   (not present)')"
 	fEcho_Clean "Launcher ..: ${launcher}$([[ -f "$launcher" ]] || echo '   (not present)')"
 	fEcho_Clean "Symlink ...: ${symlink}$([[ -L "$symlink" ]] || echo '   (not present)')"
 	[[ -n "$priv" ]] && fEcho_Clean "Privileges : sudo (system target)" || true
 
-	if [[ ! -d "$prefix" && ! -f "$launcher" && ! -L "$symlink" ]]; then
+	if ((! havePrefix)) && [[ ! -f "$launcher" && ! -L "$symlink" ]]; then
 		fEcho_Clean ""
 		fEcho "Nothing installed here. Nothing to do."
 		fEcho_Clean ""
@@ -360,7 +385,10 @@ if ((do_uninstall)); then
 		esac
 	fi
 	if [[ -f "$launcher" ]]; then $priv rm -f  "$launcher"; fEcho_Clean "removed ${launcher}"; fi
-	if [[ -d "$prefix"   ]]; then fRmBesidePrefix "$prefix" || fDie "couldn't remove ${prefix}"; fEcho_Clean "removed ${prefix}"; fi
+	if ((havePrefix)); then
+		fRmPrefix || fDie "couldn't remove ${prefix}"
+		if [[ "$realPrefix" == "$prefix" ]]; then fEcho_Clean "removed ${prefix}"; else fEcho_Clean "emptied ${realPrefix}, and left the link ${prefix}"; fi
+	fi
 	command -v update-desktop-database >/dev/null 2>&1 && $priv update-desktop-database "$appdir" 2>/dev/null || true
 
 	fEcho_Clean ""
@@ -429,6 +457,7 @@ else
 fi
 
 fCheckPrefix
+[[ -n "$realPrefix" ]] || fDie "${prefix} is a link to $(readlink "$prefix" || true), which isn't a folder that's there - mount it, or remove the link"
 fCheckWritable
 
 fEcho_Clean ""
@@ -437,7 +466,7 @@ fEcho_Clean "Release ...: ${release_desc}${release_note:-}"
 fEcho_Clean "Platform ..: ${os}-${arch}"
 fEcho_Clean "Download ..: ${source_desc}"
 fEcho_Clean "Verify ....: ${verify}"
-fEcho_Clean "Prefix ....: ${prefix}$([[ -d "$prefix" ]] && echo '   (replaces the install already there)')"
+fEcho_Clean "Prefix ....: ${prefix}$([[ "$realPrefix" == "$prefix" ]] || echo " -> ${realPrefix}")$([[ -n "$(ls -A "$realPrefix" 2>/dev/null)" ]] && echo '   (replaces the install already there)')"
 fEcho_Clean "Launcher ..: ${launcher}"
 fEcho_Clean "Symlink ...: ${symlink} -> ${prefix}/bin/${EXE_NAME}"
 [[ -n "$priv" ]] && fEcho_Clean "Privileges : sudo (system target)" || true
@@ -494,9 +523,10 @@ fi
 ## out of TMPDIR happens before the existing install is touched. Then swap with
 ## same-filesystem renames, which are atomic and cannot fail partway - a plain
 ## cross-device "mv $tree $prefix" could die mid-copy and lose both installs.
-$priv mkdir -p "$(dirname "$prefix")"
-staging="$(dirname "$prefix")/.${EXE_NAME}-install.$$"
-backup="${prefix}.old.$$"
+## A prefix that's a link keeps it, and the swap is done where it points.
+$priv mkdir -p "$(dirname "$realPrefix")"
+staging="$(dirname "$realPrefix")/.${EXE_NAME}-install.$$"
+backup="${realPrefix}.old.$$"
 fRmBesidePrefix "$staging" "$backup" || fDie "couldn't clear an earlier staging folder"
 $priv cp -a "$tree" "$staging" || { fRmBesidePrefix "$staging" || true; fDie "couldn't stage the new install"; }
 if [[ "$target" == "system" ]]; then
@@ -504,11 +534,11 @@ if [[ "$target" == "system" ]]; then
 	$priv chown -R 0:0 "$staging" 2>/dev/null || true
 	$priv chmod -R a+rX "$staging"
 fi
-if [[ -e "$prefix" ]]; then
-	$priv mv "$prefix" "$backup" || { fRmBesidePrefix "$staging" || true; fDie "couldn't move the existing install aside"; }
+if [[ -e "$realPrefix" ]]; then
+	$priv mv "$realPrefix" "$backup" || { fRmBesidePrefix "$staging" || true; fDie "couldn't move the existing install aside"; }
 fi
-if ! $priv mv "$staging" "$prefix"; then
-	[[ -e "$backup" ]] && $priv mv "$backup" "$prefix"
+if ! $priv mv "$staging" "$realPrefix"; then
+	[[ -e "$backup" ]] && $priv mv "$backup" "$realPrefix"
 	fRmBesidePrefix "$staging" || true
 	fDie "couldn't move the new install into place"
 fi
@@ -553,3 +583,6 @@ fEcho_Clean ""
 ##		- 2026-10-04 JC: The no-checksums override is named --no-verify.
 ##		- 2026-11-03 JC: Every rm -rf goes through a guard that names its parent,
 ##		  and a prefix that's a link is refused.
+##		- 2026-11-04 JC: A prefix that's a link is followed instead. An install
+##		  replaces the folder it points at and keeps the link, and --uninstall
+##		  empties that folder and leaves both.

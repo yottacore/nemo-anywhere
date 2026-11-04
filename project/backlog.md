@@ -873,7 +873,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Temp files: `install.ps1` and `n8runfm.ps1` get their own copy of the guard.
 	- ID: 2026110315185015
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs external testing: on b29w, the native gate (`pwsh cicd/cicd-win.ps1 -Gate -Yes`) for detts' copy cases, ddgch's linked case on a junction, dd5hz and ddc6v. Then `install.ps1` under Windows PowerShell 5.1, into a scratch `LOCALAPPDATA` and `APPDATA` with `-From` a zip: install, install again, `-Uninstall`, and the same with the install folder a junction to another folder named `Nemo Anywhere`.
 	- Priority|Severity: Avg
 	- Opened: 20261103-151850
 	- Opened by: 2026102516403476
@@ -882,6 +883,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Both run on their own, from a download or the launcher, so they need their own copy, as `install.bash` has. `install.ps1` removes the prefix with a bare `Remove-Item -Recurse` near line 619.
 		- Take each one off detts' list as it moves. One of `install.ps1`'s 7 removes the Settings, Apps registry key, not a folder, so it leaves the list some other way.
+	- Progress log:
+		- 20261104: `install.ps1` and `n8runfm.ps1` each have an `fSafeRm_Under <parent> <paths>`, the same rule as `install.bash`'s: strictly under the parent, no link below it, the parent itself may sit behind one, and one that's gone is skipped. A link inside goes as a link. On Windows each walks the tree itself, hidden and read-only files included. `install.ps1`'s runs on Windows PowerShell 5.1 too, retries 5 s for a virus scanner, and on unix runs `rm` on one file system through `sudo` for a system install.
+		- 20261104: all 13 removals go through it: the prefix, the staging and backup folders and the temp folder in `install.ps1`, and the partial copies, pruned versions, old-layout copies and old launchers in `n8runfm.ps1`. The Settings, Apps key goes through the registry's own `DeleteSubKeyTree`. detts' list is empty.
+		- 20261104: `install.ps1` follows a prefix that's a link, as `install.bash` now does (2026102617555870). On Windows that's a junction or a symlink. The plan shows where it points, the install waits on programs running from either path, and the swap is done beside the target. Installer version 1.5.0.
+	- Decisions:
+		- One copy shape in both standalone scripts, with the same names as `install.bash`'s, rather than the repo's `Remove-SafeTree`, which needs PowerShell 7 and has the tmp folder rule neither script uses.
+		- `n8runfm.ps1`'s copy doesn't retry a held file. A held version is kept for the next run, as before.
+		- A removal that fails after the new install is in place warns rather than failing the install, as the staging folder's already did.
+	- Test case: detts (the copies in both scripts, lifted through the parser: under the parent only, not the parent itself, a sibling sharing the name, `..`, a newline, a relative or root parent, a link, a path through a link, a parent behind a link, a held or locked one, and `install.ps1`'s `rm` through `sudo` on one file system; and no recursive removal left outside the guard), ddgch (a linked prefix, installed where it points with the link kept, and on Windows emptied by `-Uninstall`), dd3s7 (both installers through a prefix that's a link), dd5fx, ddkd9, dd5fw.
+	- Verified: 20261104, detts, ddgch, dd3s7, dd5fx, ddkd9 and dd5fw pass on Linux. detts fails with either copy's link check, under check or sibling check taken out, with the tree walk following links, with the `rm` not through `sudo`, with a root parent let through, with a failed delete thrown, and with a bare `Remove-Item -Recurse` put back. ddgch and dd3s7 fail on `install.ps1` as it was: the link was swapped for a folder. PSScriptAnalyzer is clean.
+	- Swept: every `Remove-Item -Recurse`, its aliases and recursive `.Delete` in tracked PowerShell, through detts. Every caller of `fHoldersOf` and `fWaitUntilFree`, and the tests that lift `install.ps1`'s and `n8runfm.ps1`'s functions: ddgch, ddc6v, dd5hz, dd5fx and ddkd9.
 
 - CICD reset: temp files and safe removal.
 	- ID: 2026102416300002
@@ -5385,7 +5397,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Temp files: the installer, and removals inside a container.
 	- ID: 2026102617555870
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Needs external testing: none left.
 	- Priority|Severity: Avg
 	- Opened: 20261026-175558
@@ -5401,15 +5413,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261103: the removals in `pack-zip.bash` and in the test-fuzz-exit and test-gui-smoke command strings are gone. Each ran in a step container that's new and goes at exit, `/tmp` with it. `build-cross.bash` and `pack-setup.bash` had only single-file `rm -f` left after 2026102617253214.
 		- 20261103: defnq's installer guard link cases run on b29w under MSYS2 too, with real links or junctions, as in 2026102617555865.
 		- 20261104: changed my mind on refusing a prefix that's a link. Someone who moved the folder to another disk and linked it back would be surprised by the refusal. Find a better way, such as following the link and installing into its target, with uninstall emptying the target and leaving the link.
+		- 20261104: a prefix that's a link is followed. An install shows where it points in the plan, stages beside the target and swaps it there, so the link stays and points at the new install. `--uninstall` empties the target, hidden files included, and leaves it and the link. A link to nothing stops an install before the plan, and an uninstall says the prefix isn't there. Where it points has to be named `nemo-anywhere` too. `fRmPrefix` is the uninstall's removal. Installer version 1.4.0. `install.ps1` does the same, in 2026110315185015.
 	- Decisions:
 		- Drop the removals inside step containers rather than bring the guard in. Those command strings run under `sh`, the container is removed at exit, and with `--keep-temp` keeping what's left is the point.
-		- Refuse a prefix that's a link rather than unlink it, as the guard refuses a link. `install.ps1` is unchanged.
+		- Follow a prefix that's a link, rather than refuse it. The link is how it was set up, so a reinstall keeps it, and an uninstall leaves it and an empty folder for the next install.
+		- Where the link points has to be named `nemo-anywhere`, as the prefix does, since that's what gets replaced or emptied. A link to `~` or a whole disk is refused.
+		- A link to a folder that isn't there stops the install rather than making it, since that's usually a disk that isn't mounted.
 		- Trim the slash macOS puts at the end of `TMPDIR`, which the guard would refuse as `//`.
-	- Test case: defnq, with each script taken off its list. The list is now the two guards' own lines. It also checks install.bash's guard: the same cases as `fSafeRm_Under` with no `realpath` at all, the `rm` going through `priv`, one file system with GNU, BSD and busybox `rm`, and a prefix that's a link refused. dd3s7 and dd5fv run the installer.
+	- Test case: defnq, with each script taken off its list. The list is now the two guards' own lines. It also checks install.bash's guard: the same cases as `fSafeRm_Under` with no `realpath` at all, the `rm` going through `priv`, one file system with GNU, BSD and busybox `rm`, and a prefix that's a link followed: removed beside where it points, emptied there by `fRmPrefix` with the link kept, a link to nothing left alone, and one to a folder named otherwise refused. dd3s7 runs both installers, through a prefix that's a link too, and dd5fv runs the installer.
+		- 20261104: defnq's prefix link case expected a refusal saying "prefix that's a link". It now expects the link followed, as above.
 	- Verified: 20261103, defnq passes, and fails on install.bash as it was, and with the link, link-between, under, parent or prefix link check taken out, with `priv` or the one file system flag dropped, with `realpath` used, and with a bare `rm -rf` put back. dd3s7, dd5fv, ddf31 and ddf32 pass, and `pack-zip.bash` packed the zip. Under Bash 3.2 with busybox, install.bash installed, installed again with a `TMPDIR` ending in a slash, and uninstalled, leaving no temp folder, and refused a prefix that's a link on install and uninstall with its files left alone. `--backlog-run-quick lint` passed.
 	- Swept: every `rm -r` in tracked bash scripts, through defnq; only the two guards' lines are left. Every `rm` in install.bash. The tests that read the changed scripts: dd3s7, dd5fv and test-thumbnailers' check of `pack-zip.bash`.
 	- Verified: 20261103, on vmFreeBSD (15.1-RELEASE-p4, bash 5.3), installer 1.3.2 with `--from` the `-bsd-` tarball of the full run at d9733893, into a scratch home: install, install again over it, then `--uninstall`, each exit 0, with the prefix, launcher and link removed, and nothing left in its `TMPDIR`. dd3s7 passed in the full run at 92fc2c77.
-	- Acceptance signoff: Self-closed: the install, reinstall and uninstall passed on vmFreeBSD.
+	- Verified: 20261104, defnq passes, and fails on install.bash as it was, with `fRmPrefix` removing the link instead, with the target name check taken out, with removals beside the link rather than the target, and without hidden files. dd3s7 passes, through a linked prefix with both installers, and fails on both as they were. Under Bash 3.2 with busybox, install.bash installed and reinstalled through a linked prefix, uninstalled with the link and an empty target left, said nothing was installed on a second uninstall, and stopped before the plan with the target gone. `--backlog-run-quick` passed.
+	- Acceptance signoff: Self-closed: dd3s7 and defnq cover install, reinstall and uninstall through a linked prefix.
+	- Closed: 20261104-103854
 
 - debgn and dcd70 pass in wintest's unlocked desktop session on vm925w-iommu.
 	- ID: 2026110216492601

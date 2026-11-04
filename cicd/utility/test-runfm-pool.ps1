@@ -34,7 +34,7 @@ $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($launcher, [ref]$tokens, [ref]$parseErrors)
 if ($parseErrors) { Write-Host "[ FAILED: n8runfm.ps1 does not parse: $($parseErrors[0].Message) ]"; exit 1 }
 
-foreach ($name in @("fRotate", "fGfsRoles", "fPeriodKeys", "fBudget", "fHeldCopies", "fParseStamp", "fIdFile", "fRemoveIfIdle")) {
+foreach ($name in @("fRotate", "fGfsRoles", "fPeriodKeys", "fBudget", "fHeldCopies", "fParseStamp", "fIdFile", "fRemoveIfIdle", "fSafeRm_Under", "fSafeRm_BadPath", "fSafeRm_Tree", "fWarn")) {
 	$def = $ast.Find({
 		param($node)
 		$node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name

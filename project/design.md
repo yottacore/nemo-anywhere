@@ -912,6 +912,8 @@ Cutting a release tags `v<version>` from a clean main and uploads the artifacts.
 
 - A user install is the default and needs no privileges. A system-wide install is opt-in and is the only path that escalates, which it states in the plan first.
 
+- An install folder that's a link, such as one moved to another disk and linked back, is followed. A reinstall replaces the folder it points at and keeps the link, and an uninstall empties that folder and leaves it and the link where they are.
+
 - The OS and architecture are detected, not asked for. Every run prints what it is about to do and waits for a yes. Downloads are checksum-verified before anything is unpacked, so a bad download can never replace a working install. A release with no checksums file stops the install before the plan, `--yes` or not, and only `--no-verify` gets past it. An archive given with `--from` isn't checked. Reinstalling replaces in place, and `--uninstall` removes exactly what was added.
 
 - On Windows the setup exe installs into the same user install, the same way: the folder, the Start menu shortcut and the user PATH entry. It adds an uninstaller in the folder and an entry in Settings, Apps. So either one updates or removes what the other installed. `install.ps1` keeps the setup's uninstaller when it reinstalls, and its `-Uninstall` takes the Apps entry out too. The setup exe has no system-wide install.

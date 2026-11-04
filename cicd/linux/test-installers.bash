@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: Run both installers against the Linux release tarball just built:
-##	  install, install again over it, then uninstall, each into a scratch home.
+##	  install, install again over it, then uninstall, each into a scratch home,
+##	  and again with the prefix a link to a folder elsewhere.
 ##	  Offline, through --from, so it tests the install steps and not the network.
 ##	- A missing tarball or a missing pwsh skips that part with a note, exit 77
 ##	  when nothing could run.
@@ -72,13 +73,52 @@ fRound(){
 	return 0
 }
 
+## A prefix that's a link, as when the folder was moved to another disk and
+## linked back: installed where it points, with the link kept, and emptied
+## there by an uninstall, with the link left.
+fRoundLinked(){
+	local label="$1"; shift
+	local home="${scratch}/${label}"
+	local prefix="${home}/.local/share/${exeName}"
+	local real="${home}/disk2/${exeName}"
+	local launcher="${home}/.local/share/applications/${exeName}.desktop"
+	local symlink="${home}/.local/bin/${exeName}"
+	local pass leftovers
+	mkdir -p "${home}/.local/share" "$real"
+	ln -s "$real" "$prefix"
+
+	for pass in install reinstall; do
+		if ! env -u DISPLAY HOME="$home" XDG_DATA_HOME="${home}/.local/share" "$@" >"${home}/${pass}.log" 2>&1; then
+			fFail "${label} ${pass} exited non-zero; last lines:"
+			tail -5 "${home}/${pass}.log"
+			return 0
+		fi
+		[[ -L "$prefix" && "$(readlink "$prefix")" == "$real" ]] || fFail "${label} ${pass}: the prefix isn't the link it was"
+		[[ -x "${real}/bin/${exeName}" ]] || fFail "${label} ${pass}: no ${real}/bin/${exeName}"
+		leftovers="$(find "${home}/.local/share" "${home}/disk2" -maxdepth 1 \( -name ".${exeName}-install.*" -o -name "${exeName}.old.*" -o -name "${exeName}.new.*" \) || true)"
+		[[ -z "$leftovers" ]] || fFail "${label} ${pass}: staging left behind: ${leftovers}"
+	done
+
+	if ! env -u DISPLAY HOME="$home" XDG_DATA_HOME="${home}/.local/share" "$@" --uninstall >"${home}/uninstall.log" 2>&1; then
+		fFail "${label} uninstall exited non-zero"
+		tail -5 "${home}/uninstall.log"
+		return 0
+	fi
+	[[ -L "$prefix" && -d "$real" && -z "$(ls -A "$real")" ]] || fFail "${label} uninstall: didn't empty where the prefix points and leave the link"
+	[[ ! -e "$launcher" && ! -L "$symlink" ]] || fFail "${label} uninstall left the launcher or symlink behind"
+	fEcho_Clean "${label}: install, reinstall and uninstall through a prefix that's a link OK"
+	return 0
+}
+
 fEcho "Installer check against ${tarball##*/}"
 fRound bash bash install.bash --from "$tarball" --yes
+fRoundLinked bash-linked bash install.bash --from "$tarball" --yes
 ran=1
 if command -v pwsh >/dev/null 2>&1; then
 	## pwsh takes -Uninstall; the helper appends the bash spelling, which pwsh's
 	## parameter binding accepts as the same switch.
 	fRound pwsh pwsh -NoProfile -File install.ps1 -From "$tarball" -Yes
+	fRoundLinked pwsh-linked pwsh -NoProfile -File install.ps1 -From "$tarball" -Yes
 	ran=2
 else
 	fEcho_Clean "pwsh not installed; install.ps1 not checked"
