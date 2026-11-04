@@ -844,7 +844,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The native gate on b29w sometimes fails on test-nemo-office's leftover folder.
 	- ID: 2026103116203164
 	- Type: Bug
-	- Status: Queued
+	- Status: Can't reproduce
 	- Priority|Severity: Avg
 	- Opened: 20261031-162031
 	- Opened by: 2026103114202730
@@ -853,8 +853,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: every test passes, 191 OK and 22 skipped, then the gate fails with "tests left these behind in ...\nemo-suite-...: test-nemo-office.kbj53Z".
 	- Expected behavior: the office tests remove their scratch folder every time.
 	- Reproduced: 20261031 on b29w at round1031a, 1 run of 3.
-	- Possible cause: not looked into. A file still open in the folder at the test's end, such as one a helper process holds, would stop its removal on Windows.
-	- Test case: ddq92, ddqhc and dbxj2 on Windows, with the suite's leftover check.
+		- 20261104: not again in 876 runs of test-nemo-office on b29w, 8 or 10 at a time, each in a cell laid out as `jail.bash` makes one, under the ssh user's temp folder and under `%ProgramData%`. Nor in 96 runs each of test-nemo-office-ole and test-nemo-search-helpers.
+	- Possible cause: a file held for a moment after the test deleted it, such as by the virus scanner. On 20261031 nothing tried again. In 1 of the 876 runs a folder in the test's scratch didn't go on the first try, and went on the next, 100 ms later. Since 20261101 (075e7d8a) the test's own cleanup and `jail.bash` try again for 5 s on Windows, which covers that.
+		- Ruled out: a helper outliving the test. The stand-in thumbnailer and search helper are waited for, and in no run was a file still held once the test had exited. No thumbnailer temp file was left in the cell's temp folder either.
+	- Progress log:
+		- 20261104: b29w's native gate has passed with nothing left behind since the retry went in: 2 gates on 20261102 (2026103117575073), the full run of 20261103 (2026110315184983) and the plain run of 20261104.
+	- Decisions:
+		- Can't reproduce rather than Done, since what held the folder was never named. A recurrence now prints the cell's `left` list, which names what stayed.
+	- Test case: ddq92, ddqhc and dbxj2 on Windows, with the suite's leftover check. dedme covers the retry on a held file.
 
 - ddepv on b29w: the heap grew over 64 rounds again.
 	- ID: 2026103116284963
