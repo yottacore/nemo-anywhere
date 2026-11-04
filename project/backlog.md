@@ -33,36 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- On Windows, GLib leaks the new name of every rename in a watched folder.
-	- ID: 2026101913541100
-	- Type: Bug
-	- Status: Waiting for answers
-		- Filed upstream as GLib MR [!5427](https://gitlab.gnome.org/GNOME/glib/-/merge_requests/5427). Waits on a GLib release with it.
-	- Needs external testing: de5he natively on b29w. It should print the rename growth and answer 77 on GLib 2.88.3, and run the settings case on a GLib with the fix.
-	- Priority|Severity: Low
-	- Opened: 20261019-135411
-	- Opened by: t00mietum
-	- Related IDs: 2026101715252260
-	- Target OS: Windows
-	- Incorrect behavior: GLib's Windows file monitor copies the new name of a rename and never frees it. A settings save is 2 renames, so each save loses a few dozen bytes. Still so in GLib 2.88.3 and on its main branch.
-	- Expected behavior: a save leaves the heap where it was.
-	- Possible fix: free the copy after the event is handed on, since the handler copies it. Report it upstream with that patch. Nothing in the app can work around it.
-	- Actual cause: `g_win32_fs_monitor_handle_event` in `gio/win32/gwin32fsmonitorutils.c` converts the new name for `FILE_ACTION_RENAMED_OLD_NAME` and never frees it. Same in 2.88.2, the sysroot's, and on main 20261021. The handler takes the name as const and copies what it keeps.
-		- A settings save goes through `ReplaceFileW` in SHCL, which moves `settings.shcl` to its backup name, so the backup name leaks. The case's own hand edit through `g_file_set_contents` leaks `settings.shcl`, since its temp name `settings.shcl.XXXXXX` passes GLib's name check, which compares only the watched name's length.
-	- Decisions:
-		- No app-side way out. Every folder view watches with the same code, so a rename in any open folder leaks too. Watching the folder instead of the file goes through the same call. A save that writes in place gives up the atomic replace, and a poll monitor or one of our own would be a second monitor to keep for a few dozen bytes a save.
-		- The case doesn't subtract a known loss. An allowance would hide an app leak of the same size, and go stale once GLib is fixed.
-		- Instead the case asks the GLib that is loaded: it renames a watched file away and back 64 times and reads the heap. It answers 77 only while that grows, so it runs again by itself once the box has the fix. Linux skips the check.
-	- Progress log:
-		- 20261021: upstream patch and issue text written, not filed.
-		- 20261021: it goes upstream as an issue plus MR, from t00mietum. The patch still applies to GLib main.
-		- 20261022: filed as GLib MR [!5427](https://gitlab.gnome.org/GNOME/glib/-/merge_requests/5427), with no separate issue, since GLib takes a tested fix as an MR alone.
-		- 20261021: de5he under wine: the watched renames grew the heap 16720 bytes over 64 rounds and the case answered 77. With the monitor canceled and no wait for its events, 0 bytes. On Linux the case passes as before.
-	- Swept: the other `g_file_monitor_*` users in the app reach the same win32 code, which is why there's no app-side fix. `nemo-config.c` is the only one with a leak case.
-	- Branch: round1021
-	- Commit: 2da98315
-	- Test case: de5he on Windows, which answers 77 there until GLib has the fix.
-
 - README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
 	- ID: 2026101417352264
 	- Type: Task
@@ -384,6 +354,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261028: split from 2026102517333362, whose lanes part is done.
 		- Held for the private repo's round, since the runner and its branches are there.
 	- Test case: none yet.
+
+- On Windows, GLib leaks the new name of every rename in a watched folder.
+	- ID: 2026101913541100
+	- Type: Bug
+	- Status: Stalled
+		- Until a GLib release has `8bd4d6c2` and MSYS2 packages it. Then `cicd/win/msys2-pins.bash update` and a native gate run close it.
+	- Needs external testing: de5he in the native gate once the pins have a GLib with the fix. It should run the settings case and pass, as it did on b29w 20261104.
+	- Priority|Severity: Low
+	- Opened: 20261019-135411
+	- Opened by: t00mietum
+	- Related IDs: 2026101715252260
+	- Target OS: Windows
+	- Incorrect behavior: GLib's Windows file monitor copies the new name of a rename and never frees it. A settings save is 2 renames, so each save loses a few dozen bytes. Still so in GLib 2.90.1, the newest release, and in MSYS2's 2.90.1-1.
+	- Expected behavior: a save leaves the heap where it was.
+	- Possible fix: free the copy after the event is handed on, since the handler copies it. Report it upstream with that patch. Nothing in the app can work around it.
+	- Actual cause: `g_win32_fs_monitor_handle_event` in `gio/win32/gwin32fsmonitorutils.c` converts the new name for `FILE_ACTION_RENAMED_OLD_NAME` and never frees it. Same in 2.88.2, the sysroot's, and on main 20261021. The handler takes the name as const and copies what it keeps.
+		- A settings save goes through `ReplaceFileW` in SHCL, which moves `settings.shcl` to its backup name, so the backup name leaks. The case's own hand edit through `g_file_set_contents` leaks `settings.shcl`, since its temp name `settings.shcl.XXXXXX` passes GLib's name check, which compares only the watched name's length.
+	- Decisions:
+		- No app-side way out. Every folder view watches with the same code, so a rename in any open folder leaks too. Watching the folder instead of the file goes through the same call. A save that writes in place gives up the atomic replace, and a poll monitor or one of our own would be a second monitor to keep for a few dozen bytes a save.
+		- The case doesn't subtract a known loss. An allowance would hide an app leak of the same size, and go stale once GLib is fixed.
+		- Instead the case asks the GLib that is loaded: it renames a watched file away and back 64 times and reads the heap. It answers 77 only while that grows, so it runs again by itself once the box has the fix. Linux skips the check.
+	- Progress log:
+		- 20261021: upstream patch and issue text written, not filed.
+		- 20261021: it goes upstream as an issue plus MR, from t00mietum. The patch still applies to GLib main.
+		- 20261022: filed as GLib MR [!5427](https://gitlab.gnome.org/GNOME/glib/-/merge_requests/5427), with no separate issue, since GLib takes a tested fix as an MR alone.
+		- 20261021: de5he under wine: the watched renames grew the heap 16720 bytes over 64 rounds and the case answered 77. With the monitor canceled and no wait for its events, 0 bytes. On Linux the case passes as before.
+		- 20261104: the fix is on GLib main as `8bd4d6c2`, but in no release yet. The pins moved to 2.90.1 meanwhile, which still leaks.
+		- 20261104: de5he natively on b29w with GLib 2.90.1 plus `8bd4d6c2`: no rename growth, so the settings case ran, 0 bytes over 64 rounds, OK, 3 runs of 3. With 2.90.1 as released and with the box's 2.88.3, 4096 bytes and 77.
+	- Swept: the other `g_file_monitor_*` users in the app reach the same win32 code, which is why there's no app-side fix. `nemo-config.c` is the only one with a leak case.
+	- Branch: round1021
+	- Commit: 2da98315
+	- Test case: de5he on Windows, which answers 77 there until GLib has the fix.
 
 - dd42v can lose both links from a rar archive on Linux.
 	- ID: 2026101913111713
