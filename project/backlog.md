@@ -5289,7 +5289,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261103: `cicd/utility/include/run-temp.ps1` has `New-RunTemp`, `Remove-StaleRunTemp` and `Remove-SafeTree`, the PowerShell copy of the guard. `Remove-SafeTree` takes the tmp folder rule, or with `-Under` the one parent rule, as `fSafeRm` and `fSafeRm_Under` do. It walks the tree itself, so a link or junction inside goes as a link and isn't followed, and hidden, system and read-only files go too. Windows tries again for 5 s, for a virus scanner holding a file.
 		- 20261103: `cicd-win.ps1` makes its run folder first thing in every mode, names it in the plan, sweeps stale ones, and removes it in its last `finally`, which a failure, a throw and Ctrl+C all reach. `-KeepTemp` keeps it and says where.
 	- Decisions:
-		- On Windows `TMPDIR` is cleared rather than pointed at the run folder. MSYS2 mounts `/tmp` on `TEMP`, so its tools land there anyway, and a Windows `TMPDIR` comes out as `/c/.../Temp/...`, which the bash guard's tmp folder rule refuses.
+		- On Windows `TMPDIR` is cleared rather than pointed at the run folder. MSYS2 mounts `/tmp` on `TEMP`, so its tools write there anyway, and a Windows `TMPDIR` comes out as `/c/.../Temp/...`, which the bash guard's tmp folder rule refuses.
 		- A folder named `Temp`, in any case, counts as a tmp folder on Windows, since that's what `%TEMP%` is called there. Elsewhere it's `tmp` only, as in the bash guard.
 		- It also refuses the temp root and a project's whole folder right under it, as the machine's own guard does.
 		- One that's gone is skipped, as `Remove-Item -Force` callers expect. It warns for each refusal and returns `$false`, rather than throwing, so a `finally` or a trap carries on.
