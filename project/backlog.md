@@ -696,9 +696,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- The Windows dogfood refresh names `b29w`, never `b29w-wif`.
 		- Overrides: the native Windows step in the private round settings, run by hand. The rule sending windowed checks to vm925w stays.
 	- Test case: none yet.
+	- Prereq IDs: 2026102516403481
 	- 2026-10-26, round1026a full run: vmFreeBSD was off. The lane started it, then failed at once with 'bsdtest@vmFreeBSD is not a FreeBSD box reachable as that user', before ssh was up, and stopped the run. The lane should wait for ssh after a start.
 	- 2026-10-27: the same at step 7 of a full run, with ssh timing out on the VM that was off. The FreeBSD lane and the arm64 release now take their box through the VM state helper when it's here, so a VM that's off or paused is started, waited for and put back. The bare host lock is still the fallback. Left: the `SKIP` for a box that isn't there, and the Windows dogfood, which still only tries boxes that already answer.
 	- 20261028: split into children. The `SKIP` is 2026102808250949, the Windows dogfood's box and name 2026102808250954, the native Windows gate 2026102808250959. The FreeBSD and arm64 work folders are 2026102516403481. A lane that starts its VM now also waits for its own login (2026102808084300).
+	- 20261104: the per-box work folders are the last requirement left, in 2026102516403481, so this closes with it.
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
@@ -5373,7 +5375,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Temp files: the installer, and removals inside a container.
 	- ID: 2026102617555870
 	- Type: Task
-	- Status: Done
+	- Status: Queued
 	- Needs external testing: none left.
 	- Priority|Severity: Avg
 	- Opened: 20261026-175558
@@ -5388,6 +5390,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261103: a prefix that's a link is refused before the plan, on install and uninstall. Before, an install swapped the link for a folder and an uninstall removed just the link, and the files it pointed at stayed either way.
 		- 20261103: the removals in `pack-zip.bash` and in the test-fuzz-exit and test-gui-smoke command strings are gone. Each ran in a step container that's new and goes at exit, `/tmp` with it. `build-cross.bash` and `pack-setup.bash` had only single-file `rm -f` left after 2026102617253214.
 		- 20261103: defnq's installer guard link cases run on b29w under MSYS2 too, with real links or junctions, as in 2026102617555865.
+		- 20261104: changed my mind on refusing a prefix that's a link. Someone who moved the folder to another disk and linked it back would be surprised by the refusal. Find a better way, such as following the link and installing into its target, with uninstall emptying the target and leaving the link.
 	- Decisions:
 		- Drop the removals inside step containers rather than bring the guard in. Those command strings run under `sh`, the container is removed at exit, and with `--keep-temp` keeping what's left is the point.
 		- Refuse a prefix that's a link rather than unlink it, as the guard refuses a link. `install.ps1` is unchanged.
@@ -5397,7 +5400,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every `rm -r` in tracked bash scripts, through defnq; only the two guards' lines are left. Every `rm` in install.bash. The tests that read the changed scripts: dd3s7, dd5fv and test-thumbnailers' check of `pack-zip.bash`.
 	- Verified: 20261103, on vmFreeBSD (15.1-RELEASE-p4, bash 5.3), installer 1.3.2 with `--from` the `-bsd-` tarball of the full run at d9733893, into a scratch home: install, install again over it, then `--uninstall`, each exit 0, with the prefix, launcher and link removed, and nothing left in its `TMPDIR`. dd3s7 passed in the full run at 92fc2c77.
 	- Acceptance signoff: Self-closed: the install, reinstall and uninstall passed on vmFreeBSD.
-	- Closed: 20261103-172404
 
 - debgn and dcd70 pass in wintest's unlocked desktop session on vm925w-iommu.
 	- ID: 2026110216492601
