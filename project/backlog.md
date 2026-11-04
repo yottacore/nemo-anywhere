@@ -258,7 +258,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD step output: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102819522603
 	- Type: Task
-	- Status: Waiting on automated testing
+	- Status: Stalled
 	- Needs local test suite run?: none left. Closes with its child 2026102820110989, the private runner.
 	- Priority|Severity: High
 	- Opened: 20261028-195226
@@ -271,6 +271,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The private runner is in the private repo.
 	- Progress log:
 		- 20261028: the FreeBSD and arm64 lanes and `echo.bash` done. The private runner is in child 2026102820110989.
+		- Held for the private repo's round, which closes children 2026102820110989 and 2026102820110967. Until then the private runner prints no step lines or b26 jobs line.
 	- Decisions:
 		- A lane's steps print as `FreeBSD N of M` or `arm64 N of M`, under the same 79-dot rule, time stamp and `Starting`, `PASS` and `FAIL` words as `cicd.bash`.
 		- The steps are Box ready (the login and clock waits), Send, then Build and suite, or Release build and Bring back. The build step opens with the box's jobs line.
@@ -314,7 +315,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD CPU: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102517333362
 	- Type: Task
-	- Status: Waiting on automated testing
+	- Status: Stalled
 	- Needs local test suite run?: none left. Closes with its child 2026102820110967, the private runner.
 	- Priority|Severity: High
 	- Opened: 20261025-173333
@@ -326,6 +327,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261028: the FreeBSD and arm64 lanes done. The private runner is in child 2026102820110967.
 		- 20261028: ddmn7's job count for the suite went from 4 to 6, since the fixed 4 is gone and its stand-in box has 12 CPUs.
+		- Held for the private repo's round, which closes children 2026102820110989 and 2026102820110967. Until then the private runner prints no step lines or b26 jobs line.
 	- Decisions:
 		- Each lane reads its box's CPU count and 1-minute load over ssh, just before the build or suite, and works the count out by the same rules as this box, in `include/jobs.bash`. It prints the count the way a step of `cicd.bash` does, naming the box.
 		- `NEMO_BSD_JOBS` and `NEMO_ARM_JOBS` now pin the count, with no fixed default. A pin that isn't a count fails the lane.
@@ -344,7 +346,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD step output: `cicd-win.ps1` and the lanes on other boxes.
 	- ID: 2026102517333373
 	- Type: Task
-	- Status: Waiting on automated testing
+	- Status: Stalled
 	- Needs local test suite run?: no
 	- Needs external testing: none left. Closes with its child 2026102819522603.
 	- Priority|Severity: High
@@ -360,6 +362,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261029: open only for its child 2026102819522603, which waits on the private runner's child 2026102820110989.
 		- 20261102: still open for that child. The full run at fdce4acd passed the private runner, but it printed no step lines of its own.
 		- 20261103: the same at 92fc2c77. The native gate printed `Windows N of 4` and the gate's own `Step N of M` lines on b29w and vm925w.
+		- Held for the private repo's round, which closes children 2026102820110989 and 2026102820110967. Until then the private runner prints no step lines or b26 jobs line.
 	- Decisions:
 		- The steps are the old stages, plus the smoke checks, now their own step in the full run as in the gate: Remote sync, Lints, Build (debug), Tests, Smoke checks, Runtime bundle, Packages, Dogfood, Publish. The names match `cicd.bash`'s where the step is the same.
 		- A missing toolchain, `-NoBuild`, `-NoPack` and a missing Enigma Virtual Box turn steps off in the plan, rather than warning inside the step. Dogfood says which of those turned the pack off.
