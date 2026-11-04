@@ -28,6 +28,11 @@
 ##	  a passing gate that skipped any, the lane exits 75 without running
 ##	  them, and cicd.bash sends the gate to vm925w, whose wintest session
 ##	  never locks and whose screen is no one's.
+##	- NEMO_WIN_DESKTOP_LIST names the file that hands those tests on. With
+##	  NEMO_WIN_DESKTOP_ELSEWHERE=1 the lane writes them there before it exits
+##	  75. Without it, the desktop step runs the tests named there rather than
+##	  the ones its own gate skipped, so the next box can build with -NoTests
+##	  and run only those, not the whole suite again.
 ##	- NEMO_WIN_READY_WAIT is the seconds to wait for the login after a boot
 ##	  (default 600), NEMO_WIN_POLL the seconds between looks at the log
 ##	  (default 30), NEMO_WIN_GATE_ARGS what cicd-win.ps1 gets (default
@@ -163,11 +168,18 @@ fWaitRc(){
 
 ## The tests the gate skipped, again in the test user's desktop session.
 fDesktop(){
-	local names out task rc code
+	local names out task rc code list="${NEMO_WIN_DESKTOP_LIST:-}" elsewhere="${NEMO_WIN_DESKTOP_ELSEWHERE:-0}"
 	fLaneStep "Desktop tests"
-	names="$(fSkippedTests)"
+	if [[ -n "$list" && "$elsewhere" != 1 ]]; then
+		names="$(grep -v '^[[:space:]]*$' "$list" 2> /dev/null || true)"
+		[[ -n "$names" ]] || fDie "no tests named in ${list}"
+		fEcho_Clean "$(wc -l <<< "$names") tests the first box left, from ${list}"
+	else
+		names="$(fSkippedTests)"
+	fi
 	if [[ -z "$names" ]]; then fEcho_Clean "the gate skipped no tests"; return 0; fi
-	if [[ "${NEMO_WIN_DESKTOP_ELSEWHERE:-0}" == 1 ]]; then
+	if [[ "$elsewhere" == 1 ]]; then
+		if [[ -n "$list" ]]; then printf '%s\n' "$names" > "$list" || fDie "could not write the test list to ${list}"; fi
 		fEcho_Clean "$(wc -l <<< "$names") skipped tests are left for the next box"
 		fLaneStep_Close SKIP
 		return 75
@@ -270,6 +282,8 @@ fMain "${@}"
 
 
 ##	History:
+##		- 2026-11-04: NEMO_WIN_DESKTOP_LIST hands the windowed tests to the next
+##		  box, which then builds only and runs just those.
 ##		- 2026-11-03: Sends run-temp.ps1 beside lane-box.ps1, for its removals.
 ##		- 2026-11-03: NEMO_WIN_DESKTOP_ELSEWHERE, so cicd.bash can take the
 ##		  windowed tests to vm925w rather than b29w's own screen.

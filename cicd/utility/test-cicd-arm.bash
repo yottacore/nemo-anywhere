@@ -17,8 +17,9 @@
 ##	  local steps, and the other one only when the side one finds no box. A
 ##	  gate that fails stops the run. --quick, --no-win and --no-remote leave
 ##	  it out. The side one is told it may leave its windowed tests to the
-##	  other, and when it does (75) the other runs the gate again with
-##	  -NoFmt. With the other box gone too, the side one's pass stands.
+##	  other, and when it does (75) the other builds with -NoFmt -NoTests,
+##	  and both get the one file that hands the tests on. With the other box
+##	  gone too, the side one's pass stands.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-arm.bash
 ##	- Test ID: ddmmw
@@ -86,8 +87,8 @@ cat > "${scratch}/cicd/config.bash" <<-EOF
 	)
 	BSD_TEST_CMD=(bash -c '[[ -z "\${FAKE_BOX_GONE:-}" ]] || exit 77; mkdir -p out && touch out/bsd-tests')
 	BSD_RELEASE_CMD=(bash -c '[[ -z "\${FAKE_BOX_GONE:-}" ]] || exit 77; mkdir -p out && touch out/bsd-release')
-	WIN_GATE_SIDE_CMD=(bash -c '[[ -z "\${FAKE_BOX_GONE:-}\${FAKE_WIN_SIDE_GONE:-}" ]] || exit 77; mkdir -p out && echo "\${NEMO_WIN_DESKTOP_ELSEWHERE:-}" > out/win-side; echo side gate ran; exit "\${FAKE_WIN_RC:-0}"')
-	WIN_GATE_CMD=(bash -c '[[ -z "\${FAKE_BOX_GONE:-}\${FAKE_WIN_OTHER_GONE:-}" ]] || exit 77; mkdir -p out && echo "\${NEMO_WIN_GATE_ARGS:-}" > out/win-gate')
+	WIN_GATE_SIDE_CMD=(bash -c '[[ -z "\${FAKE_BOX_GONE:-}\${FAKE_WIN_SIDE_GONE:-}" ]] || exit 77; mkdir -p out && echo "\${NEMO_WIN_DESKTOP_ELSEWHERE:-}" > out/win-side; echo "\${NEMO_WIN_DESKTOP_LIST:-}" > out/win-side-list; echo side gate ran; exit "\${FAKE_WIN_RC:-0}"')
+	WIN_GATE_CMD=(bash -c '[[ -z "\${FAKE_BOX_GONE:-}\${FAKE_WIN_OTHER_GONE:-}" ]] || exit 77; mkdir -p out && echo "\${NEMO_WIN_GATE_ARGS:-}" > out/win-gate; echo "\${NEMO_WIN_DESKTOP_LIST:-}" > out/win-gate-list')
 	PRIVATE_RUNNER=""
 	PROFILE_ENABLE=0
 	PROFILE_OUT_DIR="profiling"
@@ -221,7 +222,9 @@ fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
 out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync 2>&1 </dev/null)" || fFail "the run with a side gate failed"
 [[ "$(cat "${scratch}/out/win-side" 2> /dev/null)" == 1 ]] || fFail "the side gate was not told it may leave its windowed tests to the other box"
 fWin sideother "its windowed tests go to"                    FAKE_WIN_RC=75 --
-[[ "$(cat "${scratch}/out/win-gate" 2> /dev/null)" == "-Gate -Yes -NoSync -NoFmt" ]] || fFail "the other gate did not get -NoFmt after a 75: $(cat "${scratch}/out/win-gate" 2> /dev/null)"
+[[ "$(cat "${scratch}/out/win-gate" 2> /dev/null)" == "-Gate -Yes -NoSync -NoFmt -NoTests" ]] || fFail "the other gate did not get -NoFmt -NoTests after a 75: $(cat "${scratch}/out/win-gate" 2> /dev/null)"
+deskList="$(cat "${scratch}/out/win-side-list" 2> /dev/null)"
+[[ -n "$deskList" && "$deskList" == "$(cat "${scratch}/out/win-gate-list" 2> /dev/null)" ]] || fFail "the two gates were not given the same test list file: '${deskList}', '$(cat "${scratch}/out/win-gate-list" 2> /dev/null)'"
 fWin side "WARNING: no box there for the windowed tests"     FAKE_WIN_RC=75 FAKE_WIN_OTHER_GONE=1 --
 fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
 rc=0; out="$(cd "$scratch" && FAKE_WIN_RC=3 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync 2>&1 </dev/null)" || rc=$?

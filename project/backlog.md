@@ -445,9 +445,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD flags: run lengths.
 	- ID: 2026102516165479
 	- Type: Task
-	- Status: Queued
-		- A plain run is about 15 min over the hour. Most of it is vm925w's second gate in the Native Windows gate step.
-	- Needs local test suite run?: yes. A plain `--backlog-run-full`, without `--long`, timed whole in one go. The Static analyzers step at the 2 min cap is timed.
+	- Status: Waiting on automated testing
+		- Waits on a plain full run, timed whole, with b29w and vm925w there.
+	- Needs local test suite run?: yes. A plain `--backlog-run-full`, without `--long`, timed whole in one go, with b29w and vm925w both there, so the Native Windows gate step takes the b29w then vm925w path. Time the Fuzzing step and the vm925w part of the Native Windows gate step, and check that the 18 desktop tests pass on vm925w after a build with no suite.
 	- Priority|Severity: High
 	- Opened: 20261025-161654
 	- Opened by: 2026102416300004
@@ -460,10 +460,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The analyzers stay in a plain run, since the compile list check and the planted faults are there. What moves to `--long` is their per-file cap: 2 min in a plain run, 15 with `--long`. gcc at `-O0` never finishes `nemo-config.c` or blake3's AVX2 and SSE4.1 files even in 15, and waiting on those 3 was most of the step. Of the biggest of ours, the slowest, `nemo-file.c`, took 39 s. A file cut off shows as not analyzed in the counts, so a new slow one doesn't go unseen. A plain run should come to about 50 min.
 		- `--quick` fuzzes each target for 5 s, through `FUZZ_QUICK_CMD` in the config. A config without one leaves fuzzing out of `--quick`, as before.
 		- An `ANALYZE_TU_TIMEOUT` set by hand still wins over both caps.
+		- 20261104: vm925w no longer runs a second whole gate after b29w's passed. It builds the same commit with `-NoTests`, a new `cicd-win.ps1` switch that leaves out the tests and smoke checks, then runs only the tests b29w left, in wintest's session. b29w's lane writes them to the file `NEMO_WIN_DESKTOP_LIST` names, and vm925w's lane reads them from it. That takes off the suite and smokes, about 7 min.
+		- Not b29w's build sent to vm925w. The two boxes' MSYS2 aren't pinned to the same packages, so its test programs could load DLLs they weren't built against, and the meson build folder holds whole paths. The cross build isn't run by meson on Windows at all. Building on vm925w tests what it built.
+		- The fuzz targets now run side by side, up to 4 at a time, each still for its own 60 s. That takes the Fuzzing step from 12 min to about 3, with no less searching. The cap of 4 is for memory, since each ASan target peaks at up to about 600 MB. `FUZZ_JOBS` set by hand wins over it.
+		- A plain run should come to about 59 min, from 75.4 less 7 for vm925w and 9 for fuzzing.
+		- Left as is: vm925w's boot from off, about 5.5 min, and its build at 2 jobs, since the guest's own start-up work reads as a busy box. Booting it earlier, alongside the local steps, would take off most of both, but holds the VM and its lock about 20 min longer. Worth doing only if the timed run is still over the hour.
 	- Swept: `cicd.bash --help`, the config comments, the `analyze.bash` header and design.md's run lengths line. `cicd-win.ps1` has no fuzzing or analyzers, and building.md and README.md don't give run lengths.
+		- 20261104: the lane's and `cicd-win.ps1`'s headers, the config's native gate and fuzz comments, the `cicd.bash` step comments, and design.md's native gate and fuzzing bullets. `-NoTests` applies in the gate and the full run alike. The other `-Gate` callers, the Windows dogfood and the hosted workflow, don't pass it. A hand run of the vm925w lane with no list still runs the whole gate and its own skipped tests.
 	- Test case: de54r: `--quick` runs the short fuzz command, `--long` and `--slow` the long analyzer one, and a config with no short fuzz command leaves fuzzing out of `--quick`. dddq3's config has the short command too.
+		- 20261104: depg0 (the list written before a 75, the next box runs the tests named there with `-NoTests`, an empty list fails the lane), ddmmw (the other gate gets `-NoFmt -NoTests` and the same list file as the side one), dejjt (`-NoTests` in the gate and the full run), ddf32 (the targets run side by side, and their lines keep the list's order).
+		- 20261104: ddmmw's assert for the other gate's switches went from `-Gate -Yes -NoSync -NoFmt` to `-Gate -Yes -NoSync -NoFmt -NoTests`.
 	- Verified: 20261103, de54r, dddq3, ddmmw, desha and the other cicd step tests pass. The new de54r fails on `cicd.bash` from before the change. The real fuzz stage at 5 s a target took 91 s with a cold fuzz build, all 12 targets clean.
 	- Verified: 20261103, `cicd.bash -y --quick --no-sync --no-dogfood --no-publish` passed all 8 steps in 14.7 min, fuzzing 1.4 of it, at a load of 13 to 41 on 32 CPUs.
+	- Verified: 20261104, depg0, ddmmw, dejjt and ddf32 pass. Against the files from before the change, depg0 fails 3 checks, ddmmw 2, dejjt 13, and ddf32 its side by side check, with 12 targets taking 36 s. The real fuzz stage at 5 s a target, 4 at a time, took 31 s with a warm fuzz build, all 12 clean. `--backlog-run-quick` passes.
 	- Progress log:
 		- 20261103: `--quick` was still about 5 min over 10, which is in child 2026110314093130. It now takes 10.1 min, with the Windows cross build alongside.
 		- 20261103: Static analyzers took 9.5 min in the plain full run at d9733893 and 9.3 in the one at 92fc2c77, from 36 to 39 before. Put together from the two runs, a plain run comes to about 61 min: steps 1 to 11 in 38.5 at d9733893, then at 92fc2c77 the Native Windows gate 15.2 (its vm925w part, since b29w runs alongside the local steps), Packages 3.1 and the private runner 4.6. The run at 92fc2c77, with sanitizers, the profiler and FreeBSD off, took 50.8 min whole.

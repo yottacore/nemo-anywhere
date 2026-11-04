@@ -57,6 +57,9 @@
 ##		   -NoSync         skip the remote sync check (stage 0)
 ##		   -NoFmt          skip the lint stage
 ##		   -NoBuild        skip the build + tests + stage stages
+##		   -NoTests        skip the tests and smoke checks, and build only. The
+##		                   native lane's next box builds this way, then runs the
+##		                   tests the first box left for a desktop session
 ##		   -NoDogfood      skip installing the staged bundle into the dogfood folder
 ##		   -NoPack         skip the portable single-exe pack stage
 ##		   -NoSign         skip Authenticode signing (also auto-skips if unconfigured)
@@ -82,6 +85,7 @@ param(
 	[switch]$NoSync,
 	[switch]$NoFmt,
 	[switch]$NoBuild,
+	[switch]$NoTests,
 	[switch]$NoDogfood,
 	[switch]$NoPack,
 	[switch]$NoSign,
@@ -805,8 +809,9 @@ function fMain {
 		$why = if ($toolMiss) { 'toolchain missing' } else { '' }
 		fPlan (-not ($NoFmt -or $why)) 'Lints' $(if ($NoFmt) { '-NoFmt' } else { $why })
 		fPlan (-not $why) 'Build (debug)' $why
-		fPlan (-not $why) 'Tests'         $why
-		fPlan (-not $why) 'Smoke checks'  $why
+		$testWhy = if ($why) { $why } elseif ($NoTests) { '-NoTests' } else { '' }
+		fPlan (-not $testWhy) 'Tests'        $testWhy
+		fPlan (-not $testWhy) 'Smoke checks' $testWhy
 		fSection "$AppName gate"
 		fPlan_Show
 		if ($toolMiss) {
@@ -818,11 +823,13 @@ function fMain {
 		if (-not $NoFmt) { fStep 'Lints'; fLint }
 		fStep 'Build (debug)'
 		fBuild
-		fStep 'Tests'
-		fTests
-		fStep 'Smoke checks'
-		fSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
-		fGuiSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
+		if (-not $NoTests) {
+			fStep 'Tests'
+			fTests
+			fStep 'Smoke checks'
+			fSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
+			fGuiSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
+		}
 		fStep_Close 'PASS'
 		fSection "$AppName gate: PASSED."
 		fEcho_Clean
@@ -840,13 +847,14 @@ function fMain {
 	## still run, unless -BuildStrict makes the build step fail on it.
 	$lintWhy  = if ($NoFmt) { '-NoFmt' } elseif ($toolMiss) { 'toolchain missing' } else { '' }
 	$buildWhy = if ($NoBuild) { '-NoBuild' } elseif ($toolMiss -and -not $BuildStrict) { 'toolchain missing' } else { '' }
+	$testWhy  = if ($buildWhy) { $buildWhy } elseif ($NoTests) { '-NoTests' } else { '' }
 	$packWhy  = if ($NoPack) { '-NoPack' } elseif ($buildWhy) { $buildWhy } elseif (-not (fEvbFound)) { 'Enigma Virtual Box not installed' } else { '' }
 	$dogWhy   = if ($NoDogfood) { '-NoDogfood' } elseif ($packWhy) { "no pack: $packWhy" } else { '' }
 	fPlan (-not $NoSync)    'Remote sync'    '-NoSync'
 	fPlan (-not $lintWhy)   'Lints'          $lintWhy
 	fPlan (-not $buildWhy)  'Build (debug)'  $buildWhy
-	fPlan (-not $buildWhy)  'Tests'          $buildWhy
-	fPlan (-not $buildWhy)  'Smoke checks'   $buildWhy
+	fPlan (-not $testWhy)   'Tests'          $testWhy
+	fPlan (-not $testWhy)   'Smoke checks'   $testWhy
 	fPlan (-not $buildWhy)  'Runtime bundle' $buildWhy
 	fPlan (-not $packWhy)   'Packages'       $packWhy
 	fPlan (-not $dogWhy)    'Dogfood'        $dogWhy
@@ -910,11 +918,13 @@ function fMain {
 		fStep 'Build (debug)'
 		if ($toolMiss) { fDie "build: $toolMiss" }
 		fBuild
-		fStep 'Tests'
-		fTests
-		fStep 'Smoke checks'
-		fSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
-		fGuiSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
+		if (-not $testWhy) {
+			fStep 'Tests'
+			fTests
+			fStep 'Smoke checks'
+			fSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
+			fGuiSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
+		}
 		fStep 'Runtime bundle'
 		fStage
 	}
@@ -947,6 +957,7 @@ try {
 
 
 ##	History:
+##		- 2026-11-04: -NoTests builds without the tests and smoke checks.
 ##		- 2026-11-03: A run folder of its own, removed at the end; -KeepTemp
 ##		  keeps it, and stale ones are swept.
 ##		- 2026-10-31: -TestList runs only the meson tests it names, against the

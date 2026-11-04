@@ -12,7 +12,8 @@
 ##	  apart by the exit code and the saved input, never by the run having ended.
 ##	- FUZZ_SECS sets the per-target budget (default 60). FUZZ_TIMEOUT is how long
 ##	  one input may run before it counts as a hang (default 25). BUILD_DIR
-##	  overrides the build directory.
+##	  overrides the build directory. The targets run side by side, FUZZ_JOBS
+##	  at a time, by default NEMO_TEST_JOBS up to 4.
 ##	- Syntax: fuzz.bash [--probe]
 
 ##	Copyright (c) 2026 Bubbles
@@ -125,14 +126,26 @@ if [[ -d /dev/shm && -w /dev/shm ]]; then
 	export TMPDIR=/dev/shm
 fi
 
-declare -i found=0 num=0
+declare -i found=0 broken=0 num=0
+
+## Targets run side by side, each for its own budget, so the stage takes about
+## one budget per batch rather than one per target. Each is built with ASan and
+## peaks at up to about 600 MB, so the default stops at 4 at a time.
+fuzzJobs="${FUZZ_JOBS:-${NEMO_TEST_JOBS:-2}}"
+case "${fuzzJobs}" in
+	''|*[!0-9]*|0*) fuzzJobs=1 ;;
+esac
+[[ -n "${FUZZ_JOBS:-}" ]] || ((fuzzJobs <= 4)) || fuzzJobs=4
 
 ## libFuzzer's own output runs to thousands of lines a target, so it goes to a
 ## log and the console gets one line per target, the way meson reports a test.
 ## The end of the log is shown only when something went wrong.
 fStat(){ sed -n "s/^stat::${1}: *//p" "${2}" | tail -n 1; }
 
-for entry in "${targets[@]}"; do
+## One target, $1 its entry and $2 its place in line. Writes how it went to
+## its log's .res file: "pass", "find" or "broken", then the line to print.
+fFuzzOne(){
+	local entry="$1" n="$2" id rest name seedName seeds bin log work rc saved runs added rss head
 	id="${entry%%|*}"
 	rest="${entry#*|}"
 	name="${rest%%|*}"
@@ -140,7 +153,7 @@ for entry in "${targets[@]}"; do
 	seeds="${src}/fuzz/corpus/${seedName}"
 	bin="${build}/fuzz/${name}"
 	log="${logs}/${name}.log"
-	num=$((num + 1))
+	rm -f -- "${log}.res"
 
 	## libFuzzer writes back into the first corpus directory it is given, and the
 	## seeds are checked in, so it gets a copy to scribble on.
@@ -178,17 +191,45 @@ for entry in "${targets[@]}"; do
 	printf -v head '%s %-24s' "${id}" "${name}"
 
 	if ((rc == 0)); then
-		echo "PASS ${head} ${num}/${#targets[@]}  ${secs}s  ${runs:-?} runs  ${added:-?} new inputs  ${rss:-?} MB peak"
+		printf 'pass\nPASS %s %s/%s  %ss  %s runs  %s new inputs  %s MB peak\n' "${head}" "${n}" "${#targets[@]}" "${secs}" "${runs:-?}" "${added:-?}" "${rss:-?}" > "${log}.res"
 	elif ((rc == FUZZ_FIND_CODE)) || [[ -n "${saved}" ]]; then
-		echo "FAIL ${head} ${num}/${#targets[@]}  found ${saved:-input under ${findings}}" >&2
-		tail -n 40 "${log}" >&2
-		found=$((found + 1))
+		printf 'find\nFAIL %s %s/%s  found %s\n' "${head}" "${n}" "${#targets[@]}" "${saved:-input under ${findings}}" > "${log}.res"
 	else
-		echo "FAIL ${head} ${num}/${#targets[@]}  exited ${rc}, which is neither a clean run nor a find" >&2
-		tail -n 40 "${log}" >&2
-		exit 1
+		printf 'broken\nFAIL %s %s/%s  exited %s, which is neither a clean run nor a find\n' "${head}" "${n}" "${#targets[@]}" "${rc}" > "${log}.res"
 	fi
+}
+
+declare -i running=0
+for entry in "${targets[@]}"; do
+	num=$((num + 1))
+	if ((running >= fuzzJobs)); then
+		wait -n || true
+		running=$((running - 1))
+	fi
+	fFuzzOne "${entry}" "${num}" &
+	running=$((running + 1))
 done
+wait || true
+
+## In the order of the list, whichever finished first.
+for entry in "${targets[@]}"; do
+	rest="${entry#*|}"
+	log="${logs}/${rest%%|*}.log"
+	kind="$(head -n 1 "${log}.res" 2>/dev/null || true)"
+	case "${kind}" in
+		pass) sed -n 2p "${log}.res" ;;
+		find)
+			sed -n 2p "${log}.res" >&2
+			tail -n 40 "${log}" >&2
+			found=$((found + 1)) ;;
+		*)
+			if [[ -n "${kind}" ]]; then sed -n 2p "${log}.res" >&2
+			else echo "FAIL ${entry%%|*} ${rest%%|*}  did not finish its run" >&2; fi
+			[[ ! -f "${log}" ]] || tail -n 40 "${log}" >&2
+			broken=$((broken + 1)) ;;
+	esac
+done
+((! broken)) || exit 1
 
 if ((found)); then
 	echo "[ ${found} target(s) found a crash or hang; the input files are under ${findings} ]" >&2
