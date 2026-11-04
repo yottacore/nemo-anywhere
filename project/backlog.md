@@ -50,7 +50,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026110315184983
 	- Type: Task
 	- Status: Waiting on automated testing
-	- Needs external testing: the native gate on b29w through `cicd/win/lane.bash`, for `lane-box.ps1`'s removal with `run-temp.ps1` sent beside it, and the traps in test-install-holders, test-install-acl and the GUI launch smoke. `pack-portable.ps1` in a full `cicd-win.ps1` run's Packages step, and `sandbox.ps1 -Start` on a box with Windows Sandbox.
+	- Needs external testing: `pack-portable.ps1` in a full `cicd-win.ps1` run's Packages step, and `sandbox.ps1 -Start` on a box with Windows Sandbox. The native gate part passed 20261103.
 	- Priority|Severity: Avg
 	- Opened: 20261103-151849
 	- Opened by: 2026102516403476
@@ -66,13 +66,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- detts finds the removals through the parser, not a text match: `Remove-Item` and its aliases with `-Recurse` or any short form of it, and `.Delete` with a recursive flag. So a comment or a string doesn't count, and `ri -r` does.
 	- Test case: detts (every recursive removal in the tracked PowerShell goes through the guard, but for the list of scripts still to move, each with its count), depg0 (`run-temp.ps1` is sent to the box), and the tests that run each changed script: dd5fx, ddkd9, ddqv0, ddwhx, ddrhb, dejjt and ddgch.
 	- Verified: 20261103, detts fails with a bare `Remove-Item -Recurse`, a `ri -r` or a `[IO.Directory]::Delete` put back, and with a count on its list that's off. detts, dejjt, depg0, dd5fx, ddkd9, ddqv0, ddwhx, ddrhb and ddgch pass, and left nothing in the temp folder. PSScriptAnalyzer is clean. `cicd/cicd.bash --backlog-run-quick` passed.
+	- Verified: 20261103, full run at 92fc2c77 (`--backlog-run-full --no-sanitize --no-profile --no-bsd`): the native gate through `lane.bash` passed on b29w, then again on vm925w with its desktop tests. On each, dd5hz (test-install-holders), ddc6v (test-install-acl) and dd5hy (GUI launch smoke) passed, and `lane-box.ps1` removed the box's run folder with the `run-temp.ps1` sent beside it. Not run: `pack-portable.ps1`, since the gate has no Packages step, and `sandbox.ps1 -Start`.
 	- Swept: every `Remove-Item -Recurse`, its aliases and recursive `.Delete` in tracked PowerShell, through detts. Only `install.ps1` (7) and `n8runfm.ps1` (6) are left, for 2026110315185015.
 
 - Temp files: the run folder in `cicd-win.ps1`, and a PowerShell copy of the guard.
 	- ID: 2026110315184948
 	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs external testing: the native gate on b29w through `cicd/win/lane.bash`, for the run folder under the lane's, its removal, the suite's longer paths, and detts with junctions and a held file.
+	- Status: Done
+	- Needs external testing: none left.
 	- Priority|Severity: Avg
 	- Opened: 20261103-151849
 	- Opened by: 2026102516403476
@@ -92,6 +93,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Under the lane the run folder sits inside the lane's own, so the lane's removal still covers what a killed run leaves.
 	- Test case: detts (`cicd/utility/test-safe-rm.ps1`, lint stage: each refusal, a tree with hidden, read-only and linked entries, `-Under`, a held file, the run folder counter, `run.pid` and environment, and the sweep's live, missing, junk and linked `run.pid` cases), and dejjt (the plan names the run folder, every run removes it, failed or not, `-KeepTemp` keeps it, and the next run sweeps an old one).
 	- Verified: 20261103, detts and dejjt pass. detts fails with the link, through-a-link, tmp folder, under, `..`, project folder, live process, `run.pid` or linked sweep check taken out, with hidden files skipped, with links followed, and with the delete error not caught. dejjt fails with the removal, the sweep, `-KeepTemp` or the plan line taken out. PSScriptAnalyzer is clean. `cicd/cicd.bash --backlog-run-quick` passed.
+	- Verified: 20261103, full run at 92fc2c77: the native gate through `lane.bash` passed on b29w and on vm925w. Each gate's run folder sat under the lane's, as `...\<lane folder>\tmp\nemo-anywhere\<stamp>_001`, the suite passed there with the longer paths, and the lane's folder was removed after. detts passed on b29w from a clone of round1103a, with junctions and a held file, and left only its empty project folder in `TEMP`.
+	- Acceptance signoff: Self-closed: the native gate and detts passed on b29w.
+	- Closed: 20261103-172404
 
 - pack-zip.bash's header says Copyright (c) 2026 Bubbles.
 	- ID: 2026110315153026
@@ -230,7 +234,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Other hosts: with the native gate on b29w, its windowed tests go to vm925w when it's there.
 	- ID: 2026103116203063
 	- Type: Task
-	- Status: Waiting on a full CICD run
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261031-162030
 	- Opened by: 2026103114202730
@@ -247,6 +251,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: depg0 (`NEMO_WIN_DESKTOP_ELSEWHERE=1` exits 75 after a passing gate, runs nothing on the box's desktop, and still removes the folder) and ddmmw (the side gate is told, a 75 runs the other gate with `-NoFmt`, and a 77 from it keeps the pass with a warning).
 	- Branch: deskvm
 	- Verified: 20261103, depg0 and ddmmw pass, and fail against dev's `lane.bash` and `cicd.bash`. `--backlog-run-quick lint` passes. A lane run on vm925w from off passed, desktop step included. Left: a full run, for the b29w then vm925w path end to end.
+	- Verified: 20261103, full run at 92fc2c77: the b29w gate passed and left 22 tests for the next box, with its desktop step as a SKIP. The Native Windows gate step then started vm925w from off, its gate ran with Lints turned off by `-NoFmt` and passed, and 16 of the 18 desktop tests passed as wintest in its desktop session, debgn and dcd70 among them, with de5he and dcbcb skipping there as they do in the gate. vm925w was shut down again, and the step passed.
+	- Acceptance signoff: Self-closed: the full run took the b29w then vm925w path end to end and passed.
+	- Closed: 20261103-172404
 
 - CICD step output: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102819522603
@@ -276,11 +283,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261028, ddmn7 and ddmmv pass, and fail on the lanes before the change, with a 78-dot rule, and with no `FAIL` close on a failure.
 	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed: the FreeBSD suite (FreeBSD 1 to 3 of 3), the FreeBSD release (1 to 4 of 4) and the arm64 release (arm64 1 to 4 of 4) each printed their own steps inside the run's step, under the rule, with `Starting` and `PASS`.
 	- 20261102: the full run at fdce4acd passed every step, `--long` included. The FreeBSD suite (1 to 3 of 3), the FreeBSD release (1 to 4 of 4) and the arm64 release (1 to 4 of 4) printed their steps the same way. The private runner passed but printed no step lines of its own, so this item waits on 2026102820110989.
+	- 20261103: the full run at 92fc2c77 passed the private runner, still with no step lines of its own. The lanes' steps printed as before at d9733893.
 
 - Other hosts: the Windows dogfood takes b29w by that name, and its box through the VM state helper.
 	- ID: 2026102808250954
 	- Type: Task
-	- Status: Waiting on automated testing
+	- Status: Stalled
+		- Held for: a plain run with the dogfood on, which a round never starts.
 	- Needs external testing: a plain run's Windows dogfood with b29w away and vm925w off: vm925w is started, the exe refreshed, and vm925w shut down again.
 	- Priority|Severity: High
 	- Opened: 20261028-082509
@@ -300,6 +309,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- 20261102: not run, as above. dehyb passed in the full run at fdce4acd.
 	- 20261028: not run. Left for a plain run, since no narrower check covers the refresh.
 	- 20261028: still not run. A round never runs the dogfood, and the step it needs, vm925w started from off, can't happen while the paused vmKt6m holds SPICE port 5900. dehyb covers the rest.
+	- 20261103: not run, as above. The full run at 92fc2c77 started vm925w from off for the native gate and shut it down again, the same box handling the dogfood needs. dehyb passed in the full run at d9733893.
 
 - CICD CPU: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102517333362
@@ -329,6 +339,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261028, ddmn7, ddmmv and dee7t pass. ddmn7 and ddmmv fail on the lanes before the change: a fixed 4, no nice and no jobs line.
 	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed: the FreeBSD suite and release printed "jobs 4 (load 1.65 on 8 cpus on bsdtest@vmFreeBSD)" and "jobs 4 (load 0.85 ...)", and the arm64 release "jobs 4 (load 1.31 on 8 cpus on tester@vmDebARM64)". nice and the container caps there are checked by ddmn7 and ddmmv, which passed in the same run.
 	- 20261102: the full run at fdce4acd passed every step. The lanes printed "jobs 4 (load 1.40 on 8 cpus on bsdtest@vmFreeBSD)" and "jobs 4 (load 3.07 on 8 cpus on tester@vmDebARM64)". The private runner printed only this box's jobs line, none for b26, so this item waits on 2026102820110967.
+	- 20261103: the same in the full run at 92fc2c77: only this box's jobs line before the private runner, none for b26. The FreeBSD lanes printed "jobs 4 (load 3.18 on 8 cpus on bsdtest@vmFreeBSD)" and "jobs 4 (load 1.06 ...)" at d9733893.
 
 - CICD step output: `cicd-win.ps1` and the lanes on other boxes.
 	- ID: 2026102517333373
@@ -348,6 +359,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261028: split the lanes and the private runner into child 2026102819522603.
 		- 20261029: open only for its child 2026102819522603, which waits on the private runner's child 2026102820110989.
 		- 20261102: still open for that child. The full run at fdce4acd passed the private runner, but it printed no step lines of its own.
+		- 20261103: the same at 92fc2c77. The native gate printed `Windows N of 4` and the gate's own `Step N of M` lines on b29w and vm925w.
 	- Decisions:
 		- The steps are the old stages, plus the smoke checks, now their own step in the full run as in the gate: Remote sync, Lints, Build (debug), Tests, Smoke checks, Runtime bundle, Packages, Dogfood, Publish. The names match `cicd.bash`'s where the step is the same.
 		- A missing toolchain, `-NoBuild`, `-NoPack` and a missing Enigma Virtual Box turn steps off in the plan, rather than warning inside the step. Dogfood says which of those turned the pack off.
@@ -986,7 +998,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026102516165479
 	- Type: Task
 	- Status: Waiting on automated testing
-	- Needs local test suite run?: yes. A plain `--backlog-run-full`, without `--long`, to time the whole run and the Static analyzers step at the 2 min cap.
+	- Needs local test suite run?: yes. A plain `--backlog-run-full`, without `--long`, timed whole in one go. The Static analyzers step at the 2 min cap is timed.
 	- Priority|Severity: High
 	- Opened: 20261025-161654
 	- Opened by: 2026102416300004
@@ -1005,6 +1017,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261103, `cicd.bash -y --quick --no-sync --no-dogfood --no-publish` passed all 8 steps in 14.7 min, fuzzing 1.4 of it, at a load of 13 to 41 on 32 CPUs.
 	- Progress log:
 		- 20261103: `--quick` was still about 5 min over 10, which is in child 2026110314093130. It now takes 10.1 min, with the Windows cross build alongside.
+		- 20261103: Static analyzers took 9.5 min in the plain full run at d9733893 and 9.3 in the one at 92fc2c77, from 36 to 39 before. Put together from the two runs, a plain run comes to about 61 min: steps 1 to 11 in 38.5 at d9733893, then at 92fc2c77 the Native Windows gate 15.2 (its vm925w part, since b29w runs alongside the local steps), Packages 3.1 and the private runner 4.6. The run at 92fc2c77, with sanitizers, the profiler and FreeBSD off, took 50.8 min whole.
 
 - CICD flags: `--quick` down to about 10 minutes.
 	- ID: 2026110314093130
@@ -1134,8 +1147,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Temp files: removals outside a temp root go through a guard that names its parent.
 	- ID: 2026102617555865
 	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: `cicd/cicd.bash --backlog-run-full`, for the FreeBSD lane's tests and release, the packages step, and the native Windows gate, where `jail.bash` without a jail, `lint-c.bash` and `stage-native.bash` run under MSYS2.
+	- Status: Done
+	- Needs local test suite run?: none left.
 	- Priority|Severity: Avg
 	- Opened: 20261026-175558
 	- Opened by: 2026102516403471
@@ -1161,12 +1174,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: defnq (every `rm -r` is on the list or gone, a script that calls the guard sources it, and `fSafeRm_Under`: under the parent only, not the parent itself, `..`, a link, a path through a link, `/` or a relative parent, a parent behind a link, and both guards without GNU `realpath` and `rm`).
 	- Verified: 20261103, defnq passes, and fails with the link check, the under check, the link-between check or the parent check taken out, with `realpath -e` put back, with the GNU form forced, and with the `source` line taken out of a script. `--backlog-run-quick format lint` and `--backlog-run-quick tests` passed. bsd test-lane, test-lint-scope, test-jail, test-prefix, test-deb-size, test-release-setup, ddf32, test-release-arm64, test-vendor-forks, test-thumbnailers, test-win-dogfood, win test-lane and the cicd.bash flag tests pass when run alone. `stage-prefix.bash` run twice into one dest in the build container replaced it and left no scratch. `jail.bash`'s no-jail path removed a cell's home. The wine runner's staging ran twice in a cross-build step container.
 	- Swept: every `rm -r` in tracked bash scripts; what's left is the guard's own line and the 4 scripts of 2026102617555870. Every test that copies a script it touched into a scratch repo.
+	- Verified: 20261103, full run at d9733893: the FreeBSD suite (FreeBSD 1 to 3 of 3) and the FreeBSD release (1 to 4 of 4) passed. Its native gate failed on defnq's link cases under MSYS2, fixed in 92fc2c77.
+	- Verified: 20261103, full run at 92fc2c77, which changed only `test-safe-rm.bash` from d9733893: the native gate on b29w passed its Lints, Build and Tests steps under MSYS2, defnq and the C lint included, and the same gate passed on vm925w. Packages passed.
+	- Acceptance signoff: Self-closed: the full runs at d9733893 and 92fc2c77 passed every step this item names.
+	- Closed: 20261103-172404
 
 - Temp files: the installer, and removals inside a container.
 	- ID: 2026102617555870
 	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs external testing: on vmFreeBSD, `install.bash --from` the `-bsd-` tarball into a scratch home: install, install again, then `--uninstall`, for its guard's `rm -x` form.
+	- Status: Done
+	- Needs external testing: none left.
 	- Priority|Severity: Avg
 	- Opened: 20261026-175558
 	- Opened by: 2026102516403471
@@ -1187,6 +1204,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: defnq, with each script taken off its list. The list is now the two guards' own lines. It also checks install.bash's guard: the same cases as `fSafeRm_Under` with no `realpath` at all, the `rm` going through `priv`, one file system with GNU, BSD and busybox `rm`, and a prefix that's a link refused. dd3s7 and dd5fv run the installer.
 	- Verified: 20261103, defnq passes, and fails on install.bash as it was, and with the link, link-between, under, parent or prefix link check taken out, with `priv` or the one file system flag dropped, with `realpath` used, and with a bare `rm -rf` put back. dd3s7, dd5fv, ddf31 and ddf32 pass, and `pack-zip.bash` packed the zip. Under Bash 3.2 with busybox, install.bash installed, installed again with a `TMPDIR` ending in a slash, and uninstalled, leaving no temp folder, and refused a prefix that's a link on install and uninstall with its files left alone. `--backlog-run-quick lint` passed.
 	- Swept: every `rm -r` in tracked bash scripts, through defnq; only the two guards' lines are left. Every `rm` in install.bash. The tests that read the changed scripts: dd3s7, dd5fv and test-thumbnailers' check of `pack-zip.bash`.
+	- Verified: 20261103, on vmFreeBSD (15.1-RELEASE-p4, bash 5.3), installer 1.3.2 with `--from` the `-bsd-` tarball of the full run at d9733893, into a scratch home: install, install again over it, then `--uninstall`, each exit 0, with the prefix, launcher and link removed, and nothing left in its `TMPDIR`. dd3s7 passed in the full run at 92fc2c77.
+	- Acceptance signoff: Self-closed: the install, reinstall and uninstall passed on vmFreeBSD.
+	- Closed: 20261103-172404
 
 - Temp files: `cicd-win.ps1` and the PowerShell scripts.
 	- ID: 2026102516403476
