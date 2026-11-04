@@ -143,6 +143,11 @@ try {
 	fTouch (Join-Path $t 'proj/run/f')
 	fRefused 'a project whole folder' @((Join-Path $t 'proj')) -Says "project's whole folder"
 	if ((Remove-SafeTree -LiteralPath (Join-Path $t 'proj/run')) -ne $true -or (fThere (Join-Path $t 'proj/run'))) { fFail "a run folder under HOST_TEMP: not removed" }
+	## HOST_TEMP as a box may set it, through a link to the real folder.
+	fLink (Join-Path $scratch 'ht-link') $t
+	$env:HOST_TEMP = Join-Path $scratch 'ht-link'
+	fRefused 'a project whole folder, HOST_TEMP through a link' @((Join-Path $t 'proj')) -Says "project's whole folder"
+	fRefused 'the temp root, HOST_TEMP through a link' @($t) -Says "project's whole folder"
 	$env:HOST_TEMP = $null; $env:CICD_PROJECT = $null
 
 	## Links.

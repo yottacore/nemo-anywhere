@@ -29,6 +29,9 @@
 ##	SPDX-License-Identifier: MIT
 
 $script:SafeRmCase = if ($IsWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+## HOST_TEMP's real path, worked out once for each value it takes.
+$script:SafeRmRootFor = $null
+$script:SafeRmRealRoot = $null
 
 ## The path with every link in it swapped for its target, or $null when part
 ## of it isn't there. Short (8.3) names stay as they are, on both sides.
@@ -80,9 +83,18 @@ function Get-SafeRmRefusal {
 		if (-not ($p -match $tmpRx) -and -not $inOwn) { return "not under a tmp folder: $Path" }
 	}
 	if ($env:HOST_TEMP) {
+		## Outside a run HOST_TEMP is as the box set it, and may sit behind a
+		## link, while a path that gets this far has none in it.
 		$root = $env:HOST_TEMP.TrimEnd('\', '/')
-		if ([string]::Equals($p, $root, $script:SafeRmCase) -or [string]::Equals([IO.Path]::GetDirectoryName($p), $root, $script:SafeRmCase)) {
-			return "the temp root or a project's whole folder: $Path"
+		if ($script:SafeRmRootFor -ne $env:HOST_TEMP) {
+			$script:SafeRmRootFor = $env:HOST_TEMP
+			$script:SafeRmRealRoot = if ([IO.Path]::IsPathFullyQualified($root)) { Resolve-SafeRmPath -Path $root } else { $null }
+		}
+		$up = [IO.Path]::GetDirectoryName($p)
+		foreach ($r in @($root, $script:SafeRmRealRoot)) {
+			if ($r -and ([string]::Equals($p, $r, $script:SafeRmCase) -or [string]::Equals($up, $r, $script:SafeRmCase))) {
+				return "the temp root or a project's whole folder: $Path"
+			}
 		}
 	}
 	return ''
@@ -211,3 +223,5 @@ function Remove-StaleRunTemp {
 
 ##	History:
 ##		- 2026-11-03: Created.
+##		- 2026-11-04: The temp root rule also holds when HOST_TEMP sits behind a
+##		  link.

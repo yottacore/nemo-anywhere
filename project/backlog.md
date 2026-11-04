@@ -987,17 +987,47 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - `fSafeRm` removes a whole project temp folder.
 	- ID: 2026110410593292
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
+	- Needs local test suite run?: none
+	- Needs external testing: none
 	- Priority|Severity: Avg
 	- Opened: 20261104-105932
 	- Opened by: 2026102516403481
-	- Related IDs: 2026102516403466, 2026102516403481
+	- Related IDs: 2026102516403466, 2026102516403481, 2026110411135625
 	- Steps to reproduce [Bug]:
 		- Source `cicd/utility/include/run-temp.bash`, set `HOST_TEMP` and `projectName`, and call `fSafeRm "${HOST_TEMP}/${projectName}"`.
 	- Incorrect behavior [Bug]: it removes the folder, every run's folder in it included.
 	- Expected behavior [Bug]: refused, per `Safe removal` in the shared CICD rules: never `${HOST_TEMP}` or a project's whole folder right under it.
 	- Reproduced [Bug]: 20261104, on b23, with a scratch `HOST_TEMP`.
 	- Possible cause [Bug]: the repo copy has no check for `${HOST_TEMP}` and the folder right under it, which the rules' copy has. The tmp-folder rule alone lets `/tmp/<project>` through.
+	- Actual cause [Bug]:
+		- The repo copy had no such check. The PowerShell copy had one, but compared strings only, so a `HOST_TEMP` that sits behind a link, as a box may set it outside a run, let the real project folder through.
+	- Progress log:
+		- 20261104: `fSafeRm` refuses `${HOST_TEMP}` and any folder right under it, when `HOST_TEMP` is set. It compares the folders with `-ef`, so a link on either side can't hide one. `Remove-SafeTree` also checks against `HOST_TEMP`'s real path.
+		- 20261104: an 8.3 short name in `HOST_TEMP` or the path can still hide the folder from `Remove-SafeTree` on Windows. Filed as 2026110411135625.
+	- Decisions:
+		- Only when `HOST_TEMP` is set, as the machine's guard and the PowerShell copy do. Falling back to `${TMPDIR:-/tmp}` would refuse every script's own `mktemp -d` folder outside a run.
+		- A `mktemp -d` folder right under `HOST_TEMP` is refused too, per the rule. Inside a run `TMPDIR` is the run folder, so only a script run alone with `TMPDIR` set to `HOST_TEMP` meets it, and its trap warns and leaves the folder.
+	- Swept: `fSafeRm_Under` in `run-temp.bash`, `install.bash`, `install.ps1` and `n8runfm.ps1` take one named parent, and the installers' only temp root removal is the `mktemp` folder they made, so none has the hole. `Remove-SafeTree` had it through a link. Every `fSafeRm` caller that passes `HOST_TEMP` (`box-wrap.bash`, `fRunTemp_Done`, `fRunTemp_Sweep`, dee6e) removes a run folder, one level further down.
+	- Test case: dee6e (`HOST_TEMP`, a project's folder and another project's in it, with a trailing slash on either, and through a link to `HOST_TEMP`, all refused, and a run folder in it removed), detts (a project's whole folder and the temp root, with `HOST_TEMP` through a link).
+	- Verified: 20261104, dee6e fails 8 checks on `run-temp.bash` as it was, and 3 with the check made a string compare, and passes now. detts fails its 2 new checks on `run-temp.ps1` as it was, and passes now. `--backlog-run-quick format lint` and `--backlog-run-quick tests` passed.
+	- Closed: 20261104
+
+- `Remove-SafeTree` lets a project's whole temp folder through under an 8.3 short name.
+	- ID: 2026110411135625
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: detts on b29w, with `HOST_TEMP` in short form and the path in long form, and the other way round.
+	- Priority|Severity: Low
+	- Opened: 20261104-111356
+	- Opened by: 2026110410593292
+	- Related IDs: 2026110410593292
+	- Target OS: Windows
+	- Steps to reproduce [Bug]:
+		- On Windows, set `HOST_TEMP` to the temp folder with a short name in it, such as `C:\Users\RUNNER~1\AppData\Local\Temp`, and call `Remove-SafeTree` on `<long form of it>\nemo-anywhere`.
+	- Incorrect behavior [Bug]: unverified, from reading: the temp root rule compares strings, and `Resolve-SafeRmPath` keeps short names as they are, so the two forms don't match and the folder goes.
+	- Expected behavior [Bug]: refused, as `fSafeRm` does with `-ef`.
+	- Reproduced [Bug]: No. Needs a Windows box with 8.3 names on the temp volume.
 	- Test case: none yet.
 
 - Static analyzers: fix or suppress the findings in our own code.

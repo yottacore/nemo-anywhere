@@ -6,7 +6,8 @@
 ##	  and on SIGINT or SIGTERM too. --keep-temp keeps it and prints its path.
 ##	  A run removes the project's run folders older than 2 days whose run.pid
 ##	  names no live process, and leaves the rest. fSafeRm refuses what it
-##	  should. A copy of cicd.bash runs in a scratch dir with a stand-in step.
+##	  should, HOST_TEMP and a project's whole folder in it included. A copy
+##	  of cicd.bash runs in a scratch dir with a stand-in step.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-temp.bash
 ##	- Test ID: dee6e
@@ -173,6 +174,29 @@ fRefused "not there"               "${app}/nosuch"
 [[ -d "${scratch}/elsewhere/sub" && -d "${app}/victim/sub" ]] || fFail "fSafeRm removed something it refused"
 HOST_TEMP="$hostTemp" projectName=app fSafeRm "${app}/victim/" > /dev/null || fFail "fSafeRm refused a plain folder"
 [[ ! -e "${app}/victim" ]] || fFail "fSafeRm left a plain folder"
+
+## Never the temp root or a project's whole folder in it, even under a folder
+## named tmp, and even when HOST_TEMP names it through a link.
+fRefusedWhole(){
+	local ht="$1" rc=0 msg
+	shift
+	msg="$(HOST_TEMP="$ht" projectName=proj fSafeRm "$@" 2>&1)" || rc=$?
+	[[ "$rc" != 0 && "$msg" == *"refused, the temp root or a project's whole folder"* ]] || fFail "fSafeRm $* with HOST_TEMP ${ht}: not refused as a whole folder: exit ${rc}, ${msg}"
+}
+ht="${scratch}/tmp/ht"
+mkdir -p "${ht}/proj/run" "${ht}/other"
+fRefusedWhole "$ht"  "${ht}/proj"
+fRefusedWhole "$ht"  "${ht}/proj/"
+fRefusedWhole "$ht"  "${ht}/other"
+fRefusedWhole "$ht"  "$ht"
+fRefusedWhole "$ht/" "${ht}/proj"
+if ((haveLinks)); then
+	ln -s "$ht" "${scratch}/ht-link"
+	fRefusedWhole "${scratch}/ht-link" "${ht}/proj"
+fi
+[[ -d "${ht}/proj/run" && -d "${ht}/other" ]] || fFail "fSafeRm removed a whole folder it refused"
+HOST_TEMP="$ht" projectName=proj fSafeRm "${ht}/proj/run" > /dev/null || fFail "fSafeRm refused a run folder under HOST_TEMP"
+[[ ! -e "${ht}/proj/run" ]] || fFail "fSafeRm left a run folder under HOST_TEMP"
 
 if ((failures)); then
 	fEcho "FAILED: run folder, ${failures} problem(s)"
