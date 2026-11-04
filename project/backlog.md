@@ -33,36 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- On vm925w, dcd70 can find its entry menu not mapped yet.
-	- ID: 2026110413033064
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261104-130330
-	- Opened by: 2026102516165479
-	- Related IDs: 2026102516165479, 2026110216492601
-	- Steps to reproduce: the full run's native gate, where vm925w runs the 22 windowed tests b29w left, 4 at a time, in wintest's session.
-	- Incorrect behavior: `FAIL ../../../source/test/test-nemo-entry-menu.c:179: gtk_widget_get_mapped (menu)`, exit 1 after 2.50s. The menu was there and was a `GtkMenu`, but not mapped when the check ran.
-	- Expected behavior: passes every time.
-	- Reproduced: 20261104, once, in the full run at d7b3c702 on vm925w-iommu after a `-NoTests` build, with 21 other windowed tests alongside. Control: the same build path with only dcd70 in the list passed 3 times out of 3 (7.3s, 1.6s, 5.6s), and dcd70 passed on vm925w on 20261103.
-	- Possible cause: `wait_for_menu` returns once the menu exists and pending events are drained, which can be before the map, more so on a busy box. Waiting for the menu's `map` (or `gtk_widget_get_mapped`) with a timeout would cover it.
-	- Test case: dcd70.
-
-- The native Windows gate never runs the PowerShell tests in its lint step.
-	- ID: 2026110412543196
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261104-125431
-	- Opened by: 2026110315185015
-	- Related IDs: 2026110315185015
-	- Steps to reproduce: run `cicd-win.ps1 -Gate -Yes` on b29w and read its Lints step.
-	- Incorrect behavior: it prints "install.ps1 PATH, n8runfm pool and shortcut, bundle exe and settings, evb project, cicd-win.ps1 and PowerShell guard tests skipped: no pwsh", so dd5fw, dd5fx, ddkd9, ddqv0, ddwhx, the evb project test, dejjt and detts never run on Windows in a gate. Their Windows-only cases, such as detts' junctions and held files, go unchecked.
-	- Expected behavior: the gate runs them under the box's pwsh 7, or says plainly that it leaves them to another step that does.
-	- Reproduced: 20261104, in the full run at d7b3c702 on b29w. Control: pwsh 7 is on b29w at `C:\Program Files\PowerShell\7`, and detts passes there run on its own.
-	- Possible cause: `lint.bash` looks for pwsh with `command -v`, and finds none on the path the Lints step runs with, though the Tests step's path names the pwsh folder.
-	- Test case: none yet.
-
 - README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
 	- ID: 2026101417352264
 	- Type: Task
@@ -126,6 +96,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- 20261028: not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
 	- Verified: 20261102 on vm925w, dd5dm from round1102a at 1aadd7b9 (nothing under Compress changed after it), with the work area cut to 560 px in two ways, 3 runs: each passed, Options got 272 px and scrolled, and the 543 px dialog stayed inside the work area. The screen kept its size, since the dialog sizes itself to the work area and not the screen.
 	- Stand-in: none (20261102). Only the look of Reset beside Options is left, which turns on taste. In Adwaita at fdce4acd its text sits about 8 px below the Options label's, grayed and lit alike, as the 20261013 note says.
+
+- The native gate on b29w sometimes fails on test-nemo-office's leftover folder.
+	- ID: 2026103116203164
+	- Type: Bug
+	- Status: Can't reproduce
+	- Priority|Severity: Avg
+	- Opened: 20261031-162031
+	- Opened by: 2026103114202730
+	- Target OS: Windows
+	- Steps to reproduce: the native gate on b29w over ssh, `-Gate -Yes -NoSync -NoFmt`.
+	- Incorrect behavior: every test passes, 191 OK and 22 skipped, then the gate fails with "tests left these behind in ...\nemo-suite-...: test-nemo-office.kbj53Z".
+	- Expected behavior: the office tests remove their scratch folder every time.
+	- Reproduced: 20261031 on b29w at round1031a, 1 run of 3.
+		- 20261104: not again in 876 runs of test-nemo-office on b29w, 8 or 10 at a time, each in a cell laid out as `jail.bash` makes one, under the ssh user's temp folder and under `%ProgramData%`. Nor in 96 runs each of test-nemo-office-ole and test-nemo-search-helpers.
+	- Possible cause: a file held for a moment after the test deleted it, such as by the virus scanner. On 20261031 nothing tried again. In 1 of the 876 runs a folder in the test's scratch didn't go on the first try, and went on the next, 100 ms later. Since 20261101 (075e7d8a) the test's own cleanup and `jail.bash` try again for 5 s on Windows, which covers that.
+		- Ruled out: a helper outliving the test. The stand-in thumbnailer and search helper are waited for, and in no run was a file still held once the test had exited. No thumbnailer temp file was left in the cell's temp folder either.
+	- Progress log:
+		- 20261104: b29w's native gate has passed with nothing left behind since the retry went in: 2 gates on 20261102 (2026103117575073), the full run of 20261103 (2026110315184983) and the plain run of 20261104.
+	- Decisions:
+		- Can't reproduce rather than Done, since what held the folder was never named. A recurrence now prints the cell's `left` list, which names what stayed.
+	- Test case: ddq92, ddqhc and dbxj2 on Windows, with the suite's leftover check. dedme covers the retry on a held file.
 
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
@@ -472,42 +463,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
 	- Test case: one per child.
 
-- CICD flags: run lengths.
-	- ID: 2026102516165479
-	- Type: Task
-	- Status: Done
-	- Priority|Severity: High
-	- Opened: 20261025-161654
-	- Opened by: 2026102416300004
-	- Parent ID: 2026102416300004
-	- Requirements:
-		- The default run fits in about an hour. Time it, and move the slowest steps to `--long` if it doesn't.
-		- `--quick` keeps to about 10 minutes, with fuzzing at a short budget in it.
-	- Decisions:
-		- Timed from the run logs: a plain run took 68 to 77 min from 2026-10-25 to 2026-11-03. Static analyzers was 36 to 39 min of that, fuzzing 12, and no other step over 5.
-		- The analyzers stay in a plain run, since the compile list check and the planted faults are there. What moves to `--long` is their per-file cap: 2 min in a plain run, 15 with `--long`. gcc at `-O0` never finishes `nemo-config.c` or blake3's AVX2 and SSE4.1 files even in 15, and waiting on those 3 was most of the step. Of the biggest of ours, the slowest, `nemo-file.c`, took 39 s. A file cut off shows as not analyzed in the counts, so a new slow one doesn't go unseen. A plain run should come to about 50 min.
-		- `--quick` fuzzes each target for 5 s, through `FUZZ_QUICK_CMD` in the config. A config without one leaves fuzzing out of `--quick`, as before.
-		- An `ANALYZE_TU_TIMEOUT` set by hand still wins over both caps.
-		- 20261104: vm925w no longer runs a second whole gate after b29w's passed. It builds the same commit with `-NoTests`, a new `cicd-win.ps1` switch that leaves out the tests and smoke checks, then runs only the tests b29w left, in wintest's session. b29w's lane writes them to the file `NEMO_WIN_DESKTOP_LIST` names, and vm925w's lane reads them from it. That takes off the suite and smokes, about 7 min.
-		- Not b29w's build sent to vm925w. The two boxes' MSYS2 aren't pinned to the same packages, so its test programs could load DLLs they weren't built against, and the meson build folder holds whole paths. The cross build isn't run by meson on Windows at all. Building on vm925w tests what it built.
-		- The fuzz targets now run side by side, up to 4 at a time, each still for its own 60 s. That takes the Fuzzing step from 12 min to about 3, with no less searching. The cap of 4 is for memory, since each ASan target peaks at up to about 600 MB. `FUZZ_JOBS` set by hand wins over it.
-		- A plain run should come to about 59 min, from 75.4 less 7 for vm925w and 9 for fuzzing.
-		- Left as is: vm925w's boot from off, about 5.5 min, and its build at 2 jobs, since the guest's own start-up work reads as a busy box. Booting it earlier, alongside the local steps, would take off most of both, but holds the VM and its lock about 20 min longer. Worth doing only if the timed run is still over the hour.
-	- Swept: `cicd.bash --help`, the config comments, the `analyze.bash` header and design.md's run lengths line. `cicd-win.ps1` has no fuzzing or analyzers, and building.md and README.md don't give run lengths.
-		- 20261104: the lane's and `cicd-win.ps1`'s headers, the config's native gate and fuzz comments, the `cicd.bash` step comments, and design.md's native gate and fuzzing bullets. `-NoTests` applies in the gate and the full run alike. The other `-Gate` callers, the Windows dogfood and the hosted workflow, don't pass it. A hand run of the vm925w lane with no list still runs the whole gate and its own skipped tests.
-	- Test case: de54r: `--quick` runs the short fuzz command, `--long` and `--slow` the long analyzer one, and a config with no short fuzz command leaves fuzzing out of `--quick`. dddq3's config has the short command too.
-		- 20261104: depg0 (the list written before a 75, the next box runs the tests named there with `-NoTests`, an empty list fails the lane), ddmmw (the other gate gets `-NoFmt -NoTests` and the same list file as the side one), dejjt (`-NoTests` in the gate and the full run), ddf32 (the targets run side by side, and their lines keep the list's order).
-		- 20261104: ddmmw's assert for the other gate's switches went from `-Gate -Yes -NoSync -NoFmt` to `-Gate -Yes -NoSync -NoFmt -NoTests`.
-	- Verified: 20261103, de54r, dddq3, ddmmw, desha and the other cicd step tests pass. The new de54r fails on `cicd.bash` from before the change. The real fuzz stage at 5 s a target took 91 s with a cold fuzz build, all 12 targets clean.
-	- Verified: 20261103, `cicd.bash -y --quick --no-sync --no-dogfood --no-publish` passed all 8 steps in 14.7 min, fuzzing 1.4 of it, at a load of 13 to 41 on 32 CPUs.
-	- Verified: 20261104, depg0, ddmmw, dejjt and ddf32 pass. Against the files from before the change, depg0 fails 3 checks, ddmmw 2, dejjt 13, and ddf32 its side by side check, with 12 targets taking 36 s. The real fuzz stage at 5 s a target, 4 at a time, took 31 s with a warm fuzz build, all 12 clean. `--backlog-run-quick` passes.
-	- Verified: 20261104, a plain `--backlog-run-full` at d7b3c702, with b29w and vm925w both there, ran steps 1 to 12 in 40.6 min: Fuzzing 3.2, Static analyzers 9.5, and the Native Windows gate 10.3 after the local steps. b29w's gate passed alongside them. vm925w's part was its start from off 1.6 min, the `-NoTests` build 4.2 and the 22 windowed tests b29w left 3.8. With Packages (3.1) and the private runner (4.6) from the 20261103 runs, which didn't run after the gate's failure, a plain run comes to about 48 min. Of the 22 windowed tests, 19 passed, de5he and dcbcb skipped, and dcd70 failed once on its menu not being mapped yet. It passed 3 times out of 3 alone after the same `-NoTests` build, so that's the flake in 2026110413033064.
-	- Progress log:
-		- 20261103: `--quick` was still about 5 min over 10, which is in child 2026110314093130. It now takes 10.1 min, with the Windows cross build alongside.
-		- 20261103: Static analyzers took 9.5 min in the plain full run at d9733893 and 9.3 in the one at 92fc2c77, from 36 to 39 before. Put together from the two runs, a plain run comes to about 61 min: steps 1 to 11 in 38.5 at d9733893, then at 92fc2c77 the Native Windows gate 15.2 (its vm925w part, since b29w runs alongside the local steps), Packages 3.1 and the private runner 4.6. The run at 92fc2c77, with sanitizers, the profiler and FreeBSD off, took 50.8 min whole.
-		- 20261104: a plain run at 29dc6c7b, timed whole, took 85.4 min, or 75.4 without the two dogfood steps and publish. Static analyzers 10.8 at the 2 min cap, fuzzing 12.3, and the Native Windows gate 27.4. b29w's gate finished alongside the local steps, then vm925w started from off, ran its whole gate again (17 min) and then its 18 desktop tests (3 min). No other step was over 5.
-	- Closed: 20261104
-
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
 	- Type: Enhancement
@@ -719,65 +674,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: opened.
 	- Test case: none yet.
 
-- CICD reset: other hosts and VMs.
-	- ID: 2026102416300001
-	- Type: Task
-	- Status: Done
-	- Priority|Severity: High
-	- Opened: 20261024-163000
-	- Opened by: t00mietum
-	- Requirements:
-		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
-		- Per the other hosts and VMs section of the shared CICD rules. The FreeBSD lane, the arm64 release and the Windows dogfood refresh already hold their box through the shared host lock. What's left:
-			- The native Windows gate is part of the default run. It favors b29w, and goes to vm925w for GPU or timed work, and for a check that puts a window on screen. b29w can still run a windowed check unattended under its test account. `--no-remote` skips every box.
-			- A box or VM that isn't there shows as `SKIP` in its step line and the summary, and the run goes on. Today the FreeBSD and arm64 lanes stop the run.
-			- Each VM is put back the way it was found, paused, off or running, through the VM state helper.
-			- Each box gets the project's own work folder under its temp root.
-			- The Windows dogfood refresh names `b29w`, never `b29w-wif`.
-		- Overrides: the native Windows step in the private round settings, run by hand. The rule sending windowed checks to vm925w stays.
-	- Test case: the children's: ddmmw, ddmn7 and ddmmv (2026102808250949, 2026102808084300, 2026102516403481), dehyb (2026102808250954), depg0 and ddmmw (2026102808250959).
-	- Prereq IDs: 2026102516403481
-	- 2026-10-26, round1026a full run: vmFreeBSD was off. The lane started it, then failed at once with 'bsdtest@vmFreeBSD is not a FreeBSD box reachable as that user', before ssh was up, and stopped the run. The lane should wait for ssh after a start.
-	- 2026-10-27: the same at step 7 of a full run, with ssh timing out on the VM that was off. The FreeBSD lane and the arm64 release now take their box through the VM state helper when it's here, so a VM that's off or paused is started, waited for and put back. The bare host lock is still the fallback. Left: the `SKIP` for a box that isn't there, and the Windows dogfood, which still only tries boxes that already answer.
-	- 20261028: split into children. The `SKIP` is 2026102808250949, the Windows dogfood's box and name 2026102808250954, the native Windows gate 2026102808250959. The FreeBSD and arm64 work folders are 2026102516403481. A lane that starts its VM now also waits for its own login (2026102808084300).
-	- 20261104: the per-box work folders are the last requirement left, in 2026102516403481, so this closes with it.
-	- 20261104: closed with 2026102516403481.
-	- Closed: 20261104
-
-- With OLE drag on, a GTK drag on Windows may keep its whole drag window.
-	- ID: 2026102112223038
-	- Type: Bug
-	- Status: Open
-		- Filed upstream as GTK issue [#8497](https://gitlab.gnome.org/GNOME/gtk/-/work_items/8497) and MR [!10551](https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/10551). Waits on a GTK 3.24 release with it.
-		- Let's patch our own fork, if it hasn't been merged yet.
-	- Needs external testing: none. Seen on native Windows 20261022.
-	- Priority|Severity: Low
-	- Opened: 20261021-122230
-	- Opened by: t00mietum
-	- Related IDs: 2026102020234500, 2026101916044103
-	- Target OS: Windows
-	- Steps to reproduce:
-		- Turn on GDK's OLE drag, as `nemo_dnd_win32_prepare` does.
-		- Start a GTK drag, such as a tab or a text drag, and stop it.
-	- Incorrect behavior: the drag window is never destroyed, and keeps 4 refs after the drag's context is gone. One per drag, for the life of the app. The app's own file drags don't use it, but GTK's own drag sources do.
-	- Expected behavior: the drag window is destroyed and freed with its context, as it is with GTK's own drag protocol.
-	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. 20261022 on Windows 11, GTK 3.24.52, the same in every mode. Again 20261021 under wine: only when the drag stops before GDK handles another event. One stopped 300 ms in is freed, OLE on or off.
-	- Possible cause: GDK's OLE drag source keeps the context's drag window past the context, or wine's `DoDragDrop` never returns for a drag stopped from GTK's side.
-	- Actual cause: GDK, not wine.
-		- With OLE on, `gdk_drag_begin` leaves a pending OLE drag source that holds a ref on the context. Only the code after `DoDragDrop` lets it go, and `DoDragDrop` starts on the next event GDK handles. GDK's drag abort just sets the state to none, so a drag stopped before then never runs `DoDragDrop`, and the source is never released.
-		- So the context isn't gone. It stays at 1 ref, is never finalized, and never destroys its drag window. The window's 4 refs are what any drag window has until its context's finalize. Dropping the context's last ref by hand destroys and frees the window at once.
-		- The first source left this way also stays GDK's current drag source, so later drops inside the app take their source window from it.
-	- Decisions:
-		- Upstream only. The ref belongs to GDK's pending drag source, which the app can't reach. Dropping it from the app leaves GDK's pointer to the context dangling, and GDK reads it on the next drop into the app.
-		- Drags in the app start from an event, so `DoDragDrop` runs right after and the context is freed. The app never cancels a drag itself. So it stays Low.
-		- An upstream patch is drafted, not filed: GDK's drag abort releases the pending source when `DoDragDrop` hasn't started.
-		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
-		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
-	- Actual fix: none in the app.
-	- Test case: none. The fix is upstream, and nothing in the app hits it.
-	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
-	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
-
 - CICD reset: CPU and priority.
 	- ID: 2026102416300003
 	- Type: Task
@@ -840,6 +736,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de54r for `--no-remote`: a plain run, `--long` with both includes, and `--backlog-run-full`, each with it.
 	- Verified: 20261025, `--no-remote`: de54r passes, and fails on `cicd.bash` without it, and with the private runner and remote dogfood left on under it.
 
+- With OLE drag on, a GTK drag on Windows may keep its whole drag window.
+	- ID: 2026102112223038
+	- Type: Bug
+	- Status: Open
+		- Filed upstream as GTK issue [#8497](https://gitlab.gnome.org/GNOME/gtk/-/work_items/8497) and MR [!10551](https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/10551). Waits on a GTK 3.24 release with it.
+		- Let's patch our own fork, if it hasn't been merged yet.
+	- Needs external testing: none. Seen on native Windows 20261022.
+	- Priority|Severity: Low
+	- Opened: 20261021-122230
+	- Opened by: t00mietum
+	- Related IDs: 2026102020234500, 2026101916044103
+	- Target OS: Windows
+	- Steps to reproduce:
+		- Turn on GDK's OLE drag, as `nemo_dnd_win32_prepare` does.
+		- Start a GTK drag, such as a tab or a text drag, and stop it.
+	- Incorrect behavior: the drag window is never destroyed, and keeps 4 refs after the drag's context is gone. One per drag, for the life of the app. The app's own file drags don't use it, but GTK's own drag sources do.
+	- Expected behavior: the drag window is destroyed and freed with its context, as it is with GTK's own drag protocol.
+	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. 20261022 on Windows 11, GTK 3.24.52, the same in every mode. Again 20261021 under wine: only when the drag stops before GDK handles another event. One stopped 300 ms in is freed, OLE on or off.
+	- Possible cause: GDK's OLE drag source keeps the context's drag window past the context, or wine's `DoDragDrop` never returns for a drag stopped from GTK's side.
+	- Actual cause: GDK, not wine.
+		- With OLE on, `gdk_drag_begin` leaves a pending OLE drag source that holds a ref on the context. Only the code after `DoDragDrop` lets it go, and `DoDragDrop` starts on the next event GDK handles. GDK's drag abort just sets the state to none, so a drag stopped before then never runs `DoDragDrop`, and the source is never released.
+		- So the context isn't gone. It stays at 1 ref, is never finalized, and never destroys its drag window. The window's 4 refs are what any drag window has until its context's finalize. Dropping the context's last ref by hand destroys and frees the window at once.
+		- The first source left this way also stays GDK's current drag source, so later drops inside the app take their source window from it.
+	- Decisions:
+		- Upstream only. The ref belongs to GDK's pending drag source, which the app can't reach. Dropping it from the app leaves GDK's pointer to the context dangling, and GDK reads it on the next drop into the app.
+		- Drags in the app start from an event, so `DoDragDrop` runs right after and the context is freed. The app never cancels a drag itself. So it stays Low.
+		- An upstream patch is drafted, not filed: GDK's drag abort releases the pending source when `DoDragDrop` hasn't started.
+		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
+		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
+	- Actual fix: none in the app.
+	- Test case: none. The fix is upstream, and nothing in the app hits it.
+	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
+	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
+
 - CICD flags: `cicd-win.ps1` takes the same flags.
 	- ID: 2026102516165482
 	- Type: Task
@@ -871,27 +801,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261025: split into children 2026102517333367 (`cicd.bash`, the gate included) and 2026102517333373 (`cicd-win.ps1` and the other boxes).
 	- Test case: none yet.
 
-- The native gate on b29w sometimes fails on test-nemo-office's leftover folder.
-	- ID: 2026103116203164
-	- Type: Bug
-	- Status: Can't reproduce
-	- Priority|Severity: Avg
-	- Opened: 20261031-162031
-	- Opened by: 2026103114202730
-	- Target OS: Windows
-	- Steps to reproduce: the native gate on b29w over ssh, `-Gate -Yes -NoSync -NoFmt`.
-	- Incorrect behavior: every test passes, 191 OK and 22 skipped, then the gate fails with "tests left these behind in ...\nemo-suite-...: test-nemo-office.kbj53Z".
-	- Expected behavior: the office tests remove their scratch folder every time.
-	- Reproduced: 20261031 on b29w at round1031a, 1 run of 3.
-		- 20261104: not again in 876 runs of test-nemo-office on b29w, 8 or 10 at a time, each in a cell laid out as `jail.bash` makes one, under the ssh user's temp folder and under `%ProgramData%`. Nor in 96 runs each of test-nemo-office-ole and test-nemo-search-helpers.
-	- Possible cause: a file held for a moment after the test deleted it, such as by the virus scanner. On 20261031 nothing tried again. In 1 of the 876 runs a folder in the test's scratch didn't go on the first try, and went on the next, 100 ms later. Since 20261101 (075e7d8a) the test's own cleanup and `jail.bash` try again for 5 s on Windows, which covers that.
-		- Ruled out: a helper outliving the test. The stand-in thumbnailer and search helper are waited for, and in no run was a file still held once the test had exited. No thumbnailer temp file was left in the cell's temp folder either.
-	- Progress log:
-		- 20261104: b29w's native gate has passed with nothing left behind since the retry went in: 2 gates on 20261102 (2026103117575073), the full run of 20261103 (2026110315184983) and the plain run of 20261104.
-	- Decisions:
-		- Can't reproduce rather than Done, since what held the folder was never named. A recurrence now prints the cell's `left` list, which names what stayed.
-	- Test case: ddq92, ddqhc and dbxj2 on Windows, with the suite's leftover check. dedme covers the retry on a held file.
-
 - ddepv on b29w: the heap grew over 64 rounds again.
 	- ID: 2026103116284963
 	- Type: Bug
@@ -915,32 +824,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- No change to the readings until that's known. A fifth showing would only make it rarer, since the failing runs grew in 4 readings in a row, and leaving out the process heap or blocks of that size would hide a real leak there, as 2026101913541101 decided.
 	- Test case: ddepv on b29w over ssh.
 
-- Temp files: `install.ps1` and `n8runfm.ps1` get their own copy of the guard.
-	- ID: 2026110315185015
-	- Type: Task
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261103-151850
-	- Opened by: 2026102516403476
-	- Parent ID: 2026102516403476
-	- Prereq IDs: 2026110315184948
-	- Requirements:
-		- Both run on their own, from a download or the launcher, so they need their own copy, as `install.bash` has. `install.ps1` removes the prefix with a bare `Remove-Item -Recurse` near line 619.
-		- Take each one off detts' list as it moves. One of `install.ps1`'s 7 removes the Settings, Apps registry key, not a folder, so it leaves the list some other way.
-	- Progress log:
-		- 20261104: `install.ps1` and `n8runfm.ps1` each have an `fSafeRm_Under <parent> <paths>`, the same rule as `install.bash`'s: strictly under the parent, no link below it, the parent itself may sit behind one, and one that's gone is skipped. A link inside goes as a link. On Windows each walks the tree itself, hidden and read-only files included. `install.ps1`'s runs on Windows PowerShell 5.1 too, retries 5 s for a virus scanner, and on unix runs `rm` on one file system through `sudo` for a system install.
-		- 20261104: all 13 removals go through it: the prefix, the staging and backup folders and the temp folder in `install.ps1`, and the partial copies, pruned versions, old-layout copies and old launchers in `n8runfm.ps1`. The Settings, Apps key goes through the registry's own `DeleteSubKeyTree`. detts' list is empty.
-		- 20261104: `install.ps1` follows a prefix that's a link, as `install.bash` now does (2026102617555870). On Windows that's a junction or a symlink. The plan shows where it points, the install waits on programs running from either path, and the swap is done beside the target. Installer version 1.5.0.
-	- Decisions:
-		- One copy shape in both standalone scripts, with the same names as `install.bash`'s, rather than the repo's `Remove-SafeTree`, which needs PowerShell 7 and has the tmp folder rule neither script uses.
-		- `n8runfm.ps1`'s copy doesn't retry a held file. A held version is kept for the next run, as before.
-		- A removal that fails after the new install is in place warns rather than failing the install, as the staging folder's already did.
-	- Test case: detts (the copies in both scripts, lifted through the parser: under the parent only, not the parent itself, a sibling sharing the name, `..`, a newline, a relative or root parent, a link, a path through a link, a parent behind a link, a held or locked one, and `install.ps1`'s `rm` through `sudo` on one file system; and no recursive removal left outside the guard), ddgch (a linked prefix, installed where it points with the link kept, and on Windows emptied by `-Uninstall`), dd3s7 (both installers through a prefix that's a link), dd5fx, ddkd9, dd5fw.
-	- Verified: 20261104, detts, ddgch, dd3s7, dd5fx, ddkd9 and dd5fw pass on Linux. detts fails with either copy's link check, under check or sibling check taken out, with the tree walk following links, with the `rm` not through `sudo`, with a root parent let through, with a failed delete thrown, and with a bare `Remove-Item -Recurse` put back. ddgch and dd3s7 fail on `install.ps1` as it was: the link was swapped for a folder. PSScriptAnalyzer is clean.
-	- Verified: 20261104, on b29w at d7b3c702: dd5hz, ddc6v and ddgch pass in the native gate, ddgch's linked case on a junction with its `-Uninstall` included. detts passes there under pwsh 7, run on its own, since the gate's lint step skips it with no pwsh on the MSYS2 path (2026110412543196). `install.ps1` under Windows PowerShell 5.1, into a scratch `LOCALAPPDATA` and `APPDATA` with `-From` the Windows zip: install, install again and `-Uninstall` all exit 0, the exe, Start Menu shortcut and user PATH entry come and go, and nothing is left beside the install. The same through a junction to another `Nemo Anywhere` keeps the junction on both installs, installs where it points, and `-Uninstall` empties the target and keeps it. The user PATH and the Apps key come out as found.
-	- Swept: every `Remove-Item -Recurse`, its aliases and recursive `.Delete` in tracked PowerShell, through detts. Every caller of `fHoldersOf` and `fWaitUntilFree`, and the tests that lift `install.ps1`'s and `n8runfm.ps1`'s functions: ddgch, ddc6v, dd5hz, dd5fx and ddkd9.
-	- Closed: 20261104
-
 - CICD reset: temp files and safe removal.
 	- ID: 2026102416300002
 	- Type: Task
@@ -961,23 +844,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261025: split into children 2026102516403466 (the run folder in `cicd.bash`), 2026102516403471 (the bash scripts), 2026102516403476 (`cicd-win.ps1` and the PowerShell scripts) and 2026102516403481 (the test VMs).
 	- Test case: none yet.
 
-- Temp files: bash scripts remove through the guard.
-	- ID: 2026102516403471
-	- Type: Task
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261025-164035
-	- Opened by: 2026102416300002
-	- Parent ID: 2026102416300002
-	- Prereq IDs: 2026102516403466
-	- Requirements:
-		- The 93 `rm -r` lines in 47 scripts go through the repo copy of the guard, or a guard of the same kind that names the one parent it may remove under. File list in the private notes.
-	- Progress log:
-		- 20261026: split into children 2026102618083910 (removals in a temp folder), 2026102617555865 (removals outside a temp root) and 2026102617555870 (the installer, and removals inside a container). The first is in. The third is in too, and waits on a FreeBSD run.
-	- Test case: defnq, which holds the list of rm -r lines that skip a guard; only the two guards' own lines are left.
-	- Acceptance signoff: Self-closed: all 3 children are done, and defnq passed in round1104a's quick run.
-	- Closed: 20261104-184700
-
 - Temp files: `cicd-win.ps1` and the PowerShell scripts.
 	- ID: 2026102516403476
 	- Type: Task
@@ -994,85 +860,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261103: split into children 2026110315184948 (the run folder in `cicd-win.ps1`, and the guard), 2026110315184983 (the scripts under `cicd/`) and 2026110315185015 (`install.ps1` and `n8runfm.ps1`, the prefix removal near line 619 included).
 	- Test case: none yet.
 	- 20261103: install.ps1 still removes the prefix with a bare Remove-Item -Recurse, near line 619. Cover it here.
-
-- Temp files: the same on the test VMs.
-	- ID: 2026102516403481
-	- Type: Task
-	- Status: Done
-	- Needs local test suite run?: none
-	- Needs external testing: none
-	- Priority|Severity: Avg
-	- Opened: 20261025-164035
-	- Opened by: 2026102416300002
-	- Parent ID: 2026102416300002
-	- Prereq IDs: 2026102516403466
-	- Related IDs: 2026102416300001, 2026110410593292
-	- Requirements:
-		- The FreeBSD lane and the arm64 release work in a run folder under that box's temp root, write `run.pid` there, and remove it at the end through the guard, failure included.
-	- Progress log:
-		- 20261104: `include/box-wrap.bash` has `fBoxWrap_RunDir`, `fBoxWrap_RunDirDone` and `fBoxWrap_RunCmd`. The FreeBSD lane and the arm64 release make `<temp>/nemo-anywhere/<YYYYmmDD-HHMMSS>_<NNN>/` on the box at the Send step, send the tree to `src` in it, and sweep the project's stale ones there. Each build or suite there runs from it with `TMPDIR`, `TEMP` and `TMP` on it and `run.pid` naming its process. The EXIT trap removes it through `fSafeRm` there, after a failure or INT, TERM or HUP too. `--keep-temp` keeps it and prints its path.
-		- 20261104: `fRunTemp_Make` works on FreeBSD now, which has no `realpath -e`.
-		- 20261104: the old fixed folders are still on the boxes and nothing uses them: `~/nemo-anywhere-ci` on vmFreeBSD (1.1 GB) and `~/nemo-anywhere-arm64` on vmDebARM64 (54 MB). They're left for a cleanup by hand.
-		- 20261104: the FreeBSD and arm64 release lanes haven't run on their boxes since the change. FreeBSD's runs in the next full run, and arm64's in the next one with `--long`.
-		- 20261104: ddmn7 and ddmmv checked the old fixed folder in the box's home: `stale.txt` cleared from it by a run, and left alone by a run that failed before the send, `BUILD_DIR` at `~/nemo-anywhere-ci/build`, and arm64's `cd nemo-anywhere-arm64/src` in the command. They now check the run folder: a new one under the box's temp root, the build dir in it, none made or left by a run that fails before the send, and the build's tail of the command.
-	- Decisions:
-		- The box runs `run-temp.bash` itself for both ends, sent on stdin, so the folder is made before the tree is there and removed even when the send failed, by the same guard as here.
-		- The FreeBSD suite's build dir is in the run folder too. Its fixed build dir already rebuilt all 208 targets every run, so it gained nothing from staying.
-		- The folder is named by the box's own clock, since its sweep reads names by that clock. vmFreeBSD is on UTC.
-		- `run.pid` is rewritten by each build step there, which then execs the build, so it names a live process while one runs. Between steps it names one that's gone, which matters only to a folder over 2 days old.
-		- vmDebARM64's `/tmp` is a 3.9 GB tmpfs. The sent tree and the tarball are about 54 MB, and the release build dir is inside the container, so that's room enough.
-	- Swept: every ssh under `cicd/` that sends to or runs in a fixed folder on a box: the FreeBSD suite and release, and the arm64 release and its dependency read. The Windows gate already had its run folder, and the Windows dogfood copies into the install folder, not a work folder.
-	- Branch: round1104a
-	- Test case: ddmn7 (FreeBSD: the run folder under the box's temp root, its build dir, `run.pid` and `TMPDIR` in the suite, gone after a pass, a failing suite and `--release`, kept with `CICD_KEEP_TEMP=1`, none made when a run fails before the send, and the sweep of an old dead one while a young one and one with no `run.pid` stay), ddmmv (arm64: the same, and gone after a failing build), dee6e (`fRunTemp_Make`).
-	- Verified: 20261104, ddmn7, ddmmv and dee6e pass. The new ddmn7 and ddmmv fail on the lanes before the change: no run folder, the suite in the fixed folder with no `run.pid` or `TMPDIR`, and no sweep.
-	- Verified: 20261104, `cicd/bsd/lane.bash --tests` on vmFreeBSD from paused: it worked in `/tmp/nemo-anywhere/20261104-185440_001`, 216 OK and 0 failed, the folder was gone afterwards and `/tmp/nemo-anywhere` was left, and the VM went back to paused.
-	- Closed: 20261104
-
-- `fSafeRm` removes a whole project temp folder.
-	- ID: 2026110410593292
-	- Type: Bug
-	- Status: Done
-	- Needs local test suite run?: none
-	- Needs external testing: none
-	- Priority|Severity: Avg
-	- Opened: 20261104-105932
-	- Opened by: 2026102516403481
-	- Related IDs: 2026102516403466, 2026102516403481, 2026110411135625
-	- Steps to reproduce [Bug]:
-		- Source `cicd/utility/include/run-temp.bash`, set `HOST_TEMP` and `projectName`, and call `fSafeRm "${HOST_TEMP}/${projectName}"`.
-	- Incorrect behavior [Bug]: it removes the folder, every run's folder in it included.
-	- Expected behavior [Bug]: refused, per `Safe removal` in the shared CICD rules: never `${HOST_TEMP}` or a project's whole folder right under it.
-	- Reproduced [Bug]: 20261104, on b23, with a scratch `HOST_TEMP`.
-	- Possible cause [Bug]: the repo copy has no check for `${HOST_TEMP}` and the folder right under it, which the rules' copy has. The tmp-folder rule alone lets `/tmp/<project>` through.
-	- Actual cause [Bug]:
-		- The repo copy had no such check. The PowerShell copy had one, but compared strings only, so a `HOST_TEMP` that sits behind a link, as a box may set it outside a run, let the real project folder through.
-	- Progress log:
-		- 20261104: `fSafeRm` refuses `${HOST_TEMP}` and any folder right under it, when `HOST_TEMP` is set. It compares the folders with `-ef`, so a link on either side can't hide one. `Remove-SafeTree` also checks against `HOST_TEMP`'s real path.
-		- 20261104: an 8.3 short name in `HOST_TEMP` or the path can still hide the folder from `Remove-SafeTree` on Windows. Filed as 2026110411135625.
-	- Decisions:
-		- Only when `HOST_TEMP` is set, as the machine's guard and the PowerShell copy do. Falling back to `${TMPDIR:-/tmp}` would refuse every script's own `mktemp -d` folder outside a run.
-		- A `mktemp -d` folder right under `HOST_TEMP` is refused too, per the rule. Inside a run `TMPDIR` is the run folder, so only a script run alone with `TMPDIR` set to `HOST_TEMP` meets it, and its trap warns and leaves the folder.
-	- Swept: `fSafeRm_Under` in `run-temp.bash`, `install.bash`, `install.ps1` and `n8runfm.ps1` take one named parent, and the installers' only temp root removal is the `mktemp` folder they made, so none has the hole. `Remove-SafeTree` had it through a link. Every `fSafeRm` caller that passes `HOST_TEMP` (`box-wrap.bash`, `fRunTemp_Done`, `fRunTemp_Sweep`, dee6e) removes a run folder, one level further down.
-	- Test case: dee6e (`HOST_TEMP`, a project's folder and another project's in it, with a trailing slash on either, and through a link to `HOST_TEMP`, all refused, and a run folder in it removed), detts (a project's whole folder and the temp root, with `HOST_TEMP` through a link).
-	- Verified: 20261104, dee6e fails 8 checks on `run-temp.bash` as it was, and 3 with the check made a string compare, and passes now. detts fails its 2 new checks on `run-temp.ps1` as it was, and passes now. `--backlog-run-quick format lint` and `--backlog-run-quick tests` passed.
-	- Closed: 20261104
-
-- `Remove-SafeTree` lets a project's whole temp folder through under an 8.3 short name.
-	- ID: 2026110411135625
-	- Type: Bug
-	- Status: Queued
-	- Needs external testing: detts on b29w, with `HOST_TEMP` in short form and the path in long form, and the other way round.
-	- Priority|Severity: Low
-	- Opened: 20261104-111356
-	- Opened by: 2026110410593292
-	- Related IDs: 2026110410593292
-	- Target OS: Windows
-	- Steps to reproduce [Bug]:
-		- On Windows, set `HOST_TEMP` to the temp folder with a short name in it, such as `C:\Users\RUNNER~1\AppData\Local\Temp`, and call `Remove-SafeTree` on `<long form of it>\nemo-anywhere`.
-	- Incorrect behavior [Bug]: unverified, from reading: the temp root rule compares strings, and `Resolve-SafeRmPath` keeps short names as they are, so the two forms don't match and the folder goes.
-	- Expected behavior [Bug]: refused, as `fSafeRm` does with `-ef`.
-	- Reproduced [Bug]: No. Needs a Windows box with 8.3 names on the temp volume.
-	- Test case: none yet.
 
 - Static analyzers: fix or suppress the findings in our own code.
 	- ID: 2026102114400588
@@ -1486,6 +1273,53 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Before the next cut.
 		- For "Nemo Anywhere" only. "Nemo Anywhere v1" keeps the previous behavior.
 		- F2 selects the name without the extension, as upstream does.
+	- Test case: none yet.
+
+- On vm925w, dcd70 can find its entry menu not mapped yet.
+	- ID: 2026110413033064
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261104-130330
+	- Opened by: 2026102516165479
+	- Related IDs: 2026102516165479, 2026110216492601
+	- Steps to reproduce: the full run's native gate, where vm925w runs the 22 windowed tests b29w left, 4 at a time, in wintest's session.
+	- Incorrect behavior: `FAIL ../../../source/test/test-nemo-entry-menu.c:179: gtk_widget_get_mapped (menu)`, exit 1 after 2.50s. The menu was there and was a `GtkMenu`, but not mapped when the check ran.
+	- Expected behavior: passes every time.
+	- Reproduced: 20261104, once, in the full run at d7b3c702 on vm925w-iommu after a `-NoTests` build, with 21 other windowed tests alongside. Control: the same build path with only dcd70 in the list passed 3 times out of 3 (7.3s, 1.6s, 5.6s), and dcd70 passed on vm925w on 20261103.
+	- Possible cause: `wait_for_menu` returns once the menu exists and pending events are drained, which can be before the map, more so on a busy box. Waiting for the menu's `map` (or `gtk_widget_get_mapped`) with a timeout would cover it.
+	- Test case: dcd70.
+
+- The native Windows gate never runs the PowerShell tests in its lint step.
+	- ID: 2026110412543196
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261104-125431
+	- Opened by: 2026110315185015
+	- Related IDs: 2026110315185015
+	- Steps to reproduce: run `cicd-win.ps1 -Gate -Yes` on b29w and read its Lints step.
+	- Incorrect behavior: it prints "install.ps1 PATH, n8runfm pool and shortcut, bundle exe and settings, evb project, cicd-win.ps1 and PowerShell guard tests skipped: no pwsh", so dd5fw, dd5fx, ddkd9, ddqv0, ddwhx, the evb project test, dejjt and detts never run on Windows in a gate. Their Windows-only cases, such as detts' junctions and held files, go unchecked.
+	- Expected behavior: the gate runs them under the box's pwsh 7, or says plainly that it leaves them to another step that does.
+	- Reproduced: 20261104, in the full run at d7b3c702 on b29w. Control: pwsh 7 is on b29w at `C:\Program Files\PowerShell\7`, and detts passes there run on its own.
+	- Possible cause: `lint.bash` looks for pwsh with `command -v`, and finds none on the path the Lints step runs with, though the Tests step's path names the pwsh folder.
+	- Test case: none yet.
+
+- `Remove-SafeTree` lets a project's whole temp folder through under an 8.3 short name.
+	- ID: 2026110411135625
+	- Type: Bug
+	- Status: Queued
+	- Needs external testing: detts on b29w, with `HOST_TEMP` in short form and the path in long form, and the other way round.
+	- Priority|Severity: Low
+	- Opened: 20261104-111356
+	- Opened by: 2026110410593292
+	- Related IDs: 2026110410593292
+	- Target OS: Windows
+	- Steps to reproduce [Bug]:
+		- On Windows, set `HOST_TEMP` to the temp folder with a short name in it, such as `C:\Users\RUNNER~1\AppData\Local\Temp`, and call `Remove-SafeTree` on `<long form of it>\nemo-anywhere`.
+	- Incorrect behavior [Bug]: unverified, from reading: the temp root rule compares strings, and `Resolve-SafeRmPath` keeps short names as they are, so the two forms don't match and the folder goes.
+	- Expected behavior [Bug]: refused, as `fSafeRm` does with `-ef`.
+	- Reproduced [Bug]: No. Needs a Windows box with 8.3 names on the temp volume.
 	- Test case: none yet.
 
 - pack-zip.bash's header says Copyright (c) 2026 Bubbles.
@@ -2421,6 +2255,67 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. dd8d9 covers it.
 	- Closed: 20261003-112426
+
+- CICD flags: run lengths.
+	- ID: 2026102516165479
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261025-161654
+	- Opened by: 2026102416300004
+	- Parent ID: 2026102416300004
+	- Requirements:
+		- The default run fits in about an hour. Time it, and move the slowest steps to `--long` if it doesn't.
+		- `--quick` keeps to about 10 minutes, with fuzzing at a short budget in it.
+	- Decisions:
+		- Timed from the run logs: a plain run took 68 to 77 min from 2026-10-25 to 2026-11-03. Static analyzers was 36 to 39 min of that, fuzzing 12, and no other step over 5.
+		- The analyzers stay in a plain run, since the compile list check and the planted faults are there. What moves to `--long` is their per-file cap: 2 min in a plain run, 15 with `--long`. gcc at `-O0` never finishes `nemo-config.c` or blake3's AVX2 and SSE4.1 files even in 15, and waiting on those 3 was most of the step. Of the biggest of ours, the slowest, `nemo-file.c`, took 39 s. A file cut off shows as not analyzed in the counts, so a new slow one doesn't go unseen. A plain run should come to about 50 min.
+		- `--quick` fuzzes each target for 5 s, through `FUZZ_QUICK_CMD` in the config. A config without one leaves fuzzing out of `--quick`, as before.
+		- An `ANALYZE_TU_TIMEOUT` set by hand still wins over both caps.
+		- 20261104: vm925w no longer runs a second whole gate after b29w's passed. It builds the same commit with `-NoTests`, a new `cicd-win.ps1` switch that leaves out the tests and smoke checks, then runs only the tests b29w left, in wintest's session. b29w's lane writes them to the file `NEMO_WIN_DESKTOP_LIST` names, and vm925w's lane reads them from it. That takes off the suite and smokes, about 7 min.
+		- Not b29w's build sent to vm925w. The two boxes' MSYS2 aren't pinned to the same packages, so its test programs could load DLLs they weren't built against, and the meson build folder holds whole paths. The cross build isn't run by meson on Windows at all. Building on vm925w tests what it built.
+		- The fuzz targets now run side by side, up to 4 at a time, each still for its own 60 s. That takes the Fuzzing step from 12 min to about 3, with no less searching. The cap of 4 is for memory, since each ASan target peaks at up to about 600 MB. `FUZZ_JOBS` set by hand wins over it.
+		- A plain run should come to about 59 min, from 75.4 less 7 for vm925w and 9 for fuzzing.
+		- Left as is: vm925w's boot from off, about 5.5 min, and its build at 2 jobs, since the guest's own start-up work reads as a busy box. Booting it earlier, alongside the local steps, would take off most of both, but holds the VM and its lock about 20 min longer. Worth doing only if the timed run is still over the hour.
+	- Swept: `cicd.bash --help`, the config comments, the `analyze.bash` header and design.md's run lengths line. `cicd-win.ps1` has no fuzzing or analyzers, and building.md and README.md don't give run lengths.
+		- 20261104: the lane's and `cicd-win.ps1`'s headers, the config's native gate and fuzz comments, the `cicd.bash` step comments, and design.md's native gate and fuzzing bullets. `-NoTests` applies in the gate and the full run alike. The other `-Gate` callers, the Windows dogfood and the hosted workflow, don't pass it. A hand run of the vm925w lane with no list still runs the whole gate and its own skipped tests.
+	- Test case: de54r: `--quick` runs the short fuzz command, `--long` and `--slow` the long analyzer one, and a config with no short fuzz command leaves fuzzing out of `--quick`. dddq3's config has the short command too.
+		- 20261104: depg0 (the list written before a 75, the next box runs the tests named there with `-NoTests`, an empty list fails the lane), ddmmw (the other gate gets `-NoFmt -NoTests` and the same list file as the side one), dejjt (`-NoTests` in the gate and the full run), ddf32 (the targets run side by side, and their lines keep the list's order).
+		- 20261104: ddmmw's assert for the other gate's switches went from `-Gate -Yes -NoSync -NoFmt` to `-Gate -Yes -NoSync -NoFmt -NoTests`.
+	- Verified: 20261103, de54r, dddq3, ddmmw, desha and the other cicd step tests pass. The new de54r fails on `cicd.bash` from before the change. The real fuzz stage at 5 s a target took 91 s with a cold fuzz build, all 12 targets clean.
+	- Verified: 20261103, `cicd.bash -y --quick --no-sync --no-dogfood --no-publish` passed all 8 steps in 14.7 min, fuzzing 1.4 of it, at a load of 13 to 41 on 32 CPUs.
+	- Verified: 20261104, depg0, ddmmw, dejjt and ddf32 pass. Against the files from before the change, depg0 fails 3 checks, ddmmw 2, dejjt 13, and ddf32 its side by side check, with 12 targets taking 36 s. The real fuzz stage at 5 s a target, 4 at a time, took 31 s with a warm fuzz build, all 12 clean. `--backlog-run-quick` passes.
+	- Verified: 20261104, a plain `--backlog-run-full` at d7b3c702, with b29w and vm925w both there, ran steps 1 to 12 in 40.6 min: Fuzzing 3.2, Static analyzers 9.5, and the Native Windows gate 10.3 after the local steps. b29w's gate passed alongside them. vm925w's part was its start from off 1.6 min, the `-NoTests` build 4.2 and the 22 windowed tests b29w left 3.8. With Packages (3.1) and the private runner (4.6) from the 20261103 runs, which didn't run after the gate's failure, a plain run comes to about 48 min. Of the 22 windowed tests, 19 passed, de5he and dcbcb skipped, and dcd70 failed once on its menu not being mapped yet. It passed 3 times out of 3 alone after the same `-NoTests` build, so that's the flake in 2026110413033064.
+	- Progress log:
+		- 20261103: `--quick` was still about 5 min over 10, which is in child 2026110314093130. It now takes 10.1 min, with the Windows cross build alongside.
+		- 20261103: Static analyzers took 9.5 min in the plain full run at d9733893 and 9.3 in the one at 92fc2c77, from 36 to 39 before. Put together from the two runs, a plain run comes to about 61 min: steps 1 to 11 in 38.5 at d9733893, then at 92fc2c77 the Native Windows gate 15.2 (its vm925w part, since b29w runs alongside the local steps), Packages 3.1 and the private runner 4.6. The run at 92fc2c77, with sanitizers, the profiler and FreeBSD off, took 50.8 min whole.
+		- 20261104: a plain run at 29dc6c7b, timed whole, took 85.4 min, or 75.4 without the two dogfood steps and publish. Static analyzers 10.8 at the 2 min cap, fuzzing 12.3, and the Native Windows gate 27.4. b29w's gate finished alongside the local steps, then vm925w started from off, ran its whole gate again (17 min) and then its 18 desktop tests (3 min). No other step was over 5.
+	- Closed: 20261104
+
+- CICD reset: other hosts and VMs.
+	- ID: 2026102416300001
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261024-163000
+	- Opened by: t00mietum
+	- Requirements:
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- Per the other hosts and VMs section of the shared CICD rules. The FreeBSD lane, the arm64 release and the Windows dogfood refresh already hold their box through the shared host lock. What's left:
+			- The native Windows gate is part of the default run. It favors b29w, and goes to vm925w for GPU or timed work, and for a check that puts a window on screen. b29w can still run a windowed check unattended under its test account. `--no-remote` skips every box.
+			- A box or VM that isn't there shows as `SKIP` in its step line and the summary, and the run goes on. Today the FreeBSD and arm64 lanes stop the run.
+			- Each VM is put back the way it was found, paused, off or running, through the VM state helper.
+			- Each box gets the project's own work folder under its temp root.
+			- The Windows dogfood refresh names `b29w`, never `b29w-wif`.
+		- Overrides: the native Windows step in the private round settings, run by hand. The rule sending windowed checks to vm925w stays.
+	- Test case: the children's: ddmmw, ddmn7 and ddmmv (2026102808250949, 2026102808084300, 2026102516403481), dehyb (2026102808250954), depg0 and ddmmw (2026102808250959).
+	- Prereq IDs: 2026102516403481
+	- 2026-10-26, round1026a full run: vmFreeBSD was off. The lane started it, then failed at once with 'bsdtest@vmFreeBSD is not a FreeBSD box reachable as that user', before ssh was up, and stopped the run. The lane should wait for ssh after a start.
+	- 2026-10-27: the same at step 7 of a full run, with ssh timing out on the VM that was off. The FreeBSD lane and the arm64 release now take their box through the VM state helper when it's here, so a VM that's off or paused is started, waited for and put back. The bare host lock is still the fallback. Left: the `SKIP` for a box that isn't there, and the Windows dogfood, which still only tries boxes that already answer.
+	- 20261028: split into children. The `SKIP` is 2026102808250949, the Windows dogfood's box and name 2026102808250954, the native Windows gate 2026102808250959. The FreeBSD and arm64 work folders are 2026102516403481. A lane that starts its VM now also waits for its own login (2026102808084300).
+	- 20261104: the per-box work folders are the last requirement left, in 2026102516403481, so this closes with it.
+	- 20261104: closed with 2026102516403481.
+	- Closed: 20261104
 
 - Other hosts: the Windows dogfood takes b29w by that name, and its box through the VM state helper.
 	- ID: 2026102808250954
@@ -3460,6 +3355,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261022, round1022: the full Linux suite, 231 OK. FreeBSD lane as `bsdtest`, 212 OK and 20 skipped, de8dm, de8ec, de8bd, ddy5f and dd5df among them.
 	- Closed: 20261022-214700
 	- Verified: 20261021, de8dm, de8ec, de8bd and ddy5f pass in all 3 views. dd5df, dbnfq, dbsx7 and dc8tz pass. The build has no warnings, the Windows cross build with warnings as errors is clean, and the UI case and test ID checks pass.
+
+- `fSafeRm` removes a whole project temp folder.
+	- ID: 2026110410593292
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: none
+	- Needs external testing: none
+	- Priority|Severity: Avg
+	- Opened: 20261104-105932
+	- Opened by: 2026102516403481
+	- Related IDs: 2026102516403466, 2026102516403481, 2026110411135625
+	- Steps to reproduce [Bug]:
+		- Source `cicd/utility/include/run-temp.bash`, set `HOST_TEMP` and `projectName`, and call `fSafeRm "${HOST_TEMP}/${projectName}"`.
+	- Incorrect behavior [Bug]: it removes the folder, every run's folder in it included.
+	- Expected behavior [Bug]: refused, per `Safe removal` in the shared CICD rules: never `${HOST_TEMP}` or a project's whole folder right under it.
+	- Reproduced [Bug]: 20261104, on b23, with a scratch `HOST_TEMP`.
+	- Possible cause [Bug]: the repo copy has no check for `${HOST_TEMP}` and the folder right under it, which the rules' copy has. The tmp-folder rule alone lets `/tmp/<project>` through.
+	- Actual cause [Bug]:
+		- The repo copy had no such check. The PowerShell copy had one, but compared strings only, so a `HOST_TEMP` that sits behind a link, as a box may set it outside a run, let the real project folder through.
+	- Progress log:
+		- 20261104: `fSafeRm` refuses `${HOST_TEMP}` and any folder right under it, when `HOST_TEMP` is set. It compares the folders with `-ef`, so a link on either side can't hide one. `Remove-SafeTree` also checks against `HOST_TEMP`'s real path.
+		- 20261104: an 8.3 short name in `HOST_TEMP` or the path can still hide the folder from `Remove-SafeTree` on Windows. Filed as 2026110411135625.
+	- Decisions:
+		- Only when `HOST_TEMP` is set, as the machine's guard and the PowerShell copy do. Falling back to `${TMPDIR:-/tmp}` would refuse every script's own `mktemp -d` folder outside a run.
+		- A `mktemp -d` folder right under `HOST_TEMP` is refused too, per the rule. Inside a run `TMPDIR` is the run folder, so only a script run alone with `TMPDIR` set to `HOST_TEMP` meets it, and its trap warns and leaves the folder.
+	- Swept: `fSafeRm_Under` in `run-temp.bash`, `install.bash`, `install.ps1` and `n8runfm.ps1` take one named parent, and the installers' only temp root removal is the `mktemp` folder they made, so none has the hole. `Remove-SafeTree` had it through a link. Every `fSafeRm` caller that passes `HOST_TEMP` (`box-wrap.bash`, `fRunTemp_Done`, `fRunTemp_Sweep`, dee6e) removes a run folder, one level further down.
+	- Test case: dee6e (`HOST_TEMP`, a project's folder and another project's in it, with a trailing slash on either, and through a link to `HOST_TEMP`, all refused, and a run folder in it removed), detts (a project's whole folder and the temp root, with `HOST_TEMP` through a link).
+	- Verified: 20261104, dee6e fails 8 checks on `run-temp.bash` as it was, and 3 with the check made a string compare, and passes now. detts fails its 2 new checks on `run-temp.ps1` as it was, and passes now. `--backlog-run-quick format lint` and `--backlog-run-quick tests` passed.
+	- Closed: 20261104
 
 - The hosted Windows build stops at its MSYS2 step: pacman has no `mingw-w64-x86_64-desktop-file-utils` anymore.
 	- ID: 2026102618560000
@@ -5392,6 +5316,82 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de025, Folder open time test. Goes into 9 folders of 120 from the list view, and back up after each. 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
 	- Acceptance signoff: Self-closed: de025 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
+
+- Temp files: `install.ps1` and `n8runfm.ps1` get their own copy of the guard.
+	- ID: 2026110315185015
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261103-151850
+	- Opened by: 2026102516403476
+	- Parent ID: 2026102516403476
+	- Prereq IDs: 2026110315184948
+	- Requirements:
+		- Both run on their own, from a download or the launcher, so they need their own copy, as `install.bash` has. `install.ps1` removes the prefix with a bare `Remove-Item -Recurse` near line 619.
+		- Take each one off detts' list as it moves. One of `install.ps1`'s 7 removes the Settings, Apps registry key, not a folder, so it leaves the list some other way.
+	- Progress log:
+		- 20261104: `install.ps1` and `n8runfm.ps1` each have an `fSafeRm_Under <parent> <paths>`, the same rule as `install.bash`'s: strictly under the parent, no link below it, the parent itself may sit behind one, and one that's gone is skipped. A link inside goes as a link. On Windows each walks the tree itself, hidden and read-only files included. `install.ps1`'s runs on Windows PowerShell 5.1 too, retries 5 s for a virus scanner, and on unix runs `rm` on one file system through `sudo` for a system install.
+		- 20261104: all 13 removals go through it: the prefix, the staging and backup folders and the temp folder in `install.ps1`, and the partial copies, pruned versions, old-layout copies and old launchers in `n8runfm.ps1`. The Settings, Apps key goes through the registry's own `DeleteSubKeyTree`. detts' list is empty.
+		- 20261104: `install.ps1` follows a prefix that's a link, as `install.bash` now does (2026102617555870). On Windows that's a junction or a symlink. The plan shows where it points, the install waits on programs running from either path, and the swap is done beside the target. Installer version 1.5.0.
+	- Decisions:
+		- One copy shape in both standalone scripts, with the same names as `install.bash`'s, rather than the repo's `Remove-SafeTree`, which needs PowerShell 7 and has the tmp folder rule neither script uses.
+		- `n8runfm.ps1`'s copy doesn't retry a held file. A held version is kept for the next run, as before.
+		- A removal that fails after the new install is in place warns rather than failing the install, as the staging folder's already did.
+	- Test case: detts (the copies in both scripts, lifted through the parser: under the parent only, not the parent itself, a sibling sharing the name, `..`, a newline, a relative or root parent, a link, a path through a link, a parent behind a link, a held or locked one, and `install.ps1`'s `rm` through `sudo` on one file system; and no recursive removal left outside the guard), ddgch (a linked prefix, installed where it points with the link kept, and on Windows emptied by `-Uninstall`), dd3s7 (both installers through a prefix that's a link), dd5fx, ddkd9, dd5fw.
+	- Verified: 20261104, detts, ddgch, dd3s7, dd5fx, ddkd9 and dd5fw pass on Linux. detts fails with either copy's link check, under check or sibling check taken out, with the tree walk following links, with the `rm` not through `sudo`, with a root parent let through, with a failed delete thrown, and with a bare `Remove-Item -Recurse` put back. ddgch and dd3s7 fail on `install.ps1` as it was: the link was swapped for a folder. PSScriptAnalyzer is clean.
+	- Verified: 20261104, on b29w at d7b3c702: dd5hz, ddc6v and ddgch pass in the native gate, ddgch's linked case on a junction with its `-Uninstall` included. detts passes there under pwsh 7, run on its own, since the gate's lint step skips it with no pwsh on the MSYS2 path (2026110412543196). `install.ps1` under Windows PowerShell 5.1, into a scratch `LOCALAPPDATA` and `APPDATA` with `-From` the Windows zip: install, install again and `-Uninstall` all exit 0, the exe, Start Menu shortcut and user PATH entry come and go, and nothing is left beside the install. The same through a junction to another `Nemo Anywhere` keeps the junction on both installs, installs where it points, and `-Uninstall` empties the target and keeps it. The user PATH and the Apps key come out as found.
+	- Swept: every `Remove-Item -Recurse`, its aliases and recursive `.Delete` in tracked PowerShell, through detts. Every caller of `fHoldersOf` and `fWaitUntilFree`, and the tests that lift `install.ps1`'s and `n8runfm.ps1`'s functions: ddgch, ddc6v, dd5hz, dd5fx and ddkd9.
+	- Closed: 20261104
+
+- Temp files: bash scripts remove through the guard.
+	- ID: 2026102516403471
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261025-164035
+	- Opened by: 2026102416300002
+	- Parent ID: 2026102416300002
+	- Prereq IDs: 2026102516403466
+	- Requirements:
+		- The 93 `rm -r` lines in 47 scripts go through the repo copy of the guard, or a guard of the same kind that names the one parent it may remove under. File list in the private notes.
+	- Progress log:
+		- 20261026: split into children 2026102618083910 (removals in a temp folder), 2026102617555865 (removals outside a temp root) and 2026102617555870 (the installer, and removals inside a container). The first is in. The third is in too, and waits on a FreeBSD run.
+	- Test case: defnq, which holds the list of rm -r lines that skip a guard; only the two guards' own lines are left.
+	- Acceptance signoff: Self-closed: all 3 children are done, and defnq passed in round1104a's quick run.
+	- Closed: 20261104-184700
+
+- Temp files: the same on the test VMs.
+	- ID: 2026102516403481
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: none
+	- Needs external testing: none
+	- Priority|Severity: Avg
+	- Opened: 20261025-164035
+	- Opened by: 2026102416300002
+	- Parent ID: 2026102416300002
+	- Prereq IDs: 2026102516403466
+	- Related IDs: 2026102416300001, 2026110410593292
+	- Requirements:
+		- The FreeBSD lane and the arm64 release work in a run folder under that box's temp root, write `run.pid` there, and remove it at the end through the guard, failure included.
+	- Progress log:
+		- 20261104: `include/box-wrap.bash` has `fBoxWrap_RunDir`, `fBoxWrap_RunDirDone` and `fBoxWrap_RunCmd`. The FreeBSD lane and the arm64 release make `<temp>/nemo-anywhere/<YYYYmmDD-HHMMSS>_<NNN>/` on the box at the Send step, send the tree to `src` in it, and sweep the project's stale ones there. Each build or suite there runs from it with `TMPDIR`, `TEMP` and `TMP` on it and `run.pid` naming its process. The EXIT trap removes it through `fSafeRm` there, after a failure or INT, TERM or HUP too. `--keep-temp` keeps it and prints its path.
+		- 20261104: `fRunTemp_Make` works on FreeBSD now, which has no `realpath -e`.
+		- 20261104: the old fixed folders are still on the boxes and nothing uses them: `~/nemo-anywhere-ci` on vmFreeBSD (1.1 GB) and `~/nemo-anywhere-arm64` on vmDebARM64 (54 MB). They're left for a cleanup by hand.
+		- 20261104: the FreeBSD and arm64 release lanes haven't run on their boxes since the change. FreeBSD's runs in the next full run, and arm64's in the next one with `--long`.
+		- 20261104: ddmn7 and ddmmv checked the old fixed folder in the box's home: `stale.txt` cleared from it by a run, and left alone by a run that failed before the send, `BUILD_DIR` at `~/nemo-anywhere-ci/build`, and arm64's `cd nemo-anywhere-arm64/src` in the command. They now check the run folder: a new one under the box's temp root, the build dir in it, none made or left by a run that fails before the send, and the build's tail of the command.
+	- Decisions:
+		- The box runs `run-temp.bash` itself for both ends, sent on stdin, so the folder is made before the tree is there and removed even when the send failed, by the same guard as here.
+		- The FreeBSD suite's build dir is in the run folder too. Its fixed build dir already rebuilt all 208 targets every run, so it gained nothing from staying.
+		- The folder is named by the box's own clock, since its sweep reads names by that clock. vmFreeBSD is on UTC.
+		- `run.pid` is rewritten by each build step there, which then execs the build, so it names a live process while one runs. Between steps it names one that's gone, which matters only to a folder over 2 days old.
+		- vmDebARM64's `/tmp` is a 3.9 GB tmpfs. The sent tree and the tarball are about 54 MB, and the release build dir is inside the container, so that's room enough.
+	- Swept: every ssh under `cicd/` that sends to or runs in a fixed folder on a box: the FreeBSD suite and release, and the arm64 release and its dependency read. The Windows gate already had its run folder, and the Windows dogfood copies into the install folder, not a work folder.
+	- Branch: round1104a
+	- Test case: ddmn7 (FreeBSD: the run folder under the box's temp root, its build dir, `run.pid` and `TMPDIR` in the suite, gone after a pass, a failing suite and `--release`, kept with `CICD_KEEP_TEMP=1`, none made when a run fails before the send, and the sweep of an old dead one while a young one and one with no `run.pid` stay), ddmmv (arm64: the same, and gone after a failing build), dee6e (`fRunTemp_Make`).
+	- Verified: 20261104, ddmn7, ddmmv and dee6e pass. The new ddmn7 and ddmmv fail on the lanes before the change: no run folder, the suite in the fixed folder with no `run.pid` or `TMPDIR`, and no sweep.
+	- Verified: 20261104, `cicd/bsd/lane.bash --tests` on vmFreeBSD from paused: it worked in `/tmp/nemo-anywhere/20261104-185440_001`, 216 OK and 0 failed, the folder was gone afterwards and `/tmp/nemo-anywhere` was left, and the VM went back to paused.
+	- Closed: 20261104
 
 - Temp files: the PowerShell scripts under `cicd/` remove through the guard.
 	- ID: 2026110315184983
