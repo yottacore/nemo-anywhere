@@ -23,13 +23,19 @@ src="${2:?usage: release-setup.bash <build-dir> <source-dir> <prefix>}"
 prefix="${3:?usage: release-setup.bash <build-dir> <source-dir> <prefix>}"
 
 fDie(){ echo "release-setup: $*" >&2; exit 1; }
+# shellcheck source=../utility/include/run-temp.bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../utility/include/run-temp.bash"
 
 ## Only ever clear a meson build dir. Anything else at that path was put there by
 ## someone else.
 if [[ -e "$build" ]]; then
 	[[ "$build" == /* && "$build" != / ]] || fDie "build dir must be an absolute path: ${build}"
 	[[ -d "${build}/meson-private" ]] || fDie "${build} is not a meson build dir; not clearing it"
-	rm -rf "$build"
+	## Emptied rather than removed, since a top-level dir has no parent the
+	## guard would take, and meson sets up an empty dir the same as a new one.
+	shopt -s dotglob nullglob
+	fSafeRm_Under "$build" "$build"/*
+	shopt -u dotglob nullglob
 fi
 
 ## meson 0.61 gives b_lto_threads to the compile only and links with a bare

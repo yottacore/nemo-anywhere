@@ -81,9 +81,10 @@ fEcho "Packing ${name}.zip"
 ## Everything the app loads by a path relative to the exe (icons, themes, schemas,
 ## pixbuf loaders, thumbnailers) keeps its share/ and lib/ shape; only the split
 ## between the app and the sysroot goes away.
+## The step's container is new, and goes at exit with its /tmp, so nothing
+## there needs clearing first or after.
 docker exec "$CONTAINER" sh -c "
 	set -e
-	rm -rf /tmp/${name}
 	mkdir -p /tmp/${name}/lib /tmp/${name}/share
 	cd ${SYSROOT}
 
@@ -128,7 +129,6 @@ docker exec "$CONTAINER" sh -c "
 work="$(mktemp -d)"
 
 docker cp "${CONTAINER}:/tmp/${name}" "${work}/${name}" >/dev/null
-docker exec "$CONTAINER" rm -rf "/tmp/${name}"
 
 [[ -f "${work}/${name}/${SLUG}.exe" ]] || fDie "flattened tree has no ${SLUG}.exe"
 ## The GTK settings and font config the single exe has. The sysroot's etc has

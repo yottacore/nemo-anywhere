@@ -25,6 +25,7 @@ param(
 )
 
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot 'include/run-temp.ps1')
 $ErrorActionPreference = "Stop"
 
 ## The problems with one project's text, one line each; none when it is good.
@@ -100,7 +101,7 @@ function Invoke-SelfTest {
 			$failures++
 		}
 	} finally {
-		Remove-Item -LiteralPath $scratch -Recurse -Force
+		if (-not (Remove-SafeTree -LiteralPath $scratch)) { $failures++ }
 	}
 	return $failures
 }

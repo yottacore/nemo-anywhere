@@ -34,7 +34,7 @@ fi
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/deb-size-check.XXXXXX")"
 shm=""
-cleanup(){ rm -rf "${scratch}"; if [[ -n "$shm" ]]; then rm -rf "${shm}"; fi; }
+cleanup(){ fSafeRm_IfThere "${scratch}" || true; if [[ -n "$shm" ]]; then fSafeRm_Under /dev/shm "${shm}" || true; fi; }
 trap cleanup EXIT
 
 failures=0

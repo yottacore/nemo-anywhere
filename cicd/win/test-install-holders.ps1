@@ -21,6 +21,7 @@
 ##	SPDX-License-Identifier: MIT
 
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot '../utility/include/run-temp.ps1')
 $ErrorActionPreference = "Stop"
 Write-Host "[ Test $((Select-String -LiteralPath $PSCommandPath -Pattern '^##\s+Test ID: (\S+)$').Matches[0].Groups[1].Value) $(Split-Path -Leaf $PSCommandPath) ]"
 
@@ -114,7 +115,7 @@ try {
 	}
 } finally {
 	foreach ($p in $procs) { if (-not $p.HasExited) { $p | Stop-Process -Force; $p.WaitForExit() } }
-	Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+	Remove-SafeTree -LiteralPath $root | Out-Null
 }
 
 if ($failures) {

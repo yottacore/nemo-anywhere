@@ -5,8 +5,9 @@
 ##	  --include-bsd, with --backlog-run-quick and its areas, with
 ##	  --backlog-run-full and --merge-gate, and with the other names --gate and
 ##	  --ci. No options runs every step but arm64, and --long or --slow every
-##	  step. --quick runs the quick ones on this box and skips fuzzing, packages
-##	  and every step that needs another box. --backlog-run-full and
+##	  step, with the analyzers' long command. --quick runs the quick ones on
+##	  this box, fuzzing with its short command, and skips packages and every
+##	  step that needs another box, and fuzzing when there's no short command. --backlog-run-full and
 ##	  --merge-gate run every check a plain run does, and never sync, format in
 ##	  place, dogfood or publish. --no-remote leaves out every step on another
 ##	  box. --no-container runs the lints with the host's tools, then stops
@@ -14,7 +15,9 @@
 ##	  Each step opens with a Starting line and closes with PASS, or FAIL for
 ##	  one that fails, numbered out of the steps that run, under a rule of 79
 ##	  dots. The plan lists what's turned off, and a hard step gets a quarter
-##	  of the cpus. A copy of cicd.bash runs in a scratch git repo
+##	  of the cpus. A cross target in CROSS_ALONGSIDE starts with the debug
+##	  build, its step shows its log and fails when it does, and a run that
+##	  stops early stops it. A copy of cicd.bash runs in a scratch git repo
 ##	  with every step a stand-in that leaves a marker file.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-quick.bash
@@ -73,13 +76,16 @@ cat > "${scratch}/cicd/config.bash" <<-EOF
 	FMT_CHECK_CMD=(bash -c '$(mark fmt-check)')
 	CICD_CONTAINERS=()
 	DEBUG_BUILD_CMD=(bash -c '$(mark build)')
-	TEST_CMD=(bash -c '[ -z "\${CHECK_FAIL_TESTS:-}" ] || exit 3; $(mark tests)')
+	TEST_CMD=(bash -c '[ -z "\${CHECK_ALONGSIDE:-}" ] || { for i in \$(seq 100); do [ -f out/windows-pid ] && break; sleep 0.1; done; [ -f out/windows-pid ] || exit 4; }; [ -z "\${CHECK_FAIL_TESTS:-}" ] || exit 3; $(mark tests)')
 	LINT_PROBE=(true)
 	LINT_CMD=(bash -c '$(mark lint); echo "\${NEMO_LINT_HOST:-}" > out/lint-host')
 	FUZZ_PROBE=(true)
 	FUZZ_CMD=(bash -c '$(mark fuzz)')
+	FUZZ_QUICK_CMD=(bash -c '$(mark fuzz) && $(mark fuzz-short)')
+	[ -z "\${CHECK_NO_QUICK_FUZZ:-}" ] || FUZZ_QUICK_CMD=()
 	SANITIZE_CMD=(bash -c '$(mark sanitize)')
 	ANALYZE_CMD=(bash -c '$(mark analyze)')
+	ANALYZE_LONG_CMD=(bash -c '$(mark analyze) && $(mark analyze-long)')
 	SCROLL_HARNESS=(scroll.bash)
 	BSD_TEST_CMD=(bash -c '$(mark bsd-tests)')
 	BSD_RELEASE_CMD=(bash -c '$(mark bsd-release)')
@@ -94,9 +100,11 @@ cat > "${scratch}/cicd/config.bash" <<-EOF
 	RELEASE_NATIVE_BIN="native.bin"
 	BUILD_CROSS=1
 	CROSS_TARGETS=(
-		"Windows x86_64 (stand-in)|windows-x86_64|out/windows|$(mark windows)"
+		'Windows x86_64 (stand-in)|windows-x86_64|out/windows|echo \$\$ > out/windows-pid; [ -z "\${CHECK_SLOW_CROSS:-}" ] || sleep 30; [ -z "\${CHECK_FAIL_CROSS:-}" ] || exit 5; echo stand-in cross log; $(mark windows)'
 		"Linux arm64 (stand-in)|linux-arm64|out/arm64|$(mark arm64)"
 	)
+	CROSS_ALONGSIDE=("Windows x86_64 (stand-in)")
+	[ -z "\${CHECK_INLINE_CROSS:-}" ] || CROSS_ALONGSIDE=()
 	RELEASE_ARTIFACT_DIR="out"
 	RELEASE_COLLECT=0
 	VERSION_MANIFEST="meson.build"
@@ -126,7 +134,7 @@ git -C "$scratch" init -q
 git -C "$scratch" add -A
 git -C "$scratch" -c user.name=check -c user.email=check@example.invalid -c commit.gpgsign=false commit -q -m init
 
-allSteps=(fmt fmt-check build tests lint fuzz sanitize scroll bsd-tests profile native windows arm64 bsd-release analyze packages package-check private dogfood dogfood-hook remote-dogfood shots demo publish)
+allSteps=(fmt fmt-check build tests lint fuzz fuzz-short sanitize scroll bsd-tests profile native windows arm64 bsd-release analyze analyze-long packages package-check private dogfood dogfood-hook remote-dogfood shots demo publish)
 
 ## The step lines of a run: each step opens with Starting and closes with PASS,
 ## or FAIL for the last one when $3 is 1, numbered 1 to M with M the same on
@@ -178,9 +186,10 @@ fRun(){
 		return 0
 	fi
 	## A step per marker, less the ones that share a step: the package check
-	## with packages, the hook with dogfood, and sync, which leaves no marker.
+	## with packages, the hook with dogfood, the short fuzz and the long
+	## analyzers with their own, and sync, which leaves no marker.
 	local steps=0 w
-	for w in $want; do case "$w" in package-check|dogfood-hook) ;; *) steps=$((steps + 1)) ;; esac; done
+	for w in $want; do case "$w" in package-check|dogfood-hook|fuzz-short|analyze-long) ;; *) steps=$((steps + 1)) ;; esac; done
 	fSteps "$out" "$steps" 0 "${*:-no options}"
 	for step in "${allSteps[@]}"; do
 		ran=0
@@ -203,23 +212,26 @@ fRun(){
 }
 
 fullSteps="fmt build tests lint fuzz sanitize scroll bsd-tests profile native windows arm64 bsd-release analyze packages package-check private dogfood dogfood-hook remote-dogfood publish"
-quickSteps="sync fmt build tests lint sanitize profile native windows dogfood dogfood-hook publish"
+quickSteps="sync fmt build tests lint fuzz fuzz-short sanitize profile native windows dogfood dogfood-hook publish"
 ## Every check of a plain run, with the format check in place of the formatter.
 checkSteps="fmt-check build tests lint fuzz sanitize scroll bsd-tests profile native windows bsd-release analyze packages package-check private"
 ## A plain run leaves arm64 out since 2026-10-24, to stay near an hour.
 fRun "sync ${fullSteps/ arm64 / }"
-fRun "sync ${fullSteps}"                 --long
-fRun "sync ${fullSteps}"                 --slow
+fRun "sync ${fullSteps} analyze-long"    --long
+fRun "sync ${fullSteps} analyze-long"    --slow
 fRun "sync ${fullSteps/ arm64 / } shots demo" --shots --demo
 fRun "${quickSteps}"                     --quick
 fRun "${quickSteps} arm64"               --quick --include-arm
 fRun "${quickSteps} bsd-tests bsd-release" --quick --include-bsd
+## A config with no short fuzz command leaves fuzzing out of --quick.
+CHECK_NO_QUICK_FUZZ=1 fRun "${quickSteps/ fuzz fuzz-short / }" --quick
+grep -q -x -F -- "    - Fuzzing (--quick)" <<< "$lastOut" || fFail "[--quick, no short fuzz]: the plan doesn't list Fuzzing as turned off"
 ## --no-remote: nothing on another box, whatever else is named.
 remoteSteps=" arm64 bsd-tests bsd-release private remote-dogfood "
 localSteps=" ${fullSteps} "
 for step in $remoteSteps; do localSteps="${localSteps/ ${step} / }"; done
 fRun "sync ${localSteps}"                --no-remote
-fRun "sync ${localSteps}"                --long --include-arm --include-bsd --no-remote
+fRun "sync ${localSteps} analyze-long"   --long --include-arm --include-bsd --no-remote
 fRun "sync ${localSteps}"                --no-remote --include-arm --include-bsd
 
 ## $1 the other name, or empty: the run says so in one line, and only then.
@@ -241,7 +253,7 @@ fRun "lint"                              --backlog-run-quick lint --no-sanitize
 fRun "${checkSteps}"                     --backlog-run-full;        fNote "" --backlog-run-full
 fRun "${checkSteps}"                     --merge-gate;              fNote "" --merge-gate
 fRun "${checkSteps}"                     --ci;                      fNote --ci --merge-gate
-fRun "${checkSteps} arm64"               --merge-gate --long
+fRun "${checkSteps} arm64 analyze-long"  --merge-gate --long
 fRun "fmt-check build tests lint fuzz sanitize scroll profile native windows analyze packages package-check" --backlog-run-full --no-remote
 ## Nothing named after the mode turns a step that changes things back on.
 fRun "${checkSteps}"                     --merge-gate --shots --demo --allow-dirty
@@ -285,9 +297,37 @@ out="$(cd "$scratch" && CHECK_FAIL_TESTS=1 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1
 [[ "$rc" != 0 ]] || fFail "[failing tests]: the run passed"
 fSteps "$out" 0 1 "failing tests"
 grep -q -E '; FAIL Tests \]$' <<< "$out" || fFail "[failing tests]: no FAIL line for Tests"
-for off in "Fuzzing (--quick)" "Static analyzers (--quick)" "Release build: Linux arm64 (stand-in) (--quick)" "Packages (--quick)"; do
+for off in "Static analyzers (--quick)" "Release build: Linux arm64 (stand-in) (--quick)" "Packages (--quick)"; do
 	grep -q -x -F -- "    - ${off}" <<< "$out" || fFail "[--quick]: the plan doesn't list ${off} as turned off"
 done
+## The cross target in CROSS_ALONGSIDE starts with the debug build: the tests
+## stand-in waits for it to start, and fails without it. Its step, in the same
+## place, shows its log. Without CROSS_ALONGSIDE it runs in its step as before.
+CHECK_ALONGSIDE=1 fRun "${quickSteps}" --quick
+[[ "$lastOut" == *"Windows x86_64 (stand-in) started alongside, pid "* ]] || fFail "[--quick]: the Windows cross build didn't start alongside"
+crossStep="$(sed -n '/Starting Release build: Windows x86_64 (stand-in) ]$/,/PASS Release build: Windows x86_64 (stand-in) ]$/p' <<< "$lastOut")"
+grep -q -x -F 'stand-in cross log' <<< "$crossStep" || fFail "[--quick]: the Windows cross build's step doesn't show its log"
+CHECK_INLINE_CROSS=1 fRun "${quickSteps}" --quick
+[[ "$lastOut" != *"started alongside"* ]] || fFail "[--quick, nothing alongside]: a cross build started alongside"
+[[ "$lastOut" == *"stand-in cross log"* ]] || fFail "[--quick, nothing alongside]: no cross build log"
+## A side build that fails fails its own step, once the steps before it passed.
+rc=0
+out="$(cd "$scratch" && CHECK_FAIL_CROSS=1 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 env -u CICD_MAX_JOBS bash cicd/cicd.bash -y --quick 2>&1 </dev/null)" || rc=$?
+[[ "$rc" != 0 ]] || fFail "[failing side build]: the run passed"
+fSteps "$out" 0 1 "failing side build"
+grep -q -E '; FAIL Release build: Windows x86_64 \(stand-in\) \]$' <<< "$out" || fFail "[failing side build]: no FAIL line for its step"
+[[ -f "${scratch}/out/native" ]] || fFail "[failing side build]: the native release before it didn't run"
+## A run that stops early stops the side build too, rather than leaving it.
+fSafeRm_IfThere "${scratch}/out"; mkdir -p "${scratch}/out"
+rc=0; t0=${SECONDS}
+out="$(cd "$scratch" && CHECK_ALONGSIDE=1 CHECK_SLOW_CROSS=1 CHECK_FAIL_TESTS=1 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 env -u CICD_MAX_JOBS bash cicd/cicd.bash -y --quick 2>&1 </dev/null)" || rc=$?
+[[ "$rc" != 0 ]] || fFail "[failing tests, slow side build]: the run passed"
+((SECONDS - t0 < 25)) || fFail "[failing tests, slow side build]: the run waited for the side build"
+sidePid="$(cat "${scratch}/out/windows-pid" 2>/dev/null || true)"
+if [[ -z "$sidePid" ]]; then fFail "[failing tests, slow side build]: the side build never started"
+elif kill -0 "$sidePid" 2>/dev/null; then fFail "[failing tests, slow side build]: the side build is still running"; kill -TERM -- "-${sidePid}" 2>/dev/null || kill -TERM "$sidePid" 2>/dev/null || true; fi
+[[ "$out" == *"stopping Windows x86_64 (stand-in)"* ]] || fFail "[failing tests, slow side build]: no line saying it stopped the side build"
+[[ ! -f "${scratch}/out/windows" ]] || fFail "[failing tests, slow side build]: the side build ran to the end"
 ## A hard step gets a quarter of the cpus, busy or not.
 # shellcheck source=include/jobs.bash
 source "${here}/include/jobs.bash"

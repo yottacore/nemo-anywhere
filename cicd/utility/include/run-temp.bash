@@ -19,6 +19,9 @@
 ##	  The project is projectName, or CICD_PROJECT in a step's child.
 ##	- fSafeRm_IfThere <path>... -> fSafeRm of each one that's there, with no
 ##	  "removed" line. For a script's scratch dir and the paths in it.
+##	- fSafeRm_Under <parent> <path>... -> the same for a folder outside a temp
+##	  root, such as a build or artifact folder: each path strictly under the
+##	  one parent named, with no link between them.
 ##	- Syntax: source this file; it defines functions only.
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -42,9 +45,46 @@ fSafeRm(){
 		printf 'safe-rm: refused, not under a tmp folder: %s\n' "${p}" >&2; return 1
 	fi
 	if [[ -L "${p}" ]]; then printf 'safe-rm: refused, a link: %s\n' "${p}" >&2; return 1; fi
-	real="$(realpath -e -- "${p}" 2> /dev/null)" || { printf 'safe-rm: refused, not there: %s\n' "${p}" >&2; return 1; }
+	if [[ ! -e "${p}" ]] || ! real="$(realpath -- "${p}" 2> /dev/null)"; then printf 'safe-rm: refused, not there: %s\n' "${p}" >&2; return 1; fi
 	if [[ "${real}" != "${p}" ]]; then printf 'safe-rm: refused, goes through a link: %s\n' "${p}" >&2; return 1; fi
-	rm -rf --one-file-system -- "${p}" && printf 'removed %s\n' "${p}"
+	fSafeRm__Rm "${p}" && printf 'removed %s\n' "${p}"
+}
+
+## FreeBSD and macOS have neither realpath -e nor rm --one-file-system; their
+## rm -x is the same thing.
+fSafeRm__Rm(){
+	if [[ -z "${__safeRmGnu:-}" ]]; then if rm --version > /dev/null 2>&1; then __safeRmGnu=1; else __safeRmGnu=0; fi; fi
+	if ((__safeRmGnu)); then rm -rf --one-file-system -- "$@"; else rm -rfx -- "$@"; fi
+}
+
+## For a removal outside a temp root, such as a build or artifact folder: each
+## path must sit strictly under <parent>, with no link between the two. The
+## parent itself may sit behind one. Quiet, and one that's gone is skipped, as
+## with rm -rf. Returns 1 if any was refused.
+fSafeRm_Under(){
+	local parent="${1:-}" p real realParent='' rc=0
+	(($#)) && shift
+	parent="${parent%/}"
+	if [[ "${parent}" != /?* || "${parent}" == *..* || "${parent}" == *//* || "${parent}" == *$'\n'* ]]; then
+		printf 'safe-rm: refused, bad parent: "%s"\n' "${parent}" >&2; return 1
+	fi
+	for p in "$@"; do
+		p="${p%/}"
+		if [[ "${p}" != "${parent}"/?* || "${p}" == *..* || "${p}" == *//* || "${p}" == *$'\n'* ]]; then
+			printf 'safe-rm: refused, not under %s: "%s"\n' "${parent}" "${p}" >&2; rc=1; continue
+		fi
+		if [[ -L "${p}" ]]; then printf 'safe-rm: refused, a link: %s\n' "${p}" >&2; rc=1; continue; fi
+		[[ -e "${p}" ]] || continue
+		if [[ -z "${realParent}" ]] && ! realParent="$(realpath -- "${parent}" 2> /dev/null)"; then
+			printf 'safe-rm: refused, no parent: %s\n' "${parent}" >&2; return 1
+		fi
+		real="$(realpath -- "${p}" 2> /dev/null)" || real=''
+		if [[ "${real}" != "${realParent%/}${p#"${parent}"}" ]]; then
+			printf 'safe-rm: refused, goes through a link: %s\n' "${p}" >&2; rc=1; continue
+		fi
+		fSafeRm__Rm "${p}" || rc=1
+	done
+	return "${rc}"
 }
 
 ## For a script's own scratch: each path through fSafeRm, quietly, and one
@@ -107,3 +147,4 @@ fRunTemp_Done(){
 ##		- 2026-10-25: Created.
 ##		- 2026-10-26: Exports CICD_KEEP_TEMP.
 ##		- 2026-10-26: fSafeRm_IfThere; fSafeRm works outside a run.
+##		- 2026-11-03: fSafeRm_Under; works on FreeBSD and macOS.

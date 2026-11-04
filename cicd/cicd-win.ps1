@@ -17,6 +17,10 @@
 ##		   Publish         (stash -> pull -> add -> commit -> push, current branch)
 ##		- Each step opens and closes with a timestamped "Step N of M" line, as in
 ##		  cicd.bash. A step that's turned off isn't counted; the plan lists it.
+##		- Works in a run folder of its own, <HOST_TEMP>\nemo-anywhere\<stamp>_<NNN>,
+##		  with TEMP and TMP pointed at it, and removes it at the end, on a
+##		  failure or Ctrl+C too. Old ones a dead run left are swept. HOST_TEMP
+##		  falls back to TEMP. See include/run-temp.ps1.
 ##		- Runs at BelowNormal priority, which the tools it starts inherit. Job
 ##		  counts are half the CPUs, a quarter when CPU use is over 50%, checked
 ##		  before each step. CICD_JOBS_PIN or CICD_MAX_JOBS set beforehand pins it.
@@ -59,6 +63,7 @@
 ##		   -NoPublish      skip the git publish stage
 ##		   -BuildStrict    a missing MSYS2 toolchain aborts instead of warn-skip
 ##		   -Message MSG    publish hands-off with this commit message (no editor)
+##		   -KeepTemp       keep the run folder, and say where it is
 ##		   -Help           show this help
 ##	History: At bottom of script.
 
@@ -83,6 +88,7 @@ param(
 	[switch]$NoPublish,
 	[switch]$BuildStrict,
 	[Alias('Msg', 'm')][string]$Message = "",
+	[switch]$KeepTemp,
 	[switch]$Help
 )
 
@@ -146,6 +152,8 @@ fPriority 'BelowNormal'
 
 ## Repo root = the parent of this script's cicd/ dir. Git and bash run here.
 $Root    = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+. (Join-Path $PSScriptRoot "utility/include/run-temp.ps1")
+$script:RunTempDir = ""
 $AppName = "Nemo Anywhere"
 $ExeName = "nemo-anywhere"
 
@@ -267,6 +275,7 @@ function fPlan {
 	if ($On) { $script:StepList.Add($Name) } else { $script:StepOff.Add("$Name ($WhyOff)") }
 }
 function fPlan_Show {
+	fEcho_Clean "Run folder ..: $($script:RunTempDir)$(if ($KeepTemp) { '  (kept, -KeepTemp)' })"
 	fEcho_Clean "Steps .......: $($script:StepList.Count)"
 	if ($script:StepOff.Count -eq 0) { return }
 	fEcho_Clean "Turned off ..:"
@@ -444,7 +453,7 @@ function fTests {
 		## Each result line becomes "PASS|FAIL|SKIP <id> <name>", as on Linux.
 		fMingw "set -o pipefail; NEMO_NO_CRASH_DIALOG=1 TMPDIR='$runDirU' meson test -C $BuildRel --no-rebuild --num-processes $($script:Jobs) --print-errorlogs --wrapper '$wrapBash $jail'$only | awk -f cicd/utility/include/result-lines.awk"
 	} finally { $env:MSYS2_PATH_TYPE = $savedPathType }
-	if ($script:MingwRc -ne 0) { fDie "test suite failed (exit $($script:MingwRc)); anything a test left is in $runDir" }
+	if ($script:MingwRc -ne 0) { fDie "test suite failed (exit $($script:MingwRc)); anything a test left is in $runDir, which -KeepTemp keeps" }
 	$left = @(Get-ChildItem -LiteralPath $runDir -Force -ErrorAction SilentlyContinue)
 	if ($left.Count -gt 0) {
 		## jail.bash writes what a test left into its cell, and the run folder
@@ -520,12 +529,8 @@ function fRetireOldDogfood {
 	$oldRoot = "C:\opt\0-0\common\exec\synced\util\mswin\gui\by-self\win64"
 	foreach ($stale in @((Join-Path $oldRoot "$ExeName.exe"), (Join-Path $oldRoot $ExeName))) {
 		if (-not (Test-Path -LiteralPath $stale)) { continue }
-		try {
-			Remove-Item -LiteralPath $stale -Recurse -Force -ErrorAction Stop
-			fNote "retired the old dogfood drop: $stale"
-		} catch {
-			fWarn "couldn't remove $stale ($($_.Exception.Message))"
-		}
+		if (Remove-SafeTree -LiteralPath $stale -Under $oldRoot) { fNote "retired the old dogfood drop: $stale" }
+		else { fWarn "couldn't remove $stale" }
 	}
 }
 
@@ -771,6 +776,10 @@ function fPublish {
 function fMain {
 	Set-Location -LiteralPath $Root
 	$stamp = [DateTime]::Now.ToString('yyyyMMdd-HHmmss', [Globalization.CultureInfo]::InvariantCulture)
+	## The last finally block removes it, whatever the outcome.
+	try { $script:RunTempDir = New-RunTemp -Project $ExeName -Stamp $stamp }
+	catch { fDie "could not make a run folder: $($_.Exception.Message)" }
+	Remove-StaleRunTemp -Project $ExeName -Keep $script:RunTempDir
 	fJobs
 	$toolMiss = fToolchainMissing
 
@@ -929,11 +938,17 @@ try {
 	fMain
 } finally {
 	if ($script:StepOpen) { fStep_Close 'FAIL'; fEcho_Clean }
+	if ($script:RunTempDir -and [IO.Directory]::Exists($script:RunTempDir)) {
+		if ($KeepTemp) { fEcho "kept the run folder: $($script:RunTempDir)"; fEcho_Clean }
+		elseif (-not (Remove-SafeTree -LiteralPath $script:RunTempDir)) { fWarn "could not remove the run folder $($script:RunTempDir)"; fEcho_Clean }
+	}
 	if ($script:Transcribing) { Stop-Transcript | Out-Null }
 }
 
 
 ##	History:
+##		- 2026-11-03: A run folder of its own, removed at the end; -KeepTemp
+##		  keeps it, and stale ones are swept.
 ##		- 2026-10-31: -TestList runs only the meson tests it names, against the
 ##		  build already there.
 ##		- 2026-10-28: BelowNormal priority, which the tools it starts inherit, and

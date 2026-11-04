@@ -1,6 +1,7 @@
 ##	Purpose:
 ##		- The Windows box's side of the native Windows lane (win/lane.bash). It
-##		  is sent into the run's own folder there, and called over ssh.
+##		  is sent into the run's own folder there, with run-temp.ps1 for its
+##		  removals, and called over ssh.
 ##		- -Start clones the bundle beside it and starts -Run outside the ssh
 ##		  session, through Win32_Process Create, so a dropped connection doesn't
 ##		  stop the gate. Prints "pid=<n>" and writes it to run.pid.
@@ -48,6 +49,7 @@ param(
 )
 
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot 'run-temp.ps1')
 $ErrorActionPreference = 'Stop'
 
 ## Both the ssh login and the test user work here. PowerShell reads each
@@ -116,7 +118,7 @@ function Stop-Run([string]$Path) {
 
 function Remove-RunFolder([string]$Path) {
 	if (-not (Test-RunFolder $Path)) { throw "not a run folder of this project: $Path" }
-	Remove-Item -LiteralPath $Path -Recurse -Force
+	if (-not (Remove-SafeTree -LiteralPath $Path -Under $projectRoot)) { throw "could not remove $Path" }
 }
 
 $Dir = $Dir.TrimEnd('\')
@@ -229,6 +231,8 @@ throw 'need -Start, -Run, -Desktop, -DesktopRun, -Stop or -Remove'
 
 
 ##	History:
+##		- 2026-11-03: Removals go through Remove-SafeTree, from run-temp.ps1 sent
+##		  beside it.
 ##		- 2026-11-02: -Desktop says "locked" for a locked session.
 ##		- 2026-11-02: Run folders are under %ProgramData%, where the test user
 ##		  can reach them.

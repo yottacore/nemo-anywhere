@@ -29,6 +29,7 @@ param(
 )
 
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot 'include/run-temp.ps1')
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
@@ -157,7 +158,7 @@ function Invoke-SelfTest {
 		if (@(Test-Bundle -Bundle $flat -Wanted $wanted).Count -ne 0) { Write-Host "[ FAILED: a flat zip was refused ]"; $failures++ }
 		if (@(Test-Bundle -Bundle $tree -Wanted @{}).Count -eq 0) { Write-Host "[ FAILED: nothing to look for was let through ]"; $failures++ }
 	} finally {
-		Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue
+		Remove-SafeTree -LiteralPath $scratch | Out-Null
 	}
 	if ($failures) {
 		Write-Host "[ FAILED: bundle settings check self-test, ${failures} problem(s) ]"

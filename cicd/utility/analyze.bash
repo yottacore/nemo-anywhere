@@ -22,6 +22,7 @@
 ##	- CICD_MAX_JOBS caps the jobs of all 4 runs together. gcc spends many minutes
 ##	  on a few files (the blake3 SIMD ones and nemo-config.c, at -O0), and
 ##	  ANALYZE_TU_TIMEOUT (900 s) caps each file; one cut off counts as failed.
+##	  A plain cicd run sets 120 and --long 900, in config.bash.
 ##	- --self-test runs analyze.py's own self-test and the planted faults only.
 ##	- Syntax: cicd/utility/analyze.bash [--self-test]
 ##	- Test ID: de8es

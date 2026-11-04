@@ -30,6 +30,7 @@ param(
 )
 
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot '../utility/include/run-temp.ps1')
 $ErrorActionPreference = "Stop"
 Write-Host "[ Test $((Select-String -LiteralPath $PSCommandPath -Pattern '^##\s+Test ID: (\S+)$').Matches[0].Groups[1].Value) $(Split-Path -Leaf $PSCommandPath) ]"
 
@@ -142,9 +143,9 @@ if (Test-Path -LiteralPath $crashDir) {
 if ($failures.Count -gt 0) {
 	foreach ($f in $failures) { Write-Host "[ FAILED: GUI launch smoke: $f ]" }
 	if (Test-Path -LiteralPath $errLog) { Get-Content -LiteralPath $errLog | Select-Object -Last 20 }
-	Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue
+	Remove-SafeTree -LiteralPath $scratch | Out-Null
 	exit 1
 }
-Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue
+Remove-SafeTree -LiteralPath $scratch | Out-Null
 Write-Host "[ OK: GUI launch smoke ]"
 exit 0

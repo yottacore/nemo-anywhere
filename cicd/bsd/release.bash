@@ -42,6 +42,8 @@ APP_DIR="${PKG_PREFIX}/${SLUG}"
 
 # shellcheck source=../utility/include/echo.bash
 source "${ROOT}/cicd/utility/include/echo.bash"
+# shellcheck source=../utility/include/run-temp.bash
+source "${ROOT}/cicd/utility/include/run-temp.bash"
 # shellcheck source=../utility/include/release-files.bash
 source "${ROOT}/cicd/utility/include/release-files.bash"
 # shellcheck source=../utility/include/xvfb.bash
@@ -74,7 +76,7 @@ pkgVer="${ver//-/.}"
 work="$(mktemp -d /tmp/${SLUG}-bsd-release.XXXXXX)"
 fCleanup(){
 	if [[ -n "${XVFB_PID:-}" ]]; then kill "${XVFB_PID}" 2>/dev/null || true; fi
-	rm -rf "${work}"
+	fSafeRm_IfThere "${work}" || true
 }
 trap fCleanup EXIT
 
@@ -88,7 +90,7 @@ fEcho "Building ${SLUG} ${ver} (${os}-${arch}) on $(uname -r), $(cc --version | 
 if [[ -e "$BUILD" ]]; then
 	[[ "$BUILD" == /*/* ]] || fDie "build dir must be an absolute path below /: ${BUILD}"
 	[[ -d "${BUILD}/meson-private" ]] || fDie "${BUILD} is not a meson build dir; not clearing it"
-	rm -rf "$BUILD"
+	fSafeRm_Under "${BUILD%/*}" "$BUILD"
 fi
 meson setup --buildtype=release -Dstrip=true -Db_lto=true -Dextension_library=static -Dwerror=true -Drelease=true \
 	"-Dprefix=${APP_DIR}" "$BUILD" "${ROOT}/source" >/dev/null
@@ -113,7 +115,7 @@ fEcho_Clean ""
 fEcho "Staging prefix"
 bash "${ROOT}/cicd/linux/stage-prefix.bash" "$BUILD" "${work}/${SLUG}"
 mkdir -p "$OUT"
-rm -rf "${OUT:?}/${name}" "${OUT}/${name}.pkg"
+fSafeRm_Under "${OUT}" "${OUT}/${name}" "${OUT}/${name}.pkg"
 cp -a "${work}/${SLUG}" "${OUT}/${name}"
 
 
@@ -144,7 +146,7 @@ done
 ## Only the shared theme's copy. pkg's icon cache trigger writes a cache into
 ## any share/icons dir it installs, and on delete removes it only after pkg has
 ## left the dirs above it, so a second copy in the app folder left that behind.
-rm -rf "${app}/share/icons"
+fSafeRm_Under "${work}" "${app}/share/icons"
 
 ## name|origin|version per line, for every package that owns a library some
 ## binary in the prefix links directly.

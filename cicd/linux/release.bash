@@ -30,10 +30,12 @@ IMAGE="${NEMO_RELEASE_IMAGE:-nemo-build-jammy:latest}"
 OUT="${ROOT}/cicd/artifacts/release"
 DOGFOOD="${ROOT}/cicd/artifacts/dogfood/${SLUG}"
 BUILD=/build-release
-STAGE=/build-prefix/nemo-anywhere   # stage-prefix.bash guards its rm -rf on the dest being named after the app
+STAGE=/build-prefix/nemo-anywhere   # stage-prefix.bash takes only a dest named after the app
 
 # shellcheck source=../utility/include/echo.bash
 source "${ROOT}/cicd/utility/include/echo.bash"
+# shellcheck source=../utility/include/run-temp.bash
+source "${ROOT}/cicd/utility/include/run-temp.bash"
 # shellcheck source=../utility/include/source-date.bash
 source "${ROOT}/cicd/utility/include/source-date.bash"
 # shellcheck source=../utility/include/release-files.bash
@@ -124,7 +126,7 @@ name="${SLUG}-${ver}-linux-${arch}"
 fEcho_Clean ""
 fEcho "Packing ${name}.tar.gz"
 mkdir -p "$OUT"
-rm -rf "${OUT:?}/${name}" "${OUT}/${name}.tar.gz"
+fSafeRm_Under "${OUT}" "${OUT}/${name}" "${OUT}/${name}.tar.gz"
 ## /build* is not host-mounted, so docker cp is the only way out of the container.
 docker cp "${CONTAINER}:${STAGE}" "${OUT}/${name}" >/dev/null
 ## Fixed owner, timestamp and entry order, so the same commit produces the same
@@ -138,12 +140,12 @@ tar -czf "${OUT}/${name}.tar.gz" -C "$OUT" \
 ## Keep the staged tree on disk as well. The dogfood stage installs from it and the
 ## launcher probes it, and neither should have to unpack the tarball to get at the
 ## same files. Version-free name, so whatever is here is simply the current build.
-rm -rf "${DOGFOOD:?}"
+fSafeRm_Under "${ROOT}/cicd/artifacts" "${DOGFOOD}"
 mkdir -p "$(dirname "${DOGFOOD}")"
 cp -a "${OUT}/${name}" "${DOGFOOD}"
 fEcho_Clean "staged prefix kept at cicd/artifacts/dogfood/${SLUG}"
 
-rm -rf "${OUT:?}/${name}"
+fSafeRm_Under "${OUT}" "${OUT}/${name}"
 
 sums="${SLUG}-${ver}-sha256sums.txt"
 fWriteReleaseSums "$OUT" "$SLUG" "$ver"

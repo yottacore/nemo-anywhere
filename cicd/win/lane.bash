@@ -216,7 +216,7 @@ fGate(){
 	git -C "$ROOT" bundle create -q "${scratch}/round.bundle" HEAD
 	[[ -z "$(git -C "$ROOT" status --porcelain --untracked-files=no)" ]] || fEcho "WARNING: uncommitted edits here are not in the native Windows gate, which runs ${sha:0:8}"
 	sent=1
-	scp -q "${sshOpts[@]}" "${scratch}/round.bundle" "${ROOT}/cicd/win/lane-box.ps1" "${box}:${dirS}/" < /dev/null || fDie "could not send the bundle to ${box}"
+	scp -q "${sshOpts[@]}" "${scratch}/round.bundle" "${ROOT}/cicd/win/lane-box.ps1" "${ROOT}/cicd/utility/include/run-temp.ps1" "${box}:${dirS}/" < /dev/null || fDie "could not send the bundle to ${box}"
 	pidW="$(fBoxPs -Start -GateArgs "$(fGateArgList)" | sed -n 's/^pid=\([0-9][0-9]*\)$/\1/p')"
 	[[ -n "$pidW" ]] || fDie "the gate did not start on ${box}"
 	fEcho_Clean "cicd-win.ps1 ${gateArgs} at ${sha:0:8}, pid ${pidW} on ${box}"
@@ -270,6 +270,7 @@ fMain "${@}"
 
 
 ##	History:
+##		- 2026-11-03: Sends run-temp.ps1 beside lane-box.ps1, for its removals.
 ##		- 2026-11-03: NEMO_WIN_DESKTOP_ELSEWHERE, so cicd.bash can take the
 ##		  windowed tests to vm925w rather than b29w's own screen.
 ##		- 2026-11-02: A locked test user session is a warning, as no session is.

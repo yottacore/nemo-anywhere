@@ -33,7 +33,7 @@ if [[ "${1:-}" != "--inside" ]]; then
 	# shellcheck disable=SC2016  ## expanded by the shell in the container
 	tar -C "${root}" -cf - cicd/win/gui-smoke.bash cicd/win/test-gui-smoke.bash cicd/utility/include/xvfb.bash \
 		| timeout -k 5 120 bash "${root}/cicd/win/win-run.bash" --no-build-win "gui smoke check" \
-			'd="$(mktemp -d /tmp/test_gui-smoke.XXXXXX)" && tar -C "$d" -xf - && { rc=0; bash "$d/cicd/win/test-gui-smoke.bash" --inside "$d" || rc=$?; rm -rf -- "$d"; exit "$rc"; }' \
+			'd="$(mktemp -d /tmp/test_gui-smoke.XXXXXX)" && tar -C "$d" -xf - && bash "$d/cicd/win/test-gui-smoke.bash" --inside "$d"' \
 		|| rc=$?
 	exit "${rc}"
 fi

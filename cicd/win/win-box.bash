@@ -2,8 +2,9 @@
 
 ##	- Purpose: The Windows cross build's step container: one of its own for each
 ##	  step, from the cross-build image, with the repo at /src and the cross
-##	  build dir at /build-win in the cache volume <project>-build-win. Named,
-##	  labeled and removed the way docker-run.bash's are (utility/include/step-box.bash).
+##	  build dir at /build-win in the cache volume <prefix>-build-win, where
+##	  fStepBox_VolPrefix gives the prefix. Named, labeled and removed the way
+##	  docker-run.bash's are (utility/include/step-box.bash).
 ##	- fWinBox_Tag -> nemo-winbuild:<hash>, the hash over the pinned recipe,
 ##	  cicd/win/Dockerfile, and the files it copies in.
 ##	- fWinBox_Image -> the image a step would run, or 1 when there's none yet.
@@ -47,7 +48,7 @@ fWinBox_Image(){
 fWinBox_Start(){
 	local label="$1" root image vol vols=() rc=0
 	root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-	vol="${CICD_PROJECT:-nemo-anywhere}-build-win"
+	vol="$(fStepBox_VolPrefix)-build-win"
 	if [[ "${CICD_NO_CONTAINER:-}" == "1" ]]; then
 		echo "[ FAILED: ${label} needs a container, and --no-container runs on the host ]" >&2; return 1
 	fi

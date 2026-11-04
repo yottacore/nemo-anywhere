@@ -73,17 +73,17 @@
 ##	                       stage 3, the tarball and pkg in stage 5
 ##	   --no-bsd            leave the FreeBSD lane out, even with --include-bsd
 ##	   --quick             run only the quick steps on this box: the build, the
-##	                       full test suite, lints, the sanitizer suite, the
-##	                       profiler, the native and Windows release builds and
-##	                       local dogfood. Skips what is slow or needs another
-##	                       box: fuzzing, the static analyzers, packages, arm64,
-##	                       the FreeBSD lane, the native Windows gate, the
-##	                       private runner, remote dogfood,
-##	                       scroll harness, screenshots, demo video. arm64 and
-##	                       FreeBSD come back with --include-arm and
-##	                       --include-bsd
+##	                       full test suite, lints, fuzzing at a short budget,
+##	                       the sanitizer suite, the profiler, the native and
+##	                       Windows release builds and local dogfood. Skips what
+##	                       is slow or needs another box: the static analyzers,
+##	                       packages, arm64, the FreeBSD lane, the native Windows
+##	                       gate, the private runner, remote dogfood, scroll
+##	                       harness, screenshots, demo video. arm64 and FreeBSD
+##	                       come back with --include-arm and --include-bsd
 ##	   --long              everything, the arm64 release build included, which
-##	                       a plain run leaves out to stay near an hour
+##	                       a plain run leaves out to stay near an hour. The
+##	                       static analyzers get 15 min a file, not 2
 ##	   --slow              same as --long
 ##	   --backlog-run-quick [<area>...]
 ##	                       what a backlog worker runs before a commit, about 4
@@ -177,7 +177,7 @@ source "${here}/utility/include/run-temp.bash"                    ## the run fol
 source "${here}/utility/include/docker-sweep.bash"                ## fDockerSweep() at the end of a run
 declare -p FMT_CMD &>/dev/null || FMT_CMD=()                      ## tolerate a config without the fmt stage
 declare -p FMT_CHECK_CMD &>/dev/null || FMT_CHECK_CMD=()
-for v in LINT_CMD FUZZ_CMD SANITIZE_CMD ANALYZE_CMD DENY_CMD SCROLL_HARNESS; do
+for v in LINT_CMD FUZZ_CMD FUZZ_QUICK_CMD SANITIZE_CMD ANALYZE_CMD ANALYZE_LONG_CMD DENY_CMD SCROLL_HARNESS; do
 	declare -p "$v" &>/dev/null || declare -a "$v=()"
 done
 ## NOT-READY (Rust origin): the source pipeline also exported CARGO_BUILD_JOBS and
@@ -276,6 +276,11 @@ declare -p WIN_GATE_CMD &>/dev/null || WIN_GATE_CMD=()
 declare -p BSD_TEST_CMD &>/dev/null || BSD_TEST_CMD=()           ## a config with no FreeBSD box
 declare -p BSD_RELEASE_CMD &>/dev/null || BSD_RELEASE_CMD=()
 ((${#BSD_TEST_CMD[@]} + ${#BSD_RELEASE_CMD[@]})) || include_bsd=0
+## --quick fuzzes at the short budget of FUZZ_QUICK_CMD, or not at all without
+## one, and --long gives the analyzers ANALYZE_LONG_CMD's longer cap a file.
+run_fuzz=$((${#FUZZ_CMD[@]} > 0 && ! quick))
+if ((quick && ${#FUZZ_QUICK_CMD[@]})); then FUZZ_CMD=("${FUZZ_QUICK_CMD[@]}"); run_fuzz=1; fi
+if ((long && ${#ANALYZE_LONG_CMD[@]})); then ANALYZE_CMD=("${ANALYZE_LONG_CMD[@]}"); fi
 
 ## The arm64 box here is emulated and takes about an hour. Native x86_64 is
 ## untouched; the Windows/Linux x86_64 crosses stay.
@@ -315,6 +320,13 @@ declare -p PACKAGE_ENABLE &>/dev/null || PACKAGE_ENABLE=0        ## tolerate a c
 declare -p DOGFOOD_CROSS_DESTS &>/dev/null || DOGFOOD_CROSS_DESTS=()   ## ditto, cross dogfood
 declare -p DOGFOOD_HOOK &>/dev/null || DOGFOOD_HOOK=()                 ## ditto, post-dogfood hook
 declare -p DOGFOOD_REMOTE &>/dev/null || DOGFOOD_REMOTE=()             ## ditto, dogfood built on another box
+declare -p CROSS_ALONGSIDE &>/dev/null || CROSS_ALONGSIDE=()           ## ditto, every cross target in its own step
+## True when the cross target labeled $1 starts alongside the local steps.
+fCross_Alongside(){
+	local x
+	for x in "${CROSS_ALONGSIDE[@]}"; do [[ "$x" == "$1" ]] && return 0; done
+	return 1
+}
 
 ## Publish commit message: -m wins, then config, then whatever the auto-message
 ## helper makes of the tree when unattended - one place owns the wording, so this
@@ -543,10 +555,44 @@ fWinSide_Stop(){
 	wait "$winSidePid" 2>/dev/null || true
 	winSidePid=""
 }
+## The cross targets in CROSS_ALONGSIDE start with the debug build too, since
+## each has a container of its own and needs nothing the steps before its own
+## make. Its step then waits for it and shows its log. A quarter of the cpus,
+## since it shares the box with every step until then.
+sideLabels=(); sidePids=(); sideLogs=()
+fCrossSide_Start(){
+	local t label cmd log
+	for t in "${CROSS_TARGETS[@]}"; do
+		label="${t%%|*}"; cmd="${t#*|}"; cmd="${cmd#*|}"; cmd="${cmd#*|}"
+		fCross_Alongside "$label" || continue
+		log="${runTempDir}/cross-${#sideLogs[@]}.log"
+		## The subshell's fJobs leaves the run's own count alone.
+		if command -v setsid >/dev/null 2>&1; then
+			(fJobs hard; echo "jobs ${CICD_MAX_JOBS} (alongside, load ${jobsLoad} on ${jobsCpus} cpus)"; exec setsid bash -c "$cmd") > "$log" 2>&1 < /dev/null &
+		else
+			(fJobs hard; echo "jobs ${CICD_MAX_JOBS} (alongside, load ${jobsLoad} on ${jobsCpus} cpus)"; exec bash -c "$cmd") > "$log" 2>&1 < /dev/null &
+		fi
+		sideLabels+=("$label"); sidePids+=("$!"); sideLogs+=("$log")
+		fEcho_Clean "${label} started alongside, pid ${!}, log ${log}"
+	done
+}
+fCrossSide_Stop(){
+	local i
+	for i in "${!sidePids[@]}"; do
+		[[ -n "${sidePids[i]}" ]] || continue
+		if kill -0 "${sidePids[i]}" 2>/dev/null; then
+			fEcho_Clean "stopping ${sideLabels[i]}"
+			kill -TERM -- "-${sidePids[i]}" 2>/dev/null || kill -TERM "${sidePids[i]}" 2>/dev/null || true
+		fi
+		wait "${sidePids[i]}" 2>/dev/null || true
+		sidePids[i]=""
+	done
+}
 fRunEnd(){
 	local rc=$?
 	if ((rc)) && [[ -n "$stepOpen" ]]; then fStep_Close FAIL; fEcho_Clean; fi
 	fWinSide_Stop || true
+	fCrossSide_Stop || true
 	## || true: a docker hiccup here must not keep the folder from going.
 	if ((${DOCKER_SWEEP:-0})); then fDockerSweep "${CICD_CONTAINERS[@]}" || true; fi
 	fRunTemp_Done || true
@@ -650,7 +696,7 @@ fPlan "$run_fmt"                        "$fmt_step"             "$fmt_why"
 fPlan 1                                 "Build (debug)"         ""
 fPlan 1                                 "Tests"                 ""
 fPlan "$((${#LINT_CMD[@]} > 0))"        "Lints"                 "no lint stage set up"
-((${#FUZZ_CMD[@]})) && fPlan "$((! quick))" "Fuzzing"           "--quick"
+((${#FUZZ_CMD[@]})) && fPlan "$run_fuzz" "Fuzzing"               "--quick"
 fPlan "$((${#SANITIZE_CMD[@]} > 0))"    "Sanitizer suite"       "--no-sanitize"
 ((${#BSD_TEST_CMD[@]})) && fPlan "$run_bsd_tests" "FreeBSD suite" "$bsd_why"
 ((${#DENY_CMD[@]})) && fPlan 1          "Dependency check"      ""
@@ -744,7 +790,10 @@ fi
 fEcho_Clean "Release (native) ....: ${RELEASE_NATIVE_CMD[*]} -> ${RELEASE_NATIVE_BIN}"
 if ((BUILD_CROSS)) && ((${#CROSS_TARGETS[@]})); then
 	fEcho_Clean "Release (cross) .....:${arm_note}"
-	for t in "${CROSS_TARGETS[@]}"; do fEcho_Clean "    - ${t%%|*}"; done
+	for t in "${CROSS_TARGETS[@]}"; do
+		if fCross_Alongside "${t%%|*}"; then fEcho_Clean "    - ${t%%|*} (alongside, from the debug build on)"
+		else fEcho_Clean "    - ${t%%|*}"; fi
+	done
 else
 	fEcho_Clean "Release (cross) .....: (skipped$( ((include_arm && ! no_arm)) && echo ', arm64 too'))"
 fi
@@ -869,6 +918,7 @@ if ((run_win && ! no_container && ${#WIN_GATE_SIDE_CMD[@]})); then
 	winSidePid=$!
 	fEcho_Clean "Native Windows gate started alongside, pid ${winSidePid}, log ${winSideLog}"
 fi
+((! run_cross)) || fCrossSide_Start
 fStep "Build (debug)"
 "${DEBUG_BUILD_CMD[@]}"
 fEcho "OK: debug build"
@@ -879,9 +929,9 @@ fStep "Tests"
 "${TEST_CMD[@]}"
 fEcho "OK: tests passed"
 ((${#LINT_CMD[@]})) && fLints
-## Bounded fuzzing of the parsers that read outside input. Slow by design, so it
-## is left out of --quick; the gate never runs it at all.
-if ((! quick)) && ((${#FUZZ_CMD[@]})); then
+## Bounded fuzzing of the parsers that read outside input. --quick runs it at a
+## short budget; the gate never runs it at all.
+if ((run_fuzz)); then
 	fStep "Fuzzing" hard
 	if "${FUZZ_PROBE[@]}" >/dev/null 2>&1; then
 		"${FUZZ_CMD[@]}"
@@ -1010,7 +1060,15 @@ if ((run_cross)); then
 		local_label="${t%%|*}"; rest="${t#*|}"; osarch="${rest%%|*}"; rest="${rest#*|}"; art="${rest%%|*}"; cmd="${rest#*|}"
 		art="${art//@VER@/${ver}}"   ## for a lane that puts the version in the file name
 		fStep "Release build: ${local_label}"
-		lane_rc=0; eval "${cmd}" || lane_rc=$?
+		lane_rc=0; side=""
+		for i in "${!sideLabels[@]}"; do [[ "${sideLabels[i]}" != "$local_label" ]] || side="$i"; done
+		if [[ -n "$side" ]]; then
+			tail -n +1 -f --pid="${sidePids[side]}" "${sideLogs[side]}" || true
+			wait "${sidePids[side]}" || lane_rc=$?
+			sidePids[side]=""
+		else
+			eval "${cmd}" || lane_rc=$?
+		fi
 		if ((lane_rc == 77)); then
 			fStep_Skip
 			case "$osarch" in *arm64*|*aarch64*) fDropArmPackages ;; esac
@@ -1037,7 +1095,7 @@ fi
 ## ready to attach to a release as plain uploads. A project whose release lane
 ## already writes its own artifacts sets RELEASE_COLLECT=0 and keeps the dir.
 if [[ -n "${RELEASE_ARTIFACT_DIR:-}" ]] && ((${RELEASE_COLLECT:-1})); then
-	rm -rf "${art_dir}"; mkdir -p "${art_dir}"
+	fSafeRm_Under "${root}" "${art_dir}"; mkdir -p "${art_dir}"
 	for pair in "${built_arts[@]}"; do
 		osarch="${pair%%|*}"; src="${pair#*|}"
 		ext=""; [[ "$src" == *.exe ]] && ext=".exe"
@@ -1195,9 +1253,9 @@ if ((${#DOGFOOD_FIXED_DESTS[@]})); then
 			if in_use "$df_app"; then
 				fEcho "WARNING: ${df_app} is running; left as is"
 			else
-				rm -rf "${df_app}.new"
+				fSafeRm_Under "${fixed_dest}" "${df_app}.new"
 				cp -a "${df_src}" "${df_app}.new"
-				rm -rf "${df_app}"
+				fSafeRm_Under "${fixed_dest}" "${df_app}"
 				mv "${df_app}.new" "${df_app}"
 				fEcho "OK: published (fixed) -> ${df_app}"
 			fi
@@ -1216,7 +1274,7 @@ if ((${#DOGFOOD_ROTATING_DESTS[@]})) && [[ -n "${DOGFOOD_PREFIX:-}" ]]; then
 	[[ -z "$rot_dest" && -n "$rot_target" ]] && mkdir -p "$rot_target" 2>/dev/null && rot_dest="$rot_target"
 	if [[ -n "$rot_dest" && -w "$rot_dest" ]]; then
 		df_name="${DOGFOOD_PREFIX}_$(date -r "${df_stamp_from}" +%Y%m%d-%H%M%S)${DOGFOOD_TAG:+_${DOGFOOD_TAG}}"
-		rm -rf "${rot_dest:?}/${df_name}"
+		fSafeRm_Under "${rot_dest}" "${rot_dest}/${df_name}"
 		if [[ -n "${DOGFOOD_PREFIX_SRC:-}" ]]; then
 			cp -a "${df_src}" "${rot_dest}/${df_name}"
 		else
@@ -1231,7 +1289,7 @@ if ((${#DOGFOOD_ROTATING_DESTS[@]})) && [[ -n "${DOGFOOD_PREFIX:-}" ]]; then
 			if in_use "$old"; then
 				fEcho_Clean "kept (running): $(basename "$old")"
 			else
-				rm -rf "$old" && pruned=$((pruned + 1))
+				fSafeRm_Under "${rot_dest}" "$old" && pruned=$((pruned + 1))
 			fi
 		done
 		if ((pruned)); then fEcho_Clean "pruned ${pruned} old copy(ies) not in use"; fi
@@ -1278,9 +1336,9 @@ if ((${#DOGFOOD_FIXED_DESTS[@]})); then
 		fi
 		pd_app="${pd_dest}/${EXE_NAME}"
 		[[ "$pd_app" == /*/"${EXE_NAME}" ]] || fDie "refusing to replace ${pd_app}"
-		rm -rf "${pd_app}.new"
+		fSafeRm_Under "${pd_dest}" "${pd_app}.new"
 		cp -a "${pd_src}" "${pd_app}.new"
-		rm -rf "${pd_app}"
+		fSafeRm_Under "${pd_dest}" "${pd_app}"
 		mv "${pd_app}.new" "${pd_app}"
 		fEcho "OK: published (private) -> ${pd_app}"
 		df_did=1
@@ -1375,6 +1433,8 @@ fEcho_Clean
 ##		- 2026-10-19: --quick keeps the sanitizers, profiler and Windows cross
 ##		  build; --include-arm works under --quick.
 ##		- 2026-11-02: --leakcheck and --no-leakcheck.
+##		- 2026-11-03: the cross targets in CROSS_ALONGSIDE start with the debug
+##		  build, and their step waits for them.
 ##		- 2026-10-21: static analyzer stage after the cross build, report only.
 ##		- 2026-10-24: --long (or --slow) adds arm64, now off in a plain run.
 ##		- 2026-10-25: --backlog-run-quick, --backlog-run-full and --merge-gate;
