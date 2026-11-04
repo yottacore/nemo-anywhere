@@ -97,54 +97,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261102 on vm925w, dd5dm from round1102a at 1aadd7b9 (nothing under Compress changed after it), with the work area cut to 560 px in two ways, 3 runs: each passed, Options got 272 px and scrolled, and the 543 px dialog stayed inside the work area. The screen kept its size, since the dialog sizes itself to the work area and not the screen.
 	- Stand-in: none (20261102). Only the look of Reset beside Options is left, which turns on taste. In Adwaita at fdce4acd its text sits about 8 px below the Options label's, grayed and lit alike, as the 20261013 note says.
 
-- CICD flags: run lengths.
-	- ID: 2026102516165479
-	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: yes. A plain `--backlog-run-full`, without `--long`, timed whole in one go. The Static analyzers step at the 2 min cap is timed.
-	- Priority|Severity: High
-	- Opened: 20261025-161654
-	- Opened by: 2026102416300004
-	- Parent ID: 2026102416300004
-	- Requirements:
-		- The default run fits in about an hour. Time it, and move the slowest steps to `--long` if it doesn't.
-		- `--quick` keeps to about 10 minutes, with fuzzing at a short budget in it.
-	- Decisions:
-		- Timed from the run logs: a plain run took 68 to 77 min from 2026-10-25 to 2026-11-03. Static analyzers was 36 to 39 min of that, fuzzing 12, and no other step over 5.
-		- The analyzers stay in a plain run, since the compile list check and the planted faults are there. What moves to `--long` is their per-file cap: 2 min in a plain run, 15 with `--long`. gcc at `-O0` never finishes `nemo-config.c` or blake3's AVX2 and SSE4.1 files even in 15, and waiting on those 3 was most of the step. Of the biggest of ours, the slowest, `nemo-file.c`, took 39 s. A file cut off shows as not analyzed in the counts, so a new slow one doesn't go unseen. A plain run should come to about 50 min.
-		- `--quick` fuzzes each target for 5 s, through `FUZZ_QUICK_CMD` in the config. A config without one leaves fuzzing out of `--quick`, as before.
-		- An `ANALYZE_TU_TIMEOUT` set by hand still wins over both caps.
-	- Swept: `cicd.bash --help`, the config comments, the `analyze.bash` header and design.md's run lengths line. `cicd-win.ps1` has no fuzzing or analyzers, and building.md and README.md don't give run lengths.
-	- Test case: de54r: `--quick` runs the short fuzz command, `--long` and `--slow` the long analyzer one, and a config with no short fuzz command leaves fuzzing out of `--quick`. dddq3's config has the short command too.
-	- Verified: 20261103, de54r, dddq3, ddmmw, desha and the other cicd step tests pass. The new de54r fails on `cicd.bash` from before the change. The real fuzz stage at 5 s a target took 91 s with a cold fuzz build, all 12 targets clean.
-	- Verified: 20261103, `cicd.bash -y --quick --no-sync --no-dogfood --no-publish` passed all 8 steps in 14.7 min, fuzzing 1.4 of it, at a load of 13 to 41 on 32 CPUs.
-	- Progress log:
-		- 20261103: `--quick` was still about 5 min over 10, which is in child 2026110314093130. It now takes 10.1 min, with the Windows cross build alongside.
-		- 20261103: Static analyzers took 9.5 min in the plain full run at d9733893 and 9.3 in the one at 92fc2c77, from 36 to 39 before. Put together from the two runs, a plain run comes to about 61 min: steps 1 to 11 in 38.5 at d9733893, then at 92fc2c77 the Native Windows gate 15.2 (its vm925w part, since b29w runs alongside the local steps), Packages 3.1 and the private runner 4.6. The run at 92fc2c77, with sanitizers, the profiler and FreeBSD off, took 50.8 min whole.
-
-- Temp files: the PowerShell scripts under `cicd/` remove through the guard.
-	- ID: 2026110315184983
-	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs external testing: `pack-portable.ps1` in a full `cicd-win.ps1` run's Packages step, and `sandbox.ps1 -Start` on a box with Windows Sandbox. The native gate part passed 20261103.
-	- Priority|Severity: Avg
-	- Opened: 20261103-151849
-	- Opened by: 2026102516403476
-	- Parent ID: 2026102516403476
-	- Prereq IDs: 2026110315184948
-	- Requirements:
-		- Each `Remove-Item -Recurse` in the scripts under `cicd/` goes through the PowerShell guard. File list in the private notes.
-		- A test that fails on a new bare `Remove-Item -Recurse`, as defnq does for `rm -r`.
-	- Progress log:
-		- 20261103: the 18 removals in 14 scripts under `cicd/` go through `Remove-SafeTree`. A test's scratch under the temp folder takes the tmp folder rule. `pack-portable.ps1`'s flat tree, `sandbox.ps1`'s app tree, `lane-box.ps1`'s run folder and `cicd-win.ps1`'s old dogfood drop take `-Under` their one parent. `lane.bash` sends `run-temp.ps1` beside `lane-box.ps1`, since the box has only those two before the clone.
-	- Decisions:
-		- Where the old line had `-ErrorAction SilentlyContinue`, the new one drops the result, and a refusal still prints its warning. Where a failed removal stopped the script or failed a test, it still does.
-		- detts finds the removals through the parser, not a text match: `Remove-Item` and its aliases with `-Recurse` or any short form of it, and `.Delete` with a recursive flag. So a comment or a string doesn't count, and `ri -r` does.
-	- Test case: detts (every recursive removal in the tracked PowerShell goes through the guard, but for the list of scripts still to move, each with its count), depg0 (`run-temp.ps1` is sent to the box), and the tests that run each changed script: dd5fx, ddkd9, ddqv0, ddwhx, ddrhb, dejjt and ddgch.
-	- Verified: 20261103, detts fails with a bare `Remove-Item -Recurse`, a `ri -r` or a `[IO.Directory]::Delete` put back, and with a count on its list that's off. detts, dejjt, depg0, dd5fx, ddkd9, ddqv0, ddwhx, ddrhb and ddgch pass, and left nothing in the temp folder. PSScriptAnalyzer is clean. `cicd/cicd.bash --backlog-run-quick` passed.
-	- Verified: 20261103, full run at 92fc2c77 (`--backlog-run-full --no-sanitize --no-profile --no-bsd`): the native gate through `lane.bash` passed on b29w, then again on vm925w with its desktop tests. On each, dd5hz (test-install-holders), ddc6v (test-install-acl) and dd5hy (GUI launch smoke) passed, and `lane-box.ps1` removed the box's run folder with the `run-temp.ps1` sent beside it. Not run: `pack-portable.ps1`, since the gate has no Packages step, and `sandbox.ps1 -Start`.
-	- Swept: every `Remove-Item -Recurse`, its aliases and recursive `.Delete` in tracked PowerShell, through detts. Only `install.ps1` (7) and `n8runfm.ps1` (6) are left, for 2026110315185015.
-
 - On Windows, a mapped drive that stops answering while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440
 	- Type: Bug
@@ -232,32 +184,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed: the FreeBSD suite (FreeBSD 1 to 3 of 3), the FreeBSD release (1 to 4 of 4) and the arm64 release (arm64 1 to 4 of 4) each printed their own steps inside the run's step, under the rule, with `Starting` and `PASS`.
 	- 20261102: the full run at fdce4acd passed every step, `--long` included. The FreeBSD suite (1 to 3 of 3), the FreeBSD release (1 to 4 of 4) and the arm64 release (1 to 4 of 4) printed their steps the same way. The private runner passed but printed no step lines of its own, so this item waits on 2026102820110989.
 	- 20261103: the full run at 92fc2c77 passed the private runner, still with no step lines of its own. The lanes' steps printed as before at d9733893.
-
-- Other hosts: the Windows dogfood takes b29w by that name, and its box through the VM state helper.
-	- ID: 2026102808250954
-	- Type: Task
-	- Status: Stalled
-		- Held for: a plain run with the dogfood on, which a round never starts.
-	- Needs external testing: a plain run's Windows dogfood with b29w away and vm925w off: vm925w is started, the exe refreshed, and vm925w shut down again.
-	- Priority|Severity: High
-	- Opened: 20261028-082509
-	- Opened by: 2026102416300001
-	- Parent ID: 2026102416300001
-	- Requirements:
-		- The dogfood refresh names `b29w`, never `b29w-wif`.
-		- vm925w is started when it's off or paused, and put back after, the way the FreeBSD lane does it. b29w goes first.
-		- No box there is still a skip, not an error.
-	- Decisions:
-		- It takes its box the way the FreeBSD lane does: the same check for a box that isn't there, the VM state helper or the bare host lock, and a wait for its own login after a boot, 600 s by default. Its connect timeout is 30 s, from 8.
-		- With only the bare host lock here, a VM that's off is still skipped, as before.
-	- Swept: the other places that name a Windows box in `cicd/`. Only the dogfood names one; the native Windows gate is 2026102808250959.
-	- Test case: dehyb. b29w goes first by that name, vm925w is taken through the VM state helper while off and its login waited for, and no box there is a skip. It fails before the change and passes after.
-	- Verified: 20261028, dehyb, and the quick gate.
-	- 20261031: not run. A round never runs the dogfood.
-	- 20261102: not run, as above. dehyb passed in the full run at fdce4acd.
-	- 20261028: not run. Left for a plain run, since no narrower check covers the refresh.
-	- 20261028: still not run. A round never runs the dogfood, and the step it needs, vm925w started from off, can't happen while the paused vmKt6m holds SPICE port 5900. dehyb covers the rest.
-	- 20261103: not run, as above. The full run at 92fc2c77 started vm925w from off for the native gate and shut it down again, the same box handling the dogfood needs. dehyb passed in the full run at d9733893.
 
 - CICD CPU: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102517333362
@@ -515,6 +441,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
 	- Test case: one per child.
 
+- CICD flags: run lengths.
+	- ID: 2026102516165479
+	- Type: Task
+	- Status: Queued
+		- A plain run is about 15 min over the hour. Most of it is vm925w's second gate in the Native Windows gate step.
+	- Needs local test suite run?: yes. A plain `--backlog-run-full`, without `--long`, timed whole in one go. The Static analyzers step at the 2 min cap is timed.
+	- Priority|Severity: High
+	- Opened: 20261025-161654
+	- Opened by: 2026102416300004
+	- Parent ID: 2026102416300004
+	- Requirements:
+		- The default run fits in about an hour. Time it, and move the slowest steps to `--long` if it doesn't.
+		- `--quick` keeps to about 10 minutes, with fuzzing at a short budget in it.
+	- Decisions:
+		- Timed from the run logs: a plain run took 68 to 77 min from 2026-10-25 to 2026-11-03. Static analyzers was 36 to 39 min of that, fuzzing 12, and no other step over 5.
+		- The analyzers stay in a plain run, since the compile list check and the planted faults are there. What moves to `--long` is their per-file cap: 2 min in a plain run, 15 with `--long`. gcc at `-O0` never finishes `nemo-config.c` or blake3's AVX2 and SSE4.1 files even in 15, and waiting on those 3 was most of the step. Of the biggest of ours, the slowest, `nemo-file.c`, took 39 s. A file cut off shows as not analyzed in the counts, so a new slow one doesn't go unseen. A plain run should come to about 50 min.
+		- `--quick` fuzzes each target for 5 s, through `FUZZ_QUICK_CMD` in the config. A config without one leaves fuzzing out of `--quick`, as before.
+		- An `ANALYZE_TU_TIMEOUT` set by hand still wins over both caps.
+	- Swept: `cicd.bash --help`, the config comments, the `analyze.bash` header and design.md's run lengths line. `cicd-win.ps1` has no fuzzing or analyzers, and building.md and README.md don't give run lengths.
+	- Test case: de54r: `--quick` runs the short fuzz command, `--long` and `--slow` the long analyzer one, and a config with no short fuzz command leaves fuzzing out of `--quick`. dddq3's config has the short command too.
+	- Verified: 20261103, de54r, dddq3, ddmmw, desha and the other cicd step tests pass. The new de54r fails on `cicd.bash` from before the change. The real fuzz stage at 5 s a target took 91 s with a cold fuzz build, all 12 targets clean.
+	- Verified: 20261103, `cicd.bash -y --quick --no-sync --no-dogfood --no-publish` passed all 8 steps in 14.7 min, fuzzing 1.4 of it, at a load of 13 to 41 on 32 CPUs.
+	- Progress log:
+		- 20261103: `--quick` was still about 5 min over 10, which is in child 2026110314093130. It now takes 10.1 min, with the Windows cross build alongside.
+		- 20261103: Static analyzers took 9.5 min in the plain full run at d9733893 and 9.3 in the one at 92fc2c77, from 36 to 39 before. Put together from the two runs, a plain run comes to about 61 min: steps 1 to 11 in 38.5 at d9733893, then at 92fc2c77 the Native Windows gate 15.2 (its vm925w part, since b29w runs alongside the local steps), Packages 3.1 and the private runner 4.6. The run at 92fc2c77, with sanitizers, the profiler and FreeBSD off, took 50.8 min whole.
+		- 20261104: a plain run at 29dc6c7b, timed whole, took 85.4 min, or 75.4 without the two dogfood steps and publish. Static analyzers 10.8 at the 2 min cap, fuzzing 12.3, and the Native Windows gate 27.4. b29w's gate finished alongside the local steps, then vm925w started from off, ran its whole gate again (17 min) and then its 18 desktop tests (3 min). No other step was over 5.
+
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
 	- Type: Enhancement
@@ -696,40 +649,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: opened.
 	- Test case: none yet.
 
-- With OLE drag on, a GTK drag on Windows may keep its whole drag window.
-	- ID: 2026102112223038
-	- Type: Bug
-	- Status: Open
-		- Filed upstream as GTK issue [#8497](https://gitlab.gnome.org/GNOME/gtk/-/work_items/8497) and MR [!10551](https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/10551). Waits on a GTK 3.24 release with it.
-		- Let's patch our own fork, if it hasn't been merged yet.
-	- Needs external testing: none. Seen on native Windows 20261022.
-	- Priority|Severity: Low
-	- Opened: 20261021-122230
-	- Opened by: t00mietum
-	- Related IDs: 2026102020234500, 2026101916044103
-	- Target OS: Windows
-	- Steps to reproduce:
-		- Turn on GDK's OLE drag, as `nemo_dnd_win32_prepare` does.
-		- Start a GTK drag, such as a tab or a text drag, and stop it.
-	- Incorrect behavior: the drag window is never destroyed, and keeps 4 refs after the drag's context is gone. One per drag, for the life of the app. The app's own file drags don't use it, but GTK's own drag sources do.
-	- Expected behavior: the drag window is destroyed and freed with its context, as it is with GTK's own drag protocol.
-	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. 20261022 on Windows 11, GTK 3.24.52, the same in every mode. Again 20261021 under wine: only when the drag stops before GDK handles another event. One stopped 300 ms in is freed, OLE on or off.
-	- Possible cause: GDK's OLE drag source keeps the context's drag window past the context, or wine's `DoDragDrop` never returns for a drag stopped from GTK's side.
-	- Actual cause: GDK, not wine.
-		- With OLE on, `gdk_drag_begin` leaves a pending OLE drag source that holds a ref on the context. Only the code after `DoDragDrop` lets it go, and `DoDragDrop` starts on the next event GDK handles. GDK's drag abort just sets the state to none, so a drag stopped before then never runs `DoDragDrop`, and the source is never released.
-		- So the context isn't gone. It stays at 1 ref, is never finalized, and never destroys its drag window. The window's 4 refs are what any drag window has until its context's finalize. Dropping the context's last ref by hand destroys and frees the window at once.
-		- The first source left this way also stays GDK's current drag source, so later drops inside the app take their source window from it.
-	- Decisions:
-		- Upstream only. The ref belongs to GDK's pending drag source, which the app can't reach. Dropping it from the app leaves GDK's pointer to the context dangling, and GDK reads it on the next drop into the app.
-		- Drags in the app start from an event, so `DoDragDrop` runs right after and the context is freed. The app never cancels a drag itself. So it stays Low.
-		- An upstream patch is drafted, not filed: GDK's drag abort releases the pending source when `DoDragDrop` hasn't started.
-		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
-		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
-	- Actual fix: none in the app.
-	- Test case: none. The fix is upstream, and nothing in the app hits it.
-	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
-	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
-
 - Affirmative checkmarks: the switch and the places it will plug into, with no affirmative behavior yet.
 	- ID: 2026102019174477
 	- Type: Task
@@ -780,6 +699,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- 2026-10-26, round1026a full run: vmFreeBSD was off. The lane started it, then failed at once with 'bsdtest@vmFreeBSD is not a FreeBSD box reachable as that user', before ssh was up, and stopped the run. The lane should wait for ssh after a start.
 	- 2026-10-27: the same at step 7 of a full run, with ssh timing out on the VM that was off. The FreeBSD lane and the arm64 release now take their box through the VM state helper when it's here, so a VM that's off or paused is started, waited for and put back. The bare host lock is still the fallback. Left: the `SKIP` for a box that isn't there, and the Windows dogfood, which still only tries boxes that already answer.
 	- 20261028: split into children. The `SKIP` is 2026102808250949, the Windows dogfood's box and name 2026102808250954, the native Windows gate 2026102808250959. The FreeBSD and arm64 work folders are 2026102516403481. A lane that starts its VM now also waits for its own login (2026102808084300).
+
+- With OLE drag on, a GTK drag on Windows may keep its whole drag window.
+	- ID: 2026102112223038
+	- Type: Bug
+	- Status: Open
+		- Filed upstream as GTK issue [#8497](https://gitlab.gnome.org/GNOME/gtk/-/work_items/8497) and MR [!10551](https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/10551). Waits on a GTK 3.24 release with it.
+		- Let's patch our own fork, if it hasn't been merged yet.
+	- Needs external testing: none. Seen on native Windows 20261022.
+	- Priority|Severity: Low
+	- Opened: 20261021-122230
+	- Opened by: t00mietum
+	- Related IDs: 2026102020234500, 2026101916044103
+	- Target OS: Windows
+	- Steps to reproduce:
+		- Turn on GDK's OLE drag, as `nemo_dnd_win32_prepare` does.
+		- Start a GTK drag, such as a tab or a text drag, and stop it.
+	- Incorrect behavior: the drag window is never destroyed, and keeps 4 refs after the drag's context is gone. One per drag, for the life of the app. The app's own file drags don't use it, but GTK's own drag sources do.
+	- Expected behavior: the drag window is destroyed and freed with its context, as it is with GTK's own drag protocol.
+	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. 20261022 on Windows 11, GTK 3.24.52, the same in every mode. Again 20261021 under wine: only when the drag stops before GDK handles another event. One stopped 300 ms in is freed, OLE on or off.
+	- Possible cause: GDK's OLE drag source keeps the context's drag window past the context, or wine's `DoDragDrop` never returns for a drag stopped from GTK's side.
+	- Actual cause: GDK, not wine.
+		- With OLE on, `gdk_drag_begin` leaves a pending OLE drag source that holds a ref on the context. Only the code after `DoDragDrop` lets it go, and `DoDragDrop` starts on the next event GDK handles. GDK's drag abort just sets the state to none, so a drag stopped before then never runs `DoDragDrop`, and the source is never released.
+		- So the context isn't gone. It stays at 1 ref, is never finalized, and never destroys its drag window. The window's 4 refs are what any drag window has until its context's finalize. Dropping the context's last ref by hand destroys and frees the window at once.
+		- The first source left this way also stays GDK's current drag source, so later drops inside the app take their source window from it.
+	- Decisions:
+		- Upstream only. The ref belongs to GDK's pending drag source, which the app can't reach. Dropping it from the app leaves GDK's pointer to the context dangling, and GDK reads it on the next drop into the app.
+		- Drags in the app start from an event, so `DoDragDrop` runs right after and the context is freed. The app never cancels a drag itself. So it stays Low.
+		- An upstream patch is drafted, not filed: GDK's drag abort releases the pending source when `DoDragDrop` hasn't started.
+		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
+		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
+	- Actual fix: none in the app.
+	- Test case: none. The fix is upstream, and nothing in the app hits it.
+	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
+	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
 
 - CICD reset: CPU and priority.
 	- ID: 2026102416300003
@@ -2331,6 +2284,34 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. dd8d9 covers it.
 	- Closed: 20261003-112426
+
+- Other hosts: the Windows dogfood takes b29w by that name, and its box through the VM state helper.
+	- ID: 2026102808250954
+	- Type: Task
+	- Status: Done
+	- Needs external testing: done 20261104, as in the last Verified row.
+	- Priority|Severity: High
+	- Opened: 20261028-082509
+	- Opened by: 2026102416300001
+	- Parent ID: 2026102416300001
+	- Requirements:
+		- The dogfood refresh names `b29w`, never `b29w-wif`.
+		- vm925w is started when it's off or paused, and put back after, the way the FreeBSD lane does it. b29w goes first.
+		- No box there is still a skip, not an error.
+	- Decisions:
+		- It takes its box the way the FreeBSD lane does: the same check for a box that isn't there, the VM state helper or the bare host lock, and a wait for its own login after a boot, 600 s by default. Its connect timeout is 30 s, from 8.
+		- With only the bare host lock here, a VM that's off is still skipped, as before.
+	- Swept: the other places that name a Windows box in `cicd/`. Only the dogfood names one; the native Windows gate is 2026102808250959.
+	- Test case: dehyb. b29w goes first by that name, vm925w is taken through the VM state helper while off and its login waited for, and no box there is a skip. It fails before the change and passes after.
+	- Verified: 20261028, dehyb, and the quick gate.
+	- 20261031: not run. A round never runs the dogfood.
+	- 20261102: not run, as above. dehyb passed in the full run at fdce4acd.
+	- 20261028: not run. Left for a plain run, since no narrower check covers the refresh.
+	- 20261028: still not run. A round never runs the dogfood, and the step it needs, vm925w started from off, can't happen while the paused vmKt6m holds SPICE port 5900. dehyb covers the rest.
+	- 20261103: not run, as above. The full run at 92fc2c77 started vm925w from off for the native gate and shut it down again, the same box handling the dogfood needs. dehyb passed in the full run at d9733893.
+	- Verified: 20261104, plain run at 29dc6c7b with the dogfood on: the Windows dogfood took b29w by that name, built, tested and packed there, and refreshed the exe. b29w was there, so vm925w wasn't needed. The same run's Native Windows gate step started vm925w from off through the same `box-wrap.bash` calls and put it back off, and dehyb passed in its lint stage.
+	- Acceptance signoff: Self-closed: the dogfood passed on b29w in a plain run, and the vm925w start it shares with the native gate passed in the same run.
+	- Closed: 20261104-095024
 
 - Other hosts: the native Windows gate in the default run.
 	- ID: 2026102808250959
@@ -5274,6 +5255,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de025, Folder open time test. Goes into 9 folders of 120 from the list view, and back up after each. 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
 	- Acceptance signoff: Self-closed: de025 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
+
+- Temp files: the PowerShell scripts under `cicd/` remove through the guard.
+	- ID: 2026110315184983
+	- Type: Task
+	- Status: Done
+	- Needs external testing: done 20261104, as in Verified.
+	- Priority|Severity: Avg
+	- Opened: 20261103-151849
+	- Opened by: 2026102516403476
+	- Parent ID: 2026102516403476
+	- Prereq IDs: 2026110315184948
+	- Requirements:
+		- Each `Remove-Item -Recurse` in the scripts under `cicd/` goes through the PowerShell guard. File list in the private notes.
+		- A test that fails on a new bare `Remove-Item -Recurse`, as defnq does for `rm -r`.
+	- Progress log:
+		- 20261103: the 18 removals in 14 scripts under `cicd/` go through `Remove-SafeTree`. A test's scratch under the temp folder takes the tmp folder rule. `pack-portable.ps1`'s flat tree, `sandbox.ps1`'s app tree, `lane-box.ps1`'s run folder and `cicd-win.ps1`'s old dogfood drop take `-Under` their one parent. `lane.bash` sends `run-temp.ps1` beside `lane-box.ps1`, since the box has only those two before the clone.
+	- Decisions:
+		- Where the old line had `-ErrorAction SilentlyContinue`, the new one drops the result, and a refusal still prints its warning. Where a failed removal stopped the script or failed a test, it still does.
+		- detts finds the removals through the parser, not a text match: `Remove-Item` and its aliases with `-Recurse` or any short form of it, and `.Delete` with a recursive flag. So a comment or a string doesn't count, and `ri -r` does.
+	- Test case: detts (every recursive removal in the tracked PowerShell goes through the guard, but for the list of scripts still to move, each with its count), depg0 (`run-temp.ps1` is sent to the box), and the tests that run each changed script: dd5fx, ddkd9, ddqv0, ddwhx, ddrhb, dejjt and ddgch.
+	- Verified: 20261103, detts fails with a bare `Remove-Item -Recurse`, a `ri -r` or a `[IO.Directory]::Delete` put back, and with a count on its list that's off. detts, dejjt, depg0, dd5fx, ddkd9, ddqv0, ddwhx, ddrhb and ddgch pass, and left nothing in the temp folder. PSScriptAnalyzer is clean. `cicd/cicd.bash --backlog-run-quick` passed.
+	- Verified: 20261103, full run at 92fc2c77 (`--backlog-run-full --no-sanitize --no-profile --no-bsd`): the native gate through `lane.bash` passed on b29w, then again on vm925w with its desktop tests. On each, dd5hz (test-install-holders), ddc6v (test-install-acl) and dd5hy (GUI launch smoke) passed, and `lane-box.ps1` removed the box's run folder with the `run-temp.ps1` sent beside it. Not run: `pack-portable.ps1`, since the gate has no Packages step, and `sandbox.ps1 -Start`.
+	- Verified: 20261104, plain run at 29dc6c7b: the Windows dogfood's `cicd-win.ps1` run on b29w cleared the last run's `win-flat` through `pack-portable.ps1`'s guard, packed the exe (31.8 MB) and passed its Packages step.
+	- Verified: 20261104, `sandbox.ps1 -Start -Dir` twice on b29w as wintest, from a clone of 70f14f7f. The second cleared the app tree the first staged, a file added to it went too, and the build was staged again. `-Smoke` then opened the app in the sandbox, and `-Stop` left no sandbox process.
+	- Swept: every `Remove-Item -Recurse`, its aliases and recursive `.Delete` in tracked PowerShell, through detts. Only `install.ps1` (7) and `n8runfm.ps1` (6) are left, for 2026110315185015.
+	- Acceptance signoff: Self-closed: `pack-portable.ps1` and `sandbox.ps1 -Start` cleared their trees through the guard on b29w.
+	- Closed: 20261104-095024
 
 - Temp files: the run folder in `cicd-win.ps1`, and a PowerShell copy of the guard.
 	- ID: 2026110315184948
