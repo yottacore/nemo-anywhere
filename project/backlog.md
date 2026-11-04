@@ -918,7 +918,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Temp files: bash scripts remove through the guard.
 	- ID: 2026102516403471
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261025-164035
 	- Opened by: 2026102416300002
@@ -928,7 +928,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The 93 `rm -r` lines in 47 scripts go through the repo copy of the guard, or a guard of the same kind that names the one parent it may remove under. File list in the private notes.
 	- Progress log:
 		- 20261026: split into children 2026102618083910 (removals in a temp folder), 2026102617555865 (removals outside a temp root) and 2026102617555870 (the installer, and removals inside a container). The first is in. The third is in too, and waits on a FreeBSD run.
-	- Test case: defnq, once the last child is in.
+	- Test case: defnq, which holds the list of rm -r lines that skip a guard; only the two guards' own lines are left.
+	- Acceptance signoff: Self-closed: all 3 children are done, and defnq passed in round1104a's quick run.
+	- Closed: 20261104-184700
 
 - Temp files: `cicd-win.ps1` and the PowerShell scripts.
 	- ID: 2026102516403476
