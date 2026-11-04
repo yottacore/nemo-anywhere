@@ -102,8 +102,10 @@ fRunTemp_Make(){
 	local stamp="${2:?}" base dir n=1
 	projectName="${1:?}"
 	## Resolved once, since macOS's temp folder sits behind the /var link and
-	## the guard compares real paths.
-	HOST_TEMP="$(realpath -e -- "${HOST_TEMP:-${TMPDIR:-/tmp}}")" || return 1
+	## the guard compares real paths. No realpath -e, which FreeBSD lacks.
+	HOST_TEMP="${HOST_TEMP:-${TMPDIR:-/tmp}}"
+	[[ -d "${HOST_TEMP}" ]] || return 1
+	HOST_TEMP="$(realpath -- "${HOST_TEMP}")" || return 1
 	export HOST_TEMP
 	base="${HOST_TEMP}/${projectName}"
 	mkdir -p -- "${base}" || return 1
@@ -148,3 +150,5 @@ fRunTemp_Done(){
 ##		- 2026-10-26: Exports CICD_KEEP_TEMP.
 ##		- 2026-10-26: fSafeRm_IfThere; fSafeRm works outside a run.
 ##		- 2026-11-03: fSafeRm_Under; works on FreeBSD and macOS.
+##		- 2026-11-04: fRunTemp_Make works on FreeBSD, for the lanes' run folder
+##		  there.

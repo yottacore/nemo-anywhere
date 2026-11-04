@@ -5,7 +5,12 @@
 ##	  that run the box's side in a scratch home here, and stand-ins for the two
 ##	  scripts the box would run.
 ##	  - What is sent is the tracked and untracked files, not the ignored ones,
-##	    and nothing from an earlier run is left beside them.
+##	    to a new run folder under the box's temp root, with the build dir
+##	    beside them. The suite there runs with run.pid naming it and TMPDIR on
+##	    that folder. The folder is gone after a pass and after a failure, or
+##	    kept and named with CICD_KEEP_TEMP=1. The project's run folders there
+##	    older than 2 days with no live process are swept; a young one, and
+##	    one with no run.pid, stay.
 ##	  - --tests hands run-tests.bash its build dir and job count, and fails
 ##	    when the suite does. The count is half the box's own CPUs, a quarter
 ##	    when its load is over half of them, or NEMO_BSD_JOBS. The suite and
@@ -109,6 +114,8 @@ EOF
 cat > "${scratch}/fake-run-tests.bash" <<'EOF'
 #!/usr/bin/env bash
 printf 'BUILD_DIR=%s NEMO_TEST_JOBS=%s\n' "${BUILD_DIR:-}" "${NEMO_TEST_JOBS:-}" > "${HOME}/run-tests.log"
+printf 'pwd=%s tmp=%s,%s,%s pid=%s\n' "${PWD}" "${TMPDIR:-}" "${TEMP:-}" "${TMP:-}" "$( [[ "$(cat ../run.pid)" == "$$" ]] && echo ok || echo wrong)" > "${HOME}/run-tests-where.log"
+[[ -z "${FAKE_PEEK:-}" ]] || cp -a . "${FAKE_PEEK}"
 exit "${FAKE_TESTS_RC:-0}"
 EOF
 ## Leaves the prefix and a pkg the way release.bash does, with whatever file
@@ -141,14 +148,16 @@ cmd="\$*"
 printf '%s\n' "\$cmd" >> "${scratch}/ssh-cmds.log"
 cmd="\${cmd//bash cicd\/linux\/run-tests.bash/bash ${scratch}/fake-run-tests.bash}"
 cmd="\${cmd//bash cicd\/bsd\/release.bash/bash ${scratch}/fake-release.bash}"
-cd "${box}" && HOME="${box}" PATH="${scratch}/boxbin:\${PATH}" bash -c "\$cmd"
+cd "${box}" && env -u HOST_TEMP TMPDIR="${box}/tmp" HOME="${box}" PATH="${scratch}/boxbin:\${PATH}" bash -c "\$cmd"
 EOF
 cat > "${shim}/scp" <<EOF
 #!/usr/bin/env bash
 args=(); for a in "\$@"; do case "\$a" in -q) ;; *) args+=("\$a") ;; esac; done
 set -- "\${args[@]}"
 while [[ "\${1:-}" == -o ]]; do shift 2; done
-cp "${box}/\${1#*:}" "\$2"
+## The lane's run folder is a whole path; a path in its home isn't.
+from="\${1#*:}"; [[ "\$from" == /* ]] || from="${box}/\${from}"
+cp "\$from" "\$2"
 EOF
 cat > "${shim}/lock.bash" <<EOF
 #!/usr/bin/env bash
@@ -180,17 +189,32 @@ chmod +x "${shim}/ssh" "${shim}/scp" "${scratch}/boxbin/"*
 
 fLane(){ (cd "$repo" && env -u SOURCE_DATE_EPOCH PATH="${shim}:${PATH}" WINDOWS_HOST_LOCK="${shim}/lock.bash" bash cicd/bsd/lane.bash "$@") >"${scratch}/lane.log" 2>&1; }
 
-## Left from an earlier run; must not survive the send.
-mkdir -p "${box}/nemo-anywhere-ci/src"
-printf 'stale\n' > "${box}/nemo-anywhere-ci/src/stale.txt"
+## The box's temp root, with run folders left from earlier runs: an old one
+## whose run is gone, a young one, and an old one no run made.
+boxTemp="${box}/tmp/nemo-anywhere"
+mkdir -p "${boxTemp}/20200101-000000_001" "${boxTemp}/20200101-000000_002" "${boxTemp}/$(date +%Y%m%d-%H%M%S)_009"
+printf '999999999\n' | tee "${boxTemp}/20200101-000000_001/run.pid" > "${boxTemp}/$(date +%Y%m%d-%H%M%S)_009/run.pid"
+## The run folder the last run named, and none left under the temp root but those above.
+fRunDir(){ sed -n 's/^work folder bsdtest@vmFreeBSD://p' "${scratch}/lane.log" | tail -1; }
+fNoneLeft(){ local left; left="$(find "${boxTemp}" -mindepth 1 -maxdepth 1 ! -name '20200101-000000_002' ! -name '*_009' | sort)"; [[ -z "$left" ]] || { fFail "$1: left ${left}"; return 1; }; }
 
-if fLane --tests; then fEcho "OK: --tests ran"; else fFail "--tests failed: $(tail -3 "${scratch}/lane.log")"; fi
-src="${box}/nemo-anywhere-ci/src"
+## The sent tree, looked at from the suite's stand-in before the folder goes.
+if FAKE_PEEK="${scratch}/sent" fLane --tests; then fEcho "OK: --tests ran"; else fFail "--tests failed: $(tail -3 "${scratch}/lane.log")"; fi
+runDir="$(fRunDir)"
+src="${scratch}/sent"
 [[ -f "${src}/tracked.txt" && -f "${src}/untracked.txt" ]] || fFail "tracked or untracked file not sent"
 [[ ! -e "${src}/ignored.txt" ]] || fFail "an ignored file was sent"
-[[ ! -e "${src}/stale.txt" ]] || fFail "a file from an earlier run was left in the source dir"
+if [[ "$runDir" =~ ^${boxTemp}/[0-9]{8}-[0-9]{6}_001$ ]]; then fEcho "OK: the lane worked in a run folder under the box's temp root"; else fFail "run folder '${runDir}'"; fi
+[[ ! -e "$runDir" ]] || fFail "the run folder was left after a pass"
+[[ "$(cat "${box}/run-tests-where.log" 2>/dev/null || true)" == "pwd=${runDir}/src tmp=${runDir},${runDir},${runDir} pid=ok" ]] \
+	|| fFail "the suite ran with '$(cat "${box}/run-tests-where.log" 2>/dev/null || true)'"
+[[ ! -e "${boxTemp}/20200101-000000_001" ]] || fFail "an old run folder whose run is gone was not swept"
+[[ -e "${boxTemp}/20200101-000000_002" ]] || fFail "an old folder with no run.pid was swept"
+compgen -G "${boxTemp}/*_009" > /dev/null || fFail "a young run folder was swept"
+grep -q -F "removed stale bsdtest@vmFreeBSD:${boxTemp}/20200101-000000_001" "${scratch}/lane.log" || fFail "no line for the stale folder swept"
+fNoneLeft "after a pass" && fEcho "OK: the run folder is gone after a pass, and the stale one swept"
 ## 12 cpus, load 1.00: half.
-if [[ "$(cat "${box}/run-tests.log" 2>/dev/null || true)" == "BUILD_DIR=${box}/nemo-anywhere-ci/build NEMO_TEST_JOBS=6" ]]; then
+if [[ "$(cat "${box}/run-tests.log" 2>/dev/null || true)" == "BUILD_DIR=${runDir}/build NEMO_TEST_JOBS=6" ]]; then
 	fEcho "OK: run-tests.bash got its build dir and jobs"
 else
 	fFail "run-tests.bash got '$(cat "${box}/run-tests.log" 2>/dev/null || true)'"
@@ -257,7 +281,6 @@ else
 fi
 
 ## Never answers, or isn't FreeBSD: both fail before the send.
-printf 'stale\n' > "${box}/nemo-anywhere-ci/src/stale.txt"
 rm -f "${scratch}/ssh-tries"
 if BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=off FAKE_SSH_DOWN=99 BOX_READY_POLL=1 NEMO_BSD_READY_WAIT=1 fLane --tests; then fFail "--tests passed on a box that never answered"
 elif ! grep -q 'did not answer' "${scratch}/lane.log"; then fFail "no reason for a box that never answered: $(tail -3 "${scratch}/lane.log")"
@@ -271,7 +294,7 @@ elif ((SECONDS - startedAt >= 5)); then fFail "a box that isn't FreeBSD was wait
 else fEcho "OK: a box that isn't FreeBSD fails without the wait"
 fi
 fSteps "FreeBSD 1 of 3; Starting Box ready|FreeBSD 1 of 3; FAIL Box ready" "${scratch}/lane.log" && fEcho "OK: a step that fails closes as FAIL"
-[[ -e "${box}/nemo-anywhere-ci/src/stale.txt" ]] || fFail "the tree on a box that failed the check was touched"
+fNoneLeft "a run folder on a box that failed the check"
 
 ## Resumed from paused with its old clock: fails before the send, rather than
 ## meson stopping on clock skew there. Ahead fails the same way.
@@ -282,7 +305,7 @@ for behind in 60941 -3600; do
 	else fEcho "OK: a box ${behind}s off fails"
 	fi
 done
-[[ -e "${box}/nemo-anywhere-ci/src/stale.txt" ]] || fFail "the tree on a box with the wrong time was touched"
+fNoneLeft "a run folder on a box with the wrong time"
 
 ## Its clock set a moment after the resume: waited for, then the suite runs.
 rm -f "${scratch}/clock-reads" "${box}/run-tests.log"
@@ -295,7 +318,6 @@ if BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=paused FAKE_CLOCK_BEHIND=60941 FAKE_CLO
 else
 	fFail "--tests failed on a box whose clock was set after two reads: $(tail -3 "${scratch}/lane.log")"
 fi
-printf 'stale\n' > "${box}/nemo-anywhere-ci/src/stale.txt"
 
 ## Not there, and not a VM here: a skip, before the lock.
 rm -f "${scratch}/ssh-tries"
@@ -306,7 +328,7 @@ elif ! grep -q "SKIP: bsdtest@vmFreeBSD isn't there" "${scratch}/lane.log"; then
 elif [[ "$(wc -l < "${scratch}/lock.log")" != "$locks" ]]; then fFail "the lock was taken for a box that isn't there"
 else fEcho "OK: a box that isn't there is a skip"
 fi
-[[ -e "${box}/nemo-anywhere-ci/src/stale.txt" ]] || fFail "the tree was touched on a box that isn't there"
+fNoneLeft "a run folder on a box that isn't there"
 
 ## A VM that's running but never answers, and nobody else holds: a skip in
 ## seconds, rather than the helper's boot wait.
@@ -326,11 +348,20 @@ if [[ "$rc" == 77 ]]; then fFail "a running VM held elsewhere was skipped"
 elif ! grep -q -E -- '^wrap vmFreeBSD ' "${scratch}/vm-state.log"; then fFail "a running VM held elsewhere didn't go to the helper's wrap"
 else fEcho "OK: a running VM held elsewhere isn't skipped"
 fi
-[[ -e "${box}/nemo-anywhere-ci/src/stale.txt" ]] || fFail "the tree was touched on a running VM with no answer"
+fNoneLeft "a run folder on a running VM with no answer"
 
 if FAKE_TESTS_RC=1 fLane --tests; then fFail "--tests passed with a failing suite"; else fEcho "OK: a failing suite fails --tests"; fi
 fSteps "FreeBSD 1 of 3; Starting Box ready|FreeBSD 1 of 3; PASS Box ready|FreeBSD 2 of 3; Starting Send|FreeBSD 2 of 3; PASS Send|FreeBSD 3 of 3; Starting Build and suite|FreeBSD 3 of 3; FAIL Build and suite" \
 	"${scratch}/lane.log" && fEcho "OK: a failing suite closes its step as FAIL"
+runDir="$(fRunDir)"
+[[ -n "$runDir" && ! -e "$runDir" ]] || fFail "the run folder '${runDir}' was left after a failing suite"
+fNoneLeft "after a failing suite" && fEcho "OK: the run folder is gone after a failing suite"
+if CICD_KEEP_TEMP=1 fLane --tests && runDir="$(fRunDir)" && [[ -d "${runDir}/src" ]] && grep -q -F "[ kept the run folder: bsdtest@vmFreeBSD:${runDir} ]" "${scratch}/lane.log"; then
+	fEcho "OK: CICD_KEEP_TEMP=1 keeps the run folder and names it"
+else
+	fFail "CICD_KEEP_TEMP=1: $(tail -3 "${scratch}/lane.log")"
+fi
+[[ -n "$runDir" && -d "$runDir" ]] && fSafeRm "$runDir" > /dev/null
 
 art="${repo}/cicd/artifacts/release"
 name="nemo-anywhere-9.9.9-rc1-bsd-x86_64"
@@ -343,6 +374,7 @@ grep -q -F 'CICD_MAX_JOBS=6 nice -n 19 bash cicd/bsd/release.bash' "${scratch}/s
 	|| fFail "the release build did not get the box's jobs under nice 19: $(grep -F release.bash "${scratch}/ssh-cmds.log" || true)"
 fSteps "FreeBSD 1 of 4; Starting Box ready|FreeBSD 1 of 4; PASS Box ready|FreeBSD 2 of 4; Starting Send|FreeBSD 2 of 4; PASS Send|FreeBSD 3 of 4; Starting Release build|FreeBSD 3 of 4; PASS Release build|FreeBSD 4 of 4; Starting Bring back|FreeBSD 4 of 4; PASS Bring back" \
 	"${scratch}/lane.log" && fEcho "OK: --release prints its steps"
+fNoneLeft "after --release" && fEcho "OK: --release leaves no run folder"
 [[ "$(cat "${box}/release-sde.log" 2>/dev/null || true)" == "$commitDate" ]] || fFail "the box was not handed the commit's stamp"
 [[ -f "${art}/${name}.pkg" ]] || fFail "no pkg brought back"
 [[ ! -e "${art}/${name}" ]] || fFail "the prefix that came back was left in the release dir"

@@ -692,7 +692,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD reset: other hosts and VMs.
 	- ID: 2026102416300001
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261024-163000
 	- Opened by: t00mietum
@@ -705,12 +705,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Each box gets the project's own work folder under its temp root.
 			- The Windows dogfood refresh names `b29w`, never `b29w-wif`.
 		- Overrides: the native Windows step in the private round settings, run by hand. The rule sending windowed checks to vm925w stays.
-	- Test case: none yet.
+	- Test case: the children's: ddmmw, ddmn7 and ddmmv (2026102808250949, 2026102808084300, 2026102516403481), dehyb (2026102808250954), depg0 and ddmmw (2026102808250959).
 	- Prereq IDs: 2026102516403481
 	- 2026-10-26, round1026a full run: vmFreeBSD was off. The lane started it, then failed at once with 'bsdtest@vmFreeBSD is not a FreeBSD box reachable as that user', before ssh was up, and stopped the run. The lane should wait for ssh after a start.
 	- 2026-10-27: the same at step 7 of a full run, with ssh timing out on the VM that was off. The FreeBSD lane and the arm64 release now take their box through the VM state helper when it's here, so a VM that's off or paused is started, waited for and put back. The bare host lock is still the fallback. Left: the `SKIP` for a box that isn't there, and the Windows dogfood, which still only tries boxes that already answer.
 	- 20261028: split into children. The `SKIP` is 2026102808250949, the Windows dogfood's box and name 2026102808250954, the native Windows gate 2026102808250959. The FreeBSD and arm64 work folders are 2026102516403481. A lane that starts its VM now also waits for its own login (2026102808084300).
 	- 20261104: the per-box work folders are the last requirement left, in 2026102516403481, so this closes with it.
+	- 20261104: closed with 2026102516403481.
+	- Closed: 20261104
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
@@ -952,15 +954,50 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Temp files: the same on the test VMs.
 	- ID: 2026102516403481
 	- Type: Task
-	- Status: Queued
+	- Status: Done
+	- Needs local test suite run?: none
+	- Needs external testing: none
 	- Priority|Severity: Avg
 	- Opened: 20261025-164035
 	- Opened by: 2026102416300002
 	- Parent ID: 2026102416300002
 	- Prereq IDs: 2026102516403466
-	- Related IDs: 2026102416300001
+	- Related IDs: 2026102416300001, 2026110410593292
 	- Requirements:
 		- The FreeBSD lane and the arm64 release work in a run folder under that box's temp root, write `run.pid` there, and remove it at the end through the guard, failure included.
+	- Progress log:
+		- 20261104: `include/box-wrap.bash` has `fBoxWrap_RunDir`, `fBoxWrap_RunDirDone` and `fBoxWrap_RunCmd`. The FreeBSD lane and the arm64 release make `<temp>/nemo-anywhere/<YYYYmmDD-HHMMSS>_<NNN>/` on the box at the Send step, send the tree to `src` in it, and sweep the project's stale ones there. Each build or suite there runs from it with `TMPDIR`, `TEMP` and `TMP` on it and `run.pid` naming its process. The EXIT trap removes it through `fSafeRm` there, after a failure or INT, TERM or HUP too. `--keep-temp` keeps it and prints its path.
+		- 20261104: `fRunTemp_Make` works on FreeBSD now, which has no `realpath -e`.
+		- 20261104: the old fixed folders are still on the boxes and nothing uses them: `~/nemo-anywhere-ci` on vmFreeBSD (1.1 GB) and `~/nemo-anywhere-arm64` on vmDebARM64 (54 MB). They're left for a cleanup by hand.
+		- 20261104: the FreeBSD and arm64 release lanes haven't run on their boxes since the change. FreeBSD's runs in the next full run, and arm64's in the next one with `--long`.
+		- 20261104: ddmn7 and ddmmv checked the old fixed folder in the box's home: `stale.txt` cleared from it by a run, and left alone by a run that failed before the send, `BUILD_DIR` at `~/nemo-anywhere-ci/build`, and arm64's `cd nemo-anywhere-arm64/src` in the command. They now check the run folder: a new one under the box's temp root, the build dir in it, none made or left by a run that fails before the send, and the build's tail of the command.
+	- Decisions:
+		- The box runs `run-temp.bash` itself for both ends, sent on stdin, so the folder is made before the tree is there and removed even when the send failed, by the same guard as here.
+		- The FreeBSD suite's build dir is in the run folder too. Its fixed build dir already rebuilt all 208 targets every run, so it gained nothing from staying.
+		- The folder is named by the box's own clock, since its sweep reads names by that clock. vmFreeBSD is on UTC.
+		- `run.pid` is rewritten by each build step there, which then execs the build, so it names a live process while one runs. Between steps it names one that's gone, which matters only to a folder over 2 days old.
+		- vmDebARM64's `/tmp` is a 3.9 GB tmpfs. The sent tree and the tarball are about 54 MB, and the release build dir is inside the container, so that's room enough.
+	- Swept: every ssh under `cicd/` that sends to or runs in a fixed folder on a box: the FreeBSD suite and release, and the arm64 release and its dependency read. The Windows gate already had its run folder, and the Windows dogfood copies into the install folder, not a work folder.
+	- Branch: round1104a
+	- Test case: ddmn7 (FreeBSD: the run folder under the box's temp root, its build dir, `run.pid` and `TMPDIR` in the suite, gone after a pass, a failing suite and `--release`, kept with `CICD_KEEP_TEMP=1`, none made when a run fails before the send, and the sweep of an old dead one while a young one and one with no `run.pid` stay), ddmmv (arm64: the same, and gone after a failing build), dee6e (`fRunTemp_Make`).
+	- Verified: 20261104, ddmn7, ddmmv and dee6e pass. The new ddmn7 and ddmmv fail on the lanes before the change: no run folder, the suite in the fixed folder with no `run.pid` or `TMPDIR`, and no sweep.
+	- Verified: 20261104, `cicd/bsd/lane.bash --tests` on vmFreeBSD from paused: it worked in `/tmp/nemo-anywhere/20261104-185440_001`, 216 OK and 0 failed, the folder was gone afterwards and `/tmp/nemo-anywhere` was left, and the VM went back to paused.
+	- Closed: 20261104
+
+- `fSafeRm` removes a whole project temp folder.
+	- ID: 2026110410593292
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261104-105932
+	- Opened by: 2026102516403481
+	- Related IDs: 2026102516403466, 2026102516403481
+	- Steps to reproduce [Bug]:
+		- Source `cicd/utility/include/run-temp.bash`, set `HOST_TEMP` and `projectName`, and call `fSafeRm "${HOST_TEMP}/${projectName}"`.
+	- Incorrect behavior [Bug]: it removes the folder, every run's folder in it included.
+	- Expected behavior [Bug]: refused, per `Safe removal` in the shared CICD rules: never `${HOST_TEMP}` or a project's whole folder right under it.
+	- Reproduced [Bug]: 20261104, on b23, with a scratch `HOST_TEMP`.
+	- Possible cause [Bug]: the repo copy has no check for `${HOST_TEMP}` and the folder right under it, which the rules' copy has. The tmp-folder rule alone lets `/tmp/<project>` through.
 	- Test case: none yet.
 
 - Static analyzers: fix or suppress the findings in our own code.

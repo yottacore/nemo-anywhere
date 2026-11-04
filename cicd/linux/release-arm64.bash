@@ -14,6 +14,11 @@
 ##	  ignored, as they are in the working tree: the same files the x86_64 build
 ##	  container sees. The stamp is this side's SOURCE_DATE_EPOCH, so both arches
 ##	  carry the same date.
+##	- They go to a run folder of this run's own on the box,
+##	  <temp>/nemo-anywhere/<YYYYmmDD-HHMMSS>_<NNN>/src, removed at the end, a
+##	  failure included, along with the project's stale ones there
+##	  (include/box-wrap.bash). The build dir is in the container, so it starts
+##	  empty either way. --keep-temp on cicd.bash keeps the folder.
 ##	- The box is shared, so it is taken for the run through the VM state helper
 ##	  or the host lock, whichever is on this box (include/box-wrap.bash). The
 ##	  helper starts a VM that is off, waits for its ssh, and puts it back after.
@@ -51,9 +56,8 @@ armHost="${NEMO_ARM_HOST:-tester@vmDebARM64}"
 lockName="${NEMO_ARM_LOCK:-vmDebARM64}"
 jobsPin="${NEMO_ARM_JOBS:-}"
 readyWaitSec="${NEMO_ARM_READY_WAIT:-1200}"
-## Under the remote home. Emptied in place every run, never recreated: the build
-## container there has it mounted, and a new dir would leave it on the old one.
-remoteDir="nemo-anywhere-arm64/src"
+## Set once the box has its run folder.
+remoteDir=""
 ## An emulated build runs well past the lock's default lease.
 lockWaitSec=1800
 
@@ -70,6 +74,16 @@ lockTool="$(fBoxWrap_Tool)"
 ## 8s was too short for an emulated VM that had just booted on a busy host.
 sshOpts=(-o ConnectTimeout=30 -o BatchMode=yes -o LogLevel=ERROR)
 remoteNice="ionice -c 3 nice -n 19"
+
+## The step closes first, so its line says how the work went, not the cleanup.
+fOnExit(){
+	local rc=$?
+	trap - EXIT INT TERM HUP
+	fLaneStep_OnExit "$rc"
+	fBoxWrap_RunDirDone "$armHost" "${sshOpts[@]}" || true
+	exit "$rc"
+}
+fTraps(){ trap fOnExit EXIT; trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 129' HUP; }
 
 ## Every remote command is put together on this side.
 # shellcheck disable=SC2029
@@ -98,18 +112,20 @@ fRun(){
 	fBoxWrap_ClockReady "$armHost" "${sshOpts[@]}" || fDie "${armHost} has the wrong time, and the build would stop on it"
 
 	fLaneStep "Send"
-	ssh "${sshOpts[@]}" "$armHost" "mkdir -p ${remoteDir} && find ${remoteDir} -mindepth 1 -delete"
+	fBoxWrap_RunDir "$SLUG" "$armHost" "${sshOpts[@]}" || fDie "could not make a run folder on ${armHost}"
+	remoteDir="${boxRunDir}/src"
+	ssh "${sshOpts[@]}" "$armHost" "mkdir ${remoteDir}"
 	## --ignore-failed-read: a file deleted in the tree but not yet in git is
 	## still listed, and the x86_64 build would not see it either.
 	( cd "$ROOT" && git ls-files -z --cached --others --exclude-standard \
 		| tar --null -T - --ignore-failed-read -cf - ) \
 		| ssh "${sshOpts[@]}" "$armHost" "tar -xf - -C ${remoteDir}"
-	fEcho_Clean "sent $(cd "$ROOT" && git ls-files --cached --others --exclude-standard | wc -l) files to ${remoteDir}"
+	fEcho_Clean "sent $(cd "$ROOT" && git ls-files --cached --others --exclude-standard | wc -l) files to ${armHost}:${remoteDir}"
 
 	fLaneStep "Release build"
 	fBoxWrap_Jobs "$jobsPin" "$armHost" "${sshOpts[@]}" || fDie "could not read the CPU count and load on ${armHost}"
 	started="$(date +%s)"
-	ssh "${sshOpts[@]}" "$armHost" "cd ${remoteDir} && SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH} CICD_MAX_JOBS=${boxJobs} ${remoteNice} bash cicd/linux/release.bash"
+	ssh "${sshOpts[@]}" "$armHost" "$(fBoxWrap_RunCmd) SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH} CICD_MAX_JOBS=${boxJobs} ${remoteNice} bash cicd/linux/release.bash"
 	secs=$(( $(date +%s) - started ))
 
 	fLaneStep "Bring back"
@@ -121,7 +137,7 @@ fRun(){
 	## A failed read costs only the versions in the .deb, not the hour's build.
 	depsFile="$(fDebDependsFile "$ROOT" "$name")"
 	rm -f "$depsFile"
-	if deps="$(ssh "${sshOpts[@]}" "$armHost" "cd ${remoteDir} && CICD_MAX_JOBS=${boxJobs} ${remoteNice} bash cicd/linux/package.bash --depends-only --from cicd/artifacts/release/${name}")" && [[ -n "$deps" ]]; then
+	if deps="$(ssh "${sshOpts[@]}" "$armHost" "$(fBoxWrap_RunCmd) CICD_MAX_JOBS=${boxJobs} ${remoteNice} bash cicd/linux/package.bash --depends-only --from cicd/artifacts/release/${name}")" && [[ -n "$deps" ]]; then
 		mkdir -p "$(dirname "$depsFile")"
 		{ (cd "$OUT" && sha256sum "$name"); printf '%s\n' "$deps"; } > "$depsFile"
 		fEcho_Clean "arm64 .deb depends: ${deps}"
@@ -137,7 +153,7 @@ fRun(){
 
 fMain(){
 	case "${1:-}" in
-		--locked) trap 'fLaneStep_OnExit $?' EXIT; fRun; return ;;
+		--locked) fTraps; fRun; return ;;
 		-h|--help) sed -n '/^##	- Purpose:/,/^##	Copyright/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##	\{0,1\}//'; return 0 ;;
 		"") ;;
 		*) fDie "unknown option: $1 (try --help)" ;;
@@ -149,7 +165,7 @@ fMain(){
 	if [[ -f "$lockTool" ]]; then
 		CLAUDE_VM_BOOT_WAIT="${CLAUDE_VM_BOOT_WAIT:-1200}" bash "$lockTool" wrap "$lockName" --wait "$lockWaitSec" -- bash "${BASH_SOURCE[0]}" --locked
 	else
-		trap 'fLaneStep_OnExit $?' EXIT
+		fTraps
 		fRun
 	fi
 }
@@ -169,3 +185,5 @@ fMain "${@}"
 ##		  off fails before the send.
 ##		- 2026-10-28: Prints its steps as cicd.bash does. The jobs come from the
 ##		  box's own CPU count and load, and its side runs under nice and ionice.
+##		- 2026-11-04: Works in a run folder under the box's temp root, removed
+##		  at the end, rather than a fixed folder in its home.
