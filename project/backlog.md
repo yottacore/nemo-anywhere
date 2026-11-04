@@ -309,6 +309,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261021: de5he under wine: the watched renames grew the heap 16720 bytes over 64 rounds and the case answered 77. With the monitor canceled and no wait for its events, 0 bytes. On Linux the case passes as before.
 		- 20261104: the fix is on GLib main as `8bd4d6c2`, but in no release yet. The pins moved to 2.90.1 meanwhile, which still leaks.
 		- 20261104: de5he natively on b29w with GLib 2.90.1 plus `8bd4d6c2`: no rename growth, so the settings case ran, 0 bytes over 64 rounds, OK, 3 runs of 3. With 2.90.1 as released and with the box's 2.88.3, 4096 bytes and 77.
+		- Held for a GLib release with the rename leak fixed.
 	- Swept: the other `g_file_monitor_*` users in the app reach the same win32 code, which is why there's no app-side fix. `nemo-config.c` is the only one with a leak case.
 	- Branch: round1021
 	- Commit: 2da98315
