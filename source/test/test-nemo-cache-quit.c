@@ -480,6 +480,7 @@ main (int argc, char *argv[])
 	/* The program run here inherits this, so its settings and cache are in
 	 * the scratch dir too. */
 	root = test_scratch_config_home ("nemo-cache-quit-XXXXXX");
+	test_scratch_point_tmp_at (root);
 	folder = g_build_filename (root, "pictures", NULL);
 	uris = make_pictures (folder, PICTURES, 1);
 	busy_folder = g_build_filename (root, "busy", NULL);

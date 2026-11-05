@@ -33,6 +33,15 @@ void  test_scratch_point_config_at (const char *dir);
    on first use, and so do we. */
 char *test_scratch_config_home    (const char *tmpl);
 
+/* Point a started program's temp dir at a tmp folder made in root, which has
+   to be a scratch directory. A program the test kills can't clean up, and a
+   thumbnail helper's output file is then left behind, which fails the suite.
+   Inside root, the exit cleanup takes it. The first is for a program given its
+   own environment, the second for one that inherits this process's. This
+   process's own scratch dirs stay where they were either way. */
+char **test_scratch_tmp_environ  (char **envp, const char *root);
+void   test_scratch_point_tmp_at (const char *root);
+
 /* The suite shares one display, so a test whose answer depends on what else
    is on screen or who holds the pointer runs itself again under an X server
    of its own. screen is xvfb-run's -screen value, or NULL for its default.

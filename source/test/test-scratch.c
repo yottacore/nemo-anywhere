@@ -371,6 +371,52 @@ test_scratch_config_home (const char *tmpl)
 	return dir;
 }
 
+/* Returns: (transfer full): NULL when it couldn't be made */
+static char *
+make_tmp_in (const char *root)
+{
+	char *dir = g_build_filename (root, "tmp", NULL);
+
+	if (g_mkdir_with_parents (dir, 0700) != 0) {
+		g_printerr ("scratch: could not make %s: %s\n", dir, g_strerror (errno));
+		g_free (dir);
+		return NULL;
+	}
+	return dir;
+}
+
+/* GLib reads TMPDIR, and on Windows TMP then TEMP.
+ * Returns: (transfer full): envp, which may have moved, as g_environ_setenv */
+char **
+test_scratch_tmp_environ (char **envp, const char *root)
+{
+	char *dir = make_tmp_in (root);
+
+	if (dir != NULL) {
+		envp = g_environ_setenv (envp, "TMPDIR", dir, TRUE);
+		envp = g_environ_setenv (envp, "TMP", dir, TRUE);
+		envp = g_environ_setenv (envp, "TEMP", dir, TRUE);
+		g_free (dir);
+	}
+	return envp;
+}
+
+void
+test_scratch_point_tmp_at (const char *root)
+{
+	char *dir = make_tmp_in (root);
+
+	if (dir != NULL) {
+		/* GLib keeps its first answer, so later scratch dirs still go in
+		   the real temp dir. */
+		(void) g_get_tmp_dir ();
+		g_setenv ("TMPDIR", dir, TRUE);
+		g_setenv ("TMP", dir, TRUE);
+		g_setenv ("TEMP", dir, TRUE);
+		g_free (dir);
+	}
+}
+
 /* Small seeks and reads through GIO are what the timed tests mostly wait on,
    and they are what an emulated box is slowest at: 50 to 100 times slower on
    an emulated arm64 box, where plain arithmetic is only 3 times slower. So

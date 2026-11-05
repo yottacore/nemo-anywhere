@@ -736,6 +736,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de54r for `--no-remote`: a plain run, `--long` with both includes, and `--backlog-run-full`, each with it.
 	- Verified: 20261025, `--no-remote`: de54r passes, and fails on `cicd.bash` without it, and with the private runner and remote dogfood left on under it.
 
+- CICD flags: `cicd-win.ps1` takes the same flags.
+	- ID: 2026102516165482
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261025-161654
+	- Opened by: 2026102416300004
+	- Parent ID: 2026102416300004
+	- Prereq IDs: 2026102516165473, 2026102516165477
+	- Requirements:
+		- `cicd-win.ps1` takes the same flags as `cicd.bash`, in its own form where PowerShell needs one.
+	- Test case: none yet.
+
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
 	- Type: Bug
@@ -769,19 +782,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none. The fix is upstream, and nothing in the app hits it.
 	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
 	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
-
-- CICD flags: `cicd-win.ps1` takes the same flags.
-	- ID: 2026102516165482
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261025-161654
-	- Opened by: 2026102416300004
-	- Parent ID: 2026102416300004
-	- Prereq IDs: 2026102516165473, 2026102516165477
-	- Requirements:
-		- `cicd-win.ps1` takes the same flags as `cicd.bash`, in its own form where PowerShell needs one.
-	- Test case: none yet.
 
 - CICD reset: step output.
 	- ID: 2026102416300005
@@ -6647,6 +6647,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddf4w Config old formats test.
 	- Acceptance signoff: Self-closed: ddf4w is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- The sanitizer suite fails on a thumbnail temp file a stopped app left behind.
+	- ID: 2026110417012711
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261104-164542
+	- Opened by: t00mietum
+	- Closed: 20261104-170200
+	- Steps to reproduce: a full run on a busy box, load 73 on 32 CPUs.
+	- Incorrect behavior: the sanitizer suite passes, 221 OK and 15 skipped, then ddgt8 fails with "tests left these behind" for test-nemo-rename-photo-busy. Its temp dir holds one `.nemo_desktop_thumbnail.XXXXXX` file.
+	- Expected behavior: nothing left behind, and the step passes.
+	- Actual cause: the test stops the app with a signal while a thumbnail helper is still running. The app makes the helper's output file in TMPDIR and removes it when the helper ends, so a killed app leaves it. 6 tests start the app on a folder of pictures and stop it that way.
+	- Fix: `test_scratch_tmp_environ` and `test_scratch_point_tmp_at` in test-scratch.c give the started app a temp dir inside the test's scratch dir, which the exit cleanup removes. The 6 tests use them.
+	- Verified: 20261104. With a thumbnail helper that waits 20 s, ddzyz left 5 files in its temp dir before the fix and none after. The 8 tests from those 6 files pass in the plain and sanitizer suites.
+	- Acceptance signoff: Self-closed: a pipeline failure with nothing on screen, and the suite's leftover check covers it.
+	- Test case: ddgt8 and the suite's leftover check, over ddzyz, ddwjw, ddzzq, ddg79, ddyv6, de025, de55s and ddc84.
 
 - de025, ddyv6 and ddc84 still fail in the sanitizer lane on a loaded box.
 	- ID: 2026102411433800

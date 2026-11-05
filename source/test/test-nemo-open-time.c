@@ -251,6 +251,7 @@ main (int argc, char *argv[])
 	path = g_build_filename (root, "cache", NULL);
 	envp = g_environ_setenv (envp, "XDG_CACHE_HOME", path, TRUE);
 	g_free (path);
+	envp = test_scratch_tmp_environ (envp, root);
 	envp = g_environ_setenv (envp, "DBUS_SESSION_BUS_ADDRESS", "disabled:", TRUE);
 	envp = g_environ_setenv (envp, "LD_PRELOAD", argv[2], TRUE);
 	envp = g_environ_setenv (envp, "NEMO_OPEN_OUT", out, TRUE);
