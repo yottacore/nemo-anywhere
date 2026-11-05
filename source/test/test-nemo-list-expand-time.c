@@ -183,6 +183,7 @@ open_all (const char *nemo, char **base_env, const char *root, int run, char *to
 	path = g_build_filename (home, "cache", NULL);
 	envp = g_environ_setenv (envp, "XDG_CACHE_HOME", path, TRUE);
 	g_free (path);
+	envp = test_scratch_tmp_environ (envp, home);
 
 	spawn_argv[0] = (char *) nemo;
 	spawn_argv[1] = (char *) "--geometry=900x700";
