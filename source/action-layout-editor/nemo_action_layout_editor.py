@@ -70,9 +70,12 @@ def read_text(path):
 
 def split_list(value):
     """An SHCL list value as plain strings. Only ever names here, so a comma
-    split and a strip is the whole job."""
-    return [part.strip().strip("\"'") for part in value.split("#", 1)[0].split(",")
-            if part.strip()]
+    split and a strip is the whole job. SHCL 3 writes [a, b]; older files and
+    the schema before it wrote a, b."""
+    value = value.split("#", 1)[0].strip()
+    if value.startswith("[") and value.endswith("]"):
+        value = value[1:-1]
+    return [part.strip().strip("\"'") for part in value.split(",") if part.strip()]
 
 
 def action_data_dirs():

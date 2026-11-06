@@ -78,10 +78,9 @@ test_list_written (NemoConfigGroup *prefs)
 	                     "#preferences.click-policy: double\n") != NULL);
 
 	/* A list default, spelled the way the writer spells one. */
-	check (strstr (text, "\n#windows.terminal-candidates: wt.exe, pwsh.exe,"
-	                     " powershell.exe, cmd.exe\n") != NULL);
-	/* An empty list is a bare key. */
-	check (strstr (text, "\n#plugins.disabled-extensions:\n") != NULL);
+	check (strstr (text, "\n#windows.terminal-candidates: [wt.exe, pwsh.exe,"
+	                     " powershell.exe, cmd.exe]\n") != NULL);
+	check (strstr (text, "\n#plugins.disabled-extensions: []\n") != NULL);
 	/* A group nested two deep keeps its whole path. */
 	check (strstr (text, "\n#preferences.menu-config.selection-menu-copy: true\n") != NULL);
 	g_free (text);

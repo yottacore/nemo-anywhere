@@ -16,6 +16,9 @@
 #include <libnemo-private/nemo-config.h>
 #include <libnemo-private/nemo-config-keys.h>
 
+/* The store has the one copy of the library. */
+#include "shcl.h"
+
 #include "test-scratch.h"
 
 static int failures = 0;
@@ -58,20 +61,57 @@ schema_field_free (gpointer data)
 	g_free (field);
 }
 
+/* One layer of "..." or [...] off a value. The comparisons below are on the
+   text inside, joined with ", " for a list. */
+static char *
+unwrap (const char *value)
+{
+	gsize len = strlen (value);
+
+	if (len >= 2 && ((value[0] == '"' && value[len - 1] == '"') ||
+	                 (value[0] == '[' && value[len - 1] == ']')))
+		return g_strndup (value + 1, len - 2);
+	return g_strdup (value);
+}
+
+/* The line reader below only finds the values. SHCL has to read the file
+   too, or `shcl check` would refuse it while this test passed. */
+static void
+check_parses (const char *text, gsize len, const char *path)
+{
+	shcl_doc *doc = shcl_parse (text, len);
+	size_t    i;
+
+	if (doc == NULL) {
+		fail ("out of memory parsing %s", path);
+		return;
+	}
+	for (i = 0; i < shcl_diag_count (doc); i++) {
+		shcl_str message = shcl_diag_message (doc, i);
+
+		if (shcl_diag_severity (doc, i) == SHCL_SEV_ERROR)
+			fail ("%s line %zu: %s %.*s", path, shcl_diag_line (doc, i),
+			      shcl_diag_code (doc, i), (int) message.n, message.p);
+	}
+	shcl_free (doc);
+}
+
 /* name -> SchemaField, in file order so the report reads like the file. */
 static GHashTable *
 read_schema (const char *path)
 {
 	GHashTable *fields;
 	char *text = NULL;
+	gsize text_len = 0;
 	char **lines;
 	SchemaField *current = NULL;
 	int i;
 
-	if (!g_file_get_contents (path, &text, NULL, NULL)) {
+	if (!g_file_get_contents (path, &text, &text_len, NULL)) {
 		fail ("could not read %s", path);
 		return NULL;
 	}
+	check_parses (text, text_len, path);
 
 	fields = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, schema_field_free);
 	lines = g_strsplit (text, "\n", -1);
@@ -92,24 +132,17 @@ read_schema (const char *path)
 		} else if (current != NULL && g_str_has_prefix (line, "\ttype: ")) {
 			current->type = g_strdup (line + strlen ("\ttype: "));
 		} else if (current != NULL && g_str_has_prefix (line, "\tallowed: ")) {
-			current->allowed = g_strdup (line + strlen ("\tallowed: "));
+			current->allowed = unwrap (line + strlen ("\tallowed: "));
 		} else if (current != NULL && g_str_has_prefix (line, "\tdesc: ")) {
-			current->desc = g_strdup (line + strlen ("\tdesc: "));
+			current->desc = unwrap (line + strlen ("\tdesc: "));
 		} else if (current != NULL && g_str_has_prefix (line, "\tdefault:")) {
-			/* An empty string default is written as a bare "default:", and a
-			   string one is quoted where a list or a number is not. */
+			/* An empty string default is written as a bare "default:". */
 			const char *value = line + strlen ("\tdefault:");
-			gsize len;
 
 			if (value[0] == ' ') {
 				value++;
 			}
-			len = strlen (value);
-			if (len >= 2 && value[0] == '"' && value[len - 1] == '"') {
-				current->def = g_strndup (value + 1, len - 2);
-			} else {
-				current->def = g_strdup (value);
-			}
+			current->def = unwrap (value);
 		}
 	}
 
@@ -134,8 +167,8 @@ schema_type_name (NemoConfigType type)
 	return "?";
 }
 
-/* "a, b, c" - the spelling the schema uses for both an enum's nicks and a
-   string list's default. */
+/* "a, b, c" - an enum's nicks or a string list's default, as written inside
+   the brackets. */
 static char *
 join_nicks (const NemoConfigEnumValue *values)
 {

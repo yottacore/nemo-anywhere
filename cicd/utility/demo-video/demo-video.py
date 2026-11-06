@@ -950,7 +950,7 @@ START_SETTINGS = {
     # no owner, group or permissions column: those print the real account name of
     # whoever ran the recording, and nothing on screen may. Type goes too, because
     # Ext already says it and the window is only so wide.
-    "list-view.default-visible-columns": "name, size, extension, date_modified",
+    "list-view.default-visible-columns": "[name, size, extension, date_modified]",
     "preferences.date-format": "informal",
     "preferences.default-folder-viewer": "list-view",
     "preferences.show-image-thumbnails": "true",

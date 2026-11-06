@@ -3,8 +3,9 @@ appearance.mode: dark
 appearance.gtk-theme: Adwaita
 appearance.icon-theme:
 archive.create-with-7z: "{{PROGRAM}} a {{FORMAT}} -y -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
-favorites: /home/a, /home/b, /home/c
-list-view.column-widths: 200, 80, 120
+favorites: [/home/a, /home/b, /home/c]
+list-view.column-widths: [200, 80, 120]
+plugins.disabled-extensions: []
 window.remember-size: true
 
 window

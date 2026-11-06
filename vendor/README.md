@@ -6,9 +6,17 @@
 
 SHCL config engine, single-header C binding, **MIT** - compiled into nemo, so unlike the themes below this one is linked. Keeps its `LICENSE.md`. MIT sits fine under our GPL-2.0-only. Update by copying `source/c/shcl.h` from a newer tag and re-pinning here.
 
-- `shcl/shcl.h` <- https://github.com/yottacore/shcl @ `f2a8ad2aed34e6b78f812a6c5ef375288a6e5494` (`dev`, before the `v3.0.0-beta.1` tag)
+- `shcl/shcl.h` <- https://github.com/yottacore/shcl @ `99a9f7b69c8bacfac1cb09e7a04ea74323bfeb7b` (tag `v3.0.0-beta1`)
 
-The two SHCL releases settings were written with before format 3 are kept in `shcl-old/`, for a test only. A test program built against each writes a settings file the way the app did then, and the app has to read it the same way. Never linked into nemo. Same MIT license, kept in `shcl-old/LICENSE.md`. Leave these as they are.
+Every SHCL release and pre-release before format 3 is kept in `shcl-old/`, for a test only. A test program built against each writes a settings file the way the app would have then, and the app has to read it the same way. 1.0.0-beta1 had no writer, so its file is typed out instead. Never linked into nemo. Same MIT license, kept in `shcl-old/LICENSE.md`. Leave these as they are.
+
+- `shcl-old/1.0.0-beta1/shcl.h` <- https://github.com/yottacore/shcl @ `c01583425cab4386513b7bfc0427dc9b9b104589` (tag `v1.0.0-beta1`)
+
+- `shcl-old/1.0.0-beta2/shcl.h` <- https://github.com/yottacore/shcl @ `c0c9b79126fb506268177510f0ace0aa1610ecd7` (tag `v1.0.0-beta2`)
+
+- `shcl-old/1.0.0-rc1/shcl.h` <- https://github.com/yottacore/shcl @ `c7e003cbe6986d8986f0a4f8b6a709a65309fbfe` (tag `v1.0.0-rc1`). Tag `v1.0.0` has the same header byte for byte, so it has no folder of its own.
+
+- `shcl-old/1.1.0/shcl.h` <- https://github.com/yottacore/shcl @ `e4f2263fe000815660148dd1cd850baecc1c9cf4` (tag `v1.1.0`)
 
 - `shcl-old/1.2.0/shcl.h` <- https://github.com/yottacore/shcl @ `192d206e7eeb196598d4bfc385dd9527e698ed8a` (tag `v1.2.0`), used by v1.0.0-beta2
 

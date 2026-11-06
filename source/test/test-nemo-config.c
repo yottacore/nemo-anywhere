@@ -454,8 +454,8 @@ buf_contains (const char *buf, gsize len, const char *needle)
 	return FALSE;
 }
 
-/* SHCL is NUL-transparent, so a NUL that came in from the file must survive
- * the next save instead of truncating everything after it. */
+/* A NUL that came in from the file must survive the next save instead of
+ * truncating everything after it. SHCL writes it back as its NUL escape. */
 static void
 test_nul_survives_save (NemoConfigGroup *window_state)
 {
@@ -480,7 +480,7 @@ test_nul_survives_save (NemoConfigGroup *window_state)
 	nemo_config_flush ();
 
 	check (g_file_get_contents (path, &text, &len, NULL));
-	check (text != NULL && memchr (text, '\0', len) != NULL);
+	check (text != NULL && buf_contains (text, len, "\"a\xe2\x97\x89NUL\xe2\x97\x89" "b\""));
 	check (text != NULL && buf_contains (text, len, "sidebar-width"));
 	g_free (text);
 	g_free (path);
@@ -529,7 +529,7 @@ test_duplicate_key_falls_back (NemoConfigGroup *prefs, NemoConfigGroup *list_vie
 
 	rewrite_and_wait (list_view, "default-visible-columns",
 	                  "list-view:\n"
-	                  "\tdefault-visible-columns: name, size\n"
+	                  "\tdefault-visible-columns: [name, size]\n"
 	                  "\tdefault-visible-columns: type\n"
 	                  "preferences:\n"
 	                  "\tshow-hidden-files: true\n"
@@ -543,8 +543,44 @@ test_duplicate_key_falls_back (NemoConfigGroup *prefs, NemoConfigGroup *list_vie
 
 	check (nemo_config_get_boolean (prefs, "show-hidden-files") == FALSE);
 
+	/* A change made here takes, over both copies. SHCL sets neither. */
+	{
+		const char *const picked[] = { "name", "type", NULL };
+		char             *text;
+
+		nemo_config_set_boolean (prefs, "show-hidden-files", TRUE);
+		nemo_config_set_strv (list_view, "default-visible-columns", picked);
+		check (nemo_config_get_boolean (prefs, "show-hidden-files") == TRUE);
+		cols = nemo_config_get_strv (list_view, "default-visible-columns");
+		check (g_strv_equal ((const char *const *) cols, picked));
+		g_strfreev (cols);
+
+		nemo_config_flush ();
+		text = read_settings ();
+		check (strstr (text, "show-hidden-files: on") == NULL);
+		check (strstr (text, "default-visible-columns: type") == NULL);
+		g_free (text);
+	}
+
 	nemo_config_reset (list_view, "default-visible-columns");
 	nemo_config_reset (prefs, "show-hidden-files");
+	nemo_config_flush ();
+}
+
+/* SHCL refuses text that isn't UTF-8 and writes nothing, so the old value
+ * stays, with a warning. */
+static void
+test_bad_utf8_refused (NemoConfigGroup *prefs)
+{
+	char *got;
+
+	nemo_config_set_string (prefs, "bulk-rename-tool", "good.exe");
+	nemo_config_set_string (prefs, "bulk-rename-tool", "bad\xff.exe");
+	got = nemo_config_get_string (prefs, "bulk-rename-tool");
+	check (g_strcmp0 (got, "good.exe") == 0);
+	g_free (got);
+
+	nemo_config_reset (prefs, "bulk-rename-tool");
 	nemo_config_flush ();
 }
 
@@ -1032,6 +1068,7 @@ main (int argc, char *argv[])
 	test_nul_survives_save (window_state);
 	test_oversized_file_refused (prefs);
 	test_duplicate_key_falls_back (prefs, list_view);
+	test_bad_utf8_refused (prefs);
 	test_pending_change_survives_reload (prefs, window_state);
 	test_hand_edit_survives_save (prefs, window_state);
 	test_hand_delete_and_newer_before_save (prefs, window_state);
