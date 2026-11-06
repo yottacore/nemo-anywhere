@@ -3,7 +3,7 @@ appearance.mode: light
 appearance.mode: dark
 appearance.mode: system
 favorites: /a
-favorites: /b, /c
+favorites: [/b, /c]
 
 window
 	width: 100

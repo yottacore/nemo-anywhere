@@ -78,7 +78,7 @@ main (int argc, char *argv[])
 	nemo_search_columns_save (picked);
 	check (list_is (nemo_search_columns_get_visible (), picked));
 	check (list_is (nemo_search_columns_get_order (), picked));
-	check (file_mentions ("search-visible-columns: where, name, type"));
+	check (file_mentions ("search-visible-columns: [where, name, type]"));
 
 	/* Turning remembering on or off doesn't touch it either. */
 	nemo_config_set_boolean (nemo_preferences, NEMO_PREFERENCES_REMEMBER_FOLDER_SETTINGS, TRUE);
@@ -90,7 +90,7 @@ main (int argc, char *argv[])
 	nemo_search_columns_save (NULL);
 	check (list_is (nemo_search_columns_get_visible (), shown));
 	check (list_is (nemo_search_columns_get_order (), order));
-	check (!file_mentions ("search-visible-columns: where, name, type"));
+	check (!file_mentions ("search-visible-columns: [where, name, type]"));
 
 	/* An empty pick reads as nothing saved, not as no columns at all. */
 	{

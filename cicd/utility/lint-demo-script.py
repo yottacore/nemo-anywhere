@@ -75,7 +75,7 @@ def main():
 
     ## Nothing on screen may carry the account name of the box it was recorded on.
     columns = written.get("list-view.default-visible-columns") or ""
-    for col in (c.strip() for c in columns.split(",")):
+    for col in (c.strip() for c in columns.strip().strip("[]").split(",")):
         if col in SECRET_COLUMNS:
             fail(f"demo shows the '{col}' column, which prints a real account name")
 

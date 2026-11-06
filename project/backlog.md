@@ -801,17 +801,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261025: split into children 2026102517333367 (`cicd.bash`, the gate included) and 2026102517333373 (`cicd-win.ps1` and the other boxes).
 	- Test case: none yet.
 
-- Integrate SHCL v3.0.0-beta.1.
-	- ID: 2026110520234226
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261105-202342
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut.
-	- Test case: none yet.
-
 - ddepv on b29w: the heap grew over 64 rounds again.
 	- ID: 2026103116284963
 	- Type: Bug
@@ -2281,6 +2270,34 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. dd8d9 covers it.
 	- Closed: 20261003-112426
+
+- Integrate SHCL v3.0.0-beta.1.
+	- ID: 2026110520234226
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261105-202342
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+		- A settings file from any SHCL release or pre-release before format 3 still loads, and is converted.
+	- Actual fix:
+		- `vendor/shcl/shcl.h` is the `v3.0.0-beta1` tag. Lists are written `[a, b]` now, and an empty one `[]`.
+		- The schema uses the same spelling. Its drift test also reads it with SHCL, and fails on any line SHCL refuses.
+		- A key written twice by hand takes a change made in the app, which replaces both copies. Before, the change went to the first copy, and the key still read as its default.
+		- A value SHCL won't write, such as text that isn't UTF-8, leaves the old one and logs a warning naming the key.
+		- The action layout editor reads a list either way.
+		- The old formats test covers every SHCL release before format 3: 1.0.0-beta1, 1.0.0-beta2, 1.0.0-rc1 (the same header as 1.0.0), 1.1.0, 1.2.0 and 2.0.0. 1.0.0-beta1 had no writer, so its file is typed out.
+	- Decisions:
+		- A file stamped format 3 by a dev build before this one isn't converted. No release had that header. Its lists read as their defaults until they get brackets.
+		- The app keeps its own backup and conversion, as in the old-format SHCL item.
+	- Verified: 20261106 on Linux. Suite 235 of 236 (de5hh skips), lints with no new warnings, fuzzing, the sanitizer suite, and the native and Windows release builds.
+	- Verified: 20261106 on b29w, the native gate at 9c3e3b0d: lints, build, tests, smoke checks and the desktop tests passed.
+	- Branch: shclb1
+	- Commit: 9c3e3b0d
+	- Test case: ddf4w, Config old formats test: a file from each release, plain, hand-edited, and with nothing the rules read 2 ways, opens with every value as that release read it, and saves as format 3. dav3s, Config store test: `test_duplicate_key_falls_back` (a change replaces both copies), `test_bad_utf8_refused`, `test_nul_survives_save`. dbsx7, Config schema drift test: the schema parses with no errors. dc8tz and ddka3 for the list spelling.
+	- Acceptance signoff: Self-closed: the tag's header is in, every published SHCL format before 3 converts (ddf4w), and the config tests pass on Linux and natively on b29w.
+	- Closed: 20261106-110500
 
 - CICD flags: run lengths.
 	- ID: 2026102516165479
@@ -11049,16 +11066,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260730-185314
 	- Test case: none yet, not started.
 
-- 🔘 Take SHCL 3.0.0-beta.1 from its published release, once there is one, and run the config tests against it.
-	- Status: Stalled
-	- Opened: 20260925-122815
-	- 20261022: still no 3.0.0-beta.1 tag, newest is v2.0.0.
-	- Note: the vendored header is from SHCL's `dev` branch, ahead of that tag.
-	- Done 20260925: moved to a newer `dev` copy, with the calls asked for here. Neither replaces the app's own code yet. Clearing a comment would also take a note written above a key, and the info block call misses a block that is no longer at the end of the file.
-	- Note: a later SHCL may back up and convert a file in an older format itself. Look for a call that does or helps with that before wiring in a new version. If it does the job, use it in place of ours in `nemo-config.c`. Never run both on the same file.
-	- Test case: none yet, not started.
-	- Held for: a SHCL 3.0.0-beta.1 tag.
-
 - **Stop here (in old format) for a next release**.
 
 - 🔘 Cut 1.0.0-rc.1.
@@ -11110,6 +11117,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none yet, not started.
 
 ### Done
+
+- ✅ Take SHCL 3.0.0-beta.1 from its published release, once there is one, and run the config tests against it.
+	- Status: Done
+	- Opened: 20260925-122815
+	- 20261022: still no 3.0.0-beta.1 tag, newest is v2.0.0.
+	- Done 20261106: under 2026110520234226, from the `v3.0.0-beta1` tag.
+	- Note: until 20261106 the vendored header was from SHCL's `dev` branch, ahead of that tag.
+	- Done 20260925: moved to a newer `dev` copy, with the calls asked for here. Neither replaces the app's own code yet. Clearing a comment would also take a note written above a key, and the info block call misses a block that is no longer at the end of the file.
+	- Note: a later SHCL may back up and convert a file in an older format itself. Look for a call that does or helps with that before wiring in a new version. If it does the job, use it in place of ours in `nemo-config.c`. Never run both on the same file.
+		- Decided: keep ours. beta1's `shcl_upgrade_file` keeps keys the app drops, and it and `shcl_write_backup` refuse a backup name that's taken, where 2 copies started in the same second each need one.
+	- Test case: ddf4w and the config tests, as in 2026110520234226.
 
 #### Done - Bugs
 

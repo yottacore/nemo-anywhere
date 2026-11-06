@@ -84,7 +84,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - When a copy finds links, the choices now say what happens to each: "Copy link as-is" or "Copy contents", or "Copy as a junction" and "Copy as a symlink" where one kind can become the other. A move says "Move" in place of "Copy".
 
-- The settings file is read with SHCL 3. A backslash in an unquoted value is now just a backslash, so a Windows path can be typed as it is, and escapes only work inside double quotes. A settings file from an earlier beta that holds a network path may read it wrong; delete it and start again. The file now ends with a short block naming its format, so a later version knows what it is reading.
+- The settings file is read with SHCL 3. A backslash in a value is now just a backslash, quoted or not, so a Windows path can be typed as it is. A tab or a newline is written as a name between two marks, such as `◉TAB◉`. A settings file from an earlier beta that holds a network path may read it wrong; delete it and start again. The file now ends with a short block naming its format, so a later version knows what it is reading.
+
+- Lists in the settings file are written in brackets now, as in `default-visible-columns: [name, size, type]`. A file from v1.0.0-beta2, or written by hand for any SHCL release before 3, is converted on the first start, with the old one kept beside it.
 
 - The settings file now ends with a commented list of everything you haven't set, each line carrying the value used instead and, where the name isn't obvious, a short note. Uncomment a line to change it. Sizes, positions and other things the app remembers for itself are left off the list.
 

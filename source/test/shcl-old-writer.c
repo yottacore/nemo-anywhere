@@ -5,10 +5,13 @@
  *
  *   shcl-old-writer <settings.shcl> <expect.txt> plain|hand|nobackslash
  *
+ * 1.0.0-beta1 had no setters, so its file is typed out the way a person would
+ * have written one (SHCL_OLD_NO_WRITER).
+ *
  * plain is only what the app's own setters wrote. hand adds lines spelled the
  * way a person might have written them under the old rules. nobackslash is
- * plain without the values the old setters escaped, so both rule sets read it
- * the same.
+ * plain without the values the old setters escaped and the lists of more than
+ * one item, so both rule sets read it the same.
  *
  * expect.txt has one line per key: path, type, whether today's app is known to
  * read it another way, and the value. Strings are hex, lists are a count and
@@ -104,6 +107,13 @@ escaped (const Entry *e)
 	return 0;
 }
 
+/* Left out of nobackslash. A comma list is one string to format 3. */
+static int
+left_out (const Entry *e)
+{
+	return escaped (e) || e->n > 1;
+}
+
 static int
 same (const char *p, size_t n, const char *want)
 {
@@ -149,30 +159,30 @@ put_reading (FILE *out, shcl_doc *d, const Entry *e)
 		break;
 	}
 	case 'b': {
-		int v = shcl_get_bool (d, e->path, plen, -1);
+		shcl_read_bool r = shcl_read_bool_ (d, e->path, plen);
 
-		if (v < 0)
+		if (r.status != SHCL_GOOD)
 			return 0;
-		fprintf (out, "%d", v);
-		ok = v == (int) e->num;
+		fprintf (out, "%d", r.value);
+		ok = r.value == (int) e->num;
 		break;
 	}
 	case 'i': {
-		int64_t v = shcl_get_int (d, e->path, plen, INT64_MIN);
+		shcl_read_i64 r = shcl_read_int (d, e->path, plen);
 
-		if (v == INT64_MIN)
+		if (r.status != SHCL_GOOD)
 			return 0;
-		fprintf (out, "%lld", (long long) v);
-		ok = v == e->num;
+		fprintf (out, "%lld", (long long) r.value);
+		ok = r.value == e->num;
 		break;
 	}
 	case 'f': {
-		double v = shcl_get_float (d, e->path, plen, NAN);
+		shcl_read_f64 r = shcl_read_float (d, e->path, plen);
 
-		if (isnan (v))
+		if (r.status != SHCL_GOOD)
 			return 0;
-		fprintf (out, "%.17g", v);
-		ok = v == e->real;
+		fprintf (out, "%.17g", r.value);
+		ok = r.value == e->real;
 		break;
 	}
 	default:
@@ -182,13 +192,156 @@ put_reading (FILE *out, shcl_doc *d, const Entry *e)
 	return ok;
 }
 
+#ifdef SHCL_OLD_NO_WRITER
+/* 1.0.0-beta1 had no writer, so a file then was typed by hand, quoted where
+ * bare text wouldn't read back. That release's parser has the last word. */
+static void
+put_typed (char *buf, size_t cap, size_t *len, const char *s)
+{
+	size_t n = strlen (s);
+	size_t i;
+
+	if (cap - *len < 2 * n + 3)
+		return;
+	if (n > 0 && s[0] != ' ' && s[n - 1] != ' ' && strpbrk (s, "\"'#,\\\t[]*:") == NULL) {
+		memcpy (buf + *len, s, n);
+		*len += n;
+	} else if (strchr (s, '"') != NULL && strpbrk (s, "'\\\t") == NULL) {
+		/* single quotes need no escape, as the later writers chose */
+		*len += (size_t) sprintf (buf + *len, "'%s'", s);
+	} else {
+		buf[(*len)++] = '"';
+		for (i = 0; i < n; i++) {
+			if (s[i] == '"' || s[i] == '\\' || s[i] == '\t')
+				buf[(*len)++] = '\\';
+			buf[(*len)++] = s[i] == '\t' ? 't' : s[i];
+		}
+		buf[(*len)++] = '"';
+	}
+}
+
+static char *
+make_text (int bare, size_t room, size_t *len)
+{
+	size_t cap = 16384 + room;
+	char  *buf = malloc (cap);
+	size_t i;
+
+	if (buf == NULL)
+		return NULL;
+	*len = 0;
+	for (i = 0; i < N_ENTRIES; i++) {
+		const Entry *e = &entries[i];
+		int          j;
+
+		if (e->how != SET || (bare && left_out (e)))
+			continue;
+		if (e->comment != NULL)
+			*len += (size_t) snprintf (buf + *len, cap - *len, "# %s\n", e->comment);
+		*len += (size_t) snprintf (buf + *len, cap - *len, "%s:", e->path);
+		if (e->type == 's' || (e->type == 'l' && e->n > 0))
+			buf[(*len)++] = ' ';
+		switch (e->type) {
+		case 's':
+			put_typed (buf, cap, len, e->text);
+			break;
+		case 'l':
+			for (j = 0; j < e->n; j++) {
+				if (j > 0)
+					*len += (size_t) snprintf (buf + *len, cap - *len, ", ");
+				put_typed (buf, cap, len, e->list[j]);
+			}
+			break;
+		case 'b':
+			*len += (size_t) snprintf (buf + *len, cap - *len, " %s", e->num ? "true" : "false");
+			break;
+		case 'i':
+			*len += (size_t) snprintf (buf + *len, cap - *len, " %lld", (long long) e->num);
+			break;
+		case 'f':
+			*len += (size_t) snprintf (buf + *len, cap - *len, " %.17g", e->real);
+			break;
+		}
+		buf[(*len)++] = '\n';
+		if (*len + 1024 > cap) {
+			free (buf);
+			return NULL;
+		}
+	}
+	return buf;
+}
+#else
+#ifdef SHCL_OLD_VOID_SETTERS
+/* 1.0.0-beta2's setters return nothing */
+#define SET_DONE(call) ((call), 1)
+#else
+#define SET_DONE(call) (call)
+#endif
+
+/* The setters the app called then, in nemo-config.c. */
+static char *
+make_text (int bare, size_t room, size_t *len)
+{
+	shcl_doc *d = shcl_new ();
+	shcl_str  canon;
+	char     *text;
+	size_t    i;
+
+	for (i = 0; i < N_ENTRIES; i++) {
+		const Entry *e = &entries[i];
+		size_t       plen = strlen (e->path);
+		int          set = 1;
+
+		if (e->how != SET || (bare && left_out (e)))
+			continue;
+		switch (e->type) {
+		case 's':
+			set = SET_DONE (shcl_set_string (d, e->path, plen, e->text, strlen (e->text)));
+			break;
+		case 'l': {
+			size_t lens[6];
+			int    j;
+
+			for (j = 0; j < e->n; j++)
+				lens[j] = strlen (e->list[j]);
+			set = SET_DONE (shcl_set_string_array (d, e->path, plen, e->list, lens, (size_t) e->n));
+			break;
+		}
+		case 'b':
+			set = SET_DONE (shcl_set_bool (d, e->path, plen, (int) e->num));
+			break;
+		case 'i':
+			set = SET_DONE (shcl_set_int (d, e->path, plen, e->num));
+			break;
+		case 'f':
+			set = SET_DONE (shcl_set_float (d, e->path, plen, e->real));
+			break;
+		}
+		if (!set) {
+			fprintf (stderr, "could not set %s\n", e->path);
+			shcl_free (d);
+			return NULL;
+		}
+		if (e->comment != NULL)
+			shcl_set_comment (d, e->path, plen, e->comment, strlen (e->comment));
+	}
+
+	canon = shcl_to_canonical (d);
+	*len = canon.n;
+	text = malloc (canon.n + room);
+	if (text != NULL)
+		memcpy (text, canon.p, canon.n);
+	shcl_free (d);
+	return text;
+}
+#endif
+
 int
 main (int argc, char *argv[])
 {
-	shcl_doc *d, *back;
-	shcl_str  canon;
+	shcl_doc *back;
 	FILE     *out;
-	size_t    i, len;
+	size_t    i, len, cap;
 	int       hand, bare, bad = 0;
 	char     *text;
 
@@ -201,60 +354,18 @@ main (int argc, char *argv[])
 	hand = strcmp (argv[3], "hand") == 0;
 	bare = strcmp (argv[3], "nobackslash") == 0;
 
-	/* The setters the app called then, in nemo-config.c. */
-	d = shcl_new ();
-	for (i = 0; i < N_ENTRIES; i++) {
-		const Entry *e = &entries[i];
-		size_t       plen = strlen (e->path);
-		int          set = 1;
-
-		if (e->how != SET || (bare && escaped (e)))
-			continue;
-		switch (e->type) {
-		case 's':
-			set = shcl_set_string (d, e->path, plen, e->text, strlen (e->text));
-			break;
-		case 'l': {
-			size_t lens[6];
-			int    j;
-
-			for (j = 0; j < e->n; j++)
-				lens[j] = strlen (e->list[j]);
-			set = shcl_set_string_array (d, e->path, plen, e->list, lens, (size_t) e->n);
-			break;
-		}
-		case 'b':
-			set = shcl_set_bool (d, e->path, plen, (int) e->num);
-			break;
-		case 'i':
-			set = shcl_set_int (d, e->path, plen, e->num);
-			break;
-		case 'f':
-			set = shcl_set_float (d, e->path, plen, e->real);
-			break;
-		}
-		if (!set) {
-			fprintf (stderr, "%s: could not set %s\n", argv[0], e->path);
-			return 1;
-		}
-		if (e->comment != NULL)
-			shcl_set_comment (d, e->path, plen, e->comment, strlen (e->comment));
-	}
-
-	canon = shcl_to_canonical (d);
-	len = canon.n;
-	text = malloc (len + 4096);
+	text = make_text (bare, 4096, &len);
 	if (text == NULL)
 		return 1;
-	memcpy (text, canon.p, len);
+	cap = len + 4096;
 	for (i = 0; hand && i < N_ENTRIES; i++) {
 		int n;
 
 		if (entries[i].how != HAND)
 			continue;
-		n = snprintf (text + len, canon.n + 4096 - len, "%s: %s\n",
+		n = snprintf (text + len, cap - len, "%s: %s\n",
 		              entries[i].path, entries[i].text);
-		if (n < 0 || (size_t) n >= canon.n + 4096 - len)
+		if (n < 0 || (size_t) n >= cap - len)
 			return 1;
 		len += (size_t) n;
 	}
@@ -271,7 +382,7 @@ main (int argc, char *argv[])
 	if (back == NULL || out == NULL)
 		return 1;
 	for (i = 0; i < N_ENTRIES; i++) {
-		if ((entries[i].how == HAND && !hand) || (bare && escaped (&entries[i])))
+		if ((entries[i].how == HAND && !hand) || (bare && left_out (&entries[i])))
 			continue;
 		if (!put_reading (out, back, &entries[i])) {
 			fprintf (stderr, "%s: %s does not read back as written\n",
@@ -284,6 +395,5 @@ main (int argc, char *argv[])
 
 	free (text);
 	shcl_free (back);
-	shcl_free (d);
 	return bad;
 }

@@ -12,3 +12,5 @@ key: value: another
 #
 ###
 key:
+# A list the way format 2 wrote one, which is an error line now.
+favorites: /home/a, /home/b

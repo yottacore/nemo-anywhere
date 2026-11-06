@@ -287,9 +287,9 @@ new_empty_doc (void)
  * bytes, so putting it back is a rename. Returns the name, or NULL when it
  * could not be written, and then the old file must stay as it is.
  *
- * SHCL 3 only converts text. A later release may back up and convert the file
- * itself; if it does, use that instead of this and the conversion in
- * load_locked, never both on one file. */
+ * shcl_upgrade_file and shcl_write_backup don't fit: the first keeps keys we
+ * drop, and both refuse a backup name that's taken, where two copies started
+ * in the same second each need one. */
 static char *
 backup_old_format (const char *text, gsize len, gint64 format)
 {
@@ -363,7 +363,7 @@ known_keys_only (shcl_doc *from)
 					values[i] = r.values[i].p;
 					lens[i]   = r.values[i].n;
 				}
-				set = shcl_set_string_array (to, path, plen, values, lens, r.n);
+				set = shcl_set_string_array (to, path, plen, values, lens, r.n) == SHCL_SET_OK;
 				g_free (values);
 				g_free (lens);
 			}
@@ -371,7 +371,7 @@ known_keys_only (shcl_doc *from)
 			shcl_read_str r = shcl_read_string (from, path, plen);
 
 			if (r.status == SHCL_GOOD || r.status == SHCL_EMPTY)
-				set = shcl_set_string (to, path, plen, r.value.p, r.value.n);
+				set = shcl_set_string (to, path, plen, r.value.p, r.value.n) == SHCL_SET_OK;
 		}
 		if (set && k->summary != NULL)
 			shcl_set_comment (to, path, plen, k->summary, strlen (k->summary));
@@ -917,6 +917,7 @@ save_now (G_GNUC_UNUSED gpointer data)
 	GError     *error = NULL;
 	GHashTable *before = NULL, *after = NULL;
 	shcl_str    canon;
+	shcl_write_status why = SHCL_WRITE_OK;
 	gboolean    ok, have, gone, foreign;
 
 	/* The other copies hear of a change before the file has it, so a stale
@@ -968,8 +969,12 @@ save_now (G_GNUC_UNUSED gpointer data)
 	g_mkdir_with_parents (dir, 0700);
 	g_free (dir);
 
-	ok = shcl_write_file_atomic (config_path, text != NULL ? text : "", text_len) != 0;
-	if (!ok) {
+	ok = shcl_write_file_atomic (config_path, text != NULL ? text : "", text_len, &why) != 0;
+	if (!ok && why == SHCL_WRITE_NOT_REGULAR) {
+		/* errno is whatever was left over here */
+		g_set_error (&error, G_FILE_ERROR, G_FILE_ERROR_INVAL,
+		             "not a regular file");
+	} else if (!ok) {
 		g_set_error (&error, G_FILE_ERROR, g_file_error_from_errno (errno),
 		             "%s", g_strerror (errno));
 	}
@@ -1099,6 +1104,29 @@ same_value (const PendingValue *a, const PendingValue *b)
 	                                    (const char *const *) b->values);
 }
 
+/* A key written twice by hand reads as its default, and SHCL sets neither
+ * copy, so a change made here replaces both. */
+static gboolean
+key_existed_locked (const char *path)
+{
+	gsize plen = strlen (path);
+
+	if (shcl_check_set_path (config_doc, path, plen) == SHCL_SET_MULTIPLE) {
+		shcl_remove (config_doc, path, plen);
+		return FALSE;
+	}
+	return shcl_exists (config_doc, path, plen) != 0;
+}
+
+/* A refused write leaves the old value, such as text that isn't UTF-8. */
+static void
+note_refused (const NemoConfigKey *k, shcl_set_status st)
+{
+	if (st != SHCL_SET_OK)
+		g_warning ("nemo-config: %s.%s wasn't saved: %s",
+		           k->group, k->key, shcl_set_status_name (st));
+}
+
 static void
 apply_value_locked (const PendingValue *p)
 {
@@ -1110,6 +1138,7 @@ apply_value_locked (const PendingValue *p)
 		g_free (path);
 		return;
 	}
+	key_existed_locked (path);
 
 	while (p->values[n] != NULL)
 		n++;
@@ -1120,15 +1149,15 @@ apply_value_locked (const PendingValue *p)
 
 		for (i = 0; i < n; i++)
 			lens[i] = strlen (p->values[i]);
-		shcl_set_string_array (config_doc, path, strlen (path),
-		                       (const char *const *) p->values, lens, n);
+		note_refused (p->key, shcl_set_string_array (config_doc, path, strlen (path),
+		                                             (const char *const *) p->values, lens, n));
 		g_free (lens);
 	} else {
 		/* Every scalar is stored as its text form and SHCL writes strings
 		 * unquoted, so this reproduces the bool/int/enum spelling exactly. */
 		const char *v = n > 0 ? p->values[0] : "";
 
-		shcl_set_string (config_doc, path, strlen (path), v, strlen (v));
+		note_refused (p->key, shcl_set_string (config_doc, path, strlen (path), v, strlen (v)));
 	}
 
 	g_free (path);
@@ -1829,7 +1858,7 @@ nemo_config_get_boolean (NemoConfigGroup *group, const char *key)
 	p = key_path_of (k);
 
 	g_mutex_lock (&config_lock);
-	out = shcl_get_bool (config_doc, p->s, p->len, fallback) ? TRUE : FALSE;
+	out = shcl_get_bool_or (config_doc, p->s, p->len, fallback) ? TRUE : FALSE;
 	g_mutex_unlock (&config_lock);
 
 	return out;
@@ -1847,8 +1876,8 @@ nemo_config_get_int64 (NemoConfigGroup *group, const char *key)
 
 	p = key_path_of (k);
 	g_mutex_lock (&config_lock);
-	out = shcl_get_int (config_doc, p->s, p->len,
-	                    k->def ? g_ascii_strtoll (k->def, NULL, 10) : 0);
+	out = shcl_get_int_or (config_doc, p->s, p->len,
+	                       k->def ? g_ascii_strtoll (k->def, NULL, 10) : 0);
 	g_mutex_unlock (&config_lock);
 
 	return out;
@@ -1872,8 +1901,8 @@ nemo_config_get_double (NemoConfigGroup *group, const char *key)
 
 	p = key_path_of (k);
 	g_mutex_lock (&config_lock);
-	out = shcl_get_float (config_doc, p->s, p->len,
-	                      k->def ? g_ascii_strtod (k->def, NULL) : 0.0);
+	out = shcl_get_float_or (config_doc, p->s, p->len,
+	                         k->def ? g_ascii_strtod (k->def, NULL) : 0.0);
 	g_mutex_unlock (&config_lock);
 
 	return out;
@@ -2034,9 +2063,9 @@ nemo_config_set_boolean (NemoConfigGroup *group, const char *key, gboolean value
 	path = key_path (k);
 	g_mutex_lock (&config_lock);
 	was = read_value_locked (config_doc, k);
-	existed = shcl_exists (config_doc, path, strlen (path)) != 0;
+	existed = key_existed_locked (path);
 	if (!drop_if_default (k, value ? "true" : "false", path)) {
-		shcl_set_bool (config_doc, path, strlen (path), value ? 1 : 0);
+		note_refused (k, shcl_set_bool (config_doc, path, strlen (path), value ? 1 : 0));
 		apply_comment_if_new (k, path, existed);
 	}
 	changed_here_locked (k, was);
@@ -2067,9 +2096,9 @@ nemo_config_set_int64 (NemoConfigGroup *group, const char *key, gint64 value)
 	text = g_strdup_printf ("%" G_GINT64_FORMAT, value);
 	g_mutex_lock (&config_lock);
 	was = read_value_locked (config_doc, k);
-	existed = shcl_exists (config_doc, path, strlen (path)) != 0;
+	existed = key_existed_locked (path);
 	if (!drop_if_default (k, text, path)) {
-		shcl_set_int (config_doc, path, strlen (path), value);
+		note_refused (k, shcl_set_int (config_doc, path, strlen (path), value));
 		apply_comment_if_new (k, path, existed);
 	}
 	changed_here_locked (k, was);
@@ -2094,8 +2123,8 @@ nemo_config_set_double (NemoConfigGroup *group, const char *key, gdouble value)
 	path = key_path (k);
 	g_mutex_lock (&config_lock);
 	was = read_value_locked (config_doc, k);
-	existed = shcl_exists (config_doc, path, strlen (path)) != 0;
-	shcl_set_float (config_doc, path, strlen (path), value);
+	existed = key_existed_locked (path);
+	note_refused (k, shcl_set_float (config_doc, path, strlen (path), value));
 	apply_comment_if_new (k, path, existed);
 	changed_here_locked (k, was);
 	g_mutex_unlock (&config_lock);
@@ -2120,9 +2149,9 @@ nemo_config_set_string (NemoConfigGroup *group, const char *key, const char *val
 	path = key_path (k);
 	g_mutex_lock (&config_lock);
 	was = read_value_locked (config_doc, k);
-	existed = shcl_exists (config_doc, path, strlen (path)) != 0;
+	existed = key_existed_locked (path);
 	if (!drop_if_default (k, value, path)) {
-		shcl_set_string (config_doc, path, strlen (path), value, strlen (value));
+		note_refused (k, shcl_set_string (config_doc, path, strlen (path), value, strlen (value)));
 		apply_comment_if_new (k, path, existed);
 	}
 	changed_here_locked (k, was);
@@ -2182,9 +2211,9 @@ nemo_config_set_strv (NemoConfigGroup *group, const char *key, const char *const
 	path = key_path (k);
 	g_mutex_lock (&config_lock);
 	was = read_value_locked (config_doc, k);
-	existed = shcl_exists (config_doc, path, strlen (path)) != 0;
-	shcl_set_string_array (config_doc, path, strlen (path),
-	                       (const char *const *) value, lens, n);
+	existed = key_existed_locked (path);
+	note_refused (k, shcl_set_string_array (config_doc, path, strlen (path),
+	                                        (const char *const *) value, lens, n));
 	apply_comment_if_new (k, path, existed);
 	changed_here_locked (k, was);
 	g_mutex_unlock (&config_lock);
@@ -2204,9 +2233,9 @@ store_enum_nick (const NemoConfigKey *k, const char *nick)
 
 	g_mutex_lock (&config_lock);
 	was = read_value_locked (config_doc, k);
-	existed = shcl_exists (config_doc, path, strlen (path)) != 0;
+	existed = key_existed_locked (path);
 	if (!drop_if_default (k, nick, path)) {
-		shcl_set_string (config_doc, path, strlen (path), nick, strlen (nick));
+		note_refused (k, shcl_set_string (config_doc, path, strlen (path), nick, strlen (nick)));
 		apply_comment_if_new (k, path, existed);
 	}
 	changed_here_locked (k, was);

@@ -11,37 +11,37 @@ field: favorites-root-metadata
 field: appearance.gtk-theme
 	type: string
 	default: 
-	desc: Widget theme name, or empty for the platform's own
+	desc: "Widget theme name, or empty for the platform's own"
 
 field: appearance.icon-theme
 	type: string
 	default: 
-	desc: Icon theme name, or empty for the platform's own
+	desc: "Icon theme name, or empty for the platform's own"
 
 field: appearance.mode
 	type: string
-	allowed: system, light, dark
+	allowed: [system, light, dark]
 	default: system
 
 field: archive.create-with-7z
 	type: string
 	default: "{{PROGRAM}} a {{FORMAT}} {{LEVEL}} {{THREADS}} -y -bsp1 -spd -sccUTF-8 {{PASSWORD}} {{SPLIT}} {{SOLID}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
-	desc: Command line 7-Zip is run with to create an archive. Each {{NAME}} stands for something the Compress dialog fills in; drop one and that option stops working. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program. Empty the line for the built-in one.
+	desc: "Command line 7-Zip is run with to create an archive. Each {{NAME}} stands for something the Compress dialog fills in; drop one and that option stops working. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program. Empty the line for the built-in one."
 
 field: archive.create-with-rar
 	type: string
 	default: "{{PROGRAM}} a {{LEVEL}} {{THREADS}} -y -scfr {{PASSWORD}} {{SPLIT}} {{SOLID}} {{DEDUPE}} {{RECOVERY}} {{LOCK}} {{LINKS}} -- {{TARGET_ARCHIVE}} {{SOURCE_ITEMS}}"
-	desc: Command line rar is run with to create an archive. Same placeholders as the 7-Zip line, plus {{DEDUPE}}, {{RECOVERY}} and {{LOCK}}, which only rar has. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program.
+	desc: "Command line rar is run with to create an archive. Same placeholders as the 7-Zip line, plus {{DEDUPE}}, {{RECOVERY}} and {{LOCK}}, which only rar has. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program."
 
 field: archive.extract-with-7z
 	type: string
 	default: "{{PROGRAM}} x -y -bsp1 -spd {{PASSWORD}} -o{{TARGET_FOLDER}} -- {{SOURCE_ARCHIVE}}"
-	desc: Command line 7-Zip is run with to unpack an archive. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program. Empty the line for the built-in one.
+	desc: "Command line 7-Zip is run with to unpack an archive. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program. Empty the line for the built-in one."
 
 field: archive.extract-with-rar
 	type: string
 	default: "{{PROGRAM}} x -y {{PASSWORD}} -- {{SOURCE_ARCHIVE}} {{TARGET_FOLDER_WITH_SEPARATOR}}"
-	desc: Command line rar or unrar is run with to unpack an archive. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program. Empty the line for the built-in one.
+	desc: "Command line rar or unrar is run with to unpack an archive. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program. Empty the line for the built-in one."
 
 field: archive.last-each
 	type: bool
@@ -61,7 +61,7 @@ field: archive.last-dedupe
 field: archive.last-follow-links
 	type: bool
 	default: false
-	desc: Replaced by last-symlinks. Read once, then dropped
+	desc: "Replaced by last-symlinks. Read once, then dropped"
 
 field: archive.last-follow-nested
 	type: bool
@@ -75,7 +75,7 @@ field: archive.last-format
 
 field: archive.last-junctions
 	type: string
-	allowed: like-symlinks, ignore, follow, store-as-junctions, store-as-symlinks
+	allowed: [like-symlinks, ignore, follow, store-as-junctions, store-as-symlinks]
 	default: like-symlinks
 	desc: What the Compress dialog starts from next time. Windows only
 
@@ -112,11 +112,11 @@ field: archive.last-split-size
 field: archive.last-store-links
 	type: bool
 	default: true
-	desc: Replaced by last-symlinks. Read once, then dropped
+	desc: "Replaced by last-symlinks. Read once, then dropped"
 
 field: archive.last-symlinks
 	type: string
-	allowed: ignore, follow, store-as-symlinks
+	allowed: [ignore, follow, store-as-symlinks]
 	default: ignore
 	desc: What the Compress dialog starts from next time
 
@@ -132,17 +132,17 @@ field: compact-view.default-icon-size
 field: debug.testguard-all-deletes
 	type: bool
 	default: true
-	desc: Ask before every trash and delete, naming the code that asked. Scaffolding for finding a removal nothing accounts for
+	desc: "Ask before every trash and delete, naming the code that asked. Scaffolding for finding a removal nothing accounts for"
 
 field: file-cache.max-size-gib
 	type: float
 	default: 2
-	desc: Largest the file cache may get, in GiB. The least recently drawn thumbnails go first. 0 for no limit
+	desc: "Largest the file cache may get, in GiB. The least recently drawn thumbnails go first. 0 for no limit"
 
 field: file-cache.memory-gib
 	type: float
 	default: 1
-	desc: Most memory the thumbnails held ready to draw may take, in GiB. Past it only those near the view are held. 0 holds only what is on screen
+	desc: "Most memory the thumbnails held ready to draw may take, in GiB. Past it only those near the view are held. 0 holds only what is on screen"
 
 field: file-cache.max-age-days
 	type: int
@@ -152,12 +152,12 @@ field: file-cache.max-age-days
 field: file-cache.drop-missing
 	type: bool
 	default: true
-	desc: Forget a local file that is gone from a folder that is still there. A folder that is missing entirely is left alone, since it may be on a drive that isn't plugged in
+	desc: "Forget a local file that is gone from a folder that is still there. A folder that is missing entirely is left alone, since it may be on a drive that isn't plugged in"
 
 field: file-cache.save-checksum
 	type: bool
 	default: false
-	desc: Write each checksum onto the file it belongs to, as the extended attributes user.blake3.b64u, .bytes and .mtime. On Windows these are alternate data streams, which only local NTFS and ReFS drives keep
+	desc: "Write each checksum onto the file it belongs to, as the extended attributes user.blake3.b64u, .bytes and .mtime. On Windows these are alternate data streams, which only local NTFS and ReFS drives keep"
 
 field: file-cache.prune-min-hours
 	type: int
@@ -190,7 +190,7 @@ field: media-handling.automount-open
 field: performance.clone-min-kib
 	type: int
 	default: 64
-	desc: Files smaller than this are copied in full rather than cloned, on file systems that can clone. 0 to always clone, 1024 at most
+	desc: "Files smaller than this are copied in full rather than cloned, on file systems that can clone. 0 to always clone, 1024 at most"
 
 field: performance.cpu-percent
 	type: int
@@ -204,7 +204,7 @@ field: privacy.remember-recent-files
 field: terminal.exec
 	type: string
 	default: ""
-	desc: Terminal used for Open in Terminal, or empty to let the system pick
+	desc: "Terminal used for Open in Terminal, or empty to let the system pick"
 
 field: terminal.exec-arg
 	type: string
@@ -226,7 +226,7 @@ field: desktop.use-desktop-grid
 
 field: icon-view.captions
 	type: string-array
-	default: none, size, date_modified
+	default: [none, size, date_modified]
 	desc: Extra details shown under an icon
 
 field: icon-view.default-icon-size
@@ -237,7 +237,7 @@ field: icon-view.default-icon-size
 field: icon-view.default-image-icon-size
 	type: int
 	default: 500
-	desc: Icon size for a folder that is mostly images, as a per cent of the standard 64 pixels
+	desc: "Icon size for a folder that is mostly images, as a per cent of the standard 64 pixels"
 
 field: icon-view.image-folder-min-images
 	type: int
@@ -247,12 +247,12 @@ field: icon-view.image-folder-min-images
 field: icon-view.image-folder-min-percent
 	type: int
 	default: 50
-	desc: Share of a folder's files, sub-folders not counted, that must be images for it to count as mostly images
+	desc: "Share of a folder's files, sub-folders not counted, that must be images for it to count as mostly images"
 
 field: icon-view.image-folder-switch
 	type: bool
 	default: true
-	desc: Show a folder that is mostly images in icon view, unless it has a view of its own
+	desc: "Show a folder that is mostly images in icon view, unless it has a view of its own"
 
 field: icon-view.labels-beside-icons
 	type: bool
@@ -260,7 +260,7 @@ field: icon-view.labels-beside-icons
 
 field: icon-view.text-ellipsis-limit
 	type: string-array
-	default: 3
+	default: [3]
 	desc: Lines of a name under an icon before it is cut short
 
 field: icon-view.thumbnail-size
@@ -271,15 +271,15 @@ field: icon-view.thumbnail-size
 field: list-view.column-fit-percent
 	type: int
 	default: 90
-	desc: Share of the values Name and Location still show when the row is short of room, and the share other variable columns show by default. Name counts every file, or each distinct name once in find results; the others count each distinct value once.
+	desc: "Share of the values Name and Location still show when the row is short of room, and the share other variable columns show by default. Name counts every file, or each distinct name once in find results; the others count each distinct value once."
 
 field: list-view.default-column-order
 	type: string-array
-	default: name, where, size, extension, type, date_modified, owner, owner_name, owner_and_name, group, permissions
+	default: [name, where, size, extension, type, date_modified, owner, owner_name, owner_and_name, group, permissions]
 
 field: list-view.default-visible-columns
 	type: string-array
-	default: name, size, extension, type, date_modified, owner, group, permissions
+	default: [name, size, extension, type, date_modified, owner, group, permissions]
 
 field: list-view.default-icon-size
 	type: int
@@ -294,7 +294,7 @@ field: list-view.enable-folder-expansion
 field: list-view.row-hover-color
 	type: string
 	default: 
-	desc: Color of the row under the pointer, in any form CSS takes. Empty uses the theme's nemo_row_hover color, or a faint tint of the selection color if it has none. transparent turns it off
+	desc: "Color of the row under the pointer, in any form CSS takes. Empty uses the theme's nemo_row_hover color, or a faint tint of the selection color if it has none. transparent turns it off"
 
 field: list-view.row-shading
 	type: bool
@@ -304,11 +304,11 @@ field: list-view.row-shading
 field: list-view.row-shading-color
 	type: string
 	default: 
-	desc: Color of the shaded rows, in any form CSS takes. Empty uses the theme's nemo_row_shading color, or a faint tint of the text color if it has none
+	desc: "Color of the shaded rows, in any form CSS takes. Empty uses the theme's nemo_row_shading color, or a faint tint of the text color if it has none"
 
 field: plugins.disabled-actions
 	type: string-array
-	default: 90_new-launcher.nemo_action, 90_new-workspace.nemo_action, 91_delete-workspace.nemo_action, 92_show-expo.nemo_action, add-desklets.nemo_action, change-background.nemo_action, set-as-background.nemo_action, set-resolution.nemo_action
+	default: [90_new-launcher.nemo_action, 90_new-workspace.nemo_action, 91_delete-workspace.nemo_action, 92_show-expo.nemo_action, add-desklets.nemo_action, change-background.nemo_action, set-as-background.nemo_action, set-resolution.nemo_action]
 	desc: Action files that are switched off. The shipped Cinnamon-only ones start here
 
 field: plugins.disabled-extensions
@@ -325,12 +325,12 @@ field: preferences.always-show-tabs
 field: preferences.always-use-browser
 	type: bool
 	default: true
-	desc: Every window is a browser window, with a toolbar and history
+	desc: "Every window is a browser window, with a toolbar and history"
 
 field: preferences.bulk-rename-tool
 	type: string
 	default: ""
-	desc: Program run for a bulk rename. Unset means the first known renamer that's installed, or else the first known one
+	desc: "Program run for a bulk rename. Unset means the first known renamer that's installed, or else the first known one"
 
 field: preferences.click-double-parent-folder
 	type: bool
@@ -339,14 +339,14 @@ field: preferences.click-double-parent-folder
 
 field: preferences.click-policy
 	type: string
-	allowed: single, double
+	allowed: [single, double]
 	default: double
 	desc: One click or two to open a file
 
 field: preferences.close-device-view-on-device-eject
 	type: bool
 	default: false
-	desc: Close the window when its device is ejected, rather than going home
+	desc: "Close the window when its device is ejected, rather than going home"
 
 field: preferences.confirm-drag-copy
 	type: bool
@@ -370,16 +370,16 @@ field: preferences.confirm-trash
 field: preferences.confirm-many-items
 	type: int
 	default: 20
-	desc: Ask before trashing or deleting this many items at once, whatever the two above say (0 for never)
+	desc: "Ask before trashing or deleting this many items at once, whatever the two above say (0 for never)"
 
 field: preferences.date-format
 	type: string
-	allowed: locale, iso, informal
+	allowed: [locale, iso, informal]
 	default: iso
 
 field: preferences.default-folder-viewer
 	type: string
-	allowed: icon-view, compact-view, list-view
+	allowed: [icon-view, compact-view, list-view]
 	default: list-view
 
 field: preferences.default-sort-in-reverse-order
@@ -388,7 +388,7 @@ field: preferences.default-sort-in-reverse-order
 
 field: preferences.default-sort-order
 	type: string
-	allowed: manually, name, size, type, detailed_type, mtime, atime, trash-time
+	allowed: [manually, name, size, type, detailed_type, mtime, atime, trash-time]
 	default: name
 
 field: preferences.deferred-attribute-preload-limit
@@ -413,7 +413,7 @@ field: preferences.disable-menu-warning
 field: preferences.enable-delete
 	type: bool
 	default: true
-	desc: Offer Delete, which skips the Trash
+	desc: "Offer Delete, which skips the Trash"
 
 field: preferences.enable-mime-actions-make-executable
 	type: bool
@@ -422,7 +422,7 @@ field: preferences.enable-mime-actions-make-executable
 
 field: preferences.executable-text-activation
 	type: string
-	allowed: launch, display, ask
+	allowed: [launch, display, ask]
 	default: ask
 	desc: What opening an executable text file does
 
@@ -433,7 +433,7 @@ field: preferences.expand-row-on-dnd-dwell
 
 field: preferences.image-viewers-with-external-sort
 	type: string-array
-	default: xviewer, feh, sxiv
+	default: [xviewer, feh, sxiv]
 	desc: Image viewers that are told the current sort order
 
 field: preferences.inherit-view-settings
@@ -473,12 +473,12 @@ field: preferences.never-queue-file-ops
 field: preferences.remember-folder-settings
 	type: bool
 	default: false
-	desc: Each folder keeps its own view, zoom, sort and columns
+	desc: "Each folder keeps its own view, zoom, sort and columns"
 
 field: preferences.rename-selects-whole-name
 	type: bool
 	default: true
-	desc: Renaming selects the whole name, extension included
+	desc: "Renaming selects the whole name, extension included"
 
 field: preferences.quick-renames-with-pause-in-between
 	type: bool
@@ -487,7 +487,7 @@ field: preferences.quick-renames-with-pause-in-between
 
 field: preferences.selection-model
 	type: string
-	allowed: nemo-anywhere-v1, nemo-classic, nemo-anywhere
+	allowed: [nemo-anywhere-v1, nemo-classic, nemo-anywhere]
 	default: nemo-anywhere-v1
 	desc: How clicks and keys select and focus files and folders
 
@@ -510,7 +510,7 @@ field: preferences.show-computer-icon-toolbar
 
 field: preferences.show-directory-item-counts
 	type: string
-	allowed: always, local-only, never
+	allowed: [always, local-only, never]
 	default: local-only
 	desc: When to count what is in a folder
 
@@ -538,7 +538,7 @@ field: preferences.show-icon-view-icon-toolbar
 
 field: preferences.show-image-thumbnails
 	type: string
-	allowed: always, local-only, never
+	allowed: [always, local-only, never]
 	default: local-only
 	desc: When to draw thumbnails
 
@@ -604,7 +604,7 @@ field: preferences.show-up-icon-toolbar
 
 field: preferences.size-prefixes
 	type: string
-	allowed: base-10, base-10-full, base-2, base-2-full
+	allowed: [base-10, base-10-full, base-2, base-2-full]
 	default: base-2
 	desc: Whether sizes count in 1024s or 1000s
 
@@ -628,28 +628,28 @@ field: preferences.swap-trash-delete
 field: preferences.tab-width-max-percent
 	type: int
 	default: 25
-	desc: Widest a tab may get, as a percentage of the tab strip
+	desc: "Widest a tab may get, as a percentage of the tab strip"
 
 field: preferences.tab-width-min-percent
 	type: int
 	default: 10
-	desc: Narrowest a tab may get, as a percentage of the tab strip
+	desc: "Narrowest a tab may get, as a percentage of the tab strip"
 
 field: preferences.tabs-open-position
 	type: string
-	allowed: after-current-tab, end
+	allowed: [after-current-tab, end]
 	default: after-current-tab
 	desc: Where a new tab goes
 
 field: preferences.thumbnail-limit
 	type: int
 	default: 104857600
-	desc: Largest image a thumbnail is made for, in bytes
+	desc: "Largest image a thumbnail is made for, in bytes"
 
 field: preferences.thumbnail-threads
 	type: int
 	default: -1
-	desc: Threads used to make thumbnails, -1 for half the processors. Takes effect on restart.
+	desc: "Threads used to make thumbnails, -1 for half the processors. Takes effect on restart."
 
 field: preferences.tooltips-in-icon-view
 	type: bool
@@ -855,7 +855,7 @@ field: search.search-files-use-regex
 field: search.search-regex-format
 	type: string
 	default: pcre
-	desc: Regex flavor: pcre or javascript
+	desc: "Regex flavor: pcre or javascript"
 
 field: search.search-reverse-sort
 	type: bool
@@ -863,7 +863,7 @@ field: search.search-reverse-sort
 
 field: search.search-skip-folders
 	type: string-array
-	default: /dev, /proc, /sys, dosdevices, .git
+	default: [/dev, /proc, /sys, dosdevices, .git]
 	desc: Paths or folder names a search never enters
 
 field: search.search-sort-column
@@ -888,7 +888,7 @@ field: thumbnailers.disable-all
 
 field: windows.path-separator
 	type: string
-	allowed: backslash, slash
+	allowed: [backslash, slash]
 	default: backslash
 	desc: Which separator paths are shown with
 
@@ -909,12 +909,12 @@ field: windows.use-search-index
 
 field: windows.associations
 	type: string-array
-	desc: The program to open a type with, as <extension>=<command line> with %1 for the file
+	desc: "The program to open a type with, as <extension>=<command line> with %1 for the file"
 
 field: windows.terminal-candidates
 	type: string-array
-	default: wt.exe, pwsh.exe, powershell.exe, cmd.exe
-	desc: Terminals to try for Open in Terminal, in order
+	default: [wt.exe, pwsh.exe, powershell.exe, cmd.exe]
+	desc: "Terminals to try for Open in Terminal, in order"
 
 field: window-state.bookmarks-expanded
 	type: bool

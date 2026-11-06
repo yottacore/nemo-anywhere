@@ -167,12 +167,18 @@ test('ddez6 Config format upgrade test',
 )
 
 # One writer per SHCL release from before format 3, each built against that
-# release's header alone, so the old files come from the old code.
+# release's header alone, so the old files come from the old code. 1.0.0 is
+# the rc1 header byte for byte.
 shclOldWriters = []
-foreach release : [ '1.2.0', '2.0.0' ]
+shclOldArgs = {
+  '1.0.0-beta1': [ '-DSHCL_OLD_NO_WRITER' ],
+  '1.0.0-beta2': [ '-DSHCL_OLD_VOID_SETTERS' ],
+}
+foreach release : [ '1.0.0-beta1', '1.0.0-beta2', '1.0.0-rc1', '1.1.0', '1.2.0', '2.0.0' ]
   shclOldWriters += [ release, executable('shcl-old-writer-' + release,
     [ 'shcl-old-writer.c' ],
     include_directories: include_directories('../../vendor/shcl-old' / release),
+    c_args: shclOldArgs.get(release, []),
     dependencies: [ math ],
     override_options: [ 'warning_level=0' ],
   ) ]
@@ -2451,7 +2457,7 @@ endif
 test('dbsx7 Config schema drift test',
   executable('test-nemo-config-schema',
     [ 'test-nemo-config-schema.c' ],
-    include_directories: [ rootInclude, ],
+    include_directories: [ rootInclude, shclInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch ],
   ),
   args: [ meson.current_source_dir() / '..' / 'data' / 'nemo-anywhere.schema.shcl' ]
