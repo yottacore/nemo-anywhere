@@ -801,6 +801,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261025: split into children 2026102517333367 (`cicd.bash`, the gate included) and 2026102517333373 (`cicd-win.ps1` and the other boxes).
 	- Test case: none yet.
 
+- Integrate SHCL v3.0.0-beta.1.
+	- ID: 2026110520234226
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261105-202342
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Test case: none yet.
+
 - ddepv on b29w: the heap grew over 64 rounds again.
 	- ID: 2026103116284963
 	- Type: Bug
@@ -1273,6 +1284,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Before the next cut.
 		- For "Nemo Anywhere" only. "Nemo Anywhere v1" keeps the previous behavior.
 		- F2 selects the name without the extension, as upstream does.
+	- Test case: none yet.
+
+- Settings, List columns: split into two sub-tabs.
+	- ID: 2026110520234231
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261105-202342
+	- Opened by: t00mietum
+	- Related IDs: 2026101405542816
+	- Requirements:
+		- Before the next cut.
+		- Split the List columns tab into two sub-tabs:
+			- Regular list view
+			- Search list view
 	- Test case: none yet.
 
 - On vm925w, dcd70 can find its entry menu not mapped yet.
