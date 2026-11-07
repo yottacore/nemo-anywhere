@@ -1630,6 +1630,21 @@ if not is_windows
     timeout: 120
   )
 
+  # Preloaded too; it selects folders in the tree and reads its sideways scroll.
+  tree_scroll_probe = shared_module('test-nemo-tree-scroll-probe',
+    [ 'test-nemo-tree-scroll-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('df06r Tree sideways scroll test',
+    executable('test-nemo-tree-scroll',
+      [ 'test-nemo-tree-scroll.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, tree_scroll_probe ],
+    timeout: 120
+  )
+
   icon_atk_probe = shared_module('test-nemo-icon-atk-probe',
     [ 'test-nemo-icon-atk-probe.c' ],
     include_directories: [ rootInclude, ],

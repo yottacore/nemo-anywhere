@@ -90,6 +90,8 @@ struct FMTreeViewDetails {
 	gboolean selecting;
 
 	guint show_selection_idle_id;
+	guint hscroll_idle_id;
+	gboolean hscroll_wanted;
 	gulong clipboard_handler_id;
 
 	GtkWidget *popup_menu;
@@ -1662,6 +1664,131 @@ model_key_press (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
 	return tree_rules ()->key_press (widget, event, user_data);
 }
 
+/* Right edge of a row's icon and name, in tree coordinates. */
+static int
+row_right (GtkTreeView *tree_view, GtkTreeViewColumn *column, GtkTreePath *path, int *left)
+{
+	GtkTreeModel *model = gtk_tree_view_get_model (tree_view);
+	GtkTreeIter iter;
+	GdkRectangle area;
+	int width = 0;
+
+	gtk_tree_view_get_cell_area (tree_view, path, column, &area);
+	if (gtk_tree_model_get_iter (model, &iter, path)) {
+		gtk_tree_view_column_cell_set_cell_data (column, model, &iter, FALSE, FALSE);
+		gtk_tree_view_column_cell_get_size (column, NULL, NULL, NULL, &width, NULL);
+	}
+	if (left != NULL) {
+		*left = area.x;
+	}
+	return area.x + width;
+}
+
+/* Scrolls sideways to show the selected rows' names and their open children's,
+   as far left as that allows, but never past the selected rows' own start. */
+static gboolean
+hscroll_idle_callback (gpointer callback_data)
+{
+	FMTreeView *view = FM_TREE_VIEW (callback_data);
+	GtkTreeView *tree_view = view->details->tree_widget;
+	GtkTreeViewColumn *column = gtk_tree_view_get_column (tree_view, 0);
+	GtkAdjustment *adjustment = gtk_scrollable_get_hadjustment (GTK_SCROLLABLE (tree_view));
+	GtkTreeModel *model = gtk_tree_view_get_model (tree_view);
+	GList *rows, *l;
+	int left = G_MAXINT, right = 0, x, expander = 0;
+	double page, value;
+
+	view->details->hscroll_idle_id = 0;
+	if (column == NULL || adjustment == NULL) {
+		return G_SOURCE_REMOVE;
+	}
+
+	rows = gtk_tree_selection_get_selected_rows (gtk_tree_view_get_selection (tree_view), NULL);
+	for (l = rows; l != NULL; l = l->next) {
+		GtkTreeIter iter, child;
+		gboolean more;
+
+		right = MAX (right, row_right (tree_view, column, l->data, &x));
+		left = MIN (left, x);
+		if (!gtk_tree_view_row_expanded (tree_view, l->data) ||
+		    !gtk_tree_model_get_iter (model, &iter, l->data)) {
+			continue;
+		}
+		for (more = gtk_tree_model_iter_children (model, &child, &iter); more;
+		     more = gtk_tree_model_iter_next (model, &child)) {
+			GtkTreePath *path = gtk_tree_model_get_path (model, &child);
+
+			right = MAX (right, row_right (tree_view, column, path, NULL));
+			gtk_tree_path_free (path);
+		}
+	}
+	g_list_free_full (rows, (GDestroyNotify) gtk_tree_path_free);
+	if (left == G_MAXINT) {
+		view->details->hscroll_wanted = FALSE;
+		return G_SOURCE_REMOVE;
+	}
+
+	/* Leave the selected row's own expander showing too. */
+	gtk_widget_style_get (GTK_WIDGET (tree_view), "expander-size", &expander, NULL);
+	page = gtk_adjustment_get_page_size (adjustment);
+	value = MIN (MAX (0, right - page), MAX (0, left - expander));
+	/* Until the tree has grown wide enough, the next allocation tries again. */
+	view->details->hscroll_wanted =
+		value > gtk_adjustment_get_upper (adjustment) - page;
+	gtk_adjustment_set_value (adjustment, value);
+
+	return G_SOURCE_REMOVE;
+}
+
+static void
+tree_size_allocate_callback (G_GNUC_UNUSED GtkWidget *widget,
+			     G_GNUC_UNUSED GdkRectangle *allocation,
+			     FMTreeView *view)
+{
+	if (view->details->hscroll_wanted && view->details->hscroll_idle_id == 0) {
+		view->details->hscroll_idle_id = g_idle_add (hscroll_idle_callback, view);
+	}
+}
+
+/* Waits for the layout, which gives the rows their place and the tree its width. */
+static void
+schedule_hscroll (FMTreeView *view)
+{
+	view->details->hscroll_wanted = TRUE;
+	gtk_widget_queue_resize (GTK_WIDGET (view->details->tree_widget));
+}
+
+static void
+hscroll_selection_changed (G_GNUC_UNUSED GtkTreeSelection *selection, FMTreeView *view)
+{
+	schedule_hscroll (view);
+}
+
+static void
+hscroll_row_toggled (G_GNUC_UNUSED GtkTreeView *tree_view,
+		     G_GNUC_UNUSED GtkTreeIter *iter,
+		     G_GNUC_UNUSED GtkTreePath *path,
+		     FMTreeView *view)
+{
+	schedule_hscroll (view);
+}
+
+/* A selected folder's children come in after it's opened. */
+static void
+hscroll_row_inserted (G_GNUC_UNUSED GtkTreeModel *model,
+		      GtkTreePath *path,
+		      G_GNUC_UNUSED GtkTreeIter *iter,
+		      FMTreeView *view)
+{
+	GtkTreePath *parent = gtk_tree_path_copy (path);
+
+	if (gtk_tree_path_up (parent) && gtk_tree_path_get_depth (parent) > 0 &&
+	    gtk_tree_selection_path_is_selected (gtk_tree_view_get_selection (view->details->tree_widget), parent)) {
+		schedule_hscroll (view);
+	}
+	gtk_tree_path_free (parent);
+}
+
 static void
 create_tree (FMTreeView *view)
 {
@@ -1786,6 +1913,16 @@ create_tree (FMTreeView *view)
 
 	g_signal_connect_object (gtk_tree_view_get_selection (GTK_TREE_VIEW (view->details->tree_widget)), "changed",
 				 G_CALLBACK (model_selection_changed), view, 0);
+	g_signal_connect_object (gtk_tree_view_get_selection (GTK_TREE_VIEW (view->details->tree_widget)), "changed",
+				 G_CALLBACK (hscroll_selection_changed), view, 0);
+	g_signal_connect_object (view->details->tree_widget, "row-expanded",
+				 G_CALLBACK (hscroll_row_toggled), view, 0);
+	g_signal_connect_object (view->details->tree_widget, "row-collapsed",
+				 G_CALLBACK (hscroll_row_toggled), view, 0);
+	g_signal_connect_object (view->details->tree_widget, "size-allocate",
+				 G_CALLBACK (tree_size_allocate_callback), view, G_CONNECT_AFTER);
+	g_signal_connect_object (view->details->sort_model, "row-inserted",
+				 G_CALLBACK (hscroll_row_inserted), view, 0);
 
 	g_signal_connect (G_OBJECT (view->details->tree_widget), 
 			  "row-activated", G_CALLBACK (row_activated_callback),
@@ -1973,6 +2110,11 @@ fm_tree_view_dispose (GObject *object)
 	if (view->details->show_selection_idle_id) {
 		g_source_remove (view->details->show_selection_idle_id);
 		view->details->show_selection_idle_id = 0;
+	}
+
+	if (view->details->hscroll_idle_id) {
+		g_source_remove (view->details->hscroll_idle_id);
+		view->details->hscroll_idle_id = 0;
 	}
 
 	if (view->details->clipboard_handler_id != 0) {
