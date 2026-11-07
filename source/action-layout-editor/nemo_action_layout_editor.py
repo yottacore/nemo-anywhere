@@ -93,6 +93,16 @@ def action_data_dirs():
     return dirs
 
 
+def set_default_button(dialog, response):
+    """Enter takes response, and its button starts focused with the ring
+    showing. GTK hides the ring at map when the parent wasn't showing one."""
+    dialog.set_default_response(response)
+    button = dialog.get_widget_for_response(response)
+    if button is not None:
+        button.grab_focus()
+        dialog.connect("map", lambda window: window.set_focus_visible(True))
+
+
 class WidgetGroup:
     """Sensitivity applied to several widgets at once. Was XApp.VisibilityGroup,
     which is not available off Cinnamon."""
@@ -1083,6 +1093,7 @@ class NemoActionsOrganizer(Gtk.Box):
                     text=_("This key combination is already in use by Nemo (%s). It can't be changed.") % label,
                     use_markup=True
                 )
+                set_default_button(dialog, Gtk.ResponseType.OK)
                 dialog.run()
                 dialog.destroy()
                 return False
@@ -1111,6 +1122,7 @@ class NemoActionsOrganizer(Gtk.Box):
                                    label + _("Do you want to replace it?"),
                             use_markup=True
                         )
+                        set_default_button(dialog, Gtk.ResponseType.YES)
                         resp = dialog.run()
                         dialog.destroy()
 
@@ -1642,6 +1654,7 @@ class NemoActionsOrganizer(Gtk.Box):
             )
 
             dialog.set_title(_("Unsaved changes"))
+            set_default_button(dialog, Gtk.ResponseType.YES)
             response = dialog.run()
             dialog.destroy()
 

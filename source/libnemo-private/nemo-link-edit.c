@@ -475,6 +475,7 @@ nemo_link_edit_ask (GtkWindow *parent,
 								     _("The link couldn't be changed"));
 
 			gtk_message_dialog_format_secondary_text (GTK_MESSAGE_DIALOG (message), "%s", error->message);
+			eel_dialog_set_default (GTK_DIALOG (message), GTK_RESPONSE_OK);
 			gtk_dialog_run (GTK_DIALOG (message));
 			gtk_widget_destroy (message);
 		}

@@ -712,8 +712,6 @@ report_broken_symbolic_link (GtkWindow *parent_window, NemoFile *file)
 	dialog = eel_show_yes_no_dialog (prompt, detail, _("Mo_ve to Trash"), GTK_STOCK_CANCEL,
 					 parent_window);
 
-	gtk_dialog_set_default_response (dialog, GTK_RESPONSE_CANCEL);
-
 	/* Make this modal to avoid problems with reffing the view & file
 	 * to keep them around in case the view changes, which would then
 	 * cause the old view not to be destroyed, which would cause its
@@ -782,7 +780,7 @@ get_executable_text_file_action (GtkWindow *parent_window, NemoFile *file)
 					     parent_window);
 	gtk_dialog_add_button (dialog, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL);
 	gtk_dialog_add_button (dialog, _("_Run"), RESPONSE_RUN);
-	gtk_dialog_set_default_response (dialog, GTK_RESPONSE_CANCEL);
+	eel_dialog_set_default (dialog, RESPONSE_RUN);
 	gtk_widget_show (GTK_WIDGET (dialog));
 
 	g_free (prompt);
@@ -1358,7 +1356,10 @@ application_unhandled_uri (ActivateParameters *parameters, char *uri)
     gtk_dialog_add_button (GTK_DIALOG (dialog),
                            GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL);
 
-    gtk_dialog_set_default_response (GTK_DIALOG (dialog), GTK_RESPONSE_CANCEL);
+    /* Making it executable is a choice to make on purpose; picking a program
+       is the way on. */
+    eel_dialog_set_default (GTK_DIALOG (dialog),
+                            param_uri != NULL ? RESPONSE_OPEN_WITH : GTK_RESPONSE_CANCEL);
 
     g_signal_connect (dialog, "response",
               G_CALLBACK (unhandled_uri_response_callback),
@@ -1463,7 +1464,7 @@ activate_desktop_file (ActivateParameters *parameters,
 
 		gtk_dialog_add_button (GTK_DIALOG (dialog),
 				       GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL);
-		gtk_dialog_set_default_response (GTK_DIALOG (dialog), GTK_RESPONSE_CANCEL);
+		eel_dialog_set_default (GTK_DIALOG (dialog), RESPONSE_RUN);
 
 		g_signal_connect (dialog, "response",
 				  G_CALLBACK (untrusted_launcher_response_callback),

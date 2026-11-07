@@ -73,7 +73,7 @@ The details and the history are in [design.md, File operations](design.md#file-o
 
 - Buttons are named for what they do: "Delete", "Replace", "Skip", "Move here". Each has a mnemonic.
 
-- A question that can remove files starts with Cancel as the default. A stray Enter should cost nothing. This reversed an earlier choice, and going back to it is deferred on the backlog until the app has been in steady daily use for a while.
+- Enter takes the button that goes ahead, a delete or a replace included, and that button opens with the focus ring on it. Where an entry takes the typing first it keeps the focus, and Enter there still takes the button. The test guard's question is the one that starts on Cancel, since it is there to be the pause. `eel_dialog_set_default` does both halves.
 
 - Message text in an error or question dialog can be selected and copied. People paste errors into bug reports and search boxes.
 

@@ -775,6 +775,17 @@ test('dd5c9 Message dialog text test',
   args: []
 )
 
+# Shows its dialogs. Every test shares one desktop on Windows, so alone there.
+test('df05h Dialog default button test',
+  executable('test-nemo-dialog-default',
+    [ 'test-nemo-dialog-default.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: [],
+  is_parallel: not is_windows,
+)
+
 test('dbcw5 Terminal fallback test',
   executable('test-eel-terminal',
     [ 'test-eel-terminal.c' ],

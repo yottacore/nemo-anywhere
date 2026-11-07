@@ -1284,23 +1284,6 @@ typedef struct {
 } RunSimpleDialogData;
 
 static gboolean
-removes_files (const char **button_titles)
-{
-	const char **title;
-
-	for (title = button_titles; *title != NULL; title++) {
-		if (strcmp (*title, GTK_STOCK_DELETE) == 0 ||
-		    strcmp (*title, DELETE_ALL) == 0 ||
-		    strcmp (*title, _("Move to _Trash")) == 0 ||
-		    strcmp (*title, _("Empty _Trash")) == 0) {
-			return TRUE;
-		}
-	}
-
-	return FALSE;
-}
-
-static gboolean
 do_run_simple_dialog (gpointer _data)
 {
 	RunSimpleDialogData *data = _data;
@@ -1308,6 +1291,7 @@ do_run_simple_dialog (gpointer _data)
         GtkWidget *dialog;
 	int result;
 	int response_id;
+	int last_id = -1;
 
 	/* Create the dialog. */
 	dialog = gtk_message_dialog_new (*data->parent_window,
@@ -1330,15 +1314,11 @@ do_run_simple_dialog (gpointer _data)
 		}
 
 		gtk_dialog_add_button (GTK_DIALOG (dialog), button_title, response_id);
+		last_id = response_id;
 	}
-	if (response_id > 1) {
-		/* A stray Enter must never be what removes files. Cancel is the
-		   first button on every question that can. */
-		if (removes_files (data->button_titles)) {
-			gtk_dialog_set_default_response (GTK_DIALOG (dialog), 0);
-		} else {
-			gtk_dialog_set_default_response (GTK_DIALOG (dialog), response_id - 1);
-		}
+	/* The last button shown is the one that goes ahead, a delete included. */
+	if (last_id >= 0) {
+		eel_dialog_set_default (GTK_DIALOG (dialog), last_id);
 	}
 
 	if (data->details_text) {
@@ -3023,7 +3003,7 @@ prompt_empty_trash (GtkWindow *parent_window)
 	                        _("Do _not empty Trash"), GTK_RESPONSE_REJECT,
 	                        GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
 	                        _("Empty _Trash"), GTK_RESPONSE_ACCEPT, NULL);
-	gtk_dialog_set_default_response (GTK_DIALOG (dialog), GTK_RESPONSE_REJECT);
+	eel_dialog_set_default (GTK_DIALOG (dialog), GTK_RESPONSE_ACCEPT);
 	gtk_window_set_title (GTK_WINDOW (dialog), ""); /* as per HIG */
 	gtk_window_set_skip_taskbar_hint (GTK_WINDOW (dialog), TRUE);
 	if (screen) {

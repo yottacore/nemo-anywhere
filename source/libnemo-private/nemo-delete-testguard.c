@@ -25,6 +25,7 @@
 #include "nemo-delete-testguard.h"
 
 #include <glib/gi18n.h>
+#include <eel/eel-stock-dialogs.h>
 
 #include "nemo-delete-guard.h"
 #include "nemo-global-preferences.h"
@@ -346,7 +347,6 @@ show_dialog (gpointer _data)
 
 	gtk_dialog_add_button (GTK_DIALOG (dialog), GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL);
 	gtk_dialog_add_button (GTK_DIALOG (dialog), GTK_STOCK_OK, GTK_RESPONSE_OK);
-	gtk_dialog_set_default_response (GTK_DIALOG (dialog), GTK_RESPONSE_CANCEL);
 
 	content = gtk_dialog_get_content_area (GTK_DIALOG (dialog));
 	gtk_container_set_border_width (GTK_CONTAINER (content), 12);
@@ -409,10 +409,9 @@ show_dialog (gpointer _data)
 
 	gtk_widget_show_all (content);
 
-	/* A selectable label takes the focus and selects all of itself, and
-	   a stray Enter should mean Cancel. */
-	gtk_widget_grab_focus (gtk_dialog_get_widget_for_response (GTK_DIALOG (dialog),
-								   GTK_RESPONSE_CANCEL));
+	/* The one dialog where a stray Enter means Cancel. A selectable label
+	   would otherwise take the focus and select all of itself. */
+	eel_dialog_set_default (GTK_DIALOG (dialog), GTK_RESPONSE_CANCEL);
 
 	response = gtk_dialog_run (GTK_DIALOG (dialog));
 	gtk_widget_destroy (dialog);
