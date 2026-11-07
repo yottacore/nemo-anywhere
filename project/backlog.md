@@ -1185,49 +1185,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: not known. A rerun with `ASAN_OPTIONS=fast_unwind_on_malloc=0` gives the whole stack.
 	- Test case: de7aj itself, in the sanitizer lane.
 
-- dd26k logged GTK criticals once in the sanitizer lane, from the window whose only tab was closed.
-	- ID: 2026102509531273
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261025-095312
-	- Opened by: round1025 test batch
-	- Related IDs: 2026100413510329
-	- Target OS: Linux
-	- Steps to reproduce: a full run's sanitizer stage at load 45 to 72.
-	- Incorrect behavior: "FAIL the window whose only tab was closed logged criticals", with `gtk_tree_view_get_visible_rect: assertion 'GTK_IS_TREE_VIEW (tree_view)' failed` and the same for `gtk_tree_view_convert_tree_to_bin_window_coords`, from the copy whose only tab was closed from the tab menu.
-	- Expected behavior: the copy ends cleanly.
-	- Reproduced: once, 20261025 at f4c13824, in full run 1 of round1025. It passed 3 of 3 alone right after in the same sanitizer build, at load about 40. The round didn't change the list view or the tab code.
-	- Possible cause: those 2 calls are together only in the list view's `mark_visible_files`, run from its `update_visible_icons` timer. A timer queued after the tree view went, and before the view's own dispose, would make them. Not looked into.
-	- Test case: dd26k itself, in the sanitizer lane.
-
-- The 7 other tests that close a menu may send their next step before the menu's grab is gone.
-	- ID: 2026102509541191
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261025-095411
-	- Opened by: 2026102413432024
-	- Related IDs: 2026102413432024, 2026102507531487
-	- Target OS: Linux
-	- Steps to reproduce: each test below with the X server held up after each menu closes, as for de8ec in 2026102507531487.
-	- Incorrect behavior: not seen. The selection rules and drag select tests lost a click or key sent while GDK still had a closed menu's grab on record. The other tests that close a menu weren't checked: the menu key, tab move, Places focus, long press, find history, entry menu and eel context menu tests.
-	- Expected behavior: a step after a closed menu waits until no pointer or keyboard grab is on record.
-	- Test case: the tests above themselves, with the X server held up after each menu closes.
-
-- The selection rules tests open folders by their place in the home folder, which depends on the box.
-	- ID: 2026102821124143
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261028-211241
-	- Opened by: 2026102820481713
-	- Related IDs: 2026102820481713
-	- Target OS: All
-	- Incorrect behavior: steps 37 to 43 of de8bd, de8dm and dec8w open items 2 and 3 of the home folder and expect `data` and the test folder. What else is in that folder depends on the box: `Desktop` is made at start, and a stale system font cache makes `cache`, which moves both down one. The comment there lists cache, config, data and selrules, where `:init` shows Desktop, config, data and selrules.
-	- Expected behavior: the folders are found by name, or the harness makes every folder it points the XDG dirs at, so the listing is the same on every box.
-	- Test case: de8bd, de8dm and dec8w, with a `cache` folder made in the home folder before the run.
-
 - The hosted Windows build warns that MSYS2's MINGW64 environment is deprecated.
 	- ID: 2026102809292776
 	- Type: Task
@@ -6718,6 +6675,73 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddf4w Config old formats test.
 	- Acceptance signoff: Self-closed: ddf4w is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- dd26k logged GTK criticals once in the sanitizer lane, from the window whose only tab was closed.
+	- ID: 2026102509531273
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261025-095312
+	- Opened by: round1025 test batch
+	- Related IDs: 2026100413510329
+	- Target OS: Linux
+	- Steps to reproduce: a full run's sanitizer stage at load 45 to 72.
+	- Incorrect behavior: "FAIL the window whose only tab was closed logged criticals", with `gtk_tree_view_get_visible_rect: assertion 'GTK_IS_TREE_VIEW (tree_view)' failed` and the same for `gtk_tree_view_convert_tree_to_bin_window_coords`, from the copy whose only tab was closed from the tab menu.
+	- Expected behavior: the copy ends cleanly.
+	- Reproduced: once, 20261025 at f4c13824, in full run 1 of round1025. It passed 3 of 3 alone right after in the same sanitizer build, at load about 40. The round didn't change the list view or the tab code.
+	- Possible cause: those 2 calls are together only in the list view's `mark_visible_files`, run from its `update_visible_icons` timer. A timer queued after the tree view went, and before the view's own dispose, would make them. Not looked into.
+	- Test case: dd26k itself, in the sanitizer lane.
+	- Actual cause: as above, most likely. Destroying the tree view drops its model, which moves the scroll adjustment, and the adjustment's handler queued the visible-icons timer again after dispose had removed it. The timer then ran against a tree view that was gone.
+	- Actual fix: dispose disconnects the adjustment handler before the tree view goes. The adjustment is reached through the scrolled window's scrollbar, which dispose's second run no longer has, so that run skips it.
+	- Progress log:
+		- 20261107: a first try read the adjustment from the scrolled window itself, which has no scrollbar on dispose's second run, and dd26k logged criticals every time. dd26k passes 4 of 4 since.
+	- Branch: bugs1107
+	- Commit: 40e53c10
+	- Acceptance signoff: Self-closed: dd26k passes 4 of 4, and the timer can't be queued once dispose has run.
+	- Closed: 20261107-095125
+
+- The 7 other tests that close a menu may send their next step before the menu's grab is gone.
+	- ID: 2026102509541191
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261025-095411
+	- Opened by: 2026102413432024
+	- Related IDs: 2026102413432024, 2026102507531487
+	- Target OS: Linux
+	- Steps to reproduce: each test below with the X server held up after each menu closes, as for de8ec in 2026102507531487.
+	- Incorrect behavior: not seen. The selection rules and drag select tests lost a click or key sent while GDK still had a closed menu's grab on record. The other tests that close a menu weren't checked: the menu key, tab move, Places focus, long press, find history, entry menu and eel context menu tests.
+	- Expected behavior: a step after a closed menu waits until no pointer or keyboard grab is on record.
+	- Test case: ddy6j itself.
+	- Actual fix: the long press test's tick waits, once no menu is shown, until GDK has no pointer or keyboard grab on record, unless the test holds the button down, as the selection rules probe does.
+	- Swept: of the 7, only the long press test sends input through the X server after a closed menu. The menu key, tab move, Places focus and find history tests activate the next item or binding in the process, and the entry menu and keyboard context menu tests make their events in the process too, so GDK's grab record can't take them.
+	- Progress log:
+		- 20261107: ddy6j passes 3 of 3. The rig that holds the X server up doesn't reach it from inside the test jail, so the wait wasn't seen failing here; it is the selection rules probe's check.
+	- Branch: bugs1107
+	- Commit: 40e53c10
+	- Acceptance signoff: Self-closed: ddy6j passes 3 of 3, and the other 6 tests send nothing the grab record can take.
+	- Closed: 20261107-095125
+
+- The selection rules tests open folders by their place in the home folder, which depends on the box.
+	- ID: 2026102821124143
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261028-211241
+	- Opened by: 2026102820481713
+	- Related IDs: 2026102820481713
+	- Target OS: All
+	- Incorrect behavior: steps 37 to 43 of de8bd, de8dm and dec8w open items 2 and 3 of the home folder and expect `data` and the test folder. What else is in that folder depends on the box: `Desktop` is made at start, and a stale system font cache makes `cache`, which moves both down one. The comment there lists cache, config, data and selrules, where `:init` shows Desktop, config, data and selrules.
+	- Expected behavior: the folders are found by name, or the harness makes every folder it points the XDG dirs at, so the listing is the same on every box.
+	- Test case: de8bd, de8dm and dec8w themselves. de8bd also passes with an extra folder put first in the home folder.
+	- Actual cause: the probe opened the home folder's items by index, and what the box adds to that folder moves them.
+	- Actual fix: the test makes the data and cache folders too, so the home folder holds the same folders on every box, and the probe finds the data and config folders and the test folder by name: the name column's text in the list view, and the icon's accessible name otherwise.
+	- Progress log:
+		- 20261107: under Nemo Anywhere the name column isn't the first column, so the probe reads the expander column. de8bd, de8dm and dec8w pass.
+	- Branch: bugs1107
+	- Commit: 40e53c10
+	- Acceptance signoff: Self-closed: the 3 tests pass, and de8bd passes with an extra folder in the home folder.
+	- Closed: 20261107-095125
 
 - On vm925w, dcd70 can find its entry menu not mapped yet.
 	- ID: 2026110413033064
