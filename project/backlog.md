@@ -1350,7 +1350,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On vm925w, dcd70 can find its entry menu not mapped yet.
 	- ID: 2026110413033064
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: a full run, for dcd70 in vm925w's part of the Native Windows gate step, 4 at a time with the other windowed tests.
 	- Priority|Severity: Low
 	- Opened: 20261104-130330
 	- Opened by: 2026102516165479
@@ -1360,7 +1361,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: passes every time.
 	- Reproduced: 20261104, once, in the full run at d7b3c702 on vm925w-iommu after a `-NoTests` build, with 21 other windowed tests alongside. Control: the same build path with only dcd70 in the list passed 3 times out of 3 (7.3s, 1.6s, 5.6s), and dcd70 passed on vm925w on 20261103.
 	- Possible cause: `wait_for_menu` returns once the menu exists and pending events are drained, which can be before the map, more so on a busy box. Waiting for the menu's `map` (or `gtk_widget_get_mapped`) with a timeout would cover it.
-	- Test case: dcd70.
+	- Actual cause: likely the same as dd5dc's in 2026102409082700, not a late map. GTK maps a menu as it pops it up, so one that isn't mapped right after closed again or never got its grab. On Windows any test's window coming up takes the focus, which breaks the menu's grab, and GTK closes it. dcd70 ran 4 at a time with the other windowed tests, while dd5dc already runs alone there. Not reproduced since, so not proven.
+	- Actual fix: dcd70 runs alone on Windows. dec6j, the rule that a test holding a menu runs alone there, now also counts a test that asks a widget for its own menu through the menu key or the `popup-menu` signal, which it didn't see. A menu that isn't up now prints whether the window had the focus, and how often the focus and the grab were lost.
+	- Decisions:
+		- Alone, not a wait for the map, which would wait on a menu that's already closed. Same call as dd5dc's.
+		- The class is fixed in dec6j, not in `wait_for_menu`. No other test has `wait_for_menu`, and the other tests that open a menu (the probes) aren't built on Windows. With the wider rule, dcd70 is the only test it flags.
+	- Swept: every test in `source/test` that opens or asks for a menu, a popover or a combo box. On Windows only dd5dc and dcd70 do.
+	- Branch: round1107a
+	- Commit: 27aff862
+	- Test case: dcd70, and dec6j for the rule.
+	- Verified: 20261107, dec6j fails on the old `meson.build`, naming dcd70 only, and passes after. The old rule passed both. `--backlog-run-quick` passes, dcd70 included. On vm925w as wintest, dcd70 with 10 other windowed tests, 4 at a time after a `-NoTests` build: all 11 passed in 2 of 2 runs at 678b8445, without the fix, so it didn't come back there, and in 1 of 1 at 27aff862, where dcd70 ran alone. vm925w was put back to off.
 
 - The native Windows gate never runs the PowerShell tests in its lint step.
 	- ID: 2026110412543196
