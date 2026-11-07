@@ -442,7 +442,7 @@ nemo_window_slot_open_location_full (NemoWindowSlot *slot,
         NemoWindowPane *pane;
         NemoWindowSlot *target_slot;
 	NemoWindowOpenSlotFlags slot_flags;
-	GFile *old_location;
+	GFile *old_location, *previous;
 	char *old_uri, *new_uri;
 	int new_slot_position;
 	GList *l;
@@ -518,6 +518,9 @@ nemo_window_slot_open_location_full (NemoWindowSlot *slot,
 
     old_location = nemo_window_slot_get_location (slot);
 
+    /* Given none, begin_location_change selects no folder just left. */
+    previous = (flags & NEMO_WINDOW_OPEN_FLAG_SELECT_NOTHING) != 0 ? NULL : old_location;
+
     g_assert (target_window != NULL);
 
 	/* if the flags say we want a new tab, open a slot in the current window */
@@ -571,7 +574,7 @@ nemo_window_slot_open_location_full (NemoWindowSlot *slot,
 
     begin_location_change (target_slot,
                            location,
-                           old_location,
+                           previous,
                            new_selection,
                            NEMO_LOCATION_CHANGE_STANDARD,
                            0, NULL,
@@ -588,7 +591,7 @@ nemo_window_slot_open_location_full (NemoWindowSlot *slot,
         if (slot->location == NULL && slot->pending_location == NULL) {
             begin_location_change (slot,
                                    location,
-                                   old_location,
+                                   previous,
                                    new_selection,
                                    NEMO_LOCATION_CHANGE_STANDARD,
                                    0, NULL,

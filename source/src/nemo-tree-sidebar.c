@@ -124,6 +124,7 @@ typedef struct {
 
 static GdkAtom copied_files_atom;
 
+static NemoWindowOpenFlags tree_rules_open_flags (void);
 static void  fm_tree_view_activate_file     (FMTreeView *view, 
 			    		     NemoFile *file,
 					     NemoWindowOpenFlags flags);
@@ -414,7 +415,7 @@ got_activation_uri_callback (NemoFile *file, gpointer callback_data)
 			location = g_file_new_for_uri (uri);
 			nemo_window_slot_open_location
 				(slot, location,
-				 view->details->activation_flags);
+				 view->details->activation_flags | tree_rules_open_flags ());
 			g_object_unref (location);
 		}
 	}
@@ -1538,6 +1539,7 @@ typedef struct {
 	gboolean (*button_press) (GtkTreeView *treeview, GdkEventButton *event, FMTreeView *view);
 	gboolean (*button_release) (GtkTreeView *treeview, GdkEventButton *event, FMTreeView *view);
 	gboolean (*key_press) (GtkWidget *widget, GdkEventKey *event, gpointer user_data);
+	NemoWindowOpenFlags open_flags;
 } TreeRules;
 
 static const TreeRules rules_anywhere_v1 = {
@@ -1579,12 +1581,41 @@ static const TreeRules rules_classic = {
 	.key_press = key_press_callback,
 };
 
-/* Nemo Anywhere: v1's until the tree rules go in (2026102407515574). */
+/* Right and Left as in list view's tree column. */
+static gboolean
+anywhere_key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
+{
+	GtkTreeView *tree_view = GTK_TREE_VIEW (widget);
+	GtkTreePath *path;
+
+	if (event->keyval != GDK_KEY_Right && event->keyval != GDK_KEY_Left) {
+		return key_press_callback (widget, event, user_data);
+	}
+
+	gtk_tree_view_get_cursor (tree_view, &path, NULL);
+	if (path == NULL) {
+		return GDK_EVENT_STOP;
+	}
+	if (event->keyval == GDK_KEY_Right) {
+		gtk_tree_view_expand_row (tree_view, path, FALSE);
+	} else if (!gtk_tree_view_collapse_row (tree_view, path) &&
+		   gtk_tree_path_get_depth (path) > 1 && gtk_tree_path_up (path)) {
+		/* Already closed, or nothing in it. */
+		gtk_tree_view_set_cursor (tree_view, path, NULL, FALSE);
+	}
+	gtk_tree_path_free (path);
+
+	return GDK_EVENT_STOP;
+}
+
+/* Nemo Anywhere: v1's but for the keys and a folder change that leaves the
+   content view unselected, until the tree rules go in (2026102407515574). */
 static const TreeRules rules_anywhere = {
 	.selection_changed = selection_changed_callback,
 	.button_press = button_pressed_callback,
 	.button_release = button_released_callback,
-	.key_press = key_press_callback,
+	.key_press = anywhere_key_press_callback,
+	.open_flags = NEMO_WINDOW_OPEN_FLAG_SELECT_NOTHING,
 };
 
 static const TreeRules *
@@ -1599,6 +1630,12 @@ tree_rules (void)
 		return &rules_anywhere;
 	}
 	g_return_val_if_reached (&rules_anywhere_v1);
+}
+
+static NemoWindowOpenFlags
+tree_rules_open_flags (void)
+{
+	return tree_rules ()->open_flags;
 }
 
 static void

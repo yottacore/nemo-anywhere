@@ -1106,7 +1106,8 @@ rules_tick (void)
 		click_tree_row (tree, "0", 0);
 		break;
 	case 36: {
-		/* The tree has one column, so Left and Right have nowhere to go. */
+		/* The tree has one column, so Left and Right have nowhere to go,
+		   but Nemo Anywhere's close and open the row (#2026102018234900). */
 		GtkTreePath *home = gtk_tree_path_new_from_string ("0");
 
 		if (!title_changed ()) {
@@ -1114,10 +1115,12 @@ rules_tick (void)
 			return FALSE;
 		}
 		key (GDK_KEY_Left, 0);
-		want_tree (tree, "0", "Left in the tree changes nothing");
-		report (gtk_tree_view_row_expanded (tree, home), "and leaves the row open");
+		want_tree (tree, "0", anywhere ? "Left in the tree keeps the row selected" :
+			   "Left in the tree changes nothing");
+		report (gtk_tree_view_row_expanded (tree, home) != anywhere,
+			anywhere ? "and closes it" : "and leaves the row open");
 		key (GDK_KEY_Right, 0);
-		want_tree (tree, "0", "nor does Right");
+		want_tree (tree, "0", anywhere ? "and Right opens it again" : "nor does Right");
 		key (GDK_KEY_Escape, 0);
 		want_tree (tree, "0", "nor Escape");
 		report (gtk_tree_view_row_expanded (tree, home), "and the row is still open");
@@ -1165,7 +1168,13 @@ rules_tick (void)
 		report (g_str_has_prefix (gtk_window_get_title (GTK_WINDOW (window)), "data"),
 			"Enter opens the selected folder");
 		note_title ();
-		click_tree_row (tree, "0", 0);
+		/* Nemo Anywhere's tree leaves nothing selected (#2026102018234901),
+		   so there the way back is Up. */
+		if (anywhere) {
+			key (GDK_KEY_Up, GDK_MOD1_MASK);
+		} else {
+			click_tree_row (tree, "0", 0);
+		}
 		break;
 	case 39:
 		if (!title_changed ()) {

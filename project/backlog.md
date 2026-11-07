@@ -934,32 +934,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- This should be an option, enabled by default: "On contents zoom, change window size too".
 	- Test case: none yet.
 
-- Tree view: Right and Left arrow expand and collapse the folder, the way they do in the content view.
-	- ID: 2026102018234900
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261020-182349
-	- Opened by: t00mietum
-	- Related IDs: 2026102018234901, 2026102018234902, 2026102018234903
-	- Requirements:
-		- Before the next cut.
-		- Right and left arrow should work like they do in content view: expand and collapse the folder.
-	- Test case: none yet.
-
-- Tree view: changing to a different folder clears the selection in the content view.
-	- ID: 2026102018234901
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261020-182349
-	- Opened by: t00mietum
-	- Related IDs: 2026102018234900
-	- Requirements:
-		- Before the next cut.
-		- Changing to a different folder in tree view clears the selection in the content view.
-	- Test case: none yet.
-
 - Tree view: the horizontal scroll keeps the selected folders and their first-level children in view.
 	- ID: 2026102018234902
 	- Type: Enhancement
@@ -5122,6 +5096,51 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de025, Folder open time test. Goes into 9 folders of 120 from the list view, and back up after each. 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
 	- Acceptance signoff: Self-closed: de025 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
+
+- Tree view: Right and Left arrow expand and collapse the folder, the way they do in the content view.
+	- ID: 2026102018234900
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Related IDs: 2026102018234901, 2026102018234902, 2026102018234903
+	- Requirements:
+		- Before the next cut.
+		- Right and left arrow should work like they do in content view: expand and collapse the folder.
+	- Progress log:
+		- 20261107: nothing in the tree pane took Right or Left, and GTK's tree view binds them plainly to a sideways cursor move, which has nowhere to go in a one-column tree; only Shift+Right and Shift+Left open and close. Under Nemo Anywhere the tree's key handler now does what list view's does: Right opens the focused folder, Left closes it, and Left on a closed folder or one with nothing in it moves to its parent, which then opens as Up and Down in the tree do. Written up under Tree view in the behavior models design doc.
+	- Decisions:
+		- Decided: Nemo Anywhere only. v1 and Classic stay pinned by their tests (2026102407515570's rule), and de8bd and de8dm still check that Left and Right change nothing there. dec8w now checks that under Nemo Anywhere Left closes the home row and Right opens it again.
+	- Swept: the tree pane's other key paths (the slash and tilde location keys still go to the window first), and list view's own Right and Left, which are unchanged.
+	- Branch: treekeys
+	- Commit: dcdb6624
+	- Test case: df066, Tree keys and selection test: Right opens the row, Left closes it, and Left again goes to the parent. It fails before the fix and passes after.
+	- Acceptance signoff: Self-closed: df066 passes, along with de8bd, de8dm and dec8w.
+	- Closed: 20261107-105733
+
+- Tree view: changing to a different folder clears the selection in the content view.
+	- ID: 2026102018234901
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Related IDs: 2026102018234900
+	- Requirements:
+		- Before the next cut.
+		- Changing to a different folder in tree view clears the selection in the content view.
+	- Progress log:
+		- 20261107: a new folder's view already came up empty, but going up to a parent selected the folder just left, from the same rule that serves Up and Back. That rule only runs when the open passes the old location, so a new open flag, `NEMO_WINDOW_OPEN_FLAG_SELECT_NOTHING`, leaves it out. The tree pane's rules set adds it to the tree's own opens under Nemo Anywhere. Written up under Tree view in the behavior models design doc.
+	- Decisions:
+		- Decided: the selection rules tests expect "coming back selects the folder just left", and reached the parent through the tree. That stays for Up and Back, which come from the content view and have nothing else showing where they came from; the tree's own selected row shows that. So under Nemo Anywhere (dec8w) the selection rules probe goes back up with Alt+Up instead, and under v1 and Classic (de8bd, de8dm) it still uses the tree.
+		- Decided: Nemo Anywhere only, like 2026102018234900, so v1 and Classic keep upstream's behavior.
+	- Swept: every tree open goes through `got_activation_uri_callback`, the context menu's Open, Open in new tab and Open in new window included, so all of them take the flag. Bookmarks, the path bar, Places and the location bar don't.
+	- Branch: treekeys
+	- Commit: dcdb6624
+	- Test case: df066, Tree keys and selection test: with everything in a folder selected, a click on its parent in the tree leaves nothing selected, as does Left to the parent, and Alt+Up still selects the folder just left. It fails before the fix and passes after.
+	- Acceptance signoff: Self-closed: df066 and dec8w pass.
+	- Closed: 20261107-105733
 
 - All dialogs - Default to "OK" button, with it visibly selected.
 	- ID: 2026101816495207

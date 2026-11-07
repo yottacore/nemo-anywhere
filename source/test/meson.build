@@ -1615,6 +1615,21 @@ if not is_windows
     timeout: 300
   )
 
+  # Preloaded too; it presses keys and clicks in the folder tree.
+  tree_keys_probe = shared_module('test-nemo-tree-keys-probe',
+    [ 'test-nemo-tree-keys-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('df066 Tree keys and selection test',
+    executable('test-nemo-tree-keys',
+      [ 'test-nemo-tree-keys.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, tree_keys_probe ],
+    timeout: 120
+  )
+
   icon_atk_probe = shared_module('test-nemo-icon-atk-probe',
     [ 'test-nemo-icon-atk-probe.c' ],
     include_directories: [ rootInclude, ],
