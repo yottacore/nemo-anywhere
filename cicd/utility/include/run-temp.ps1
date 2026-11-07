@@ -18,10 +18,10 @@
 ##		  <parent>, each must be strictly under that one parent instead.
 ##		  Refuses a relative or UNC path, .., a doubled separator, a newline, a
 ##		  link, a path through a link, the temp root, or a project's whole
-##		  folder right under it. A link inside is removed, never
-##		  followed, and so is a mounted volume on Windows. One that's gone is
-##		  skipped. Warns for each refusal, and returns $false if any was refused
-##		  or couldn't go.
+##		  folder right under it, short (8.3) names or not. A link inside is
+##		  removed, never followed, and so is a mounted volume on Windows. One
+##		  that's gone is skipped. Warns for each refusal, and returns $false if
+##		  any was refused or couldn't go.
 
 ##	Copyright (c) 2026 t00mietum
 ##	Licensed under The MIT License (MIT). Full text at:
@@ -29,9 +29,9 @@
 ##	SPDX-License-Identifier: MIT
 
 $script:SafeRmCase = if ($IsWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
-## HOST_TEMP's real path, worked out once for each value it takes.
+## HOST_TEMP's forms, real and long, worked out once for each value it takes.
 $script:SafeRmRootFor = $null
-$script:SafeRmRealRoot = $null
+$script:SafeRmRoots = $null
 
 ## The path with every link in it swapped for its target, or $null when part
 ## of it isn't there. Short (8.3) names stay as they are, on both sides.
@@ -55,6 +55,27 @@ function Resolve-SafeRmPath {
 		$cur = $next
 	}
 	return $cur.TrimEnd('\', '/')
+}
+
+## Windows names a folder by its short (8.3) name too, so 2 strings can be one
+## folder. A made-up short name always has a ~, so the rest skip the call.
+## As it was when it isn't there.
+function Get-SafeRmLongPath {
+	[CmdletBinding()]
+	[OutputType([string])]
+	param([AllowEmptyString()][string]$Path)
+	if (-not $IsWindows -or -not $Path -or -not $Path.Contains('~')) { return $Path }
+	if (-not ('SafeRm.Native' -as [type])) {
+		Add-Type -Namespace SafeRm -Name Native -MemberDefinition '[DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] public static extern uint GetLongPathNameW(string shortPath, System.Text.StringBuilder longPath, uint size);'
+	}
+	$buf = [Text.StringBuilder]::new(260)
+	$n = [SafeRm.Native]::GetLongPathNameW($Path, $buf, [uint32]$buf.Capacity)
+	if ($n -ge $buf.Capacity) {
+		$buf = [Text.StringBuilder]::new([int]$n)
+		$n = [SafeRm.Native]::GetLongPathNameW($Path, $buf, [uint32]$buf.Capacity)
+	}
+	if ($n -eq 0 -or $n -ge $buf.Capacity) { return $Path }
+	return $buf.ToString().TrimEnd('\', '/')
 }
 
 ## Why a path may not be removed, or '' when it may. With $Parent, the rule
@@ -84,16 +105,18 @@ function Get-SafeRmRefusal {
 	}
 	if ($env:HOST_TEMP) {
 		## Outside a run HOST_TEMP is as the box set it, and may sit behind a
-		## link, while a path that gets this far has none in it.
+		## link, while a path that gets this far has none in it. Either side
+		## may have short names in it.
 		$root = $env:HOST_TEMP.TrimEnd('\', '/')
 		if ($script:SafeRmRootFor -ne $env:HOST_TEMP) {
 			$script:SafeRmRootFor = $env:HOST_TEMP
-			$script:SafeRmRealRoot = if ([IO.Path]::IsPathFullyQualified($root)) { Resolve-SafeRmPath -Path $root } else { $null }
+			$real = if ([IO.Path]::IsPathFullyQualified($root)) { Resolve-SafeRmPath -Path $root } else { $null }
+			$script:SafeRmRoots = @($root, (Get-SafeRmLongPath $root), $real, (Get-SafeRmLongPath $real)) | Where-Object { $_ }
 		}
 		$up = [IO.Path]::GetDirectoryName($p)
-		foreach ($r in @($root, $script:SafeRmRealRoot)) {
-			if ($r -and ([string]::Equals($p, $r, $script:SafeRmCase) -or [string]::Equals($up, $r, $script:SafeRmCase))) {
-				return "the temp root or a project's whole folder: $Path"
+		foreach ($mine in @($p, $up, (Get-SafeRmLongPath $p), (Get-SafeRmLongPath $up))) {
+			foreach ($r in $script:SafeRmRoots) {
+				if ($mine -and [string]::Equals($mine, $r, $script:SafeRmCase)) { return "the temp root or a project's whole folder: $Path" }
 			}
 		}
 	}
@@ -225,3 +248,4 @@ function Remove-StaleRunTemp {
 ##		- 2026-11-03: Created.
 ##		- 2026-11-04: The temp root rule also holds when HOST_TEMP sits behind a
 ##		  link.
+##		- 2026-11-06: And when either side has a short (8.3) name in it.

@@ -1388,7 +1388,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The native Windows gate never runs the PowerShell tests in its lint step.
 	- ID: 2026110412543196
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261104-125431
 	- Opened by: 2026110315185015
@@ -1398,13 +1398,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the gate runs them under the box's pwsh 7, or says plainly that it leaves them to another step that does.
 	- Reproduced: 20261104, in the full run at d7b3c702 on b29w. Control: pwsh 7 is on b29w at `C:\Program Files\PowerShell\7`, and detts passes there run on its own.
 	- Possible cause: `lint.bash` looks for pwsh with `command -v`, and finds none on the path the Lints step runs with, though the Tests step's path names the pwsh folder.
-	- Test case: none yet.
+	- Actual cause: the MSYS2 login shell keeps only the system folders of the Windows PATH. The Tests step sets `MSYS2_PATH_TYPE=inherit` for its own reasons, and the Lints step doesn't, so pwsh wasn't there. PowerShell lint skipped the same way.
+	- Actual fix: every MSYS2 shell `cicd-win.ps1` starts gets the folder of the pwsh running it on the end of its PATH.
+	- Progress log:
+		- 20261106: with pwsh there, PowerShell lint ran on Windows too, and found 3 `rm` calls that are aliases of `Remove-Item` on Windows only: the unix `rm` in `install.ps1`'s `fSafeRm_Under` and in detts, both run only off Windows. Each is suppressed there with its reason.
+	- Decisions:
+		- The pwsh folder goes on the end, rather than `MSYS2_PATH_TYPE=inherit` for the lint step. inherit would put the whole Windows PATH in front of the lint tools, such as a Windows python or git.
+		- The folder is `$PSHOME`, so the tests run under the same pwsh 7 as the gate, wherever it's installed.
+		- It adds about 3 minutes to the native gate's Lints step on b29w, PowerShell lint and the 8 tests together. The whole step took 11 min.
+	- Swept: every `command -v pwsh` in scripts the Lints step runs: `lint.bash` (the 8 tests and the staging check, which skips under MSYS2 on purpose, since the Tests step runs it) and `lint-powershell.bash`. The Tests step's pwsh calls are from `cicd-win.ps1` itself. `config.bash`'s 2 bundle checks are meson tests, and the Tests step's path has pwsh. `test-installers.bash` and `test-install-download.bash` run on Linux only.
+	- Branch: round1107a
+	- Test case: dejjt (the MSYS2 shell finds the pwsh running `cicd-win.ps1`, with the real MSYS2 bash and its minimal PATH on Windows, and a stand-in with an empty PATH elsewhere).
+	- Verified: 20261106, dejjt passes, and fails with the PATH line taken out of `cicd-win.ps1`, on Linux and on b29w. `cicd/cicd.bash --backlog-run-quick format lint` passes. PowerShell lint is clean on Linux.
+	- Verified: 20261106 on b29w, `cicd-win.ps1 -BacklogRunQuick lint -Yes`: PowerShell lint ran with no findings, and dd5fw, dd5fx, ddkd9, ddqv0, ddwhx, ddrhb (the evb project test), dejjt and detts all passed. The step passed.
+	- Acceptance signoff: Self-closed: dejjt pins it, and the native gate's Lints step on b29w ran and passed all 8.
+	- Closed: 20261106-194200
 
 - `Remove-SafeTree` lets a project's whole temp folder through under an 8.3 short name.
 	- ID: 2026110411135625
 	- Type: Bug
-	- Status: Queued
-	- Needs external testing: detts on b29w, with `HOST_TEMP` in short form and the path in long form, and the other way round.
+	- Status: Done
+	- Needs external testing: done 20261106 on b29w, detts with `HOST_TEMP` in short form and the path in long form, and the other way round.
 	- Priority|Severity: Low
 	- Opened: 20261104-111356
 	- Opened by: 2026110410593292
@@ -1414,8 +1428,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- On Windows, set `HOST_TEMP` to the temp folder with a short name in it, such as `C:\Users\RUNNER~1\AppData\Local\Temp`, and call `Remove-SafeTree` on `<long form of it>\nemo-anywhere`.
 	- Incorrect behavior [Bug]: unverified, from reading: the temp root rule compares strings, and `Resolve-SafeRmPath` keeps short names as they are, so the two forms don't match and the folder goes.
 	- Expected behavior [Bug]: refused, as `fSafeRm` does with `-ef`.
-	- Reproduced [Bug]: No. Needs a Windows box with 8.3 names on the temp volume.
-	- Test case: none yet.
+	- Reproduced [Bug]: 20261106 on b29w, which makes 8.3 names on C:. With either side in short form, `Remove-SafeTree` removed a project's whole folder and the temp root.
+	- Actual cause [Bug]: as above. The temp root rule compared strings, and nothing turned a short name into the long one.
+	- Actual fix [Bug]: the temp root rule compares long forms too, of both `HOST_TEMP` (as set and its real path) and the path and its parent, through `GetLongPathNameW`.
+	- Decisions:
+		- Only a name with a `~` goes through the native call, since every short name Windows makes has one. A short name set by hand without a `~` would still get through. Off Windows nothing changes.
+		- A name that isn't there stays as it was, and so does one the call fails on. A path that isn't there has nothing to remove.
+		- `-Under` still compares the strings as given. A short form on one side there only refuses more.
+	- Swept: `Remove-StaleRunTemp`'s compare against the current run folder, which a string mismatch would only let through to its live run check, and the run's `run.pid` keeps it. `install.ps1`'s and `n8runfm.ps1`'s `fSafeRm_Under` take one named parent and have no temp root rule.
+	- Branch: round1107a
+	- Test case: detts (on Windows: `HOST_TEMP` short with the project folder and the temp root long, `HOST_TEMP` long with each of them short, the last name alone short, and a run folder in short form still removed; skipped where the volume makes no short names).
+	- Verified: 20261106 on b29w, detts passes, and with the long form call made a no-op fails 10 checks, all of them the new cases, the folders removed. On Linux detts passes, and PowerShell lint is clean.
+	- Acceptance signoff: Self-closed: detts on b29w.
+	- Closed: 20261106-194200
 
 - pack-zip.bash's header says Copyright (c) 2026 Bubbles.
 	- ID: 2026110315153026

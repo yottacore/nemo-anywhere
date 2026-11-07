@@ -393,14 +393,16 @@ function fToMsysPath {
 ## mingw64 PATH and codegen tools; CHERE_INVOKING keeps our cd instead of $HOME.
 ## The job count goes in by name, as SOURCE_DATE_EPOCH does in fBuild, rather
 ## than trusting the login shell to pass our environment on. -Quiet swallows
-## output (for probes).
+## output (for probes). The login shell's PATH has no pwsh, which lint's
+## script tests and PowerShell lint need, so this one goes on the end.
 $script:MingwRc = 0
 function fMingw {
 	param([Parameter(Mandatory)][string]$ShCommand, [switch]$Quiet)
 	$rootU = fToMsysPath $Root
+	$pwshU = fToMsysPath $PSHOME
 	$env:MSYSTEM = "MINGW64"
 	$env:CHERE_INVOKING = "1"
-	$sh = "export CICD_MAX_JOBS=$($script:Jobs); cd '$rootU' || exit 2; $ShCommand"
+	$sh = "export CICD_MAX_JOBS=$($script:Jobs); export PATH=`"`$PATH:$pwshU`"; cd '$rootU' || exit 2; $ShCommand"
 	if ($Quiet) { & $MsysBash -lc $sh *> $null }
 	else        { & $MsysBash -lc $sh }
 	$script:MingwRc = $LASTEXITCODE

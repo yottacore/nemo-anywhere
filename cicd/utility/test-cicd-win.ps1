@@ -18,6 +18,7 @@
 ##		- Each run makes its own run folder, names it in the plan, and removes
 ##		  it at the end, failed or not, unless -KeepTemp keeps it. An old one a
 ##		  dead run left is swept.
+##		- The MSYS2 shell the steps run in finds the pwsh running the script.
 ##		- Runs in the lint stage.
 ##	Syntax:
 ##		pwsh -NoProfile -File cicd/utility/test-cicd-win.ps1
@@ -94,6 +95,35 @@ $savedOutEncoding = [Console]::OutputEncoding
 try { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) } catch { $savedOutEncoding = $null }
 
 try {
+	## The MSYS2 shell finds the pwsh running the script, which its login PATH
+	## leaves out, so lint's script tests run there. Off Windows a stand-in
+	## takes -lc as a plain -c, with nothing else on PATH.
+	foreach ($name in 'fToMsysPath', 'fMingw') {
+		$def = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $true)
+		if (-not $def) { throw "cicd-win.ps1 has no $name" }
+		. ([scriptblock]::Create($def.Extent.Text))
+	}
+	$script:Root = $scratch
+	$script:Jobs = 1
+	$MsysBash = if ($IsWindows) { 'C:\msys64\usr\bin\bash.exe' } else { Join-Path $scratch 'msys-bash' }
+	$envWas = @{}
+	foreach ($name in 'PATH', 'MSYSTEM', 'CHERE_INVOKING', 'MSYS2_PATH_TYPE') { $envWas[$name] = [Environment]::GetEnvironmentVariable($name) }
+	try {
+		if ($IsWindows) { $env:MSYS2_PATH_TYPE = 'minimal' }
+		else {
+			[IO.File]::WriteAllText($MsysBash, "#!/bin/sh`nshift`nexec /bin/sh -c `"`$1`"`n")
+			[IO.File]::SetUnixFileMode($MsysBash, [IO.UnixFileMode]'UserRead, UserWrite, UserExecute')
+			$env:PATH = (New-Item -ItemType Directory -Path (Join-Path $scratch 'empty-path')).FullName
+		}
+		if (-not (Test-Path -LiteralPath $MsysBash)) { Write-Host "[ MSYS2 pwsh check skipped: no $MsysBash ]" }
+		else {
+			$found = "$(fMingw 'command -v pwsh')".Trim()
+			if ($script:MingwRc -ne 0 -or $found -notlike "$(fToMsysPath $PSHOME)/pwsh*") { fFail "the MSYS2 shell doesn't find this pwsh: rc $($script:MingwRc), '$found'" }
+		}
+	} finally {
+		foreach ($name in $envWas.Keys) { [Environment]::SetEnvironmentVariable($name, $envWas[$name]) }
+	}
+
 	## The copy: Windows check off, MSYS2 nowhere, and stubs for each step's
 	## work after the real functions, so the real plan and step code run. The stubs say
 	## the job count and priority they ran at, and die when told to.

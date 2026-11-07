@@ -308,6 +308,8 @@ function fSafeRm_Tree {
 ## and one that's gone is skipped. Warns, and returns $false, for each one
 ## refused or that couldn't go.
 function fSafeRm_Under {
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingCmdletAliases', '',
+		Justification = 'rm is the unix one, run only off Windows, where it is no alias.')]
 	param([string]$Parent, [string[]]$Paths)
 	$sep   = if ($state.windows) { '[\\/]' } else { '/' }
 	$case  = if ($state.windows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
