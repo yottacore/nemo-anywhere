@@ -1350,8 +1350,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On vm925w, dcd70 can find its entry menu not mapped yet.
 	- ID: 2026110413033064
 	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: a full run, for dcd70 in vm925w's part of the Native Windows gate step, 4 at a time with the other windowed tests.
+	- Status: Done
+	- Needs local test suite run?: No
 	- Priority|Severity: Low
 	- Opened: 20261104-130330
 	- Opened by: 2026102516165479
@@ -1371,6 +1371,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 27aff862
 	- Test case: dcd70, and dec6j for the rule.
 	- Verified: 20261107, dec6j fails on the old `meson.build`, naming dcd70 only, and passes after. The old rule passed both. `--backlog-run-quick` passes, dcd70 included. On vm925w as wintest, dcd70 with 10 other windowed tests, 4 at a time after a `-NoTests` build: all 11 passed in 2 of 2 runs at 678b8445, without the fix, so it didn't come back there, and in 1 of 1 at 27aff862, where dcd70 ran alone. vm925w was put back to off.
+	- Closed: 20261107
+	- Acceptance signoff: Self-closed: dcd70 passed on vm925w alongside 10 windowed tests, and runs alone there since 27aff862.
+	- 20261107: dcd70 now runs alone on Windows, so no other test's window can take the focus while its menu is up. The run on vm925w with 10 other windowed tests passed, and dec6j now catches the class.
 
 - The native Windows gate never runs the PowerShell tests in its lint step.
 	- ID: 2026110412543196
