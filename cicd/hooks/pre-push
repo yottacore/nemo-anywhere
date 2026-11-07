@@ -5,8 +5,9 @@
 ##	- Behavior (per push ref):
 ##	   - push to main         -> run the merge gate, every check of a plain run
 ##	     with nothing mutated. A failure blocks the push. Which gate depends on
-##	     the box: `cicd/cicd.bash --merge-gate` on unix, `cicd-win.ps1 -Gate` on a
-##	     Windows checkout, where cicd.bash has no docker to build in.
+##	     the box: `cicd/cicd.bash --merge-gate` on unix, `cicd-win.ps1
+##	     -MergeGate` on a Windows checkout, where cicd.bash has no docker to
+##	     build in.
 ##	   - push to main that changes only paths in cicd/hooks/gate-skip-paths.txt
 ##	     -> nothing below runs, since it can't change what ships.
 ##	   - push to main         -> also a version-bump guard: source/meson.build must
@@ -87,8 +88,8 @@ run_gate(){ ((gate_ran)) && return 0; gate_ran=1
 	## skip, and pass without having built anything. Use the native pipeline there.
 	case "$(uname -s)" in
 		MINGW*|MSYS*|CYGWIN*)
-			echo "[ pre-push gate: cicd-win.ps1 -Gate ]"
-			pwsh -NoProfile -File "${root}/cicd/cicd-win.ps1" -Gate -Yes
+			echo "[ pre-push gate: cicd-win.ps1 -MergeGate ]"
+			pwsh -NoProfile -File "${root}/cicd/cicd-win.ps1" -MergeGate
 			;;
 		*)
 			echo "[ pre-push gate: cicd.bash --merge-gate ]"

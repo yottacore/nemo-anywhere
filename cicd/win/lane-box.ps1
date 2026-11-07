@@ -8,7 +8,7 @@
 ##		- -Run runs cicd-win.ps1 in the clone, with TEMP, TMP and HOST_TEMP in
 ##		  the run folder, to gate.log, then writes "rc=<n> secs=<n>" to run.rc.
 ##		  -GateArgs names its switches with commas and no dashes, such as
-##		  Gate,Yes,NoSync, since a quoted value that starts with a dash reads
+##		  BacklogRunQuick,Yes,NoSync, since a quoted value that starts with a dash reads
 ##		  as a parameter name on the way in.
 ##		- -Desktop, run as the ssh login after the gate, starts -DesktopRun in
 ##		  the test user's desktop session, through a schtasks /it task named
@@ -44,7 +44,7 @@ param(
 	[switch]$Remove,
 	[switch]$Desktop,
 	[switch]$DesktopRun,
-	[string]$GateArgs = 'Gate,Yes,NoSync',
+	[string]$GateArgs = 'BacklogRunQuick,Yes,NoSync',
 	[string]$TestUser = 'wintest'
 )
 
@@ -149,6 +149,9 @@ if ($Run) {
 	Set-Location -LiteralPath (Join-Path $Dir 'repo')
 	$sw = [Diagnostics.Stopwatch]::StartNew()
 	$gateArgList = @($GateArgs -split ',' | Where-Object { $_ } | ForEach-Object { "-$_" })
+	## cicd-win.ps1 writes UTF-8 into a pipe, and its output is read back in
+	## the console's code page unless told.
+	[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 	& $pwshExe -NoProfile -ExecutionPolicy Bypass -File cicd\cicd-win.ps1 @gateArgList *>&1 | Out-File -LiteralPath (Join-Path $Dir 'gate.log') -Encoding utf8
 	"rc=$LASTEXITCODE secs=$([int]$sw.Elapsed.TotalSeconds)" | Out-File -LiteralPath (Join-Path $Dir 'run.rc') -Encoding ascii
 	exit 0
@@ -197,6 +200,7 @@ if ($DesktopRun) {
 		$env:HOST_TEMP = $tmp; $env:TEMP = $tmp; $env:TMP = $tmp
 		## A task's pwsh doesn't start in the location set here, so every path is whole.
 		$repo = Join-Path $Dir 'repo'
+		[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 		& $pwshExe -NoProfile -ExecutionPolicy Bypass -WorkingDirectory $repo -File (Join-Path $repo 'cicd\cicd-win.ps1') -Yes -TestList (Join-Path $Dir 'desktop.txt') *>&1 | Out-File -LiteralPath $log -Append -Encoding utf8
 		$rc = $LASTEXITCODE
 	}
@@ -231,6 +235,8 @@ throw 'need -Start, -Run, -Desktop, -DesktopRun, -Stop or -Remove'
 
 
 ##	History:
+##		- 2026-11-07: The gate is -BacklogRunQuick, and its output is read as
+##		  UTF-8.
 ##		- 2026-11-03: Removals go through Remove-SafeTree, from run-temp.ps1 sent
 ##		  beside it.
 ##		- 2026-11-02: -Desktop says "locked" for a locked session.

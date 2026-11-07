@@ -43,13 +43,27 @@
 ##		  the rar version-archive step of publish (Linux publisher only).
 ##		- Syntax:
 ##		  pwsh cicd/cicd-win.ps1 [options]
+##		  The options are cicd.bash's, in PowerShell's form: -BacklogRunQuick
+##		  for --backlog-run-quick, and so on.
 ##		  Options:
-##		   -Yes            run unattended (no confirm / message prompt)
-##		   -Quiet          quiet + unattended (implies -Yes); publish runs quiet too
+##		   -Yes, -y        run unattended (no confirm / message prompt)
+##		   -Quiet, -q      quiet + unattended (implies -Yes); publish runs quiet too
 ##		   -Quick          skip the slow steps and any that need another box
 ##		                   (reserved: none run here yet, so the build, tests,
 ##		                   pack and dogfood all still run)
-##		   -Gate           merge gate only: lint + build + tests + smokes, then exit (no stage/publish)
+##		   -BacklogRunQuick [<area>...]
+##		                   lints, build, tests and smokes, then exit. Name areas
+##		                   to run only those. Areas: format (none here; the
+##		                   format check runs on Linux), lint, tests
+##		   -BacklogRunFull every check of a plain run: lints, build, tests,
+##		                   smokes, the runtime bundle and the pack
+##		   -MergeGate      the same checks, before a merge to main. Not one of
+##		                   these 3 syncs, dogfoods, publishes or prompts, and
+##		                   naming 2 of them is refused
+##		   -Gate           same as -BacklogRunQuick
+##		   -Ci             same as -MergeGate
+##		   -List           print the steps and the test IDs the other options
+##		                   given would run, and run nothing. Needs Python 3
 ##		   -TestList FILE  only the meson tests named in FILE, one per line, against
 ##		                   the build already there, then exit. The native lane
 ##		                   runs the ones the gate skipped this way, in a desktop
@@ -67,6 +81,10 @@
 ##		   -BuildStrict    a missing MSYS2 toolchain aborts instead of warn-skip
 ##		   -Message MSG    publish hands-off with this commit message (no editor)
 ##		   -KeepTemp       keep the run folder, and say where it is
+##		   -Long, -Slow, -Leakcheck, -NoLeakcheck, -NoContainer, -NoRemote
+##		                   taken so a command line for cicd.bash works here,
+##		                   and change nothing: no step here is slow, checks
+##		                   for leaks, runs in a container or needs another box
 ##		   -Help           show this help
 ##	History: At bottom of script.
 
@@ -77,10 +95,17 @@
 
 [CmdletBinding()]
 param(
-	[switch]$Yes,
-	[switch]$Quiet,
+	[Alias('y')][switch]$Yes,
+	[Alias('q')][switch]$Quiet,
 	[switch]$Quick,
+	[switch]$BacklogRunQuick,
+	[switch]$BacklogRunFull,
+	[switch]$MergeGate,
 	[switch]$Gate,
+	[switch]$Ci,
+	## The areas after -BacklogRunQuick, as cicd.bash takes them.
+	[Parameter(Position = 0, ValueFromRemainingArguments)][string[]]$Area = @(),
+	[switch]$List,
 	[string]$TestList = "",
 	[switch]$NoSync,
 	[switch]$NoFmt,
@@ -93,6 +118,11 @@ param(
 	[switch]$BuildStrict,
 	[Alias('Msg', 'm')][string]$Message = "",
 	[switch]$KeepTemp,
+	[Alias('Slow')][switch]$Long,
+	[switch]$Leakcheck,
+	[switch]$NoLeakcheck,
+	[switch]$NoContainer,
+	[switch]$NoRemote,
 	[switch]$Help
 )
 
@@ -131,8 +161,44 @@ if (-not $IsWindows) {
 	exit 1
 }
 
-## -Quiet implies unattended; both suppress the preflight prompt.
-$Unattended = ($Yes -or $Quiet)
+## The run mode, as cicd.bash names it. PowerShell doesn't keep the order the
+## switches came in, so cicd.bash's "the last one named wins" can't hold here,
+## and 2 modes are refused instead.
+$RunMode = ''
+$modes = @()
+if ($BacklogRunQuick -or $Gate) { $modes += '-BacklogRunQuick' }
+if ($BacklogRunFull) { $modes += '-BacklogRunFull' }
+if ($MergeGate -or $Ci) { $modes += '-MergeGate' }
+if ($modes.Count -gt 1) { Write-Host "cicd-win.ps1: pick one of $($modes -join ' and ')"; exit 2 }
+if ($modes.Count) { $RunMode = $modes[0] }
+$ChecksOnly = ($RunMode -in '-BacklogRunFull', '-MergeGate')
+$KnownAreas = @('format', 'lint', 'tests')
+foreach ($a in $Area) {
+	if ($a -like '-*') { Write-Host "cicd-win.ps1: unknown option: $a (try -Help)"; exit 2 }
+	if ($RunMode -ne '-BacklogRunQuick') { Write-Host "cicd-win.ps1: '$a': areas go after -BacklogRunQuick"; exit 2 }
+	if ($a -notin $KnownAreas) { Write-Host "cicd-win.ps1: unknown area: $a (areas: $($KnownAreas -join ' '))"; exit 2 }
+}
+## An area not named is turned off; none named is all of them.
+function fAreaOff { param([string]$Name); return ($Area.Count -gt 0 -and $Name -notin $Area) }
+
+## -Quiet implies unattended; both suppress the preflight prompt. So does a
+## run of checks only, since nobody is there to answer.
+$Unattended = ($Yes -or $Quiet -or $ChecksOnly)
+
+## Piped output goes out in the console's code page, where a code page with
+## no bullet, such as 437, turns the step rule into 79 bell characters. UTF-8
+## draws it as cicd.bash does. The host keeps the encoding of its first
+## write, so this goes before anything is written. The console's code page is
+## shared with the shell that started this, so the last finally puts it back.
+$script:OutEncodingSaved = $null
+if ([Console]::IsOutputRedirected) {
+	try {
+		$script:OutEncodingSaved = [Console]::OutputEncoding
+		[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+	} catch { $script:OutEncodingSaved = $null }
+}
+if ($Gate) { Write-Host "[ -Gate is another name for -BacklogRunQuick ]" }
+if ($Ci) { Write-Host "[ -Ci is another name for -MergeGate ]" }
 
 ## Low priority before anything starts. Windows hands BelowNormal and Idle down
 ## to child processes, so MSYS2, ninja, gcc and the tests run there too. A run
@@ -171,7 +237,6 @@ $MingwBin = Join-Path $MsysRoot "mingw64\bin"
 ## forms are what the mingw64 bash gets, so paths stay POSIX inside the shell.
 $BuildRel = "cicd/artifacts/build-win"
 $StageRel = "cicd/artifacts/win-run"
-$StagerRel = "cicd/win/stage-native.bash"
 $BuildDir = Join-Path $Root "cicd\artifacts\build-win"
 $StageDir = Join-Path $Root "cicd\artifacts\win-run"
 
@@ -279,7 +344,7 @@ function fPlan {
 	if ($On) { $script:StepList.Add($Name) } else { $script:StepOff.Add("$Name ($WhyOff)") }
 }
 function fPlan_Show {
-	fEcho_Clean "Run folder ..: $($script:RunTempDir)$(if ($KeepTemp) { '  (kept, -KeepTemp)' })"
+	if (-not $List) { fEcho_Clean "Run folder ..: $($script:RunTempDir)$(if ($KeepTemp) { '  (kept, -KeepTemp)' })" }
 	fEcho_Clean "Steps .......: $($script:StepList.Count)"
 	if ($script:StepOff.Count -eq 0) { return }
 	fEcho_Clean "Turned off ..:"
@@ -502,7 +567,7 @@ function fPrepInPlaceSmoke {
 ## and the mingw64 tree), then re-smoke it using ONLY the bundle's own runtime, so a
 ## missing dll shows up here rather than on another box.
 function fStage {
-	fMingw "bash $StagerRel $BuildRel $StageRel"
+	fMingw "bash cicd/win/stage-native.bash $BuildRel $StageRel"
 	if ($script:MingwRc -ne 0) { fDie "staging failed (exit $($script:MingwRc))" }
 	$exe = Join-Path $StageDir "app\$ExeName.exe"
 	if (-not (Test-Path -LiteralPath $exe)) { fDie "staged bundle missing its exe: $exe" }
@@ -774,25 +839,95 @@ function fPublish {
 }
 
 
+## What each step runs, for -List: the bodies of the functions it calls, read
+## from this file as written, less comments. So the list follows the code
+## that runs, and a copy with those functions stubbed still lists them.
+$script:StepFuncs = @{
+	'Remote sync'    = @('fRemoteSync')
+	'Lints'          = @('fLint')
+	'Build (debug)'  = @('fBuild')
+	'Tests'          = @('fTests')
+	'Smoke checks'   = @('fSmoke', 'fGuiSmoke')
+	'Runtime bundle' = @('fStage', 'fSmoke')
+	'Packages'       = @('fPack', 'fSignFile')
+	'Dogfood'        = @('fDogfood', 'fRetireOldDogfood')
+	'Publish'        = @('fPublish')
+}
+function fStep_Cmd {
+	param([Parameter(Mandatory)][string]$Name, [string[]]$Names = @())
+	## Only the named tests, the way fTests passes them to meson.
+	if ($Name -eq 'Tests' -and $Names.Count) { return "meson test$(($Names | ForEach-Object { " '$_'" }) -join '')" }
+	$tokens = $null; $errs = $null
+	$ast = [Management.Automation.Language.Parser]::ParseFile($PSCommandPath, [ref]$tokens, [ref]$errs)
+	$text = foreach ($fn in $script:StepFuncs[$Name]) {
+		$def = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $fn }, $true)
+		if ($def) { $def.Body.Extent.Text }
+	}
+	return (@(($text -join "`n") -split "`n" | Where-Object { $_ -notmatch '^\s*#' }) -join ' ')
+}
+
+## Python 3, for test-id.py: one on PATH that isn't the Store's stub, then a
+## python.org install, then MSYS2's.
+function fPython {
+	$found = Get-Command python3, python -CommandType Application -ErrorAction SilentlyContinue |
+		Where-Object { $_.Source -notmatch '[\\/]WindowsApps[\\/]' } | Select-Object -First 1
+	if ($found) { return $found.Source }
+	$found = Get-ChildItem -Path 'C:\Python3*\python.exe' -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
+	if ($found) { return $found.FullName }
+	foreach ($p in (Join-Path $MsysRoot 'usr\bin\python3.exe'), (Join-Path $MingwBin 'python3.exe')) {
+		if (Test-Path -LiteralPath $p) { return $p }
+	}
+	return $null
+}
+
+## -List: the plan, and each step with the test IDs it would run, as
+## cicd.bash --list prints them. Nothing has run by here: no run folder,
+## sweep, CPU or toolchain probe, or log.
+function fList {
+	param([string[]]$Names = @())
+	fSection "$AppName -List$(if ($RunMode) { " $RunMode" })$(if ($Area.Count) { " $($Area -join ' ')" })"
+	fPlan_Show
+	fEcho_Clean
+	if ($script:StepList.Count -eq 0) { return }
+	$py = fPython
+	if (-not $py) { fDie "-List needs Python 3, for cicd/utility/test-id.py" }
+	$steps = @(foreach ($s in $script:StepList) { "$s`t$((fStep_Cmd -Name $s -Names $Names) -replace '[\t\r\n]', ' ')" })
+	$savedUtf8 = $env:PYTHONUTF8
+	try {
+		$env:PYTHONUTF8 = '1'
+		$steps | & $py (Join-Path $Root 'cicd/utility/test-id.py') --list
+		$rc = $LASTEXITCODE
+	} finally { $env:PYTHONUTF8 = $savedUtf8 }
+	if ($rc -ne 0) { fDie "could not list the steps' test IDs" }
+	$script:WasLastEchoBlank = $false
+	fEcho_Clean
+}
+
+
 #------------------------------------------------------------------------------
 # Entry point
 
 function fMain {
 	Set-Location -LiteralPath $Root
 	$stamp = [DateTime]::Now.ToString('yyyyMMdd-HHmmss', [Globalization.CultureInfo]::InvariantCulture)
-	## The last finally block removes it, whatever the outcome.
-	try { $script:RunTempDir = New-RunTemp -Project $ExeName -Stamp $stamp }
-	catch { fDie "could not make a run folder: $($_.Exception.Message)" }
-	Remove-StaleRunTemp -Project $ExeName -Keep $script:RunTempDir
-	fJobs
-	$toolMiss = fToolchainMissing
+	## -List runs nothing, so the plan takes the toolchain as there.
+	$toolMiss = $null
+	if (-not $List) {
+		## The last finally block removes it, whatever the outcome.
+		try { $script:RunTempDir = New-RunTemp -Project $ExeName -Stamp $stamp }
+		catch { fDie "could not make a run folder: $($_.Exception.Message)" }
+		Remove-StaleRunTemp -Project $ExeName -Keep $script:RunTempDir
+		fJobs
+		$toolMiss = fToolchainMissing
+	}
 
 	## Named tests only, against the build already there.
 	if ($TestList) {
 		$names = @(Get-Content -LiteralPath $TestList -Encoding utf8 | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 		if ($names.Count -eq 0) { fDie "no test names in $TestList" }
-		if (-not (Test-Path -LiteralPath (Join-Path $BuildDir 'build.ninja'))) { fDie "no build to test in $BuildDir" }
 		fPlan $true 'Tests' ''
+		if ($List) { fList -Names $names; return }
+		if (-not (Test-Path -LiteralPath (Join-Path $BuildDir 'build.ninja'))) { fDie "no build to test in $BuildDir" }
 		fSection "$AppName tests: $($names.Count) named"
 		fPlan_Show
 		fStep 'Tests'
@@ -802,16 +937,20 @@ function fMain {
 		return
 	}
 
-	## Gate mode: lint + build + tests + smoke, then exit. The local verification
-	## for a push. Nothing is staged or published.
-	if ($Gate) {
+	## -BacklogRunQuick: lint + build + tests + smoke, or the areas named,
+	## then exit. Nothing is staged or published.
+	if ($RunMode -eq '-BacklogRunQuick') {
 		if ($toolMiss -and $BuildStrict) { fDie "gate: $toolMiss" }
 		$why = if ($toolMiss) { 'toolchain missing' } else { '' }
-		fPlan (-not ($NoFmt -or $why)) 'Lints' $(if ($NoFmt) { '-NoFmt' } else { $why })
-		fPlan (-not $why) 'Build (debug)' $why
-		$testWhy = if ($why) { $why } elseif ($NoTests) { '-NoTests' } else { '' }
+		if ($Area -contains 'format') { fPlan $false 'Format check' 'none on Windows; it runs on Linux' }
+		$lintWhy = if ($NoFmt) { '-NoFmt' } elseif (fAreaOff 'lint') { 'area not named' } else { $why }
+		$buildWhy = if (fAreaOff 'tests') { 'area not named' } else { $why }
+		$testWhy = if ($buildWhy) { $buildWhy } elseif ($NoTests) { '-NoTests' } else { '' }
+		fPlan (-not $lintWhy) 'Lints' $lintWhy
+		fPlan (-not $buildWhy) 'Build (debug)' $buildWhy
 		fPlan (-not $testWhy) 'Tests'        $testWhy
 		fPlan (-not $testWhy) 'Smoke checks' $testWhy
+		if ($List) { fList; return }
 		fSection "$AppName gate"
 		fPlan_Show
 		if ($toolMiss) {
@@ -820,15 +959,17 @@ function fMain {
 			fEcho_Clean
 			return
 		}
-		if (-not $NoFmt) { fStep 'Lints'; fLint }
-		fStep 'Build (debug)'
-		fBuild
-		if (-not $NoTests) {
-			fStep 'Tests'
-			fTests
-			fStep 'Smoke checks'
-			fSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
-			fGuiSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
+		if (-not $lintWhy) { fStep 'Lints'; fLint }
+		if (-not $buildWhy) {
+			fStep 'Build (debug)'
+			fBuild
+			if (-not $testWhy) {
+				fStep 'Tests'
+				fTests
+				fStep 'Smoke checks'
+				fSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
+				fGuiSmoke -Exe (fPrepInPlaceSmoke) -RuntimeBin $MingwBin
+			}
 		}
 		fStep_Close 'PASS'
 		fSection "$AppName gate: PASSED."
@@ -839,18 +980,22 @@ function fMain {
 	## Resolve the publish commit message: -Message wins, then the same helper the
 	## Linux side asks when unattended; interactive runs capture it at the preflight prompt below.
 	$publishMsg = ""
-	if     ($Message)     { $publishMsg = $Message }
-	elseif ($Unattended)  { $publishMsg = fAutoMessage }
+	if     ($ChecksOnly)                   { }
+	elseif ($Message)                      { $publishMsg = $Message }
+	elseif ($Unattended -and -not $List)   { $publishMsg = fAutoMessage }
 
 	## The steps this run takes, in order, and the ones turned off with why. A
 	## missing toolchain turns off everything that needs it, so sync and publish
-	## still run, unless -BuildStrict makes the build step fail on it.
+	## still run, unless -BuildStrict makes the build step fail on it. A run of
+	## checks only changes nothing, so sync, dogfood and publish are off.
+	$syncWhy  = if ($ChecksOnly) { $RunMode } elseif ($NoSync) { '-NoSync' } else { '' }
 	$lintWhy  = if ($NoFmt) { '-NoFmt' } elseif ($toolMiss) { 'toolchain missing' } else { '' }
 	$buildWhy = if ($NoBuild) { '-NoBuild' } elseif ($toolMiss -and -not $BuildStrict) { 'toolchain missing' } else { '' }
 	$testWhy  = if ($buildWhy) { $buildWhy } elseif ($NoTests) { '-NoTests' } else { '' }
 	$packWhy  = if ($NoPack) { '-NoPack' } elseif ($buildWhy) { $buildWhy } elseif (-not (fEvbFound)) { 'Enigma Virtual Box not installed' } else { '' }
-	$dogWhy   = if ($NoDogfood) { '-NoDogfood' } elseif ($packWhy) { "no pack: $packWhy" } else { '' }
-	fPlan (-not $NoSync)    'Remote sync'    '-NoSync'
+	$dogWhy   = if ($ChecksOnly) { $RunMode } elseif ($NoDogfood) { '-NoDogfood' } elseif ($packWhy) { "no pack: $packWhy" } else { '' }
+	$pubWhy   = if ($ChecksOnly) { $RunMode } elseif ($NoPublish) { '-NoPublish' } else { '' }
+	fPlan (-not $syncWhy)   'Remote sync'    $syncWhy
 	fPlan (-not $lintWhy)   'Lints'          $lintWhy
 	fPlan (-not $buildWhy)  'Build (debug)'  $buildWhy
 	fPlan (-not $testWhy)   'Tests'          $testWhy
@@ -858,11 +1003,12 @@ function fMain {
 	fPlan (-not $buildWhy)  'Runtime bundle' $buildWhy
 	fPlan (-not $packWhy)   'Packages'       $packWhy
 	fPlan (-not $dogWhy)    'Dogfood'        $dogWhy
-	fPlan (-not $NoPublish) 'Publish'        '-NoPublish'
+	fPlan (-not $pubWhy)    'Publish'        $pubWhy
+	if ($List) { fList; return }
 
 	## Preflight summary.
 	fEcho_Clean
-	fEcho_Clean "$AppName Windows CI/CD (native MSYS2/mingw64)"
+	fEcho_Clean "$AppName Windows CI/CD (native MSYS2/mingw64)$(if ($RunMode) { ", $RunMode" })"
 	fEcho_Clean
 	fEcho_Clean "Repo root ...: $Root"
 	fEcho_Clean "Version .....: $(fVersion)  (source/meson.build)"
@@ -871,7 +1017,7 @@ function fMain {
 	fEcho_Clean "Priority ....: $([string](Get-Process -Id $PID).PriorityClass), which the tools it starts inherit"
 	fEcho_Clean "Signing .....: $(if ($NoSign) { '(skipped)' } elseif (fSignConfigured) { 'Authenticode (configured)' } else { '(none configured)' })"
 	if (-not $dogWhy) { fEcho_Clean "Dogfood .....: $DogfoodExe" }
-	if (-not $NoPublish) {
+	if (-not $pubWhy) {
 		if ($publishMsg) { fEcho_Clean "Publish .....: commit + push current branch (hands-off: `"$publishMsg`")" }
 		else             { fEcho_Clean "Publish .....: commit + push current branch (will prompt; blank = editor)" }
 	}
@@ -884,7 +1030,7 @@ function fMain {
 	## here aborts on the common (publish) path.
 	## No tty means Read-Host returns immediately at EOF and the run would sail
 	## on to a git commit with no editor and nothing to type into it.
-	if (-not $Unattended -and -not $NoPublish -and -not $publishMsg) {
+	if (-not $Unattended -and -not $pubWhy -and -not $publishMsg) {
 		if ([Console]::IsInputRedirected) {
 			throw "Publish needs a commit message: pass -Message, or -Yes, or run interactively."
 		}
@@ -909,7 +1055,7 @@ function fMain {
 		fWarn "no transcript for this run: $($_.Exception.Message)"
 	}
 
-	if (-not $NoSync) { fStep 'Remote sync'; fRemoteSync }
+	if (-not $syncWhy) { fStep 'Remote sync'; fRemoteSync }
 
 	## Check-only; the shared helper warn-skips without cppcheck.
 	if (-not $lintWhy) { fStep 'Lints'; fLint }
@@ -936,7 +1082,7 @@ function fMain {
 	## The packed single exe into the synced app dir, so it needs the packer's output.
 	if (-not $dogWhy) { fStep 'Dogfood'; fDogfood }
 
-	if (-not $NoPublish) { fStep 'Publish'; fPublish -Msg $publishMsg }
+	if (-not $pubWhy) { fStep 'Publish'; fPublish -Msg $publishMsg }
 
 	fStep_Close 'PASS'
 	fSection "$AppName Windows CI/CD: done."
@@ -953,10 +1099,15 @@ try {
 		elseif (-not (Remove-SafeTree -LiteralPath $script:RunTempDir)) { fWarn "could not remove the run folder $($script:RunTempDir)"; fEcho_Clean }
 	}
 	if ($script:Transcribing) { Stop-Transcript | Out-Null }
+	if ($script:OutEncodingSaved) { try { [Console]::OutputEncoding = $script:OutEncodingSaved } catch { $null = $_ } }
 }
 
 
 ##	History:
+##		- 2026-11-07: Takes cicd.bash's flags, in PowerShell's form: -BacklogRunQuick
+##		  with its areas, -BacklogRunFull, -MergeGate, -List, and the ones that
+##		  change nothing here. -Gate and -Ci are other names. Piped output is
+##		  UTF-8, so the step rule is bullets, not bell characters.
 ##		- 2026-11-04: -NoTests builds without the tests and smoke checks.
 ##		- 2026-11-03: A run folder of its own, removed at the end; -KeepTemp
 ##		  keeps it, and stale ones are swept.

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: The native Windows gate, run from the Linux box: cicd-win.ps1
-##	  -Gate on a Windows box, from a git bundle of the commit this run is on.
-##	  Only what is committed goes; an uncommitted edit here is named and left
-##	  out.
+##	  -BacklogRunQuick on a Windows box, from a git bundle of the commit this
+##	  run is on. Only what is committed goes; an uncommitted edit here is
+##	  named and left out.
 ##	- The boxes are tried in the order given, b29w then vm925w by default. The
 ##	  first one there is taken for the whole gate through the VM state helper
 ##	  or the host lock, whichever is on this box (include/box-wrap.bash), so a
@@ -36,7 +36,7 @@
 ##	- NEMO_WIN_READY_WAIT is the seconds to wait for the login after a boot
 ##	  (default 600), NEMO_WIN_POLL the seconds between looks at the log
 ##	  (default 30), NEMO_WIN_GATE_ARGS what cicd-win.ps1 gets (default
-##	  "-Gate -Yes -NoSync"), NEMO_WIN_TEST_USER the user whose desktop the
+##	  "-BacklogRunQuick -Yes -NoSync"), NEMO_WIN_TEST_USER the user whose desktop the
 ##	  skipped tests run in (default wintest), NEMO_WIN_DESKTOP=0 leaves that
 ##	  part out.
 ##	- Exit: the gate's own, 77 with no box there, 75 for a passing gate whose
@@ -54,7 +54,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 readonly SLUG="nemo-anywhere"
 readyWaitSec="${NEMO_WIN_READY_WAIT:-600}"
 pollSec="${NEMO_WIN_POLL:-30}"
-gateArgs="${NEMO_WIN_GATE_ARGS:--Gate -Yes -NoSync}"
+gateArgs="${NEMO_WIN_GATE_ARGS:--BacklogRunQuick -Yes -NoSync}"
 testUser="${NEMO_WIN_TEST_USER:-wintest}"
 desktopOn="${NEMO_WIN_DESKTOP:-1}"
 ## A Windows build plus the suite runs well past the lock's default lease, and
@@ -114,11 +114,11 @@ fMakeBoxDir(){
 	fDieW "no free work folder name under ${rootW}\\${SLUG} on ${box}"
 }
 
-## lane-box.ps1 takes "-Gate -Yes" as Gate,Yes.
+## lane-box.ps1 takes "-BacklogRunQuick -Yes" as BacklogRunQuick,Yes.
 fGateArgList(){
 	local a out=""
 	for a in $gateArgs; do
-		[[ "$a" =~ ^-[A-Za-z]+$ ]] || fDie "NEMO_WIN_GATE_ARGS takes only switches, such as -Gate: ${a}"
+		[[ "$a" =~ ^-[A-Za-z]+$ ]] || fDie "NEMO_WIN_GATE_ARGS takes only switches, such as -Yes: ${a}"
 		out+="${out:+,}${a#-}"
 	done
 	printf '%s' "$out"
@@ -282,6 +282,7 @@ fMain "${@}"
 
 
 ##	History:
+##		- 2026-11-07: The gate runs cicd-win.ps1 -BacklogRunQuick, -Gate's new name.
 ##		- 2026-11-04: NEMO_WIN_DESKTOP_LIST hands the windowed tests to the next
 ##		  box, which then builds only and runs just those.
 ##		- 2026-11-03: Sends run-temp.ps1 beside lane-box.ps1, for its removals.

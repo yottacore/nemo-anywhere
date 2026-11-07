@@ -16,7 +16,8 @@
 # --check fails on a test with no ID, a malformed one, or one used twice.
 #
 # --list [root] reads steps on stdin, one "<name><TAB><command>" a line, and
-# prints each with the test IDs its command reaches, for cicd.bash --list.
+# prints each with the test IDs its command reaches, for cicd.bash --list and
+# cicd-win.ps1 -List.
 #
 # Syntax: test-id.py [--at TIME | --check [root] | --list [root]]
 
@@ -228,6 +229,8 @@ def listing(root, steps):
         seen, queue, runs_meson, named = set(), [], False, set()
         for ref in SCRIPT_REF.findall(command.replace('\\', '/')):
             queue += [(p, 1) for p in resolve(ref, index, '')]
+        # The command can run the suite itself, as cicd-win.ps1's steps do.
+        suite_lines = [command]
         while queue:
             path, depth = queue.pop(0)
             if path in seen:
@@ -236,13 +239,14 @@ def listing(root, steps):
             if (path in scripts and depth > 1) or depth > 5:
                 continue
             lines = code_lines(root / path)
-            for line in (x for x in lines if re.search(r'\bmeson test\b', x)):
-                # One that names its tests, such as a release smoke, runs only those.
-                tags = {t for t in re.findall(r'["\'](\w+) ', line) if t in meson_tags}
-                named |= tags
-                runs_meson = runs_meson or not tags
+            suite_lines += lines
             for ref in run_refs(lines):
                 queue += [(p, depth + 1) for p in resolve(ref, index, path.rsplit('/', 1)[0])]
+        for line in (x for x in suite_lines if re.search(r'\bmeson test\b', x)):
+            # One that names its tests, such as a release smoke, runs only those.
+            tags = {t for t in re.findall(r'["\'](\w+) ', line) if t in meson_tags}
+            named |= tags
+            runs_meson = runs_meson or not tags
         found = [(scripts[p], p) for p in sorted(seen) if p in scripts]
         if not runs_meson:
             found += [(tag, name) for tag, name in meson if tag in named]

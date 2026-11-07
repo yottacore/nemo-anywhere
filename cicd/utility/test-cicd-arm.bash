@@ -222,7 +222,7 @@ fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
 out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync 2>&1 </dev/null)" || fFail "the run with a side gate failed"
 [[ "$(cat "${scratch}/out/win-side" 2> /dev/null)" == 1 ]] || fFail "the side gate was not told it may leave its windowed tests to the other box"
 fWin sideother "its windowed tests go to"                    FAKE_WIN_RC=75 --
-[[ "$(cat "${scratch}/out/win-gate" 2> /dev/null)" == "-Gate -Yes -NoSync -NoFmt -NoTests" ]] || fFail "the other gate did not get -NoFmt -NoTests after a 75: $(cat "${scratch}/out/win-gate" 2> /dev/null)"
+[[ "$(cat "${scratch}/out/win-gate" 2> /dev/null)" == "-BacklogRunQuick -Yes -NoSync -NoFmt -NoTests" ]] || fFail "the other gate did not get -NoFmt -NoTests after a 75: $(cat "${scratch}/out/win-gate" 2> /dev/null)"
 deskList="$(cat "${scratch}/out/win-side-list" 2> /dev/null)"
 [[ -n "$deskList" && "$deskList" == "$(cat "${scratch}/out/win-gate-list" 2> /dev/null)" ]] || fFail "the two gates were not given the same test list file: '${deskList}', '$(cat "${scratch}/out/win-gate-list" 2> /dev/null)'"
 fWin side "WARNING: no box there for the windowed tests"     FAKE_WIN_RC=75 FAKE_WIN_OTHER_GONE=1 --

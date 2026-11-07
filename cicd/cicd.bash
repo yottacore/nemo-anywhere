@@ -41,10 +41,10 @@
 ##	                       and remote dogfood, even with --include-arm or
 ##	                       --include-bsd
 ##	   --no-win            leave the native Windows gate out. It runs
-##	                       cicd-win.ps1 -Gate on b29w alongside the local
-##	                       steps, or on vm925w in its own step when b29w
-##	                       isn't there. The tests that need a desktop run
-##	                       on vm925w in that step either way
+##	                       cicd-win.ps1 -BacklogRunQuick on b29w alongside
+##	                       the local steps, or on vm925w in its own step
+##	                       when b29w isn't there. The tests that need a
+##	                       desktop run on vm925w in that step either way
 ##	   --no-container      run on the host. The GTK dev stack never goes on
 ##	                       the host, so that's the lints, with the host's
 ##	                       tools, and the run stops with one line at the
@@ -1236,7 +1236,7 @@ if ((run_win)); then
 		## builds, since the suite and smokes passed on the side one, then runs
 		## those tests in its desktop session.
 		fEcho_Clean "the side gate passed, and its windowed tests go to: ${WIN_GATE_CMD[*]}"
-		win_rc=0; NEMO_WIN_GATE_ARGS="-Gate -Yes -NoSync -NoFmt -NoTests" NEMO_WIN_DESKTOP_LIST="$winDeskList" "${WIN_GATE_CMD[@]}" || win_rc=$?
+		win_rc=0; NEMO_WIN_GATE_ARGS="-BacklogRunQuick -Yes -NoSync -NoFmt -NoTests" NEMO_WIN_DESKTOP_LIST="$winDeskList" "${WIN_GATE_CMD[@]}" || win_rc=$?
 		if ((win_rc == 77)); then
 			fEcho "WARNING: no box there for the windowed tests, so the side gate's pass stands"
 			win_rc=0

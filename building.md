@@ -27,7 +27,7 @@ On Windows the build is native, not cross-compiled. You need [MSYS2](https://www
 
 ~~~powershell
 pacman -S --needed mingw-w64-x86_64-{gcc,meson,ninja,pkgconf,gtk3,json-glib,libarchive,libexif,cppcheck,gettext} intltool git
-pwsh cicd/cicd-win.ps1 -Gate     # lint, build and test
+pwsh cicd/cicd-win.ps1 -BacklogRunQuick  # lint, build and test
 ~~~
 
 The full picture, meaning the exact package list, the Windows cross-compile, the release lanes and the pipeline stages, is in [project/design.md](project/design.md). How to send a change is in [contributing.md](contributing.md), and how the code is written is in [project/style-guide_code.md](project/style-guide_code.md).
