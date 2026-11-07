@@ -6696,6 +6696,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261107: a first try read the adjustment from the scrolled window itself, which has no scrollbar on dispose's second run, and dd26k logged criticals every time. dd26k passes 4 of 4 since.
 	- Branch: bugs1107
+	- Commit: 40e53c10
 	- Acceptance signoff: Self-closed: dd26k passes 4 of 4, and the timer can't be queued once dispose has run.
 	- Closed: 20261107-095125
 
@@ -6717,6 +6718,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261107: ddy6j passes 3 of 3. The rig that holds the X server up doesn't reach it from inside the test jail, so the wait wasn't seen failing here; it is the selection rules probe's check.
 	- Branch: bugs1107
+	- Commit: 40e53c10
 	- Acceptance signoff: Self-closed: ddy6j passes 3 of 3, and the other 6 tests send nothing the grab record can take.
 	- Closed: 20261107-095125
 
@@ -6737,6 +6739,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261107: under Nemo Anywhere the name column isn't the first column, so the probe reads the expander column. de8bd, de8dm and dec8w pass.
 	- Branch: bugs1107
+	- Commit: 40e53c10
 	- Acceptance signoff: Self-closed: the 3 tests pass, and de8bd passes with an extra folder in the home folder.
 	- Closed: 20261107-095125
 
