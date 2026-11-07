@@ -835,6 +835,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261025: split into children 2026102517333367 (`cicd.bash`, the gate included) and 2026102517333373 (`cicd-win.ps1` and the other boxes).
 	- Test case: none yet.
 
+- Demo video: mouse click sounds play about 0.25 s after the click shows
+	- ID: 2026110618322410
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261106-183224
+	- Opened by: t00mietum
+	- Steps to reproduce: Record the video with `cicd/utility/demo-video/demo-video.py`, then compare each click's sound peak to the frame where the screen reacts.
+	- Incorrect behavior: Each click sounds about 0.25 s after the screen changes.
+	- Expected behavior: The sound plays with the press, up to a frame or two before the screen reacts.
+	- Reproduced: No, not in this repo. Measured in tukzmon's recorder, which was copied from this one and uses the same sound files and timing.
+	- Actual cause:
+		- `sounds/mouse/click.wav` and `click_quiet.wav` have about 0.16 s of quiet before the click itself, and `build_audio` places each file's start at the event.
+		- `Mouse.click`, `double`, `drag` and `wheel` log the event after the xdotool call returns, but the press goes out at the start of the call.
+	- Possible fix: Trim each sample to its onset when it's loaded, such as the first sample over 20% of its peak, and log the event before the xdotool call. tukzmon's `cicd/utility/demo/demo-video.py` does both, and its clicks now land within 0.1 s.
+	- Estimated effort: Low
+
 - ddepv on b29w: the heap grew over 64 rounds again.
 	- ID: 2026103116284963
 	- Type: Bug
