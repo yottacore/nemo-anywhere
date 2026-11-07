@@ -351,8 +351,10 @@ function fPublish { param($Msg); fStub fPublish }
 	if (-not (Test-Path -LiteralPath $logDir)) { fFail "a plain run left no log, so the -List check proves nothing" }
 
 	## Piped, the rule is still 79 bullets in UTF-8, not the console code page's
-	## stand-in. Read as bytes, since a decode here would hide it. LC_ALL gives
-	## a code page with no bullet off Windows; Windows has its own.
+	## stand-in. Read as bytes, since a decode here would hide it. A code page
+	## with no bullet: LC_ALL off Windows, and on Windows 437 on the console,
+	## which the copy shares, since this test set it to UTF-8 above.
+	if ($IsWindows) { [Console]::OutputEncoding = [Text.Encoding]::GetEncoding(437) }
 	$psi = [Diagnostics.ProcessStartInfo]::new((Join-Path $PSHOME $(if ($IsWindows) { 'pwsh.exe' } else { 'pwsh' })))
 	foreach ($a in '-NoProfile', '-File', $copy, '-Gate') { $psi.ArgumentList.Add($a) }
 	$psi.RedirectStandardOutput = $true
@@ -362,6 +364,7 @@ function fPublish { param($Msg); fStub fPublish }
 	$mem = [IO.MemoryStream]::new()
 	$proc.StandardOutput.BaseStream.CopyTo($mem)
 	$proc.WaitForExit()
+	if ($IsWindows) { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) }
 	$bytes = $mem.ToArray()
 	$hex = [BitConverter]::ToString($bytes)
 	$want = [BitConverter]::ToString([Text.Encoding]::UTF8.GetBytes($rule))
