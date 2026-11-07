@@ -57,6 +57,7 @@ typedef struct {
 
 GType      nemo_column_chooser_get_type            (void);
 GtkWidget *nemo_column_chooser_new                 (NemoFile *file);
+GtkWidget *nemo_column_chooser_new_for_search      (void);
 void       nemo_column_chooser_set_settings    (NemoColumnChooser   *chooser,
 						    char                   **visible_columns, 
 						    char                   **column_order);

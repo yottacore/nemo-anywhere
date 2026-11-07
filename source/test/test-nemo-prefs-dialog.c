@@ -28,8 +28,9 @@
  * the list on the left, ever holds the keyboard, and Ctrl+Page Up and Down,
  * Ctrl+Tab and Ctrl+Shift+Tab step through the list, sub-tabs included.
  * Sub-tabs are indented rows, and the parent and its showing sub-tab are both
- * lit. No page needs a scrollbar at the size the window opens. The pages that
- * build their own widgets are left empty here. */
+ * lit. List columns has a sub-tab for each list. No page needs a scrollbar at
+ * the size the window opens. The pages that build their own widgets are left
+ * empty here. */
 
 #include <config.h>
 
@@ -38,6 +39,8 @@
 #include <gtk/gtk.h>
 
 #include <libnemo-private/nemo-bulk-rename.h>
+#include <libnemo-private/nemo-column-chooser.h>
+#include <libnemo-private/nemo-column-utilities.h>
 #include <libnemo-private/nemo-desktop-utils.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-tab-list.h>
@@ -541,7 +544,7 @@ test_sub_tabs (GtkWidget *dialog)
 	check (row_titled (sidebar, "Preview") != NULL &&
 	       !gtk_widget_get_visible (row_titled (sidebar, "Preview")));
 	send_key (dialog, GDK_KEY_Page_Up, GDK_CONTROL_MASK);
-	check_showing (stack, "list-columns");
+	check_showing (stack, "list-columns/list-columns-search");
 	gtk_widget_show (find_named (dialog, "scrolledwindow5"));
 	settle ();
 	check (gtk_widget_get_visible (row_titled (sidebar, "Preview")));
@@ -554,7 +557,8 @@ test_sub_tabs (GtkWidget *dialog)
 		const char *const leaves[] = {
 			"views_default_page", "views_current_page", "scrolledwindow1",
 			"behavior_files_scrolledwindow", "behavior_programs_scrolledwindow",
-			"scrolledwindow3", "windows_scrolledwindow", "scrolledwindow4", "scrolledwindow5", "scrolledwindow6",
+			"scrolledwindow3", "windows_scrolledwindow", "scrolledwindow4", "list_columns_search_scrolledwindow",
+			"scrolledwindow5", "scrolledwindow6",
 			"scrolledwindow8", "templates_scrolledwindow", "scrolledwindow7", NULL
 		};
 		int i;
@@ -583,6 +587,90 @@ test_sub_tabs (GtkWidget *dialog)
 	} else {
 		g_print ("SKIP: the fit check, since the window is at the screen's cap\n");
 	}
+
+	click_row (sidebar, "Default");
+}
+
+static GtkWidget *
+find_chooser (GtkWidget *widget)
+{
+	GList *children, *l;
+	GtkWidget *found = NULL;
+
+	if (NEMO_IS_COLUMN_CHOOSER (widget)) {
+		return widget;
+	}
+	if (!GTK_IS_CONTAINER (widget)) {
+		return NULL;
+	}
+	children = gtk_container_get_children (GTK_CONTAINER (widget));
+	for (l = children; l != NULL && found == NULL; l = l->next) {
+		found = find_chooser (l->data);
+	}
+	g_list_free (children);
+	return found;
+}
+
+static gboolean
+strv_has (char **strv, const char *name)
+{
+	return strv != NULL && g_strv_contains ((const char * const *) strv, name);
+}
+
+/* 2026110520234231: List columns has a sub-tab for each list, each with its
+   own columns. Only find results have a Hits column. */
+static void
+test_list_columns_tabs (GtkWidget *dialog)
+{
+	const char *const titles[] = { "Regular list view", "Search list view" };
+	const char *const paths[] = { "list-columns/list-columns-regular",
+				      "list-columns/list-columns-search" };
+	GtkWidget *sidebar = find_named (dialog, "page_sidebar");
+	GtkWidget *stack = find_named (dialog, "page_stack");
+	GtkWidget *sub = find_named (dialog, "list_columns_stack");
+	GList *pages;
+	int i;
+
+	check (sidebar != NULL && stack != NULL && sub != NULL && GTK_IS_STACK (sub));
+	if (sidebar == NULL || stack == NULL || sub == NULL || !GTK_IS_STACK (sub)) {
+		return;
+	}
+	check (gtk_widget_get_parent (sub) == stack);
+
+	pages = gtk_container_get_children (GTK_CONTAINER (sub));
+	check (g_list_length (pages) == 2);
+	for (i = 0; i < 2 && g_list_nth (pages, i) != NULL; i++) {
+		GtkWidget *page = g_list_nth_data (pages, i);
+		GtkWidget *chooser = find_chooser (page);
+		char *title = NULL;
+		char **visible = NULL, **order = NULL;
+
+		gtk_container_child_get (GTK_CONTAINER (sub), page, "title", &title, NULL);
+		g_print ("List columns sub-tab %d is \"%s\"\n", i, title);
+		check (g_strcmp0 (title, titles[i]) == 0);
+		g_free (title);
+
+		check (chooser != NULL);
+		if (chooser != NULL) {
+			nemo_column_chooser_get_settings (NEMO_COLUMN_CHOOSER (chooser), &visible, &order);
+			check (strv_has (order, "name"));
+			check (strv_has (order, "search_result_count") == (i == 1));
+			if (i == 1) {
+				char **want = nemo_search_columns_get_visible ();
+
+				check (g_strv_equal ((const char * const *) visible, (const char * const *) want));
+				g_strfreev (want);
+			}
+			g_strfreev (visible);
+			g_strfreev (order);
+		}
+
+		check (row_titled (sidebar, titles[i]) != NULL);
+		click_row (sidebar, titles[i]);
+		check_showing (stack, paths[i]);
+		check_lit (sidebar, i == 0 ? "List columns|Regular list view" : "List columns|Search list view");
+	}
+	g_list_free (pages);
 
 	click_row (sidebar, "Default");
 }
@@ -778,6 +866,7 @@ main (int argc, char *argv[])
 		test_per_folder_line (dialog);
 		test_tabs_take_no_focus (dialog);
 		test_sub_tabs (dialog);
+		test_list_columns_tabs (dialog);
 		test_bulk_rename (dialog);
 		test_selection_model (dialog);
 		test_rename_selects_grayed (dialog);

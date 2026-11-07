@@ -39,6 +39,7 @@
 GList *nemo_get_all_columns       (void);
 GList *nemo_get_common_columns    (void);
 GList *nemo_get_columns_for_file (NemoFile *file);
+GList *nemo_get_search_list_columns (void);
 GList *nemo_column_list_copy      (GList       *columns);
 void   nemo_column_list_free      (GList       *columns);
 

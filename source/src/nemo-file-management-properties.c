@@ -782,6 +782,63 @@ nemo_file_management_properties_dialog_setup_list_column_page (GtkBuilder *build
 }
 
 static void
+set_search_columns_from_settings (NemoColumnChooser *chooser)
+{
+	char **visible_columns = nemo_search_columns_get_visible ();
+	char **column_order = nemo_search_columns_get_order ();
+
+	nemo_column_chooser_set_settings (chooser, visible_columns, column_order);
+
+	g_strfreev (visible_columns);
+	g_strfreev (column_order);
+}
+
+static void
+search_columns_changed_callback (NemoColumnChooser *chooser,
+				 G_GNUC_UNUSED gpointer callback_data)
+{
+	char **visible_columns;
+	char **column_order;
+	char **default_visible = nemo_search_columns_get_default_visible ();
+
+	nemo_column_chooser_get_settings (chooser, &visible_columns, &column_order);
+
+	/* The defaults are kept as nothing, as the header menu's Use default does. */
+	nemo_search_columns_save (g_strv_equal ((const char * const *) visible_columns,
+						(const char * const *) default_visible)
+				  ? NULL : (const char * const *) visible_columns);
+
+	g_strfreev (default_visible);
+	g_strfreev (visible_columns);
+	g_strfreev (column_order);
+}
+
+static void
+search_use_default_callback (NemoColumnChooser *chooser,
+			     G_GNUC_UNUSED gpointer user_data)
+{
+	nemo_search_columns_save (NULL);
+	set_search_columns_from_settings (chooser);
+}
+
+static void
+nemo_file_management_properties_dialog_setup_search_column_page (GtkBuilder *builder)
+{
+	GtkWidget *chooser = nemo_column_chooser_new_for_search ();
+
+	set_search_columns_from_settings (NEMO_COLUMN_CHOOSER (chooser));
+
+	g_signal_connect (chooser, "changed",
+			  G_CALLBACK (search_columns_changed_callback), NULL);
+	g_signal_connect (chooser, "use_default",
+			  G_CALLBACK (search_use_default_callback), NULL);
+
+	gtk_widget_show (chooser);
+	gtk_box_pack_start (GTK_BOX (gtk_builder_get_object (builder, "search_columns_vbox")),
+			    chooser, TRUE, TRUE, 0);
+}
+
+static void
 bind_builder_bool (GtkBuilder *builder,
 		   NemoConfigGroup *settings,
 		   const char *widget_name,
@@ -1757,6 +1814,7 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
 	nemo_file_management_properties_dialog_setup_appearance_page (builder);
 	nemo_file_management_properties_dialog_setup_icon_caption_page (builder);
 	nemo_file_management_properties_dialog_setup_list_column_page (builder);
+	nemo_file_management_properties_dialog_setup_search_column_page (builder);
     nemo_file_management_properties_dialog_setup_plugin_page (builder);
     nemo_file_management_properties_dialog_setup_templates_page (builder);
 
