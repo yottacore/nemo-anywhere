@@ -25,7 +25,8 @@
  * entry it is handed to counts characters, not bytes. By default F2 takes the
  * whole name instead, extension and all (rename-selects-whole-name), and so
  * does a folder whatever the setting says; nemo_rename_region makes that
- * choice for both views. */
+ * choice for both views. Under the Nemo Anywhere model the setting is out of
+ * it: F2 leaves the extension out and Shift+F2 takes the whole name. */
 
 #include <config.h>
 
@@ -83,6 +84,33 @@ check_setting (void)
 	check (region_is ("photo.jpg", TRUE, 0, -1));
 }
 
+/* Under Nemo Anywhere the setting counts for nothing: F2 leaves the extension
+   out and Shift+F2 (whole) takes it all. v1 and Classic follow the setting. */
+static void
+check_model (void)
+{
+	check (nemo_rename_setting_applies ());
+
+	nemo_config_set_string (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, "nemo-anywhere");
+	check (!nemo_rename_setting_applies ());
+	check (region_is ("photo.jpg", FALSE, 0, 5));
+	check (region_is ("archive.tar.gz", FALSE, 0, 7));
+	check (region_is ("photo.jpg", TRUE, 0, -1));
+	nemo_config_set_boolean (nemo_preferences, NEMO_PREFERENCES_RENAME_SELECTS_WHOLE_NAME, FALSE);
+	check (region_is ("photo.jpg", FALSE, 0, 5));
+	check (region_is ("photo.jpg", TRUE, 0, -1));
+
+	nemo_config_set_string (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, "nemo-classic");
+	check (nemo_rename_setting_applies ());
+	check (region_is ("photo.jpg", FALSE, 0, 5));
+	nemo_config_set_boolean (nemo_preferences, NEMO_PREFERENCES_RENAME_SELECTS_WHOLE_NAME, TRUE);
+	check (region_is ("photo.jpg", FALSE, 0, -1));
+
+	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
+	check (nemo_rename_setting_applies ());
+	check (region_is ("photo.jpg", FALSE, 0, -1));
+}
+
 int
 main (void)
 {
@@ -114,6 +142,7 @@ main (void)
 	check_region ("caf\xc3\xa9.tar.gz", 4);
 
 	check_setting ();
+	check_model ();
 	g_free (tmp);
 
 	if (failures == 0) {

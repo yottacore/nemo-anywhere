@@ -281,6 +281,10 @@ void     nemo_rename_region (const char *name,
                              int        *start_offset,
                              int        *end_offset);
 
+/* Whether rename-selects-whole-name counts under the selection model in
+   force. Under Nemo Anywhere it doesn't: F2 and Shift+F2 are fixed. */
+gboolean nemo_rename_setting_applies (void);
+
 /* Browsing inside an archive needs the gvfs archive backend. Asked once at
    startup, so the menu item is either there for the whole run or never. */
 void     nemo_archive_mount_init (void);

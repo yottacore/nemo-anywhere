@@ -381,6 +381,13 @@
             <child>
               <object class="GtkShortcutsShortcut">
                 <property name="visible">True</property>
+                <property name="title" translatable="yes" context="shortcut window">Paste into viewed folder</property>
+                <property name="accelerator">&lt;Primary&gt;&lt;shift&gt;V</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="visible">True</property>
                 <property name="title" translatable="yes" context="shortcut window">Select all</property>
                 <property name="accelerator">&lt;Primary&gt;A</property>
               </object>

@@ -41,6 +41,7 @@
 #include <libnemo-private/nemo-column-utilities.h>
 #include <libnemo-private/nemo-delete-testguard.h>
 #include <libnemo-private/nemo-desktop-utils.h>
+#include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-module.h>
 #include <libnemo-private/nemo-tab-list.h>
@@ -1100,6 +1101,32 @@ connect_quick_renames (GtkBuilder *builder)
 		g_signal_connect_swapped (w, "toggled", G_CALLBACK (setup_quick_renames), builder);
 }
 
+/* Grayed under Nemo Anywhere, where F2 and Shift+F2 are fixed. The group's
+   own cached reader runs first, so the model read here is the new one. */
+static void
+rename_selects_model_changed (G_GNUC_UNUSED NemoConfigGroup *settings,
+			      G_GNUC_UNUSED gchar           *key,
+			      GtkWidget                      *check)
+{
+	gboolean applies = nemo_rename_setting_applies ();
+
+	gtk_widget_set_sensitive (check, applies);
+	gtk_widget_set_tooltip_text (check, applies ?
+		_("When off, only the part of the name before the extension is selected") :
+		_("Under Nemo Anywhere, F2 selects the name without its extension and Shift+F2 the whole name"));
+}
+
+static void
+connect_rename_selects (GtkBuilder *builder)
+{
+	GtkWidget *check = GTK_WIDGET (W (NEMO_FILE_MANAGEMENT_PROPERTIES_RENAME_SELECTS_WHOLE_NAME_WIDGET));
+
+	g_signal_connect_object (nemo_preferences,
+				 "changed::" NEMO_PREFERENCES_SELECTION_MODEL,
+				 G_CALLBACK (rename_selects_model_changed), check, 0);
+	rename_selects_model_changed (nemo_preferences, NULL, check);
+}
+
 static void
 on_dialog_destroy (G_GNUC_UNUSED GtkWidget *widget,
                    gpointer   user_data)
@@ -1495,6 +1522,7 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
 	bind_builder_bool (builder, nemo_preferences,
 			   NEMO_FILE_MANAGEMENT_PROPERTIES_RENAME_SELECTS_WHOLE_NAME_WIDGET,
 			   NEMO_PREFERENCES_RENAME_SELECTS_WHOLE_NAME);
+	connect_rename_selects (builder);
 	bind_builder_bool_inverted (builder, nemo_preferences,
 				    NEMO_FILE_MANAGEMENT_PROPERTIES_ALWAYS_USE_BROWSER_WIDGET,
 				    NEMO_PREFERENCES_ALWAYS_USE_BROWSER);

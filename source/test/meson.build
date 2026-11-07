@@ -1740,6 +1740,27 @@ if not is_windows
     timeout: 120
   )
 
+  # Preloaded too; it deletes, copies and pastes by key from inside.
+  edit_keys_probe = shared_module('test-nemo-edit-keys-probe',
+    [ 'test-nemo-edit-keys-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  edit_keys = executable('test-nemo-edit-keys',
+    [ 'test-nemo-edit-keys.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ glib, gio, test_scratch ],
+  )
+  test('df037 Edit keys test, list view',
+    edit_keys,
+    args: [ nemo, edit_keys_probe, 'list-view' ],
+    timeout: 180
+  )
+  test('dezmt Edit keys test, icon view',
+    edit_keys,
+    args: [ nemo, edit_keys_probe, 'icon-view' ],
+    timeout: 180
+  )
+
   # Preloaded too; it hovers and checks from inside the program.
   tooltip_focus_probe = shared_module('test-nemo-tooltip-focus-probe',
     [ 'test-nemo-tooltip-focus-probe.c' ],

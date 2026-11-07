@@ -5990,8 +5990,9 @@ icon_destroy (NemoIconContainer *container,
 
 	details = container->details;
 
+	/* The icon before the one going takes its place, or the one after it. */
 	item = g_list_find (details->icons, icon);
-	item = item->next ? item->next : item->prev;
+	item = item->prev ? item->prev : item->next;
 	icon_to_focus = (item != NULL) ? item->data : NULL;
 
 	details->icons = g_list_remove (details->icons, icon);
@@ -6035,6 +6036,11 @@ icon_destroy (NemoIconContainer *container,
 	icon_free (icon);
 
 	if (was_selected) {
+		/* A deleted icon hands its selection to its neighbor, as the list
+		   view does. The others going with it are unselected on the way. */
+		if (icon_to_focus != NULL) {
+			select_one_unselect_others (container, icon_to_focus);
+		}
 		/* Coalesce multiple removals causing multiple selection_changed events */
 		details->selection_changed_id = g_idle_add (selection_changed_at_idle_callback, container);
 	}

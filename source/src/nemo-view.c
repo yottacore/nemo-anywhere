@@ -8128,6 +8128,20 @@ action_paste_files_into_callback (G_GNUC_UNUSED GtkAction *action,
 
 }
 
+/* Ctrl+Shift+V. Plain paste follows the selection, into a selected expanded
+   folder or beside the selected files. This one goes to the folder being
+   viewed whatever is selected. */
+static void
+action_paste_into_viewed_callback (G_GNUC_UNUSED GtkAction *action,
+				   gpointer callback_data)
+{
+	NemoView *view = NEMO_VIEW (callback_data);
+
+	if (view->details->directory_as_file != NULL) {
+		paste_into (view, view->details->directory_as_file);
+	}
+}
+
 static void
 action_open_as_root_callback (G_GNUC_UNUSED GtkAction *action,
 				  gpointer callback_data)
@@ -9446,6 +9460,10 @@ static const GtkActionEntry directory_view_entries[] = {
   /* label, accelerator */       N_("_Paste into folder"), "",
   /* tooltip */                  N_("Move or copy files previously selected by a Cut or Copy command into the selected folder"),
 				 G_CALLBACK (action_paste_files_into_callback) },
+  /* name, stock id */         { NEMO_ACTION_PASTE_INTO_VIEWED, "edit-paste-symbolic",
+  /* label, accelerator */       N_("Paste into vie_wed folder"), "<Primary><Shift>V",
+  /* tooltip */                  N_("Move or copy the files last cut or copied into the folder being viewed, whatever is selected"),
+				 G_CALLBACK (action_paste_into_viewed_callback) },
   /* name, stock id, label */  { NEMO_ACTION_EXTRACT_MENU, "package-x-generic", N_("E_xtract"), NULL, NULL, NULL },
   /* name, stock id, label */  { "CopyToMenu", NULL, N_("Cop_y to"), NULL, NULL, NULL },
   /* name, stock id, label */  { "MoveToMenu", NULL, N_("M_ove to"), NULL, NULL, NULL },
@@ -9912,6 +9930,11 @@ clipboard_targets_received (G_GNUC_UNUSED GtkClipboard     *clipboard,
 	gtk_action_set_sensitive (action,
 	                          can_paste && count == 1 &&
 	                          can_paste_into_file (NEMO_FILE (selection->data)));
+
+	action = gtk_action_group_get_action (view->details->dir_action_group,
+					      NEMO_ACTION_PASTE_INTO_VIEWED);
+	gtk_action_set_sensitive (action,
+				  can_paste && !nemo_view_is_read_only (view));
 
 	action = gtk_action_group_get_action (view->details->dir_action_group,
 					      NEMO_ACTION_LOCATION_PASTE_FILES_INTO);
@@ -10607,6 +10630,11 @@ real_update_paste_menu (NemoView *view,
 	gtk_action_set_sensitive (action, !is_read_only);
 
     gtk_action_set_visible (action, !selection_contains_recent && !selection_contains_favorites);
+
+	action = gtk_action_group_get_action (view->details->dir_action_group,
+					      NEMO_ACTION_PASTE_INTO_VIEWED);
+	gtk_action_set_sensitive (action, !is_read_only);
+	gtk_action_set_visible (action, !selection_contains_recent && !selection_contains_favorites);
 
 	action = gtk_action_group_get_action (view->details->dir_action_group,
 					      NEMO_ACTION_PASTE_FILES_INTO);
