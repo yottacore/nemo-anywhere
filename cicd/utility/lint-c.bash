@@ -1248,12 +1248,15 @@ fRun fCheckTestFence
 ## where every test shares one desktop. A menu closes when its window loses the
 ## focus, and any test's window coming up beside it takes the focus, not only one
 ## that forces its way to the front (dd5dc, 2026102322330406 and
-## 2026102409082700). Only a test's own .c files are read.
+## 2026102409082700). A widget's own menu asked for by the menu key or its
+## popup-menu signal counts too (dcd70, 2026110413033064). Only a test's own .c
+## files are read.
 ## Test ID: dec6j
 fCheckForegroundAlone(){
 	local build='source/test/meson.build'
 	local takes='gtk_window_present|gdk_window_focus|SetForegroundWindow|SwitchToThisWindow|BringWindowToTop'
 	takes+='|gtk_menu_popup|pop_up_context_menu|drag_drop_action_ask|gtk_popover_popup|gtk_combo_box_popup'
+	takes+='|GDK_KEY_Menu|"popup-menu"'
 	local line name files f bad=""
 
 	[[ -f "$build" ]] || return 0

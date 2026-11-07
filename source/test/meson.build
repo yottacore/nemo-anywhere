@@ -700,13 +700,15 @@ test('dczsk Primary mask test',
   args: []
 )
 
+# Holds a menu open, so alone on Windows, as dd5dc.
 test('dcd70 Entry context menu test',
   executable('test-nemo-entry-menu',
     [ 'test-nemo-entry-menu.c' ],
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch ],
   ),
-  args: []
+  args: [],
+  is_parallel: not is_windows,
 )
 
 # Its binary files are written from literals with NULs inside, and a wrong
