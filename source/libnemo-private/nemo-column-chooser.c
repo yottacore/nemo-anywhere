@@ -41,6 +41,7 @@ struct _NemoColumnChooserDetails
 	GtkWidget *use_default_button;
 
 	NemoFile *file;
+	gboolean search;
 };
 
 enum {
@@ -53,6 +54,7 @@ enum {
 
 enum {
 	PROP_FILE = 1,
+	PROP_SEARCH,
 	NUM_PROPERTIES
 };
 
@@ -81,6 +83,9 @@ nemo_column_chooser_set_property (GObject *object,
 	switch (param_id) {
 		case PROP_FILE:
 			chooser->details->file = g_value_get_object (value);
+			break;
+		case PROP_SEARCH:
+			chooser->details->search = g_value_get_boolean (value);
 			break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, param_id, pspec);
@@ -126,6 +131,17 @@ nemo_column_chooser_class_init (NemoColumnChooserClass *chooser_class)
 	                                                      NEMO_TYPE_FILE,
 	                                                      G_PARAM_CONSTRUCT_ONLY |
 	                                                      G_PARAM_WRITABLE));
+
+	/* Settings has no search folder to hand over, but find results have
+	   columns of their own. */
+	g_object_class_install_property (oclass,
+	                                 PROP_SEARCH,
+	                                 g_param_spec_boolean ("search",
+	                                                       "Search",
+	                                                       "Whether this column chooser is for find results",
+	                                                       FALSE,
+	                                                       G_PARAM_CONSTRUCT_ONLY |
+	                                                       G_PARAM_WRITABLE));
 
 	g_type_class_add_private (chooser_class, sizeof (NemoColumnChooserDetails));
 }
@@ -403,13 +419,20 @@ add_buttons (NemoColumnChooser *chooser)
 			    FALSE, FALSE, 0);
 }
 
+static GList *
+get_columns (NemoColumnChooser *chooser)
+{
+	return chooser->details->search ? nemo_get_search_list_columns ()
+					: nemo_get_columns_for_file (chooser->details->file);
+}
+
 static void
 populate_tree (NemoColumnChooser *chooser)
 {
 	GList *columns;
 	GList *l;
 
-	columns = nemo_get_columns_for_file (chooser->details->file);
+	columns = get_columns (chooser);
 
 	for (l = columns; l != NULL; l = l->next) {
 		GtkTreeIter iter;
@@ -576,7 +599,7 @@ set_column_order (NemoColumnChooser *chooser,
 	GList *l;
 	GtkTreePath *path;
 
-	columns = nemo_get_columns_for_file (chooser->details->file);	
+	columns = get_columns (chooser);
 	columns = nemo_sort_columns (columns, column_order);
 
 	g_signal_handlers_block_by_func (chooser->details->store,
@@ -643,5 +666,12 @@ GtkWidget *
 nemo_column_chooser_new (NemoFile *file)
 {
 	return g_object_new (NEMO_TYPE_COLUMN_CHOOSER, "file", file, NULL);
+}
+
+/* Returns: (transfer floating) */
+GtkWidget *
+nemo_column_chooser_new_for_search (void)
+{
+	return g_object_new (NEMO_TYPE_COLUMN_CHOOSER, "search", TRUE, NULL);
 }
 

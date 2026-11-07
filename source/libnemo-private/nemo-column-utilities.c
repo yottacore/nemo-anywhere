@@ -329,6 +329,13 @@ nemo_get_columns_for_file (NemoFile *file)
 
 /* Returns: (transfer full): free with nemo_column_list_free */
 GList *
+nemo_get_search_list_columns (void)
+{
+	return g_list_concat (nemo_get_common_columns (), get_search_columns ());
+}
+
+/* Returns: (transfer full): free with nemo_column_list_free */
+GList *
 nemo_column_list_copy (GList *columns) 
 {
 	GList *ret;

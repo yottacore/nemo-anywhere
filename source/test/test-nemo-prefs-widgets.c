@@ -79,6 +79,7 @@ static const char * const page_ids[] = {
 	"scrolledwindow3",
 	"windows_scrolledwindow",
 	"scrolledwindow4",
+	"list_columns_search_scrolledwindow",
 	"scrolledwindow5",
 	"scrolledwindow6",
 	"scrolledwindow8",
