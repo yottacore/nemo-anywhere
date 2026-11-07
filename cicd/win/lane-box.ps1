@@ -235,7 +235,7 @@ throw 'need -Start, -Run, -Desktop, -DesktopRun, -Stop or -Remove'
 
 
 ##	History:
-##		- 2026-11-07: The gate is -BacklogRunQuick, and its output is read as
+##		- 2026-11-06: The gate is -BacklogRunQuick, and its output is read as
 ##		  UTF-8.
 ##		- 2026-11-03: Removals go through Remove-SafeTree, from run-temp.ps1 sent
 ##		  beside it.

@@ -282,7 +282,7 @@ fMain "${@}"
 
 
 ##	History:
-##		- 2026-11-07: The gate runs cicd-win.ps1 -BacklogRunQuick, -Gate's new name.
+##		- 2026-11-06: The gate runs cicd-win.ps1 -BacklogRunQuick, -Gate's new name.
 ##		- 2026-11-04: NEMO_WIN_DESKTOP_LIST hands the windowed tests to the next
 ##		  box, which then builds only and runs just those.
 ##		- 2026-11-03: Sends run-temp.ps1 beside lane-box.ps1, for its removals.

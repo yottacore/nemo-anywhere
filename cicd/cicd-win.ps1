@@ -1104,7 +1104,7 @@ try {
 
 
 ##	History:
-##		- 2026-11-07: Takes cicd.bash's flags, in PowerShell's form: -BacklogRunQuick
+##		- 2026-11-06: Takes cicd.bash's flags, in PowerShell's form: -BacklogRunQuick
 ##		  with its areas, -BacklogRunFull, -MergeGate, -List, and the ones that
 ##		  change nothing here. -Gate and -Ci are other names. Piped output is
 ##		  UTF-8, so the step rule is bullets, not bell characters.

@@ -723,8 +723,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD flags: `--no-container`, `--no-remote`, `--keep-temp` and `--list`.
 	- ID: 2026102516165477
 	- Type: Task
-	- Status: Waiting on automated testing
-	- Needs external testing: dez4x under MSYS2, in the lint step of the native Windows gate.
+	- Status: Done
+	- Needs external testing: done 20261106 on b29w at efe1e986. dez4x passed under MSYS2, in the lint step of the native Windows gate.
 	- Priority|Severity: High
 	- Opened: 20261025-161654
 	- Opened by: 2026102416300004
@@ -744,11 +744,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de54r for `--no-remote`: a plain run, `--long` with both includes, and `--backlog-run-full`, each with it. dez4x for `--list`: each kind of test under its step, an echoed script left out, the release smoke's one test, `--backlog-run-quick lint` and `--no-container`, and no step, CPU scope, container cap, pin probe, run folder or log, with a plain run of the same copy as the control. dee6z for `--keep-temp` naming the kept containers.
 	- Verified: 20261025, `--no-remote`: de54r passes, and fails on `cicd.bash` without it, and with the private runner and remote dogfood left on under it.
 	- Verified: 20261106, dez4x passes, and fails on `cicd.bash` and `test-id.py` from before the change, with the tool pin probe let run under `--list`, and with the run word check taken out. dee6z passes, and fails on `docker-sweep.bash` from before the change. `cicd/cicd.bash --backlog-run-quick` passes, with dez4x, dee6z and `test-id.py --check` (422 tests) in its lint stage.
+	- Verified: 20261106, the native Windows gate on b29w at efe1e986, `cicd-win.ps1 -BacklogRunQuick` through the lane: PASS dez4x under MSYS2 in its lint step, and the gate passed.
+	- Acceptance signoff: Self-closed: dez4x, on Linux and under MSYS2 on b29w.
+	- Closed: 20261106-180800
 
 - CICD flags: `cicd-win.ps1` takes the same flags.
 	- ID: 2026102516165482
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261025-161654
 	- Opened by: 2026102416300004
@@ -756,7 +759,26 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102516165473, 2026102516165477
 	- Requirements:
 		- `cicd-win.ps1` takes the same flags as `cicd.bash`, in its own form where PowerShell needs one.
-	- Test case: none yet.
+	- Progress log:
+		- 20261106: `cicd-win.ps1` takes `-BacklogRunQuick [<area>...]`, `-BacklogRunFull`, `-MergeGate` and `-List`. `-Gate` and `-Ci` are other names, and say so in one line. It also takes `-y`, `-q`, and `-Long`, `-Slow`, `-Leakcheck`, `-NoLeakcheck`, `-NoContainer` and `-NoRemote`, which change nothing there. `-KeepTemp`, `-Message` and `-Quick` were already in. The pre-push hook on Windows runs `-MergeGate`, and the native lane `-BacklogRunQuick`.
+	- Decisions:
+		- PowerShell's form is the name in one word, `-BacklogRunQuick` for `--backlog-run-quick`. The areas follow it as plain words, `-BacklogRunQuick lint tests`, as with `cicd.bash`.
+		- PowerShell doesn't keep the order switches came in, so "the last mode named wins" can't hold. 2 different modes are refused, with exit 2. `-Gate` with `-BacklogRunQuick` is one mode.
+		- `-BacklogRunQuick` is the old `-Gate`: lints, build, tests and smokes. `lint` is the lints, and `tests` the build, tests and smokes. There's no format check on Windows, so `format` named shows it as off, with why.
+		- `-BacklogRunFull` and `-MergeGate` are a plain run less sync, dogfood and publish: lints, build, tests, smokes, the runtime bundle and the pack. They never prompt. Signing stays as set up, which is nothing unless a cert is.
+		- The flags with nothing to do on Windows are taken and change nothing, so a `cicd.bash` command line works there.
+		- `-List` prints the plan, then each step's test IDs through `test-id.py --list`, from the bodies of the functions each step calls, read from the file as written. So the list follows the code that runs, with no second copy of each step's command. It makes no run folder, sweep or log, and runs no CPU or toolchain probe, so the plan takes the toolchain as there. It needs Python 3: one on PATH that isn't the Store's stub, then `C:\Python3*`, then MSYS2's.
+		- `test-id.py` also reads a step's command itself for `meson test`, since `cicd-win.ps1` runs the suite from its own code. Its paths now have forward slashes, since on Windows `--list` found no script test.
+		- The lane and the hook moved to the new names, so neither prints the other-name line on every run.
+	- Swept: every caller of `cicd-win.ps1`: the pre-push hook, `lane.bash`, `lane-box.ps1`, the vm925w call in `cicd.bash` and its `--help`, the config comment, building.md, and design.md's merge gate and native gate bullets. The Windows dogfood runs a plain run and is unchanged. The hosted workflow doesn't call it. `PSScriptAnalyzerSettings.psd1`'s note on the switches it calls unused.
+		- 20261106: depg0's asserts for the lane's switches went from `Gate,Yes,NoSync` and `Gate,Yes,NoSync,NoFmt,NoTests` to `BacklogRunQuick,Yes,NoSync` and `BacklogRunQuick,Yes,NoSync,NoFmt,NoTests`. ddmmw's went from `-Gate -Yes -NoSync -NoFmt -NoTests` to `-BacklogRunQuick -Yes -NoSync -NoFmt -NoTests`, and dd5ft's for the hook on Windows from `-Gate -Yes` to `-MergeGate`.
+	- Branch: round1107a
+	- Commit: 01a644e9, efe1e986, c1c9ff43
+	- Test case: dejjt: `-BacklogRunQuick` with and without areas, `-BacklogRunFull`, `-MergeGate`, `-Gate` and `-Ci` with their one line, the flags that change nothing, and the mixes refused. `-List` with each kind of test under its step, an echoed script left out, `-BacklogRunQuick lint`, `-MergeGate` and `-TestList`, and no step, probe, run folder or log, with a plain run of the same copy as the control. dd5ft for the hook on Windows, depg0 and ddmmw for the lane.
+	- Verified: 20261106, dejjt passes, and fails on `cicd-win.ps1` from before the change, and with `-List` let run the probes. dez4x, depg0, ddmmw, dd5ft and detts pass, and `test-id.py --check` (422 tests). `cicd/cicd.bash --backlog-run-quick` passes.
+	- Verified: 20261106 on b29w. At 01a644e9, `cicd-win.ps1 -List -MergeGate` through the lane listed the 6 steps, with the 3 turned off. At efe1e986 the native gate, `-BacklogRunQuick` through the lane, passed: 283 PASS, 34 SKIP, none failed, dd5ft and dez4x under MSYS2 included, and `-List -MergeGate` listed the Windows-only script tests under Tests. At c1c9ff43, dejjt passed.
+	- Acceptance signoff: Self-closed: dejjt pins the flags, and the native gate on b29w passed with them.
+	- Closed: 20261106-180800
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
@@ -1407,7 +1429,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - cicd-win.ps1's step rule comes out as BEL characters when its output is piped.
 	- ID: 2026102822580287
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261028-225802
 	- Opened: 20261028-225802
@@ -1418,7 +1440,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the same rule as `cicd.bash` draws, in any log.
 	- Reproduced: 20261028 on b29w, round1028b at 2964120b. dev drew 73 of the same bullet, so it predates the round.
 	- Possible cause: the rule is `[char]0x2022`. Piped output goes out in the console's OEM code page, which has no bullet, and Windows swaps in 0x07, the byte that code page shows as a bullet.
-	- Test case: to add with the fix, in dejjt: the rule survives a pipe.
+	- Actual cause: as above. On b29w, under code page 437, a piped `Write-Host` of 3 bullets writes `07 07 07`. The host keeps the encoding it had at its first write, so a later change does nothing. A pwsh that reads the output back decodes it in its own console's code page too.
+	- Actual fix: with its output piped, `cicd-win.ps1` sets the console output encoding to UTF-8 before it writes anything, and puts it back at the end, since the console is shared with the shell that started it. `lane-box.ps1` and dejjt, which read its output back through pwsh, read it as UTF-8.
+	- Decisions:
+		- Only when piped. On a console the host writes the bullet through the wide call whatever the code page, and changing the code page there would outlast the run.
+		- A pwsh 7.4 or later `> file` keeps the bytes. A pwsh `| Out-File` or `| Tee-Object` decodes in its own console code page, so a caller reading the output that way sets `[Console]::OutputEncoding` to UTF-8 first, as `lane-box.ps1` does.
+	- Swept: every pwsh that runs `cicd-win.ps1` and reads its output: `lane-box.ps1`'s gate and desktop runs, and dejjt. The pre-push hook and the Windows dogfood take its bytes through bash and ssh. No other PowerShell script writes a non-ASCII character.
+	- Branch: round1107a
+	- Commit: 01a644e9, c1c9ff43
+	- Test case: dejjt: run piped, read as bytes, the rule is 79 bullets in UTF-8 with no bell character. It sets a code page with no bullet first: `LC_ALL=en_US.ISO-8859-1` off Windows, and 437 on Windows.
+	- Verified: 20261106, dejjt fails with the fix taken out, the rule coming out as 79 `.` under ISO-8859-1, and passes with it.
+	- Verified: 20261106 on b29w at c1c9ff43: dejjt passes, and with the fix taken out fails only its 2 pipe checks, a bell character in the output. The native gate's log from b29w, through `lane-box.ps1`, has each rule as 79 bullets in UTF-8 and no 0x07.
+	- Acceptance signoff: Self-closed: dejjt pins it, on Linux and on b29w.
+	- Closed: 20261106-180800
 
 - On Windows, the zip draws some file icons differently from the single exe.
 	- ID: 2026102515500000
