@@ -1408,6 +1408,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- It adds about 3 minutes to the native gate's Lints step on b29w, PowerShell lint and the 8 tests together. The whole step took 11 min.
 	- Swept: every `command -v pwsh` in scripts the Lints step runs: `lint.bash` (the 8 tests and the staging check, which skips under MSYS2 on purpose, since the Tests step runs it) and `lint-powershell.bash`. The Tests step's pwsh calls are from `cicd-win.ps1` itself. `config.bash`'s 2 bundle checks are meson tests, and the Tests step's path has pwsh. `test-installers.bash` and `test-install-download.bash` run on Linux only.
 	- Branch: round1107a
+	- Commit: a89b56d6
 	- Test case: dejjt (the MSYS2 shell finds the pwsh running `cicd-win.ps1`, with the real MSYS2 bash and its minimal PATH on Windows, and a stand-in with an empty PATH elsewhere).
 	- Verified: 20261106, dejjt passes, and fails with the PATH line taken out of `cicd-win.ps1`, on Linux and on b29w. `cicd/cicd.bash --backlog-run-quick format lint` passes. PowerShell lint is clean on Linux.
 	- Verified: 20261106 on b29w, `cicd-win.ps1 -BacklogRunQuick lint -Yes`: PowerShell lint ran with no findings, and dd5fw, dd5fx, ddkd9, ddqv0, ddwhx, ddrhb (the evb project test), dejjt and detts all passed. The step passed.
@@ -1437,6 +1438,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- `-Under` still compares the strings as given. A short form on one side there only refuses more.
 	- Swept: `Remove-StaleRunTemp`'s compare against the current run folder, which a string mismatch would only let through to its live run check, and the run's `run.pid` keeps it. `install.ps1`'s and `n8runfm.ps1`'s `fSafeRm_Under` take one named parent and have no temp root rule.
 	- Branch: round1107a
+	- Commit: a89b56d6
 	- Test case: detts (on Windows: `HOST_TEMP` short with the project folder and the temp root long, `HOST_TEMP` long with each of them short, the last name alone short, and a run folder in short form still removed; skipped where the volume makes no short names).
 	- Verified: 20261106 on b29w, detts passes, and with the long form call made a no-op fails 10 checks, all of them the new cases, the folders removed. On Linux detts passes, and PowerShell lint is clean.
 	- Acceptance signoff: Self-closed: detts on b29w.
