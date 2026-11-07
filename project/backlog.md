@@ -55,6 +55,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none new, docs only. The lint stage passes, and its prose check now reads install.md and building.md.
 	- Stand-in: none (20261028). File names, layout and the license line are calls for a person.
 
+- Settings, List columns: split into two sub-tabs.
+	- ID: 2026110520234231
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Priority|Severity: Avg
+	- Opened: 20261105-202342
+	- Opened by: t00mietum
+	- Related IDs: 2026101405542816
+	- Requirements:
+		- Before the next cut.
+		- Split the List columns tab into two sub-tabs:
+			- Regular list view
+			- Search list view
+	- Progress log:
+		- 20261107: the tab only had the one list, a folder's default columns. Find results keep their own columns, set from the column menu in find mode, but had no list in Settings. So List columns is now a parent tab with 2 sub-tabs, listed under it in the tab list as Behavior's are. Regular list view holds the list it had, unchanged. Search list view holds a new list over the columns find results keep, Hits included, and saves to the same setting the column menu does. Matching the defaults saves nothing, as Use default there does, so later defaults still reach it. Its Use default puts back only the columns, not the sort, as the other list's does. Find results already showing pick a change up on the next search, not at once.
+		- 20261107: Left at signoff for the look of the two sub-tabs.
+	- Swept: every place that reads or writes the find results' columns: the column menu, its Use default, a header drag and the list view's load. All go through the same few calls in nemo-column-utilities.c, which the new list uses too. The column chooser is only built in Settings, so its new search mode touches nothing else. design.md "Search" and the Settings design doc's tab list say so.
+	- Branch: colstabs
+	- Commit: d4e7656
+	- Test case: dd5df, Settings dialog test. It now checks List columns is a stack of 2 sub-tabs titled Regular list view and Search list view, in that order, each holding a column list, that only the search one has Hits, that the search one shows the saved find results' columns, and that clicking each row shows and lights it. It fails before the fix and passes after. dbnfq, Settings widgets test, now lists the new page among those sized.
+
 - Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
 	- ID: 2026100516274646
 	- Type: Enhancement
@@ -750,20 +771,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Estimated effort: Avg
 	- Test case: the gate in 2026102114400591, once live. A real bug fixed here gets its own test.
 
-- Static analyzers: fix or suppress the findings in the tests and fuzz targets.
-	- ID: 2026102114400589
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261021-144005
-	- Opened by: t00mietum
-	- Parent ID: 2026101619020505
-	- Prereq IDs: 2026102114400584
-	- Requirements:
-		- Each finding under `source/test/` and `source/fuzz/` is fixed, or suppressed at the line with a one-line reason, per the parent.
-	- Estimated effort: Avg
-	- Test case: the gate in 2026102114400591, once live.
-
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
 	- Type: Bug
@@ -797,6 +804,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none. The fix is upstream, and nothing in the app hits it.
 	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
 	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
+
+- Static analyzers: fix or suppress the findings in the tests and fuzz targets.
+	- ID: 2026102114400589
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026102114400584
+	- Requirements:
+		- Each finding under `source/test/` and `source/fuzz/` is fixed, or suppressed at the line with a one-line reason, per the parent.
+	- Estimated effort: Avg
+	- Test case: the gate in 2026102114400591, once live.
 
 - Static analyzers: the gate goes live.
 	- ID: 2026102114400591
@@ -1031,21 +1052,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261020: tooltips moved to the settings design doc.
 		- 20261020: the xattrs checkbox is today's "Save checksums onto the files", moved and relabeled.
-	- Test case: none yet.
-
-- Settings, List columns: split into two sub-tabs.
-	- ID: 2026110520234231
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261105-202342
-	- Opened by: t00mietum
-	- Related IDs: 2026101405542816
-	- Requirements:
-		- Before the next cut.
-		- Split the List columns tab into two sub-tabs:
-			- Regular list view
-			- Search list view
 	- Test case: none yet.
 
 - dder1 failed once in a quick gate on b23.
