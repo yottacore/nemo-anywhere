@@ -698,7 +698,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD reset: standard flags.
 	- ID: 2026102416300004
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261024-163000
 	- Opened by: t00mietum
@@ -718,7 +718,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Overrides: 2026101816495201's decision that `--gate` stays the merge gate, design.md, "Branches and the merge gate", and the gate and full run lines in the private round settings.
 	- Progress log:
 		- 20261025: split into children 2026102516165473 to 2026102516165482, one per part. `--long` and `--slow` were already in. 2026102516295605 split from 2026102516165477 later.
-	- Test case: none yet.
+		- 20261107: every child closed. cicd.bash and cicd-win.ps1 both take the standard flags, --list included.
+	- Test case: de54r, dez4x, dejjt and dd5ft, from the children.
+	- Closed: 20261107
+	- Acceptance signoff: Self-closed: every child is Done, and the native gate on b29w passed with -BacklogRunQuick.
 
 - CICD flags: `--no-container`, `--no-remote`, `--keep-temp` and `--list`.
 	- ID: 2026102516165477
@@ -3222,7 +3225,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The list is `cicd/hooks/gate-skip-paths.txt`, read from the commit pushed: `*.md` and `project/*` for now. The list itself isn't on it.
 		- A push that changes only those paths skips the version guard and the clean tree check too, since a docs push to main never bumps the version.
 		- A first push, or a remote sha this clone doesn't have, can't be compared, so it gets the gate.
-		- On Windows the hook still runs `cicd-win.ps1 -Gate` until 2026102516165482.
+		- On Windows the hook runs `cicd-win.ps1 -MergeGate` since 2026102516165482.
 	- Swept: design.md's merge gate lines. Each clone needs `cicd/hooks/install.bash` again to pick the hook up.
 	- Branch: round1025b
 	- Test case: dd5ft, `test-pre-push.bash`. It checks that a release push calls `--merge-gate`, that a docs-only push skips everything, and that docs plus a source file, a change to the list, and a first push don't.
