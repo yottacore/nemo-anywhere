@@ -1500,15 +1500,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Middle-clicking a bookmark to open it in a new tab leaves the Name column too narrow.
 	- ID: 2026103113431790
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261031-134317
 	- Opened by: t00mietum
+	- Target OS: All
 	- Requirements:
 		- Before the next cut.
+	- Steps to reproduce: middle-click a bookmark in "Places", then click the new tab.
 	- Incorrect behavior: the Name column is too narrow in the new tab.
+	- Expected behavior: the columns are as wide as when the same folder opens in the current tab.
 	- Workaround: F5 to refresh.
-	- Test case: none yet.
+	- Reproduced: 20261106, Linux. In an 800 px window Name came up 77 px wide in the new tab, and 281 px for the same folder opened in place.
+	- Actual cause: the new tab opens behind the current one, and is given its size while hidden, before its tree view has a window. The list view noted that width as laid out and queued the layout, which then waited for the window and never ran. On show the same width came back, read as already laid out, so the columns kept their starting widths. F5 forgets the noted width, which is why it helped.
+	- Actual fix: only the layout itself notes the width it laid out for, once it has run. The tab's first allocation on show now lays the columns out, before the first frame.
+	- Swept: every other place that sets the noted width sets it to "none", and the layout is the only one that sets a real one. A tab opened from the menu's "Open in new tab", Shift+Enter on a place and a middle click in the folder all go through the same new-tab path. A resize still lays out once per width, and a hand-dragged width still lasts until the window changes shape. Icon and compact views have no column widths.
+	- Verified: deza3 failed before the fix (77 against 281) and passes after, 12 of 12 run 8 at once. dbjq9, ddka3, ddav4, ddyv6, ddg79, dd5dk, dd26k, dct7k and ddhw4 pass.
+	- Test case: deza3 (New tab column widths test), new.
+	- Acceptance signoff: Self-closed: the fix restores the documented widths in a new tab, and deza3 pins it.
+	- Closed: 20261106-194937
 
 - cicd-win.ps1's step rule comes out as BEL characters when its output is piped.
 	- ID: 2026102822580287

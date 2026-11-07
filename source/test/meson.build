@@ -1505,6 +1505,21 @@ if not is_windows
     timeout: 120
   )
 
+  # Preloaded too; it opens a bookmark in a new tab from inside the program.
+  tab_columns_probe = shared_module('test-nemo-tab-columns-probe',
+    [ 'test-nemo-tab-columns-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('deza3 New tab column widths test',
+    executable('test-nemo-tab-columns',
+      [ 'test-nemo-tab-columns.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, tab_columns_probe ],
+    timeout: 120
+  )
+
   places_bmhead_probe = shared_module('test-nemo-places-bookmarks-heading-probe',
     [ 'test-nemo-places-bookmarks-heading-probe.c' ],
     dependencies: [ gtk ],

@@ -4440,9 +4440,12 @@ on_size_allocation_changed (G_GNUC_UNUSED GtkWidget    *widget,
 
     /* Only when the width really moved: a column dragged wider by hand should
        survive until the window changes shape or the folder does, and every
-       width we set here comes straight back round as another allocation. */
+       width we set here comes straight back round as another allocation.
+       The layout records the width itself, once it has run. A tab opened
+       behind another is given its size before its tree view has a window, so
+       the layout waits, and recording the width here made the same size
+       coming back on show read as already laid out. */
     if (allocation->width != view->details->laid_out_width) {
-        view->details->laid_out_width = allocation->width;
         resize_columns_soon (view);
     }
 }
