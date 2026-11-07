@@ -1207,20 +1207,6 @@ nemo_thumbnail_jobs (guint *done, guint *waiting)
     *waiting = jobs_waiting;
 }
 
-/* A picture read back from the store is ready before the batch reaches it,
- * but a bar that runs ahead of the one building them reads wrong. With
- * nothing to count, the list view say, it follows that one. */
-void
-nemo_thumbnail_rendered_for_bar (guint done, guint waiting, guint *shown, guint *wanted)
-{
-    if (*wanted == 0) {
-        *shown = done;
-        *wanted = done + waiting;
-    } else if (done + waiting > 0) {
-        *shown = MIN (*shown, (guint) ((guint64) *wanted * done / (done + waiting)));
-    }
-}
-
 void
 nemo_thumbnail_watch_jobs (NemoThumbnailJobsFunc func, gpointer data)
 {

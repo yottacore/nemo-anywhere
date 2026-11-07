@@ -1,8 +1,8 @@
 /* --version and --about print and leave, so they must work with no display at
  * all. They used to fail with "Cannot open display" before the flag was read.
  * Both lead with "nemo-anywhere v<version> build <build number>", plus
- * " (YYYY-mm-DD)" unless built with -Drelease=true, the local day of the build
- * in the viewer's time zone. The build number is worked out by build-number.py,
+ * " (YYYY-mm-DD)" unless built with -Drelease=true of a version with no
+ * pre-release tag, the local day of the build in the viewer's time zone. The build number is worked out by build-number.py,
  * which is run here on fixed times.
  * The option parse is checked here too, since it runs before any window.
  * Takes the path to nemo-anywhere, the project version, and optionally the

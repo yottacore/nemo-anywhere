@@ -29,7 +29,9 @@
  * "FAIL" line per check goes to $NEMO_DELDLG_OUT, and "done" at the end.
  *
  * Shift+Delete rather than Delete, since there may be no trash where this
- * runs. Both go through the same check on the window's focus.
+ * runs. Both go through the same check on the window's focus. The question
+ * has to be the delete one, not the trash one, since Shift+Delete skips the
+ * trash whatever else is set.
  *
  * No symbol of the program is used. */
 
@@ -121,6 +123,30 @@ find_toplevel (const char *type_name, GtkWidget *not_this, GtkWidget *nor_this)
 		}
 	}
 	g_list_free (toplevels);
+
+	return found;
+}
+
+/* Whether a label somewhere in the widget starts with the text. The test
+   guard's question leads with the command's name, "Delete: 1 item". */
+static gboolean
+has_label_starting (GtkWidget *widget, const char *prefix)
+{
+	GList *children, *l;
+	gboolean found = FALSE;
+
+	if (GTK_IS_LABEL (widget)) {
+		return g_str_has_prefix (gtk_label_get_text (GTK_LABEL (widget)), prefix);
+	}
+	if (!GTK_IS_CONTAINER (widget)) {
+		return FALSE;
+	}
+
+	children = gtk_container_get_children (GTK_CONTAINER (widget));
+	for (l = children; l != NULL && !found; l = l->next) {
+		found = has_label_starting (l->data, prefix);
+	}
+	g_list_free (children);
 
 	return found;
 }
@@ -217,6 +243,8 @@ tick (G_GNUC_UNUSED gpointer data)
 			return G_SOURCE_CONTINUE;
 		}
 		report (TRUE, "the first Shift+Delete asks the delete question");
+		report (has_label_starting (question, "Delete"),
+			"Shift+Delete asks to delete for good, not to trash");
 		gtk_dialog_response (GTK_DIALOG (question), GTK_RESPONSE_CANCEL);
 		finish ();
 		return G_SOURCE_REMOVE;

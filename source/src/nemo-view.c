@@ -9396,11 +9396,11 @@ static const GtkActionEntry directory_view_entries[] = {
   /* tooltip */                  N_("Prepare the selected files to be copied with a Paste command"),
 				 G_CALLBACK (action_copy_files_callback) },
   /* name, stock id */         { NEMO_ACTION_COPY_PATH, "edit-copy-symbolic",
-  /* label, accelerator */       N_("Copy _path"), "<Primary><shift>C",
+  /* label, accelerator */       N_("Cop_y path"), "<Primary><shift>C",
   /* tooltip */                  N_("Copy the full path of each selected item to the clipboard"),
 				 G_CALLBACK (action_copy_path_callback) },
   /* name, stock id */         { NEMO_ACTION_BACKGROUND_COPY_PATH, "edit-copy-symbolic",
-  /* label, accelerator */       N_("Copy _path"), "",
+  /* label, accelerator */       N_("Cop_y path"), "",
   /* tooltip */                  N_("Copy the full path of this folder to the clipboard"),
 				 G_CALLBACK (action_background_copy_path_callback) },
   /* The label carries the separator, so it is filled in when the menu is built. */
@@ -9608,7 +9608,7 @@ static const GtkActionEntry directory_view_entries[] = {
   /* tooltip */                  N_("Prepare this folder to be copied with a Paste command"),
 				 G_CALLBACK (action_location_copy_callback) },
   /* name, stock id */         { NEMO_ACTION_LOCATION_COPY_PATH, "edit-copy-symbolic",
-  /* label, accelerator */       N_("Copy _path"), "",
+  /* label, accelerator */       N_("Cop_y path"), "",
   /* tooltip */                  N_("Copy the full path of this folder to the clipboard"),
 				 G_CALLBACK (action_location_copy_path_callback) },
   /* name, stock id */         { NEMO_ACTION_LOCATION_COPY_PATH_ALT, "edit-copy-symbolic",
@@ -11281,7 +11281,7 @@ real_update_menus (NemoView *view)
 					      NEMO_ACTION_COPY_PATH);
 	gtk_action_set_sensitive (action, selection_count > 0);
 	g_object_set (action, "label",
-		      ngettext ("Copy _path", "Copy _paths", selection_count),
+		      ngettext ("Cop_y path", "Cop_y paths", selection_count),
 		      NULL);
 
 	update_copy_path_alt_action (view, NEMO_ACTION_COPY_PATH_ALT, selection_count);

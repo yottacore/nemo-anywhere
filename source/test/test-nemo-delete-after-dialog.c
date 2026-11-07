@@ -45,7 +45,7 @@
 #include "test-scratch.h"
 #include "test-check.h"
 
-#define RESULTS 6
+#define RESULTS 7
 
 static gboolean
 alive (GPid pid)

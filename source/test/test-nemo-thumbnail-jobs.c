@@ -169,6 +169,10 @@ test_count_whole_folder (void)
 	nemo_file_unref (failed);
 }
 
+/* The status bar's second bar, the pictures drawn in the view, went on
+   2026-11-07 (2026101613053688), and nemo_thumbnail_rendered_for_bar with
+   it. Kept for the record. */
+#if 0
 static void
 test_rendered_never_ahead (void)
 {
@@ -192,6 +196,7 @@ test_rendered_never_ahead (void)
 	check (shown == 2);
 	check (wanted == 8);
 }
+#endif
 
 int
 main (int argc, char **argv)
@@ -211,7 +216,6 @@ main (int argc, char **argv)
 	test_counting ();
 	test_count_held ();
 	test_count_whole_folder ();
-	test_rendered_never_ahead ();
 
 	if (failures == 0)
 		g_print ("nemo-thumbnail-jobs: all checks passed\n");

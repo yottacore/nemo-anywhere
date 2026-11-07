@@ -259,9 +259,6 @@ void              nemo_icon_container_for_each                      (NemoIconCon
 /* The data of each icon, first to last as the view sorts them, even before
  * the next layout has put them in that order. Free the list, not the data. */
 GList *           nemo_icon_container_get_data_in_order             (NemoIconContainer  *container);
-void              nemo_icon_container_count_thumbnails              (NemoIconContainer  *container,
-									 guint              *shown,
-									 guint              *wanted);
 void              nemo_icon_container_request_update                (NemoIconContainer  *view,
 									 NemoIconData       *data);
 void              nemo_icon_container_invalidate_labels             (NemoIconContainer  *container);

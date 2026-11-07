@@ -841,7 +841,7 @@ build_options (ArchiveDialog *self,
 	header = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
 	gtk_box_pack_start (GTK_BOX (box), header, FALSE, FALSE, 0);
 
-	expander = gtk_expander_new_with_mnemonic (_("_Options"));
+	expander = gtk_expander_new_with_mnemonic (_("_Advanced"));
 	self->expander = expander;
 	gtk_box_pack_start (GTK_BOX (header), expander, TRUE, TRUE, 0);
 	g_signal_connect (expander, "notify::expanded", G_CALLBACK (expander_toggled), self);

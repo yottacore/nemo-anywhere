@@ -239,6 +239,34 @@ send_key (GtkWidget *dialog, guint keyval, GdkModifierType state)
 	return coded;
 }
 
+/* Views draws a line under its two per-folder boxes, above the Default and
+   Current sub-tabs (2026101816495205). */
+static void
+test_per_folder_line (GtkWidget *dialog)
+{
+	GtkWidget *remember = find_named (dialog, "remember_folder_settings_checkbutton");
+	GtkWidget *line = find_named (dialog, "per_folder_separator");
+	GtkWidget *stack = find_named (dialog, "views_stack");
+
+	check (remember != NULL && line != NULL && stack != NULL);
+	if (remember == NULL || line == NULL || stack == NULL) {
+		return;
+	}
+	check (GTK_IS_SEPARATOR (line));
+	check (gtk_widget_get_visible (line));
+	check (gtk_widget_get_parent (line) == gtk_widget_get_parent (remember));
+	check (gtk_widget_get_parent (line) == gtk_widget_get_parent (stack));
+	if (GTK_IS_BOX (gtk_widget_get_parent (line))) {
+		GtkBox *box = GTK_BOX (gtk_widget_get_parent (line));
+		int at_remember, at_line, at_stack;
+
+		gtk_container_child_get (GTK_CONTAINER (box), remember, "position", &at_remember, NULL);
+		gtk_container_child_get (GTK_CONTAINER (box), line, "position", &at_line, NULL);
+		gtk_container_child_get (GTK_CONTAINER (box), stack, "position", &at_stack, NULL);
+		check (at_remember < at_line && at_line < at_stack);
+	}
+}
+
 static void
 test_tabs_take_no_focus (GtkWidget *dialog)
 {
@@ -719,6 +747,7 @@ main (int argc, char *argv[])
 	check (dialog != NULL);
 	if (dialog != NULL) {
 		test_widgets (dialog);
+		test_per_folder_line (dialog);
 		test_tabs_take_no_focus (dialog);
 		test_sub_tabs (dialog);
 		test_bulk_rename (dialog);

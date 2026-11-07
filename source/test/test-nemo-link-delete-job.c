@@ -115,6 +115,21 @@ check_starts_on_cancel (GtkWidget *dialog, GList *buttons)
 	}
 }
 
+/* A link is among the picked items, so the delete question's second line
+   says a link goes on its own. */
+static void
+check_says_links_stay (GtkWidget *dialog)
+{
+	char *secondary = NULL;
+
+	g_object_get (dialog, "secondary-text", &secondary, NULL);
+	check (secondary != NULL && strstr (secondary, "A link is deleted on its own") != NULL);
+	if (secondary == NULL || strstr (secondary, "A link is deleted on its own") == NULL) {
+		g_printerr ("delete question's second line: %s\n", secondary != NULL ? secondary : "(none)");
+	}
+	g_free (secondary);
+}
+
 /* The go-ahead is the last button on every dialog these jobs put up. An error
    dialog gets its last button too, which is Skip, and says so on stderr. */
 static gboolean
@@ -136,6 +151,9 @@ answer_dialogs (G_GNUC_UNUSED gpointer data)
 			g_object_get (l->data, "text", &text, NULL);
 		}
 		g_printerr ("answering: %s\n", text != NULL ? text : "(a dialog)");
+		if (text != NULL && g_str_has_prefix (text, "Are you sure you want to permanently delete")) {
+			check_says_links_stay (l->data);
+		}
 		g_free (text);
 
 		area = gtk_dialog_get_action_area (GTK_DIALOG (l->data));
