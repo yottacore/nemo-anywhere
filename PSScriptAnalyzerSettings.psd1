@@ -19,9 +19,11 @@
 		'PSUseBOMForUnicodeEncodedFile'
 
 		# Does not see a parameter used from the script body or from inside a
-		# script block, so it names eleven switches in cicd-win.ps1 and one in
+		# script block, so it names switches in cicd-win.ps1 and one in
 		# pack-portable.ps1 that are all read a few lines later. Checked by
-		# hand. (-Quick really is a no-op there, which is its own open item.)
+		# hand. (-Quick really is a no-op there, which is its own open item.
+		# So are -Long, -Leakcheck, -NoLeakcheck, -NoContainer and -NoRemote,
+		# taken so a command line for cicd.bash works there.)
 		'PSReviewUnusedParameter'
 	)
 }

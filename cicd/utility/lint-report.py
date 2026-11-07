@@ -24,6 +24,8 @@ SEEN_FILE = ".lint-seen"  # marker basename, kept in the lint dir - outside the 
 NAME_RE   = re.compile(r"run_(\d{8}-\d{6})(_\w+)?\.log$")
 ## Whole words only, so -Werror, halt_on_error=1 and "errors test" stay out.
 FLAG_RE   = re.compile(r"(?i)\b(warn(ing)?s?|error|deprecat\w*|critical|fatal)\b")
+## A result line that passed or skipped never counts, even when its name says "warning".
+OK_RE     = re.compile(r"^\s*(\[ (OK|SKIP)\b|(PASS|SKIP)\s)")
 EVEN_OUT  = [
     (re.compile(r"\x1b\[[0-9;]*m"), ""),
     (re.compile(r"/var/folders/[^/\s]+/[^/\s]+/T/"), "$TMP/"),
@@ -44,7 +46,7 @@ def flagged(path):
     out = {}
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
-            if FLAG_RE.search(line):
+            if FLAG_RE.search(line) and not OK_RE.match(line):
                 out.setdefault(even_out(line), None)
     return list(out)
 
@@ -92,9 +94,14 @@ def self_test():
             "-Werror halt_on_error=1 errors test OK\n"
             "x: deprecated thing in /tmp/tmp.Ab12Cd34/f-Zq9xYw/g\n"
             "x: deprecated thing in /tmp/tmp.Ab12Cd34/f-Zq9xYw/g\n"
-            "ERROR: brand new\n")
+            "ERROR: brand new\n"
+            "[ OK: with no session, a warning and the gate's pass ]\n"
+            "PASS dsome1 an error is reported\n"
+            "SKIP dsome2 no deprecated tool here\n"
+            "[ SKIP: no warning check on this box ]\n"
+            "WARNING: a real one\n")
         got = unseen(d, logs_in(d)[-1][1])
-        want = ["x: deprecated thing in /tmp/tmp.X/f-X/g", "ERROR: brand new"]
+        want = ["x: deprecated thing in /tmp/tmp.X/f-X/g", "ERROR: brand new", "WARNING: a real one"]
         if got != want:
             failures.append(f"unseen gave {got}")
         if len(unseen(d, "run_20261001-100000_day.log")) != 2:

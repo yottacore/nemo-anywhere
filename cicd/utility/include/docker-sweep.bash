@@ -9,7 +9,7 @@
 ##	  volumes whose clone is gone, such as a removed worktree's. Prints one
 ##	  line with what went and about what it freed.
 ##	  Needs CICD_PROJECT and CICD_RUN, which fRunTemp_Make sets. With
-##	  runTempKeep=1 the run's containers stay.
+##	  runTempKeep=1 the run's containers stay, and it names them.
 ##	- Never docker rmi -f or docker system prune, so an image in use stays put.
 ##	- No build cache prune either. The default builder is shared by every
 ##	  project, and the daemon trims it through builder.gc in daemon.json.
@@ -39,17 +39,19 @@ fDockerSweep_Bytes(){
 
 fDockerSweep(){
 	local project="${CICD_PROJECT:-}" run="${CICD_RUN:-}" before after freed id name ref src
-	local containers=0 images=0 volumes=0
+	local containers=0 images=0 volumes=0 kept=()
 	[[ -n "${project}" && -n "${run}" ]] || return 0
 	if ! command -v docker > /dev/null 2>&1 || ! timeout 10 docker info > /dev/null 2>&1; then return 0; fi
 	before="$(fDockerSweep_Bytes)"
-	if ((! ${runTempKeep:-0})); then
-		while read -r id name; do
-			if [[ -n "${id}" && " ${*} " != *" ${name} "* ]] && docker rm -f "${id}" > /dev/null 2>&1; then
-				containers=$((containers + 1))
-			fi
-		done < <(docker ps -a --filter "label=dev.project=${project}" --filter "label=dev.run=${run}" --format '{{.ID}} {{.Names}}' 2> /dev/null)
-	fi
+	while read -r id name; do
+		[[ -n "${id}" && " ${*} " != *" ${name} "* ]] || continue
+		if ((${runTempKeep:-0})); then
+			kept+=("${name}")
+		elif docker rm -f "${id}" > /dev/null 2>&1; then
+			containers=$((containers + 1))
+		fi
+	done < <(docker ps -a --filter "label=dev.project=${project}" --filter "label=dev.run=${run}" --format '{{.ID}} {{.Names}}' 2> /dev/null)
+	((${#kept[@]} == 0)) || printf "[ kept the run's containers: %s ]\n" "${kept[*]}"
 	while read -r id; do
 		if [[ -n "${id}" ]] && docker rmi "${id}" > /dev/null 2>&1; then images=$((images + 1)); fi
 	done < <(docker images -q --filter dangling=true --filter "label=dev.project=${project}" 2> /dev/null)
@@ -78,3 +80,4 @@ fDockerSweep(){
 ##		- 2026-10-25: Created.
 ##		- 2026-11-03: No build cache prune. It reached other projects' cache.
 ##		- 2026-11-03: Removes the cache volumes of a clone that's gone.
+##		- 2026-11-06: Names the containers --keep-temp keeps.

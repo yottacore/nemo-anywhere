@@ -9,9 +9,16 @@
 ##		  FAIL when it dies, numbered out of the steps the plan has on, and the
 ##		  plan lists the ones turned off with why. -NoTests leaves the tests
 ##		  and smoke checks out, in the gate and the full run.
+##		- cicd.bash's flags: -BacklogRunQuick with and without areas,
+##		  -BacklogRunFull, -MergeGate, -Gate and -Ci with their one line, the
+##		  ones that change nothing, and the mixes refused. -List prints each
+##		  step's test IDs from a small tree and runs nothing, with a plain run
+##		  of the same copy as the control. Piped, the step rule is still 79
+##		  bullets in UTF-8.
 ##		- Each run makes its own run folder, names it in the plan, and removes
 ##		  it at the end, failed or not, unless -KeepTemp keeps it. An old one a
 ##		  dead run left is swept.
+##		- The MSYS2 shell the steps run in finds the pwsh running the script.
 ##		- Runs in the lint stage.
 ##	Syntax:
 ##		pwsh -NoProfile -File cicd/utility/test-cicd-win.ps1
@@ -82,7 +89,41 @@ for ($n = 1; $n -le 999 -and -not $scratch; $n++) {
 }
 if (-not $scratch) { Write-Host "[ FAILED: no scratch folder under $base ]"; exit 1 }
 
+## The copies write UTF-8 into a pipe, which is read here in the console's
+## code page unless told. Put back at the end, since the console is shared.
+$savedOutEncoding = [Console]::OutputEncoding
+try { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) } catch { $savedOutEncoding = $null }
+
 try {
+	## The MSYS2 shell finds the pwsh running the script, which its login PATH
+	## leaves out, so lint's script tests run there. Off Windows a stand-in
+	## takes -lc as a plain -c, with nothing else on PATH.
+	foreach ($name in 'fToMsysPath', 'fMingw') {
+		$def = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $true)
+		if (-not $def) { throw "cicd-win.ps1 has no $name" }
+		. ([scriptblock]::Create($def.Extent.Text))
+	}
+	$script:Root = $scratch
+	$script:Jobs = 1
+	$MsysBash = if ($IsWindows) { 'C:\msys64\usr\bin\bash.exe' } else { Join-Path $scratch 'msys-bash' }
+	$envWas = @{}
+	foreach ($name in 'PATH', 'MSYSTEM', 'CHERE_INVOKING', 'MSYS2_PATH_TYPE') { $envWas[$name] = [Environment]::GetEnvironmentVariable($name) }
+	try {
+		if ($IsWindows) { $env:MSYS2_PATH_TYPE = 'minimal' }
+		else {
+			[IO.File]::WriteAllText($MsysBash, "#!/bin/sh`nshift`nexec /bin/sh -c `"`$1`"`n")
+			[IO.File]::SetUnixFileMode($MsysBash, [IO.UnixFileMode]'UserRead, UserWrite, UserExecute')
+			$env:PATH = (New-Item -ItemType Directory -Path (Join-Path $scratch 'empty-path')).FullName
+		}
+		if (-not (Test-Path -LiteralPath $MsysBash)) { Write-Host "[ MSYS2 pwsh check skipped: no $MsysBash ]" }
+		else {
+			$found = "$(fMingw 'command -v pwsh')".Trim()
+			if ($script:MingwRc -ne 0 -or $found -notlike "$(fToMsysPath $PSHOME)/pwsh*") { fFail "the MSYS2 shell doesn't find this pwsh: rc $($script:MingwRc), '$found'" }
+		}
+	} finally {
+		foreach ($name in $envWas.Keys) { [Environment]::SetEnvironmentVariable($name, $envWas[$name]) }
+	}
+
 	## The copy: Windows check off, MSYS2 nowhere, and stubs for each step's
 	## work after the real functions, so the real plan and step code run. The stubs say
 	## the job count and priority they ran at, and die when told to.
@@ -260,9 +301,109 @@ function fPublish { param($Msg); fStub fPublish }
 	fRun 'full, -BuildStrict, no toolchain' @('-Yes', '-Message', 'x', '-BuildStrict') -Vars @{ T_TOOLMISS = '1' } -Steps (@($full[0]) + $full[2..8]) `
 		-Off 'Lints (toolchain missing)' -Rc 1 -Failed 'Build (debug)' | Out-Null
 	fRun 'full, pack fails' @('-Yes', '-Message', 'x') -Vars @{ T_FAIL = 'fPack' } -Steps $full -Rc 1 -Failed 'Packages' | Out-Null
+
+	## cicd.bash's flags. -Gate and -Ci say what they're other names for.
+	$out = fRun '-BacklogRunQuick' @('-BacklogRunQuick') -Steps $gate
+	if ($out -match 'another name') { fFail "-BacklogRunQuick: says it's another name" }
+	$out = fRun 'gate' @('-Gate') -Steps $gate
+	if (@($out -match '^\[ -Gate is another name for -BacklogRunQuick \]$').Count -ne 1) { fFail "-Gate: no one line saying it's another name for -BacklogRunQuick" }
+	fRun '-BacklogRunQuick lint' @('-BacklogRunQuick', 'lint') -Steps @('Lints') `
+		-Off 'Build (debug) (area not named)', 'Tests (area not named)', 'Smoke checks (area not named)' | Out-Null
+	fRun '-BacklogRunQuick tests' @('-BacklogRunQuick', 'tests') -Steps $gate[1..3] -Off 'Lints (area not named)' | Out-Null
+	fRun '-BacklogRunQuick format lint tests' @('-BacklogRunQuick', 'format', 'lint', 'tests') -Steps $gate `
+		-Off 'Format check (none on Windows; it runs on Linux)' | Out-Null
+	fRun 'no-op flags' @('-BacklogRunQuick', '-Slow', '-Leakcheck', '-NoLeakcheck', '-NoContainer', '-NoRemote', '-q', '-y') -Steps $gate | Out-Null
+	$checks = @('Lints', 'Build (debug)', 'Tests', 'Smoke checks', 'Runtime bundle', 'Packages')
+	foreach ($mode in '-MergeGate', '-BacklogRunFull', '-Ci') {
+		$named = if ($mode -eq '-Ci') { '-MergeGate' } else { $mode }
+		## No -Yes and no -Message: a run of checks only never asks.
+		$out = fRun $mode @($mode) -Steps $checks -Off "Remote sync ($named)", "Dogfood ($named)", "Publish ($named)"
+		$ran = @($out | Where-Object { $_ -match '^ran (\w+) ' } | ForEach-Object { $Matches[1] }) -join ','
+		if ($ran -ne 'fLint,fBuild,fTests,fSmoke,fGuiSmoke,fStage,fPack') { fFail "${mode}: ran $ran" }
+		if (($mode -eq '-Ci') -ne [bool]($out -match '^\[ -Ci is another name for -MergeGate \]$')) { fFail "${mode}: the line for -Ci is wrong" }
+	}
+	foreach ($bad in @(
+			@(@('-BacklogRunQuick', 'bogus'), 'unknown area: bogus'),
+			@(@('-MergeGate', 'lint'), 'areas go after -BacklogRunQuick'),
+			@(@('-Gate', '-MergeGate'), 'pick one of -BacklogRunQuick and -MergeGate'),
+			@(@('-BacklogRunFull', '-Ci'), 'pick one of -BacklogRunFull and -MergeGate'))) {
+		$out = @(& pwsh -NoProfile -File $copy @($bad[0]) 2>&1 | ForEach-Object { "$_" })
+		if ($LASTEXITCODE -ne 2 -or -not ($out -match [regex]::Escape($bad[1]))) { fFail "$($bad[0] -join ' '): exit $LASTEXITCODE, not 2 with '$($bad[1])'" }
+	}
+
+	## -List: the steps the other flags give, each with its tests, and nothing
+	## run. A tree with a test of each kind, and test-id.py to read it.
+	foreach ($dir in 'cicd/linux', 'cicd/win') { New-Item -ItemType Directory -Force -Path (Join-Path $scratch $dir) | Out-Null }
+	Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'test-id.py') -Destination (Join-Path $copyDir 'utility/test-id.py')
+	Set-Content -LiteralPath (Join-Path $scratch 'source/meson.build') -Value "project('x', 'c', version : '1.2.3')`ntest('d0001 One', exe)`ntest('d0006 Six', exe)"
+	Set-Content -LiteralPath (Join-Path $scratch 'cicd/utility/lint.bash') -Value "here=`"`$(dirname `"`${BASH_SOURCE[0]}`")`"`nbash `"`${here}/test-a.bash`"`necho `"[ test-b.bash skipped ]`""
+	Set-Content -LiteralPath (Join-Path $scratch 'cicd/utility/lint-c.bash') -Value ''
+	Set-Content -LiteralPath (Join-Path $scratch 'cicd/linux/fuzz.bash') -Value ''
+	Set-Content -LiteralPath (Join-Path $scratch 'cicd/utility/test-a.bash') -Value '## Test ID: d0002'
+	Set-Content -LiteralPath (Join-Path $scratch 'cicd/utility/test-b.bash') -Value '## Test ID: d0003'
+	Set-Content -LiteralPath (Join-Path $scratch 'cicd/win/test-install-holders.ps1') -Value '## Test ID: d0004'
+	Set-Content -LiteralPath (Join-Path $scratch 'cicd/win/gui-launch-smoke.ps1') -Value '## Test ID: d0005'
+	## The IDs listed under a step.
+	function fUnder {
+		param([string]$Step, [string[]]$Lines)
+		$on = $false
+		$ids = foreach ($line in $Lines) {
+			if ($line -match '^Step \d+ of \d+; (.+)$') { $on = ($Matches[1] -eq $Step); continue }
+			if ($on -and $line -match '^    (\S+) ') { $Matches[1] }
+		}
+		return (@($ids) -join ' ')
+	}
+	$logDir = Join-Path $scratch 'cicd/artifacts/lint-win'
+	## The full runs above left their logs there.
+	if ((Test-Path -LiteralPath $logDir) -and -not (Remove-SafeTree -LiteralPath $logDir -Under $scratch)) { fFail "couldn't remove $logDir" }
+	$out = @(& pwsh -NoProfile -File $copy -List -NoSync 2>&1 | ForEach-Object { "$_" })
+	if ($LASTEXITCODE -ne 0) { fFail "-List: exit $LASTEXITCODE"; $out | Select-Object -Last 10 | ForEach-Object { Write-Host "    $_" } }
+	if (-not ($out -match '^Step 1 of 8; Lints$')) { fFail "-List: no 'Step 1 of 8; Lints' line" }
+	if ((fUnder 'Lints' $out) -ne 'd0002') { fFail "-List: Lints lists '$(fUnder 'Lints' $out)', not d0002 alone, the echoed d0003 left out" }
+	if ((fUnder 'Tests' $out) -ne 'd0004 d0001 d0006') { fFail "-List: Tests lists '$(fUnder 'Tests' $out)', not d0004 d0001 d0006" }
+	if ((fUnder 'Smoke checks' $out) -ne 'd0005') { fFail "-List: Smoke checks lists '$(fUnder 'Smoke checks' $out)', not d0005" }
+	if (-not ($out -match '^    - Remote sync \(-NoSync\)$')) { fFail "-List: the steps turned off aren't listed" }
+	foreach ($not in '^ran ', '^probe at ', '^Run folder ', '^jobs ', '^Fail-fast') {
+		if ($out -match $not) { fFail "-List: ran something, a line matches '$not'" }
+	}
+	if (@(Get-ChildItem -LiteralPath $runBase -Force).Count) { fFail "-List made a run folder" }
+	if (Test-Path -LiteralPath $logDir) { fFail "-List started a run log" }
+	if ($out.Count -eq 0 -or $out[-1] -ne '') { fFail "-List: doesn't end with a blank line" }
+	$out = @(& pwsh -NoProfile -File $copy -List -BacklogRunQuick lint 2>&1 | ForEach-Object { "$_" })
+	if (-not ($out -match '^Step 1 of 1; Lints$') -or -not ($out -match '-List -BacklogRunQuick lint')) { fFail "-List -BacklogRunQuick lint: not Lints alone" }
+	$out = @(& pwsh -NoProfile -File $copy -List -MergeGate 2>&1 | ForEach-Object { "$_" })
+	if (-not ($out -match '^Step 6 of 6; Packages$')) { fFail "-List -MergeGate: not 6 steps" }
+	Set-Content -LiteralPath $list -Value "d0006 Six"
+	$out = @(& pwsh -NoProfile -File $copy -List -TestList $list 2>&1 | ForEach-Object { "$_" })
+	if ((fUnder 'Tests' $out) -ne 'd0006') { fFail "-List -TestList: Tests lists '$(fUnder 'Tests' $out)', not the named d0006 alone" }
+	## The control: the same copy without -List leaves a log.
+	fRun 'full, the -List control' @('-Yes', '-Message', 'x') -Steps $full | Out-Null
+	if (-not (Test-Path -LiteralPath $logDir)) { fFail "a plain run left no log, so the -List check proves nothing" }
+
+	## Piped, the rule is still 79 bullets in UTF-8, not the console code page's
+	## stand-in. Read as bytes, since a decode here would hide it. A code page
+	## with no bullet: LC_ALL off Windows, and on Windows 437 on the console,
+	## which the copy shares, since this test set it to UTF-8 above.
+	if ($IsWindows) { [Console]::OutputEncoding = [Text.Encoding]::GetEncoding(437) }
+	$psi = [Diagnostics.ProcessStartInfo]::new((Join-Path $PSHOME $(if ($IsWindows) { 'pwsh.exe' } else { 'pwsh' })))
+	foreach ($a in '-NoProfile', '-File', $copy, '-Gate') { $psi.ArgumentList.Add($a) }
+	$psi.RedirectStandardOutput = $true
+	$psi.UseShellExecute = $false
+	$psi.Environment['LC_ALL'] = 'en_US.ISO-8859-1'
+	$proc = [Diagnostics.Process]::Start($psi)
+	$mem = [IO.MemoryStream]::new()
+	$proc.StandardOutput.BaseStream.CopyTo($mem)
+	$proc.WaitForExit()
+	if ($IsWindows) { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) }
+	$bytes = $mem.ToArray()
+	$hex = [BitConverter]::ToString($bytes)
+	$want = [BitConverter]::ToString([Text.Encoding]::UTF8.GetBytes($rule))
+	if (-not $hex.Contains($want)) { fFail "piped, the rule isn't 79 bullets in UTF-8: $(([BitConverter]::ToString($bytes[0..([Math]::Min(40, $bytes.Count - 1))])))" }
+	if ($bytes -contains 7) { fFail "piped, the output has a bell character in it" }
 	$left = @(Get-ChildItem -LiteralPath $runBase -Force)
 	if ($left.Count) { fFail "run folders left: $($left.Name -join ', ')" }
 } finally {
+	if ($savedOutEncoding) { try { [Console]::OutputEncoding = $savedOutEncoding } catch { $null = $_ } }
 	foreach ($name in $saved.Keys) { [Environment]::SetEnvironmentVariable($name, $saved[$name]) }
 	if (Test-Path variable:savedHostTemp) { $env:HOST_TEMP = $savedHostTemp }
 	## Only the folder this test made, right under the one parent it may use.

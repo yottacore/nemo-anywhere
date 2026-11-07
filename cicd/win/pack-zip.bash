@@ -16,7 +16,7 @@
 
 ##	History: At bottom of script.
 
-##	Copyright (c) 2026 Bubbles
+##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT

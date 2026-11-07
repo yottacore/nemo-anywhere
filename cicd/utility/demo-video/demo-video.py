@@ -31,6 +31,7 @@
 ##		demo-video.py [--profile video,gif] [--segments a,b,...] [--seed N]
 ##		              [--keep-work] [--no-rotate] [--no-asset] [--display :94]
 ##		              [--out-dir DIR] [--shot FILE]
+##		demo-video.py --self-test
 ##		Env: NEMO_BIN overrides the binary (default: the release prefix staged at
 ##		cicd/artifacts/dogfood).
 ##		--shot brings the display and the app up, writes one screenshot and stops.
@@ -41,6 +42,7 @@
 ##		flashed white (xsetroot) at a recorded wall-clock time; the bright frame
 ##		is found in the capture afterwards, anchoring every event epoch to video
 ##		time exactly. Sound assets + licenses live in ./sounds/ (see LICENSES.txt).
+##	Test ID: dez8j
 ##	History: at bottom.
 
 ##	Copyright (c) 2026 Bubbles
@@ -706,8 +708,9 @@ class Mouse:
         self.pos = (x, y)
 
     def click(self, quiet=False, button="1"):
-        self.rec.xdo("click", button)
+        # logged first, since the press goes out at the start of the call
         self.rec.ev("mouse:CLICK_Q" if quiet else "mouse:CLICK")
+        self.rec.xdo("click", button)
 
     def rclick(self):
         self.click(button="3")
@@ -1247,6 +1250,13 @@ def synth_wheel(sr):
     mix /= np.abs(mix).max() + 1e-9
     return np.stack([mix, mix], axis=1).astype(np.float32) * 0.28
 
+def trim_onset(pcm):
+    # the click files have about 0.16 s of quiet before the click itself, and an
+    # event places a file's start, so cut to the first sample over 20% of the peak
+    loud = np.abs(pcm).max(axis=1)
+    onset = int(np.argmax(loud > 0.2 * loud.max()))
+    return pcm[max(0, onset - SR // 500):]
+
 def load_samples(work):
     cache = {}
     for kind, path in SOUND_FILES.items():
@@ -1255,7 +1265,7 @@ def load_samples(work):
             "-ar", str(SR), "-ac", "2", "-f", "wav", str(wav)])
         with wave.open(str(wav), "rb") as w:
             data = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
-        cache[kind] = data.astype(np.float32).reshape(-1, 2) / 32768.0
+        cache[kind] = trim_onset(data.astype(np.float32).reshape(-1, 2) / 32768.0)
     load_keypack(work, cache)
     cache["mouse:WHEEL"] = synth_wheel(SR)
     return cache
@@ -1564,7 +1574,70 @@ def record(args, name, seed):
     finally:
         rec.cleanup()
 
+def self_test():
+    # onset trim, and every Mouse event logged before its xdotool call
+    print("[ Test %s demo-video.py --self-test ]"
+        % re.search(r"(?m)^##\tTest ID: (\S+)$", Path(__file__).read_text(encoding="utf-8")).group(1))
+    failures = []
+
+    quiet = int(0.16 * SR)
+    pcm = np.zeros((quiet + SR // 10, 2), dtype=np.float32)
+    pcm[:quiet] = 0.01                                # noise floor, under 20% of the peak
+    pcm[quiet:, :] = 0.8
+    got = trim_onset(pcm)
+    lead = quiet - (len(pcm) - len(got))
+    if not 0 <= lead <= SR // 100:
+        failures.append(f"trim_onset left {lead} samples before the click")
+    if trim_onset(np.full((100, 2), 0.5, dtype=np.float32)).shape != (100, 2):
+        failures.append("trim_onset cut a sample that starts at once")
+
+    if shutil.which("ffmpeg"):
+        with tempfile.TemporaryDirectory() as tmp:
+            for kind, s in load_samples(Path(tmp)).items():
+                if kind.startswith("mouse:CLICK"):
+                    first = int(np.argmax(np.abs(s).max(axis=1) > 0.02))
+                    if first > SR // 20:
+                        failures.append(f"{kind} still has {first / SR:.3f} s of lead")
+
+    class Rec:
+        def __init__(self):
+            self.calls = []
+        def pt(self, x, y):
+            return (x, y)
+        def ev(self, kind):
+            self.calls.append(("ev", kind))
+        def xdo(self, *a):
+            self.calls.append(("xdo", a[0]))
+    rec = Rec()
+    mouse = Mouse(rec, random.Random(1))
+    real_sleep, time.sleep = time.sleep, lambda _t: None
+    try:
+        mouse.click()
+        mouse.click(quiet=True)
+        mouse.double()
+        mouse.drag(1, 1, 2, 2, dur=0.1)
+        mouse.wheel(True, 2)
+    finally:
+        time.sleep = real_sleep
+    for i, (what, arg) in enumerate(rec.calls):
+        if what == "xdo" and arg in ("click", "mousedown", "mouseup"):
+            if i == 0 or rec.calls[i - 1][0] != "ev":
+                failures.append(f"xdotool {arg} (call {i}) not preceded by its event")
+    n_ev = sum(1 for c in rec.calls if c[0] == "ev")
+    if n_ev != 1 + 1 + 2 + 2 + 2:
+        failures.append(f"logged {n_ev} events, expected 8")
+
+    for failure in failures:
+        print(f"[ FAIL: demo-video self-test: {failure} ]")
+    if failures:
+        print(f"[ FAILED: demo-video self-test, {len(failures)} problem(s) ]")
+        return 1
+    print("[ OK: demo-video self-test ]")
+    return 0
+
 def main():
+    if sys.argv[1:] == ["--self-test"]:
+        sys.exit(self_test())
     ap = argparse.ArgumentParser(description="Record the nemo-anywhere demo video + gif.")
     ap.add_argument("--display", default="",
         help=f"pin a display; default searches from {DEFAULT_DISPLAY} down")

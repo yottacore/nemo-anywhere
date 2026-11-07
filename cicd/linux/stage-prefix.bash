@@ -13,7 +13,7 @@
 ##	  A build with the shared extension library finds it through an $ORIGIN rpath.
 ##	- Syntax: stage-prefix.bash <build-dir> <dest-dir>   (dest is wiped and rebuilt)
 
-##	Copyright (c) 2026 Bubbles
+##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT

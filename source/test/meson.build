@@ -700,13 +700,15 @@ test('dczsk Primary mask test',
   args: []
 )
 
+# Holds a menu open, so alone on Windows, as dd5dc.
 test('dcd70 Entry context menu test',
   executable('test-nemo-entry-menu',
     [ 'test-nemo-entry-menu.c' ],
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch ],
   ),
-  args: []
+  args: [],
+  is_parallel: not is_windows,
 )
 
 # Its binary files are written from literals with NULs inside, and a wrong
@@ -1500,6 +1502,21 @@ if not is_windows
       dependencies: [ glib, gio, test_scratch ],
     ),
     args: [ nemo, places_focus_probe ],
+    timeout: 120
+  )
+
+  # Preloaded too; it opens a bookmark in a new tab from inside the program.
+  tab_columns_probe = shared_module('test-nemo-tab-columns-probe',
+    [ 'test-nemo-tab-columns-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('deza3 New tab column widths test',
+    executable('test-nemo-tab-columns',
+      [ 'test-nemo-tab-columns.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, tab_columns_probe ],
     timeout: 120
   )
 

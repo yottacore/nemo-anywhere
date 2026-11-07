@@ -8,7 +8,7 @@
 ##	    goes to a folder of its own under the box's %ProgramData%, which
 ##	    wintest can reach too, named <YYYYmmDD-HHMMSS>_<NNN>, counting up past
 ##	    a name that's taken.
-##	  - The gate gets -Gate -Yes -NoSync, its log is printed here, and its exit
+##	  - The gate gets -BacklogRunQuick -Yes -NoSync, its log is printed here, and its exit
 ##	    code is the lane's. The folder is removed after, on a failure too.
 ##	  - With b29w gone, vm925w is taken through the VM state helper, even
 ##	    while it's off. With neither there, the lane exits 77 before any lock
@@ -159,7 +159,7 @@ if ((laneRc == 0)); then
 	fi
 	cmp -s "${scratch}/sent/lane-box.ps1" "${repo}/cicd/win/lane-box.ps1" || fFail "lane-box.ps1 was not sent"
 	cmp -s "${scratch}/sent/run-temp.ps1" "${repo}/cicd/utility/include/run-temp.ps1" || fFail "run-temp.ps1 was not sent"
-	grep -qE "^ssh b29w pwsh .*lane-box\\.ps1 -Dir ${dirRe}001 -Start -GateArgs Gate,Yes,NoSync\$" "$log" || fFail "the gate was not started with -Gate -Yes -NoSync"
+	grep -qE "^ssh b29w pwsh .*lane-box\\.ps1 -Dir ${dirRe}001 -Start -GateArgs BacklogRunQuick,Yes,NoSync\$" "$log" || fFail "the gate was not started with -BacklogRunQuick -Yes -NoSync"
 	grep -q '^PASS ddzzz a test on the box  0.10s$' "${scratch}/out.log" || fFail "the gate's log was not printed"
 	grep -qE "^ssh b29w pwsh .*lane-box\\.ps1 -Dir ${dirRe}001 -Remove\$" "$log" || fFail "the work folder was not removed"
 	grep -q 'Windows 3 of 4; PASS Gate ]' "${scratch}/out.log" || fFail "no PASS line for the gate"
@@ -256,9 +256,9 @@ else
 fi
 
 printf 'ddzzq one handed on\n\nddzzr another\n' > "$handList"
-fLane "${scratch}/x_vm-state.bash" FAKE_VMS=vm925w FAKE_RC=0 FAKE_DRC=0 NEMO_WIN_DESKTOP_LIST="$handList" NEMO_WIN_GATE_ARGS="-Gate -Yes -NoSync -NoFmt -NoTests" -- vm925w
+fLane "${scratch}/x_vm-state.bash" FAKE_VMS=vm925w FAKE_RC=0 FAKE_DRC=0 NEMO_WIN_DESKTOP_LIST="$handList" NEMO_WIN_GATE_ARGS="-BacklogRunQuick -Yes -NoSync -NoFmt -NoTests" -- vm925w
 if ((laneRc == 0)); then
-	grep -qE "^ssh vm925w pwsh .*lane-box\.ps1 -Dir ${dirRe}001 -Start -GateArgs Gate,Yes,NoSync,NoFmt,NoTests\$" "$log" || fFail "the next box's gate did not get -NoTests: $(grep -- '-Start' "$log")"
+	grep -qE "^ssh vm925w pwsh .*lane-box\.ps1 -Dir ${dirRe}001 -Start -GateArgs BacklogRunQuick,Yes,NoSync,NoFmt,NoTests\$" "$log" || fFail "the next box's gate did not get -NoTests: $(grep -- '-Start' "$log")"
 	[[ "$(cat "${scratch}/sent/desktop.txt" 2> /dev/null)" == $'ddzzq one handed on\nddzzr another' ]] || fFail "the desktop list is not the one handed on: $(cat "${scratch}/sent/desktop.txt" 2> /dev/null)"
 	grep -q '^ssh vm925w pwsh .* -Desktop -TestUser wintest$' "$log" || fFail "the handed-on tests did not run as wintest"
 	grep -q 'Windows 4 of 4; PASS Desktop tests ]' "${scratch}/out.log" || fFail "no PASS line for the handed-on tests"

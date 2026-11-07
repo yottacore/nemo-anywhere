@@ -21,6 +21,10 @@
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingCmdletAliases', '',
+	Justification = 'rm is the unix one, run only off Windows, where it is no alias.')]
+param()
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 Write-Host "[ Test $((Select-String -LiteralPath $PSCommandPath -Pattern '^##\s+Test ID: (\S+)$').Matches[0].Groups[1].Value) $(Split-Path -Leaf $PSCommandPath) ]"
@@ -148,6 +152,27 @@ try {
 	$env:HOST_TEMP = Join-Path $scratch 'ht-link'
 	fRefused 'a project whole folder, HOST_TEMP through a link' @((Join-Path $t 'proj')) -Says "project's whole folder"
 	fRefused 'the temp root, HOST_TEMP through a link' @($t) -Says "project's whole folder"
+	## Short (8.3) names on Windows: HOST_TEMP in one form and the path in the
+	## other, and a run folder in short form still goes.
+	if ($IsWindows) {
+		$lt = Join-Path $t 'long-host-temp'
+		fTouch (Join-Path $lt 'long-project/run/f')
+		$fso = New-Object -ComObject Scripting.FileSystemObject
+		$st = $fso.GetFolder($lt).ShortPath
+		$sp = $fso.GetFolder((Join-Path $lt 'long-project')).ShortPath
+		if ($st -eq $lt -or (Split-Path -Leaf $sp) -eq 'long-project') { Write-Host "[ short name cases skipped: no 8.3 names made on $lt ]" }
+		else {
+			$env:CICD_PROJECT = 'long-project'
+			$env:HOST_TEMP = $st
+			fRefused 'a project whole folder, HOST_TEMP short' @((Join-Path $lt 'long-project')) -Says "project's whole folder"
+			fRefused 'the temp root, HOST_TEMP short' @($lt) -Says "project's whole folder"
+			$env:HOST_TEMP = $lt
+			fRefused 'a project whole folder, path short' @($sp) -Says "project's whole folder"
+			fRefused 'a project whole folder, last name short' @((Join-Path $lt (Split-Path -Leaf $sp))) -Says "project's whole folder"
+			fRefused 'the temp root, path short' @($st) -Says "project's whole folder"
+			if ((Remove-SafeTree -LiteralPath (Join-Path $sp 'run')) -ne $true -or (fThere (Join-Path $lt 'long-project/run'))) { fFail "a run folder in short form: not removed" }
+		}
+	}
 	$env:HOST_TEMP = $null; $env:CICD_PROJECT = $null
 
 	## Links.

@@ -5,7 +5,7 @@
 ##	  names, the project's dangling images and its tags past the newest 2 of
 ##	  each repository, and the cache volumes of a clone that's gone, then says
 ##	  what went in one line. A failed step and
-##	  SIGTERM get the same. --keep-temp keeps the containers. Never rmi -f, and
+##	  SIGTERM get the same. --keep-temp keeps the containers and names them. Never rmi -f, and
 ##	  no prune, the shared build cache's included. Off
 ##	  without DOCKER_SWEEP, and quiet when docker isn't there. A refused
 ##	  docker system df leaves the size unknown and the rest going. A copy of
@@ -112,6 +112,8 @@ fRun term 143;  fSwept term
 fRun "" 0 --keep-temp
 fNot keep "^rm "
 fHas keep "rmi d1"
+[[ "$lastOut" == *"[ kept the run's containers: app-run-step ]"* ]] || fFail "[keep]: did not name the kept container: $(tail -3 <<< "$lastOut")"
+[[ "$lastOut" != *"app-box"* ]] || fFail "[keep]: named a long-lived box as the run's"
 STUB_SWEEP=0 fRun "" 0
 fNot off "^(system|ps|rm|rmi|images|builder) "
 DOCKER_DOWN=1 fRun "" 0

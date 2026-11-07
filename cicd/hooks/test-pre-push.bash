@@ -88,7 +88,7 @@ printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "%s"\n' "$calls" > "${scrat
 chmod +x "${scratch}/bin/pwsh"
 PATH="${scratch}/bin:${PATH}"
 case "$(uname -s)" in
-	MINGW*|MSYS*|CYGWIN*) gateWant='*/cicd/cicd-win.ps1 -Gate -Yes' ;;
+	MINGW*|MSYS*|CYGWIN*) gateWant='*/cicd/cicd-win.ps1 -MergeGate' ;;
 	*)                    gateWant='--merge-gate' ;;
 esac
 git -C "$repo" init -q

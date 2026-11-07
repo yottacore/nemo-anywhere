@@ -51,6 +51,7 @@ fTest bash "${here}/test-package-checks.bash"
 fTest bash "${here}/test-lint-scope.bash"
 fTest bash "${here}/test-lint-image.bash"
 fTest bash "${here}/test-cicd-help.bash"
+fTest bash "${here}/test-cicd-list.bash"
 fTest bash "${here}/test-cicd-arm.bash"
 fTest bash "${here}/test-cicd-quick.bash"
 fTest bash "${here}/test-cicd-leakcheck.bash"
@@ -89,6 +90,11 @@ if [[ -n "$py" ]]; then
 	fTest "$py" "${here}/svg-min.py" --self-test
 	fTest "$py" "${here}/analyze.py" --self-test
 	fTest "$py" "${here}/lint-report.py" --self-test
+	if "$py" -c 'import numpy, scipy, PIL' >/dev/null 2>&1; then
+		fTest "$py" "${here}/demo-video/demo-video.py" --self-test
+	else
+		echo "[ demo-video self-test skipped: no numpy, scipy or Pillow ]"
+	fi
 	"$py" "${here}/test-id.py" --check
 else
 	echo "[ svg-min self-test and test ID check skipped: no python ]"

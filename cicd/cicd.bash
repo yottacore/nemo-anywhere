@@ -41,10 +41,10 @@
 ##	                       and remote dogfood, even with --include-arm or
 ##	                       --include-bsd
 ##	   --no-win            leave the native Windows gate out. It runs
-##	                       cicd-win.ps1 -Gate on b29w alongside the local
-##	                       steps, or on vm925w in its own step when b29w
-##	                       isn't there. The tests that need a desktop run
-##	                       on vm925w in that step either way
+##	                       cicd-win.ps1 -BacklogRunQuick on b29w alongside
+##	                       the local steps, or on vm925w in its own step
+##	                       when b29w isn't there. The tests that need a
+##	                       desktop run on vm925w in that step either way
 ##	   --no-container      run on the host. The GTK dev stack never goes on
 ##	                       the host, so that's the lints, with the host's
 ##	                       tools, and the run stops with one line at the
@@ -66,6 +66,10 @@
 ##	                       print where the folder is. Each run works in its
 ##	                       own folder under HOST_TEMP (or TMPDIR), removed at
 ##	                       the end, failure and Ctrl+C included
+##	   --list              print the steps and the test IDs the other options
+##	                       given would run, and run nothing. A step's tests
+##	                       are the ones its command and the scripts it runs
+##	                       name, so one that skips itself on a box is listed
 ##	   --shots             refresh README screenshots (off by default)
 ##	   --demo              re-record the demo video (off by default)
 ##	   --include-bsd       run the FreeBSD lane even with --quick (on by
@@ -114,10 +118,13 @@ set -Eeuo pipefail
 ## would otherwise go on just to print usage.
 ## --no-container too, since the container caps go on before the options are read.
 ## Only the flag sets it here, so a test's copy run under such a run decides alone.
+## --list too, which leaves the CPU scope and the container caps alone.
 unset CICD_NO_CONTAINER
+listOnly=0
 for arg in "$@"; do case "$arg" in
 	-h|--help) sed -n '/^##	- Purpose:/,/^##	History:/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##	\{0,1\}//'; exit 0 ;;
 	--no-container) export CICD_NO_CONTAINER=1 NEMO_LINT_HOST=1 ;;
+	--list) listOnly=1 ;;
 esac; done
 
 ## Find the repo root and load project config.
@@ -137,7 +144,7 @@ cores="$(nproc 2>/dev/null || echo 2)"
 ## runs threads of its own under each ninja job, and rar uses every core. So the
 ## whole run goes inside one user scope with a CPU quota, which everything it
 ## starts inherits. With no user systemd manager only the job counts apply.
-if [[ -z "${CICD_CPU_CAPPED:-}" ]] && command -v systemd-run >/dev/null 2>&1 \
+if ((! listOnly)) && [[ -z "${CICD_CPU_CAPPED:-}" ]] && command -v systemd-run >/dev/null 2>&1 \
 	&& systemd-run --user --scope -q true >/dev/null 2>&1; then
 	export CICD_CPU_CAPPED=1
 	exec systemd-run --user --scope -q -p "CPUQuota=$(( cores * 50 ))%" bash "${BASH_SOURCE[0]}" "${@}"
@@ -170,7 +177,7 @@ fCapContainers(){
 		docker update --cpus "${CICD_MAX_JOBS}" --cpu-shares 256 "$ctr" >/dev/null 2>&1 || true
 	done
 }
-fCapContainers
+((listOnly)) || fCapContainers
 source "${here}/utility/include/gfs-rotate.bash"                  ## gfs_rotate() for the profiler artifacts
 source "${here}/utility/include/source-date.bash"                 ## fSetSourceDate() for reproducible builds
 source "${here}/utility/include/run-temp.bash"                    ## the run folder, and fSafeRm()
@@ -225,7 +232,7 @@ while (($#)); do case "$1" in
 	--no-package)             PACKAGE_ENABLE=0; shift ;;
 	--no-private)             PRIVATE_RUNNER=""; shift ;;
 	--no-remote)              no_remote=1; shift ;;             ## wins over --include-arm and --include-bsd
-	--no-container)           shift ;;                          ## read before config.bash, above
+	--no-container|--list)    shift ;;                          ## read before config.bash, above
 	--no-profile)             PROFILE_ENABLE=0; shift ;;
 	--no-sanitize)            SANITIZE_CMD=(); shift ;;
 	--leakcheck)              leakcheck=1; shift ;;             ## the last of these 2 wins
@@ -336,7 +343,7 @@ fCross_Alongside(){
 publish_msg=""
 if   [[ -n "$cli_message" ]];              then publish_msg="$cli_message"
 elif [[ -n "${PUBLISH_AUTO_MESSAGE:-}" ]]; then publish_msg="$PUBLISH_AUTO_MESSAGE"
-elif ((assume_yes));                       then publish_msg="$(bash "${here}/utility/git-auto-msg.bash" --suggest)"
+elif ((assume_yes && ! listOnly));         then publish_msg="$(bash "${here}/utility/git-auto-msg.bash" --suggest)"
 fi
 
 ## Output helpers: fEcho / fEcho_Clean, blank-collapsing.
@@ -411,6 +418,49 @@ fPlan_Show(){
 	((${#stepOff[@]})) || return 0
 	fEcho_Clean "Turned off ..........:"
 	for x in "${stepOff[@]}"; do fEcho_Clean "    - ${x}"; done
+}
+## The command a step runs, which --list follows to the tests it runs.
+fStep_Cmd(){
+	local t
+	case "$1" in
+		"Format check")           echo "${FMT_CHECK_CMD[*]}" ;;
+		Format)                   echo "${FMT_CMD[*]}" ;;
+		"Build (debug)")          echo "${DEBUG_BUILD_CMD[*]}" ;;
+		Tests)                    echo "${TEST_CMD[*]}" ;;
+		Lints)                    echo "${LINT_CMD[*]}" ;;
+		Fuzzing)                  echo "${FUZZ_CMD[*]}" ;;
+		"Sanitizer suite")        echo "${SANITIZE_CMD[*]}" ;;
+		"FreeBSD suite")          echo "${BSD_TEST_CMD[*]}" ;;
+		"Dependency check")       echo "${DENY_CMD[*]}" ;;
+		"Scroll harness")         echo "${SCROLL_HARNESS[*]}" ;;
+		Profiler)                 echo "${PROFILE_CMD[*]:-}" ;;
+		"Release build (native)") echo "${RELEASE_NATIVE_CMD[*]}" ;;
+		"Release build: FreeBSD") echo "${BSD_RELEASE_CMD[*]}" ;;
+		"Release build: "*)       for t in "${CROSS_TARGETS[@]}"; do [[ "Release build: ${t%%|*}" != "$1" ]] || echo "${t#*|*|*|}"; done ;;
+		"Static analyzers")       echo "${ANALYZE_CMD[*]}" ;;
+		"Native Windows gate")    echo "${WIN_GATE_SIDE_CMD[*]} ${WIN_GATE_CMD[*]}" ;;
+		Packages)                 echo "${PACKAGE_CMDS[*]:-} ${PACKAGE_CHECKS[*]:-}" ;;
+		"Private runner")         echo "${PRIVATE_RUNNER:-}" ;;
+		Dogfood)                  echo "${DOGFOOD_HOOK[*]}" ;;
+		"Dogfood (remote)")       echo "${DOGFOOD_REMOTE[*]}" ;;
+		Screenshots)              echo "${shots_hook}" ;;
+		"Demo video")             echo "${demo_hook}" ;;
+		Publish)                  echo "${GIT_PUBLISH[*]}" ;;
+	esac
+}
+## --list: the plan, and each step with the test IDs it would run, then exit.
+## Nothing has run by here: no run folder, sweep, CPU scope or container cap.
+fList(){
+	local x cmd
+	fSection "${APP_NAME} --list${run_mode:+ ${run_mode}}${areas[*]:+ ${areas[*]}}"
+	fPlan_Show
+	fEcho_Clean
+	for x in "${stepList[@]}"; do
+		cmd="$(fStep_Cmd "$x")"
+		printf '%s\t%s\n' "$x" "${cmd//[$'\t\n']/ }"
+	done | python3 "${here}/utility/test-id.py" --list "${root}" || fDie "could not list the steps' test IDs"
+	fEcho_Clean
+	exit 0
 }
 ## Git that talks to the remote goes through gitsby where it is installed, so the
 ## fetch and pull use the key and account this repo belongs to. A fresh clone
@@ -540,8 +590,10 @@ trap 'rc=$?; printf "\n[ CICD ABORTED (exit %s) at line %s: %s ]\n" "$rc" "$LINE
 ## Everything the run writes to a temp folder goes in its own run folder, which
 ## is removed at the end whatever the outcome, along with the run's containers
 ## when DOCKER_SWEEP is on. The signal traps turn Ctrl+C into an exit, so the
-## EXIT trap runs.
-fRunTemp_Make "${EXE_NAME}" "${stamp}" || fDie "could not make a run folder under ${HOST_TEMP:-${TMPDIR:-/tmp}}/${EXE_NAME}"
+## EXIT trap runs. --list makes none, since it runs nothing.
+if ((! listOnly)); then
+	fRunTemp_Make "${EXE_NAME}" "${stamp}" || fDie "could not make a run folder under ${HOST_TEMP:-${TMPDIR:-/tmp}}/${EXE_NAME}"
+fi
 ## The native Windows gate alongside the local steps, from the build on. In a
 ## session of its own, so a TERM reaches the lock's wrap and the lane under
 ## it, which stop the gate and clear the box.
@@ -597,14 +649,16 @@ fRunEnd(){
 	if ((${DOCKER_SWEEP:-0})); then fDockerSweep "${CICD_CONTAINERS[@]}" || true; fi
 	fRunTemp_Done || true
 }
-trap fRunEnd EXIT
-trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 129' HUP
-fRunTemp_Sweep
+if ((! listOnly)); then
+	trap fRunEnd EXIT
+	trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 129' HUP
+	fRunTemp_Sweep
+fi
 
 ## Warn (non-gating) when a pinned helper tool has drifted from TOOL_PINS, so a
 ## box update can't silently change pipeline results. Before the gate, so the
 ## pre-push run sees it too.
-if declare -p TOOL_PINS &>/dev/null; then
+if ((! listOnly)) && declare -p TOOL_PINS &>/dev/null; then
 	for pin in "${TOOL_PINS[@]}"; do
 		pin_name="${pin%%|*}"; pin_rest="${pin#*|}"; pin_ver="${pin_rest%%|*}"; pin_cmd="${pin_rest#*|}"
 		have="$(bash -c "${pin_cmd}" </dev/null 2>/dev/null | head -1 | sed 's/[^0-9.]*\([0-9][0-9.]*\).*/\1/')" || have=""
@@ -632,6 +686,7 @@ if ((gate)); then
 	fPlan "$gate_lint"  "Lints"        "$gate_lint_why"
 	if ((no_container && gate_tests)); then fPlan 0 "Tests" "--no-container, the run stops there"
 	else fPlan "$gate_tests" "Tests" "area not named"; fi
+	((! listOnly)) || fList
 	fSection "${APP_NAME} backlog-run-quick${areas[*]:+ ${areas[*]}}"
 	fPlan_Show
 	if ((gate_fmt)); then
@@ -729,6 +784,7 @@ if ((no_container)); then
 	esac; done
 	stepList=("${kept[@]}")
 fi
+((! listOnly)) || fList
 
 ## Preflight: show the plan with resolved paths, then confirm.
 profile_dir="$(cd "${root}" && mkdir -p "${PROFILE_OUT_DIR}" 2>/dev/null; cd "${PROFILE_OUT_DIR}" 2>/dev/null && pwd || echo "${root}/${PROFILE_OUT_DIR}")"
@@ -1180,7 +1236,7 @@ if ((run_win)); then
 		## builds, since the suite and smokes passed on the side one, then runs
 		## those tests in its desktop session.
 		fEcho_Clean "the side gate passed, and its windowed tests go to: ${WIN_GATE_CMD[*]}"
-		win_rc=0; NEMO_WIN_GATE_ARGS="-Gate -Yes -NoSync -NoFmt -NoTests" NEMO_WIN_DESKTOP_LIST="$winDeskList" "${WIN_GATE_CMD[@]}" || win_rc=$?
+		win_rc=0; NEMO_WIN_GATE_ARGS="-BacklogRunQuick -Yes -NoSync -NoFmt -NoTests" NEMO_WIN_DESKTOP_LIST="$winDeskList" "${WIN_GATE_CMD[@]}" || win_rc=$?
 		if ((win_rc == 77)); then
 			fEcho "WARNING: no box there for the windowed tests, so the side gate's pass stands"
 			win_rc=0
@@ -1451,3 +1507,5 @@ fEcho_Clean
 ##		  first step that needs a container.
 ##		- 2026-10-28: a lane that exits 77, for a box that isn't there, closes
 ##		  its step as SKIP and the run goes on; the end lists those steps.
+##		- 2026-11-06: --list prints the steps and their test IDs, and runs
+##		  nothing.

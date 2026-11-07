@@ -695,94 +695,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261025: split into children 2026102517333352 (`cicd.bash` and its scripts), 2026102517333357 (`cicd-win.ps1`) and 2026102517333362 (the other boxes).
 	- Test case: none yet.
 
-- CICD reset: standard flags.
-	- ID: 2026102416300004
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261024-163000
-	- Opened by: t00mietum
-	- Related IDs: 2026101911105600
-	- Requirements:
-		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
-		- Per the flags in the shared CICD style guide, and its merge gate section. What's left:
-			- New flags: `--long`, with `--slow` as another name, `--backlog-run-quick [<area>...]`, `--backlog-run-full`, `--merge-gate`, `--no-container`, `--no-remote`, `--keep-temp` and `--list`. `--help` lists the areas.
-			- `--gate` and `--ci` become other names for `--backlog-run-quick` and `--merge-gate`, and say so in one line when used.
-			- `--leakcheck` and `--no-leakcheck` are 2026101911105600.
-			- The default run fits in about an hour. A full run took 2 h 32 min on 20261023, so the slowest steps move to `--long`.
-				- 20261024: `--long`, and `--slow` as another name, now add the arm64 release, about 98 of those minutes. A plain run leaves it out, and `--include-arm` still adds it alone. The rest should come to about 55 minutes, not yet timed.
-			- `--quick` keeps to about 10 minutes, with fuzzing at a short budget in it.
-			- The 2 backlog-run flags and `--merge-gate` never dogfood, publish, commit, push, install, sync, rewrite a tracked file, or prompt. A round never dogfoods.
-			- The pre-push hook runs `--merge-gate` on a push to main, and skips it when the commits change only docs and other paths no build reads, listed in one place. A push to dev stays ungated.
-			- `cicd-win.ps1` takes the same flags.
-		- Overrides: 2026101816495201's decision that `--gate` stays the merge gate, design.md, "Branches and the merge gate", and the gate and full run lines in the private round settings.
-	- Progress log:
-		- 20261025: split into children 2026102516165473 to 2026102516165482, one per part. `--long` and `--slow` were already in. 2026102516295605 split from 2026102516165477 later.
-	- Test case: none yet.
-
-- CICD flags: `--no-container`, `--no-remote`, `--keep-temp` and `--list`.
-	- ID: 2026102516165477
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261025-161654
-	- Opened by: 2026102416300004
-	- Parent ID: 2026102416300004
-	- Prereq IDs: 2026102416300000, 2026102416300002
-	- Requirements:
-		- Per the shared CICD style guide: `--no-container` runs on the host, `--no-remote` skips the other hosts and VMs, `--keep-temp` keeps the run's temp folder and containers and prints where they are, and `--list` prints the steps and test IDs the other flags would run, and runs nothing.
-	- Progress log:
-		- 20261025: `--no-remote` is in `cicd.bash`. It leaves out arm64, the FreeBSD lane, the private runner and remote dogfood, and wins over `--include-arm` and `--include-bsd`. `--no-container` split to 2026102516295605. Left: `--keep-temp`, which needs the run's own temp folder and containers from 2026102416300002 and 2026102416300000, and `--list`.
-	- Test case: de54r for `--no-remote`: a plain run, `--long` with both includes, and `--backlog-run-full`, each with it.
-	- Verified: 20261025, `--no-remote`: de54r passes, and fails on `cicd.bash` without it, and with the private runner and remote dogfood left on under it.
-
-- CICD flags: `cicd-win.ps1` takes the same flags.
-	- ID: 2026102516165482
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261025-161654
-	- Opened by: 2026102416300004
-	- Parent ID: 2026102416300004
-	- Prereq IDs: 2026102516165473, 2026102516165477
-	- Requirements:
-		- `cicd-win.ps1` takes the same flags as `cicd.bash`, in its own form where PowerShell needs one.
-	- Test case: none yet.
-
-- With OLE drag on, a GTK drag on Windows may keep its whole drag window.
-	- ID: 2026102112223038
-	- Type: Bug
-	- Status: Open
-		- Filed upstream as GTK issue [#8497](https://gitlab.gnome.org/GNOME/gtk/-/work_items/8497) and MR [!10551](https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/10551). Waits on a GTK 3.24 release with it.
-		- Let's patch our own fork, if it hasn't been merged yet.
-	- Needs external testing: none. Seen on native Windows 20261022.
-	- Priority|Severity: Low
-	- Opened: 20261021-122230
-	- Opened by: t00mietum
-	- Related IDs: 2026102020234500, 2026101916044103
-	- Target OS: Windows
-	- Steps to reproduce:
-		- Turn on GDK's OLE drag, as `nemo_dnd_win32_prepare` does.
-		- Start a GTK drag, such as a tab or a text drag, and stop it.
-	- Incorrect behavior: the drag window is never destroyed, and keeps 4 refs after the drag's context is gone. One per drag, for the life of the app. The app's own file drags don't use it, but GTK's own drag sources do.
-	- Expected behavior: the drag window is destroyed and freed with its context, as it is with GTK's own drag protocol.
-	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. 20261022 on Windows 11, GTK 3.24.52, the same in every mode. Again 20261021 under wine: only when the drag stops before GDK handles another event. One stopped 300 ms in is freed, OLE on or off.
-	- Possible cause: GDK's OLE drag source keeps the context's drag window past the context, or wine's `DoDragDrop` never returns for a drag stopped from GTK's side.
-	- Actual cause: GDK, not wine.
-		- With OLE on, `gdk_drag_begin` leaves a pending OLE drag source that holds a ref on the context. Only the code after `DoDragDrop` lets it go, and `DoDragDrop` starts on the next event GDK handles. GDK's drag abort just sets the state to none, so a drag stopped before then never runs `DoDragDrop`, and the source is never released.
-		- So the context isn't gone. It stays at 1 ref, is never finalized, and never destroys its drag window. The window's 4 refs are what any drag window has until its context's finalize. Dropping the context's last ref by hand destroys and frees the window at once.
-		- The first source left this way also stays GDK's current drag source, so later drops inside the app take their source window from it.
-	- Decisions:
-		- Upstream only. The ref belongs to GDK's pending drag source, which the app can't reach. Dropping it from the app leaves GDK's pointer to the context dangling, and GDK reads it on the next drop into the app.
-		- Drags in the app start from an event, so `DoDragDrop` runs right after and the context is freed. The app never cancels a drag itself. So it stays Low.
-		- An upstream patch is drafted, not filed: GDK's drag abort releases the pending source when `DoDragDrop` hasn't started.
-		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
-		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
-	- Actual fix: none in the app.
-	- Test case: none. The fix is upstream, and nothing in the app hits it.
-	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
-	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
-
 - CICD reset: step output.
 	- ID: 2026102416300005
 	- Type: Task
@@ -824,43 +736,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- No change to the readings until that's known. A fifth showing would only make it rarer, since the failing runs grew in 4 readings in a row, and leaving out the process heap or blocks of that size would hide a real leak there, as 2026101913541101 decided.
 	- Test case: ddepv on b29w over ssh.
 
-- CICD reset: temp files and safe removal.
-	- ID: 2026102416300002
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261024-163000
-	- Opened by: t00mietum
-	- Related IDs: 2026101910075400
-	- Requirements:
-		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
-		- Per the temp files and safe removal sections of the shared CICD rules. Not done yet:
-			- Every run works in `${HOST_TEMP}/nemo-anywhere/<YYYYmmDD-HHMMSS>_<NNN>/`, points `TMPDIR`, `TEMP` and `TMP` at it, and writes `run.pid` there.
-			- A trap removes it at the end, on failure and Ctrl+C too. `--keep-temp` keeps it and prints its path.
-			- Each run also removes the project's own run folders older than 2 days with no live process.
-			- Every recursive removal goes through a repo copy of the guard. 93 `rm -r` lines in 47 scripts and 29 `Remove-Item -Recurse` lines in 14 PowerShell scripts don't yet. File list in the private notes.
-			- The same on the Windows boxes and the test VMs.
-	- Progress log:
-		- 20261025: split into children 2026102516403466 (the run folder in `cicd.bash`), 2026102516403471 (the bash scripts), 2026102516403476 (`cicd-win.ps1` and the PowerShell scripts) and 2026102516403481 (the test VMs).
-	- Test case: none yet.
-
-- Temp files: `cicd-win.ps1` and the PowerShell scripts.
-	- ID: 2026102516403476
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261025-164035
-	- Opened by: 2026102416300002
-	- Parent ID: 2026102416300002
-	- Prereq IDs: 2026102516403466
-	- Requirements:
-		- `cicd-win.ps1` gets the same run folder, `run.pid`, removal at the end, keep switch and stale sweep as `cicd.bash`, on the Windows boxes.
-		- A PowerShell copy of the guard. The 29 `Remove-Item -Recurse` lines in 14 scripts go through it. File list in the private notes.
-	- Progress log:
-		- 20261103: split into children 2026110315184948 (the run folder in `cicd-win.ps1`, and the guard), 2026110315184983 (the scripts under `cicd/`) and 2026110315185015 (`install.ps1` and `n8runfm.ps1`, the prefix removal near line 619 included).
-	- Test case: none yet.
-	- 20261103: install.ps1 still removes the prefix with a bare Remove-Item -Recurse, near line 619. Cover it here.
-
 - Static analyzers: fix or suppress the findings in our own code.
 	- ID: 2026102114400588
 	- Type: Task
@@ -888,6 +763,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Each finding under `source/test/` and `source/fuzz/` is fixed, or suppressed at the line with a one-line reason, per the parent.
 	- Estimated effort: Avg
 	- Test case: the gate in 2026102114400591, once live.
+
+- With OLE drag on, a GTK drag on Windows may keep its whole drag window.
+	- ID: 2026102112223038
+	- Type: Bug
+	- Status: Open
+		- Filed upstream as GTK issue [#8497](https://gitlab.gnome.org/GNOME/gtk/-/work_items/8497) and MR [!10551](https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/10551). Waits on a GTK 3.24 release with it.
+		- Let's patch our own fork, if it hasn't been merged yet.
+	- Needs external testing: none. Seen on native Windows 20261022.
+	- Priority|Severity: Low
+	- Opened: 20261021-122230
+	- Opened by: t00mietum
+	- Related IDs: 2026102020234500, 2026101916044103
+	- Target OS: Windows
+	- Steps to reproduce:
+		- Turn on GDK's OLE drag, as `nemo_dnd_win32_prepare` does.
+		- Start a GTK drag, such as a tab or a text drag, and stop it.
+	- Incorrect behavior: the drag window is never destroyed, and keeps 4 refs after the drag's context is gone. One per drag, for the life of the app. The app's own file drags don't use it, but GTK's own drag sources do.
+	- Expected behavior: the drag window is destroyed and freed with its context, as it is with GTK's own drag protocol.
+	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. 20261022 on Windows 11, GTK 3.24.52, the same in every mode. Again 20261021 under wine: only when the drag stops before GDK handles another event. One stopped 300 ms in is freed, OLE on or off.
+	- Possible cause: GDK's OLE drag source keeps the context's drag window past the context, or wine's `DoDragDrop` never returns for a drag stopped from GTK's side.
+	- Actual cause: GDK, not wine.
+		- With OLE on, `gdk_drag_begin` leaves a pending OLE drag source that holds a ref on the context. Only the code after `DoDragDrop` lets it go, and `DoDragDrop` starts on the next event GDK handles. GDK's drag abort just sets the state to none, so a drag stopped before then never runs `DoDragDrop`, and the source is never released.
+		- So the context isn't gone. It stays at 1 ref, is never finalized, and never destroys its drag window. The window's 4 refs are what any drag window has until its context's finalize. Dropping the context's last ref by hand destroys and frees the window at once.
+		- The first source left this way also stays GDK's current drag source, so later drops inside the app take their source window from it.
+	- Decisions:
+		- Upstream only. The ref belongs to GDK's pending drag source, which the app can't reach. Dropping it from the app leaves GDK's pointer to the context dangling, and GDK reads it on the next drop into the app.
+		- Drags in the app start from an event, so `DoDragDrop` runs right after and the context is freed. The app never cancels a drag itself. So it stays Low.
+		- An upstream patch is drafted, not filed: GDK's drag abort releases the pending source when `DoDragDrop` hasn't started.
+		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
+		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
+	- Actual fix: none in the app.
+	- Test case: none. The fix is upstream, and nothing in the app hits it.
+	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
+	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
 
 - Static analyzers: the gate goes live.
 	- ID: 2026102114400591
@@ -1290,75 +1199,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Search list view
 	- Test case: none yet.
 
-- On vm925w, dcd70 can find its entry menu not mapped yet.
-	- ID: 2026110413033064
+- dder1 failed once in a quick gate on b23.
+	- ID: 2026110620022021
 	- Type: Bug
 	- Status: Queued
 	- Priority|Severity: Low
-	- Opened: 20261104-130330
-	- Opened by: 2026102516165479
-	- Related IDs: 2026102516165479, 2026110216492601
-	- Steps to reproduce: the full run's native gate, where vm925w runs the 22 windowed tests b29w left, 4 at a time, in wintest's session.
-	- Incorrect behavior: `FAIL ../../../source/test/test-nemo-entry-menu.c:179: gtk_widget_get_mapped (menu)`, exit 1 after 2.50s. The menu was there and was a `GtkMenu`, but not mapped when the check ran.
+	- Opened: 20261106-200220
+	- Opened by:
+	- Steps to reproduce: `cicd/cicd.bash --backlog-run-quick` on round1107a at 4d07380d, on a loaded b23.
+	- Incorrect behavior: the Tests step failed on dder1, the stopped tar.gz leak test. The failing output wasn't kept.
 	- Expected behavior: passes every time.
-	- Reproduced: 20261104, once, in the full run at d7b3c702 on vm925w-iommu after a `-NoTests` build, with 21 other windowed tests alongside. Control: the same build path with only dcd70 in the list passed 3 times out of 3 (7.3s, 1.6s, 5.6s), and dcd70 passed on vm925w on 20261103.
-	- Possible cause: `wait_for_menu` returns once the menu exists and pending events are drained, which can be before the map, more so on a busy box. Waiting for the menu's `map` (or `gtk_widget_get_mapped`) with a timeout would cover it.
-	- Test case: dcd70.
-
-- The native Windows gate never runs the PowerShell tests in its lint step.
-	- ID: 2026110412543196
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261104-125431
-	- Opened by: 2026110315185015
-	- Related IDs: 2026110315185015
-	- Steps to reproduce: run `cicd-win.ps1 -Gate -Yes` on b29w and read its Lints step.
-	- Incorrect behavior: it prints "install.ps1 PATH, n8runfm pool and shortcut, bundle exe and settings, evb project, cicd-win.ps1 and PowerShell guard tests skipped: no pwsh", so dd5fw, dd5fx, ddkd9, ddqv0, ddwhx, the evb project test, dejjt and detts never run on Windows in a gate. Their Windows-only cases, such as detts' junctions and held files, go unchecked.
-	- Expected behavior: the gate runs them under the box's pwsh 7, or says plainly that it leaves them to another step that does.
-	- Reproduced: 20261104, in the full run at d7b3c702 on b29w. Control: pwsh 7 is on b29w at `C:\Program Files\PowerShell\7`, and detts passes there run on its own.
-	- Possible cause: `lint.bash` looks for pwsh with `command -v`, and finds none on the path the Lints step runs with, though the Tests step's path names the pwsh folder.
-	- Test case: none yet.
-
-- `Remove-SafeTree` lets a project's whole temp folder through under an 8.3 short name.
-	- ID: 2026110411135625
-	- Type: Bug
-	- Status: Queued
-	- Needs external testing: detts on b29w, with `HOST_TEMP` in short form and the path in long form, and the other way round.
-	- Priority|Severity: Low
-	- Opened: 20261104-111356
-	- Opened by: 2026110410593292
-	- Related IDs: 2026110410593292
-	- Target OS: Windows
-	- Steps to reproduce [Bug]:
-		- On Windows, set `HOST_TEMP` to the temp folder with a short name in it, such as `C:\Users\RUNNER~1\AppData\Local\Temp`, and call `Remove-SafeTree` on `<long form of it>\nemo-anywhere`.
-	- Incorrect behavior [Bug]: unverified, from reading: the temp root rule compares strings, and `Resolve-SafeRmPath` keeps short names as they are, so the two forms don't match and the folder goes.
-	- Expected behavior [Bug]: refused, as `fSafeRm` does with `-ef`.
-	- Reproduced [Bug]: No. Needs a Windows box with 8.3 names on the temp volume.
-	- Test case: none yet.
-
-- pack-zip.bash's header says Copyright (c) 2026 Bubbles.
-	- ID: 2026110315153026
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261103-151530
-	- Opened by:
-	- Target OS: all
-	- Incorrect behavior: cicd/win/pack-zip.bash has the header line Copyright (c) 2026 Bubbles, which matches neither the project's copyright holder nor its form.
-	- Expected behavior: the project's usual copyright line. Grep the tree for other stray headers like it.
-
-- lint-report counts a test's OK line that names a warning as a warning.
-	- ID: 2026110220410883
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261102-204108
-	- Opened by:
-	- Steps to reproduce: `python3 cicd/utility/lint-report.py --check` after the 20261102 full run.
-	- Incorrect behavior: it lists depg0's lines `[ OK: with no wintest session, a warning and the gate's pass ]` and `[ OK: with wintest's session locked, a warning and the gate's pass ]` as new warnings.
-	- Expected behavior: an OK, PASS or SKIP line is never a warning line.
-	- Test case: a lint-report test with an OK line naming a warning, and a real WARNING line.
+	- Reproduced: once in 3 runs. It passed in the next 2 quick gates, at b617843c, with no change to its code.
+	- Progress log:
+		- 20261107: filed as a flake. Next time it fails, keep the log's dder1 lines and the box's load.
+	- Test case: dder1.
 
 - ddqdq with no monitor: the copies never list a titled window.
 	- ID: 2026103115510091
@@ -1375,35 +1229,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261028 on b29w, at 2964120b and 051f2d14.
 	- Possible cause: not looked into. Something between 1694aeb and 2964120b, maybe the jail.
 	- Test case: ddqdq, with no monitor.
-
-- Middle-clicking a bookmark to open it in a new tab leaves the Name column too narrow.
-	- ID: 2026103113431790
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261031-134317
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut.
-	- Incorrect behavior: the Name column is too narrow in the new tab.
-	- Workaround: F5 to refresh.
-	- Test case: none yet.
-
-- cicd-win.ps1's step rule comes out as BEL characters when its output is piped.
-	- ID: 2026102822580287
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261028-225802
-	- Opened: 20261028-225802
-	- Opened by: 2026102517333373
-	- Target OS: Windows
-	- Steps to reproduce: run `pwsh cicd/cicd-win.ps1 -Gate -Yes` from another pwsh with its output piped to a file.
-	- Incorrect behavior: each rule line is 79 bytes of 0x07 rather than 79 bullets, so a terminal showing the log rings the bell 79 times a step.
-	- Expected behavior: the same rule as `cicd.bash` draws, in any log.
-	- Reproduced: 20261028 on b29w, round1028b at 2964120b. dev drew 73 of the same bullet, so it predates the round.
-	- Possible cause: the rule is `[char]0x2022`. Piped output goes out in the console's OEM code page, which has no bullet, and Windows swaps in 0x07, the byte that code page shows as a bullet.
-	- Test case: to add with the fix, in dejjt: the rule survives a pipe.
 
 - On Windows, the zip draws some file icons differently from the single exe.
 	- ID: 2026102515500000
@@ -2270,6 +2095,94 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. dd8d9 covers it.
 	- Closed: 20261003-112426
+
+- CICD reset: standard flags.
+	- ID: 2026102416300004
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261024-163000
+	- Opened by: t00mietum
+	- Related IDs: 2026101911105600
+	- Requirements:
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- Per the flags in the shared CICD style guide, and its merge gate section. What's left:
+			- New flags: `--long`, with `--slow` as another name, `--backlog-run-quick [<area>...]`, `--backlog-run-full`, `--merge-gate`, `--no-container`, `--no-remote`, `--keep-temp` and `--list`. `--help` lists the areas.
+			- `--gate` and `--ci` become other names for `--backlog-run-quick` and `--merge-gate`, and say so in one line when used.
+			- `--leakcheck` and `--no-leakcheck` are 2026101911105600.
+			- The default run fits in about an hour. A full run took 2 h 32 min on 20261023, so the slowest steps move to `--long`.
+				- 20261024: `--long`, and `--slow` as another name, now add the arm64 release, about 98 of those minutes. A plain run leaves it out, and `--include-arm` still adds it alone. The rest should come to about 55 minutes, not yet timed.
+			- `--quick` keeps to about 10 minutes, with fuzzing at a short budget in it.
+			- The 2 backlog-run flags and `--merge-gate` never dogfood, publish, commit, push, install, sync, rewrite a tracked file, or prompt. A round never dogfoods.
+			- The pre-push hook runs `--merge-gate` on a push to main, and skips it when the commits change only docs and other paths no build reads, listed in one place. A push to dev stays ungated.
+			- `cicd-win.ps1` takes the same flags.
+		- Overrides: 2026101816495201's decision that `--gate` stays the merge gate, design.md, "Branches and the merge gate", and the gate and full run lines in the private round settings.
+	- Progress log:
+		- 20261025: split into children 2026102516165473 to 2026102516165482, one per part. `--long` and `--slow` were already in. 2026102516295605 split from 2026102516165477 later.
+		- 20261107: every child closed. cicd.bash and cicd-win.ps1 both take the standard flags, --list included.
+	- Test case: de54r, dez4x, dejjt and dd5ft, from the children.
+	- Closed: 20261107
+	- Acceptance signoff: Self-closed: every child is Done, and the native gate on b29w passed with -BacklogRunQuick.
+
+- CICD flags: `--no-container`, `--no-remote`, `--keep-temp` and `--list`.
+	- ID: 2026102516165477
+	- Type: Task
+	- Status: Done
+	- Needs external testing: done 20261106 on b29w at efe1e986. dez4x passed under MSYS2, in the lint step of the native Windows gate.
+	- Priority|Severity: High
+	- Opened: 20261025-161654
+	- Opened by: 2026102416300004
+	- Parent ID: 2026102416300004
+	- Prereq IDs: 2026102416300000, 2026102416300002
+	- Requirements:
+		- Per the shared CICD style guide: `--no-container` runs on the host, `--no-remote` skips the other hosts and VMs, `--keep-temp` keeps the run's temp folder and containers and prints where they are, and `--list` prints the steps and test IDs the other flags would run, and runs nothing.
+	- Progress log:
+		- 20261025: `--no-remote` is in `cicd.bash`. It leaves out arm64, the FreeBSD lane, the private runner and remote dogfood, and wins over `--include-arm` and `--include-bsd`. `--no-container` split to 2026102516295605. Left: `--keep-temp`, which needs the run's own temp folder and containers from 2026102416300002 and 2026102416300000, and `--list`.
+		- 20261106: `--keep-temp` was already in from 2026102516403466, but named only the folder. The end of the run now names the containers it kept too.
+		- 20261106: `--list` prints the plan the other options give, the steps turned off with why, then each step with the test IDs it runs, and exits. It makes no run folder or log, starts no CPU scope, caps no container, sweeps nothing and runs no tool pin probe. `test-id.py --list` finds each step's tests.
+	- Decisions:
+		- A step's tests are worked out from the source, not by asking meson or the boxes: those its command runs, and those the scripts it runs run in turn, up to 5 levels down, with the lint checks, self-tests and fuzz targets they hold. A script counts as run only with a run word before it on its line, such as `bash`, `pwsh -File` or `fTest`, or when it's put in a variable, so an echo or a lint's file list doesn't count. Asking meson would need a configured build, which is running something.
+		- So the list is what each step could run. A test that skips itself on a box is still listed, and a script with modes, such as the FreeBSD lane's tests and release, lists every mode's tests. A `meson test` line that names its tests, such as the release smoke, lists only those.
+		- The meson tests are listed in full under the first step that runs them, and later steps point back to it, rather than printing 284 lines 5 times.
+	- Swept: every flag-reading spot in `cicd.bash` (the early loop, the CPU scope, the container cap, the auto message, the run folder and traps, the tool pins, both plan paths), its `--help`, design.md's flags and docker bullets, the docker sweep's header, and every test that copies `cicd.bash` (dddq3, de54r, ddmmw, desha, dee6e and dee6z), which all pass. `cicd-win.ps1` gets its flags in 2026102516165482.
+	- Test case: de54r for `--no-remote`: a plain run, `--long` with both includes, and `--backlog-run-full`, each with it. dez4x for `--list`: each kind of test under its step, an echoed script left out, the release smoke's one test, `--backlog-run-quick lint` and `--no-container`, and no step, CPU scope, container cap, pin probe, run folder or log, with a plain run of the same copy as the control. dee6z for `--keep-temp` naming the kept containers.
+	- Verified: 20261025, `--no-remote`: de54r passes, and fails on `cicd.bash` without it, and with the private runner and remote dogfood left on under it.
+	- Verified: 20261106, dez4x passes, and fails on `cicd.bash` and `test-id.py` from before the change, with the tool pin probe let run under `--list`, and with the run word check taken out. dee6z passes, and fails on `docker-sweep.bash` from before the change. `cicd/cicd.bash --backlog-run-quick` passes, with dez4x, dee6z and `test-id.py --check` (422 tests) in its lint stage.
+	- Verified: 20261106, the native Windows gate on b29w at efe1e986, `cicd-win.ps1 -BacklogRunQuick` through the lane: PASS dez4x under MSYS2 in its lint step, and the gate passed.
+	- Acceptance signoff: Self-closed: dez4x, on Linux and under MSYS2 on b29w.
+	- Closed: 20261106-180800
+
+- CICD flags: `cicd-win.ps1` takes the same flags.
+	- ID: 2026102516165482
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261025-161654
+	- Opened by: 2026102416300004
+	- Parent ID: 2026102416300004
+	- Prereq IDs: 2026102516165473, 2026102516165477
+	- Requirements:
+		- `cicd-win.ps1` takes the same flags as `cicd.bash`, in its own form where PowerShell needs one.
+	- Progress log:
+		- 20261106: `cicd-win.ps1` takes `-BacklogRunQuick [<area>...]`, `-BacklogRunFull`, `-MergeGate` and `-List`. `-Gate` and `-Ci` are other names, and say so in one line. It also takes `-y`, `-q`, and `-Long`, `-Slow`, `-Leakcheck`, `-NoLeakcheck`, `-NoContainer` and `-NoRemote`, which change nothing there. `-KeepTemp`, `-Message` and `-Quick` were already in. The pre-push hook on Windows runs `-MergeGate`, and the native lane `-BacklogRunQuick`.
+	- Decisions:
+		- PowerShell's form is the name in one word, `-BacklogRunQuick` for `--backlog-run-quick`. The areas follow it as plain words, `-BacklogRunQuick lint tests`, as with `cicd.bash`.
+		- PowerShell doesn't keep the order switches came in, so "the last mode named wins" can't hold. 2 different modes are refused, with exit 2. `-Gate` with `-BacklogRunQuick` is one mode.
+		- `-BacklogRunQuick` is the old `-Gate`: lints, build, tests and smokes. `lint` is the lints, and `tests` the build, tests and smokes. There's no format check on Windows, so `format` named shows it as off, with why.
+		- `-BacklogRunFull` and `-MergeGate` are a plain run less sync, dogfood and publish: lints, build, tests, smokes, the runtime bundle and the pack. They never prompt. Signing stays as set up, which is nothing unless a cert is.
+		- The flags with nothing to do on Windows are taken and change nothing, so a `cicd.bash` command line works there.
+		- `-List` prints the plan, then each step's test IDs through `test-id.py --list`, from the bodies of the functions each step calls, read from the file as written. So the list follows the code that runs, with no second copy of each step's command. It makes no run folder, sweep or log, and runs no CPU or toolchain probe, so the plan takes the toolchain as there. It needs Python 3: one on PATH that isn't the Store's stub, then `C:\Python3*`, then MSYS2's.
+		- `test-id.py` also reads a step's command itself for `meson test`, since `cicd-win.ps1` runs the suite from its own code. Its paths now have forward slashes, since on Windows `--list` found no script test.
+		- The lane and the hook moved to the new names, so neither prints the other-name line on every run.
+	- Swept: every caller of `cicd-win.ps1`: the pre-push hook, `lane.bash`, `lane-box.ps1`, the vm925w call in `cicd.bash` and its `--help`, the config comment, building.md, and design.md's merge gate and native gate bullets. The Windows dogfood runs a plain run and is unchanged. The hosted workflow doesn't call it. `PSScriptAnalyzerSettings.psd1`'s note on the switches it calls unused.
+		- 20261106: depg0's asserts for the lane's switches went from `Gate,Yes,NoSync` and `Gate,Yes,NoSync,NoFmt,NoTests` to `BacklogRunQuick,Yes,NoSync` and `BacklogRunQuick,Yes,NoSync,NoFmt,NoTests`. ddmmw's went from `-Gate -Yes -NoSync -NoFmt -NoTests` to `-BacklogRunQuick -Yes -NoSync -NoFmt -NoTests`, and dd5ft's for the hook on Windows from `-Gate -Yes` to `-MergeGate`.
+	- Branch: round1107a
+	- Commit: 01a644e9, efe1e986, c1c9ff43
+	- Test case: dejjt: `-BacklogRunQuick` with and without areas, `-BacklogRunFull`, `-MergeGate`, `-Gate` and `-Ci` with their one line, the flags that change nothing, and the mixes refused. `-List` with each kind of test under its step, an echoed script left out, `-BacklogRunQuick lint`, `-MergeGate` and `-TestList`, and no step, probe, run folder or log, with a plain run of the same copy as the control. dd5ft for the hook on Windows, depg0 and ddmmw for the lane.
+	- Verified: 20261106, dejjt passes, and fails on `cicd-win.ps1` from before the change, and with `-List` let run the probes. dez4x, depg0, ddmmw, dd5ft and detts pass, and `test-id.py --check` (422 tests). `cicd/cicd.bash --backlog-run-quick` passes.
+	- Verified: 20261106 on b29w. At 01a644e9, `cicd-win.ps1 -List -MergeGate` through the lane listed the 6 steps, with the 3 turned off. At efe1e986 the native gate, `-BacklogRunQuick` through the lane, passed: 283 PASS, 34 SKIP, none failed, dd5ft and dez4x under MSYS2 included, and `-List -MergeGate` listed the Windows-only script tests under Tests. At c1c9ff43, dejjt passed.
+	- Acceptance signoff: Self-closed: dejjt pins the flags, and the native gate on b29w passed with them.
+	- Closed: 20261106-180800
 
 - Integrate SHCL v3.0.0-beta.1.
 	- ID: 2026110520234226
@@ -3173,7 +3086,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The list is `cicd/hooks/gate-skip-paths.txt`, read from the commit pushed: `*.md` and `project/*` for now. The list itself isn't on it.
 		- A push that changes only those paths skips the version guard and the clean tree check too, since a docs push to main never bumps the version.
 		- A first push, or a remote sha this clone doesn't have, can't be compared, so it gets the gate.
-		- On Windows the hook still runs `cicd-win.ps1 -Gate` until 2026102516165482.
+		- On Windows the hook runs `cicd-win.ps1 -MergeGate` since 2026102516165482.
 	- Swept: design.md's merge gate lines. Each clone needs `cicd/hooks/install.bash` again to pick the hook up.
 	- Branch: round1025b
 	- Test case: dd5ft, `test-pre-push.bash`. It checks that a release push calls `--merge-gate`, that a docs-only push skips everything, and that docs plus a source file, a change to the list, and a first push don't.
@@ -3398,6 +3311,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261022, round1022: the full Linux suite, 231 OK. FreeBSD lane as `bsdtest`, 212 OK and 20 skipped, de8dm, de8ec, de8bd, ddy5f and dd5df among them.
 	- Closed: 20261022-214700
 	- Verified: 20261021, de8dm, de8ec, de8bd and ddy5f pass in all 3 views. dd5df, dbnfq, dbsx7 and dc8tz pass. The build has no warnings, the Windows cross build with warnings as errors is clean, and the UI case and test ID checks pass.
+
+- Demo video: mouse click sounds play about 0.25 s after the click shows
+	- ID: 2026110618322410
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261106-183224
+	- Opened by: t00mietum
+	- Steps to reproduce: Record the video with `cicd/utility/demo-video/demo-video.py`, then compare each click's sound peak to the frame where the screen reacts.
+	- Incorrect behavior: Each click sounds about 0.25 s after the screen changes.
+	- Expected behavior: The sound plays with the press, up to a frame or two before the screen reacts.
+	- Reproduced: No, not in this repo. Measured in tukzmon's recorder, which was copied from this one and uses the same sound files and timing.
+	- Actual cause:
+		- `sounds/mouse/click.wav` and `click_quiet.wav` have about 0.16 s of quiet before the click itself, and `build_audio` places each file's start at the event.
+		- `Mouse.click`, `double`, `drag` and `wheel` log the event after the input call returns, but the press goes out at the start of the call.
+	- Possible fix: Trim each sample to its onset when it's loaded, such as the first sample over 20% of its peak, and log the event before the input call. tukzmon's `cicd/utility/demo/demo-video.py` does both, and its clicks now land within 0.1 s.
+	- Estimated effort: Low
+	- Actual effort: Low
+	- Decisions:
+		- `Mouse.double`, `drag` and `wheel` here already logged before the input call. Only `click` logged after, so only it changed.
+		- The trim keeps 2 ms before the onset, as tukzmon's does. It's a function, `trim_onset`, so the test can reach it without the recorder.
+		- The test is a `--self-test` of demo-video.py, run by the lint stage when numpy, scipy and Pillow are there, so it needs no display and no recording.
+	- Swept: the other `ev` and input call pairs in `Mouse`, and every `SOUND_FILES` sample, which all go through `load_samples`. The key bank and the wheel tick are cut from other recordings and start at once, so they take no trim.
+	- Branch: round1107a
+	- Test case: dez8j, `demo-video.py --self-test`: a made-up click after 0.16 s of quiet starts within 10 ms, a click that starts at once is left alone, the real click files start within 50 ms, and each Mouse event is logged before its `click`, `mousedown` and `mouseup`.
+	- Verified: 20261107, dez8j passes, and fails with the trim and the click order put back as they were (3 problems).
+	- Closed: 20261106-1905
 
 - `fSafeRm` removes a whole project temp folder.
 	- ID: 2026110410593292
@@ -5360,6 +5300,49 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: de025 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
 
+- CICD reset: temp files and safe removal.
+	- ID: 2026102416300002
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261024-163000
+	- Opened by: t00mietum
+	- Related IDs: 2026101910075400
+	- Requirements:
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- Per the temp files and safe removal sections of the shared CICD rules. Not done yet:
+			- Every run works in `${HOST_TEMP}/nemo-anywhere/<YYYYmmDD-HHMMSS>_<NNN>/`, points `TMPDIR`, `TEMP` and `TMP` at it, and writes `run.pid` there.
+			- A trap removes it at the end, on failure and Ctrl+C too. `--keep-temp` keeps it and prints its path.
+			- Each run also removes the project's own run folders older than 2 days with no live process.
+			- Every recursive removal goes through a repo copy of the guard. 93 `rm -r` lines in 47 scripts and 29 `Remove-Item -Recurse` lines in 14 PowerShell scripts don't yet. File list in the private notes.
+			- The same on the Windows boxes and the test VMs.
+	- Progress log:
+		- 20261025: split into children 2026102516403466 (the run folder in `cicd.bash`), 2026102516403471 (the bash scripts), 2026102516403476 (`cicd-win.ps1` and the PowerShell scripts) and 2026102516403481 (the test VMs).
+		- 20261107: every child closed.
+	- Test case: defnq and detts, plus the children's own tests.
+	- Closed: 20261107
+	- Acceptance signoff: Self-closed: children 2026102516403466, 2026102516403471, 2026102516403476 and 2026102516403481 are Done.
+
+- Temp files: `cicd-win.ps1` and the PowerShell scripts.
+	- ID: 2026102516403476
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261025-164035
+	- Opened by: 2026102416300002
+	- Parent ID: 2026102416300002
+	- Prereq IDs: 2026102516403466
+	- Requirements:
+		- `cicd-win.ps1` gets the same run folder, `run.pid`, removal at the end, keep switch and stale sweep as `cicd.bash`, on the Windows boxes.
+		- A PowerShell copy of the guard. The 29 `Remove-Item -Recurse` lines in 14 scripts go through it. File list in the private notes.
+	- Progress log:
+		- 20261103: split into children 2026110315184948 (the run folder in `cicd-win.ps1`, and the guard), 2026110315184983 (the scripts under `cicd/`) and 2026110315185015 (`install.ps1` and `n8runfm.ps1`, the prefix removal near line 619 included).
+		- 20261107: every child closed. detts' list of scripts still to move has been empty since 20261104, install.ps1's prefix removal included.
+	- Test case: detts (test-safe-rm.ps1), dejjt, dd5fx and ddgch, from the children.
+	- Closed: 20261107
+	- Acceptance signoff: Self-closed: children 2026110315184948, 2026110315184983 and 2026110315185015 are Done, and detts passes.
+	- 20261103: install.ps1 still removes the prefix with a bare Remove-Item -Recurse, near line 619. Cover it here.
+
 - Temp files: `install.ps1` and `n8runfm.ps1` get their own copy of the guard.
 	- ID: 2026110315185015
 	- Type: Task
@@ -6690,6 +6673,181 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddf4w Config old formats test.
 	- Acceptance signoff: Self-closed: ddf4w is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- On vm925w, dcd70 can find its entry menu not mapped yet.
+	- ID: 2026110413033064
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: No
+	- Priority|Severity: Low
+	- Opened: 20261104-130330
+	- Opened by: 2026102516165479
+	- Related IDs: 2026102516165479, 2026110216492601
+	- Steps to reproduce: the full run's native gate, where vm925w runs the 22 windowed tests b29w left, 4 at a time, in wintest's session.
+	- Incorrect behavior: `FAIL ../../../source/test/test-nemo-entry-menu.c:179: gtk_widget_get_mapped (menu)`, exit 1 after 2.50s. The menu was there and was a `GtkMenu`, but not mapped when the check ran.
+	- Expected behavior: passes every time.
+	- Reproduced: 20261104, once, in the full run at d7b3c702 on vm925w-iommu after a `-NoTests` build, with 21 other windowed tests alongside. Control: the same build path with only dcd70 in the list passed 3 times out of 3 (7.3s, 1.6s, 5.6s), and dcd70 passed on vm925w on 20261103.
+	- Possible cause: `wait_for_menu` returns once the menu exists and pending events are drained, which can be before the map, more so on a busy box. Waiting for the menu's `map` (or `gtk_widget_get_mapped`) with a timeout would cover it.
+	- Actual cause: likely the same as dd5dc's in 2026102409082700, not a late map. GTK maps a menu as it pops it up, so one that isn't mapped right after closed again or never got its grab. On Windows any test's window coming up takes the focus, which breaks the menu's grab, and GTK closes it. dcd70 ran 4 at a time with the other windowed tests, while dd5dc already runs alone there. Not reproduced since, so not proven.
+	- Actual fix: dcd70 runs alone on Windows. dec6j, the rule that a test holding a menu runs alone there, now also counts a test that asks a widget for its own menu through the menu key or the `popup-menu` signal, which it didn't see. A menu that isn't up now prints whether the window had the focus, and how often the focus and the grab were lost.
+	- Decisions:
+		- Alone, not a wait for the map, which would wait on a menu that's already closed. Same call as dd5dc's.
+		- The class is fixed in dec6j, not in `wait_for_menu`. No other test has `wait_for_menu`, and the other tests that open a menu (the probes) aren't built on Windows. With the wider rule, dcd70 is the only test it flags.
+	- Swept: every test in `source/test` that opens or asks for a menu, a popover or a combo box. On Windows only dd5dc and dcd70 do.
+	- Branch: round1107a
+	- Commit: 27aff862
+	- Test case: dcd70, and dec6j for the rule.
+	- Verified: 20261107, dec6j fails on the old `meson.build`, naming dcd70 only, and passes after. The old rule passed both. `--backlog-run-quick` passes, dcd70 included. On vm925w as wintest, dcd70 with 10 other windowed tests, 4 at a time after a `-NoTests` build: all 11 passed in 2 of 2 runs at 678b8445, without the fix, so it didn't come back there, and in 1 of 1 at 27aff862, where dcd70 ran alone. vm925w was put back to off.
+	- Closed: 20261107
+	- Acceptance signoff: Self-closed: dcd70 passed on vm925w alongside 10 windowed tests, and runs alone there since 27aff862.
+	- 20261107: dcd70 now runs alone on Windows, so no other test's window can take the focus while its menu is up. The run on vm925w with 10 other windowed tests passed, and dec6j now catches the class.
+
+- The native Windows gate never runs the PowerShell tests in its lint step.
+	- ID: 2026110412543196
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261104-125431
+	- Opened by: 2026110315185015
+	- Related IDs: 2026110315185015
+	- Steps to reproduce: run `cicd-win.ps1 -Gate -Yes` on b29w and read its Lints step.
+	- Incorrect behavior: it prints "install.ps1 PATH, n8runfm pool and shortcut, bundle exe and settings, evb project, cicd-win.ps1 and PowerShell guard tests skipped: no pwsh", so dd5fw, dd5fx, ddkd9, ddqv0, ddwhx, the evb project test, dejjt and detts never run on Windows in a gate. Their Windows-only cases, such as detts' junctions and held files, go unchecked.
+	- Expected behavior: the gate runs them under the box's pwsh 7, or says plainly that it leaves them to another step that does.
+	- Reproduced: 20261104, in the full run at d7b3c702 on b29w. Control: pwsh 7 is on b29w at `C:\Program Files\PowerShell\7`, and detts passes there run on its own.
+	- Possible cause: `lint.bash` looks for pwsh with `command -v`, and finds none on the path the Lints step runs with, though the Tests step's path names the pwsh folder.
+	- Actual cause: the MSYS2 login shell keeps only the system folders of the Windows PATH. The Tests step sets `MSYS2_PATH_TYPE=inherit` for its own reasons, and the Lints step doesn't, so pwsh wasn't there. PowerShell lint skipped the same way.
+	- Actual fix: every MSYS2 shell `cicd-win.ps1` starts gets the folder of the pwsh running it on the end of its PATH.
+	- Progress log:
+		- 20261106: with pwsh there, PowerShell lint ran on Windows too, and found 3 `rm` calls that are aliases of `Remove-Item` on Windows only: the unix `rm` in `install.ps1`'s `fSafeRm_Under` and in detts, both run only off Windows. Each is suppressed there with its reason.
+	- Decisions:
+		- The pwsh folder goes on the end, rather than `MSYS2_PATH_TYPE=inherit` for the lint step. inherit would put the whole Windows PATH in front of the lint tools, such as a Windows python or git.
+		- The folder is `$PSHOME`, so the tests run under the same pwsh 7 as the gate, wherever it's installed.
+		- It adds about 3 minutes to the native gate's Lints step on b29w, PowerShell lint and the 8 tests together. The whole step took 11 min.
+	- Swept: every `command -v pwsh` in scripts the Lints step runs: `lint.bash` (the 8 tests and the staging check, which skips under MSYS2 on purpose, since the Tests step runs it) and `lint-powershell.bash`. The Tests step's pwsh calls are from `cicd-win.ps1` itself. `config.bash`'s 2 bundle checks are meson tests, and the Tests step's path has pwsh. `test-installers.bash` and `test-install-download.bash` run on Linux only.
+	- Branch: round1107a
+	- Commit: a89b56d6
+	- Test case: dejjt (the MSYS2 shell finds the pwsh running `cicd-win.ps1`, with the real MSYS2 bash and its minimal PATH on Windows, and a stand-in with an empty PATH elsewhere).
+	- Verified: 20261106, dejjt passes, and fails with the PATH line taken out of `cicd-win.ps1`, on Linux and on b29w. `cicd/cicd.bash --backlog-run-quick format lint` passes. PowerShell lint is clean on Linux.
+	- Verified: 20261106 on b29w, `cicd-win.ps1 -BacklogRunQuick lint -Yes`: PowerShell lint ran with no findings, and dd5fw, dd5fx, ddkd9, ddqv0, ddwhx, ddrhb (the evb project test), dejjt and detts all passed. The step passed.
+	- Acceptance signoff: Self-closed: dejjt pins it, and the native gate's Lints step on b29w ran and passed all 8.
+	- Closed: 20261106-194200
+
+- `Remove-SafeTree` lets a project's whole temp folder through under an 8.3 short name.
+	- ID: 2026110411135625
+	- Type: Bug
+	- Status: Done
+	- Needs external testing: done 20261106 on b29w, detts with `HOST_TEMP` in short form and the path in long form, and the other way round.
+	- Priority|Severity: Low
+	- Opened: 20261104-111356
+	- Opened by: 2026110410593292
+	- Related IDs: 2026110410593292
+	- Target OS: Windows
+	- Steps to reproduce [Bug]:
+		- On Windows, set `HOST_TEMP` to the temp folder with a short name in it, such as `C:\Users\RUNNER~1\AppData\Local\Temp`, and call `Remove-SafeTree` on `<long form of it>\nemo-anywhere`.
+	- Incorrect behavior [Bug]: unverified, from reading: the temp root rule compares strings, and `Resolve-SafeRmPath` keeps short names as they are, so the two forms don't match and the folder goes.
+	- Expected behavior [Bug]: refused, as `fSafeRm` does with `-ef`.
+	- Reproduced [Bug]: 20261106 on b29w, which makes 8.3 names on C:. With either side in short form, `Remove-SafeTree` removed a project's whole folder and the temp root.
+	- Actual cause [Bug]: as above. The temp root rule compared strings, and nothing turned a short name into the long one.
+	- Actual fix [Bug]: the temp root rule compares long forms too, of both `HOST_TEMP` (as set and its real path) and the path and its parent, through `GetLongPathNameW`.
+	- Decisions:
+		- Only a name with a `~` goes through the native call, since every short name Windows makes has one. A short name set by hand without a `~` would still get through. Off Windows nothing changes.
+		- A name that isn't there stays as it was, and so does one the call fails on. A path that isn't there has nothing to remove.
+		- `-Under` still compares the strings as given. A short form on one side there only refuses more.
+	- Swept: `Remove-StaleRunTemp`'s compare against the current run folder, which a string mismatch would only let through to its live run check, and the run's `run.pid` keeps it. `install.ps1`'s and `n8runfm.ps1`'s `fSafeRm_Under` take one named parent and have no temp root rule.
+	- Branch: round1107a
+	- Commit: a89b56d6
+	- Test case: detts (on Windows: `HOST_TEMP` short with the project folder and the temp root long, `HOST_TEMP` long with each of them short, the last name alone short, and a run folder in short form still removed; skipped where the volume makes no short names).
+	- Verified: 20261106 on b29w, detts passes, and with the long form call made a no-op fails 10 checks, all of them the new cases, the folders removed. On Linux detts passes, and PowerShell lint is clean.
+	- Acceptance signoff: Self-closed: detts on b29w.
+	- Closed: 20261106-194200
+
+- pack-zip.bash's header says Copyright (c) 2026 Bubbles.
+	- ID: 2026110315153026
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261103-151530
+	- Opened by:
+	- Target OS: all
+	- Incorrect behavior: cicd/win/pack-zip.bash has the header line Copyright (c) 2026 Bubbles, which matches neither the project's copyright holder nor its form.
+	- Expected behavior: the project's usual copyright line. Grep the tree for other stray headers like it.
+	- Actual fix: the header of cicd/win/pack-zip.bash, cicd/win/build-cross.bash, cicd/win/stage-native.bash and cicd/linux/stage-prefix.bash is now the t00mietum form. None of them has a copy in a sister project, and lxqtukz's stage-prefix.bash has the t00mietum form.
+	- Decisions:
+		- The Bubbles form is for helpers shared with other repos, so those stay: gui-headless.bash, package.bash, fuzz.bash, release.bash, flame-report.py, git-auto-msg.bash and the includes.
+		- About 17 more files that only this project has still say Bubbles, such as lint-c.bash and utility/runfm. Whether they count as shared helpers isn't clear from the tree, so they're left, with a `Check:` entry in questions.md.
+	- Swept: grep for the Bubbles line across the repo outside vendor, and the same file names in the sister projects.
+	- Branch: round1107a
+	- Test case: none, a comment line.
+	- Closed: 20261106-1905
+
+- lint-report counts a test's OK line that names a warning as a warning.
+	- ID: 2026110220410883
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261102-204108
+	- Opened by:
+	- Steps to reproduce: `python3 cicd/utility/lint-report.py --check` after the 20261102 full run.
+	- Incorrect behavior: it lists depg0's lines `[ OK: with no wintest session, a warning and the gate's pass ]` and `[ OK: with wintest's session locked, a warning and the gate's pass ]` as new warnings.
+	- Expected behavior: an OK, PASS or SKIP line is never a warning line.
+	- Actual cause: the flag word match ran on every line, and a test's OK line can carry the word in its name.
+	- Actual fix: a line that starts with `[ OK`, `[ SKIP`, `PASS ` or `SKIP ` is left out before the match.
+	- Swept: lint-report.py is the only reader of the lint logs for warnings.
+	- Branch: round1107a
+	- Test case: dehzr, lint-report.py --self-test, now with OK, PASS and SKIP lines that name a warning, an error or a deprecation, and a real WARNING line.
+	- Verified: 20261107, dehzr passes, and fails with the new check taken out.
+	- Closed: 20261106-1905
+
+- Middle-clicking a bookmark to open it in a new tab leaves the Name column too narrow.
+	- ID: 2026103113431790
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261031-134317
+	- Opened by: t00mietum
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+	- Steps to reproduce: middle-click a bookmark in "Places", then click the new tab.
+	- Incorrect behavior: the Name column is too narrow in the new tab.
+	- Expected behavior: the columns are as wide as when the same folder opens in the current tab.
+	- Workaround: F5 to refresh.
+	- Reproduced: 20261106, Linux. In an 800 px window Name came up 77 px wide in the new tab, and 281 px for the same folder opened in place.
+	- Actual cause: the new tab opens behind the current one, and is given its size while hidden, before its tree view has a window. The list view noted that width as laid out and queued the layout, which then waited for the window and never ran. On show the same width came back, read as already laid out, so the columns kept their starting widths. F5 forgets the noted width, which is why it helped.
+	- Actual fix: only the layout itself notes the width it laid out for, once it has run. The tab's first allocation on show now lays the columns out, before the first frame.
+	- Swept: every other place that sets the noted width sets it to "none", and the layout is the only one that sets a real one. A tab opened from the menu's "Open in new tab", Shift+Enter on a place and a middle click in the folder all go through the same new-tab path. A resize still lays out once per width, and a hand-dragged width still lasts until the window changes shape. Icon and compact views have no column widths.
+	- Verified: deza3 failed before the fix (77 against 281) and passes after, 12 of 12 run 8 at once. dbjq9, ddka3, ddav4, ddyv6, ddg79, dd5dk, dd26k, dct7k and ddhw4 pass.
+	- Test case: deza3 (New tab column widths test), new.
+	- Acceptance signoff: Self-closed: the fix restores the documented widths in a new tab, and deza3 pins it.
+	- Closed: 20261106-194937
+
+- cicd-win.ps1's step rule comes out as BEL characters when its output is piped.
+	- ID: 2026102822580287
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261028-225802
+	- Opened: 20261028-225802
+	- Opened by: 2026102517333373
+	- Target OS: Windows
+	- Steps to reproduce: run `pwsh cicd/cicd-win.ps1 -Gate -Yes` from another pwsh with its output piped to a file.
+	- Incorrect behavior: each rule line is 79 bytes of 0x07 rather than 79 bullets, so a terminal showing the log rings the bell 79 times a step.
+	- Expected behavior: the same rule as `cicd.bash` draws, in any log.
+	- Reproduced: 20261028 on b29w, round1028b at 2964120b. dev drew 73 of the same bullet, so it predates the round.
+	- Possible cause: the rule is `[char]0x2022`. Piped output goes out in the console's OEM code page, which has no bullet, and Windows swaps in 0x07, the byte that code page shows as a bullet.
+	- Actual cause: as above. On b29w, under code page 437, a piped `Write-Host` of 3 bullets writes `07 07 07`. The host keeps the encoding it had at its first write, so a later change does nothing. A pwsh that reads the output back decodes it in its own console's code page too.
+	- Actual fix: with its output piped, `cicd-win.ps1` sets the console output encoding to UTF-8 before it writes anything, and puts it back at the end, since the console is shared with the shell that started it. `lane-box.ps1` and dejjt, which read its output back through pwsh, read it as UTF-8.
+	- Decisions:
+		- Only when piped. On a console the host writes the bullet through the wide call whatever the code page, and changing the code page there would outlast the run.
+		- A pwsh 7.4 or later `> file` keeps the bytes. A pwsh `| Out-File` or `| Tee-Object` decodes in its own console code page, so a caller reading the output that way sets `[Console]::OutputEncoding` to UTF-8 first, as `lane-box.ps1` does.
+	- Swept: every pwsh that runs `cicd-win.ps1` and reads its output: `lane-box.ps1`'s gate and desktop runs, and dejjt. The pre-push hook and the Windows dogfood take its bytes through bash and ssh. No other PowerShell script writes a non-ASCII character.
+	- Branch: round1107a
+	- Commit: 01a644e9, c1c9ff43
+	- Test case: dejjt: run piped, read as bytes, the rule is 79 bullets in UTF-8 with no bell character. It sets a code page with no bullet first: `LC_ALL=en_US.ISO-8859-1` off Windows, and 437 on Windows.
+	- Verified: 20261106, dejjt fails with the fix taken out, the rule coming out as 79 `.` under ISO-8859-1, and passes with it.
+	- Verified: 20261106 on b29w at c1c9ff43: dejjt passes, and with the fix taken out fails only its 2 pipe checks, a bell character in the output. The native gate's log from b29w, through `lane-box.ps1`, has each rule as 79 bullets in UTF-8 and no 0x07.
+	- Acceptance signoff: Self-closed: dejjt pins it, on Linux and on b29w.
+	- Closed: 20261106-180800
 
 - The sanitizer suite fails on a thumbnail temp file a stopped app left behind.
 	- ID: 2026110417012711
