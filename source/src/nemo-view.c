@@ -9462,7 +9462,7 @@ static const GtkActionEntry directory_view_entries[] = {
 				 G_CALLBACK (action_paste_files_into_callback) },
   /* name, stock id */         { NEMO_ACTION_PASTE_INTO_VIEWED, "edit-paste-symbolic",
   /* label, accelerator */       N_("Paste into vie_wed folder"), "<Primary><Shift>V",
-  /* tooltip */                  N_("Move or copy files previously selected by a Cut or Copy command into the folder being viewed, whatever is selected"),
+  /* tooltip */                  N_("Move or copy the files last cut or copied into the folder being viewed, whatever is selected"),
 				 G_CALLBACK (action_paste_into_viewed_callback) },
   /* name, stock id, label */  { NEMO_ACTION_EXTRACT_MENU, "package-x-generic", N_("E_xtract"), NULL, NULL, NULL },
   /* name, stock id, label */  { "CopyToMenu", NULL, N_("Cop_y to"), NULL, NULL, NULL },
