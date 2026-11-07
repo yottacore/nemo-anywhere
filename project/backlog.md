@@ -827,7 +827,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD reset: temp files and safe removal.
 	- ID: 2026102416300002
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261024-163000
 	- Opened by: t00mietum
@@ -842,12 +842,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- The same on the Windows boxes and the test VMs.
 	- Progress log:
 		- 20261025: split into children 2026102516403466 (the run folder in `cicd.bash`), 2026102516403471 (the bash scripts), 2026102516403476 (`cicd-win.ps1` and the PowerShell scripts) and 2026102516403481 (the test VMs).
-	- Test case: none yet.
+		- 20261107: every child closed.
+	- Test case: defnq and detts, plus the children's own tests.
+	- Closed: 20261107
+	- Acceptance signoff: Self-closed: children 2026102516403466, 2026102516403471, 2026102516403476 and 2026102516403481 are Done.
 
 - Temp files: `cicd-win.ps1` and the PowerShell scripts.
 	- ID: 2026102516403476
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261025-164035
 	- Opened by: 2026102416300002
@@ -858,7 +861,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A PowerShell copy of the guard. The 29 `Remove-Item -Recurse` lines in 14 scripts go through it. File list in the private notes.
 	- Progress log:
 		- 20261103: split into children 2026110315184948 (the run folder in `cicd-win.ps1`, and the guard), 2026110315184983 (the scripts under `cicd/`) and 2026110315185015 (`install.ps1` and `n8runfm.ps1`, the prefix removal near line 619 included).
-	- Test case: none yet.
+		- 20261107: every child closed. detts' list of scripts still to move has been empty since 20261104, install.ps1's prefix removal included.
+	- Test case: detts (test-safe-rm.ps1), dejjt, dd5fx and ddgch, from the children.
+	- Closed: 20261107
+	- Acceptance signoff: Self-closed: children 2026110315184948, 2026110315184983 and 2026110315185015 are Done, and detts passes.
 	- 20261103: install.ps1 still removes the prefix with a bare Remove-Item -Recurse, near line 619. Cover it here.
 
 - Static analyzers: fix or suppress the findings in our own code.
