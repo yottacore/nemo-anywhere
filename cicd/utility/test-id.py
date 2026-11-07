@@ -57,13 +57,14 @@ def decode(text):
 
 
 def found_ids(root):
-    # (id or None, where) for every test that should have one
+    # (id or None, where) for every test that should have one. Paths with
+    # forward slashes, so --list matches them on Windows too.
     for build in sorted((root / 'source').rglob('meson.build')):
         for num, line in enumerate(build.read_text(encoding='utf-8').splitlines(), 1):
             m = re.match(r"\s*test\('([^']*)'", line)
             if m:
                 tag = re.match(r'([0-9a-z]+) ', m.group(1))
-                yield (tag.group(1) if tag else None), f'{build.relative_to(root)}:{num}'
+                yield (tag.group(1) if tag else None), f'{build.relative_to(root).as_posix()}:{num}'
 
     lint = root / 'cicd/utility/lint-c.bash'
     lines = lint.read_text(encoding='utf-8').splitlines()
@@ -76,7 +77,7 @@ def found_ids(root):
             m = re.match(r'##\s+Test ID: (\S+)$', lines[above])
             tag = tag or (m and m.group(1))
             above -= 1
-        yield tag, f'{lint.relative_to(root)}:{num}'
+        yield tag, f'{lint.relative_to(root).as_posix()}:{num}'
 
     # The other lint scripts aren't split into functions, so a check there has
     # no ID to miss, but one it has still must be well formed and not reused.
@@ -86,13 +87,13 @@ def found_ids(root):
         for num, line in enumerate(other.read_text(encoding='utf-8').splitlines(), 1):
             m = re.match(r'##\s+Test ID: (\S+)$', line)
             if m:
-                yield m.group(1), f'{other.relative_to(root)}:{num}'
+                yield m.group(1), f'{other.relative_to(root).as_posix()}:{num}'
 
     scripts =[p for p in (root / 'cicd').rglob('*') if p.is_file() and p.suffix in ('.bash', '.ps1')
         and (p.name.startswith('test-') or 'smoke' in p.name or p.name == 'check-win-build-flags.bash')]
     for script in sorted(scripts):
         m = re.search(r'(?m)^##\s+(?:- )?Test ID: (\S+)$', script.read_text(encoding='utf-8-sig'))
-        yield (m.group(1) if m else None), str(script.relative_to(root))
+        yield (m.group(1) if m else None), script.relative_to(root).as_posix()
 
     # A tool's own self-test, found where the lint stage runs it, so a new one
     # cannot go in unseen. Its ID is in the tool, on a "Test ID:" line. This
@@ -117,7 +118,7 @@ def found_ids(root):
     for num, line in enumerate(fuzz.read_text(encoding='utf-8').splitlines(), 1):
         m = re.match(r'\t"([^"|]*\|)?fuzz-[^"|]*\|[^"|]*"$', line)
         if m:
-            yield (m.group(1)[:-1] if m.group(1) else None), f'{fuzz.relative_to(root)}:{num}'
+            yield (m.group(1)[:-1] if m.group(1) else None), f'{fuzz.relative_to(root).as_posix()}:{num}'
 
 
 def check(root):
