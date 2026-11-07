@@ -34,6 +34,7 @@
 #include <config.h>
 
 #include <stdlib.h>
+#include <string.h>
 #include <gtk/gtk.h>
 
 #include <libnemo-private/nemo-bulk-rename.h>
@@ -660,6 +661,33 @@ test_selection_model (GtkWidget *dialog)
 	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE_V1);
 }
 
+/* The whole-name rename box is grayed under Nemo Anywhere, where F2 and
+   Shift+F2 are fixed, with a tooltip saying so, and comes back with the model. */
+static void
+test_rename_selects_grayed (GtkWidget *dialog)
+{
+	GtkWidget *check_button = find_named (dialog, "rename_selects_whole_name_checkbutton");
+	char *tip;
+
+	check (check_button != NULL);
+	if (check_button == NULL) {
+		return;
+	}
+	check (gtk_widget_get_sensitive (check_button));
+
+	nemo_config_set_string (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, "nemo-anywhere");
+	check (!gtk_widget_get_sensitive (check_button));
+	tip = gtk_widget_get_tooltip_text (check_button);
+	check (tip != NULL && strstr (tip, "Shift+F2") != NULL);
+	g_free (tip);
+
+	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
+	check (gtk_widget_get_sensitive (check_button));
+	tip = gtk_widget_get_tooltip_text (check_button);
+	check (tip != NULL && strstr (tip, "Shift+F2") == NULL);
+	g_free (tip);
+}
+
 static void
 test_escape_closes (GtkWidget *dialog)
 {
@@ -752,6 +780,7 @@ main (int argc, char *argv[])
 		test_sub_tabs (dialog);
 		test_bulk_rename (dialog);
 		test_selection_model (dialog);
+		test_rename_selects_grayed (dialog);
 		test_escape_closes (dialog);
 	}
 

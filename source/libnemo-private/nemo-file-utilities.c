@@ -2901,10 +2901,22 @@ nemo_rename_region (const char *name,
     *start_offset = 0;
     *end_offset = -1;
 
-    if (!whole &&
+    if (whole) {
+        return;
+    }
+
+    /* Under Nemo Anywhere F2 keeps the extension and Shift+F2 takes it all, as
+       upstream does, so the whole-name setting only counts for the other models. */
+    if (!nemo_rename_setting_applies () ||
         !nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_RENAME_SELECTS_WHOLE_NAME)) {
         eel_filename_get_rename_region (name, start_offset, end_offset);
     }
+}
+
+gboolean
+nemo_rename_setting_applies (void)
+{
+    return nemo_global_preferences_get_selection_model () != NEMO_SELECTION_MODEL_ANYWHERE;
 }
 
 /* Rewrites in place - both separators are one ASCII byte, so nothing moves.

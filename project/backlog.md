@@ -1098,34 +1098,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: the xattrs checkbox is today's "Save checksums onto the files", moved and relabeled.
 	- Test case: none yet.
 
-- Current F2 functionality (rename the whole thing) moves to Shift+F2.
-	- ID: 2026102218380001
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261022-183800
-	- Opened by: t00mietum
-	- Related IDs: 2026102218380002
-	- Requirements:
-		- Before the next cut.
-		- For "Nemo Anywhere" only. "Nemo Anywhere v1" keeps the previous behavior, F2 renaming the whole name.
-		- Shift+F2 renames the whole name, as F2 does today.
-	- Test case: none yet.
-
-- New F2 functionality: back to upstream, where the automatic text selection doesn't include the file extension.
-	- ID: 2026102218380002
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261022-183800
-	- Opened by: t00mietum
-	- Related IDs: 2026102218380001
-	- Requirements:
-		- Before the next cut.
-		- For "Nemo Anywhere" only. "Nemo Anywhere v1" keeps the previous behavior.
-		- F2 selects the name without the extension, as upstream does.
-	- Test case: none yet.
-
 - Settings, List columns: split into two sub-tabs.
 	- ID: 2026110520234231
 	- Type: Enhancement
@@ -5218,6 +5190,46 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de025, Folder open time test. Goes into 9 folders of 120 from the list view, and back up after each. 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
 	- Acceptance signoff: Self-closed: de025 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
+
+- Current F2 functionality (rename the whole thing) moves to Shift+F2.
+	- ID: 2026102218380001
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261022-183800
+	- Opened by: t00mietum
+	- Related IDs: 2026102218380002
+	- Requirements:
+		- Before the next cut.
+		- For "Nemo Anywhere" only. "Nemo Anywhere v1" keeps the previous behavior, F2 renaming the whole name.
+		- Shift+F2 renames the whole name, as F2 does today.
+	- Progress log:
+		- 20261107: Shift+F2 already selected the whole name under every model. Under Nemo Anywhere it is now the only way to get it; under v1 and Classic F2 still follows the "Include the extension when a rename starts" setting, which defaults to on.
+	- Decisions:
+		- The setting's box in Settings is grayed under Nemo Anywhere, with a tooltip saying what F2 and Shift+F2 do there. Nemo Anywhere isn't in the dropdown yet, so the box only grays for a model set by hand.
+	- Branch: precut2
+	- Test case: dd5c8 covers the region under each model, dd5df the grayed box.
+	- Acceptance signoff: Self-closed: both tests pass.
+	- Closed: 20261107-090600
+
+- New F2 functionality: back to upstream, where the automatic text selection doesn't include the file extension.
+	- ID: 2026102218380002
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261022-183800
+	- Opened by: t00mietum
+	- Related IDs: 2026102218380001
+	- Requirements:
+		- Before the next cut.
+		- For "Nemo Anywhere" only. "Nemo Anywhere v1" keeps the previous behavior.
+		- F2 selects the name without the extension, as upstream does.
+	- Progress log:
+		- 20261107: under Nemo Anywhere, F2 leaves the extension out whatever the whole-name setting says. A folder is still selected whole. Written up under Keyboard in the behavior models design doc.
+	- Branch: precut2
+	- Test case: dd5c8.
+	- Acceptance signoff: Self-closed: dd5c8 passes.
+	- Closed: 20261107-090600
 
 - The dual progress bars in thumbnail view aren't needed, because they always progress at (almost) the same rate.
 	- ID: 2026101613053688
