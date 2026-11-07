@@ -19,14 +19,25 @@
 static struct {
 	GtkWidget *menu;
 	GMainLoop *loop;
+	int focus_lost;
+	int grab_broken;
 } popup;
 
 static gboolean use_key = TRUE;
+
+static gboolean
+count_event (G_GNUC_UNUSED GtkWidget *widget, G_GNUC_UNUSED GdkEvent *event, gpointer data)
+{
+	(*(int *) data)++;
+	return FALSE;
+}
 
 static void
 popup_seen (G_GNUC_UNUSED GtkEntry *entry, GtkWidget *menu, G_GNUC_UNUSED gpointer data)
 {
 	popup.menu = menu;
+	/* The entry makes a new menu for each popup. */
+	g_signal_connect (menu, "grab-broken-event", G_CALLBACK (count_event), &popup.grab_broken);
 	g_main_loop_quit (popup.loop);
 }
 
@@ -157,9 +168,13 @@ ask_and_check (GtkWidget *entry, GtkWidget *window, const char *what)
 {
 	GtkWidget *menu;
 	GList *items;
+	gboolean active;
 	guint live;
 
 	popup.menu = NULL;
+	popup.focus_lost = 0;
+	popup.grab_broken = 0;
+	active = gtk_window_is_active (GTK_WINDOW (window));
 	if (use_key) {
 		send_menu_key (window);
 	} else {
@@ -176,7 +191,13 @@ ask_and_check (GtkWidget *entry, GtkWidget *window, const char *what)
 	}
 
 	check (GTK_IS_MENU (menu));
-	check (gtk_widget_get_mapped (menu));
+	/* GTK maps the menu as it pops it up, so not mapped means it closed again,
+	   or never got its grab. */
+	if (!gtk_widget_get_mapped (menu)) {
+		g_printerr ("FAIL context menu %s not up: window %s, then lost the focus %d time(s), grab broken %d time(s)\n",
+			    what, active ? "active" : "not active", popup.focus_lost, popup.grab_broken);
+		failures++;
+	}
 
 	/* Cut, copy and paste at the very least. An empty menu is a menu that
 	   was never filled in, which reads on screen as nothing happening. */
@@ -225,6 +246,7 @@ main (int argc, char *argv[])
 	use_key = menu_key_is_on_the_keymap (window);
 	popup.loop = g_main_loop_new (NULL, FALSE);
 	g_signal_connect (entry, "populate-popup", G_CALLBACK (popup_seen), NULL);
+	g_signal_connect (window, "focus-out-event", G_CALLBACK (count_event), &popup.focus_lost);
 
 	gtk_entry_set_text (GTK_ENTRY (entry), "/usr/share/icons");
 
