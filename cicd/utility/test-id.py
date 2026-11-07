@@ -15,7 +15,10 @@
 # --at TIME prints the one for an ISO time, when dating an older test.
 # --check fails on a test with no ID, a malformed one, or one used twice.
 #
-# Syntax: test-id.py [--at TIME | --check [root]]
+# --list [root] reads steps on stdin, one "<name><TAB><command>" a line, and
+# prints each with the test IDs its command reaches, for cicd.bash --list.
+#
+# Syntax: test-id.py [--at TIME | --check [root] | --list [root]]
 
 # Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 # Licensed under The MIT License (MIT). Full text at:
@@ -138,10 +141,131 @@ def check(root):
     print(f'[ OK: test IDs: {len(seen)} tests, all unique ]')
 
 
+SCRIPT_REF = re.compile(r'(?:[\w.-]+/)*[\w.-]+\.(?:bash|ps1|py)\b')
+
+
+def code_lines(path):
+    # A file's lines less its comments, so a script a comment only mentions
+    # doesn't count as run.
+    try:
+        text = path.read_text(encoding='utf-8-sig', errors='replace')
+    except OSError:
+        return []
+    out, in_help = [], False
+    for line in text.replace('\\', '/').splitlines():
+        bare = line.strip()
+        if bare.startswith('<#'):
+            in_help = '#>' not in bare
+            continue
+        if in_help:
+            in_help = '#>' not in bare
+            continue
+        if not bare.startswith('#'):
+            out.append(line)
+    return out
+
+
+RUN_WORD = re.compile(r'(?:^|[\s;&|("\'])(?:bash|sh|pwsh|python3?|source|exec|fTest|fMingw|-File)\s'
+                      r'|^\s*(?:local\s+)?\$?\w+\s*=')
+
+
+def run_refs(lines):
+    # The scripts a file runs: a name with a run word before it in its own
+    # command, or one put in a variable. Not one an echo or a lint's file list
+    # names.
+    for line in lines:
+        for m in SCRIPT_REF.finditer(line):
+            if RUN_WORD.search(re.split(r'[;|]|&&', line[:m.start()])[-1]):
+                yield m.group(0)
+
+
+def script_index(root):
+    index = {}
+    for path in (root / 'cicd').rglob('*'):
+        if path.suffix in ('.bash', '.ps1', '.py') and path.is_file() \
+                and 'artifacts' not in path.parts and '__pycache__' not in path.parts:
+            index.setdefault(path.name, []).append(path.relative_to(root).as_posix())
+    return index
+
+
+def resolve(ref, index, near):
+    # A path as written, such as ${here}/../bsd/test-lane.bash, to the file
+    # it names. A bare name with twins is the one beside the file naming it.
+    parts = [p for p in ref.split('/') if p not in ('', '.', '..')]
+    found = [c for c in index.get(parts[-1], []) if c == '/'.join(parts) or c.endswith('/' + '/'.join(parts))]
+    if len(found) > 1 and len(parts) == 1 and near:
+        found = [c for c in found if c.rsplit('/', 1)[0] == near]
+    return found if len(found) == 1 else []
+
+
+def listing(root, steps):
+    # Steps on stdin, as "<name><TAB><command>". A step runs the tests its
+    # command names, those the scripts it names run, and so on 5 levels down,
+    # along with the IDs those scripts hold, such as the lint checks and the
+    # fuzz targets. A test script is a leaf, unless the step runs it itself,
+    # such as the sanitizer suite. A step that reaches a meson test run gets
+    # the meson tests. A script with modes, such as the FreeBSD lane's tests
+    # and release, gives every mode's tests to each step that runs it.
+    index = script_index(root)
+    held, scripts, meson = {}, {}, []
+    for tag, where in found_ids(root):
+        path, _, num = where.partition(':')
+        if not num:
+            scripts[path] = tag
+            continue
+        line = (root / path).read_text(encoding='utf-8').splitlines()[int(num.split(':')[0]) - 1]
+        if path.endswith('meson.build'):
+            name = re.match(r"\s*test\('(?:[0-9a-z]+ )?([^']*)'", line).group(1)
+            meson.append((tag, name))
+            continue
+        m = re.search(r'(fCheck\w+)\(\)|"[^|]*\|(fuzz-[^|"]+)', line)
+        name = num.split(': ', 1)[1] if ': ' in num else (m and (m.group(1) or m.group(2))) or where
+        held.setdefault(path, []).append((tag, name))
+    meson_at = ''
+    meson_tags = {tag for tag, _ in meson}
+    for i, (step, command) in enumerate(steps, 1):
+        print(f'Step {i} of {len(steps)}; {step}')
+        seen, queue, runs_meson, named = set(), [], False, set()
+        for ref in SCRIPT_REF.findall(command.replace('\\', '/')):
+            queue += [(p, 1) for p in resolve(ref, index, '')]
+        while queue:
+            path, depth = queue.pop(0)
+            if path in seen:
+                continue
+            seen.add(path)
+            if (path in scripts and depth > 1) or depth > 5:
+                continue
+            lines = code_lines(root / path)
+            for line in (x for x in lines if re.search(r'\bmeson test\b', x)):
+                # One that names its tests, such as a release smoke, runs only those.
+                tags = {t for t in re.findall(r'["\'](\w+) ', line) if t in meson_tags}
+                named |= tags
+                runs_meson = runs_meson or not tags
+            for ref in run_refs(lines):
+                queue += [(p, depth + 1) for p in resolve(ref, index, path.rsplit('/', 1)[0])]
+        found = [(scripts[p], p) for p in sorted(seen) if p in scripts]
+        if not runs_meson:
+            found += [(tag, name) for tag, name in meson if tag in named]
+        for path in sorted(seen):
+            found += held.get(path, [])
+        for tag, name in sorted(set(found)):
+            print(f'    {tag} {name}')
+        if runs_meson and meson_at:
+            print(f'    the {len(meson)} meson tests, as in {meson_at}')
+        elif runs_meson:
+            meson_at = step
+            for tag, name in sorted(meson):
+                print(f'    {tag} {name}')
+
+
 if __name__ == '__main__':
     args = sys.argv[1:]
     if args[:1] == ['--check']:
         check(Path(args[1]) if len(args) > 1 else Path(__file__).resolve().parents[2])
+    elif args[:1] == ['--list']:
+        steps = [line.rstrip('\n').split('\t', 1) for line in sys.stdin if line.strip()]
+        listing(Path(args[1]) if len(args) > 1 else Path(__file__).resolve().parents[2],
+                [(s[0], s[1] if len(s) > 1 else '') for s in steps])
     elif args[:1] == ['--at'] and len(args) == 2:
         when = datetime.fromisoformat(args[1])
         print(encode(minutes(when if when.tzinfo else when.replace(tzinfo=timezone.utc))))
@@ -153,4 +277,4 @@ if __name__ == '__main__':
             count += 1
         print(encode(count))
     else:
-        sys.exit('Syntax: test-id.py [--at TIME | --check [root]]')
+        sys.exit('Syntax: test-id.py [--at TIME | --check [root] | --list [root]]')

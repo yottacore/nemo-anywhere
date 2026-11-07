@@ -723,7 +723,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD flags: `--no-container`, `--no-remote`, `--keep-temp` and `--list`.
 	- ID: 2026102516165477
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs external testing: dez4x under MSYS2, in the lint step of the native Windows gate.
 	- Priority|Severity: High
 	- Opened: 20261025-161654
 	- Opened by: 2026102416300004
@@ -733,8 +734,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Per the shared CICD style guide: `--no-container` runs on the host, `--no-remote` skips the other hosts and VMs, `--keep-temp` keeps the run's temp folder and containers and prints where they are, and `--list` prints the steps and test IDs the other flags would run, and runs nothing.
 	- Progress log:
 		- 20261025: `--no-remote` is in `cicd.bash`. It leaves out arm64, the FreeBSD lane, the private runner and remote dogfood, and wins over `--include-arm` and `--include-bsd`. `--no-container` split to 2026102516295605. Left: `--keep-temp`, which needs the run's own temp folder and containers from 2026102416300002 and 2026102416300000, and `--list`.
-	- Test case: de54r for `--no-remote`: a plain run, `--long` with both includes, and `--backlog-run-full`, each with it.
+		- 20261106: `--keep-temp` was already in from 2026102516403466, but named only the folder. The end of the run now names the containers it kept too.
+		- 20261106: `--list` prints the plan the other options give, the steps turned off with why, then each step with the test IDs it runs, and exits. It makes no run folder or log, starts no CPU scope, caps no container, sweeps nothing and runs no tool pin probe. `test-id.py --list` finds each step's tests.
+	- Decisions:
+		- A step's tests are worked out from the source, not by asking meson or the boxes: those its command runs, and those the scripts it runs run in turn, up to 5 levels down, with the lint checks, self-tests and fuzz targets they hold. A script counts as run only with a run word before it on its line, such as `bash`, `pwsh -File` or `fTest`, or when it's put in a variable, so an echo or a lint's file list doesn't count. Asking meson would need a configured build, which is running something.
+		- So the list is what each step could run. A test that skips itself on a box is still listed, and a script with modes, such as the FreeBSD lane's tests and release, lists every mode's tests. A `meson test` line that names its tests, such as the release smoke, lists only those.
+		- The meson tests are listed in full under the first step that runs them, and later steps point back to it, rather than printing 284 lines 5 times.
+	- Swept: every flag-reading spot in `cicd.bash` (the early loop, the CPU scope, the container cap, the auto message, the run folder and traps, the tool pins, both plan paths), its `--help`, design.md's flags and docker bullets, the docker sweep's header, and every test that copies `cicd.bash` (dddq3, de54r, ddmmw, desha, dee6e and dee6z), which all pass. `cicd-win.ps1` gets its flags in 2026102516165482.
+	- Test case: de54r for `--no-remote`: a plain run, `--long` with both includes, and `--backlog-run-full`, each with it. dez4x for `--list`: each kind of test under its step, an echoed script left out, the release smoke's one test, `--backlog-run-quick lint` and `--no-container`, and no step, CPU scope, container cap, pin probe, run folder or log, with a plain run of the same copy as the control. dee6z for `--keep-temp` naming the kept containers.
 	- Verified: 20261025, `--no-remote`: de54r passes, and fails on `cicd.bash` without it, and with the private runner and remote dogfood left on under it.
+	- Verified: 20261106, dez4x passes, and fails on `cicd.bash` and `test-id.py` from before the change, with the tool pin probe let run under `--list`, and with the run word check taken out. dee6z passes, and fails on `docker-sweep.bash` from before the change. `cicd/cicd.bash --backlog-run-quick` passes, with dez4x, dee6z and `test-id.py --check` (422 tests) in its lint stage.
 
 - CICD flags: `cicd-win.ps1` takes the same flags.
 	- ID: 2026102516165482
