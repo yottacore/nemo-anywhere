@@ -934,20 +934,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- This should be an option, enabled by default: "On contents zoom, change window size too".
 	- Test case: none yet.
 
-- Tree view: the horizontal scroll keeps the selected folders and their first-level children in view.
-	- ID: 2026102018234902
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261020-182349
-	- Opened by: t00mietum
-	- Related IDs: 2026102018234900
-	- Requirements:
-		- Before the next cut.
-		- The horizontal scroll keeps the selected folder(s) and first-level children in view automatically, without being cut off.
-		- Scroll content left if necessary.
-	- Test case: none yet.
-
 - Tree view: in "Checkmark selection" mode, folders follow the content view's selection rules and can be fully edited.
 	- ID: 2026102018234903
 	- Type: Enhancement
@@ -5096,6 +5082,30 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de025, Folder open time test. Goes into 9 folders of 120 from the list view, and back up after each. 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
 	- Acceptance signoff: Self-closed: de025 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
+
+- Tree view: the horizontal scroll keeps the selected folders and their first-level children in view.
+	- ID: 2026102018234902
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Related IDs: 2026102018234900
+	- Requirements:
+		- Before the next cut.
+		- The horizontal scroll keeps the selected folder(s) and first-level children in view automatically, without being cut off.
+		- Scroll content left if necessary.
+	- Progress log:
+		- 20261107: the tree only ever scrolled up and down to the selected row, so in a narrow pane a deep folder's indentation left its name and its children's past the right edge. After the selection changes, a row opens or closes, or a selected folder's children come in, the tree waits for its next layout and then, in one idle, sets the sideways scroll to the smallest value that shows the right end of the selected rows' names and their open children's, but never past the selected rows' own start and expander. A shallow folder that fits scrolls the pane back to its left edge. Until the tree has grown wide enough for the wanted value, the next layout tries again. Written up under Tree view in the behavior models design doc.
+	- Decisions:
+		- Decided: every selection model. It's the pane's layout rather than a selection rule, so 2026102407515570's rule for behavior changes doesn't reach it, and nothing in v1's or Classic's tests pins the sideways scroll.
+		- Decided: no setting, and a manual sideways scroll stays put until the next selection or open or close.
+	- Swept: the tree's existing up and down scroll to the selected row (unchanged), the Right and Left keys (dec8w, df066), and v1 and Classic (de8bd, de8dm).
+	- Branch: treescroll
+	- Commit: 87fa5f3d
+	- Test case: df06r, Tree sideways scroll test: in a 200 pixel tree on a folder six deep, the selected folder's name and its child's are in view, and clicking the top folder scrolls back to the left edge. It fails before the fix and passes after.
+	- Acceptance signoff: Self-closed: df06r passes, along with df066, de8bd, de8dm and dec8w.
+	- Closed: 20261107-111235
 
 - Tree view: Right and Left arrow expand and collapse the folder, the way they do in the content view.
 	- ID: 2026102018234900
