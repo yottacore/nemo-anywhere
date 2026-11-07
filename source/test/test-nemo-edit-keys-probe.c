@@ -195,7 +195,7 @@ selected_count (void)
 	return n;
 }
 
-/* The list view's cursor lands where it's put; the icon view takes keys. */
+/* The list view's cursor goes where it's put; the icon view takes keys. */
 static void
 put_cursor (int item)
 {
