@@ -21,7 +21,6 @@
 #include "nemo-statusbar.h"
 
 #include "nemo-list-view.h"
-#include "nemo-icon-view.h"
 
 #include <libnemo-private/nemo-thumbnails.h>
 
@@ -84,11 +83,13 @@ nemo_status_bar_get_property (GObject      *object,
 }
 
 #define THUMB_TICK_MS 150
-/* A run shorter than this, one edited file say, never puts the bars up. */
+/* A run shorter than this, one edited file say, never puts the bar up. */
 #define THUMB_SHOW_AFTER_TICKS 2
-/* And they stay up a moment once it ends, full, rather than just vanish. */
+/* And it stays up a moment once it ends, full, rather than just vanish. */
 #define THUMB_LINGER_TICKS 4
 
+/* One bar, for the thumbnails built so far. A second one that counted the
+ * pictures drawn in the view ran at about the same rate, so it went. */
 static void
 set_bar (GtkWidget *bar, const char *format, guint done, guint total)
 {
@@ -99,22 +100,19 @@ set_bar (GtkWidget *bar, const char *format, guint done, guint total)
     gtk_widget_set_tooltip_text (bar, tip);
 }
 
-/* The room stays taken while they are hidden, or the status text, which is
- * centered in what is left, would jump sideways each time they come and go. */
+/* The room stays taken while it is hidden, or the status text, which is
+ * centered in what is left, would jump sideways each time it comes and goes. */
 static void
-show_thumb_bars (NemoStatusBar *bar, gboolean show)
+show_thumb_bar (NemoStatusBar *bar, gboolean show)
 {
     gtk_widget_set_child_visible (bar->build_bar, show);
-    gtk_widget_set_child_visible (bar->render_bar, show);
 }
 
 static gboolean
 thumb_tick_cb (gpointer user_data)
 {
     NemoStatusBar *bar = NEMO_STATUS_BAR (user_data);
-    NemoWindowSlot *slot;
     guint done, waiting;
-    guint shown = 0, wanted = 0;
 
     nemo_thumbnail_jobs (&done, &waiting);
 
@@ -123,7 +121,7 @@ thumb_tick_cb (gpointer user_data)
 
         if (!gtk_widget_get_child_visible (bar->build_bar) ||
             ++bar->thumb_idle_ticks > THUMB_LINGER_TICKS) {
-            show_thumb_bars (bar, FALSE);
+            show_thumb_bar (bar, FALSE);
             bar->thumb_tick_id = 0;
             return G_SOURCE_REMOVE;
         }
@@ -135,20 +133,8 @@ thumb_tick_cb (gpointer user_data)
         }
     }
 
-    slot = bar->window != NULL ? nemo_window_get_active_slot (bar->window) : NULL;
-
-    if (slot != NULL && NEMO_IS_ICON_VIEW (slot->content_view) &&
-        nemo_file_should_show_thumbnail (nemo_view_get_directory_as_file (slot->content_view))) {
-        nemo_icon_container_count_thumbnails (
-            nemo_icon_view_get_icon_container (NEMO_ICON_VIEW (slot->content_view)),
-            &shown, &wanted);
-    }
-
-    nemo_thumbnail_rendered_for_bar (done, waiting, &shown, &wanted);
-
     set_bar (bar->build_bar, _("Building thumbnails: %u of %u"), done, done + waiting);
-    set_bar (bar->render_bar, _("Rendering thumbnails: %u of %u"), shown, wanted);
-    show_thumb_bars (bar, TRUE);
+    show_thumb_bar (bar, TRUE);
 
     return G_SOURCE_CONTINUE;
 }
@@ -296,16 +282,11 @@ nemo_status_bar_constructed (GObject *object)
     g_signal_connect (button, "clicked",
                       G_CALLBACK (show_sidebar_clicked_cb), bar);
 
-    /* Stacked, so the pair takes no more height than one button. */
-    bar->thumb_bars = gtk_box_new (GTK_ORIENTATION_VERTICAL, 3);
-    gtk_widget_set_valign (bar->thumb_bars, GTK_ALIGN_CENTER);
-    gtk_widget_set_size_request (bar->thumb_bars, THUMB_BARS_WIDTH, -1);
     bar->build_bar = gtk_progress_bar_new ();
-    bar->render_bar = gtk_progress_bar_new ();
-    gtk_box_pack_start (GTK_BOX (bar->thumb_bars), bar->build_bar, FALSE, FALSE, 0);
-    gtk_box_pack_start (GTK_BOX (bar->thumb_bars), bar->render_bar, FALSE, FALSE, 0);
-    show_thumb_bars (bar, FALSE);
-    gtk_box_pack_start (GTK_BOX (bar), bar->thumb_bars, FALSE, FALSE, 8);
+    gtk_widget_set_valign (bar->build_bar, GTK_ALIGN_CENTER);
+    gtk_widget_set_size_request (bar->build_bar, THUMB_BARS_WIDTH, -1);
+    show_thumb_bar (bar, FALSE);
+    gtk_box_pack_start (GTK_BOX (bar), bar->build_bar, FALSE, FALSE, 8);
     nemo_thumbnail_watch_jobs (thumb_jobs_started_cb, bar);
 
     gtk_box_pack_start (GTK_BOX (bar), statusbar, TRUE, TRUE, 10);

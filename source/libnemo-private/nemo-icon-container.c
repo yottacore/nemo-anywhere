@@ -6283,23 +6283,6 @@ update_visible_icons_cb (NemoIconContainer *container)
     return G_SOURCE_REMOVE;
 }
 
-/* Every picture in the folder, for the status bar, on screen or not. */
-void
-nemo_icon_container_count_thumbnails (NemoIconContainer *container,
-				      guint             *shown,
-				      guint             *wanted)
-{
-	GList *node;
-
-	*shown = *wanted = 0;
-
-	for (node = container->details->icons; node != NULL; node = node->next) {
-		NemoIcon *icon = node->data;
-
-		nemo_file_count_thumbnail (NEMO_FILE (icon->data), shown, wanted);
-	}
-}
-
 /* The pass above waits for scrolling to stop, and until it runs an icon just
  * scrolled in shows whatever it showed last, the type icon for one never on
  * screen before. So this runs before the next frame is drawn, and only for

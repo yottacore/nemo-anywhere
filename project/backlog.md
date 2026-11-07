@@ -922,29 +922,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- `$DEVELOPER_DIR` on Windows and Linux
 	- Test case: none yet.
 
-- The dual progress bars in thumbnail view aren't needed, because they always progress at (almost) the same rate.
-	- ID: 2026101613053688
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261016-130536
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut.
-		- Just show one.
-	- Test case: none yet.
-
-- Shift+del = bypass trash
-	- ID: 2026101613053689
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261016-130536
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut.
-	- Test case: none yet.
-
 - After deleting objects, automatically select the one immediately prior. (Or after if there isn't one. Or none if no more objects.)
 	- ID: 2026101613053690
 	- Type: Enhancement
@@ -969,30 +946,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- This should be an option, enabled by default: "On contents zoom, change window size too".
 	- Test case: none yet.
 
-- Settings|Views: Draw a line underneath the "Remember per-folder settings" section.
-	- ID: 2026101816495205
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261018-164952
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut.
-	- Design: [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs).
-	- Test case: none yet.
-
-- Compression: "Options" -> "Advanced".
-	- ID: 2026101816495206
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261018-164952
-	- Opened by: t00mietum
-	- Related IDs: 2026100516274646
-	- Requirements:
-		- Before the next cut.
-	- Test case: none yet.
-
 - All dialogs - Default to "OK" button, with it visibly selected.
 	- ID: 2026101816495207
 	- Type: Enhancement
@@ -1004,17 +957,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Before the next cut.
 	- Decisions:
 		- OK is the default in every dialog, delete and replace included. The one exception is the paranoid mode dialog, which defaults to Cancel.
-	- Test case: none yet.
-
-- When deleting, make it clear that links aren't followed, only deleted.
-	- ID: 2026101816495209
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261018-164952
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut.
 	- Test case: none yet.
 
 - Tree view: Right and Left arrow expand and collapse the folder, the way they do in the content view.
@@ -1350,29 +1292,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- A drop that offers file contents in place of a path (`FileGroupDescriptorW` and `FileContents`) writes the files into the folder dropped on.
 	- Test case: TBD
-
-- Add the date " (YYYY-mm-DD)" to the end of the build number, for pre-release versions.
-	- ID: 2026103113431800
-	- Type: Feature
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261031-134318
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut.
-	- Test case: none yet.
-
-- Change the accelerator key for the "Copy path(s)" menu item to y.
-	- ID: 2026102218380003
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261022-183800
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut.
-		- For both "Nemo Anywhere" and "Nemo Anywhere v1".
-	- Test case: none yet.
 
 - Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
 	- ID: 2026092910143202
@@ -5299,6 +5218,93 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de025, Folder open time test. Goes into 9 folders of 120 from the list view, and back up after each. 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
 	- Acceptance signoff: Self-closed: de025 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
+
+- The dual progress bars in thumbnail view aren't needed, because they always progress at (almost) the same rate.
+	- ID: 2026101613053688
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261016-130536
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+		- Just show one.
+	- Progress log:
+		- 20261107: the status bar shows one bar, the thumbnails built so far, with "Building thumbnails: N of M" as its tooltip. The second bar counted the pictures drawn in the view and was held back to the first one's rate, so it went, along with the count in the icon container and `nemo_thumbnail_rendered_for_bar`. The bar sits in the row on its own, at the same width as before.
+	- Branch: precut1
+	- Test case: dcz99 keeps the counting tests. Its case for the second bar's cap is kept but switched off.
+	- Acceptance signoff: Self-closed: dcz99 passes, and the bar that stays works as it did.
+	- Closed: 20261107-084500
+
+- Shift+del = bypass trash
+	- ID: 2026101613053689
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261016-130536
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Progress log:
+		- 20261107: already so. The view binds Delete to the trash and Shift+Delete to a delete, the other way round with "Swap the Trash and Delete keys" on. Shift+Delete does nothing while "Offer Delete, which skips the Trash" is off, which is on by default.
+	- Decisions:
+		- Kept tied to that setting. Someone who took Delete out of the menus shouldn't get it back through a key.
+	- Branch: precut1
+	- Test case: de55r now checks that the question Shift+Delete brings up is the delete one, not the trash one.
+	- Acceptance signoff: Self-closed: de55r passes.
+	- Closed: 20261107-084500
+
+- Settings|Views: Draw a line underneath the "Remember per-folder settings" section.
+	- ID: 2026101816495205
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Design: [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs).
+	- Progress log:
+		- 20261107: a `GtkSeparator`, `per_folder_separator`, sits under the two per-folder boxes and above the Default and Current sub-tabs, with 12 px above it.
+	- Branch: precut1
+	- Test case: dd5df checks the line is there, visible, and between the Remember box and the sub-tabs.
+	- Acceptance signoff: Self-closed: dd5df passes, and the line is where the settings design doc puts it.
+	- Closed: 20261107-084500
+
+- Compression: "Options" -> "Advanced".
+	- ID: 2026101816495206
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Related IDs: 2026100516274646
+	- Requirements:
+		- Before the next cut.
+	- Progress log:
+		- 20261107: the expander in the compress dialog says "Advanced", mnemonic A. The design doc's notes keep the old name.
+	- Branch: precut1
+	- Test case: dd5dm finds the expander by type, so it covers the dialog either way. The label itself has no test.
+	- Acceptance signoff: Self-closed: a one-word label change.
+	- Closed: 20261107-084500
+
+- When deleting, make it clear that links aren't followed, only deleted.
+	- ID: 2026101816495209
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Progress log:
+		- 20261107: when a picked item is itself a link, the delete question's second line adds "A link is deleted on its own. What it points to stays.", and the trash question "A link goes to the trash on its own. What it points to stays." Only the picked items are looked at, not what a picked folder holds, and the first link found is enough.
+	- Decisions:
+		- A `.lnk` or `.desktop` shortcut is a file, so it gets no note. Symlinks and junctions count.
+	- Branch: precut1
+	- Test case: dd5ex, the asked delete with a folder link among the picked items, checks the line.
+	- Acceptance signoff: Self-closed: dd5ex passes.
+	- Closed: 20261107-084500
 
 - CICD reset: temp files and safe removal.
 	- ID: 2026102416300002
@@ -9945,6 +9951,43 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddymm, Bad name characters test: the list, the message, a rename, a new folder path, Edit link, and Rename graying out with the line under the box in both conflict dialogs. dbj6w: extracted names on Windows, and the archive core's list matching the app's. dbj6x: an archive with `*`, `?` and `:` in names unpacks on Windows.
 	- Acceptance signoff: Self-closed: ddymm covers the list, the message and the line under the box, and dbj6x the extract. `_` in extracted names is what 7-Zip does. `/` keeping its old text is fine for now.
 	- Closed: 20261016-130621
+
+- Add the date " (YYYY-mm-DD)" to the end of the build number, for pre-release versions.
+	- ID: 2026103113431800
+	- Type: Feature
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261031-134318
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Progress log:
+		- 20261107: the date already showed on a build made without `-Drelease=true`, since 20261023. A pre-release version, one with a `-` in it such as a beta or an rc, now shows it on a release build too. `NEMO_RELEASE_BUILD` in `nemo-build-number.h` is on only for a release build of a plain version.
+	- Decisions:
+		- A stable release keeps the plain line, and crash reports always do.
+	- Branch: precut1
+	- Test case: ddhj0 and dcrvx read `NEMO_RELEASE_BUILD` and check the date either way.
+	- Acceptance signoff: Self-closed: dcrvx passes, and the rc builds will show the date.
+	- Closed: 20261107-084500
+
+- Change the accelerator key for the "Copy path(s)" menu item to y.
+	- ID: 2026102218380003
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261022-183800
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+		- For both "Nemo Anywhere" and "Nemo Anywhere v1".
+	- Progress log:
+		- 20261107: "Cop_y path" and "Cop_y paths" in the selection, background and location menus, and in the two layout editor rows. "Copy path as" keeps a.
+	- Decisions:
+		- "Cop_y to" keeps y as well. Every other letter in it is taken in the same menu, by Copy, Open, Paste and Cut, and GTK steps between two items that share a letter rather than opening one.
+	- Branch: precut1
+	- Test case: none. The UI-case lint reads the labels.
+	- Acceptance signoff: Self-closed: a mnemonic change in 4 strings.
+	- Closed: 20261107-084500
 
 - The Windows zip's libraries are whatever MSYS2 had when the cross build image was made.
 	- ID: 2026102809292792

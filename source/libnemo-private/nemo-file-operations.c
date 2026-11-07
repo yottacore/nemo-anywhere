@@ -1768,6 +1768,46 @@ should_confirm_move_to_trash (void)
 	return confirm_move_to_trash;
 }
 
+/* Whether anything picked is itself a link. Only the picked items are looked
+   at, not what is inside a picked folder, and the first one found is enough. */
+static gboolean
+files_include_link (GList *files)
+{
+	for (; files != NULL; files = files->next) {
+		GFileInfo *info;
+		gboolean is_link;
+
+		info = g_file_query_info (files->data, G_FILE_ATTRIBUTE_STANDARD_IS_SYMLINK,
+					  G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, NULL, NULL);
+		is_link = info != NULL && g_file_info_get_is_symlink (info);
+		g_clear_object (&info);
+		if (is_link) {
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
+/* The question's second line, plus a word on links when one was picked: they
+   go on their own, and what they point to stays. */
+static char *
+delete_note (CommonJob *job, GList *files, const char *secondary, const char *link_note)
+{
+	char *both;
+	char *note;
+
+	if (!files_include_link (files)) {
+		return unattended_note (job, secondary);
+	}
+
+	both = g_strconcat (secondary, " ", link_note, NULL);
+	note = unattended_note (job, both);
+	g_free (both);
+
+	return note;
+}
+
 static gboolean
 confirm_move_to_trash (CommonJob *job,
 			   GList *files)
@@ -1798,7 +1838,9 @@ confirm_move_to_trash (CommonJob *job,
 
 	response = run_warning (job,
 				prompt,
-				unattended_note (job, _("You can restore an item from the trash, if you later change your mind.")),
+				delete_note (job, files,
+					     _("You can restore an item from the trash, if you later change your mind."),
+					     _("A link goes to the trash on its own. What it points to stays.")),
 				NULL,
 				FALSE,
 				GTK_STOCK_CANCEL, _("Move to _Trash"),
@@ -1934,7 +1976,9 @@ confirm_delete_directly (CommonJob *job,
 
 	response = run_warning (job,
 				prompt,
-				unattended_note (job, _("If you delete an item, it will be permanently lost.")),
+				delete_note (job, files,
+					     _("If you delete an item, it will be permanently lost."),
+					     _("A link is deleted on its own. What it points to stays.")),
 				NULL,
 				FALSE,
 				GTK_STOCK_CANCEL, GTK_STOCK_DELETE,

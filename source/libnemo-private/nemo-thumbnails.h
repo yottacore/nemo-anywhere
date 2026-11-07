@@ -94,11 +94,6 @@ typedef void (*NemoThumbnailJobsFunc) (gpointer data);
 void       nemo_thumbnail_note_job              (gboolean               started);
 void       nemo_thumbnail_jobs                  (guint                 *done,
                                                  guint                 *waiting);
-/* Caps the rendered count at the share of the batch built so far. */
-void       nemo_thumbnail_rendered_for_bar      (guint                  done,
-                                                 guint                  waiting,
-                                                 guint                 *shown,
-                                                 guint                 *wanted);
 void       nemo_thumbnail_watch_jobs            (NemoThumbnailJobsFunc  func,
                                                  gpointer               data);
 void       nemo_thumbnail_unwatch_jobs          (NemoThumbnailJobsFunc  func,

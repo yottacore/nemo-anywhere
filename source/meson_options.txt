@@ -15,4 +15,4 @@ option('fuzzing', type : 'boolean', value : false,
 option('extension_library', type : 'combo', choices : ['shared', 'static'], value : 'shared',
        description: 'Linux only. static folds the extension API into the executable, which then exports it to extensions itself, so the prefix needs no lib folder. Windows is always static')
 option('release', type : 'boolean', value : false,
-       description: 'A build to publish. Off: the version line also shows the build date')
+       description: 'A build to publish. Off, or a pre-release version: the version line also shows the build date')
