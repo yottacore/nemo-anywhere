@@ -61,6 +61,7 @@ fTest bash "${here}/test-result-lines.bash"
 fTest bash "${here}/test-cicd-docker-sweep.bash"
 fTest bash "${here}/test-cicd-jobs.bash"
 fTest bash "${here}/test-werror.bash"
+fTest bash "${here}/test-dialog-defaults.bash"
 fTest bash "${here}/test-thumbnailers.bash"
 fTest bash "${here}/test-bundle-left-out.bash" --self-test
 fTest bash "${here}/test-docker-run.bash"

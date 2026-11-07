@@ -31,6 +31,8 @@
 #include <libnemo-private/nemo-cache-db-prune.h>
 #include <libnemo-private/nemo-global-preferences.h>
 
+#include <eel/eel-stock-dialogs.h>
+
 /* Hung off the usage label, so it goes when the dialog does. Work started from
  * here holds a weak reference to the label and finds this again through it,
  * since a cleanup can outlast the dialog. */
@@ -267,7 +269,7 @@ empty_clicked (GtkButton *button, Page *page)
 				_("_Cancel"), GTK_RESPONSE_CANCEL,
 				_("_Empty"), GTK_RESPONSE_ACCEPT,
 				NULL);
-	gtk_dialog_set_default_response (GTK_DIALOG (ask), GTK_RESPONSE_CANCEL);
+	eel_dialog_set_default (GTK_DIALOG (ask), GTK_RESPONSE_ACCEPT);
 
 	answer = gtk_dialog_run (GTK_DIALOG (ask));
 	gtk_widget_destroy (ask);

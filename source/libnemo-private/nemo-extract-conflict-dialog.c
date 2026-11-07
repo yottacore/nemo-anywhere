@@ -28,6 +28,7 @@
 #include <glib/gi18n.h>
 #include <pango/pango.h>
 
+#include <eel/eel-stock-dialogs.h>
 #include <eel/eel-vfs-extensions.h>
 
 #include "nemo-file-utilities.h"
@@ -395,8 +396,7 @@ nemo_extract_conflict_dialog_new (GtkWindow  *parent,
 	/* Rename and Replace share a slot; the entry still holds the original
 	   name, so the question being asked is Replace. */
 	gtk_widget_set_visible (rename_button, FALSE);
-	gtk_widget_grab_focus (replace_button);
-	gtk_dialog_set_default_response (GTK_DIALOG (dialog), CONFLICT_RESPONSE_REPLACE);
+	eel_dialog_set_default (GTK_DIALOG (dialog), CONFLICT_RESPONSE_REPLACE);
 
 	g_clear_object (&dest_info);
 	g_free (dest_name);

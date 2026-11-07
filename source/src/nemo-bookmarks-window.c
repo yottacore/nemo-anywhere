@@ -351,6 +351,8 @@ create_bookmarks_window (NemoBookmarkList *list, GObject *undo_manager_source)
 			  G_CALLBACK (on_window_destroy_event), NULL);
 	g_signal_connect (window, "response",
 			  G_CALLBACK (nemo_bookmarks_window_response_callback), NULL);
+	/* Close, as in Settings. The list keeps the focus, since this edits. */
+	gtk_dialog_set_default_response (GTK_DIALOG (window), GTK_RESPONSE_CLOSE);
 
 	name_field_changed_signal_id =
 		g_signal_connect (name_field, "changed",

@@ -11,8 +11,9 @@
  * it pointed at. "delete-asked" is the delete with the test guard off, so the
  * job's own question comes up instead of the guard's.
  *
- * Every question that can remove files has to start on Cancel, so a stray
- * Enter is never what removes them. That is checked on each one before it is
+ * The test guard starts on Cancel, so a stray Enter there is never what
+ * removes files. The job's own questions start on the button that goes ahead,
+ * as every other dialog does. That is checked on each one before it is
  * answered.
  */
 
@@ -100,6 +101,7 @@ check_starts_on_cancel (GtkWidget *dialog, GList *buttons)
 {
 	GtkWidget *start;
 	const char *label;
+	gboolean guard;
 
 	if (!can_remove (dialog, buttons)) {
 		return;
@@ -108,9 +110,28 @@ check_starts_on_cancel (GtkWidget *dialog, GList *buttons)
 
 	start = gtk_window_get_default_widget (GTK_WINDOW (dialog));
 	label = GTK_IS_BUTTON (start) ? gtk_button_get_label (GTK_BUTTON (start)) : NULL;
+	guard = g_strcmp0 (gtk_window_get_title (GTK_WINDOW (dialog)), "Delete/overwrite test guard") == 0;
+
+	/* Off since 2026101816495207: only the test guard starts on Cancel now,
+	   and a job's delete question starts on Delete.
 	if (!is_label (label, GTK_STOCK_CANCEL) && !is_label (label, _("_Cancel"))) {
 		g_printerr ("FAIL a question that can remove files starts on %s\n",
 			    label != NULL ? label : "nothing");
+		failures++;
+	}
+	*/
+	if (guard && !is_label (label, GTK_STOCK_CANCEL)) {
+		g_printerr ("FAIL the test guard starts on %s\n", label != NULL ? label : "nothing");
+		failures++;
+	}
+	if (!guard && (buttons == NULL || start != g_list_last (buttons)->data)) {
+		g_printerr ("FAIL a job's question starts on %s, not its last button\n",
+			    label != NULL ? label : "nothing");
+		failures++;
+	}
+	if (start == NULL || gtk_window_get_focus (GTK_WINDOW (dialog)) != start ||
+	    !gtk_window_get_focus_visible (GTK_WINDOW (dialog))) {
+		g_printerr ("FAIL the default button of a question that can remove files isn't shown focused\n");
 		failures++;
 	}
 }

@@ -31,6 +31,7 @@
 #include <gio/gio.h>
 #include <glib/gi18n.h>
 #include <pango/pango.h>
+#include <eel/eel-stock-dialogs.h>
 #include <eel/eel-vfs-extensions.h>
 
 #include "nemo-file.h"
@@ -584,7 +585,7 @@ nemo_file_conflict_dialog_init (NemoFileConflictDialog *fcd)
 		gtk_dialog_add_button (dialog,
 				       _("Replace"),
 				       CONFLICT_RESPONSE_REPLACE);
-	gtk_widget_grab_focus (details->replace_button);
+	eel_dialog_set_default (dialog, CONFLICT_RESPONSE_REPLACE);
 
 	/* Setup HIG properties */
 	gtk_container_set_border_width (GTK_CONTAINER (dialog), 5);

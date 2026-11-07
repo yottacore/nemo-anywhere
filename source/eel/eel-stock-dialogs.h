@@ -42,6 +42,12 @@ void       eel_timed_wait_start_with_duration (int                duration,
 void       eel_timed_wait_stop                (EelCancelCallback  cancel_callback,
 					       gpointer           callback_data);
 
+/* Makes response_id the default and gives its button the focus, with the
+   focus ring showing. A dialog whose entry takes the focus first sets the
+   default response alone. */
+void       eel_dialog_set_default             (GtkDialog         *dialog,
+					       int                response_id);
+
 /* Basic dialog with buttons. */
 int        eel_run_simple_dialog              (GtkWidget         *parent,
 					       gboolean           ignore_close_box,

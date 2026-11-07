@@ -1159,6 +1159,7 @@ menu_state_changed_callback (G_GNUC_UNUSED NemoMainApplication *self)
                          "active",
                          NEMO_CONFIG_BIND_DEFAULT);
 
+        eel_dialog_set_default (GTK_DIALOG (dialog), GTK_RESPONSE_OK);
         gtk_widget_show_all (dialog);
 
         g_signal_connect (dialog, "response",

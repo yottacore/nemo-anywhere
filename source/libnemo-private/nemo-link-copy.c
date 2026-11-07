@@ -411,7 +411,7 @@ nemo_link_choice_ask (GtkWindow            *parent,
 	gtk_dialog_add_button (GTK_DIALOG (dialog),
 			       is_move ? _("_Move") : _("_Copy"),
 			       GTK_RESPONSE_OK);
-	gtk_dialog_set_default_response (GTK_DIALOG (dialog), GTK_RESPONSE_OK);
+	eel_dialog_set_default (GTK_DIALOG (dialog), GTK_RESPONSE_OK);
 
 	if (present & NEMO_LINK_FILE_SYMLINK) {
 		Row row = { NEMO_LINK_FILE_SYMLINK, counts->file_symlinks,
@@ -925,7 +925,6 @@ confirm_hardlinks (GtkWindow *parent, int n_files)
 		ngettext ("Make _hardlink", "Make _hardlinks", n_files), GTK_RESPONSE_OK,
 		parent);
 	g_object_set (dialog, "message-type", GTK_MESSAGE_WARNING, NULL);
-	gtk_dialog_set_default_response (dialog, GTK_RESPONSE_CANCEL);
 
 	/* Spacing in lines of the dialog's own font, so it scales with it. */
 	metrics = pango_context_get_metrics (gtk_widget_get_pango_context (GTK_WIDGET (dialog)),
@@ -1050,7 +1049,7 @@ nemo_link_options_ask (GtkWindow       *parent,
 						NULL);
 	gtk_window_set_resizable (GTK_WINDOW (d.dialog), FALSE);
 	g_free (title);
-	gtk_dialog_set_default_response (GTK_DIALOG (d.dialog), GTK_RESPONSE_OK);
+	eel_dialog_set_default (GTK_DIALOG (d.dialog), GTK_RESPONSE_OK);
 
 	grid = gtk_grid_new ();
 	gtk_widget_set_halign (grid, GTK_ALIGN_START);

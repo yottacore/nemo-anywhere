@@ -934,19 +934,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- This should be an option, enabled by default: "On contents zoom, change window size too".
 	- Test case: none yet.
 
-- All dialogs - Default to "OK" button, with it visibly selected.
-	- ID: 2026101816495207
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261018-164952
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut.
-	- Decisions:
-		- OK is the default in every dialog, delete and replace included. The one exception is the paranoid mode dialog, which defaults to Cancel.
-	- Test case: none yet.
-
 - Tree view: Right and Left arrow expand and collapse the folder, the way they do in the content view.
 	- ID: 2026102018234900
 	- Type: Enhancement
@@ -5135,6 +5122,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de025, Folder open time test. Goes into 9 folders of 120 from the list view, and back up after each. 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
 	- Acceptance signoff: Self-closed: de025 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
+
+- All dialogs - Default to "OK" button, with it visibly selected.
+	- ID: 2026101816495207
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261018-164952
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Decisions:
+		- OK is the default in every dialog, delete and replace included. The one exception is the paranoid mode dialog, which defaults to Cancel.
+	- Actual fix:
+		- Enter takes the button that goes ahead in every dialog, and that button opens with the focus and its focus ring showing. GTK hides the ring when a dialog maps, unless the window under it was showing one, so a dialog opened by mouse never showed which button Enter would take.
+		- New `eel_dialog_set_default` in eel-stock-dialogs does both: the default response, then the focus on its button with the ring turned on at map.
+		- The eel dialogs set it themselves: errors, warnings and info, with details or not, take OK. A question takes its second answer, the one on the right. The simple dialog takes its last button, as it already did.
+		- Questions that can remove files start on the button that goes ahead again: a job's delete or trash question, emptying the trash before an unmount, the thumbnail cache's Empty, and moving a broken link to the trash. So do the hardlink warning, Replace in both conflict dialogs, Make link and Copy in the link dialogs, Run for an executable text file, Launch anyway for an untrusted launcher, and Choose a program for an unknown file type.
+		- The paranoid mode dialog (the test guard) still starts on Cancel, now with the ring showing.
+		- The question about bookmarks to a missing place asked for a No button it doesn't have, so nothing was the default. It takes the remove button now.
+		- The error over a link edit, the help error, the hidden menu note and the action layout editor's 3 questions had no default, and take OK or Yes.
+		- The bookmark editor takes Close, as Settings does. Its list keeps the focus, since it is for editing.
+		- Dialogs where an entry takes the typing keep the focus there, with Enter taking the default: Edit link, the password ones, Compress, Connect to Server, the template rename, Select items matching and Connect to server on a link.
+		- design.md, the UX style guide, the delete guard and moving and copying design docs say the same now.
+	- Swept: every `gtk_dialog_new`, `gtk_dialog_new_with_buttons`, `gtk_message_dialog_new`, `gtk_dialog_add_button`, `gtk_file_chooser_dialog_new` and eel stock dialog call in source/, with the callers of each eel dialog. The `GtkDialog` subclasses: both conflict dialogs, Connect to Server and Properties. The .ui and .glade files: only the bookmark editor is a dialog; Settings and the action layout editor are windows, and Settings' Close was already the default. The action layout editor's Python dialogs. The paranoid mode dialog in nemo-delete-testguard.c. File choosers are left to GTK, which makes the accept button the default when one maps, with the focus in the file list. The Open with dialogs already took OK, with the focus left in the program list. Properties has only Close and is a window to work in, so it is left alone.
+	- Progress log:
+		- 20261107: Done as above. The check in dd5ex that every question able to remove files starts on Cancel is commented out under this item. In its place, the test guard must start on Cancel, and a job's question on its last button, shown focused. Supersedes the Cancel default from the home folder item closed 20260914, and the one in the hardlink question from the Make link item.
+		- 20261107: the bare "Nemo" in the hidden menu note, the help folder error and the layout editor's shortcut error is left for 2026101512190015.
+	- Note: the untrusted launcher and executable text questions follow the decision too, so Enter there launches or runs. Those two may want to join the test guard as exceptions.
+	- Verified: df05h and df05p fail before the fix and pass after, and dd5ex fails before and passes after with its new checks. df05h and dd5ex pass 3 of 3. Full Linux suite 239 of 240, the one skip being de5hh as usual. Lint clean.
+	- Branch: okdefault
+	- Commit: a374b0ed
+	- Test case: df05h, Dialog default button test. Opens the eel error, warning, info, yes or no, question and simple dialogs, both conflict dialogs, the Make link, copy links and Edit link dialogs and the test guard, and checks that Enter takes the button that goes ahead (Cancel for the test guard), and that the button has the focus with the ring showing, or a focused entry takes Enter to it. df05p, test-dialog-defaults.bash in the lint stage: every place in source/ that makes a dialog, in C or Python, sets a default response in the same function.
+	- Acceptance signoff: Self-closed: the decision is applied as written, every dialog swept, and df05h and df05p pin it.
+	- Closed: 20261107-104006
 
 - Ctrl+Shift+V as a second paste key, per target model.
 	- ID: 2026102113540918
@@ -12069,6 +12090,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Home, any folder above it, and a folder where a drive or share is mounted are never removed now, however the job came about. A delete that reaches a mount on its way through a folder stops there.
 	- One job can no longer take most of what sits directly in home. That is refused outright rather than asked about.
 	- Every question that can remove files starts on Cancel.
+	- Note: superseded 20261107. Those questions start on the button that goes ahead now, as every dialog does, and only the test guard's starts on Cancel. See 2026101816495207.
 	- A delete key within a second of a window coming up or taking focus is ignored, since that is typing meant for another window.
 	- Each trash or delete line also goes to the system journal, which a rollback of home leaves alone.
 	- Test case: dcm8y `test-nemo-delete-guard` (POSIX only), dcnwt `test-nemo-delete-guard-win32` (Windows only), and dcsz0, dd5ex and dcsz1 `test-nemo-link-delete-job` in its `delete-asked` mode for Cancel first; the journal line isn't checked.
@@ -13497,6 +13519,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Note: the OK button reads "Make link" or "Make links", since buttons are named for what they do.
 		- Note: this also covers the relative or absolute symlink option from the private notes.
 		- Done: choosing a hardlink asks once more, every time, and lists what can go wrong as spaced bullets. Cancel is the default and goes back to the dialog.
+		- Note: superseded 20261107. Make hardlink is the default in that question now, as the button that goes ahead is in every dialog. Cancel still goes back to the dialog. See 2026101816495207.
 		- Done: the Hardlink choice has a warning sign after its label.
 		- Done: "Link" makes a Windows `.lnk` shortcut, for folders and files, on every platform. Off Windows its tooltip says how it differs from a symlink, and that Windows follows a portable one.
 		- Note: Path is for symlinks only, and is grayed for junctions, which are always absolute, and hardlinks, which have no path.

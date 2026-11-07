@@ -136,7 +136,7 @@ Make link asks what to make, one row for the folders and one for the files. Fold
 
 - A drop never asks the drop question for links, since the dialog is the question. Every link drop opens it, from the Alt menu or with the link keys held, in any view or sidebar.
 
-- A hardlink is never picked for anyone, even where a symlink can't be made. It is the one choice that can cost something: an edit through one name changes a file that looks unrelated, and a program that saves by replacing the file splits the two names apart without a word. Its tooltip says so, and choosing it asks once more, every time, with Cancel as the default. Backing out goes back to the dialog with the choices as they were. See [Hardlinks](20260925-063617_dedupe_and_thumbnails.md#hardlinks) for why.
+- A hardlink is never picked for anyone, even where a symlink can't be made. It is the one choice that can cost something: an edit through one name changes a file that looks unrelated, and a program that saves by replacing the file splits the two names apart without a word. Its tooltip says so, and choosing it asks once more, every time. Make hardlink is the default there, as the button that goes ahead is in every dialog. Backing out goes back to the dialog with the choices as they were. See [Hardlinks](20260925-063617_dedupe_and_thumbnails.md#hardlinks) for why.
 
 - Nothing is remembered. Every open starts from the defaults, so what it offers never depends on what was done last time. A way to change the defaults may come later.
 

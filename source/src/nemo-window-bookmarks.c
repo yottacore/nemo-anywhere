@@ -93,8 +93,6 @@ show_bogus_bookmark_window (NemoWindow *window,
 	                  G_CALLBACK (remove_bookmarks_for_uri_if_yes), window);
 	g_object_set_data_full (G_OBJECT (dialog), "uri", g_file_get_uri (location), g_free);
 
-	gtk_dialog_set_default_response (dialog, GTK_RESPONSE_NO);
-
 	g_object_unref (location);
 	g_free (uri_for_display);
 	g_free (detail);

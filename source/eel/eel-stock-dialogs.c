@@ -183,6 +183,31 @@ trash_dialog_response_callback (GtkDialog *dialog,
 	gtk_widget_destroy (GTK_WIDGET (dialog));
 }
 
+static void
+show_focus_on_map (GtkWidget *dialog, G_GNUC_UNUSED gpointer data)
+{
+	gtk_window_set_focus_visible (GTK_WINDOW (dialog), TRUE);
+}
+
+/* GTK hides the focus ring at map unless the parent showed one, so a dialog
+   opened by mouse would not show which button Enter takes. */
+void
+eel_dialog_set_default (GtkDialog *dialog, int response_id)
+{
+	GtkWidget *button;
+
+	gtk_dialog_set_default_response (dialog, response_id);
+	button = gtk_dialog_get_widget_for_response (dialog, response_id);
+	if (button == NULL) {
+		return;
+	}
+	gtk_widget_grab_focus (button);
+	if (g_object_get_data (G_OBJECT (dialog), "eel-dialog-shows-focus") == NULL) {
+		g_object_set_data (G_OBJECT (dialog), "eel-dialog-shows-focus", GINT_TO_POINTER (1));
+		g_signal_connect (dialog, "map", G_CALLBACK (show_focus_on_map), NULL);
+	}
+}
+
 static gboolean
 timed_wait_callback (gpointer callback_data)
 {
@@ -206,7 +231,7 @@ timed_wait_callback (gpointer callback_data)
 		      NULL);
 
 	gtk_dialog_add_button (GTK_DIALOG (dialog), button, GTK_RESPONSE_OK);
-	gtk_dialog_set_default_response (GTK_DIALOG (dialog), GTK_RESPONSE_OK);
+	eel_dialog_set_default (GTK_DIALOG (dialog), GTK_RESPONSE_OK);
 
 	/* The contents are often very small, causing tiny little
 	 * dialogs with their titles clipped if you just let gtk
@@ -372,10 +397,14 @@ eel_run_simple_dialog (GtkWidget *parent, gboolean ignore_close_box,
 			break;
 		}
 		gtk_dialog_add_button (GTK_DIALOG (dialog), button_title, response_id);
-		gtk_dialog_set_default_response (GTK_DIALOG (dialog), response_id);
 		response_id++;
 	}
 	va_end (button_title_args);
+
+	/* The last button is the one that goes ahead. */
+	if (response_id > 0) {
+		eel_dialog_set_default (GTK_DIALOG (dialog), response_id - 1);
+	}
 
 	/* Run it. */
         gtk_widget_show (dialog);
@@ -410,6 +439,10 @@ create_message_dialog (const char *primary_text,
 		      NULL);
 
 	make_message_labels_selectable (GTK_MESSAGE_DIALOG (dialog));
+
+	if (buttons_type == GTK_BUTTONS_OK) {
+		eel_dialog_set_default (GTK_DIALOG (dialog), GTK_RESPONSE_OK);
+	}
 
 	return GTK_DIALOG (dialog);
 }
@@ -448,8 +481,7 @@ show_ok_dialog (const char *primary_text,
 
 	dialog = show_message_dialog (primary_text, secondary_text, type,
 				      GTK_BUTTONS_OK, NULL, parent);
-	gtk_dialog_set_default_response (GTK_DIALOG (dialog), GTK_RESPONSE_OK);
-	
+
 	return dialog;
 }
 
@@ -613,5 +645,7 @@ eel_create_question_dialog (const char *primary_text,
 					GTK_BUTTONS_NONE,
 					parent);
 	gtk_dialog_add_buttons (dialog, answer_1, response_1, answer_2, response_2, NULL);
+	/* The second answer is on the right, where the one that goes ahead is. */
+	eel_dialog_set_default (dialog, response_2);
 	return dialog;
 }

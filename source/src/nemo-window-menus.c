@@ -449,6 +449,7 @@ action_nemo_manual_callback (GtkAction *action,
 						 GTK_BUTTONS_OK,
 						 _("There was an error displaying help: \n%s"),
 						 error->message);
+		eel_dialog_set_default (GTK_DIALOG (dialog), GTK_RESPONSE_OK);
 		g_signal_connect (G_OBJECT (dialog), "response",
 				  G_CALLBACK (gtk_widget_destroy),
 				  NULL);

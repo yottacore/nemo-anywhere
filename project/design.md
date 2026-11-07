@@ -339,7 +339,7 @@ The file cache is the fourth store. It is a private SQLite database under the us
 
 #### Trash and delete
 
-Trashing and deleting are the two things a file manager can't take back, so they are held to a higher bar than the confirmation preferences alone. Home and mounted drives are never removed, a link is always removed as a link, nothing outside a window can remove anything, every question starts on Cancel, and every trash and delete is logged. A stricter test guard asks about every delete in pre-releases.
+Trashing and deleting are the two things a file manager can't take back, so they are held to a higher bar than the confirmation preferences alone. Home and mounted drives are never removed, a link is always removed as a link, nothing outside a window can remove anything, and every trash and delete is logged. A stricter test guard asks about every delete in pre-releases, and its question starts on Cancel.
 
 - The rules, the test guard and their history are in [20260930-150859_delete_guard.md](design_docs/20260930-150859_delete_guard.md).
 
