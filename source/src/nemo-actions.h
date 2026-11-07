@@ -107,6 +107,7 @@
 #define NEMO_ACTION_MOUNT_ARCHIVE "MountArchive"
 #define NEMO_ACTION_PASTE "Paste"
 #define NEMO_ACTION_PASTE_FILES_INTO "Paste Files Into"
+#define NEMO_ACTION_PASTE_INTO_VIEWED "PasteIntoViewed"
 #define NEMO_ACTION_COPY_TO_NEXT_PANE "Copy to next pane"
 #define NEMO_ACTION_MOVE_TO_NEXT_PANE "Move to next pane"
 #define NEMO_ACTION_COPY_TO_HOME "Copy to Home"

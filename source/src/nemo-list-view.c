@@ -6112,20 +6112,16 @@ nemo_list_view_remove_file (NemoView *view, NemoFile *file, NemoDirectory *direc
 		file_path = gtk_tree_model_get_path (tree_model, &iter);
 
 		if (gtk_tree_selection_path_is_selected (selection, file_path)) {
-			/* get reference for next element in the list view. If the element to be deleted is the
-			 * last one, get reference to previous element. If there is only one element in view
-			 * no need to select anything.
-			 */
+			/* The row before the one going takes the selection, or the one
+			   after it when it was first. Alone in the view, nothing does. */
 			temp_iter = iter;
-
-			if (gtk_tree_model_iter_next (tree_model, &iter)) {
+			path = gtk_tree_model_get_path (tree_model, &temp_iter);
+			if (gtk_tree_path_prev (path)) {
+				row_reference = gtk_tree_row_reference_new (tree_model, path);
+			} else if (gtk_tree_model_iter_next (tree_model, &iter)) {
+				gtk_tree_path_free (path);
 				path = gtk_tree_model_get_path (tree_model, &iter);
 				row_reference = gtk_tree_row_reference_new (tree_model, path);
-			} else {
-				path = gtk_tree_model_get_path (tree_model, &temp_iter);
-				if (gtk_tree_path_prev (path)) {
-					row_reference = gtk_tree_row_reference_new (tree_model, path);
-				}
 			}
 			gtk_tree_path_free (path);
 		}
