@@ -6776,6 +6776,7 @@ static void
 nemo_list_view_dispose (GObject *object)
 {
 	NemoListView *list_view;
+	GtkWidget *scrollbar;
 
 	list_view = NEMO_LIST_VIEW (object);
 
@@ -6795,6 +6796,16 @@ nemo_list_view_dispose (GObject *object)
 		list_view->details->renaming_file_activate_timeout = 0;
 	}
 
+    /* Destroying the tree view below drops its model, which moves the
+       adjustment and would queue the timer again, after a tree view that is
+       gone (#2026102509531273). The scrolled window's adjustment is the one
+       the tree view got, and it's reached through the scrollbar, which the
+       second run of dispose no longer has. */
+    scrollbar = gtk_scrolled_window_get_vscrollbar (GTK_SCROLLED_WINDOW (list_view));
+    if (scrollbar != NULL) {
+        g_signal_handlers_disconnect_by_func (gtk_range_get_adjustment (GTK_RANGE (scrollbar)),
+                                              handle_vadjustment_changed, list_view);
+    }
     if (list_view->details->update_visible_icons_id > 0) {
         g_source_remove (list_view->details->update_visible_icons_id);
         list_view->details->update_visible_icons_id = 0;

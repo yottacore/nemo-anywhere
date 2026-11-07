@@ -51,6 +51,7 @@ static gint64          step_start;
 static int             drags;
 static GdkDragContext *drag_context;
 static gboolean        finished;
+static gboolean        held;
 
 static void
 report (gboolean passed, const char *what)
@@ -148,6 +149,23 @@ button (gboolean down)
 {
 	XTestFakeButtonEvent (xdisplay, 1, down, CurrentTime);
 	XFlush (xdisplay);
+	held = down;
+}
+
+/* GDK keeps a closed menu's grab on record until the X server has answered
+   the ungrab, and until then GTK sends each click to the menu's window, not
+   the view (#2026102509541191). A held button's own grab lasts from one step
+   to the next and sends nothing elsewhere, so it is left alone. */
+static gboolean
+grab_held (void)
+{
+	GdkDisplay *display = gtk_widget_get_display (window);
+	GdkSeat *seat = gdk_display_get_default_seat (display);
+
+	return gtk_grab_get_current () != NULL ||
+	       (!held &&
+		(gdk_display_device_is_grabbed (display, gdk_seat_get_pointer (seat)) ||
+		 gdk_display_device_is_grabbed (display, gdk_seat_get_keyboard (seat))));
 }
 
 static gint64
@@ -669,6 +687,8 @@ tick (G_GNUC_UNUSED gpointer data)
 		close_menu ();
 		finish ();
 		return G_SOURCE_REMOVE;
+	} else if (shown_menu () == NULL && grab_held ()) {
+		return G_SOURCE_CONTINUE;
 	} else if (!run_step ()) {
 		return G_SOURCE_CONTINUE;
 	}

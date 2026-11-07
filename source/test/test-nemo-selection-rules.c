@@ -104,6 +104,14 @@ run_view (const char *exe, const char *probe, const char *model, const char *vie
 		g_free (path);
 	}
 	g_mkdir_with_parents (config, 0700);
+	/* Every folder the XDG variables below point at, so the home folder
+	   lists the same on every box. Something may still add one, so the
+	   probe finds its folders by name (#2026102821124143). */
+	for (i = 0; i < 2; i++) {
+		path = g_build_filename (root, i == 0 ? "data" : "cache", NULL);
+		check (g_mkdir_with_parents (path, 0700) == 0);
+		g_free (path);
+	}
 	body = g_strdup_printf ("preferences.default-folder-viewer: %s\n"
 				"preferences.selection-model: %s\n"
 				"window-state.start-with-tree: true\n"

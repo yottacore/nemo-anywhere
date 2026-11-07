@@ -58,6 +58,7 @@ static gboolean   finished;
 static char      *title_before;
 static int        tabs_before;
 static int        last_clicked = -1;
+static int        home_item = -1;
 static gboolean   menu_on_press;
 static gint64     last_click_time;
 static guint      glib_handler;
@@ -413,6 +414,60 @@ canvas_item (int item)
 
 	g_object_unref (child);
 	return (EelCanvasItem *) object;
+}
+
+/* The name an item shows: the name column's text in the list view, and the
+   accessible name of the icon otherwise. */
+static char *
+item_name (int item)
+{
+	char *name = NULL;
+
+	if (list_mode) {
+		GtkTreeModel *model = gtk_tree_view_get_model (GTK_TREE_VIEW (pane));
+		/* The name column, which isn't the first one under Nemo Anywhere. */
+		GtkTreeViewColumn *column = gtk_tree_view_get_expander_column (GTK_TREE_VIEW (pane));
+		GtkTreePath *path = gtk_tree_path_new_from_indices (item, -1);
+		GtkTreeIter iter;
+		GList *cells, *l;
+
+		if (gtk_tree_model_get_iter (model, &iter, path)) {
+			gtk_tree_view_column_cell_set_cell_data (column, model, &iter, FALSE, FALSE);
+			cells = gtk_cell_layout_get_cells (GTK_CELL_LAYOUT (column));
+			for (l = cells; l != NULL && name == NULL; l = l->next) {
+				if (GTK_IS_CELL_RENDERER_TEXT (l->data)) {
+					g_object_get (l->data, "text", &name, NULL);
+				}
+			}
+			g_list_free (cells);
+		}
+		gtk_tree_path_free (path);
+	} else {
+		AtkObject *child = atk_object_ref_accessible_child (gtk_widget_get_accessible (pane), item);
+
+		name = g_strdup (atk_object_get_name (child));
+		g_object_unref (child);
+	}
+	return name;
+}
+
+/* The item with this name, or -1. What else the home folder holds depends
+   on the box, so its folders are found by name (#2026102821124143). */
+static int
+item_named (const char *wanted)
+{
+	int i;
+
+	for (i = 0; i < item_count (); i++) {
+		char *name = item_name (i);
+		gboolean found = name != NULL && strcmp (name, wanted) == 0;
+
+		g_free (name);
+		if (found) {
+			return i;
+		}
+	}
+	return -1;
 }
 
 static void
@@ -1090,15 +1145,16 @@ rules_tick (void)
 		break;
 	}
 
-	/* Opening, in the home folder: cache, config, data and selrules, then
-	   the probe's own output file. A new folder can mean a new view. */
+	/* Opening, in the home folder: the config, data and cache folders the
+	   test makes, the test folder, whatever else the box adds, then the
+	   probe's own output file. A new folder can mean a new view. */
 	case 37:
 		pane = NULL;
-		if (!find_pane () || item_count () < 5) {
+		if (!find_pane () || item_named ("data") < 0 || item_named (folder_name) < 0) {
 			return FALSE;
 		}
 		note_title ();
-		click (2, 0);
+		click (item_named ("data"), 0);
 		gtk_widget_grab_focus (pane);
 		key (GDK_KEY_Return, 0);
 		break;
@@ -1116,15 +1172,15 @@ rules_tick (void)
 			return FALSE;
 		}
 		pane = NULL;
-		if (!find_pane () || item_count () < 5) {
+		if (!find_pane () || (home_item = item_named ("data")) < 0) {
 			return FALSE;
 		}
-		if (!is_selected (2) && waited < 30) {
+		if (!is_selected (home_item) && waited < 30) {
 			return FALSE;
 		}
-		want (items (2, -1), "coming back selects the folder just left");
+		want (items (home_item, -1), "coming back selects the folder just left");
 		tabs_before = tab_count ();
-		item_point (2, &x, &y);
+		item_point (home_item, &x, &y);
 		stamp += 1000;
 		press_release (bin, 2, x, y, 0);
 		break;
@@ -1136,8 +1192,8 @@ rules_tick (void)
 		report (tab_count () == tabs_before + (list_mode ? 0 : 1),
 			list_mode ? "a middle click on a folder opens no tab, that takes two" :
 				    "a middle click on a folder opens it in a new tab");
-		want (items (2, -1), "and leaves it selected");
-		click (1, 0);
+		want (items (home_item, -1), "and leaves it selected");
+		click (item_named ("config"), 0);
 		tabs_before = tab_count ();
 		key (GDK_KEY_Return, GDK_SHIFT_MASK);
 		break;
@@ -1160,7 +1216,7 @@ rules_tick (void)
 		report (g_str_has_prefix (gtk_window_get_title (GTK_WINDOW (window)), "Home"),
 			"and new tabs open behind this one");
 		note_title ();
-		item_point (3, &x, &y);
+		item_point (item_named (folder_name), &x, &y);
 		stamp += 1000;
 		press_release (bin, 1, x, y, 0);
 		press_release (bin, 1, x, y, 0);
