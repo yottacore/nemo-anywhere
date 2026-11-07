@@ -90,6 +90,11 @@ if [[ -n "$py" ]]; then
 	fTest "$py" "${here}/svg-min.py" --self-test
 	fTest "$py" "${here}/analyze.py" --self-test
 	fTest "$py" "${here}/lint-report.py" --self-test
+	if "$py" -c 'import numpy, scipy, PIL' >/dev/null 2>&1; then
+		fTest "$py" "${here}/demo-video/demo-video.py" --self-test
+	else
+		echo "[ demo-video self-test skipped: no numpy, scipy or Pillow ]"
+	fi
 	"$py" "${here}/test-id.py" --check
 else
 	echo "[ svg-min self-test and test ID check skipped: no python ]"

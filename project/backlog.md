@@ -838,7 +838,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Demo video: mouse click sounds play about 0.25 s after the click shows
 	- ID: 2026110618322410
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261106-183224
 	- Opened by: t00mietum
@@ -848,9 +848,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: No, not in this repo. Measured in tukzmon's recorder, which was copied from this one and uses the same sound files and timing.
 	- Actual cause:
 		- `sounds/mouse/click.wav` and `click_quiet.wav` have about 0.16 s of quiet before the click itself, and `build_audio` places each file's start at the event.
-		- `Mouse.click`, `double`, `drag` and `wheel` log the event after the xdotool call returns, but the press goes out at the start of the call.
-	- Possible fix: Trim each sample to its onset when it's loaded, such as the first sample over 20% of its peak, and log the event before the xdotool call. tukzmon's `cicd/utility/demo/demo-video.py` does both, and its clicks now land within 0.1 s.
+		- `Mouse.click`, `double`, `drag` and `wheel` log the event after the input call returns, but the press goes out at the start of the call.
+	- Possible fix: Trim each sample to its onset when it's loaded, such as the first sample over 20% of its peak, and log the event before the input call. tukzmon's `cicd/utility/demo/demo-video.py` does both, and its clicks now land within 0.1 s.
 	- Estimated effort: Low
+	- Actual effort: Low
+	- Decisions:
+		- `Mouse.double`, `drag` and `wheel` here already logged before the input call. Only `click` logged after, so only it changed.
+		- The trim keeps 2 ms before the onset, as tukzmon's does. It's a function, `trim_onset`, so the test can reach it without the recorder.
+		- The test is a `--self-test` of demo-video.py, run by the lint stage when numpy, scipy and Pillow are there, so it needs no display and no recording.
+	- Swept: the other `ev` and input call pairs in `Mouse`, and every `SOUND_FILES` sample, which all go through `load_samples`. The key bank and the wheel tick are cut from other recordings and start at once, so they take no trim.
+	- Branch: round1107a
+	- Test case: dez8j, `demo-video.py --self-test`: a made-up click after 0.16 s of quiet starts within 10 ms, a click that starts at once is left alone, the real click files start within 50 ms, and each Mouse event is logged before its `click`, `mousedown` and `mouseup`.
+	- Verified: 20261107, dez8j passes, and fails with the trim and the click order put back as they were (3 problems).
+	- Closed: 20261106-1905
 
 - ddepv on b29w: the heap grew over 64 rounds again.
 	- ID: 2026103116284963
@@ -1410,25 +1420,39 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - pack-zip.bash's header says Copyright (c) 2026 Bubbles.
 	- ID: 2026110315153026
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261103-151530
 	- Opened by:
 	- Target OS: all
 	- Incorrect behavior: cicd/win/pack-zip.bash has the header line Copyright (c) 2026 Bubbles, which matches neither the project's copyright holder nor its form.
 	- Expected behavior: the project's usual copyright line. Grep the tree for other stray headers like it.
+	- Actual fix: the header of cicd/win/pack-zip.bash, cicd/win/build-cross.bash, cicd/win/stage-native.bash and cicd/linux/stage-prefix.bash is now the t00mietum form. None of them has a copy in a sister project, and lxqtukz's stage-prefix.bash has the t00mietum form.
+	- Decisions:
+		- The Bubbles form is for helpers shared with other repos, so those stay: gui-headless.bash, package.bash, fuzz.bash, release.bash, flame-report.py, git-auto-msg.bash and the includes.
+		- About 17 more files that only this project has still say Bubbles, such as lint-c.bash and utility/runfm. Whether they count as shared helpers isn't clear from the tree, so they're left, with a `Check:` entry in questions.md.
+	- Swept: grep for the Bubbles line across the repo outside vendor, and the same file names in the sister projects.
+	- Branch: round1107a
+	- Test case: none, a comment line.
+	- Closed: 20261106-1905
 
 - lint-report counts a test's OK line that names a warning as a warning.
 	- ID: 2026110220410883
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261102-204108
 	- Opened by:
 	- Steps to reproduce: `python3 cicd/utility/lint-report.py --check` after the 20261102 full run.
 	- Incorrect behavior: it lists depg0's lines `[ OK: with no wintest session, a warning and the gate's pass ]` and `[ OK: with wintest's session locked, a warning and the gate's pass ]` as new warnings.
 	- Expected behavior: an OK, PASS or SKIP line is never a warning line.
-	- Test case: a lint-report test with an OK line naming a warning, and a real WARNING line.
+	- Actual cause: the flag word match ran on every line, and a test's OK line can carry the word in its name.
+	- Actual fix: a line that starts with `[ OK`, `[ SKIP`, `PASS ` or `SKIP ` is left out before the match.
+	- Swept: lint-report.py is the only reader of the lint logs for warnings.
+	- Branch: round1107a
+	- Test case: dehzr, lint-report.py --self-test, now with OK, PASS and SKIP lines that name a warning, an error or a deprecation, and a real WARNING line.
+	- Verified: 20261107, dehzr passes, and fails with the new check taken out.
+	- Closed: 20261106-1905
 
 - ddqdq with no monitor: the copies never list a titled window.
 	- ID: 2026103115510091

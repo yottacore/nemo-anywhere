@@ -14,7 +14,7 @@
 ##	  the build dir is in a volume the host can't read.
 ##	- Syntax: build-cross.bash [--clean]
 
-##	Copyright (c) 2026 Bubbles
+##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under The MIT License (MIT). Full text at:
 ##		https://mit-license.org/
 ##	SPDX-License-Identifier: MIT
