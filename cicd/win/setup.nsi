@@ -12,9 +12,8 @@
 ##	- Design: project/design_docs/20260930-145641_windows_exe_packing.md
 
 ##	Copyright (c) 2026 t00mietum
-##	Licensed under The MIT License (MIT). Full text at:
-##		https://mit-license.org/
-##	SPDX-License-Identifier: MIT
+##	Licensed under the GNU General Public License, version 2 only.
+##	SPDX-License-Identifier: GPL-2.0-only
 
 ## 64-bit, like the app. A 32-bit one would have its registry and folders
 ## redirected for no gain.

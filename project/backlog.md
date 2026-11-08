@@ -1939,6 +1939,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A step's tests are worked out from the source, not by asking meson or the boxes: those its command runs, and those the scripts it runs run in turn, up to 5 levels down, with the lint checks, self-tests and fuzz targets they hold. A script counts as run only with a run word before it on its line, such as `bash`, `pwsh -File` or `fTest`, or when it's put in a variable, so an echo or a lint's file list doesn't count. Asking meson would need a configured build, which is running something.
 		- So the list is what each step could run. A test that skips itself on a box is still listed, and a script with modes, such as the FreeBSD lane's tests and release, lists every mode's tests. A `meson test` line that names its tests, such as the release smoke, lists only those.
 		- The meson tests are listed in full under the first step that runs them, and later steps point back to it, rather than printing 284 lines 5 times.
+		- Decided 20261108: reading the source stays. It runs nothing and takes under a second, where asking meson needs a configured build in a container, and a list of steps with no IDs says less than the plan already does.
 	- Swept: every flag-reading spot in `cicd.bash` (the early loop, the CPU scope, the container cap, the auto message, the run folder and traps, the tool pins, both plan paths), its `--help`, design.md's flags and docker bullets, the docker sweep's header, and every test that copies `cicd.bash` (dddq3, de54r, ddmmw, desha, dee6e and dee6z), which all pass. `cicd-win.ps1` gets its flags in 2026102516165482.
 	- Test case: de54r for `--no-remote`: a plain run, `--long` with both includes, and `--backlog-run-full`, each with it. dez4x for `--list`: each kind of test under its step, an echoed script left out, the release smoke's one test, `--backlog-run-quick lint` and `--no-container`, and no step, CPU scope, container cap, pin probe, run folder or log, with a plain run of the same copy as the control. dee6z for `--keep-temp` naming the kept containers.
 	- Verified: 20261025, `--no-remote`: de54r passes, and fails on `cicd.bash` without it, and with the private runner and remote dogfood left on under it.
@@ -1963,6 +1964,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- PowerShell's form is the name in one word, `-BacklogRunQuick` for `--backlog-run-quick`. The areas follow it as plain words, `-BacklogRunQuick lint tests`, as with `cicd.bash`.
 		- PowerShell doesn't keep the order switches came in, so "the last mode named wins" can't hold. 2 different modes are refused, with exit 2. `-Gate` with `-BacklogRunQuick` is one mode.
+		- Decided 20261108: the refusal stays, and so does `-MergeGate` in the Windows pre-push hook. A pick made without the order would be a silent wrong answer, and the hook on a push to main runs the merge gate on every box.
 		- `-BacklogRunQuick` is the old `-Gate`: lints, build, tests and smokes. `lint` is the lints, and `tests` the build, tests and smokes. There's no format check on Windows, so `format` named shows it as off, with why.
 		- `-BacklogRunFull` and `-MergeGate` are a plain run less sync, dogfood and publish: lints, build, tests, smokes, the runtime bundle and the pack. They never prompt. Signing stays as set up, which is nothing unless a cert is.
 		- The flags with nothing to do on Windows are taken and change nothing, so a `cicd.bash` command line works there.
@@ -6906,6 +6908,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- The Bubbles form is for helpers shared with other repos, so those stay: gui-headless.bash, package.bash, fuzz.bash, release.bash, flame-report.py, git-auto-msg.bash and the includes.
 		- About 17 more files that only this project has still say Bubbles, such as lint-c.bash and utility/runfm. Whether they count as shared helpers isn't clear from the tree, so they're left, with a `Check:` entry in questions.md.
+		- The rule, settled 20261108: under `cicd/` and `utility/` the usual form is Bubbles with the MIT license. A file that could never serve another project may take the t00mietum form, and then it takes the project's license, GPL-2.0-only, not MIT. The Bubbles files stay as they are.
+	- Progress log:
+		- 20261108: the 105 t00mietum files under `cicd/` and `utility/` that said MIT now say GPL-2.0-only, in lint-ui-case.py's two-line form. The 19 PowerShell files take the `(C)` marker. setup.nsi keeps its ASCII `(c)`.
 	- Swept: grep for the Bubbles line across the repo outside vendor, and the same file names in the sister projects.
 	- Branch: round1107a
 	- Test case: none, a comment line.

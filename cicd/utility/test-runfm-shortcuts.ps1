@@ -13,10 +13,9 @@
 ##		pwsh -NoProfile -File cicd/utility/test-runfm-shortcuts.ps1
 ##	Test ID: ddkd9
 
-##	Copyright (c) 2026 t00mietum
-##	Licensed under The MIT License (MIT). Full text at:
-##		https://mit-license.org/
-##	SPDX-License-Identifier: MIT
+##	Copyright (C) 2026 t00mietum
+##	Licensed under the GNU General Public License, version 2 only.
+##	SPDX-License-Identifier: GPL-2.0-only
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidOverwritingBuiltInCmdlets', '',
 	Justification = 'The step asks New-Object for the shell COM object, which only Windows has.')]

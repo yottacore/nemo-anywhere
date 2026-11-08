@@ -23,10 +23,9 @@
 ##		  that's gone is skipped. Warns for each refusal, and returns $false if
 ##		  any was refused or couldn't go.
 
-##	Copyright (c) 2026 t00mietum
-##	Licensed under The MIT License (MIT). Full text at:
-##		https://mit-license.org/
-##	SPDX-License-Identifier: MIT
+##	Copyright (C) 2026 t00mietum
+##	Licensed under the GNU General Public License, version 2 only.
+##	SPDX-License-Identifier: GPL-2.0-only
 
 $script:SafeRmCase = if ($IsWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
 ## HOST_TEMP's forms, real and long, worked out once for each value it takes.
