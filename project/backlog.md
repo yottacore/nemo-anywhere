@@ -456,6 +456,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261020: opened.
 		- 20261024: split into children, worked in this order: 2026102407515570 (the setting value and rules tables), ...571 (dim checkmarks), ...572 (focus outline and keys), ...573 (mouse and drags), ...574 (tree view), ...575 (wording, keys, then the dropdown entry and the default).
+		- 20261108: `nemo-anywhere` is the default and heads the dropdown, ahead of the other children. See ...575.
 	- Test case: one per child.
 
 - Nemo Anywhere: dim checkmarks that follow the selection, in all 3 views.
@@ -483,6 +484,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: opened.
 		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
 	- Test case: one per child.
+
+- Nemo Anywhere: the switch-off wording and keys, then the dropdown entry and the default.
+	- ID: 2026102407515575
+	- Type: Enhancement
+	- Status: Started
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Prereq IDs: 2026102407515571, 2026102407515572, 2026102407515573, 2026102407515574
+	- Target OS: All
+	- Requirements:
+		- The Edit menu has Select all, Select none and Invert selection, the "Switch off" column of the wording table.
+		- Ctrl+A selects all. Ctrl+I and Ctrl+Shift+I invert the selection. Properties keeps Alt+Enter. Nemo Anywhere v1 and Nemo Classic keep Ctrl+I as Properties.
+		- The status bar shows the selected count only, the doc's third line.
+		- "Nemo Anywhere" first in the dropdown, ahead of Nemo Classic and Nemo Anywhere v1, and `nemo-anywhere` becomes the default.
+		- Tests for the menu labels and keys per model, and the dropdown checks in dd5df and dbnfq.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Menus", "Status bar and dialogs" and "The affirmative switch".
+	- Notes:
+		- A settings file with no model set moves from v1 to Nemo Anywhere at that point.
+	- Progress log:
+		- 20261024: opened.
+		- 20261108: the dropdown entry and the default are in, ahead of the prereqs. "Nemo Anywhere" heads the dropdown, `nemo-anywhere` is the default in the key table and the schema, and a settings file with no model set now gets it. The wording, keys and status bar line are still to do.
+		- 20261108: the long press, keyboard menu and menus-freed probes took the list view's first column as the name cell, which is now the checkmark column. They take the expander column, which is Name under every model.
+	- Decisions:
+		- The default moves ahead of the rest of the model, so what's built, the list view's checkmark column, the F2 pair, Ctrl+Shift+V and the tree keys, shows without a settings edit while the rest comes in.
+	- Branch: anydefault
+	- Test case: dd5df checks the dropdown's order and the default, and that a settings file naming a model keeps it. The rename region test (test-eel-rename-region) checks the whole-name setting counts under v1 and Classic and not under the default.
 
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
@@ -637,30 +667,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view".
 	- Notes:
 		- Needs more thought: whether the tree takes a multi-selection with the switch off, since its click opens the folder, and how much of 2026102018234903 that needs first.
-	- Progress log:
-		- 20261024: opened.
-	- Test case: none yet.
-
-- Nemo Anywhere: the switch-off wording and keys, then the dropdown entry and the default.
-	- ID: 2026102407515575
-	- Type: Enhancement
-	- Status: Queued
-	- Needs local test suite run?: Yes
-	- Priority|Severity: High
-	- Opened: 20261024-075155
-	- Opened by: t00mietum
-	- Parent ID: 2026102019174440
-	- Prereq IDs: 2026102407515571, 2026102407515572, 2026102407515573, 2026102407515574
-	- Target OS: All
-	- Requirements:
-		- The Edit menu has Select all, Select none and Invert selection, the "Switch off" column of the wording table.
-		- Ctrl+A selects all. Ctrl+I and Ctrl+Shift+I invert the selection. Properties keeps Alt+Enter. Nemo Anywhere v1 and Nemo Classic keep Ctrl+I as Properties.
-		- The status bar shows the selected count only, the doc's third line.
-		- "Nemo Anywhere" first in the dropdown, ahead of Nemo Classic and Nemo Anywhere v1, and `nemo-anywhere` becomes the default.
-		- Tests for the menu labels and keys per model, and the dropdown checks in dd5df and dbnfq.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Menus", "Status bar and dialogs" and "The affirmative switch".
-	- Notes:
-		- A settings file with no model set moves from v1 to Nemo Anywhere at that point.
 	- Progress log:
 		- 20261024: opened.
 	- Test case: none yet.

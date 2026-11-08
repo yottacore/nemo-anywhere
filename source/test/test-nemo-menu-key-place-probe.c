@@ -230,13 +230,14 @@ clear_selection (void)
 	}
 }
 
-/* A tree row's first cell on screen, the full row high. */
+/* A tree row's name cell on screen, the full row high. The name is the
+   expander column; under Nemo Anywhere the first column is the checkmarks. */
 static void
 row_screen_rect (GtkTreeView *tree_view, GtkTreePath *path, GdkRectangle *rect)
 {
 	GdkRectangle cell, row, widget;
 
-	gtk_tree_view_get_cell_area (tree_view, path, gtk_tree_view_get_column (tree_view, 0), &cell);
+	gtk_tree_view_get_cell_area (tree_view, path, gtk_tree_view_get_expander_column (tree_view), &cell);
 	gtk_tree_view_get_background_area (tree_view, path, NULL, &row);
 	gtk_tree_view_convert_bin_window_to_widget_coords (tree_view, cell.x, row.y, &rect->x, &rect->y);
 	screen_rect (GTK_WIDGET (tree_view), &widget);

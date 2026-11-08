@@ -270,8 +270,10 @@ item_spot (int item, double *x, double *y)
 		GtkTreePath *path = gtk_tree_path_new_from_indices (item, -1);
 		GdkRectangle cell;
 
+		/* The name is the expander column. Under Nemo Anywhere the first
+		   column is the checkmarks. */
 		gtk_tree_view_get_cell_area (GTK_TREE_VIEW (pane), path,
-					     gtk_tree_view_get_column (GTK_TREE_VIEW (pane), 0), &cell);
+					     gtk_tree_view_get_expander_column (GTK_TREE_VIEW (pane)), &cell);
 		gtk_tree_path_free (path);
 		*x = cell.x + cell.width / 2;
 		*y = cell.y + cell.height / 2;

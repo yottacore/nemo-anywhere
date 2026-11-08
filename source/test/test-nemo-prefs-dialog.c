@@ -721,15 +721,16 @@ test_selection_model (GtkWidget *dialog)
 		return;
 	}
 	check (gtk_widget_is_ancestor (combo, page));
-	check (gtk_tree_model_iter_n_children (gtk_combo_box_get_model (GTK_COMBO_BOX (combo)), NULL) == 2);
-	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 1);
+	/* The design doc's order: Nemo Anywhere, Nemo Classic, Nemo Anywhere v1, with Nemo Anywhere the default. */
+	check (gtk_tree_model_iter_n_children (gtk_combo_box_get_model (GTK_COMBO_BOX (combo)), NULL) == 3);
+	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 0);
 	text = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT (combo));
-	check (g_strcmp0 (text, "Nemo Anywhere v1") == 0);
+	check (g_strcmp0 (text, "Nemo Anywhere") == 0);
 	g_free (text);
 	check (!nemo_config_is_set (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL));
-	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE_V1);
+	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE);
 
-	gtk_combo_box_set_active (GTK_COMBO_BOX (combo), 0);
+	gtk_combo_box_set_active (GTK_COMBO_BOX (combo), 1);
 	text = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT (combo));
 	check (g_strcmp0 (text, "Nemo Classic") == 0);
 	g_free (text);
@@ -737,16 +738,22 @@ test_selection_model (GtkWidget *dialog)
 	check (g_strcmp0 (text, "nemo-classic") == 0);
 	g_free (text);
 	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_CLASSIC);
-	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
-	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 1);
+
+	gtk_combo_box_set_active (GTK_COMBO_BOX (combo), 2);
+	text = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT (combo));
+	check (g_strcmp0 (text, "Nemo Anywhere v1") == 0);
+	g_free (text);
 	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE_V1);
 
-	/* Settable while it's built, so its tests can pick it, but not offered. */
-	nemo_config_set_string (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, "nemo-anywhere");
-	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE);
-	check (gtk_tree_model_iter_n_children (gtk_combo_box_get_model (GTK_COMBO_BOX (combo)), NULL) == 2);
 	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
-	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE_V1);
+	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 0);
+	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE);
+
+	/* A settings file that names a model keeps it. */
+	nemo_config_set_string (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, "nemo-anywhere-v1");
+	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 2);
+	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
+	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE);
 }
 
 /* The whole-name rename box is grayed under Nemo Anywhere, where F2 and
@@ -761,19 +768,20 @@ test_rename_selects_grayed (GtkWidget *dialog)
 	if (check_button == NULL) {
 		return;
 	}
-	check (gtk_widget_get_sensitive (check_button));
-
-	nemo_config_set_string (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, "nemo-anywhere");
+	/* Nemo Anywhere is the default. */
 	check (!gtk_widget_get_sensitive (check_button));
 	tip = gtk_widget_get_tooltip_text (check_button);
 	check (tip != NULL && strstr (tip, "Shift+F2") != NULL);
 	g_free (tip);
 
-	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
+	nemo_config_set_string (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, "nemo-anywhere-v1");
 	check (gtk_widget_get_sensitive (check_button));
 	tip = gtk_widget_get_tooltip_text (check_button);
 	check (tip != NULL && strstr (tip, "Shift+F2") == NULL);
 	g_free (tip);
+
+	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
+	check (!gtk_widget_get_sensitive (check_button));
 }
 
 static void
