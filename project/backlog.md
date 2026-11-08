@@ -11324,6 +11324,43 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - **Stop here (in new format) for a next release**.
 
+- The column chooser leaks the names of the hidden columns each time it is read.
+	- ID: 2026110718100651
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261107-181006
+	- Opened by: t00mietum
+	- Closed: 20261107-182700
+	- Related IDs: 2026110520234231
+	- Steps to reproduce: a full run at cb54b955. The sanitizer suite runs dd5df.
+	- Incorrect behavior: dd5df passes its own checks, then the leak check reports 197 bytes in 16 blocks, and the Sanitizer suite step stops the run.
+	- Expected behavior: nothing leaked.
+	- Actual cause: `get_column_names` in nemo-column-chooser.c copies every row's name out of the model and, when asked for the shown ones only, keeps those and drops the rest without freeing them. Inherited from upstream. The list view's column menu reads the chooser the same way on every change, so the program leaked a few bytes per edit too. The settings dialog test is the first to read a chooser under the sanitizer.
+	- Fix: the dropped names are freed.
+	- Verified: 20261107. dd5df passes under the sanitizer with whole stacks, where it reported 16 blocks from this function before. The plain suite passes, 241 OK.
+	- Branch: chooserleak
+	- Test case: dd5df under ddgt8.
+	- Acceptance signoff: Self-closed: a pipeline failure with nothing on screen, and dd5df covers it.
+
+- The day-to-day build image has no SVG pixbuf loader.
+	- ID: 2026110718100652
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261107-181006
+	- Opened by: t00mietum
+	- Closed: 20261107-182700
+	- Steps to reproduce: run dd5df in the image and read its stderr.
+	- Incorrect behavior: GTK warns "Could not load a pixbuf from /org/gtk/libgtk/theme/Adwaita/assets/bullet-symbolic.svg" when the dialog draws a checked radio button, and any icon a theme has only as SVG is skipped.
+	- Expected behavior: SVG assets and icons draw as they do on a desktop.
+	- Actual cause: Dockerfile.dev gets librsvg2-2 through GTK but not librsvg2-common, which holds the gdk-pixbuf loader.
+	- Fix: librsvg2-common is installed. The image's hash tag moves with it.
+	- Verified: 20261107. The rebuilt image has the loader, dd5df's stderr is clean in the sanitizer suite, and the plain suite passes, 241 OK. The whole sanitizer suite passes in it too, so the loader reports no leak of its own.
+	- Branch: chooserleak
+	- Test case: dd5df's stderr in the plain and sanitizer suites. No new test.
+	- Acceptance signoff: Self-closed: a container recipe gap with nothing on screen.
+
 - The affirmative half of the "Nemo Anywhere" selection model.
 	- ID: 2026102019174514
 	- Type: Enhancement
