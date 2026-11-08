@@ -66,6 +66,8 @@
 #include "test-scratch.h"
 #include "test-check.h"
 
+#if defined (__linux__) || defined (__FreeBSD__)
+
 static Display *display;
 
 static gboolean
@@ -570,10 +572,14 @@ out:
 	g_free (root);
 }
 
+#endif
+
 int
 main (int argc, char *argv[])
 {
 #if !defined (__linux__) && !defined (__FreeBSD__)
+	(void) argc;
+	(void) argv;
 	g_print ("SKIP: keeps the view through LD_PRELOAD, which is Linux and FreeBSD only here\n");
 	return 77;
 #else
