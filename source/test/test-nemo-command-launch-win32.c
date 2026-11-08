@@ -150,7 +150,7 @@ int
 main (int argc, char *argv[])
 {
 	g_autofree char *scratch = NULL, *work = NULL, *cwd_line = NULL;
-	g_autofree char *quiet = NULL, *console = NULL, *viacmd = NULL, *batch = NULL, *batch2 = NULL;
+	g_autofree char *quiet = NULL, *console = NULL, *batch = NULL, *batch2 = NULL;
 	g_autofree char *quoted = NULL;
 	g_autofree char *was = g_get_current_dir ();
 	const char *names[] = { "two words", "C:\\plain\\path", "R&D %PATH% 100%", "it's", NULL };
@@ -184,7 +184,7 @@ main (int argc, char *argv[])
 
 	quiet = place (argv[1], "quiet.exe");
 	console = place (argv[1], "console.exe");
-	viacmd = place (argv[1], "viacmd.exe");
+	g_free (place (argv[1], "viacmd.exe"));
 	batch = g_build_filename (dir, "run it.cmd", NULL);
 	check (g_file_set_contents (batch, "@\"%~dp0viacmd.exe\" %*\r\n", -1, NULL));
 	g_free (place (argv[1], "viacmd2.exe"));

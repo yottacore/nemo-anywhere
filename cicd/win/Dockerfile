@@ -7,6 +7,7 @@
 #   - make, which nothing here builds with: gcc's lto-wrapper shells out to it
 #     to run the LTRANS jobs in parallel, and without it every link is serial
 #   - nsis, for the setup exe (pack-setup.bash)
+#   - clang 19, for the analyzer stage's Windows lane (utility/analyze.bash)
 # Source tree is mounted at /src (like nemo-build); builds go to /build-win,
 # a cache volume (win-box.bash).
 #
@@ -41,6 +42,12 @@ RUN sed -i -E 's#http://deb\.debian\.org/(debian(-security)?)$#http://snapshot.d
 COPY utility/include/run-temp.bash /opt/sysroot/utility/include/run-temp.bash
 COPY win/fetch-sysroot.bash win/sysroot-pins.txt /opt/sysroot/win/
 RUN bash /opt/sysroot/win/fetch-sysroot.bash /opt/win-sysroot
+
+# Its own layer, after the sysroot, so a box with the layers above cached builds
+# only this one. The same snapshot pins it. It finds the MinGW headers through
+# the gcc above.
+RUN apt-get update && apt-get install -y --no-install-recommends clang-19 \
+	&& rm -rf /var/lib/apt/lists/*
 
 COPY win/win64.cross.txt /opt/win64.cross.txt
 

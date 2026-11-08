@@ -3345,7 +3345,7 @@ query_info_callback (GObject *source_object,
 	 * browsable location as broken (error dialog, load never completes, busy
 	 * cursor stuck on). If we can open it, synthesize directory info so the
 	 * load proceeds; the children come from enumeration, which works. */
-	if (info == NULL && error != NULL &&
+	if (info == NULL &&
 	    error->domain == G_IO_ERROR && error->code == G_IO_ERROR_FAILED) {
 		WinDirProbe *probe = g_new0 (WinDirProbe, 1);
 

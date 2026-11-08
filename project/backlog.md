@@ -941,7 +941,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Estimated effort: Low
 	- Progress log:
 		- 20261108: `analyze.py count` fails on any finding left, a system header's included, and on a stale entry, and the stage fails with it. A file cut off at the cap still shows as not analyzed, without failing.
-		- 20261108: split off `2026110815102895` (clang over the Windows list) and `2026110815102912` (gcc inside the cap). Both are Queued.
+		- 20261108: split off `2026110815102895` (clang over the Windows list), Done, and `2026110815102912` (gcc inside the cap), Queued.
 	- Decisions:
 		- A finding in a system header fails too. It's suppressed at the caller's line, since it counts toward its callers, per the parent.
 		- A file cut off doesn't fail the stage yet, since a plain run cuts off 7 today. `...912` makes it fail.
@@ -954,7 +954,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: clang over the Windows list.
 	- ID: 2026110815102895
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261108-151028
 	- Opened by: 2026102114400591
@@ -964,7 +964,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Each finding it shows is fixed, or suppressed per the parent. Inherited lines inside `G_OS_WIN32` blocks get their first clang look here.
 		- The planted faults in de8es are found in that lane too.
 	- Estimated effort: Avg
+	- Actual effort: Low
+	- Progress log:
+		- 20261108: `cicd/win/Dockerfile` installs `clang-19` (19.1.7) from the same snapshot, in a layer of its own after the sysroot. The image is `nemo-winbuild:bef581656714`, 5.7 GB, up from 5.35.
+		- 20261108: the first clang-win run over the 476 Windows runs gave 6 findings, none vendored: 2 dead stores and a null dereference in `G_OS_WIN32` code, and 2 dead stores and an `fputs` of a second `getenv` in the Windows tests. All 6 are fixed rather than suppressed. The 7 vendored entries already listed match here too.
+		- 20261108: an analyzer missing from either image fails the stage and de8es now, rather than showing as not run.
+	- Decisions:
+		- `clang-19` by name, so the major can't move with trixie's `clang`, and the snapshot pins the rest.
+		- Its own layer after the sysroot, so a box with the old layers cached builds only that one.
+		- A missing analyzer fails, since both images carry both now, and a lane that quietly stops running hides every finding it would have shown.
+		- The null dereference in `query_info_callback` came from the Windows block testing `error != NULL`, which GIO already promises when the info is NULL. The test is gone, rather than suppressed.
+	- Swept: the other `getenv` pairs in `test-fake-tool.c` (`NEMO_FAKE_TOOL_EXIT` read once now too), the `place` and `place_tool` callers in both Windows tests, and every "no clang" note under `cicd/`.
+	- Branch: round1108a
 	- Test case: de8es (the planted faults, clang-win lane), and de8en for the gate.
+	- Verified: 20261108, de8es finds both planted faults in all 4 lanes, and fails from the old image with "clang-win: not run". Over all 4 lanes at the change, `analyze.py count` exits 0, with only the files cut off at the 2 min cap left as not analyzed. The cross build with `-Werror` and `cicd/cicd.bash --backlog-run-quick` passed (241 OK, 1 skipped), de8en, de8em and depf5 included.
+	- Acceptance signoff: Self-closed: the clang-win lane runs and is clean, and de8es pins it.
+	- Closed: 20261108-154221
 
 - Static analyzers: gcc analyzes every file inside the cap.
 	- ID: 2026110815102912

@@ -16,10 +16,10 @@
 ##	  itself fails.
 ##	- The last run's logs are in cicd/artifacts/analyze/last/. Each run also keeps
 ##	  counts_<stamp>.txt and findings_<stamp>.tgz there, GFS-rotated.
-##	- An analyzer missing from its container shows as "not run" in the counts.
-##	  The Linux lane's container is "step", run through docker-run.bash, and
-##	  the Windows lane's "winstep", through win/win-run.bash. The cross-build
-##	  image has no clang yet.
+##	- Both images carry both analyzers, so one missing from its container fails
+##	  the stage, and shows as "not run" in the counts. The Linux lane's
+##	  container is "step", run through docker-run.bash, and the Windows lane's
+##	  "winstep", through win/win-run.bash.
 ##	- CICD_MAX_JOBS caps the jobs of all 4 runs together. gcc spends many minutes
 ##	  on a few files (the blake3 SIMD ones and nemo-config.c, at -O0), and
 ##	  ANALYZE_TU_TIMEOUT (900 s) caps each file. One cut off counts as not
@@ -75,7 +75,7 @@ fPlanted(){
 			rc=0; fInLane "${container}" "planted-${a}" python3 "${tool}" planted --tool "${a}" --cc "${cc}" | grep -E '^\[|^### SKIP' || rc="${PIPESTATUS[0]}"
 			case "${rc}" in
 				0)  ;;
-				77) fEcho "${a}-${lane}: not run, no ${a} in ${container}" ;;
+				77) fEcho "FAILED: ${a}-${lane}: not run, no ${a} in ${container}"; failed=1 ;;
 				*)  fEcho "FAILED: ${a}-${lane} missed a planted fault"; failed=1 ;;
 			esac
 		done
@@ -117,7 +117,11 @@ for l in "${lanes[@]}"; do
 done
 for i in "${!pids[@]}"; do
 	rc=0; wait "${pids[i]}" || rc=$?
-	[[ "${rc}" == 0 || "${rc}" == 77 ]] || { fEcho "FAILED: ${names[i]} exited ${rc}"; failed=1; }
+	case "${rc}" in
+		0)  ;;
+		77) fEcho "FAILED: ${names[i]}: not run, the analyzer is missing in its container"; failed=1 ;;
+		*)  fEcho "FAILED: ${names[i]} exited ${rc}"; failed=1 ;;
+	esac
 done
 fEcho "analyzers took $(( SECONDS - t0 )) s"
 
@@ -136,3 +140,5 @@ fEcho "OK: analyzer stage"
 ##		  and the Windows lane in its own, not nemo-winbuild.
 ##		- 2026-11-08: The gate goes live: a finding left, or a stale entry,
 ##		  fails the stage.
+##		- 2026-11-08: The cross-build image has clang, so the clang-win lane
+##		  runs, and an analyzer missing from either image fails the stage.

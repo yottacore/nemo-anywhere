@@ -431,7 +431,7 @@ write_text (const char *dir, const char *name, const char *text)
 int
 main (int argc, char *argv[])
 {
-	g_autofree char *bin = NULL, *rar = NULL, *unrar = NULL, *converter = NULL, *thumb = NULL;
+	g_autofree char *bin = NULL, *rar = NULL, *converter = NULL, *thumb = NULL;
 	g_autofree char *converter2 = NULL, *thumb2 = NULL, *doubled = NULL;
 	g_autofree char *path = NULL, *dir = NULL, *text = NULL, *files = NULL;
 	g_auto (GStrv) parts = NULL;
@@ -465,7 +465,7 @@ main (int argc, char *argv[])
 	check (g_mkdir (bin, 0755) == 0);
 	rar = place_tool (argv[1], bin, "rar");
 	/* Unpacking looks for this one first, and a real one may be on PATH. */
-	unrar = place_tool (argv[1], bin, "unrar");
+	g_free (place_tool (argv[1], bin, "unrar"));
 	converter = place_tool (argv[1], bin, "nemo-fake-to-txt");
 	converter2 = place_tool (argv[1], bin, "nemo-fake2-to-txt");
 	thumb = place_tool (argv[1], bin, "fake-thumb");

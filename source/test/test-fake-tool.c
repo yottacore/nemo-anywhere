@@ -107,7 +107,7 @@ main (int argc, char *argv[])
 	char name[MAX_PATH], cwd[MAX_PATH], report_path[3 * MAX_PATH];
 	char own_dir[MAX_PATH], parent[MAX_PATH];
 	char buffer[4096], *dot;
-	const char *base, *slash;
+	const char *base, *slash, *says, *exit_code;
 	size_t got, total = 0;
 	FILE *report;
 	int i;
@@ -182,10 +182,12 @@ main (int argc, char *argv[])
 		return 0;
 	}
 
-	if (getenv ("NEMO_FAKE_TOOL_SAYS") != NULL) {
-		fputs (getenv ("NEMO_FAKE_TOOL_SAYS"), stdout);
+	says = getenv ("NEMO_FAKE_TOOL_SAYS");
+	if (says != NULL) {
+		fputs (says, stdout);
 	}
 	fflush (stdout);
 	hang_if_asked ();
-	return getenv ("NEMO_FAKE_TOOL_EXIT") != NULL ? atoi (getenv ("NEMO_FAKE_TOOL_EXIT")) : 0;
+	exit_code = getenv ("NEMO_FAKE_TOOL_EXIT");
+	return exit_code != NULL ? atoi (exit_code) : 0;
 }
