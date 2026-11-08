@@ -9,8 +9,9 @@
 #   cover    Fails when a tracked .c is in neither compile list, or when one
 #            under source/unused/, which nothing should build, is in one.
 #   count    Counts unique findings per area from run's logs. Vendored ones on
-#            analyze-vendored.txt count as suppressed instead, and an entry
-#            there that matches nothing is listed as stale.
+#            analyze-vendored.txt count as suppressed instead. Fails on any
+#            finding left, wherever it is, and on an entry on the list that
+#            matches nothing, so the list can't go stale.
 #   planted  Inside a build container. Runs one analyzer over a planted leak and
 #            null dereference, and fails unless it reports both.
 #
@@ -20,7 +21,7 @@
 #
 # Syntax: analyze.py run --tool gcc|clang --db <compile_commands.json> [--jobs N]
 #         analyze.py cover <repo root> <db>...
-#         analyze.py count <repo root> <log>...
+#         analyze.py count [--supp <list>] <repo root> <log>...
 #         analyze.py planted --tool gcc|clang --cc <compiler>
 #         analyze.py --self-test
 
@@ -266,9 +267,11 @@ def parse_supp(text):
     return supp, problems
 
 
+# Counts per log, the runs that failed, the stale entries, and the findings left
+# as (log, path, line, checker).
 def count(logs, inherited, supp=None):
     supp = supp or {}
-    table, failed, used = {}, {}, set()
+    table, failed, used, left = {}, {}, set(), set()
     for name, text in logs.items():
         findings, bad, skipped = parse_log(text)
         row = dict.fromkeys(AREAS + ("suppressed",), 0)
@@ -279,27 +282,32 @@ def count(logs, inherited, supp=None):
                 row["suppressed"] += 1
             else:
                 row[area_of(f[0], inherited)] += 1
+                left.add((name,) + key)
         table[name] = None if skipped else row
         failed[name] = bad
-    return table, failed, sorted(set(supp) - used)
+    return table, failed, sorted(set(supp) - used), sorted(left)
 
 
 def cmd_count(args):
+    supp_file = None
+    if args and args[0] == "--supp":
+        supp_file, args = args[1], args[2:]
     root, paths = args[0], args[1:]
     base = subprocess.run(["git", "-C", root, "rev-list", "--max-parents=0", "HEAD"], check=True,
                           capture_output=True, text=True).stdout.split()[-1]
     # The baseline commit holds upstream 6.6.4 under original/, moved to source/ right after.
     inherited = {re.sub(r"^original/", "source/", f) for f in subprocess.run(
         ["git", "-C", root, "ls-tree", "-r", "--name-only", base], check=True, capture_output=True, text=True).stdout.split()}
-    with open(os.path.join(root, SUPP_FILE), encoding="utf-8") as f:
+    supp_file = supp_file or os.path.join(root, SUPP_FILE)
+    with open(supp_file, encoding="utf-8") as f:
         supp, problems = parse_supp(f.read())
     for p in problems:
-        print("[ FAILED: %s: %s ]" % (SUPP_FILE, p))
+        print("[ FAILED: %s: %s ]" % (supp_file, p))
     logs = {}
     for p in paths:
         with open(p, encoding="utf-8", errors="replace") as f:
             logs[os.path.basename(p).rsplit(".", 1)[0]] = f.read()
-    table, failed, stale = count(logs, inherited, supp)
+    table, failed, stale, left = count(logs, inherited, supp)
     print("%-14s %s %7s %10s %9s" % ("log", " ".join("%9s" % a for a in AREAS), "total", "suppressed", "failed"))
     for name, row in table.items():
         if row is None:
@@ -310,9 +318,11 @@ def cmd_count(args):
     for name, bad in failed.items():
         for tu in bad:
             print("not analyzed (%s): %s" % (name, tu))
+    for name, path, line, checker in left:
+        print("[ FAILED: not suppressed (%s): %s:%d %s ]" % (name, path, line, checker))
     for path, line, checker in stale:
-        print("stale suppression: %s:%d %s" % (path, line, checker))
-    return 1 if problems else 0
+        print("[ FAILED: stale suppression: %s:%d %s ]" % (path, line, checker))
+    return 1 if problems or left or stale else 0
 
 
 def self_test():
@@ -331,12 +341,14 @@ def self_test():
         "source/src/b.c:1:10: fatal error: missing.h: No such file or directory",
         "### source/src/c.c rc=0",
     ])
-    table, failed, _ = count({"gcc-linux": log}, {"source/libnemo-private/old.c"})
+    table, failed, _, left = count({"gcc-linux": log}, {"source/libnemo-private/old.c"})
     want = {"vendored": 1, "inherited": 1, "ours": 1, "tests": 1, "system": 1, "suppressed": 0}
     if table["gcc-linux"] != want:
         bad.append("counts %r, want %r" % (table["gcc-linux"], want))
     if failed["gcc-linux"] != ["source/src/b.c"]:
         bad.append("not analyzed %r, want b.c only" % failed["gcc-linux"])
+    if len(left) != 5 or ("gcc-linux", "source/src/a.c", 3, "analyzer-null-dereference") not in left:
+        bad.append("left %r, want the 5 counted" % left)
     if count({"x": "### SKIP no clang"}, set())[0]["x"] is not None:
         bad.append("a skipped log counted as clean")
     # The vendored finding is listed; a second entry matches nothing, by line and by checker.
@@ -346,11 +358,13 @@ def self_test():
         "vendor/x/y.c:3 unix.Malloc gone after a bump",
         "vendor/x/y.c:2 core.NullDereference other checker",
     ]))
-    table, _, stale = count({"clang-linux": log}, {"source/libnemo-private/old.c"}, supp)
+    table, _, stale, left = count({"clang-linux": log}, {"source/libnemo-private/old.c"}, supp)
     if problems or (table["clang-linux"]["vendored"], table["clang-linux"]["suppressed"]) != (0, 1):
         bad.append("suppressed counts %r, problems %r" % (table["clang-linux"], problems))
     if stale != [("vendor/x/y.c", 2, "core.NullDereference"), ("vendor/x/y.c", 3, "unix.Malloc")]:
         bad.append("stale %r" % stale)
+    if ("clang-linux", "vendor/x/y.c", 2, "unix.Malloc") in left:
+        bad.append("a listed finding left as unsuppressed")
     _, problems = parse_supp("vendor/x/y.c:2 unix.Malloc\nsource/src/a.c:3 analyzer-null-dereference ours\n"
                              "vendor/x/y.c:4 unix.Malloc a\nvendor/x/y.c:4 unix.Malloc b\n")
     if len(problems) != 3:
@@ -390,7 +404,7 @@ def self_test():
         "source/test/w.c:8:3: warning: leak of 'q' [CWE-401] [-Wanalyzer-malloc-leak]",
         "source/test/w.c:1:10: fatal error: h.h: No such file or directory",
     ])
-    table, failed, _ = count({"gcc-linux": log}, set())
+    table, failed, _, _ = count({"gcc-linux": log}, set())
     if (table["gcc-linux"]["vendored"], table["gcc-linux"]["tests"]) != (1, 1):
         bad.append("2 runs counted %r, want vendored 1, tests 1" % table["gcc-linux"])
     if failed["gcc-linux"] != ["source/test/w.c [test/w-2.p]"]:

@@ -5,14 +5,15 @@
 ##	  and the cross build's /build-win, which has the Windows-only files, each
 ##	  read in step containers of their own. Run on the host, after the cross build,
 ##	  so both lists are current.
-##	- Report only for now (backlog 2026102114400584): findings are counted per
-##	  area and kept, and don't fail the run. Vendored findings are listed in
-##	  analyze-vendored.txt, each with why it's safe, and count as suppressed; an
-##	  entry there that matches nothing shows as stale.
-##	- The stage fails when a tracked .c outside source/unused/ is in neither
-##	  list, when one under it is in either, when an analyzer misses the planted
-##	  leak or null dereference, when a run itself fails, or on a malformed entry
-##	  in analyze-vendored.txt.
+##	- Findings are counted per area and kept. Vendored findings are listed in
+##	  analyze-vendored.txt, each with why it's safe, and count as suppressed.
+##	  Ours and inherited ones are suppressed at the line, with EEL_ANALYZER_SKIP.
+##	- The stage fails on any finding left, a system header's included, and on an
+##	  entry in analyze-vendored.txt that matches nothing, or is malformed
+##	  (backlog 2026102114400591, test de8en). It also fails when a tracked .c
+##	  outside source/unused/ is in neither list, when one under it is in either,
+##	  when an analyzer misses the planted leak or null dereference, or when a run
+##	  itself fails.
 ##	- The last run's logs are in cicd/artifacts/analyze/last/. Each run also keeps
 ##	  counts_<stamp>.txt and findings_<stamp>.tgz there, GFS-rotated.
 ##	- An analyzer missing from its container shows as "not run" in the counts.
@@ -21,8 +22,9 @@
 ##	  image has no clang yet.
 ##	- CICD_MAX_JOBS caps the jobs of all 4 runs together. gcc spends many minutes
 ##	  on a few files (the blake3 SIMD ones and nemo-config.c, at -O0), and
-##	  ANALYZE_TU_TIMEOUT (900 s) caps each file; one cut off counts as failed.
-##	  A plain cicd run sets 120 and --long 900, in config.bash.
+##	  ANALYZE_TU_TIMEOUT (900 s) caps each file. One cut off counts as not
+##	  analyzed, which doesn't fail the stage yet. A plain cicd run sets 120 and
+##	  --long 900, in config.bash.
 ##	- --self-test runs analyze.py's own self-test and the planted faults only.
 ##	- Syntax: cicd/utility/analyze.bash [--self-test]
 ##	- Test ID: de8es
@@ -125,10 +127,12 @@ gfs_rotate "${out}" counts txt   >/dev/null 2>&1 || true
 gfs_rotate "${out}" findings tgz >/dev/null 2>&1 || true
 
 ((failed)) && fDie "analyzer stage"
-fEcho "OK: analyzer stage (report only)"
+fEcho "OK: analyzer stage"
 
 ##	History:
 ##		- 2026-10-21: First version, report only.
 ##		- 2026-10-24: Vendored suppression list.
 ##		- 2026-10-26: The Linux lane runs in step containers, not nemo-build,
 ##		  and the Windows lane in its own, not nemo-winbuild.
+##		- 2026-11-08: The gate goes live: a finding left, or a stale entry,
+##		  fails the stage.

@@ -36,7 +36,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: the vendored suppression list is out of date since SHCL 3.0.0-beta1.
 	- ID: 2026110814550429
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261108-145504
 	- Opened by: t00mietum
@@ -46,7 +46,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Notes:
 		- The analyzer run of 20261108 lists the 6 `vendor/shcl/shcl.h` entries as stale, since that file is 3.0.0-beta1 now and has no findings. 7 findings in `vendor/shcl-old/` aren't listed: the dead store and the out-of-bounds read in 1.0.0-beta1, 1.0.0-beta2, 1.0.0-rc1 and 1.1.0, which look like the 1.2.0 ones already listed, and `2.0.0/shcl.h:2217` core.NullDereference.
 	- Estimated effort: Low
-	- Test case: de8em, and the gate in 2026102114400591 once live.
+	- Actual effort: Low
+	- Progress log:
+		- 20261108: the 6 `vendor/shcl/shcl.h` entries are gone. SHCL 3.0.0-beta1 has no findings from clang on Linux, nor from gcc on Windows over `nemo-config.c` and `fuzz-shcl.c` run past the cap, at 230 s. The 7 old-release findings are listed: 4 dead stores and 2 out-of-bounds reads like the 1.2.0 ones, and `2.0.0/shcl.h:2217`.
+	- Decisions:
+		- The out-of-bounds read is only in 1.0.0-rc1 and 1.1.0, not in 1.0.0-beta1 and beta2 as the note had it. The list follows the logs.
+		- `2.0.0/shcl.h:2217` is safe, since `group_of` gets an entry only after `names` gets one. Not a bug, so nothing went upstream.
+	- Branch: round1108a
+	- Test case: de8em (the list parses), and de8en (a finding left or a stale entry fails the stage).
+	- Verified: 20261108, `analyze.py count` over the logs of the analyzer run of 20261108: vendored 0 in every lane that ran, 11 suppressed, none stale. Every `shcl-old-writer.c` run at HEAD, in clang-linux, gcc-linux and gcc-win, gives the 11 listed and nothing else.
+		- Unverified: gcc on Linux over the 2 files that build SHCL 3, which it never finishes at `-O0`, and clang on Windows. Both are children of `...591`.
+	- Acceptance signoff: Self-closed: the list matches every vendored finding the lanes that run give, and none is stale.
+	- Closed: 20261108-151107
 
 - README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
 	- ID: 2026101417352264
@@ -912,7 +923,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: the gate goes live.
 	- ID: 2026102114400591
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: the analyzer stage of a plain full run, `cicd/cicd.bash --backlog-run-full`, to see the live gate pass on the tree.
 	- Priority|Severity: Avg
 	- Opened: 20261021-144005
 	- Opened by: t00mietum
@@ -927,7 +939,46 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- gcc analyzes every file on the Linux list inside the cap. 3 hit the 900 s cap at `-O0` (see `...584`).
 		- It moves behind a flag only if a full run shows it's too slow.
 	- Estimated effort: Low
-	- Test case: de8en, a planted finding with no suppression fails the stage.
+	- Progress log:
+		- 20261108: `analyze.py count` fails on any finding left, a system header's included, and on a stale entry, and the stage fails with it. A file cut off at the cap still shows as not analyzed, without failing.
+		- 20261108: split off `2026110815102895` (clang over the Windows list) and `2026110815102912` (gcc inside the cap). Both are Queued.
+	- Decisions:
+		- A finding in a system header fails too. It's suppressed at the caller's line, since it counts toward its callers, per the parent.
+		- A file cut off doesn't fail the stage yet, since a plain run cuts off 7 today. `...912` makes it fail.
+		- `count` takes `--supp <list>`, so the test needs no copy of the repo.
+	- Swept: the callers of `count` (`cmd_count` and 4 in the self-test), the stage's call of `count` in `analyze.bash`, and the "report only" text in `analyze.bash`, `config.bash` and `cicd.bash`. design.md never said report only.
+	- Branch: round1108a
+	- Test case: de8en (`test-analyze-gate.bash`, lint stage: a planted finding in our code, in a system header, and in gcc's `-Werror` form each fail, and so does a stale entry. A listed finding alone passes). de8em for `count` itself.
+	- Verified: 20261108, de8en fails with `count`'s old exit (4 cases), with a stale entry passing (1), and with findings left uncollected (6), and passes as committed. de8em and de8es pass. Over the analyzer run of 20261108, `count` exits 1 on the 4 findings that 6096a887 fixed after it, and the files that reached them, rerun at HEAD in their lanes, give none.
+
+- Static analyzers: clang over the Windows list.
+	- ID: 2026110815102895
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261108-151028
+	- Opened by: 2026102114400591
+	- Parent ID: 2026102114400591
+	- Requirements:
+		- The cross-build image (`NEMO_WIN_IMAGE`) gets clang 19, pinned, so the clang-win lane runs.
+		- Each finding it shows is fixed, or suppressed per the parent. Inherited lines inside `G_OS_WIN32` blocks get their first clang look here.
+		- The planted faults in de8es are found in that lane too.
+	- Estimated effort: Avg
+	- Test case: de8es (the planted faults, clang-win lane), and de8en for the gate.
+
+- Static analyzers: gcc analyzes every file inside the cap.
+	- ID: 2026110815102912
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261108-151029
+	- Opened by: 2026102114400591
+	- Parent ID: 2026102114400591
+	- Requirements:
+		- gcc analyzes every file on both lists inside the cap, and then a file cut off fails the stage.
+		- At the plain run's 120 s cap, gcc-linux cuts off `nemo-config.c`, `fuzz-shcl.c` and blake3's AVX2, SSE2 and SSE4.1 files, and gcc-win `nemo-config.c` and `fuzz-shcl.c`. The 2 that build SHCL took about 190 and 200 s on the Windows list on 20261108, since SHCL 3.0.0-beta1, and gcc never sees SHCL 3 in a plain run.
+	- Estimated effort: Avg
+	- Test case: a full run's analyzer stage with no "not analyzed" line, and a case in de8en for a cut-off file.
 
 - Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
 	- ID: 2026102114400592

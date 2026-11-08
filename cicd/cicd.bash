@@ -1493,6 +1493,7 @@ fEcho_Clean
 ##		- 2026-11-03: the cross targets in CROSS_ALONGSIDE start with the debug
 ##		  build, and their step waits for them.
 ##		- 2026-10-21: static analyzer stage after the cross build, report only.
+##		- 2026-11-08: the static analyzer stage fails on a finding left.
 ##		- 2026-10-24: --long (or --slow) adds arm64, now off in a plain run.
 ##		- 2026-10-25: --backlog-run-quick, --backlog-run-full and --merge-gate;
 ##		  --gate and --ci are other names for the first and last. --no-remote.
