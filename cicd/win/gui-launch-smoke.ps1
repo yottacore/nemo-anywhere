@@ -17,10 +17,9 @@
 ##		pwsh -NoProfile -File cicd/win/gui-launch-smoke.ps1 -Exe <exe> -RuntimeBin <dir> [-Seconds <n>]
 ##	Test ID: dd5hy
 
-##	Copyright (c) 2026 t00mietum
-##	Licensed under The MIT License (MIT). Full text at:
-##		https://mit-license.org/
-##	SPDX-License-Identifier: MIT
+##	Copyright (C) 2026 t00mietum
+##	Licensed under the GNU General Public License, version 2 only.
+##	SPDX-License-Identifier: GPL-2.0-only
 
 [CmdletBinding()]
 param(

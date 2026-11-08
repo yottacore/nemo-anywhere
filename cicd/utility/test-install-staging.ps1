@@ -22,10 +22,9 @@
 ##		pwsh -NoProfile -File cicd/utility/test-install-staging.ps1
 ##	Test ID: ddgch
 
-##	Copyright (c) 2026 t00mietum
-##	Licensed under The MIT License (MIT). Full text at:
-##		https://mit-license.org/
-##	SPDX-License-Identifier: MIT
+##	Copyright (C) 2026 t00mietum
+##	Licensed under the GNU General Public License, version 2 only.
+##	SPDX-License-Identifier: GPL-2.0-only
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidOverwritingBuiltInCmdlets', '',
 	Justification = 'The copy has to fail partway, on a source file held open while Copy-Item runs.')]

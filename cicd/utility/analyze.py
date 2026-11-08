@@ -25,9 +25,8 @@
 #         analyze.py --self-test
 
 # Copyright (c) 2026 t00mietum
-# Licensed under The MIT License (MIT). Full text at:
-#     https://mit-license.org/
-# SPDX-License-Identifier: MIT
+# Licensed under the GNU General Public License, version 2 only.
+# SPDX-License-Identifier: GPL-2.0-only
 
 import collections
 import concurrent.futures

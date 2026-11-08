@@ -28,10 +28,9 @@
 ##		  desktop task goes too.
 ##	History: At bottom of script.
 
-##	Copyright (c) 2026 t00mietum
-##	Licensed under The MIT License (MIT). Full text at:
-##		https://mit-license.org/
-##	SPDX-License-Identifier: MIT
+##	Copyright (C) 2026 t00mietum
+##	Licensed under the GNU General Public License, version 2 only.
+##	SPDX-License-Identifier: GPL-2.0-only
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
 	Justification = 'Called over ssh with no one to confirm; the lane on the Linux side is what decides.')]

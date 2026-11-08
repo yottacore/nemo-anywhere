@@ -16,10 +16,9 @@
 ##		pwsh -NoProfile -File cicd/utility/test-safe-rm.ps1
 ##	Test ID: detts
 
-##	Copyright (c) 2026 t00mietum
-##	Licensed under The MIT License (MIT). Full text at:
-##		https://mit-license.org/
-##	SPDX-License-Identifier: MIT
+##	Copyright (C) 2026 t00mietum
+##	Licensed under the GNU General Public License, version 2 only.
+##	SPDX-License-Identifier: GPL-2.0-only
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingCmdletAliases', '',
 	Justification = 'rm is the unix one, run only off Windows, where it is no alias.')]
