@@ -29,6 +29,8 @@
 #include "nemo-xattr-win32.h"
 #include "nemo-file-xattr.h"
 
+#include <eel/eel-analyzer.h>
+
 #include <windows.h>
 #include <string.h>
 
@@ -44,10 +46,12 @@ stream_path (const char *path, const char *name)
 		g_autofree char *win = g_strdup (path);
 		char *p;
 
+		EEL_ANALYZER_SKIP ("null-dereference") // a copy of path, which g_path_is_absolute just read; gcc takes g_strdup's NULL branch
 		for (p = win; *p != '\0'; p++) {
 			if (*p == '/')
 				*p = '\\';
 		}
+		EEL_ANALYZER_END
 
 		spec = g_str_has_prefix (win, "\\\\")
 			? g_strconcat ("\\\\?\\UNC", win + 1, ":", name, NULL)

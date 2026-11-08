@@ -181,6 +181,7 @@ check_switcher (void)
 
 	buttons = gtk_container_get_children (GTK_CONTAINER (switcher));
 	check (g_list_length (buttons) == 4);
+	g_assert (buttons != NULL);
 	for (l = buttons; l != NULL; l = l->next) {
 		focusable |= gtk_widget_get_can_focus (l->data);
 	}

@@ -110,7 +110,7 @@ test_seeds_defaults (void)
 
 	root = g_strdup_printf ("%s\\", drive != NULL ? drive : "C:");
 	path = uri_for (root);
-	check (strstr (text, path) != NULL);
+	check (path != NULL && strstr (text, path) != NULL);
 	g_free (path);
 	g_free (root);
 

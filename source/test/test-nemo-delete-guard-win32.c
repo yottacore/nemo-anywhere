@@ -86,6 +86,7 @@ main (void)
 	/* TEMP is sometimes the short spelling, which would hide the 8.3 case. */
 	root = respell (made, TRUE);
 	home = make_dir (root, "home");
+	g_assert (home != NULL);
 	g_setenv ("HOME", home, TRUE);
 
 	if (g_strcmp0 (g_get_home_dir (), home) != 0) {

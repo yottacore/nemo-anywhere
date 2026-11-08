@@ -26,6 +26,8 @@
 
 #include <string.h>
 
+#include <eel/eel-analyzer.h>
+
 #define HEADER_LEN      512
 #define HEADER_FATS     109
 #define DIR_ENTRY_LEN   128
@@ -246,7 +248,9 @@ nemo_ole2_open (GInputStream *stream, GCancellable *cancellable, GError **error)
 	}
 	size = g_seekable_tell (G_SEEKABLE (stream));
 
+	EEL_ANALYZER_SKIP ("malloc-leak") // g_autoptr frees it, and clang doesn't run cleanup functions
 	ole = g_new0 (NemoOle2, 1);
+	EEL_ANALYZER_END
 	ole->in = stream;
 	ole->cancellable = cancellable;
 
@@ -316,8 +320,12 @@ name_is (const guint8 *entry, const char *name)
 static const guint8 *
 find_stream (NemoOle2 *ole, const char *name)
 {
+	EEL_ANALYZER_SKIP ("malloc-leak") // g_autofree frees it, and clang doesn't run cleanup functions
 	g_autofree guint32 *stack = g_new (guint32, (gsize) ole->n_dir * 2 + 1);
+	EEL_ANALYZER_END
+	EEL_ANALYZER_SKIP ("malloc-leak") // the same, for seen
 	g_autofree guint8 *seen = g_new0 (guint8, ole->n_dir / 8 + 1);
+	EEL_ANALYZER_END
 	guint32 top = 0, child = rd32 (ole->dir + 0x4c);
 
 	if (child < ole->n_dir) {
@@ -373,8 +381,12 @@ load_mini (NemoOle2 *ole)
 	want = (guint32) MIN ((guint64) ole->minifat_count, ole->n_sectors);
 	want = MIN (want, (guint32) ((((guint64) ole->n_mini_chain << (ole->shift - MINI_SHIFT)) * 4 +
 				      ((guint64) 1 << ole->shift) - 1) >> ole->shift));
+	EEL_ANALYZER_SKIP ("malloc-leak") // g_autofree frees it, and clang doesn't run cleanup functions
 	sectors = walk_chain (ole->fat, ole->n_sectors, ole->minifat_start, want, &n);
+	EEL_ANALYZER_END
+	EEL_ANALYZER_SKIP ("malloc-leak") // the same, for buf
 	buf = g_malloc (MAX ((gsize) n << ole->shift, 1));
+	EEL_ANALYZER_END
 	if (!read_sectors (ole, sectors, n, buf, (gsize) n << ole->shift, &done)) {
 		return;
 	}
@@ -437,8 +449,10 @@ nemo_ole2_read (NemoOle2 *ole, const char *name, gsize cap)
 		return read_mini (ole, start, len);
 	}
 
+	EEL_ANALYZER_SKIP ("malloc-leak") // g_autofree frees it, and clang doesn't run cleanup functions
 	sectors = walk_chain (ole->fat, ole->n_sectors, start,
 			      (guint32) MIN (((guint64) len + ((guint64) 1 << ole->shift) - 1) >> ole->shift, ole->n_sectors), &n);
+	EEL_ANALYZER_END
 	len = MIN (len, (gsize) n << ole->shift);
 	buf = g_malloc (MAX (len, 1));
 

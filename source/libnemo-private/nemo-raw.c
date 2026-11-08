@@ -24,6 +24,7 @@
 
 #include "nemo-raw.h"
 #include "nemo-file-utilities.h"
+#include <eel/eel-analyzer.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -327,7 +328,9 @@ walk_ifd (Scan *s, guint32 offset, guint depth, gboolean first)
 	if (n == 0 || n > MAX_ENTRIES) {
 		return 0;
 	}
+	EEL_ANALYZER_SKIP ("malloc-leak") // g_autofree frees it, and clang doesn't run cleanup functions
 	entries = g_malloc ((gsize) n * 12 + 4);
+	EEL_ANALYZER_END
 	if (!read_at (s->r, s->base + offset + 2, entries, (gsize) n * 12 + 4)) {
 		return 0;
 	}
@@ -588,7 +591,9 @@ decode_jpeg (Reader *r, const Preview *p, int size)
 	}
 	g_signal_connect (loader, "size-prepared", G_CALLBACK (on_size_prepared), GINT_TO_POINTER (size));
 
+	EEL_ANALYZER_SKIP ("malloc-leak") // g_autofree frees it, and clang doesn't run cleanup functions
 	buf = g_malloc (64 * 1024);
+	EEL_ANALYZER_END
 	ok = g_seekable_seek (G_SEEKABLE (r->in), p->offset, G_SEEK_SET, r->cancellable, NULL);
 	while (ok && left > 0) {
 		gsize want = MIN (left, 64 * 1024), got = 0;

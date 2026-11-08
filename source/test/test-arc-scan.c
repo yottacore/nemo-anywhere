@@ -19,6 +19,7 @@
 #include <libnemo-private/nemo-link-win32.h>
 #endif
 
+#include <eel/eel-analyzer.h>
 #include "test-check.h"
 #include "test-scratch.h"
 
@@ -139,6 +140,8 @@ make_link (Link *link)
 	char *folder = g_path_get_dirname (path);
 	char *c;
 
+	/* Every link in the table has a target. */
+	g_assert (target != NULL);
 	for (c = target; *c != '\0'; c++) {
 		if (*c == '/') {
 			*c = '\\';
@@ -941,7 +944,9 @@ list_of (ArcLinkChoice symlinks,
 	/* NULL only when cancelled, and nothing can cancel this. Every check
 	   after it reads the list. */
 	if (list == NULL) {
+		EEL_ANALYZER_SKIP ("infinite-loop") // g_error's for (;;) after a fatal g_log
 		g_error ("arc_scan_list gave no list");
+		EEL_ANALYZER_END
 	}
 	return list;
 }
@@ -967,7 +972,8 @@ check_list (void)
 	gsize i;
 
 	list = list_of (ARC_LINK_IGNORE, FALSE, library);
-	check (item_named (list, "sel/a.bin") != NULL && item_named (list, "sel/a.bin")->kind == ARC_ITEM_FILE);
+	item = item_named (list, "sel/a.bin");
+	check (item != NULL && item->kind == ARC_ITEM_FILE);
 	check (item_named (list, "sel/sub/deeper/c.bin") != NULL);
 	check (item_named (list, "sel/shortcut.lnk") != NULL);
 	check (item_named (list, "sel/sub") != NULL && item_named (list, "sel/sub")->kind == ARC_ITEM_FOLDER);

@@ -2400,8 +2400,10 @@ nemo_cache_db_prune (const NemoCachePruneRules *rules,
 	if (path == NULL)
 		return NEMO_CACHE_PRUNE_FAILED;
 
-	if (cancellable == NULL)
-		cancellable = own_cancellable = g_cancellable_new ();
+	if (cancellable == NULL) {
+		own_cancellable = g_cancellable_new ();
+		cancellable = own_cancellable;
+	}
 
 	/* A connection of its own, so a long pass never holds the lock the draw
 	 * path waits on. The two take turns at the file through sqlite's own

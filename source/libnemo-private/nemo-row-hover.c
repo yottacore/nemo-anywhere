@@ -36,6 +36,7 @@
 
 #include "nemo-row-hover.h"
 #include "nemo-global-preferences.h"
+#include <eel/eel-analyzer.h>
 
 #include <math.h>
 #include <string.h>
@@ -217,7 +218,9 @@ lookup_either (GtkStyleContext *context, const char *name, GdkRGBA *color)
 	}
 
 	/* Some themes name their colors without the theme_ prefix. */
+	EEL_ANALYZER_SKIP ("out-of-bounds") // name + 6 is inside name, past the prefix just matched; gcc reads past the bare literal
 	plain = g_str_has_prefix (name, "theme_") ? g_strdup (name + strlen ("theme_")) : NULL;
+	EEL_ANALYZER_END
 	found = plain != NULL && gtk_style_context_lookup_color (context, plain, color);
 	g_free (plain);
 	return found;

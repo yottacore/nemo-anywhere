@@ -15,6 +15,7 @@
 #include "blake3.h"
 
 #include "test-blake3-dispatch.h"
+#include <eel/eel-analyzer.h>
 #include "test-check.h"
 
 #define XOF_LEN 131
@@ -137,7 +138,9 @@ expect (const char *path, const char *what, guint n, const guint8 *got, gsize le
 static void
 check_vector (const char *path, guint n)
 {
+	EEL_ANALYZER_SKIP ("malloc-leak") // g_autofree frees it, and clang doesn't run cleanup functions
 	g_autofree guint8 *in = vector_input (vectors[n].len);
+	EEL_ANALYZER_END
 	guint8 out[XOF_LEN];
 	blake3_hasher hasher;
 	gsize at, step;

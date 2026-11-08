@@ -1255,12 +1255,13 @@ nemo_desktop_thumbnail_factory_can_thumbnail (NemoDesktopThumbnailFactory *facto
 					       const char            *mime_type,
 					       time_t                 mtime)
 {
+  g_return_val_if_fail (uri != NULL, FALSE);
+
   if (factory->priv->permissions_problem)
     return FALSE;
 
   /* Don't thumbnail thumbnails */
-  if (uri &&
-      strncmp (uri, "file:/", 6) == 0 &&
+  if (strncmp (uri, "file:/", 6) == 0 &&
       strstr (uri, "/thumbnails/") != NULL)
     return FALSE;
   

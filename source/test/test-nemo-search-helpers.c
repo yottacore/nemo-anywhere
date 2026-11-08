@@ -20,6 +20,8 @@
 #include <libnemo-private/nemo-search-engine-advanced.h>
 #include <libnemo-private/nemo-query.h>
 
+#include <eel/eel-analyzer.h>
+
 #include "test-scratch.h"
 #include "test-ole2-writer.h"
 
@@ -139,7 +141,9 @@ write_zip (const char *name, const char *const names[], const char *const bodies
 
 	archive_write_set_format_zip (a);
 	if (archive_write_open_filename (a, path) != ARCHIVE_OK) {
+		EEL_ANALYZER_SKIP ("infinite-loop") // g_error's for (;;) after a fatal g_log
 		g_error ("could not write %s: %s", path, archive_error_string (a));
+		EEL_ANALYZER_END
 	}
 
 	for (i = 0; names[i] != NULL; i++) {
@@ -651,7 +655,9 @@ main (int argc, char *argv[])
 
 	tmpdir = test_scratch_dir ("nemo-helpers-XXXXXX", &error);
 	if (tmpdir == NULL) {
+		EEL_ANALYZER_SKIP ("infinite-loop") // g_error's for (;;) after a fatal g_log
 		g_error ("no temp dir: %s", error->message);
+		EEL_ANALYZER_END
 	}
 
 	test_zip_formats ();

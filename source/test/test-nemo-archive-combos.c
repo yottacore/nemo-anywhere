@@ -605,6 +605,10 @@ read_back (const char *path, GHashTable *found)
 		name = g_strdup (archive_entry_pathname_utf8 (entry) != NULL
 				 ? archive_entry_pathname_utf8 (entry)
 				 : archive_entry_pathname (entry));
+		check (name != NULL);
+		if (name == NULL) {
+			continue;
+		}
 		length = strlen (name);
 		if (length > 0 && name[length - 1] == '/') {
 			name[length - 1] = '\0';

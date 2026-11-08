@@ -826,7 +826,11 @@ trash_file_get_parent (GFile *file)
 		return trash_file_new_for_uri (ROOT_URI);
 	}
 
+	/* A bad escape names nothing in a folder, so it hangs off the root too. */
 	real_path = uri_to_real_path (self->uri);
+	if (real_path == NULL) {
+		return trash_file_new_for_uri (ROOT_URI);
+	}
 	parent_path = g_path_get_dirname (real_path);
 	uri = uri_for_real_path (parent_path);
 	parent = trash_file_new_for_uri (uri);
@@ -855,7 +859,9 @@ trash_file_prefix_matches (GFile *parent, GFile *descendant)
 
 	parent_path = uri_to_real_path (p->uri);
 	descendant_path = uri_to_real_path (d->uri);
-	result = path_has_prefix (parent_path, descendant_path);
+	/* NULL for a bad escape, which can't be below anything. */
+	result = parent_path != NULL && descendant_path != NULL &&
+		 path_has_prefix (parent_path, descendant_path);
 
 	g_free (parent_path);
 	g_free (descendant_path);

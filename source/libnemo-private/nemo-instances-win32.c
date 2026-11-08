@@ -35,6 +35,8 @@
 
 #include "nemo-instances-win32.h"
 
+#include <eel/eel-analyzer.h>
+
 #include <string.h>
 #include <windows.h>
 #include <sddl.h>
@@ -419,7 +421,9 @@ serve_one (gpointer data, G_GNUC_UNUSED gpointer user_data)
 
 	request = receive_message (connection->pipe, REQUEST_TYPE, deadline, &error);
 	if (request == NULL) {
+		EEL_ANALYZER_SKIP ("null-dereference") // receive_message sets error whenever it gives NULL
 		g_debug ("A message from another copy: %s", error->message);
+		EEL_ANALYZER_END
 		g_clear_error (&error);
 		goto out;
 	}

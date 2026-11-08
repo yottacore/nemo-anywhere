@@ -639,10 +639,11 @@ test_damaged (void)
 		guint i;
 
 		for (i = 0; i < G_N_ELEMENTS (spoil); i++) {
-			g_autoptr (GdkPixbuf) pixbuf = NULL;
+			GdkPixbuf *pixbuf;
 
 			whole->data[at] = spoil[i];
 			pixbuf = read_array (whole, 128);
+			g_clear_object (&pixbuf);
 		}
 		whole->data[at] = keep;
 	}

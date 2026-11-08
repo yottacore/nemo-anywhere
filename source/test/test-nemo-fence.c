@@ -252,16 +252,16 @@ child (const char *what, const char *a, const char *b)
 		g_unlink (b);
 #ifndef G_OS_WIN32
 	} else if (g_strcmp0 (what, "unlinkat") == 0) {
-		int dir = open (a, O_RDONLY | O_DIRECTORY);
+		int dir;
 
-		if (dir < 0) {
+		if (b == NULL || (dir = open (a, O_RDONLY | O_DIRECTORY)) < 0) {
 			return 2;
 		}
 		unlinkat (dir, b, 0);
 		close (dir);
 #else
 	} else if (g_strcmp0 (what, "recycle") == 0) {
-		return recycle_and_clear (a, b);
+		return b != NULL ? recycle_and_clear (a, b) : 2;
 #endif
 	} else {
 		return 2;

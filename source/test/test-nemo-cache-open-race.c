@@ -351,6 +351,7 @@ main (int argc, char *argv[])
 
 	/* The copies inherit this, so they all find the same file. */
 	root = test_scratch_config_home ("nemo-cache-race-XXXXXX");
+	check (root != NULL);
 	path = nemo_cache_db_path ();
 	check (path != NULL);
 	if (path == NULL)

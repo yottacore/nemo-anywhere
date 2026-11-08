@@ -130,6 +130,7 @@ main (void)
 	backups = list_backups (dir);
 	check (backups->len == 1);
 	first_backup = backups->len > 0 ? g_strdup (backups->pdata[0]) : g_strdup ("");
+	g_assert (first_backup != NULL);
 	check (backup_name_ok (first_backup, "2"));
 	{
 		char *full = g_build_filename (dir, first_backup, NULL);

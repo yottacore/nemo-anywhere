@@ -30,6 +30,7 @@
 
 #include "test-fence.h"
 #include "test-scratch.h"
+#include <eel/eel-analyzer.h>
 
 #define WALK_ATTRIBUTES \
 	G_FILE_ATTRIBUTE_STANDARD_NAME "," \
@@ -463,7 +464,9 @@ test_slowness (void)
 		return slowness;
 	}
 	path = g_build_filename (dir, "yardstick", NULL);
+	EEL_ANALYZER_SKIP ("malloc-leak") // g_autofree frees it, and clang doesn't run cleanup functions
 	bytes = g_malloc0 (65536);
+	EEL_ANALYZER_END
 	file = g_file_new_for_path (path);
 	if (!g_file_set_contents (path, (const char *) bytes, 65536, NULL) ||
 	    (in = g_file_read (file, NULL, NULL)) == NULL) {

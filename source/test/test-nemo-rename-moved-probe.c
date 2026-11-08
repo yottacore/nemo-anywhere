@@ -285,6 +285,7 @@ tick (G_GNUC_UNUSED gpointer data)
 		position = 0;
 		gtk_editable_insert_text (GTK_EDITABLE (field), TYPED, -1, &position);
 		item = picture_item (NULL);
+		g_assert (item != NULL);
 		item_x = (int) item->x1;
 		item_y = (int) item->y1;
 		check_place (field, item, "before");
@@ -302,6 +303,7 @@ tick (G_GNUC_UNUSED gpointer data)
 			return G_SOURCE_CONTINUE;
 		}
 		item = picture_item (NULL);
+		g_assert (item != NULL);
 		line = g_strdup_printf ("the picture moved (%d,%d to %d,%d)",
 					item_x, item_y, (int) item->x1, (int) item->y1);
 		report ((int) item->x1 != item_x || (int) item->y1 != item_y, line);

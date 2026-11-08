@@ -567,19 +567,18 @@ deduplicate_display_names (G_GNUC_UNUSED NemoFavorites *favorites,
     for (ptr = fav_uris; ptr != NULL; ptr = ptr->next)
     {
         GList *uris;
+        gboolean first;
         const gchar *uri = (gchar *) ptr->data;
         gchar *original_display_name = g_path_get_basename (uri);
 
-        if (g_hash_table_contains (lists_of_keys_by_basename, original_display_name))
-        {
-            uris = g_hash_table_lookup (lists_of_keys_by_basename, original_display_name);
+        // A list in the table is never empty, so no list means a new name.
+        uris = g_hash_table_lookup (lists_of_keys_by_basename, original_display_name);
+        first = (uris == NULL);
 
-            // this could be prepend, but then the value in the table would have to be replaced
-            uris = g_list_append ((GList *) uris, g_strdup (uri));
-        }
-        else
+        // this could be prepend, but then the value in the table would have to be replaced
+        uris = g_list_append (uris, g_strdup (uri));
+        if (first)
         {
-            uris = g_list_prepend (NULL, g_strdup (uri));
             g_hash_table_insert (lists_of_keys_by_basename,
                                  g_strdup (original_display_name),
                                  uris);

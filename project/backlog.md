@@ -33,6 +33,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Static analyzers: the vendored suppression list is out of date since SHCL 3.0.0-beta1.
+	- ID: 2026110814550429
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261108-145504
+	- Opened by: t00mietum
+	- Related IDs: 2026102114400586, 2026102114400591, 2026110520234226
+	- Requirements:
+		- `analyze-vendored.txt` matches the vendored findings of a full run again, each with why it's safe, and no entry is stale. The gate in `...591` fails on either.
+	- Notes:
+		- The analyzer run of 20261108 lists the 6 `vendor/shcl/shcl.h` entries as stale, since that file is 3.0.0-beta1 now and has no findings. 7 findings in `vendor/shcl-old/` aren't listed: the dead store and the out-of-bounds read in 1.0.0-beta1, 1.0.0-beta2, 1.0.0-rc1 and 1.1.0, which look like the 1.2.0 ones already listed, and `2.0.0/shcl.h:2217` core.NullDereference.
+	- Estimated effort: Low
+	- Test case: de8em, and the gate in 2026102114400591 once live.
+
 - README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
 	- ID: 2026101417352264
 	- Type: Task
@@ -843,7 +858,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: fix or suppress the findings in our own code.
 	- ID: 2026102114400588
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
 	- Priority|Severity: Avg
 	- Opened: 20261021-144005
 	- Opened by: t00mietum
@@ -852,12 +867,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Each finding in a file added since the baseline, tests aside, is fixed, or suppressed at the line with a one-line reason, per the parent.
 	- Estimated effort: Avg
-	- Test case: the gate in 2026102114400591, once live. A real bug fixed here gets its own test.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261108: 21 findings in our files in the analyzer run of 20261108 (gcc-linux 0, gcc-win 6, clang-linux 15), and 3 in GLib headers reached from our files. 9 fixed in the code, 1 of them a real bug, and 12 suppressed with `EEL_ANALYZER_SKIP`, each with its reason on the line. 3 more showed only once the first were gone: clang's leak report moved to the next allocation in `nemo-psd.c`, and the GLib header lines were reached from `nemo-row-hover.c` too.
+	- Decisions:
+		- clang's analyzer doesn't run cleanup functions, so a `g_autofree` or `g_autoptr` allocation looks leaked on every early return. 11 of those are suppressed at the allocation, not at the return, since a suppression at one return moves the report to the next. gcc still checks them.
+		- A value that can't be NULL, where a suppression would only move the finding to the next use, gets a `g_assert` with its reason, as in `...587`.
+		- `nemo_desktop_thumbnail_factory_can_thumbnail` allowed a NULL uri in its first check and then passed it to `strlen`. It now refuses NULL with a critical. No caller passes one, so there's no test.
+		- The PSD reader's row counts are zeroed when allocated, rather than suppressed, since clang can't see that the loop after sets them all. One more memset at load.
+	- Actual fix: the Windows recycle bin backend read a NULL path for an item whose URI holds a bad escape, such as `trash:///%zz`. Its prefix check crashed in `strncmp`, and its parent came from a NULL folder name. Such an item is now below nothing, and its parent is the root.
+	- Swept: the other 3 callers of `uri_to_real_path`, which already check for NULL. Every `g_error` in our files and the tests, of which 3 test ones reach a finding, suppressed in `...589`. The other `g_strdup` of a string past a matched prefix that gcc reads past the literal, in `nemo-row-hover.c`.
+	- Needs external testing: da8rb in the native Windows gate, on vm925w or b29w.
+	- Branch: round1108a
+	- Test case: da8rb (the bad escape case: both prefix checks, and the parent). The rest is the gate in 2026102114400591, once live.
+	- Verified: 20261108, the whole analyzer stage over both lists, then the files changed after it again in both lanes: our files have no findings in any lane, and neither do the GLib header lines they reached. The bad escape case fails on the old `nemo-trash-win32.c`, crashing in `strncmp`, and passes on the new, both in the cross build container. The native run is still to do. `cicd.bash --backlog-run-quick` passed, and the cross build compiles every changed file with no warnings.
 
 - Static analyzers: fix or suppress the findings in the tests and fuzz targets.
 	- ID: 2026102114400589
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261021-144005
 	- Opened by: t00mietum
@@ -866,7 +894,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Each finding under `source/test/` and `source/fuzz/` is fixed, or suppressed at the line with a one-line reason, per the parent.
 	- Estimated effort: Avg
-	- Test case: the gate in 2026102114400591, once live.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261108: 31 findings in the analyzer run of 20261108, and 1 in a GLib header, `g_error`'s loop, reached from the tests. 25 fixed in the code and 6 suppressed with `EEL_ANALYZER_SKIP`, each with its reason on the line. 4 more showed once the first were gone: the `g_error` loop from 3 other places in 2 test files, and a file descriptor left open by the first fix in `test-nemo-fence.c`.
+	- Decisions:
+		- The two deliberate crashes in `test-nemo-crash.c` are suppressed, since crashing is what those cases test.
+		- A test that can't go on without a value, such as a canvas item or a list, asserts it rather than checking it and then reading it anyway.
+		- `fuzz-main.c` seeks back to the start with `fseek` instead of `rewind`, which can't report a failure.
+		- `shcl-old-writer.c` frees the parsed document and closes the file on its early exit.
+	- Swept: `g_autofree` and `g_strdup` cases as in `...588`.
+	- Branch: round1108a
+	- Test case: the gate in 2026102114400591, once live. No real bug in the app here, so no new test.
+	- Verified: 20261108, the whole analyzer stage over both lists, then the files changed after it again in both lanes: no findings under `source/test/` or `source/fuzz/` in any lane. `cicd.bash --backlog-run-quick` passed, and the cross build compiles the changed win32 tests with no warnings.
+	- Acceptance signoff: Self-closed: no finding left in the tests and fuzz targets in any lane.
+	- Closed: 20261108-145536
 
 - Static analyzers: the gate goes live.
 	- ID: 2026102114400591

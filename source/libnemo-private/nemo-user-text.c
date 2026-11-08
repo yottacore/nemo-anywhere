@@ -25,6 +25,8 @@
 
 #include <string.h>
 
+#include <eel/eel-analyzer.h>
+
 /* GKeyFile writes every backslash doubled, so its values have only even runs.
    One lone backslash anywhere means the value was written as is. */
 static gboolean
@@ -320,6 +322,7 @@ nemo_user_text_set_string (GKeyFile    *key_file,
 {
 #ifdef G_OS_WIN32
 	gchar *back;
+	gboolean same;
 
 	/* A line break or a leading blank cannot go in as written. Rare enough
 	   in a path or a name to leave to GKeyFile's escapes. */
@@ -329,7 +332,10 @@ nemo_user_text_set_string (GKeyFile    *key_file,
 	}
 
 	back = nemo_user_text_windows_value (value);
-	if (strcmp (back, value) == 0) {
+	EEL_ANALYZER_SKIP ("null-argument") // value was read above, so both are strings; gcc's split of this function loses that
+	same = strcmp (back, value) == 0;
+	EEL_ANALYZER_END
+	if (same) {
 		g_key_file_set_value (key_file, group, key, value);
 	} else {
 		/* Every backslash doubled reads back as one. */

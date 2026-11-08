@@ -408,6 +408,7 @@ icon_center (int item, double *x, double *y)
 		atk_gobject_accessible_get_object (ATK_GOBJECT_ACCESSIBLE (child)) : NULL;
 	EelCanvasItem *canvas_item = (EelCanvasItem *) object;
 
+	g_assert (canvas_item != NULL);
 	*x = (canvas_item->x1 + canvas_item->x2) / 2;
 	*y = (canvas_item->y1 + canvas_item->y2) / 2;
 	g_object_unref (child);
