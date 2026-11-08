@@ -70,6 +70,9 @@ region_is (const char *name, gboolean whole, int want_start, int want_end)
 static void
 check_setting (void)
 {
+	/* The setting counts under v1 and Classic only. */
+	nemo_config_set_string (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, "nemo-anywhere-v1");
+
 	/* The default: F2 takes the whole name. */
 	check (region_is ("photo.jpg", FALSE, 0, -1));
 
@@ -89,6 +92,10 @@ check_setting (void)
 static void
 check_model (void)
 {
+	/* Nemo Anywhere is the default model. */
+	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
+	check (!nemo_rename_setting_applies ());
+	nemo_config_set_string (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, "nemo-anywhere-v1");
 	check (nemo_rename_setting_applies ());
 
 	nemo_config_set_string (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, "nemo-anywhere");
@@ -107,8 +114,8 @@ check_model (void)
 	check (region_is ("photo.jpg", FALSE, 0, -1));
 
 	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
-	check (nemo_rename_setting_applies ());
-	check (region_is ("photo.jpg", FALSE, 0, -1));
+	check (!nemo_rename_setting_applies ());
+	check (region_is ("photo.jpg", FALSE, 0, 5));
 }
 
 int

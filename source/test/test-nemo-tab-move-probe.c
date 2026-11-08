@@ -386,7 +386,9 @@ open_column_menu (GtkWidget *window)
 	GtkWidget *tree = view != NULL ? find_in (view, "GtkTreeView") : NULL;
 	GtkTreeViewColumn *column;
 
-	column = tree != NULL ? gtk_tree_view_get_column (GTK_TREE_VIEW (tree), 0) : NULL;
+	/* The Name column, which is the expander column. Under Nemo Anywhere the
+	   first column is the checkmarks. */
+	column = tree != NULL ? gtk_tree_view_get_expander_column (GTK_TREE_VIEW (tree)) : NULL;
 	if (column == NULL) {
 		return FALSE;
 	}
