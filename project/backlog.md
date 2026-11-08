@@ -570,6 +570,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: anydefault
 	- Test case: dd5df checks the dropdown's order and the default, and that a settings file naming a model keeps it. The rename region test (test-eel-rename-region) checks the whole-name setting counts under v1 and Classic and not under the default.
 
+- Tree view: in "Checkmark selection" mode, folders follow the content view's selection rules and can be fully edited.
+	- ID: 2026102018234903
+	- Type: Enhancement
+	- Status: Started
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Prereq IDs: 2026101816495208
+	- Related IDs: 2026102018234900
+	- Requirements:
+		- Before the next cut.
+		- When in "Checkmark selection" mode:
+			- Objects in the tree view follow the same rules for object selection at the folder level as the content view.
+			- Full edit capability, the same as dealing with folders in the content view.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md).
+	- Progress log:
+		- 20261108: under the Nemo Anywhere model, with the tree focused, Ctrl+C, Ctrl+X, Ctrl+V, Delete and Shift+Delete act on the tree's folder, by the same rules as its right-click menu. Before, the window's keys took them first and acted on the content view's selection. Classic and v1 are unchanged.
+		- Left: F2 rename in the tree, and whether the tree takes a multi-selection with the switch off (needs more thought, with 2026102407515574).
+	- Branch: treeedit
+	- Test case: df066 (Ctrl+C in the tree with the whole list selected).
+
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
 	- Type: Enhancement
@@ -981,23 +1002,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Cmd in place of Ctrl on macOS.
 		- Change the size of the window too, to remain approximately proportional.
 			- This should be an option, enabled by default: "On contents zoom, change window size too".
-	- Test case: none yet.
-
-- Tree view: in "Checkmark selection" mode, folders follow the content view's selection rules and can be fully edited.
-	- ID: 2026102018234903
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261020-182349
-	- Opened by: t00mietum
-	- Prereq IDs: 2026101816495208
-	- Related IDs: 2026102018234900
-	- Requirements:
-		- Before the next cut.
-		- When in "Checkmark selection" mode:
-			- Objects in the tree view follow the same rules for object selection at the folder level as the content view.
-			- Full edit capability, the same as dealing with folders in the content view.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md).
 	- Test case: none yet.
 
 - Rearrange the order of views, and add a fourth first-class view, Image thumbnail view.

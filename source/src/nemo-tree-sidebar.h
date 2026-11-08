@@ -62,5 +62,6 @@ typedef struct {
 GType fm_tree_view_get_type (void);
 
 GtkWidget *nemo_tree_sidebar_new (NemoWindow *window);
+gboolean   fm_tree_view_takes_key (GtkWidget *focus, GdkEventKey *event);
 
 #endif /* FM_TREE_VIEW_H */

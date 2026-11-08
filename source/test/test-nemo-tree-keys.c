@@ -76,7 +76,7 @@ stop (GPid pid)
 	g_spawn_close_pid (pid);
 }
 
-#define RESULTS 7
+#define RESULTS 8
 
 static void
 run (const char *exe, const char *probe)
