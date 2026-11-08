@@ -26,7 +26,8 @@
  * clicks the parent in the tree, and looks at the list's selection. Then it
  * goes back and up with Alt+Up, which still selects the folder just left. Last
  * it presses Right and Left on the folder's tree row, and a second Left to
- * reach its parent. One "ok" or "FAIL" line per check goes to
+ * reach its parent, then copies that row with Ctrl+C while the list has
+ * everything selected. One "ok" or "FAIL" line per check goes to
  * $NEMO_TREE_KEYS_OUT, and "done" at the end. */
 
 #include <stdio.h>
@@ -419,7 +420,29 @@ steps (void)
 			return FALSE;
 		}
 		report (list_selected () == 0, "which leaves nothing selected in the content view either");
+		gtk_tree_selection_select_all (gtk_tree_view_get_selection (list ()));
+		gtk_widget_grab_focus (GTK_WIDGET (tree));
+		break;
+	case 6:
+		/* The content view turns Copy on in an idle after its selection
+		   changes, and only then could it take the key from the tree. */
+		if (waited < 5) {
+			return FALSE;
+		}
+		key (GDK_KEY_c, GDK_CONTROL_MASK);
+		break;
+	case 7: {
+		gchar **uris = gtk_clipboard_wait_for_uris (gtk_clipboard_get (GDK_SELECTION_CLIPBOARD));
+		GFile *home = g_file_new_for_path (g_get_home_dir ());
+		GFile *copied = uris != NULL && g_strv_length (uris) == 1 ? g_file_new_for_uri (uris[0]) : NULL;
+
+		report (copied != NULL && g_file_equal (copied, home),
+			"Ctrl+C in the tree copies its folder, not the content view's selection");
+		g_clear_object (&copied);
+		g_object_unref (home);
+		g_strfreev (uris);
 		return TRUE;
+	}
 	}
 	return TRUE;
 }
@@ -439,7 +462,7 @@ tick (G_GNUC_UNUSED gpointer data)
 	if (!steps ()) {
 		return G_SOURCE_CONTINUE;
 	}
-	if (step == 5) {
+	if (step == 7) {
 		finish ();
 		return G_SOURCE_REMOVE;
 	}

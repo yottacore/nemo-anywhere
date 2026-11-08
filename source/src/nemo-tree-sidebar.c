@@ -679,6 +679,14 @@ is_parent_writable (NemoFile *file)
 	return result;	
 }
 
+static gboolean
+file_can_be_deleted (NemoFile *file)
+{
+	return is_parent_writable (file) &&
+	       !nemo_file_is_home (file) &&
+	       !nemo_file_is_desktop_directory (file);
+}
+
 static void
 set_action_sensitive (GtkActionGroup *action_group,
                       const gchar    *name,
@@ -740,9 +748,6 @@ update_menu_states (FMTreeView *view,
                     GdkEventButton *event)
 {
     GtkTreePath *path;
-    gboolean parent_file_is_writable;
-    gboolean file_is_home_or_desktop;
-    gboolean file_is_special_link;
     gboolean can_move_file_to_trash;
     gboolean can_delete_file;
     gboolean using_browser;
@@ -806,14 +811,7 @@ update_menu_states (FMTreeView *view,
     set_action_sensitive (view->details->tv_action_group, NEMO_ACTION_TRASH, can_move_file_to_trash);
 
     if (nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_ENABLE_DELETE)) {
-    	parent_file_is_writable = is_parent_writable (file);
-    	file_is_home_or_desktop = nemo_file_is_home (file)
-    		|| nemo_file_is_desktop_directory (file);
-    	file_is_special_link = FALSE;
-    	
-    	can_delete_file = parent_file_is_writable 
-    		&& !file_is_home_or_desktop
-    		&& !file_is_special_link;
+    	can_delete_file = file_can_be_deleted (file);
 
         set_action_visible (view->details->tv_action_group, NEMO_ACTION_DELETE, TRUE);
         set_action_sensitive (view->details->tv_action_group, NEMO_ACTION_DELETE, can_delete_file);
@@ -1022,16 +1020,17 @@ fm_tree_view_create_folder_cb (G_GNUC_UNUSED GtkAction *action,
 
 static void
 copy_or_cut_files (FMTreeView *view,
+		   NemoFile *file,
 		   gboolean cut)
 {
 	char *status_string, *name;
 	GList *files;
 
-	files = g_list_prepend (NULL, view->details->popup_file);
+	files = g_list_prepend (NULL, file);
 	nemo_clipboard_set_files (GTK_WIDGET (view), files, cut);
 	g_list_free (files);
 
-	name = nemo_file_get_display_name (view->details->popup_file);
+	name = nemo_file_get_display_name (file);
 	if (cut) {
 		status_string = g_strdup_printf (_("\"%s\" will be moved "
 						   "if you select the Paste command"),
@@ -1052,14 +1051,14 @@ static void
 fm_tree_view_cut_cb (G_GNUC_UNUSED GtkAction *action,
 		     FMTreeView *view)
 {
-	copy_or_cut_files (view, TRUE);
+	copy_or_cut_files (view, view->details->popup_file, TRUE);
 }
 
 static void
 fm_tree_view_copy_cb (G_GNUC_UNUSED GtkAction *action,
 		      FMTreeView *view)
 {
-	copy_or_cut_files (view, FALSE);
+	copy_or_cut_files (view, view->details->popup_file, FALSE);
 }
 
 static void
@@ -1093,33 +1092,45 @@ paste_clipboard_data (FMTreeView *view,
 	}
 }
 
+typedef struct {
+	FMTreeView *view;
+	char *directory_uri;
+} PasteRequest;
+
 static void
 paste_into_clipboard_received_callback (G_GNUC_UNUSED GtkClipboard     *clipboard,
 					GtkSelectionData *selection_data,
 					gpointer          data)
 {
-	FMTreeView *view;
-	char *directory_uri;
+	PasteRequest *request = data;
 
-	view = FM_TREE_VIEW (data);
+	paste_clipboard_data (request->view, selection_data, request->directory_uri);
+	g_object_unref (request->view);
+	g_free (request->directory_uri);
+	g_free (request);
+}
 
-	/* popup_file can be cleared in idle before this async reply arrives. */
-	if (view->details->popup_file != NULL) {
-		directory_uri = nemo_file_get_uri (view->details->popup_file);
-		paste_clipboard_data (view, selection_data, directory_uri);
-		g_free (directory_uri);
-	}
+/* Takes the folder's uri now, since popup_file can be cleared in idle before
+   the clipboard answers. */
+static void
+paste_into (FMTreeView *view, NemoFile *folder)
+{
+	PasteRequest *request = g_new (PasteRequest, 1);
 
-	g_object_unref (view);
+	request->view = g_object_ref (view);
+	request->directory_uri = nemo_file_get_uri (folder);
+	nemo_clipboard_request_contents (nemo_clipboard_get (GTK_WIDGET (view->details->tree_widget)),
+					copied_files_atom,
+					paste_into_clipboard_received_callback, request);
 }
 
 static void
 fm_tree_view_paste_cb (G_GNUC_UNUSED GtkAction *action,
 		       FMTreeView *view)
 {
-	nemo_clipboard_request_contents (nemo_clipboard_get (GTK_WIDGET (view->details->tree_widget)),
-					copied_files_atom,
-					paste_into_clipboard_received_callback, g_object_ref (view));
+	if (view->details->popup_file != NULL) {
+		paste_into (view, view->details->popup_file);
+	}
 }
 
 static GtkWindow *
@@ -1146,17 +1157,15 @@ fm_tree_view_pin_unpin_cb (G_GNUC_UNUSED GtkAction *action,
 }
 
 static void
-fm_tree_view_trash_cb (G_GNUC_UNUSED GtkAction *action,
-		       FMTreeView *view)
+trash_file (FMTreeView *view, NemoFile *file)
 {
 	GList *list;
 
-	if (!nemo_file_can_trash (view->details->popup_file)) {
+	if (!nemo_file_can_trash (file)) {
 		return;
 	}
 	
-	list = g_list_prepend (NULL,
-			       nemo_file_get_location (view->details->popup_file));
+	list = g_list_prepend (NULL, nemo_file_get_location (file));
 	
 	nemo_file_operations_trash_or_delete_by_user (list, 
 							  fm_tree_view_get_containing_window (view),
@@ -1165,8 +1174,14 @@ fm_tree_view_trash_cb (G_GNUC_UNUSED GtkAction *action,
 }
 
 static void
-fm_tree_view_delete_cb (G_GNUC_UNUSED GtkAction *action,
-		        FMTreeView *view)
+fm_tree_view_trash_cb (G_GNUC_UNUSED GtkAction *action,
+		       FMTreeView *view)
+{
+	trash_file (view, view->details->popup_file);
+}
+
+static void
+delete_file (FMTreeView *view, NemoFile *file)
 {
 	GList *location_list;
 		
@@ -1174,11 +1189,17 @@ fm_tree_view_delete_cb (G_GNUC_UNUSED GtkAction *action,
 		return;
 	}
 	
-	location_list = g_list_prepend (NULL,
-					nemo_file_get_location (view->details->popup_file));
+	location_list = g_list_prepend (NULL, nemo_file_get_location (file));
 	
 	nemo_file_operations_delete_by_user (location_list, fm_tree_view_get_containing_window (view), NULL, NULL);
 	g_list_free_full (location_list, g_object_unref);
+}
+
+static void
+fm_tree_view_delete_cb (G_GNUC_UNUSED GtkAction *action,
+		        FMTreeView *view)
+{
+	delete_file (view, view->details->popup_file);
 }
 
 static void
@@ -1583,13 +1604,97 @@ static const TreeRules rules_classic = {
 	.key_press = key_press_callback,
 };
 
-/* Right and Left as in list view's tree column. */
+typedef enum {
+	TREE_EDIT_NONE,
+	TREE_EDIT_COPY,
+	TREE_EDIT_CUT,
+	TREE_EDIT_PASTE,
+	TREE_EDIT_TRASH,
+	TREE_EDIT_DELETE,
+} TreeEditKey;
+
+static TreeEditKey
+tree_edit_key (GdkEventKey *event)
+{
+	GdkModifierType mods = event->state & gtk_accelerator_get_default_mod_mask ();
+	guint keyval = gdk_keyval_to_lower (event->keyval);
+
+	if (keyval == GDK_KEY_Delete || keyval == GDK_KEY_KP_Delete) {
+		return mods == 0 ? TREE_EDIT_TRASH :
+		       mods == GDK_SHIFT_MASK ? TREE_EDIT_DELETE : TREE_EDIT_NONE;
+	}
+	if (mods != GDK_CONTROL_MASK) {
+		return TREE_EDIT_NONE;
+	}
+	switch (keyval) {
+	case GDK_KEY_c:
+		return TREE_EDIT_COPY;
+	case GDK_KEY_x:
+		return TREE_EDIT_CUT;
+	case GDK_KEY_v:
+		return TREE_EDIT_PASTE;
+	default:
+		return TREE_EDIT_NONE;
+	}
+}
+
+/* The same rules as the row's right-click menu, on the row with the cursor. */
+static gboolean
+tree_edit (FMTreeView *view, GtkTreeView *tree_view, TreeEditKey edit)
+{
+	GtkTreePath *path;
+	NemoFile *file;
+
+	gtk_tree_view_get_cursor (tree_view, &path, NULL);
+	if (path == NULL) {
+		return GDK_EVENT_PROPAGATE;
+	}
+	file = sort_model_path_to_file (view, path);
+	gtk_tree_path_free (path);
+	if (file == NULL) {
+		return GDK_EVENT_PROPAGATE;
+	}
+
+	switch (edit) {
+	case TREE_EDIT_COPY:
+		copy_or_cut_files (view, file, FALSE);
+		break;
+	case TREE_EDIT_CUT:
+		copy_or_cut_files (view, file, TRUE);
+		break;
+	case TREE_EDIT_PASTE:
+		if (nemo_file_is_directory (file) && nemo_file_can_write (file)) {
+			paste_into (view, file);
+		}
+		break;
+	case TREE_EDIT_TRASH:
+		trash_file (view, file);
+		break;
+	case TREE_EDIT_DELETE:
+		if (file_can_be_deleted (file)) {
+			delete_file (view, file);
+		}
+		break;
+	case TREE_EDIT_NONE:
+		break;
+	}
+	nemo_file_unref (file);
+
+	return GDK_EVENT_STOP;
+}
+
+/* Right and Left as in list view's tree column, and the edit keys act on the
+   tree's own folder rather than the content view's selection. */
 static gboolean
 anywhere_key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
 {
 	GtkTreeView *tree_view = GTK_TREE_VIEW (widget);
 	GtkTreePath *path;
+	TreeEditKey edit = tree_edit_key (event);
 
+	if (edit != TREE_EDIT_NONE) {
+		return tree_edit (FM_TREE_VIEW (user_data), tree_view, edit);
+	}
 	if (event->keyval != GDK_KEY_Right && event->keyval != GDK_KEY_Left) {
 		return key_press_callback (widget, event, user_data);
 	}
@@ -2219,4 +2324,15 @@ nemo_tree_sidebar_new (NemoWindow *window)
 	fm_tree_view_set_parent_window (sidebar, window);
 
 	return GTK_WIDGET (sidebar);
+}
+
+/* The window's accelerators come ahead of the focused widget, and its edit
+   keys act on the content view. Under Nemo Anywhere the tree gets them first
+   when it has the focus. */
+gboolean
+fm_tree_view_takes_key (GtkWidget *focus, GdkEventKey *event)
+{
+	return nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE &&
+	       tree_edit_key (event) != TREE_EDIT_NONE &&
+	       gtk_widget_get_ancestor (focus, FM_TYPE_TREE_VIEW) != NULL;
 }

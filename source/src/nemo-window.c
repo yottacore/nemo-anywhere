@@ -1604,6 +1604,11 @@ nemo_window_key_press_event (GtkWidget *widget,
 		}
 	}
 
+	if (focus_widget != NULL && fm_tree_view_takes_key (focus_widget, event) &&
+	    gtk_window_propagate_key_event (GTK_WINDOW (window), event)) {
+		return TRUE;
+	}
+
 	for (i = 0; i < G_N_ELEMENTS (extra_window_keybindings); i++) {
 		if (extra_window_keybindings[i].keyval == event->keyval) {
 			const GList *action_groups;
