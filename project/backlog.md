@@ -917,7 +917,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261021-144005
 	- Opened by: t00mietum
 	- Parent ID: 2026101619020505
-	- Prereq IDs: 2026102114400584, 2026102114400586, 2026102114400587, 2026102114400588, 2026102114400589, 2026102408163141
+	- Prereq IDs: 2026102114400584, 2026102114400586, 2026102114400587, 2026102114400588, 2026102114400589, 2026102408163141, 2026110814550429
+		- `...0429` first too, since its stale `shcl.h` entries would fail the gate.
 		- `...163141` first, since until then the `shcl-old/2.0.0` suppressions read as stale and would fail the gate.
 	- Requirements:
 		- Any finding that isn't suppressed fails the stage, per the parent. No baseline file.
