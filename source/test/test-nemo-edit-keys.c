@@ -45,6 +45,8 @@
 #include "test-scratch.h"
 #include "test-check.h"
 
+#if defined (__linux__) || defined (__FreeBSD__)
+
 #define LIST_RESULTS 13
 #define ICON_RESULTS 5
 
@@ -86,10 +88,14 @@ make_file (const char *folder, const char *name)
 	g_free (path);
 }
 
+#endif
+
 int
 main (int argc, char *argv[])
 {
 #if !defined (__linux__) && !defined (__FreeBSD__)
+	(void) argc;
+	(void) argv;
 	g_print ("SKIP: drives the program through LD_PRELOAD, which is Linux and FreeBSD only here\n");
 	return 77;
 #else

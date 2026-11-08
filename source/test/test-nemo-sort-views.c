@@ -43,6 +43,8 @@
 #include "test-scratch.h"
 #include "test-check.h"
 
+#if defined (__linux__) || defined (__FreeBSD__)
+
 #define RESULTS 5
 
 /* A real 1x1 picture, so the folder counts as mostly images. Anything after
@@ -210,10 +212,14 @@ out:
 	g_free (root);
 }
 
+#endif
+
 int
 main (int argc, char *argv[])
 {
 #if !defined (__linux__) && !defined (__FreeBSD__)
+	(void) argc;
+	(void) argv;
 	g_print ("SKIP: drives the program through LD_PRELOAD, which is Linux and FreeBSD only here\n");
 	return 77;
 #else

@@ -50,6 +50,8 @@
 #include "test-scratch.h"
 #include "test-check.h"
 
+#if defined (__linux__) || defined (__FreeBSD__)
+
 #define FILES 2000
 
 typedef struct {
@@ -224,10 +226,14 @@ print_counts (const char *label, const Counts *c)
 		 label, c->cells, c->plain, c->tinted, c->areas, c->column_lists, c->style_reads);
 }
 
+#endif
+
 int
 main (int argc, char *argv[])
 {
 #if !defined (__linux__) && !defined (__FreeBSD__)
+	(void) argc;
+	(void) argv;
 	g_print ("SKIP: counts through LD_PRELOAD, which is Linux and FreeBSD only here\n");
 	return 77;
 #else

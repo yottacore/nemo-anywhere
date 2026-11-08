@@ -11367,6 +11367,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: dd5df's stderr in the plain and sanitizer suites. No new test.
 	- Acceptance signoff: Self-closed: a container recipe gap with nothing on screen.
 
+- The tests that skip off Linux and FreeBSD warn on the mac build about unused helpers and arguments.
+	- ID: 2026110808460051
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261108-084600
+	- Opened by: t00mietum
+	- Closed: 20261108-085000
+	- Target OS: macOS
+	- Steps to reproduce: a full run's private runner step, or a clang syntax check of the tests with `__linux__` undefined.
+	- Incorrect behavior: 75 warning lines over 22 tests: unused parameter `argc` and `argv`, and unused helper functions and tables, in every test whose main skips with 77 off Linux and FreeBSD.
+	- Expected behavior: no warnings at any stage.
+	- Actual cause: the skip sits inside main, so the helpers above it and main's own arguments are compiled and never used there.
+	- Fix: the helpers sit under the same guard, and the skip branch marks `argc` and `argv` used. test-nemo-connecting, test-nemo-list-expand-time, test-nemo-open-time and test-nemo-rename-photo already did this and were left alone.
+	- Verified: 20261108. The clang check with `__linux__` undefined gives 0 warning lines over the 201 test sources, from 75 before. The plain suite passes, 241 OK.
+	- Test case: none new. The private runner's mac build and lint-report pick up a new one.
+	- Acceptance signoff: Self-closed: compiler warnings with nothing on screen.
+
 - The affirmative half of the "Nemo Anywhere" selection model.
 	- ID: 2026102019174514
 	- Type: Enhancement
