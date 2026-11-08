@@ -196,6 +196,62 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261026: not seen again. A stand-in `--backlog-run-full` with the private runner last, its output to a file and through the lint log's tee, closed every step once. The lint log of the reported run, `run_20261025-183802.log`, has the line once, followed by the rule. The EXIT trap closes a step only on a failed exit, and `fStep_Close` clears the open step, so a passing run has no second path to that line. The doubled line may have come from how that run's output was watched.
 	- Test case: de54r, counting each step's closing line. A second close of the same step fails it as "closed a step that wasn't open".
 
+- dder1 failed once in a quick gate on b23.
+	- ID: 2026110620022021
+	- Type: Bug
+	- Status: Can't reproduce
+	- Priority|Severity: Low
+	- Opened: 20261106-200220
+	- Opened by:
+	- Steps to reproduce: `cicd/cicd.bash --backlog-run-quick` on round1107a at 4d07380d, on a loaded b23.
+	- Incorrect behavior: the Tests step failed on dder1, the stopped tar.gz leak test. The failing output wasn't kept.
+	- Expected behavior: passes every time.
+	- Reproduced: once in 3 runs. It passed in the next 2 quick gates, at b617843c, with no change to its code.
+	- Progress log:
+		- 20261107: filed as a flake. Next time it fails, keep the log's dder1 lines and the box's load.
+		- 20261108: not reproduced. 32 runs 8 at a time, then 64 runs 16 at a time at load about 12, all passed at 4752a95e. No failure in the 4 run logs since it was filed.
+	- Test case: dder1.
+
+- de8dm times out at step 11 once in a while in the sanitizer lane on a loaded box.
+	- ID: 2026102507531587
+	- Type: Bug
+	- Status: Can't reproduce
+	- Priority|Severity: Low
+	- Opened: 20261025-075315
+	- Opened by: 2026102413432024
+	- Related IDs: 2026102413432024, 2026102507531487
+	- Target OS: Linux
+	- Steps to reproduce: de8dm in a sanitizer build, many at once, with the cores and the disk loaded.
+	- Incorrect behavior: "list-view: FAIL timed out at step 11" and "14 results, expected 72". Step 11 waits for the menu from the right-click on an item at step 10.
+	- Expected behavior: the menu opens, and the test goes on.
+	- Reproduced: 20261025, once in 20 runs at load about 58, after the fix in 2026102413432024. Before that fix, 3 of 36 views of dec8w timed out there too, most with the right-click itself lost.
+	- Possible cause: not known. In 36 views checked after the fix, the right-click had always selected the item and opened the menu by the time it was sent.
+	- Progress log:
+		- 20261025: not reproduced in 120 more runs at load 50 to 84, with each grab logged. Every menu took 2 grabs at the server's current time, and both were granted every time. The test's own event times run about 14 s ahead of the clock, from its 1 s jumps before each right-click, but the menu grabs don't use them. Still open: whether the failing run's menu grab was refused.
+		- 20261025: read only, not run: the press pops the menu up at once, with the press's own time. So the release 20 ms later can't close it through GTK's rule that a release more than 500 ms after the popup closes the menu.
+		- 20261025: ddy5f had the same shape once in 72 loaded runs, before the fix in 2026102507531487: "list-view: FAIL timed out at step 9" under Nemo Anywhere v1, waiting for the menu from the right-click at steps 7 and 8.
+		- 20261028: not worked. Grouped with 2026102516081782 and 2026102518200000, which were fixed, and left for a job of its own, since it hasn't come back in 120 runs.
+		- 20261108: no failure in the 12 run logs from 20261031 to 20261108, plain and sanitizer lanes both.
+	- Test case: de8dm itself, in the sanitizer lane with the cores loaded.
+
+- de7aj leaked 48 bytes once in the sanitizer lane.
+	- ID: 2026102413432124
+	- Type: Bug
+	- Status: Can't reproduce
+	- Priority|Severity: Low
+	- Opened: 20261024-134321
+	- Opened by: 2026102411433800
+	- Related IDs: 2026102411433800
+	- Target OS: Linux
+	- Steps to reproduce: the sanitizer suite at 16 jobs at load about 15.
+	- Incorrect behavior: the test printed OK, then LeakSanitizer found a direct leak of 48 bytes in 1 object from `g_malloc0`. The lane's short stacks cut it at 2 frames, so the caller isn't known.
+	- Expected behavior: no leak.
+	- Reproduced: once on 20261024 at c7194950. It passed 3 of 3 alone right after, and in the other sanitizer runs that day.
+	- Possible cause: not known. A rerun with `ASAN_OPTIONS=fast_unwind_on_malloc=0` gives the whole stack.
+	- Progress log:
+		- 20261108: no failure in the 12 run logs from 20261031 to 20261108, plain and sanitizer lanes both.
+	- Test case: de7aj itself, in the sanitizer lane.
+
 - CICD step output: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102819522603
 	- Type: Task
@@ -777,40 +833,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Estimated effort: Avg
 	- Test case: the gate in 2026102114400591, once live. A real bug fixed here gets its own test.
 
-- With OLE drag on, a GTK drag on Windows may keep its whole drag window.
-	- ID: 2026102112223038
-	- Type: Bug
-	- Status: Open
-		- Filed upstream as GTK issue [#8497](https://gitlab.gnome.org/GNOME/gtk/-/work_items/8497) and MR [!10551](https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/10551). Waits on a GTK 3.24 release with it.
-		- Let's patch our own fork, if it hasn't been merged yet.
-	- Needs external testing: none. Seen on native Windows 20261022.
-	- Priority|Severity: Low
-	- Opened: 20261021-122230
-	- Opened by: t00mietum
-	- Related IDs: 2026102020234500, 2026101916044103
-	- Target OS: Windows
-	- Steps to reproduce:
-		- Turn on GDK's OLE drag, as `nemo_dnd_win32_prepare` does.
-		- Start a GTK drag, such as a tab or a text drag, and stop it.
-	- Incorrect behavior: the drag window is never destroyed, and keeps 4 refs after the drag's context is gone. One per drag, for the life of the app. The app's own file drags don't use it, but GTK's own drag sources do.
-	- Expected behavior: the drag window is destroyed and freed with its context, as it is with GTK's own drag protocol.
-	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. 20261022 on Windows 11, GTK 3.24.52, the same in every mode. Again 20261021 under wine: only when the drag stops before GDK handles another event. One stopped 300 ms in is freed, OLE on or off.
-	- Possible cause: GDK's OLE drag source keeps the context's drag window past the context, or wine's `DoDragDrop` never returns for a drag stopped from GTK's side.
-	- Actual cause: GDK, not wine.
-		- With OLE on, `gdk_drag_begin` leaves a pending OLE drag source that holds a ref on the context. Only the code after `DoDragDrop` lets it go, and `DoDragDrop` starts on the next event GDK handles. GDK's drag abort just sets the state to none, so a drag stopped before then never runs `DoDragDrop`, and the source is never released.
-		- So the context isn't gone. It stays at 1 ref, is never finalized, and never destroys its drag window. The window's 4 refs are what any drag window has until its context's finalize. Dropping the context's last ref by hand destroys and frees the window at once.
-		- The first source left this way also stays GDK's current drag source, so later drops inside the app take their source window from it.
-	- Decisions:
-		- Upstream only. The ref belongs to GDK's pending drag source, which the app can't reach. Dropping it from the app leaves GDK's pointer to the context dangling, and GDK reads it on the next drop into the app.
-		- Drags in the app start from an event, so `DoDragDrop` runs right after and the context is freed. The app never cancels a drag itself. So it stays Low.
-		- An upstream patch is drafted, not filed: GDK's drag abort releases the pending source when `DoDragDrop` hasn't started.
-		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
-		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
-	- Actual fix: none in the app.
-	- Test case: none. The fix is upstream, and nothing in the app hits it.
-	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
-	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
-
 - Static analyzers: fix or suppress the findings in the tests and fuzz targets.
 	- ID: 2026102114400589
 	- Type: Task
@@ -1060,20 +1082,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: the xattrs checkbox is today's "Save checksums onto the files", moved and relabeled.
 	- Test case: none yet.
 
-- dder1 failed once in a quick gate on b23.
-	- ID: 2026110620022021
+- With OLE drag on, a GTK drag on Windows may keep its whole drag window.
+	- ID: 2026102112223038
 	- Type: Bug
 	- Status: Queued
+		- Filed upstream as GTK issue [#8497](https://gitlab.gnome.org/GNOME/gtk/-/work_items/8497) and MR [!10551](https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/10551). Waits on a GTK 3.24 release with it.
+		- Let's patch our own fork, if it hasn't been merged yet.
+	- Needs external testing: none. Seen on native Windows 20261022.
 	- Priority|Severity: Low
-	- Opened: 20261106-200220
-	- Opened by:
-	- Steps to reproduce: `cicd/cicd.bash --backlog-run-quick` on round1107a at 4d07380d, on a loaded b23.
-	- Incorrect behavior: the Tests step failed on dder1, the stopped tar.gz leak test. The failing output wasn't kept.
-	- Expected behavior: passes every time.
-	- Reproduced: once in 3 runs. It passed in the next 2 quick gates, at b617843c, with no change to its code.
-	- Progress log:
-		- 20261107: filed as a flake. Next time it fails, keep the log's dder1 lines and the box's load.
-	- Test case: dder1.
+	- Opened: 20261021-122230
+	- Opened by: t00mietum
+	- Related IDs: 2026102020234500, 2026101916044103
+	- Target OS: Windows
+	- Steps to reproduce:
+		- Turn on GDK's OLE drag, as `nemo_dnd_win32_prepare` does.
+		- Start a GTK drag, such as a tab or a text drag, and stop it.
+	- Incorrect behavior: the drag window is never destroyed, and keeps 4 refs after the drag's context is gone. One per drag, for the life of the app. The app's own file drags don't use it, but GTK's own drag sources do.
+	- Expected behavior: the drag window is destroyed and freed with its context, as it is with GTK's own drag protocol.
+	- Reproduced: 20261021 under wine, GTK 3.24.52, 4 drags in a row. 20261022 on Windows 11, GTK 3.24.52, the same in every mode. Again 20261021 under wine: only when the drag stops before GDK handles another event. One stopped 300 ms in is freed, OLE on or off.
+	- Possible cause: GDK's OLE drag source keeps the context's drag window past the context, or wine's `DoDragDrop` never returns for a drag stopped from GTK's side.
+	- Actual cause: GDK, not wine.
+		- With OLE on, `gdk_drag_begin` leaves a pending OLE drag source that holds a ref on the context. Only the code after `DoDragDrop` lets it go, and `DoDragDrop` starts on the next event GDK handles. GDK's drag abort just sets the state to none, so a drag stopped before then never runs `DoDragDrop`, and the source is never released.
+		- So the context isn't gone. It stays at 1 ref, is never finalized, and never destroys its drag window. The window's 4 refs are what any drag window has until its context's finalize. Dropping the context's last ref by hand destroys and frees the window at once.
+		- The first source left this way also stays GDK's current drag source, so later drops inside the app take their source window from it.
+	- Decisions:
+		- Upstream only. The ref belongs to GDK's pending drag source, which the app can't reach. Dropping it from the app leaves GDK's pointer to the context dangling, and GDK reads it on the next drop into the app.
+		- Drags in the app start from an event, so `DoDragDrop` runs right after and the context is freed. The app never cancels a drag itself. So it stays Low.
+		- An upstream patch is drafted, not filed: GDK's drag abort releases the pending source when `DoDragDrop` hasn't started.
+		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
+		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
+		- 20261108: our own patched GTK means building gtk3 from MSYS2's recipe with the patch, then pinning that package in place of MSYS2's in both `msys2-pins.txt` and `sysroot-pins.txt`. Neither the hosted build nor the cross sysroot has a patch step yet. First check whether MR 10551 has merged and a 3.24 release has it.
+	- Actual fix: none in the app.
+	- Test case: none. The fix is upstream, and nothing in the app hits it.
+	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
+	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
 
 - ddqdq with no monitor: the copies never list a titled window.
 	- ID: 2026103115510091
@@ -1106,43 +1148,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the same icons as the single exe, tan and lined.
 	- Reproduced: 20261022 on vm925w, while checking 2026101007562511.
 	- Test case: none yet.
-
-- de8dm times out at step 11 once in a while in the sanitizer lane on a loaded box.
-	- ID: 2026102507531587
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261025-075315
-	- Opened by: 2026102413432024
-	- Related IDs: 2026102413432024, 2026102507531487
-	- Target OS: Linux
-	- Steps to reproduce: de8dm in a sanitizer build, many at once, with the cores and the disk loaded.
-	- Incorrect behavior: "list-view: FAIL timed out at step 11" and "14 results, expected 72". Step 11 waits for the menu from the right-click on an item at step 10.
-	- Expected behavior: the menu opens, and the test goes on.
-	- Reproduced: 20261025, once in 20 runs at load about 58, after the fix in 2026102413432024. Before that fix, 3 of 36 views of dec8w timed out there too, most with the right-click itself lost.
-	- Possible cause: not known. In 36 views checked after the fix, the right-click had always selected the item and opened the menu by the time it was sent.
-	- Progress log:
-		- 20261025: not reproduced in 120 more runs at load 50 to 84, with each grab logged. Every menu took 2 grabs at the server's current time, and both were granted every time. The test's own event times run about 14 s ahead of the clock, from its 1 s jumps before each right-click, but the menu grabs don't use them. Still open: whether the failing run's menu grab was refused.
-		- 20261025: read only, not run: the press pops the menu up at once, with the press's own time. So the release 20 ms later can't close it through GTK's rule that a release more than 500 ms after the popup closes the menu.
-		- 20261025: ddy5f had the same shape once in 72 loaded runs, before the fix in 2026102507531487: "list-view: FAIL timed out at step 9" under Nemo Anywhere v1, waiting for the menu from the right-click at steps 7 and 8.
-		- 20261028: not worked. Grouped with 2026102516081782 and 2026102518200000, which were fixed, and left for a job of its own, since it hasn't come back in 120 runs.
-	- Test case: de8dm itself, in the sanitizer lane with the cores loaded.
-
-- de7aj leaked 48 bytes once in the sanitizer lane.
-	- ID: 2026102413432124
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261024-134321
-	- Opened by: 2026102411433800
-	- Related IDs: 2026102411433800
-	- Target OS: Linux
-	- Steps to reproduce: the sanitizer suite at 16 jobs at load about 15.
-	- Incorrect behavior: the test printed OK, then LeakSanitizer found a direct leak of 48 bytes in 1 object from `g_malloc0`. The lane's short stacks cut it at 2 frames, so the caller isn't known.
-	- Expected behavior: no leak.
-	- Reproduced: once on 20261024 at c7194950. It passed 3 of 3 alone right after, and in the other sanitizer runs that day.
-	- Possible cause: not known. A rerun with `ASAN_OPTIONS=fast_unwind_on_malloc=0` gives the whole stack.
-	- Test case: de7aj itself, in the sanitizer lane.
 
 - The hosted Windows build warns that MSYS2's MINGW64 environment is deprecated.
 	- ID: 2026102809292776
