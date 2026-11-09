@@ -55,6 +55,7 @@ fSetSourceDate "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=include/step-box.bash
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/include/step-box.bash"
 fJobs_Default
+fStepBox_MemArgs || exit 1
 vols="$(fStepBox_VolPrefix)"
 image="${NEMO_IMAGE:-}"
 [[ -n "$image" ]] || image="$(fStepBox_ImageTag nemo-build-deps "${repo}/cicd/linux/Dockerfile.dev")" \
@@ -125,9 +126,10 @@ stdin=(); [[ -t 0 ]] || stdin=(-i)
 ## the image's environment, not ours - or the linker stamps the clock. Same for the
 ## job count, and for nice: the container doesn't inherit ours.
 ## --init reaps orphans; --ulimit core=0 keeps crash dumps out of the mounted tree.
+## The memory cap is in step-box.bash. A step killed at it exits 137.
 ## The two --security-opt let bubblewrap make the namespaces each test's jail
 ## needs (linux/jail.bash); docker's default profiles refuse them even to root.
-exec docker run "${keep[@]}" "${stdin[@]}" --init --ulimit core=0 --shm-size=2g --cpus "${CICD_MAX_JOBS}" --cpu-shares 256 --name "$name" \
+exec docker run "${keep[@]}" "${stdin[@]}" --init --ulimit core=0 --shm-size=2g --cpus "${CICD_MAX_JOBS}" --cpu-shares 256 "${stepBoxMem[@]}" --name "$name" \
 	--label "dev.project=${project}" --label "dev.run=${run}" \
 	--security-opt seccomp=unconfined --security-opt apparmor=unconfined \
 	-v "${repo}:/src" -v "${vols}-build:/build" -v "${vols}-build-fuzz:/build-fuzz" -w /src \

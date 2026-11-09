@@ -4,8 +4,8 @@
 ##	  container of their own (win-run.bash, win-box.bash): named
 ##	  <project>-<run folder>-<step>, labeled, --rm unless CICD_KEEP_TEMP=1,
 ##	  the /build-win cache volume made for this clone and refused for another,
-##	  left out with --no-build-win, the command's exit code passed back, and
-##	  the container stopped after, on a failure too. No docker, the daemon
+##	  left out with --no-build-win, the memory cap with no swap, the command's
+##	  exit code passed back, and the container stopped after, on a failure too. No docker, the daemon
 ##	  down, --no-container or no image to be had stops with one line. The
 ##	  image is nemo-winbuild:<hash>, the hash over the recipe and the files it
 ##	  copies in, built with its labels from cicd/ the first time it's missing,
@@ -74,7 +74,7 @@ fRun(){
 	: > "$log"
 	rc=0
 	# shellcheck disable=SC2086  ## args split on purpose
-	out="$(env -u CICD_NO_CONTAINER -u CICD_KEEP_TEMP -u CICD_RUN -u CICD_PROJECT -u NEMO_WIN_IMAGE -u STUB_VOL_SRC -u STUB_NAMES -u STUB_DOWN -u STUB_EXEC_RC -u STUB_BUILD_RC \
+	out="$(env -u CICD_NO_CONTAINER -u CICD_KEEP_TEMP -u CICD_RUN -u CICD_PROJECT -u NEMO_WIN_IMAGE -u CICD_MEM_CAP -u STUB_VOL_SRC -u STUB_NAMES -u STUB_DOWN -u STUB_EXEC_RC -u STUB_BUILD_RC \
 		PATH="${scratch}/bin:${PATH}" DOCKER_LOG="$log" SOURCE_DATE_EPOCH=946684800 CICD_MAX_JOBS=1 STUB_IMAGES="${tag}" "$@" \
 		bash "${repo}/cicd/win/win-run.bash" ${args} 'echo the-step' 2>&1 < /dev/null)" || rc=$?
 	runLine="$(grep '^run ' "$log" || true)"
@@ -91,10 +91,17 @@ fRun "gui-smoke" "${inRun[@]}"
 [[ "$runLine" == *" --name ${box} "* ]] || fFail "[run]: wrong name: ${runLine}"
 [[ "$runLine" == *" --label dev.project=nemo-anywhere --label dev.run=20261026-120000_001 "* ]] || fFail "[run]: labels: ${runLine}"
 [[ "$runLine" == *" --cpus 1 --cpu-shares 256 "* ]] || fFail "[run]: CPU cap: ${runLine}"
+[[ "$runLine" =~ " --cpu-shares 256 --memory "([0-9]+)g" --memory-swap "([0-9]+)g" --oom-score-adj 1000 --name " \
+	&& "${BASH_REMATCH[1]}" == "${BASH_REMATCH[2]}" ]] || fFail "[run]: memory cap: ${runLine}"
 [[ "$runLine" == *" -v ${repo}:/src -v nemo-anywhere-build-win:/build-win -w /src ${tag} sleep infinity" ]] || fFail "[run]: mounts or image: ${runLine}"
 [[ "$execLine" == "exec -i -e SOURCE_DATE_EPOCH=946684800 -e CICD_MAX_JOBS=1 ${box} nice -n 19 sh -c "*"; echo the-step" ]] || fFail "[run]: the step: ${execLine:-no exec}"
 grep -q '^volume create' "$log" && fFail "[run]: made a volume that was there"
 (( $(fAt "stop -t 2 ${box}") > $(fAt "exec ") )) || fFail "[run]: not stopped after the step: $(tr '\n' '|' < "$log")"
+
+fRun "gui-smoke" "${inRun[@]}" CICD_MEM_CAP=7g
+[[ "$runLine" == *" --memory 7g --memory-swap 7g --oom-score-adj 1000 "* ]] || fFail "[CICD_MEM_CAP]: ${runLine:-no run}"
+fRun "gui-smoke" "${inRun[@]}" CICD_MEM_CAP=lots
+[[ "$rc" == 1 && "$out" == *"FAILED: CICD_MEM_CAP 'lots' isn't a size"* && -z "$runLine" ]] || fFail "[CICD_MEM_CAP bad]: exit ${rc}, said: ${out}"
 
 fRun "gui-smoke" "${inRun[@]}" CICD_KEEP_TEMP=1
 [[ "$rc" == 0 && "$runLine" == "run -d "* && "$runLine" != *"--rm"* ]] || fFail "[--keep-temp]: kept no container: ${runLine:-no run}"
@@ -169,3 +176,4 @@ fEcho "OK: each Windows cross-build step runs in a named container of its own, o
 ##	History:
 ##		- 2026-10-26: Created.
 ##		- 2026-10-31: The image is tagged by the recipe's hash.
+##		- 2026-11-09: The memory cap.

@@ -4,8 +4,9 @@
 ##	  own: named <project>-<run folder>-<step>, labeled, with --rm unless
 ##	  CICD_KEEP_TEMP=1, the next number when the name is taken, the 2 cache
 ##	  volumes made for this clone and refused for another, a set of its own
-##	  for a linked worktree or CICD_VOLUME_PREFIX, and the cache cap
-##	  run before the step. The image is tagged by a hash of Dockerfile.dev, and
+##	  for a linked worktree or CICD_VOLUME_PREFIX, the cache cap
+##	  run before the step, and a memory cap with no swap, set by CICD_MEM_CAP.
+##	  A container over its cap goes first when the host runs short. The image is tagged by a hash of Dockerfile.dev, and
 ##	  built from it with the labels when that tag isn't there, so an edit to the
 ##	  recipe gives a new image. A copy runs in a scratch dir with a stand-in docker.
 ##	  Then cache-cap.bash empties a dir past its cap, keeps one under it, and
@@ -65,7 +66,7 @@ fRun(){
 	local label="$1"; shift
 	: > "$log"
 	rc=0
-	out="$(env -u CICD_NO_CONTAINER -u CICD_KEEP_TEMP -u CICD_RUN -u CICD_PROJECT -u NEMO_IMAGE -u CICD_VOLUME_PREFIX -u STUB_VOL_SRC -u STUB_NAMES -u STUB_BUILD_OK \
+	out="$(env -u CICD_NO_CONTAINER -u CICD_KEEP_TEMP -u CICD_RUN -u CICD_PROJECT -u NEMO_IMAGE -u CICD_VOLUME_PREFIX -u CICD_MEM_CAP -u STUB_VOL_SRC -u STUB_NAMES -u STUB_BUILD_OK \
 		PATH="${scratch}/bin:${PATH}" DOCKER_LOG="$log" SOURCE_DATE_EPOCH=946684800 CICD_MAX_JOBS=1 STUB_IMAGES="${tag}" "$@" \
 		bash "${repo}/cicd/utility/docker-run.bash" "$label" 'echo the-step' 2>&1 < /dev/null)" || rc=$?
 	runLine="$(grep '^run ' "$log" || true)"
@@ -84,6 +85,17 @@ grep -q '^build ' "$log" && fFail "[run]: built an image that was there"
 [[ "$runLine" == *"cache-cap.bash /build /build-fuzz || true; echo the-step" ]] || fFail "[run]: cache cap not before the step: ${runLine}"
 [[ "$runLine" == *" -i "* ]] || fFail "[run]: stdin from a file not passed in: ${runLine}"
 grep -q '^volume create' "$log" && fFail "[run]: made a volume that was there"
+[[ "$runLine" =~ " --cpu-shares 256 --memory "([0-9]+)g" --memory-swap "([0-9]+)g" --oom-score-adj 1000 --name " \
+	&& "${BASH_REMATCH[1]}" == "${BASH_REMATCH[2]}" && "${BASH_REMATCH[1]}" -ge 4 && "${BASH_REMATCH[1]}" -le 32 ]] \
+	|| fFail "[run]: no memory cap of 4g to 32g with no swap: ${runLine}"
+
+fRun "tests" "${inRun[@]}" CICD_MEM_CAP=7g
+[[ "$runLine" == *" --memory 7g --memory-swap 7g --oom-score-adj 1000 "* ]] || fFail "[CICD_MEM_CAP]: ${runLine:-no run}"
+fRun "tests" "${inRun[@]}" CICD_MEM_CAP=none
+[[ "$rc" == 0 && "$runLine" == *" --cpu-shares 256 --name "* ]] || fFail "[CICD_MEM_CAP=none]: exit ${rc}: ${runLine:-no run}"
+# shellcheck disable=SC2016  ## a cap that would run code if read as a number.
+fRun "tests" "${inRun[@]}" CICD_MEM_CAP='x[$(echo 1)]'
+[[ "$rc" == 1 && "$out" == *"FAILED: CICD_MEM_CAP 'x[\$(echo 1)]' isn't a size"* && -z "$runLine" ]] || fFail "[CICD_MEM_CAP bad]: exit ${rc}, said: ${out}"
 
 fRun "tests" "${inRun[@]}" CICD_KEEP_TEMP=1
 [[ "$rc" == 0 && "$runLine" == "run "* && "$runLine" != *"--rm"* ]] || fFail "[--keep-temp]: kept no container: ${runLine:-no run}"
@@ -165,3 +177,4 @@ fEcho "OK: docker-run runs each step in a named container of its own, on this cl
 ##		- 2026-10-26: Created.
 ##		- 2026-10-28: The image is tagged by the recipe's hash, and built from it.
 ##		- 2026-10-31: The link case is left out where ln -s makes a copy.
+##		- 2026-11-09: The memory cap.
