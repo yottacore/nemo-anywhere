@@ -413,6 +413,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026102019174477, 2026102019174514
 	- Target OS: All
 	- Requirements:
+		- Before the next cut.
 		- Its own entry in the selection model dropdown, in the same conditionals as Nemo Anywhere v1 and Nemo Classic, tree view and content view.
 		- Only what the design doc keeps with the switch off:
 			- The dim checkmarks, which follow the selection exactly.
@@ -442,6 +443,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102407515570
 	- Target OS: All
 	- Requirements:
+		- Before the next cut.
 		- Only under Nemo Anywhere. A dim checkmark on every selected object, and none on the rest. The text doesn't change.
 		- List view: a thin new column left of Name, with nothing else in it. It can't be hidden or moved.
 		- Icon view: the top-left corner of the icon, on a small scrim that reads on any thumbnail.
@@ -468,6 +470,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102407515571, 2026102407515572, 2026102407515573, 2026102407515574
 	- Target OS: All
 	- Requirements:
+		- Before the next cut.
 		- The Edit menu has Select all, Select none and Invert selection, the "Switch off" column of the wording table.
 		- Ctrl+A selects all. Ctrl+I and Ctrl+Shift+I invert the selection. Properties keeps Alt+Enter. Nemo Anywhere v1 and Nemo Classic keep Ctrl+I as Properties.
 		- The status bar shows the selected count only, the doc's third line.
@@ -518,6 +521,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102411133409
 	- Target OS: All
 	- Requirements:
+		- Before the next cut.
 		- Only under Nemo Anywhere. A dim checkmark on every selected icon, and none on the rest. The text doesn't change.
 		- In the top-left corner of the icon, on a small scrim that reads on any thumbnail.
 		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
@@ -538,6 +542,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102411133414
 	- Target OS: All
 	- Requirements:
+		- Before the next cut.
 		- Only under Nemo Anywhere. A dim checkmark on every selected item, and none on the rest. The text doesn't change.
 		- Left of the name text.
 		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
@@ -560,6 +565,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102407515570
 	- Target OS: All
 	- Requirements:
+		- Before the next cut.
 		- No focus outline, except while a Ctrl+arrow move has put the focus on an object that isn't selected.
 		- Up, Down, Page Up and Page Down count from the range ends, and Left and Right too in the icon views. After a Ctrl+arrow move they count from the focus.
 		- Ctrl with an arrow moves the focus alone. Ctrl+Space adds or removes the focused object. Ctrl+Shift with an arrow adds the run from the anchor. Ctrl+Home and Ctrl+End are the same as the key alone.
@@ -584,6 +590,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102412041967
 	- Target OS: All
 	- Requirements:
+		- Before the next cut.
 		- Only under Nemo Anywhere. No focus outline, except while a Ctrl+arrow move has put the focus on an icon that isn't selected.
 		- Up, Down, Left, Right, Page Up and Page Down count from the range ends. After a Ctrl+arrow move they count from the focus.
 		- Ctrl with an arrow moves the focus alone. Ctrl+Space adds or removes the focused icon. Ctrl+Shift with an arrow adds the run from the anchor. Ctrl+Home and Ctrl+End are the same as the key alone.
@@ -607,6 +614,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102412041969
 	- Target OS: All
 	- Requirements:
+		- Before the next cut.
 		- The icon view's rules, in the compact view's layout, where Up and Down run down a column and Left and Right go across.
 		- dec8w checks each key in the compact view.
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
@@ -628,6 +636,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102407515570, 2026102407515571
 	- Target OS: All
 	- Requirements:
+		- Before the next cut.
 		- List view: a plain drag bands only from the checkmark column or the blank space below the rows. A plain drag from a row is a file drag.
 		- Ctrl, Shift, Ctrl+Shift and right drags from empty space, or from an object that isn't selected, band. Ctrl and Ctrl+Shift add, Shift and right replace. In list view from any column. From a selected object each is a file drag.
 		- A band moves the focus and the anchor to the last object it touched.
@@ -653,6 +662,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026102018234903
 	- Target OS: All
 	- Requirements:
+		- Before the next cut.
 		- The tree's own focus and anchor, under the mouse and keyboard rules of the content view.
 		- The dim checkmark, in an invisible column left of the tree.
 		- When the tree has the focus and the viewed folder is selected there, every object in the content view is drawn with the dim mark.
@@ -676,6 +686,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026102019174514
 	- Target OS: All
 	- Requirements:
+		- Before the next cut.
 		- The code-level tunable for the affirmative switch, which the setting reads. It's off, and nothing turns it on yet. The checkbox under the dropdown isn't shown.
 		- A conditional on the tunable at each place the design doc's "Off removes" list names:
 			- The space key's checkmark rules.
