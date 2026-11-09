@@ -104,8 +104,10 @@ main (int argc, char *argv[])
 		check (has_owner_name (file));
 		owner = nemo_file_get_owner_name (file);
 #ifndef G_OS_WIN32
+		g_autofree char *group = nemo_file_get_group_name (file);
+
 		check (g_strcmp0 (owner, g_get_user_name ()) == 0);
-		check (nemo_file_get_group_name (file) != NULL);
+		check (group != NULL);
 #endif
 	}
 
