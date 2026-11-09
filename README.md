@@ -64,39 +64,33 @@
 
 ## Why
 
-Nemo is one of the best file managers going. It's fast, sane and powerful.
+Nemo is one of the best file managers going. It (and its ancestors) have decades of development work and polish.
 
-Unfortunately, it's tightly integrated into the Linux Cinnamon desktop.
+But: it's tightly integrated into the Linux Cinnamon desktop.
 
-This project removes the Cinnamon (and even Linux) dependency:
+This project removes the Cinnamon (and even Linux) dependency, and also removes any heavy desktop integration. Your existing file and desktop manager is unaffected. (Which can even be the original Nemo, since they don't conflict.)
 
-- It takes Nemo as-is, from the source.
-
-- It removes every assumption that says "you depend on Cinnamon", "you're managing the desktop", or even "you are running on Linux".
-
-- It removes the heavy desktop integration. Your existing manager is untouched. (Which can even be the original Nemo, since they don't conflict.)
-
-- It's shippable everywhere, or at least to every desktop OS.
+It's installable (almost) anywhere/everywhere, or at least to every desktop OS.
 
 That means, in order:
 
 - **Linux**:
 
-	- It runs standalone on any desktop.
+	- Runs standalone on any desktop.
 
-	- It has no big stack of Cinnamon dependencies. (But run on the Cinnamon desktop just fine.)
+	- No Cinnamon stack dependencies. (But it runs on the Cinnamon desktop just fine.)
 
 	- It doesn't try to compete with existing desktop managers for control of desktop rendering.
 
-- **Windows**: It's a real native build, not a compatibility shim.
+- **Windows**: A real native build, not a compatibility shim. Inclusion in the Windows app store, winget, and choco are underway.
 
 - **BSD**: Coming soon.
 
-- **macOS**: App store process underway.
+- **macOS**: Buildable, with an app store build underway.
 
-There is one codebase. "For Windows" and friends are just labels on builds, not separate projects.
+There is one codebase for all platforms.
 
-It is opinionated. It manages files and folders. It does more of the file management you need, built in, on every platform, so nothing depends on third-party programs, plugins or extensions that only exist on one of them.
+Nemo Anywhere is opinionated: It manages files and folders, nothing else. And it does more of the file management functions you need, built in, on every platform, so nothing depends on third-party programs, plugins or extensions that only exist on one of them.
 
 This is an independent, unofficial hard fork of [linuxmint/nemo](https://github.com/linuxmint/nemo), taken at the 6.6.4 release. It is not affiliated with, endorsed by, or supported by Linux Mint, the Cinnamon team, or GNOME.
 
@@ -130,7 +124,7 @@ These are the features that make Nemo worth porting:
 
 	- On Linux it stays a small folder that uses the GTK3 your distro already has, because that is what a Linux user expects and it keeps the download tiny.
 
-- Windows features:
+- **Windows features**:
 
 	- A conscious decision was made to avoid Explorer integration at any cost, since we can't let an Explorer crash bring Nemo Anywhere down with it. Nemo Anywhere only links to shell32.dll in its own process space, which provides most native Windows functionality.
 
@@ -152,9 +146,9 @@ These are the features that make Nemo worth porting:
 
 	- File associations are read from the registry and never written to it. "Set as default" keeps its choice in the settings file.
 
-- Every instance gets its own process. If one crashes for some reason, the rest keep going.
+- Every instance gets its own process. (Optional, on by default.) Unlike with most file managers - e.g. Windows Explorer, macOS Finder, Nautilus, Gnome, etc. - if one instance crashes, the rest keep going.
 
-	- A crash writes a report beside the settings file.
+	- If Nemo Anywhere does crash, a crash report gets written next to the settings file.
 
 - Archive handling is integrated, and more advanced. No more third-party GUI application dependencies that don't feel integrated, and don't support the archive format's best options.
 
@@ -240,11 +234,11 @@ These are the features that make Nemo worth porting:
 
 - Releases can be checked. Every download is published with checksums, and the Linux builds can be rebuilt from their commit to the same bytes. That starts with the release after 1.0.0-beta2.
 
-- There are dozens of "minor papercut" fixes and "quality-of-life" improvements.
+- Dozens of "minor papercut" fixes and "quality-of-life" improvements.
 
 ## Status
 
-Currently beta - for options tuning and visual polish. But the guts and stability are safe, solid, and ready for safe everyday use.
+Currently beta - for options tuning and visual polish. But the guts and stability are safe, solid, and ready for everyday use.
 
 Every build goes through exhaustive static and dynamic analysis for security and memory leaks (including fuzz-testing), a full regression test suite, and comprehensive checks that guard against losing files. Finally, every build performs performance profiling.
 
