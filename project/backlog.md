@@ -869,7 +869,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: fix or suppress the findings in our own code.
 	- ID: 2026102114400588
 	- Type: Task
-	- Status: Waiting on automated testing
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261021-144005
 	- Opened by: t00mietum
@@ -888,10 +888,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The PSD reader's row counts are zeroed when allocated, rather than suppressed, since clang can't see that the loop after sets them all. One more memset at load.
 	- Actual fix: the Windows recycle bin backend read a NULL path for an item whose URI holds a bad escape, such as `trash:///%zz`. Its prefix check crashed in `strncmp`, and its parent came from a NULL folder name. Such an item is now below nothing, and its parent is the root.
 	- Swept: the other 3 callers of `uri_to_real_path`, which already check for NULL. Every `g_error` in our files and the tests, of which 3 test ones reach a finding, suppressed in `...589`. The other `g_strdup` of a string past a matched prefix that gcc reads past the literal, in `nemo-row-hover.c`.
-	- Needs external testing: da8rb in the native Windows gate, on vm925w or b29w.
+	- Needs external testing: No
 	- Branch: round1108a
 	- Test case: da8rb (the bad escape case: both prefix checks, and the parent). The rest is the gate in 2026102114400591, once live.
 	- Verified: 20261108, the whole analyzer stage over both lists, then the files changed after it again in both lanes: our files have no findings in any lane, and neither do the GLib header lines they reached. The bad escape case fails on the old `nemo-trash-win32.c`, crashing in `strncmp`, and passes on the new, both in the cross build container. The native run is still to do. `cicd.bash --backlog-run-quick` passed, and the cross build compiles every changed file with no warnings.
+	- Verified: 20261108, full run at d6c7ae09: PASS da8rb in the native Windows gate step, the bad escape case included.
+	- Closed: 20261108
 
 - Static analyzers: fix or suppress the findings in the tests and fuzz targets.
 	- ID: 2026102114400589
@@ -923,8 +925,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: the gate goes live.
 	- ID: 2026102114400591
 	- Type: Enhancement
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: the analyzer stage of a plain full run, `cicd/cicd.bash --backlog-run-full`, to see the live gate pass on the tree.
+	- Status: Done
+	- Needs local test suite run?: No
 	- Priority|Severity: Avg
 	- Opened: 20261021-144005
 	- Opened by: t00mietum
@@ -950,6 +952,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: round1108a
 	- Test case: de8en (`test-analyze-gate.bash`, lint stage: a planted finding in our code, in a system header, and in gcc's `-Werror` form each fail, and so does a stale entry. A listed finding alone passes). de8em for `count` itself.
 	- Verified: 20261108, de8en fails with `count`'s old exit (4 cases), with a stale entry passing (1), and with findings left uncollected (6), and passes as committed. de8em and de8es pass. Over the analyzer run of 20261108, `count` exits 1 on the 4 findings that 6096a887 fixed after it, and the files that reached them, rerun at HEAD in their lanes, give none.
+	- Verified: 20261108, full run at d6c7ae09: the live analyzer gate passed on the whole tree, 0 findings left in all 4 lanes, 18 suppressed, none stale, and de8en passed in the native Windows gate's lints too.
+	- Closed: 20261108
 
 - Static analyzers: clang over the Windows list.
 	- ID: 2026110815102895
@@ -984,8 +988,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: gcc analyzes every file inside the cap.
 	- ID: 2026110815102912
 	- Type: Enhancement
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: the analyzer stage of a plain full run, `cicd/cicd.bash --backlog-run-full`, to see no file cut off, and the stage's time with gcc-win's 2 SHCL files at up to 8 min.
+	- Status: Done
+	- Needs local test suite run?: No
 	- Priority|Severity: Avg
 	- Opened: 20261108-151029
 	- Opened by: 2026102114400591
@@ -1008,6 +1012,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: round1108a
 	- Test case: de8en (a file cut off fails, one the slow list skips passes) and de8em (the list parses, cut-off and skipped runs counted apart, the repo's list has no bad line). The full run's analyzer stage with no "not analyzed" line.
 	- Verified: 20261108, de8en fails on the old `analyze.py` (2 cases) and passes on the new, and de8em passes. gcc-linux's `run` over the 5 listed files and 3 others analyzes the blake3 files in seconds and skips the SHCL 2, and an entry for a file missing from the compile list fails it. gcc-win's `run` at a 120 s cap finishes both SHCL files, under their listed 8 min, in 176 s. `cicd/cicd.bash --backlog-run-quick` passed.
+	- Verified: 20261108, full run at d6c7ae09: the analyzer stage passed in 430 s with no file cut off, and gcc-linux skipped only the 2 listed SHCL files.
+	- Closed: 20261108
 
 - Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
 	- ID: 2026102114400592
