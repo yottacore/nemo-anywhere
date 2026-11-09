@@ -14,8 +14,11 @@
 ##	  CICD_VOLUME_PREFIX when set, else the project, or for a linked worktree
 ##	  <project>-wt-<its folder name>, so a round's worktree builds on a set of its
 ##	  own. The run's docker sweep removes a set once its clone is gone.
+##	- fStepBox_MemArgs -> sets stepBoxMem to the docker run args for the step's
+##	  memory cap. CICD_MEM_CAP sets it, such as 24g, or none for no cap. The
+##	  default is a third of RAM, from 4g to 32g.
 ##	- fStepBox_Start <label> <image> [docker run args]... -> starts it detached,
-##	  with the step's CPU cap and share, and sets stepBox to its name.
+##	  with the step's CPU and memory caps and share, and sets stepBox to its name.
 ##	- fStepBox_Stop -> for the EXIT trap. --rm makes the stop a removal.
 ##	- fStepBox_ImageTag <repository> <recipe file>... -> <repository>:<hash>, the
 ##	  hash over the recipe and the files it copies in, so an edit gives a new tag.
@@ -29,6 +32,7 @@
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/jobs.bash"
 
 stepBox=""
+stepBoxMem=()
 
 fStepBox_Name(){
 	local step name base names n=1
@@ -67,14 +71,38 @@ fStepBox_VolPrefix(){
 	fi
 }
 
+## No swap, and the step goes first when the host runs short. On 2026-11-08 an
+## analyzer probe took 67 GB plus 18 GB of swap, and earlyoom killed the whole
+## desktop session before it. Real steps peak near 24 GB, the analyzers. A step
+## over the cap is killed inside its container, and exits 137.
+fStepBox_MemArgs(){
+	local cap="${CICD_MEM_CAP:-}" kb
+	stepBoxMem=()
+	[[ "${cap}" != none ]] || return 0
+	if [[ -z "${cap}" ]]; then
+		kb="$(awk '/^MemTotal:/ { print $2 }' /proc/meminfo 2> /dev/null || true)"
+		[[ "${kb}" =~ ^[0-9]+$ ]] || kb=0
+		cap=$((kb / 3 / 1048576))
+		((cap <= 32)) || cap=32
+		((cap >= 4)) || cap=4
+		cap="${cap}g"
+	fi
+	if [[ ! "${cap}" =~ ^[0-9]+[kmg]?$ ]]; then
+		echo "[ FAILED: CICD_MEM_CAP '${cap}' isn't a size like 24g, or none ]" >&2
+		return 1
+	fi
+	stepBoxMem=(--memory "${cap}" --memory-swap "${cap}" --oom-score-adj 1000)
+}
+
 fStepBox_Start(){
 	local label="$1" image="$2" keep=(--rm); shift 2
 	[[ "${CICD_KEEP_TEMP:-0}" != 1 ]] || keep=()
 	fJobs_Default
+	fStepBox_MemArgs || return 1
 	stepBox="$(fStepBox_Name "${label}")"
 	## --init reaps orphans (wine leaves plenty); --ulimit core=0 keeps crash
 	## dumps out of the mounted tree.
-	docker run -d "${keep[@]}" --init --ulimit core=0 --shm-size=2g --cpus "${CICD_MAX_JOBS}" --cpu-shares 256 --name "${stepBox}" \
+	docker run -d "${keep[@]}" --init --ulimit core=0 --shm-size=2g --cpus "${CICD_MAX_JOBS}" --cpu-shares 256 "${stepBoxMem[@]}" --name "${stepBox}" \
 		--label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" \
 		"$@" "${image}" sleep infinity > /dev/null || { stepBox=""; return 1; }
 }
@@ -96,3 +124,4 @@ fStepBox_ImageTag(){
 ##		- 2026-10-26: Created, from docker-run.bash.
 ##		- 2026-10-28: fStepBox_ImageTag, for images built from a pinned recipe.
 ##		- 2026-11-03: fStepBox_VolPrefix, a set of cache volumes per worktree.
+##		- 2026-11-09: fStepBox_MemArgs, a memory cap with no swap.
