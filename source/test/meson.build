@@ -1531,6 +1531,15 @@ if not is_windows
     timeout: 120
   )
 
+  # Not a test of the suite: cicd/utility/heap-soak.bash preloads it beside
+  # heaptrack, under --leakcheck. It reads glibc's heap.
+  if host_machine.system() == 'linux'
+    shared_module('test-nemo-heap-soak-probe',
+      [ 'test-nemo-heap-soak-probe.c' ],
+      dependencies: [ gtk ],
+    )
+  endif
+
   places_bmhead_probe = shared_module('test-nemo-places-bookmarks-heading-probe',
     [ 'test-nemo-places-bookmarks-heading-probe.c' ],
     dependencies: [ gtk ],

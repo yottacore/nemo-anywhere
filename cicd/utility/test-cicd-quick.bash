@@ -5,7 +5,8 @@
 ##	  --include-bsd, with --backlog-run-quick and its areas, with
 ##	  --backlog-run-full and --merge-gate, and with the other names --gate and
 ##	  --ci. No options runs every step but arm64, and --long or --slow every
-##	  step, with the analyzers' long command. --quick runs the quick ones on
+##	  step, with the analyzers' long command. The heap soak runs when the leak
+##	  checks are on, whatever the mode. --quick runs the quick ones on
 ##	  this box, fuzzing with its short command, and skips packages and every
 ##	  step that needs another box, and fuzzing when there's no short command. --backlog-run-full and
 ##	  --merge-gate run every check a plain run does, and never sync, format in
@@ -85,6 +86,7 @@ cat > "${scratch}/cicd/config.bash" <<-EOF
 	SANITIZE_CMD=(bash -c '$(mark sanitize)')
 	ANALYZE_CMD=(bash -c '$(mark analyze)')
 	ANALYZE_LONG_CMD=(bash -c '$(mark analyze) && $(mark analyze-long)')
+	HEAP_SOAK_CMD=(bash -c '$(mark soak)')
 	SCROLL_HARNESS=(scroll.bash)
 	BSD_TEST_CMD=(bash -c '$(mark bsd-tests)')
 	BSD_RELEASE_CMD=(bash -c '$(mark bsd-release)')
@@ -133,7 +135,7 @@ git -C "$scratch" init -q
 git -C "$scratch" add -A
 git -C "$scratch" -c user.name=check -c user.email=check@example.invalid -c commit.gpgsign=false commit -q -m init
 
-allSteps=(fmt fmt-check build tests lint fuzz fuzz-short sanitize scroll bsd-tests profile native windows arm64 bsd-release analyze analyze-long packages package-check private dogfood dogfood-hook remote-dogfood shots demo publish)
+allSteps=(fmt fmt-check build tests lint fuzz fuzz-short sanitize scroll bsd-tests profile native windows arm64 bsd-release analyze analyze-long soak packages package-check private dogfood dogfood-hook remote-dogfood shots demo publish)
 
 ## The step lines of a run: each step opens with Starting and closes with PASS,
 ## or FAIL for the last one when $3 is 1, numbered 1 to M with M the same on
@@ -210,10 +212,10 @@ fRun(){
 	fi
 }
 
-fullSteps="fmt build tests lint fuzz sanitize scroll bsd-tests profile native windows arm64 bsd-release analyze packages package-check private dogfood dogfood-hook remote-dogfood publish"
+fullSteps="fmt build tests lint fuzz sanitize scroll bsd-tests profile native windows arm64 bsd-release analyze soak packages package-check private dogfood dogfood-hook remote-dogfood publish"
 quickSteps="sync fmt build tests lint fuzz fuzz-short sanitize profile native windows dogfood dogfood-hook publish"
 ## Every check of a plain run, with the format check in place of the formatter.
-checkSteps="fmt-check build tests lint fuzz sanitize scroll bsd-tests profile native windows bsd-release analyze packages package-check private"
+checkSteps="fmt-check build tests lint fuzz sanitize scroll bsd-tests profile native windows bsd-release analyze soak packages package-check private"
 ## A plain run leaves arm64 out since 2026-10-24, to stay near an hour.
 fRun "sync ${fullSteps/ arm64 / }"
 fRun "sync ${fullSteps} analyze-long"    --long
@@ -222,6 +224,11 @@ fRun "sync ${fullSteps/ arm64 / } shots demo" --shots --demo
 fRun "${quickSteps}"                     --quick
 fRun "${quickSteps} arm64"               --quick --include-arm
 fRun "${quickSteps} bsd-tests bsd-release" --quick --include-bsd
+## The soak follows the leak checks, not the mode.
+fRun "${quickSteps} soak"                --quick --leakcheck
+noSoak="${fullSteps/ arm64 / }"
+fRun "sync ${noSoak/ soak / }"           --no-leakcheck
+grep -q -x -F -- "    - Heap soak (--no-leakcheck)" <<< "$lastOut" || fFail "[--no-leakcheck]: the plan doesn't list the heap soak as turned off"
 ## A config with no short fuzz command leaves fuzzing out of --quick.
 CHECK_NO_QUICK_FUZZ=1 fRun "${quickSteps/ fuzz fuzz-short / }" --quick
 grep -q -x -F -- "    - Fuzzing (--quick)" <<< "$lastOut" || fFail "[--quick, no short fuzz]: the plan doesn't list Fuzzing as turned off"
@@ -253,7 +260,7 @@ fRun "${checkSteps}"                     --backlog-run-full;        fNote "" --b
 fRun "${checkSteps}"                     --merge-gate;              fNote "" --merge-gate
 fRun "${checkSteps}"                     --ci;                      fNote --ci --merge-gate
 fRun "${checkSteps} arm64 analyze-long"  --merge-gate --long
-fRun "fmt-check build tests lint fuzz sanitize scroll profile native windows analyze packages package-check" --backlog-run-full --no-remote
+fRun "fmt-check build tests lint fuzz sanitize scroll profile native windows analyze soak packages package-check" --backlog-run-full --no-remote
 ## Nothing named after the mode turns a step that changes things back on.
 fRun "${checkSteps}"                     --merge-gate --shots --demo --allow-dirty
 ## The last mode named wins.
@@ -296,7 +303,7 @@ out="$(cd "$scratch" && CHECK_FAIL_TESTS=1 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1
 [[ "$rc" != 0 ]] || fFail "[failing tests]: the run passed"
 fSteps "$out" 0 1 "failing tests"
 grep -q -E '; FAIL Tests \]$' <<< "$out" || fFail "[failing tests]: no FAIL line for Tests"
-for off in "Static analyzers (--quick)" "Release build: Linux arm64 (stand-in) (--quick)" "Packages (--quick)"; do
+for off in "Static analyzers (--quick)" "Heap soak (--quick)" "Release build: Linux arm64 (stand-in) (--quick)" "Packages (--quick)"; do
 	grep -q -x -F -- "    - ${off}" <<< "$out" || fFail "[--quick]: the plan doesn't list ${off} as turned off"
 done
 ## The cross target in CROSS_ALONGSIDE starts with the debug build: the tests

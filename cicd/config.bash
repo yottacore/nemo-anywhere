@@ -143,6 +143,12 @@ SANITIZE_CMD=(bash "${DOCKER_RUN}" "sanitizers" "NEMO_TEST_JOBS=\${CICD_MAX_JOBS
 ANALYZE_CMD=(env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-120}" bash cicd/utility/analyze.bash)
 ANALYZE_LONG_CMD=(env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-900}" bash cicd/utility/analyze.bash)
 
+## The heap growth soak, under --leakcheck: the debug build under heaptrack
+## opens and closes tabs, folders and thumbnails, and fails on growth from
+## round N to 2N. About 2 min, the planted run included. Backlog
+## 2026102114400593.
+HEAP_SOAK_CMD=(bash cicd/utility/heap-soak.bash)
+
 ## Stage 3 (after lints): dependency policy (licenses/advisories). NOT READY - unset.
 ## NEEDS: a C-world equivalent if wanted (there is no Cargo.lock to police); likely
 ## not applicable until there are vendored deps.
