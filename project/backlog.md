@@ -1027,7 +1027,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Heap growth soak test under `--leakcheck`.
 	- ID: 2026102114400593
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261021-144005
 	- Opened by: t00mietum
@@ -1038,7 +1038,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- heaptrack goes in the image, pinned. It isn't in `nemo-build` since that container was remade.
 		- It fails on a planted loop that grows the heap first.
 	- Estimated effort: Avg
-	- Test case: de8er, with a planted heap growth.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261108: real runs grew 57 to 192 KB from round 12 to 24, and 74 KB from round 30 to 60, so the growth is caches filling, not a leak a round.
+	- Decisions:
+		- The pass or fail comes from glibc's heap count, read inside the program after round N and 2N, each the least of 6 readings half a second apart. heaptrack's data has no round marks to read the heap at, so it gives the report of where the memory went.
+		- N is 12 and the margin 384 KB, about twice the most a real run grew. A smaller leak a round is the leak cases' to find. The step takes about 2.3 min, the planted run included.
+		- The planted run keeps 96 KB a round, and has to go over the margin before the real run counts.
+		- Its own step, after the static analyzers, whenever the leak checks are on: a plain run, `--long`, `--merge-gate`, `--backlog-run-full`, and `--quick --leakcheck`.
+		- heaptrack 1.5.0 comes from the dev image's dated snapshot, in a layer of its own.
+	- Branch: round1108a
+	- Commit: c3a4e8fd
+	- Test case: de8er (`cicd/utility/heap-soak.bash`, the Heap soak step), with its planted heap growth. de54r covers when the step runs.
+	- Verified: 20261108, de8er passes in the dev image: the planted run grew 1.27 MB, over the margin, and the real run 57 KB. With a margin of 1000 bytes the real run fails. de54r passes, and fails with the step run whatever the leak checks say. Quick gate passed (241 OK, 1 skipped).
+	- Swept: the other places `leakcheck` is read in `cicd.bash`, the plan and its preflight line. `--help` already named the soak. No other step reads it yet; 2026102114400592 will.
+	- Closed: 20261108-165419
 
 - Settings: search.
 	- ID: 2026101417352263
