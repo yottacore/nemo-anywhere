@@ -485,33 +485,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: anydefault
 	- Test case: dd5df checks the dropdown's order and the default, and that a settings file naming a model keeps it. The rename region test (test-eel-rename-region) checks the whole-name setting counts under v1 and Classic and not under the default.
 
-- ddepv on b29w: the heap grew over 64 rounds again.
-	- ID: 2026103116284963
-	- Type: Bug
-	- Status: Started
-	- Priority|Severity: Avg
-	- Opened: 20261031-162849
-	- Opened by: 2026103114202730
-	- Related IDs: 2026101913541101
-	- Target OS: Windows
-	- Steps to reproduce: the native gate on b29w over ssh, `-Gate -Yes -NoSync -NoFmt`.
-	- Incorrect behavior: ddepv fails at `test-nemo-leaks.c:1187`, "the heap grew 4368 bytes over 64 rounds", after 3 readings were taken again. The run also shows "gdk_monitor_get_geometry: assertion 'GDK_IS_MONITOR (monitor)' failed".
-	- Expected behavior: ddepv passes every time, as on vm925w after 2026101913541101.
-	- Reproduced: 20261031 on b29w at round1031a, 1 run of 3, in session 0.
-		- 20261104: on b29w over ssh at round1104a, the test alone: 3 runs of 54 failed, 2 of 30 one at a time and 1 of 24 four at a time. In most of the passing runs the first readings grew too, and a later one gave it back.
-	- Possible cause: the same 4 KB COM buffers as 2026101913541101, which closed on vm925w in the desktop session. b29w over ssh is session 0, and has more apps installed. 2026101913541101 has closed once and come back once already.
-		- 20261104: the growth is whole blocks of 4368 bytes in the process heap, 1 to 20 of them a reading, taken while the bookmarks file loads and given back a few readings later. On the same box ddept, the same load with no file, and the progress case grew 0 bytes in every reading. Waiting 30 s after start before the rounds didn't help: 3 runs of 10 failed, and the first reading grew 30 to 96 KB. So it's the load with a file that sets it off, not GIO's start-up scan alone. What takes the blocks isn't named yet.
-		- The GDK assertion shows in the passing cases too, at start. It's GDK's own, with no monitor in session 0.
-	- Actual cause: the blocks are taken by Windows' RPC code under `LookupAccountSidW`, which GIO calls twice a file for `owner::*`, once for the owner and once for the group. NemoFile's info load asks for `owner::*`, so the bookmark's load makes 2 calls to the local security service on a GIO worker thread. RPC keeps a 4 KB block per thread or connection and gives some back later, and which worker thread takes a query is chance. ddept loads no bookmark, so it never looks an owner up.
-		- The same lookup runs for every file of every folder load on Windows. A listing of 5006 files took about 1.0 s without the owner and 3.3 s with it.
-	- Progress log:
-		- 20261104: cause narrowed as above, no change made. Next: name what takes the 4368-byte blocks during the counted rounds, then the step of the load that reaches it: the exists check, the metadata file read, or the bookmark's file.
-		- 20261109: failed again in the full run's native gate on b29w at a3593116, the one failure in 192. The gate removed its folder with the test log in it, so the reading wasn't seen. Filed 2026110910285880 for that.
-		- 20261109: cause found, as above. No change made yet. Options: leave `owner::*` out of the default query on Windows and load it only for the Owner and Group columns and Properties, or drop the owner on Windows altogether.
-	- Decisions:
-		- No change to the readings until that's known. A fifth showing would only make it rarer, since the failing runs grew in 4 readings in a row, and leaving out the process heap or blocks of that size would hide a real leak there, as 2026101913541101 decided.
-	- Test case: ddepv on b29w over ssh.
-
 - Tree view: in "Checkmark selection" mode, folders follow the content view's selection rules and can be fully edited.
 	- ID: 2026102018234903
 	- Type: Enhancement
@@ -1056,6 +1029,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the same icons as the single exe, tan and lined.
 	- Reproduced: 20261022 on vm925w, while checking 2026101007562511.
 	- Test case: none yet.
+
+- dct7k fails as an elevated login on b29w: the real file's owner is Administrators.
+	- ID: 2026110911200530
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261109-112005
+	- Opened by: t00mietum
+	- Related IDs: 2026103116284963
+	- Target OS: Windows
+	- Steps to reproduce: run `test-nemo-owner-columns.exe` over ssh as collierjr on b29w, with any TEMP.
+	- Incorrect behavior: `check_windows_lookup` fails, "owner_name is '(null)', wanted 'Lumpy Prime'". A file an elevated login makes is owned by `BUILTIN\Administrators`, which has no full name.
+	- Expected behavior: the check makes a file the current user owns, or skips the full name part when the owner isn't the current user.
+	- Reproduced: 20261109 on b29w at dev, 2 runs, one with the login's TEMP and one with TEMP under `%ProgramData%`. Not seen in the native gate, which passed dct7k.
+	- Test case: dct7k on b29w over ssh.
 
 - The hosted Windows build warns that MSYS2's MINGW64 environment is deprecated.
 	- ID: 2026102809292776
@@ -3021,6 +3009,42 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261022, round1022: the full Linux suite, 231 OK. FreeBSD lane as `bsdtest`, 212 OK and 20 skipped, de8dm, de8ec, de8bd, ddy5f and dd5df among them.
 	- Closed: 20261022-214700
 	- Verified: 20261021, de8dm, de8ec, de8bd and ddy5f pass in all 3 views. dd5df, dbnfq, dbsx7 and dc8tz pass. The build has no warnings, the Windows cross build with warnings as errors is clean, and the UI case and test ID checks pass.
+
+- ddepv on b29w: the heap grew over 64 rounds again.
+	- ID: 2026103116284963
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261031-162849
+	- Opened by: 2026103114202730
+	- Related IDs: 2026101913541101
+	- Target OS: Windows
+	- Steps to reproduce: the native gate on b29w over ssh, `-Gate -Yes -NoSync -NoFmt`.
+	- Incorrect behavior: ddepv fails at `test-nemo-leaks.c:1187`, "the heap grew 4368 bytes over 64 rounds", after 3 readings were taken again. The run also shows "gdk_monitor_get_geometry: assertion 'GDK_IS_MONITOR (monitor)' failed".
+	- Expected behavior: ddepv passes every time, as on vm925w after 2026101913541101.
+	- Reproduced: 20261031 on b29w at round1031a, 1 run of 3, in session 0.
+		- 20261104: on b29w over ssh at round1104a, the test alone: 3 runs of 54 failed, 2 of 30 one at a time and 1 of 24 four at a time. In most of the passing runs the first readings grew too, and a later one gave it back.
+	- Possible cause: the same 4 KB COM buffers as 2026101913541101, which closed on vm925w in the desktop session. b29w over ssh is session 0, and has more apps installed. 2026101913541101 has closed once and come back once already.
+		- 20261104: the growth is whole blocks of 4368 bytes in the process heap, 1 to 20 of them a reading, taken while the bookmarks file loads and given back a few readings later. On the same box ddept, the same load with no file, and the progress case grew 0 bytes in every reading. Waiting 30 s after start before the rounds didn't help: 3 runs of 10 failed, and the first reading grew 30 to 96 KB. So it's the load with a file that sets it off, not GIO's start-up scan alone. What takes the blocks isn't named yet.
+		- The GDK assertion shows in the passing cases too, at start. It's GDK's own, with no monitor in session 0.
+	- Actual cause: the blocks are taken by Windows' RPC code under `LookupAccountSidW`, which GIO calls twice a file for `owner::*`, once for the owner and once for the group. NemoFile's info load asks for `owner::*`, so the bookmark's load makes 2 calls to the local security service on a GIO worker thread. RPC keeps a 4 KB block per thread or connection and gives some back later, and which worker thread takes a query is chance. ddept loads no bookmark, so it never looks an owner up.
+		- The same lookup runs for every file of every folder load on Windows. A listing of 5006 files took about 1.0 s without the owner and 3.3 s with it.
+	- Progress log:
+		- 20261104: cause narrowed as above, no change made. Next: name what takes the 4368-byte blocks during the counted rounds, then the step of the load that reaches it: the exists check, the metadata file read, or the bookmark's file.
+		- 20261109: failed again in the full run's native gate on b29w at a3593116, the one failure in 192. The gate removed its folder with the test log in it, so the reading wasn't seen. Filed 2026110910285880 for that.
+		- 20261109: cause found, as above. No change made yet. Options: leave `owner::*` out of the default query on Windows and load it only for the Owner and Group columns and Properties, or drop the owner on Windows altogether.
+		- 20261109: fixed as below. On b29w over ssh, the leak case passed 30 runs of 30, 2 at a time, each on its first reading. Before the fix 2 runs of 24 failed the same way, and most passing runs had to read again.
+	- Decisions:
+		- No change to the readings until that's known. A fifth showing would only make it rarer, since the failing runs grew in 4 readings in a row, and leaving out the process heap or blocks of that size would hide a real leak there, as 2026101913541101 decided.
+		- The owner is loaded on its own and only where shown, rather than left out on Windows, so the Owner and Group columns still work there.
+		- Owner is off by default in the Windows list view columns.
+		- No owner lookup for a file on a share, the same rule the filesystem info has. GLib reads a link's owner from what it points at, and a share's owners would be a network call per file.
+	- Actual fix: on Windows the default info load leaves `owner::*` out. A new file attribute loads the owner and group on its own, asked for only by a list view with an owner or group column, an icon view with such a caption, and Properties. A fresh info load keeps the names up and marks them for reading again. The Owner column is off by default on Windows.
+	- Branch: ownerlazy
+	- Commit: 45746097
+	- Test case: ddepv on b29w over ssh, and df30s for the separate owner load.
+	- Self-closed: ddepv passed 30 of 30 on b29w, and df30s passes on Linux and Windows.
+	- Closed: 20261109-112005
 
 - Demo video: mouse click sounds play about 0.25 s after the click shows
 	- ID: 2026110618322410
