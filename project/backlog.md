@@ -1076,6 +1076,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements: the setup step warns "MINGW64 is deprecated. Migrate to UCRT64 or CLANG64." on every run. Options: move every Windows lane to UCRT64, which changes the C runtime the exe links and so touches the dev box, the cross image and the bundle; or turn the warning off in the workflow and keep MINGW64. The rest of the pipeline wants no warnings.
 	- Test case: none yet.
 
+- Write a long list in the settings file one `- ` item per line, not in brackets.
+	- ID: 2026110911301888
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261109-113018
+	- Opened by: t00mietum
+	- Related IDs: 2026110911251998
+	- Requirements:
+		- A list that won't fit on one short line, such as `favorites`, is written stacked, one `- ` item per line. Brackets are for short lists.
+		- A list already stacked in the file stays stacked, as it does now.
+	- Possible cause: SHCL 3.0.0-beta1 has no way for a setter to ask for the stacked form. `shcl_set_string_array` keeps a list stacked when the file already had it that way, and writes a new one in brackets. A missing capability, not a wrong answer.
+		- Smallest case: parse `state:\n\tfirst-run-done: true\n`, set `favorites` to 3 strings, and the canonical text has `favorites: ["...", "...", "..."]`. The same set on a file that has `favorites:` with `- ` items under it writes them stacked.
+	- Progress log:
+		- 20261109: the Windows dogfood settings file's favorites were stacked by hand, and the app's saves keep them that way.
+	- Test case: none yet. Needs a setter option in SHCL first.
+
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066
 	- Type: Enhancement
