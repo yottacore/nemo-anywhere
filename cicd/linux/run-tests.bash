@@ -64,6 +64,10 @@ fTest bash "${here}/test-jail.bash" "${build}"
 ## several of those read like real assertion failures. The bus is disabled so a
 ## test that sends --quit cannot reach a copy someone is actually using.
 export DBUS_SESSION_BUS_ADDRESS='disabled:'
+## A test run under its own session bus starts the accessibility bus, which
+## leaves its address on the shared display's root window. A GTK test started
+## after that one is gone warns that it can't reach it.
+export NO_AT_BRIDGE=1
 
 ## The run gets a temp dir of its own, so anything a test leaves behind is named
 ## here instead of piling up in /tmp. A failed run leaves it for a look.
