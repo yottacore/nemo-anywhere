@@ -97,6 +97,12 @@ struct FilesystemInfoState {
 	NemoFile *file;
 };
 
+struct OwnerState {
+	NemoDirectory *directory;
+	GCancellable *cancellable;
+	NemoFile *file;
+};
+
 struct DirectoryLoadState {
 	NemoDirectory *directory;
 	GCancellable *cancellable;
@@ -720,6 +726,10 @@ nemo_directory_set_up_request (NemoFileAttributes file_attributes)
     if (file_attributes & NEMO_FILE_ATTRIBUTE_FAVORITE_CHECK) {
         REQUEST_SET_TYPE (request, REQUEST_FAVORITE_CHECK);
     }
+
+	if (file_attributes & NEMO_FILE_ATTRIBUTE_OWNER) {
+		REQUEST_SET_TYPE (request, nemo_file_owner_comes_with_info () ? REQUEST_FILE_INFO : REQUEST_OWNER);
+	}
 
 	return request;
 }
@@ -1639,6 +1649,12 @@ nemo_async_destroying_file (NemoFile *file)
 		directory->details->filesystem_info_state->file = NULL;
 		changed = TRUE;
 	}
+
+	if (directory->details->owner_state != NULL &&
+	    directory->details->owner_state->file == file) {
+		directory->details->owner_state->file = NULL;
+		changed = TRUE;
+	}
 	
 	/* Let the directory take care of the rest. */
 	if (changed) {
@@ -1685,6 +1701,17 @@ lacks_filesystem_info (NemoFile *file)
 	}
 
 	return nemo_file_is_directory (file) && !file->details->filesystem_info_is_up_to_date;
+}
+
+/* Not on a share: GLib reads a link's owner from what it points at, and an
+   owner on a share would be a call there for every file shown. */
+static gboolean
+lacks_owner (NemoFile *file)
+{
+	return !file->details->owner_is_up_to_date
+		&& !file->details->is_gone
+		&& nemo_file_is_local (file)
+		&& !nemo_file_is_on_a_share (file);
 }
 
 static gboolean
@@ -1851,6 +1878,12 @@ request_is_satisfied (NemoDirectory *directory,
             return FALSE;
         }
     }
+
+	if (REQUEST_WANTS_TYPE (request, REQUEST_OWNER)) {
+		if (has_problem (directory, file, lacks_owner)) {
+			return FALSE;
+		}
+	}
 
 	return TRUE;
 }
@@ -4284,6 +4317,131 @@ filesystem_info_start (NemoDirectory *directory,
 }
 
 static void
+owner_cancel (NemoDirectory *directory)
+{
+	if (directory->details->owner_state != NULL) {
+		g_cancellable_cancel (directory->details->owner_state->cancellable);
+		directory->details->owner_state->directory = NULL;
+		directory->details->owner_state = NULL;
+		async_job_end (directory, "owner");
+	}
+}
+
+static void
+owner_stop (NemoDirectory *directory)
+{
+	NemoFile *file;
+
+	if (directory->details->owner_state != NULL) {
+		file = directory->details->owner_state->file;
+
+		if (file != NULL) {
+			g_assert (NEMO_IS_FILE (file));
+			g_assert (file->details->directory == directory);
+			if (is_needy (file, lacks_owner, REQUEST_OWNER)) {
+				return;
+			}
+		}
+
+		owner_cancel (directory);
+	}
+}
+
+static void
+owner_state_free (OwnerState *state)
+{
+	g_object_unref (state->cancellable);
+	g_free (state);
+}
+
+static void
+query_owner_callback (GObject *source_object,
+		      GAsyncResult *res,
+		      gpointer user_data)
+{
+	OwnerState *state = user_data;
+	NemoDirectory *directory;
+	NemoFile *file;
+	GFileInfo *info;
+	gboolean changed = FALSE;
+
+	if (state->directory == NULL) {
+		/* Cancelled. */
+		owner_state_free (state);
+		return;
+	}
+
+	info = nemo_query_listing_info_finish (G_FILE (source_object), res, NULL);
+
+	directory = nemo_directory_ref (state->directory);
+	state->directory->details->owner_state = NULL;
+	async_job_end (directory, "owner");
+
+	file = state->file;
+	if (file != NULL) {
+		nemo_file_ref (file);
+		if (info != NULL) {
+			changed = nemo_file_update_owner (file, info);
+		} else {
+			/* No owner to be had, as for a file gone since. Not asked again
+			   until the file changes. */
+			file->details->owner_is_up_to_date = TRUE;
+		}
+	}
+
+	nemo_directory_async_state_changed (directory);
+	if (file != NULL) {
+		if (changed) {
+			nemo_file_changed (file);
+		}
+		nemo_file_unref (file);
+	}
+	nemo_directory_unref (directory);
+
+	g_clear_object (&info);
+	owner_state_free (state);
+}
+
+static void
+owner_start (NemoDirectory *directory,
+	     NemoFile *file,
+	     gboolean *doing_io)
+{
+	GFile *location;
+	OwnerState *state;
+
+	if (directory->details->owner_state != NULL) {
+		*doing_io = TRUE;
+		return;
+	}
+
+	if (!is_needy (file, lacks_owner, REQUEST_OWNER)) {
+		return;
+	}
+	*doing_io = TRUE;
+
+	if (!async_job_start (directory, "owner")) {
+		return;
+	}
+
+	state = g_new0 (OwnerState, 1);
+	state->directory = directory;
+	state->file = file;
+	state->cancellable = g_cancellable_new ();
+	directory->details->owner_state = state;
+
+	location = nemo_file_get_location (file);
+	nemo_query_listing_info_async (location,
+				       NEMO_FILE_OWNER_ATTRIBUTES,
+				       FALSE,
+				       G_PRIORITY_DEFAULT,
+				       state->cancellable,
+				       query_owner_callback,
+				       state);
+	g_object_unref (location);
+}
+
+static void
 extension_info_cancel (NemoDirectory *directory)
 {
 	if (directory->details->extension_info_in_progress != NULL) {
@@ -4526,6 +4684,7 @@ start_or_stop_io (NemoDirectory *directory)
 	thumbnail_stop (directory);
 	filesystem_info_stop (directory);
     favorite_check_stop (directory);
+	owner_stop (directory);
 
 	doing_io = FALSE;
 	/* Take files that are all done off the queue. */
@@ -4565,6 +4724,8 @@ start_or_stop_io (NemoDirectory *directory)
 		NOTE_IO ("filesystem info");
         favorite_check_start (directory, file, &doing_io);
 		NOTE_IO ("favorite check");
+		owner_start (directory, file, &doing_io);
+		NOTE_IO ("owner");
 
 		if (doing_io) {
 			note_parked_io (parked, file);
@@ -4645,6 +4806,7 @@ nemo_directory_cancel (NemoDirectory *directory)
 	mount_cancel (directory);
 	filesystem_info_cancel (directory);
     favorite_check_cancel (directory);
+	owner_cancel (directory);
 
 	/* We aren't waiting for anything any more. */
 	if (waiting_directories != NULL) {
@@ -4733,6 +4895,16 @@ cancel_filesystem_info_for_file (NemoDirectory *directory,
 }
 
 static void
+cancel_owner_for_file (NemoDirectory *directory,
+		       NemoFile      *file)
+{
+	if (directory->details->owner_state != NULL &&
+	    directory->details->owner_state->file == file) {
+		owner_cancel (directory);
+	}
+}
+
+static void
 cancel_link_info_for_file (NemoDirectory *directory,
 			   NemoFile      *file)
 {
@@ -4784,6 +4956,9 @@ cancel_loading_attributes (NemoDirectory *directory,
    if (REQUEST_WANTS_TYPE (request, REQUEST_FAVORITE_CHECK)) {
         favorite_check_cancel (directory);
     }
+	if (REQUEST_WANTS_TYPE (request, REQUEST_OWNER)) {
+		owner_cancel (directory);
+	}
 	nemo_directory_async_state_changed (directory);
 }
 
@@ -4825,6 +5000,9 @@ nemo_directory_cancel_loading_file_attributes (NemoDirectory      *directory,
     if (REQUEST_WANTS_TYPE (request, REQUEST_FAVORITE_CHECK)) {
         cancel_favorite_check_for_file (directory, file);
     }
+	if (REQUEST_WANTS_TYPE (request, REQUEST_OWNER)) {
+		cancel_owner_for_file (directory, file);
+	}
 	nemo_directory_async_state_changed (directory);
 }
 

@@ -726,6 +726,7 @@ nemo_file_clear_info (NemoFile *file)
     g_clear_pointer (&file->details->owner, g_ref_string_release);
     g_clear_pointer (&file->details->owner_real, g_ref_string_release);
     g_clear_pointer (&file->details->group, g_ref_string_release);
+    file->details->owner_is_up_to_date = FALSE;
     g_clear_pointer (&file->details->filesystem_id, g_ref_string_release);
 
     file->details->is_desktop_orphan = FALSE;
@@ -2758,6 +2759,100 @@ win32_folder_icon (void)
 }
 #endif
 
+/* Where each name costs a call to the local security service, the owner is
+   loaded on its own, and only for a file whose owner is shown. */
+#ifdef G_OS_WIN32
+static gboolean owner_comes_with_info = FALSE;
+#else
+static gboolean owner_comes_with_info = TRUE;
+#endif
+
+#define DEFAULT_ATTRIBUTES_BEFORE_OWNER "standard::*,access::*,mountable::*,time::*,unix::*,"
+#define DEFAULT_ATTRIBUTES_AFTER_OWNER "selinux::*,thumbnail::*,id::filesystem,trash::orig-path,trash::deletion-date,metadata::*,preview::icon"
+
+/* Returns: (transfer none): a static string */
+const char *
+nemo_file_default_attributes (void)
+{
+	return owner_comes_with_info
+	       ? DEFAULT_ATTRIBUTES_BEFORE_OWNER NEMO_FILE_OWNER_ATTRIBUTES "," DEFAULT_ATTRIBUTES_AFTER_OWNER
+	       : DEFAULT_ATTRIBUTES_BEFORE_OWNER DEFAULT_ATTRIBUTES_AFTER_OWNER;
+}
+
+gboolean
+nemo_file_owner_comes_with_info (void)
+{
+	return owner_comes_with_info;
+}
+
+/* So the separate owner load can be tested off Windows. Set before any file
+   is loaded. */
+void
+nemo_file_set_owner_comes_with_info_for_test (gboolean with_info)
+{
+	owner_comes_with_info = with_info;
+}
+
+/* Takes the uid and gid already stored, for the names GIO leaves out. */
+static gboolean
+update_owner_names (NemoFile *file, GFileInfo *info)
+{
+	const char *owner, *owner_real, *group;
+	char *owner_from_uid = NULL, *group_from_gid = NULL;
+	gboolean changed = FALSE;
+
+	owner = g_file_info_get_attribute_string (info, G_FILE_ATTRIBUTE_OWNER_USER);
+	owner_real = g_file_info_get_attribute_string (info, G_FILE_ATTRIBUTE_OWNER_USER_REAL);
+	group = g_file_info_get_attribute_string (info, G_FILE_ATTRIBUTE_OWNER_GROUP);
+	if (owner == NULL && file->details->uid != -1) {
+		owner = owner_from_uid = g_strdup_printf ("%d", file->details->uid);
+	}
+	if (group == NULL && file->details->gid != -1) {
+		group = group_from_gid = g_strdup_printf ("%d", file->details->gid);
+	}
+	file->details->owner_is_up_to_date = TRUE;
+
+	if (g_strcmp0 (file->details->owner, owner) != 0) {
+		changed = TRUE;
+		g_clear_pointer (&file->details->owner, g_ref_string_release);
+		file->details->owner = owner != NULL ? g_ref_string_new_intern (owner) : NULL;
+	}
+
+#ifdef G_OS_WIN32
+	/* GIO never fills owner_real on Windows. Ours is read again when next
+	   asked, and a new owner already counts as a change above. */
+	(void) owner_real;
+	g_clear_pointer (&file->details->owner_real, g_ref_string_release);
+	file->details->win32_owner_real_read = FALSE;
+#else
+	if (g_strcmp0 (file->details->owner_real, owner_real) != 0) {
+		changed = TRUE;
+		g_clear_pointer (&file->details->owner_real, g_ref_string_release);
+		file->details->owner_real = owner_real != NULL ? g_ref_string_new_intern (owner_real) : NULL;
+	}
+#endif
+
+	if (g_strcmp0 (file->details->group, group) != 0) {
+		changed = TRUE;
+		g_clear_pointer (&file->details->group, g_ref_string_release);
+		file->details->group = group != NULL ? g_ref_string_new_intern (group) : NULL;
+	}
+
+	g_free (owner_from_uid);
+	g_free (group_from_gid);
+
+	return changed;
+}
+
+/* The answer to a separate owner load: an info with owner::* only. */
+gboolean
+nemo_file_update_owner (NemoFile *file, GFileInfo *info)
+{
+	g_return_val_if_fail (NEMO_IS_FILE (file), FALSE);
+
+	return update_owner_names (file, info);
+}
+
 static gboolean
 update_info_internal (NemoFile *file,
 		      GFileInfo *info,
@@ -2789,8 +2884,6 @@ update_info_internal (NemoFile *file,
 	const char *description;
 	const char *filesystem_id;
 	const char *trash_orig_path;
-	const char *group, *owner, *owner_real;
-	gboolean free_owner, free_group;
     const char *edit_name;
     char *drive_root_name;
 
@@ -3026,27 +3119,13 @@ update_info_internal (NemoFile *file,
 	file->details->win32_link_end_read = FALSE;
 #endif
 
-	free_owner = FALSE;
-	owner = g_file_info_get_attribute_string (info, G_FILE_ATTRIBUTE_OWNER_USER);
-	owner_real = g_file_info_get_attribute_string (info, G_FILE_ATTRIBUTE_OWNER_USER_REAL);
-	free_group = FALSE;
-	group = g_file_info_get_attribute_string (info, G_FILE_ATTRIBUTE_OWNER_GROUP);
-
 	uid = -1;
 	gid = -1;
 	if (g_file_info_has_attribute (info, G_FILE_ATTRIBUTE_UNIX_UID)) {
 		uid = g_file_info_get_attribute_uint32 (info, G_FILE_ATTRIBUTE_UNIX_UID);
-		if (owner == NULL) {
-			free_owner = TRUE;
-			owner = g_strdup_printf ("%d", uid);
-		}
 	}
 	if (g_file_info_has_attribute (info, G_FILE_ATTRIBUTE_UNIX_GID)) {
 		gid = g_file_info_get_attribute_uint32 (info, G_FILE_ATTRIBUTE_UNIX_GID);
-		if (group == NULL) {
-			free_group = TRUE;
-			group = g_strdup_printf ("%d", gid);
-		}
 	}
 	if (file->details->uid != uid ||
 	    file->details->gid != gid) {
@@ -3055,37 +3134,12 @@ update_info_internal (NemoFile *file,
 	file->details->uid = uid;
 	file->details->gid = gid;
 
-	if (g_strcmp0 (file->details->owner, owner) != 0) {
-		changed = TRUE;
-		g_clear_pointer (&file->details->owner, g_ref_string_release);
-		file->details->owner = g_ref_string_new_intern (owner);
-	}
-
-#ifdef G_OS_WIN32
-	/* GIO never fills owner_real on Windows. Ours is read again when next
-	   asked, and a new owner already counts as a change above. */
-	(void) owner_real;
-	g_clear_pointer (&file->details->owner_real, g_ref_string_release);
-	file->details->win32_owner_real_read = FALSE;
-#else
-	if (g_strcmp0 (file->details->owner_real, owner_real) != 0) {
-		changed = TRUE;
-        g_clear_pointer (&file->details->owner_real, g_ref_string_release);
-		file->details->owner_real = g_ref_string_new_intern (owner_real);
-	}
-#endif
-
-	if (g_strcmp0 (file->details->group, group) != 0) {
-		changed = TRUE;
-        g_clear_pointer (&file->details->group, g_ref_string_release);
-		file->details->group = g_ref_string_new_intern (group);
-	}
-
-	if (free_owner) {
-		g_free ((char *)owner);
-	}
-	if (free_group) {
-		g_free ((char *)group);
+	if (owner_comes_with_info || g_file_info_has_attribute (info, G_FILE_ATTRIBUTE_OWNER_USER)) {
+		changed |= update_owner_names (file, info);
+	} else {
+		/* The names from the last owner read stay up, but the file may have
+		   a new owner, so they are read again where they are shown. */
+		file->details->owner_is_up_to_date = FALSE;
 	}
 
 	size = -1;
@@ -9467,6 +9521,12 @@ invalidate_favorite_check (NemoFile *file)
     file->details->favorite_checked = FALSE;
 }
 
+static void
+invalidate_owner (NemoFile *file)
+{
+	file->details->owner_is_up_to_date = FALSE;
+}
+
 void
 nemo_file_invalidate_extension_info_internal (NemoFile *file)
 {
@@ -9529,6 +9589,9 @@ nemo_file_invalidate_attributes_internal (NemoFile *file,
     if (REQUEST_WANTS_TYPE (request, REQUEST_FAVORITE_CHECK)) {
         invalidate_favorite_check (file);
     }
+	if (REQUEST_WANTS_TYPE (request, REQUEST_OWNER)) {
+		invalidate_owner (file);
+	}
 	/* FIXME bugzilla.gnome.org 45075: implement invalidating metadata */
 }
 
@@ -9627,7 +9690,8 @@ nemo_file_get_all_attributes (void)
 		NEMO_FILE_ATTRIBUTE_EXTENSION_INFO |
 		NEMO_FILE_ATTRIBUTE_THUMBNAIL |
 		NEMO_FILE_ATTRIBUTE_MOUNT |
-        NEMO_FILE_ATTRIBUTE_FAVORITE_CHECK;
+        NEMO_FILE_ATTRIBUTE_FAVORITE_CHECK |
+		NEMO_FILE_ATTRIBUTE_OWNER;
 }
 
 void

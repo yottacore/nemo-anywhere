@@ -295,6 +295,10 @@ struct NemoViewDetails
 	gboolean show_hidden_files;
 	gboolean ignore_hidden_file_preferences;
 
+	/* Something shown needs the owner or group names. Also the client of the
+	   monitors that load them. */
+	gboolean wants_owner;
+
 	gboolean batching_selection_level;
 	gboolean selection_changed_while_batched;
 
@@ -4511,6 +4515,64 @@ subdirectory_done_loading_callback (G_GNUC_UNUSED NemoDirectory *directory,
 	}
 }
 
+/* Its own client, so turning it on or off leaves the view's own monitors
+   alone. Where the owner comes with the info this adds nothing. */
+static void
+owner_monitor_add (NemoView *view, NemoDirectory *directory)
+{
+	nemo_directory_file_monitor_add (directory,
+					 &view->details->wants_owner,
+					 view->details->show_hidden_files,
+					 NEMO_FILE_ATTRIBUTE_OWNER,
+					 NULL, NULL);
+}
+
+static void
+owner_monitor_remove (NemoView *view, NemoDirectory *directory)
+{
+	nemo_directory_file_monitor_remove (directory, &view->details->wants_owner);
+}
+
+/* For a subclass that shows owner or group names, such as in a column or a
+   caption. */
+void
+nemo_view_set_wants_owner (NemoView *view, gboolean wants_owner)
+{
+	GList *l;
+
+	g_return_if_fail (NEMO_IS_VIEW (view));
+
+	wants_owner = wants_owner != FALSE;
+	if (view->details->wants_owner == wants_owner) {
+		return;
+	}
+	view->details->wants_owner = wants_owner;
+
+	if (view->details->model == NULL || view->details->done_loading_handler_id == 0) {
+		return;
+	}
+	for (l = view->details->subdirectory_list; l != NULL; l = l->next) {
+		if (wants_owner) {
+			owner_monitor_add (view, l->data);
+		} else {
+			owner_monitor_remove (view, l->data);
+		}
+	}
+	if (wants_owner) {
+		owner_monitor_add (view, view->details->model);
+	} else {
+		owner_monitor_remove (view, view->details->model);
+	}
+}
+
+gboolean
+nemo_view_get_wants_owner (NemoView *view)
+{
+	g_return_val_if_fail (NEMO_IS_VIEW (view), FALSE);
+
+	return view->details->wants_owner;
+}
+
 void
 nemo_view_add_subdirectory (NemoView  *view,
 				NemoDirectory*directory)
@@ -4538,6 +4600,9 @@ nemo_view_add_subdirectory (NemoView  *view,
 					     view->details->show_hidden_files,
 					     attributes,
 					     files_added_callback, view);
+	if (view->details->wants_owner) {
+		owner_monitor_add (view, directory);
+	}
 
 	g_signal_connect
 		(directory, "files_added",
@@ -4575,6 +4640,7 @@ nemo_view_remove_subdirectory (NemoView  *view,
 					      view);
 
 	nemo_directory_file_monitor_remove (directory, &view->details->model);
+	owner_monitor_remove (view, directory);
 
 	nemo_directory_unref (directory);
 }
@@ -11987,6 +12053,9 @@ finish_loading (NemoView *view)
 					     view->details->show_hidden_files,
 					     attributes,
 					     files_added_callback, view);
+	if (view->details->wants_owner) {
+		owner_monitor_add (view, view->details->model);
+	}
 
     	view->details->files_added_handler_id = g_signal_connect
 		(view->details->model, "files_added",
@@ -12083,6 +12152,7 @@ disconnect_model_handlers (NemoView *view)
 					    view);
 	nemo_directory_file_monitor_remove (view->details->model,
 						&view->details->model);
+	owner_monitor_remove (view, view->details->model);
 	nemo_file_monitor_remove (view->details->directory_as_file,
 				      &view->details->directory_as_file);
 }

@@ -42,6 +42,7 @@ typedef struct ThumbnailState ThumbnailState;
 typedef struct MountState MountState;
 typedef struct FilesystemInfoState FilesystemInfoState;
 typedef struct FavoriteCheckState FavoriteCheckState;
+typedef struct OwnerState OwnerState;
 
 typedef enum {
 	REQUEST_LINK_INFO,
@@ -55,6 +56,7 @@ typedef enum {
 	REQUEST_MOUNT,
 	REQUEST_FILESYSTEM_INFO,
     REQUEST_FAVORITE_CHECK,
+	REQUEST_OWNER, /* only where the owner is not part of the info */
 	REQUEST_TYPE_LAST
 } RequestType;
 
@@ -136,6 +138,8 @@ struct NemoDirectoryDetails
 	MountState *mount_state;
 
 	FilesystemInfoState *filesystem_info_state;
+
+	OwnerState *owner_state;
 
 	LinkInfoReadState *link_info_read_state;
 

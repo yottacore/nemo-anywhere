@@ -42,6 +42,10 @@ typedef enum {
 	NEMO_FILE_ATTRIBUTE_MOUNT = 1 << 9,
 	NEMO_FILE_ATTRIBUTE_FILESYSTEM_INFO = 1 << 10,
     NEMO_FILE_ATTRIBUTE_FAVORITE_CHECK = 1 << 11,
+	/* The owner and group names. Part of INFO except on Windows, where each
+	   name is a lookup through the local security service, so it is asked
+	   for on its own, and only where a name is shown. */
+	NEMO_FILE_ATTRIBUTE_OWNER = 1 << 12,
 } NemoFileAttributes;
 
 #endif /* NEMO_FILE_ATTRIBUTES_H */

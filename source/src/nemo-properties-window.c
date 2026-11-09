@@ -4942,7 +4942,8 @@ create_properties_window (StartupData *startup_data)
 			attributes |= NEMO_FILE_ATTRIBUTE_DEEP_COUNTS;
 		}
 
-		attributes |= NEMO_FILE_ATTRIBUTE_INFO;
+		/* The basic page and the permissions page name the owner and group. */
+		attributes |= NEMO_FILE_ATTRIBUTE_INFO | NEMO_FILE_ATTRIBUTE_OWNER;
 		nemo_file_monitor_add (file, &window->details->target_files, attributes);
 	}
 

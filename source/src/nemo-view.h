@@ -384,6 +384,9 @@ gboolean            nemo_view_rename_new_folder_nested         (NemoView   *view
 								const char *new_name);
 void                nemo_view_set_is_renaming                  (NemoView  *view,
 								    gboolean       renaming);
+void                nemo_view_set_wants_owner                 (NemoView  *view,
+							       gboolean   wants_owner);
+gboolean            nemo_view_get_wants_owner                 (NemoView  *view);
 void                nemo_view_add_subdirectory                (NemoView  *view,
 								   NemoDirectory*directory);
 void                nemo_view_remove_subdirectory             (NemoView  *view,
