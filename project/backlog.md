@@ -765,6 +765,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261109: ddepv failed in the full run's native gate on b29w, and its log went with the folder.
 	- Test case: test-lane.bash, a failed gate leaves the test log here.
 
+- Convert a settings file stamped format 3 by a dev build before SHCL 3.0.0-beta1.
+	- ID: 2026110911251998
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261109-112519
+	- Opened by: t00mietum
+	- Related IDs: 2026110520234226
+	- Requirements:
+		- Every SHCL format the app has written loads and is converted, not only the released ones.
+		- That takes in a file a dev or dogfood build wrote from 20260925 to 20261105. It says format 3 but writes a list bare, as `a, b`, which format 3 refuses with E026, so the list reads as its default.
+		- Such a list reads as that build read it, and the file is backed up and saved with brackets, as the old format conversion does.
+		- A value that is text with a comma in it isn't taken for a list. Only a key whose schema type is a list is converted.
+	- Progress log:
+		- 20261109: seen in a dogfood settings file on Windows: the favorites line was bare, so the favorites read as the default. Fixed there by hand.
+	- Decisions:
+		- Changed my mind on 2026110520234226's "isn't converted" for these files.
+	- Test case: none yet. ddf4w, Config old formats test, is where it belongs.
+
 - Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
 	- ID: 2026102114400592
 	- Type: Enhancement
