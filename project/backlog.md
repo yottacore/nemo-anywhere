@@ -33,6 +33,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Compress dialog: the Reset button's text sits about 8 px below the Advanced label.
+	- ID: 2026110817490431
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261108-174904
+	- Opened by: t00mietum
+	- Related IDs: 2026100516274646
+	- Target OS: Linux, Windows
+	- Steps to reproduce: Open Compress on any file and look at the row with Advanced and Reset.
+	- Incorrect behavior: Reset's text sits about 8 px lower than the Advanced label's, grayed and lit alike (Adwaita, at fdce4acd).
+	- Expected behavior: the two labels share a baseline, within a pixel or two.
+	- Possible cause: Reset is a flat button in an hbox beside the expander, not in its label widget, so the button's padding pushes its text down.
+	- Test case: none yet. dd5dm could compare the two labels' baselines.
+
 - Static analyzers: the vendored suppression list is out of date since SHCL 3.0.0-beta1.
 	- ID: 2026110814550429
 	- Type: Task
@@ -62,7 +77,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
 	- ID: 2026101417352264
 	- Type: Task
-	- Status: Waiting on signoff
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261014-173522
 	- Opened by: t00mietum
@@ -75,16 +90,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The prose lint's spelling check now covers both files.
 	- Decisions:
 		- Left at signoff for the file names and layout, the README lines that link to them, and the license line on the new files.
+		- 20261108: the names follow the usual INSTALL and BUILDING pair in the docs' lowercase form, and the license line matches README's, which these files came out of. Cheap to change if wanted, so closed.
 	- Swept: nothing in the repo linked to the moved headings. Checked other docs, contributing.md, design.md and its Building section, the installers, the man page, the Windows setup script, `.github/` and the cicd scripts. The pre-push hook and release.bash read README only for the release badge, which stays.
 	- Branch: instdocs
 	- Commit: c5eb2000
 	- Test case: none new, docs only. The lint stage passes, and its prose check now reads install.md and building.md.
-	- Stand-in: none (20261028). File names, layout and the license line are calls for a person.
+	- Acceptance signoff: Self-closed: README links both files, both pass the markdown check, and the full run at d6c7ae09 passed lint with both in the prose check.
+	- Closed: 20261108-174838
 
 - Settings, List columns: split into two sub-tabs.
 	- ID: 2026110520234231
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261105-202342
 	- Opened by: t00mietum
@@ -101,15 +118,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: colstabs
 	- Commit: d4e7656
 	- Test case: dd5df, Settings dialog test. It now checks List columns is a stack of 2 sub-tabs titled Regular list view and Search list view, in that order, each holding a column list, that only the search one has Hits, that the search one shows the saved find results' columns, and that clicking each row shows and lights it. It fails before the fix and passes after. dbnfq, Settings widgets test, now lists the new page among those sized.
+	- Acceptance signoff: Self-closed: the two sub-tabs are rows of the same tab list Behavior and Views use, drawn and lit the same way. dd5df and dbnfq passed in the full run at d6c7ae09.
+	- Closed: 20261108-174838
 
 - Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
 	- ID: 2026100516274646
 	- Type: Enhancement
-	- Status: Waiting on signoff
-		- Only the Reset button's look is left.
+	- Status: Done
+		- The look of Reset beside Options, now Advanced, went to its own Bug, 2026110817490431.
 	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
 	- Needs external testing: no. dd5dm passed on vm925w with a 560 px work area on 20261102.
-	- Needs hand testing: the Reset button's look beside Options on a real desktop.
 	- Opened: 20261005-162747
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
@@ -143,6 +161,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- 20261028: not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
 	- Verified: 20261102 on vm925w, dd5dm from round1102a at 1aadd7b9 (nothing under Compress changed after it), with the work area cut to 560 px in two ways, 3 runs: each passed, Options got 272 px and scrolled, and the 543 px dialog stayed inside the work area. The screen kept its size, since the dialog sizes itself to the work area and not the screen.
 	- Stand-in: none (20261102). Only the look of Reset beside Options is left, which turns on taste. In Adwaita at fdce4acd its text sits about 8 px below the Options label's, grayed and lit alike, as the 20261013 note says.
+	- Decisions:
+		- 20261108: what was left is a measurable misalignment rather than taste, so it's a Low Bug of its own, 2026110817490431, with a baseline check as its test. Everything the requirements ask for is covered by dd5dm and dcwjb.
+	- Acceptance signoff: Self-closed: dd5dm and dcwjb passed in the full run at d6c7ae09, and dd5dm on vm925w at 1aadd7b9.
+	- Closed: 20261108-174838
 
 - The native gate on b29w sometimes fails on test-nemo-office's leftover folder.
 	- ID: 2026103116203164
@@ -11596,6 +11618,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note 20261006: left here are signing and the UAC prompt, which need a release tag with secrets and a person at the screen.
 	- Test case: the Windows gate runs the suite natively, plus `cicd/win/gui-launch-smoke.ps1`; signing and the UAC prompt have none.
 	- Stand-in: none (20261028). Signing runs only in the hosted release workflow on a tag, with secrets the repo doesn't have, and the consent prompt needs a person at the screen.
+	- Note 20261108: still left for a person. The repo still has no secrets or variables, so signing can't run, and the consent prompt can't be checked unattended.
 
 - 🔘 Target: macOS
 	- Status: Stalled
