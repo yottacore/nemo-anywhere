@@ -8,9 +8,10 @@
 ##	- Findings are counted per area and kept. Vendored findings are listed in
 ##	  analyze-vendored.txt, each with why it's safe, and count as suppressed.
 ##	  Ours and inherited ones are suppressed at the line, with EEL_ANALYZER_SKIP.
-##	- The stage fails on any finding left, a system header's included, and on an
+##	- The stage fails on any finding left, a system header's included, on an
 ##	  entry in analyze-vendored.txt that matches nothing, or is malformed
-##	  (backlog 2026102114400591, test de8en). It also fails when a tracked .c
+##	  (backlog 2026102114400591, test de8en), and on a file not analyzed, such
+##	  as one cut off at the cap (2026110815102912). It also fails when a tracked .c
 ##	  outside source/unused/ is in neither list, when one under it is in either,
 ##	  when an analyzer misses the planted leak or null dereference, or when a run
 ##	  itself fails.
@@ -20,11 +21,11 @@
 ##	  the stage, and shows as "not run" in the counts. The Linux lane's
 ##	  container is "step", run through docker-run.bash, and the Windows lane's
 ##	  "winstep", through win/win-run.bash.
-##	- CICD_MAX_JOBS caps the jobs of all 4 runs together. gcc spends many minutes
-##	  on a few files (the blake3 SIMD ones and nemo-config.c, at -O0), and
-##	  ANALYZE_TU_TIMEOUT (900 s) caps each file. One cut off counts as not
-##	  analyzed, which doesn't fail the stage yet. A plain cicd run sets 120 and
-##	  --long 900, in config.bash.
+##	- CICD_MAX_JOBS caps the jobs of all 4 runs together. ANALYZE_TU_TIMEOUT
+##	  (900 s) caps each file. A plain cicd run sets 120 and --long 900, in
+##	  config.bash. The few files gcc can't finish inside that at the build's
+##	  flags, blake3's SIMD ones and the 2 that build SHCL, are on
+##	  analyze-slow.txt, each with how its lane runs it and what still covers it.
 ##	- --self-test runs analyze.py's own self-test and the planted faults only.
 ##	- Syntax: cicd/utility/analyze.bash [--self-test]
 ##	- Test ID: de8es
@@ -111,7 +112,7 @@ pids=(); names=()
 for l in "${lanes[@]}"; do
 	IFS='|' read -r lane container db cc <<< "${l}"
 	for a in gcc clang; do
-		fInLane "${container}" "${a}" env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-900}" nice -n 19 python3 "${tool}" run --tool "${a}" --db "${db}" --jobs "${each}" > "${last}/${a}-${lane}.log" 2>&1 &
+		fInLane "${container}" "${a}" env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-900}" nice -n 19 python3 "${tool}" run --tool "${a}" --db "${db}" --lane "${lane}" --jobs "${each}" > "${last}/${a}-${lane}.log" 2>&1 &
 		pids+=("$!"); names+=("${a}-${lane}")
 	done
 done
@@ -120,7 +121,7 @@ for i in "${!pids[@]}"; do
 	case "${rc}" in
 		0)  ;;
 		77) fEcho "FAILED: ${names[i]}: not run, the analyzer is missing in its container"; failed=1 ;;
-		*)  fEcho "FAILED: ${names[i]} exited ${rc}"; failed=1 ;;
+		*)  fEcho "FAILED: ${names[i]} exited ${rc}"; grep -h '^\[ FAILED' "${last}/${names[i]}.log" || true; failed=1 ;;
 	esac
 done
 fEcho "analyzers took $(( SECONDS - t0 )) s"
@@ -142,3 +143,5 @@ fEcho "OK: analyzer stage"
 ##		  fails the stage.
 ##		- 2026-11-08: The cross-build image has clang, so the clang-win lane
 ##		  runs, and an analyzer missing from either image fails the stage.
+##		- 2026-11-08: analyze-slow.txt for the files gcc can't finish inside the
+##		  cap, and a file cut off fails the stage.

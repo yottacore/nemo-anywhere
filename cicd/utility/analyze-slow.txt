@@ -1,0 +1,26 @@
+# Files an analyzer can't finish inside a plain run's per-file cap (2 min) at
+# the build's own flags, and how each lane runs them instead. Any other file
+# cut off at the cap fails the stage. Read by cicd/utility/analyze.py run.
+# Backlog 2026110815102912.
+#
+# One per line: <lane> <path> <how> <why, and what still covers it>.
+# The lane is a log's name, such as gcc-linux. How is one of:
+#   -O<n>     analyzed at that level, added after the build's flags
+#   cap=<s>   a longer cap for this file; a longer run cap still wins
+#   skip      not analyzed in this lane
+# An entry naming a file that isn't in its lane's compile list fails the run.
+
+# blake3's SIMD files are long runs of intrinsics. At the debug build's -O0
+# gcc doesn't finish them in 3 min, the AVX2 and SSE4.1 ones not even in 15;
+# at -O1 each takes about 5 s.
+gcc-linux vendor/blake3/blake3_avx2.c -O1 Not done in 15 min at -O0. gcc-win analyzes it at the build's -O3, and clang at -O0.
+gcc-linux vendor/blake3/blake3_sse2.c -O1 Not done in 3 min at -O0. gcc-win analyzes it at the build's -O3, and clang at -O0.
+gcc-linux vendor/blake3/blake3_sse41.c -O1 Not done in 15 min at -O0. gcc-win analyzes it at the build's -O3, and clang at -O0.
+
+# These 2 build SHCL 3's implementation, a 16,000-line header. The cross
+# build's gcc finishes each in about 3 min at -O3; the debug build's doesn't
+# in 4 min at -O0, -O1 or -O2.
+gcc-win source/libnemo-private/nemo-config.c cap=480 About 3 min at -O3. Starts first, so the rest of the lane overlaps it.
+gcc-win source/fuzz/fuzz-shcl.c cap=480 About 3 min at -O3. Starts first, so the rest of the lane overlaps it.
+gcc-linux source/libnemo-private/nemo-config.c skip Not done in 4 min at -O0 to -O2. gcc-win analyzes the same SHCL code at -O3, and clang both lanes' code, the POSIX branches included.
+gcc-linux source/fuzz/fuzz-shcl.c skip Not done in 4 min at -O0 to -O2. gcc-win analyzes the same SHCL code at -O3, and clang both lanes' code, the POSIX branches included.

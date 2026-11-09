@@ -2,9 +2,10 @@
 
 ##	- Purpose: Check the static analyzer stage's gate, analyze.py count, which
 ##	  analyze.bash fails the stage on. A planted finding with no suppression
-##	  fails it, wherever it is, a system header included, and so does an entry
-##	  on the suppression list that matches nothing. A listed finding alone
-##	  passes. Runs count on made-up logs and lists, against this repo.
+##	  fails it, wherever it is, a system header included, and so do an entry
+##	  on the suppression list that matches nothing and a file cut off at the
+##	  cap. A listed finding alone passes, and so does a file analyze-slow.txt
+##	  skips. Runs count on made-up logs and lists, against this repo.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-analyze-gate.bash
 ##	- Test ID: de8en
@@ -50,6 +51,10 @@ fCase 1 "not suppressed (clang-linux): /usr/include/glib-2.0/glib/gmessages.h:35
 fCase 1 "not suppressed (clang-linux): source/test/t.c:9 analyzer-malloc-leak" "gcc's -Werror form" "${listed}" \
 	"source/test/t.c:9:1: error: leak of 'q' [CWE-401] [-Werror=analyzer-malloc-leak]"
 fCase 1 "stale suppression: vendor/x/y.h:2 unix.Malloc" "stale entry"
+fCase 1 "not analyzed (clang-linux): vendor/z/slow.c" "cut off at the cap" "${listed}" \
+	"### vendor/z/slow.c rc=124" "timed out after 120 s"
+fCase 0 "skipped per analyze-slow.txt (clang-linux): source/src/b.c" "skipped per the slow list" "${listed}" \
+	"### source/src/b.c rc=0" "skipped in this lane, per cicd/utility/analyze-slow.txt"
 ## A note that names a line isn't a finding.
 fCase 0 "suppressed" "notes only" "${listed}" "source/src/a.c:7:3: note: Calling 'f'"
 

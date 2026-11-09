@@ -941,7 +941,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Estimated effort: Low
 	- Progress log:
 		- 20261108: `analyze.py count` fails on any finding left, a system header's included, and on a stale entry, and the stage fails with it. A file cut off at the cap still shows as not analyzed, without failing.
-		- 20261108: split off `2026110815102895` (clang over the Windows list), Done, and `2026110815102912` (gcc inside the cap), Queued.
+		- 20261108: split off `2026110815102895` (clang over the Windows list), Done, and `2026110815102912` (gcc inside the cap), Waiting on automated testing.
 	- Decisions:
 		- A finding in a system header fails too. It's suppressed at the caller's line, since it counts toward its callers, per the parent.
 		- A file cut off doesn't fail the stage yet, since a plain run cuts off 7 today. `...912` makes it fail.
@@ -984,7 +984,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: gcc analyzes every file inside the cap.
 	- ID: 2026110815102912
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: the analyzer stage of a plain full run, `cicd/cicd.bash --backlog-run-full`, to see no file cut off, and the stage's time with gcc-win's 2 SHCL files at up to 8 min.
 	- Priority|Severity: Avg
 	- Opened: 20261108-151029
 	- Opened by: 2026102114400591
@@ -993,7 +994,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- gcc analyzes every file on both lists inside the cap, and then a file cut off fails the stage.
 		- At the plain run's 120 s cap, gcc-linux cuts off `nemo-config.c`, `fuzz-shcl.c` and blake3's AVX2, SSE2 and SSE4.1 files, and gcc-win `nemo-config.c` and `fuzz-shcl.c`. The 2 that build SHCL took about 190 and 200 s on the Windows list on 20261108, since SHCL 3.0.0-beta1, and gcc never sees SHCL 3 in a plain run.
 	- Estimated effort: Avg
-	- Test case: a full run's analyzer stage with no "not analyzed" line, and a case in de8en for a cut-off file.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261108: `cicd/utility/analyze-slow.txt` names the files gcc can't finish at their build's flags, how its lane runs each, and what still covers it. gcc-linux analyzes blake3's 3 SIMD files at `-O1`, about 5 s each. gcc-win gives the 2 that build SHCL 8 min and starts them first; they took 155 and 177 s. gcc-linux skips those 2. `count` fails on any file not analyzed.
+	- Decisions:
+		- `-O1` for blake3 in gcc-linux, not a skip, so gcc still reads them there. gcc-win runs them at the build's `-O3`.
+		- gcc-linux skips the 2 SHCL files, which departs from "every file on both lists". At `-O0`, `-Og`, `-O1` and `-O2` each took over 230 s there. gcc-win reads the same SHCL code, and clang reads it in both lanes, the POSIX branches included.
+		- Not a smaller analyzer budget (`analyzer-max-enodes-per-program-point`, `analyzer-bb-explosion-factor`). At 2 nodes a point `fuzz-shcl.c` fit, but gcc gave up on 6076 paths as too complex, and `nemo-config.c` still didn't finish at 1.
+		- A file that didn't compile fails too, since it wasn't analyzed either.
+		- An entry naming a file not in its lane's compile list fails the run, so a rename can't leave it stale. Whether an entry is still needed isn't checked, so a vendor bump gets them timed again.
+		- The listed cap is a floor. `--long`'s 15 min, or `ANALYZE_TU_TIMEOUT` by hand, still wins when longer.
+	- Swept: the callers of `parse_log`, `count` and `run_one`, the "doesn't fail yet" text in `analyze.bash` and `config.bash`, and design.md's run lengths line.
+	- Branch: round1108a
+	- Test case: de8en (a file cut off fails, one the slow list skips passes) and de8em (the list parses, cut-off and skipped runs counted apart, the repo's list has no bad line). The full run's analyzer stage with no "not analyzed" line.
+	- Verified: 20261108, de8en fails on the old `analyze.py` (2 cases) and passes on the new, and de8em passes. gcc-linux's `run` over the 5 listed files and 3 others analyzes the blake3 files in seconds and skips the SHCL 2, and an entry for a file missing from the compile list fails it. gcc-win's `run` at a 120 s cap finishes both SHCL files, under their listed 8 min, in 176 s. `cicd/cicd.bash --backlog-run-quick` passed.
 
 - Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
 	- ID: 2026102114400592

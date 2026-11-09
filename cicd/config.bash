@@ -132,13 +132,14 @@ SANITIZE_CMD=(bash "${DOCKER_RUN}" "sanitizers" "NEMO_TEST_JOBS=\${CICD_MAX_JOBS
 
 ## Stage 5 (after the cross build): gcc's -fanalyzer and the clang analyzer over
 ## both compile lists. Fails on a finding left unsuppressed, a stale entry in
-## utility/analyze-vendored.txt, a tracked .c that neither build compiles, a
-## missed planted fault, or an analyzer missing from its image. Left out of
-## --quick and the gate. Backlog
+## utility/analyze-vendored.txt, a file cut off at the cap, a tracked .c that
+## neither build compiles, a missed planted fault, or an analyzer missing from
+## its image. Left out of --quick and the gate. Backlog
 ## 2026101619020505.
-## A plain run cuts a file off at 2 min, --long at 15. gcc at -O0 never finishes
-## nemo-config.c or blake3's AVX2 and SSE4.1 files even in 15, and waiting on
-## those 3 was most of the step's 36 min. Our slowest other file takes about 40 s.
+## A plain run cuts a file off at 2 min, --long at 15. The few files gcc can't
+## finish in 15 at the build's flags (blake3's SIMD ones and the 2 that build
+## SHCL) are run as utility/analyze-slow.txt says. Our slowest other file takes
+## about 40 s.
 ANALYZE_CMD=(env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-120}" bash cicd/utility/analyze.bash)
 ANALYZE_LONG_CMD=(env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-900}" bash cicd/utility/analyze.bash)
 
