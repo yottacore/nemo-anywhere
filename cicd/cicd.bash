@@ -276,7 +276,9 @@ declare -p WIN_GATE_CMD &>/dev/null || WIN_GATE_CMD=()
 ## FreeBSD runs unless --quick, and arm64 only with --long, since its emulated box
 ## takes about 98 of a plain run's 152 minutes. Naming either one beats both flags.
 [[ -n "$include_arm" ]] || include_arm=$((long))
+leak_why="--no-leakcheck"; [[ -n "$leakcheck" ]] || leak_why="--quick"
 [[ -n "$leakcheck" ]] || leakcheck=$((! quick))
+declare -p HEAP_SOAK_CMD &>/dev/null || HEAP_SOAK_CMD=()           ## a config with no soak
 [[ -n "$include_bsd" ]] || include_bsd=$((! quick))
 ((! no_bsd)) || include_bsd=0
 declare -p BSD_TEST_CMD &>/dev/null || BSD_TEST_CMD=()           ## a config with no FreeBSD box
@@ -437,6 +439,7 @@ fStep_Cmd(){
 		"Release build: FreeBSD") echo "${BSD_RELEASE_CMD[*]}" ;;
 		"Release build: "*)       for t in "${CROSS_TARGETS[@]}"; do [[ "Release build: ${t%%|*}" != "$1" ]] || echo "${t#*|*|*|}"; done ;;
 		"Static analyzers")       echo "${ANALYZE_CMD[*]}" ;;
+		"Heap soak")              echo "${HEAP_SOAK_CMD[*]}" ;;
 		"Native Windows gate")    echo "${WIN_GATE_SIDE_CMD[*]} ${WIN_GATE_CMD[*]}" ;;
 		Packages)                 echo "${PACKAGE_CMDS[*]:-} ${PACKAGE_CHECKS[*]:-}" ;;
 		"Private runner")         echo "${PRIVATE_RUNNER:-}" ;;
@@ -765,6 +768,7 @@ fi
 [[ -z "$arm_why" ]] || ((! (run_release && BUILD_CROSS) )) || fPlan 0 "Release build: ${arm_label}" "$arm_why"
 ((${#BSD_RELEASE_CMD[@]})) && fPlan "$run_bsd_release" "Release build: FreeBSD" "$bsd_why"
 ((${#ANALYZE_CMD[@]})) && fPlan "$((! quick))" "Static analyzers" "--quick"
+((${#HEAP_SOAK_CMD[@]})) && fPlan "$leakcheck" "Heap soak" "$leak_why"
 ((${#WIN_GATE_SIDE_CMD[@]} + ${#WIN_GATE_CMD[@]})) && fPlan "$run_win" "Native Windows gate" "$win_why"
 pkg_why="--no-package"; ((quick)) && pkg_why="--quick"
 fPlan "$((PACKAGE_ENABLE && ! quick))"  "Packages"              "$pkg_why"
@@ -816,6 +820,7 @@ else
 	fEcho_Clean "Sanitizers ..........: (skipped)"
 fi
 fEcho_Clean "Leak checks .........: $( ((leakcheck)) && echo on || echo off )"
+((${#HEAP_SOAK_CMD[@]})) && fEcho_Clean "Heap soak ...........: $( ((leakcheck)) && echo "${HEAP_SOAK_CMD[*]}" || echo "(skipped ${leak_why})" )"
 if ((quick)); then
 	fEcho_Clean "Static analyzers ....: (skipped --quick)"
 elif [[ -n "${ANALYZE_CMD+x}" ]] && ((${#ANALYZE_CMD[@]})); then
@@ -1170,6 +1175,12 @@ if ((! quick)) && ((${#ANALYZE_CMD[@]})); then
 	"${ANALYZE_CMD[@]}"
 fi
 
+## A plain build under heaptrack, so not part of the sanitizer suite.
+if ((leakcheck)) && ((${#HEAP_SOAK_CMD[@]})); then
+	fStep "Heap soak" hard
+	"${HEAP_SOAK_CMD[@]}"
+fi
+
 ## Stage 6: packages. Distributables built from what stage 5 produced, never
 ## rebuilt from source. Which formats, and how, is entirely the project's business
 ## (PACKAGE_CMDS in config.bash) - the engine only decides when it happens and that
@@ -1493,6 +1504,8 @@ fEcho_Clean
 ##		- 2026-11-03: the cross targets in CROSS_ALONGSIDE start with the debug
 ##		  build, and their step waits for them.
 ##		- 2026-10-21: static analyzer stage after the cross build, report only.
+##		- 2026-11-08: the static analyzer stage fails on a finding left.
+##		- 2026-11-08: heap growth soak step under --leakcheck.
 ##		- 2026-10-24: --long (or --slow) adds arm64, now off in a plain run.
 ##		- 2026-10-25: --backlog-run-quick, --backlog-run-full and --merge-gate;
 ##		  --gate and --ci are other names for the first and last. --no-remote.

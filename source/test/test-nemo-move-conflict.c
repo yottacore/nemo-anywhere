@@ -630,6 +630,7 @@ main (int argc, char *argv[])
 	g_setenv ("NEMO_LINK_COPY", "file=keep", TRUE);
 
 	config = test_scratch_config_home ("nemo-move-conflict-home-XXXXXX");
+	check (config != NULL);
 	test_init (&argc, &argv);
 	nemo_global_preferences_init ();
 

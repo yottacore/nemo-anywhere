@@ -55,7 +55,12 @@ run_file (const char *path)
 		return -1;
 	}
 
-	rewind (f);
+	/* Not rewind, which can't say it failed. */
+	if (fseek (f, 0, SEEK_SET) != 0) {
+		fprintf (stderr, "cannot read %s\n", path);
+		fclose (f);
+		return -1;
+	}
 
 	/* An empty seed is a fair thing to hand a parser, and malloc(0) may
 	   answer NULL, which is not the failure it looks like. */

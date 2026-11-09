@@ -444,6 +444,8 @@ nemo_associations_win32_set_default (GAppInfo    *app,
 	} else {
 		return FALSE;
 	}
+	/* Each branch above copied a string it had checked. */
+	g_assert (command != NULL);
 
 	if (strstr (command, "%1") == NULL && strstr (command, "%L") == NULL &&
 	    strstr (command, "%l") == NULL && strstr (command, "%*") == NULL) {

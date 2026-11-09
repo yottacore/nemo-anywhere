@@ -784,6 +784,8 @@ is_banner_line (const char *bare)
 		lines = g_strsplit (SHCL_GEN_BANNER, "\n", -1);
 		g_once_init_leave (&once, 1);
 	}
+	/* The first caller set it, and the rest waited for that in g_once_init_enter. */
+	g_assert (lines != NULL);
 
 	if (g_str_has_prefix (bare, "##    ") || strcmp (bare, "##") == 0)
 		return TRUE;

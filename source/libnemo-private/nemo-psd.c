@@ -24,6 +24,7 @@
 
 #include "nemo-psd.h"
 #include "nemo-file-utilities.h"
+#include <eel/eel-analyzer.h>
 
 #include <string.h>
 
@@ -367,7 +368,9 @@ load (Reader *r, int size)
 	s.nearest = mode == MODE_INDEXED;
 
 	row_bytes = (gsize) width * s.depth_bytes;
+	EEL_ANALYZER_SKIP ("malloc-leak") // g_autofree frees it, and clang doesn't run cleanup functions
 	line = g_malloc (row_bytes);
+	EEL_ANALYZER_END
 
 	if (compression == 1) {
 		gsize entries = (gsize) used * height;
@@ -377,7 +380,11 @@ load (Reader *r, int size)
 		gsize packed_min = (row_bytes + 127) / 128 * 2;
 		gsize i;
 
-		counts = g_new (guint32, entries);
+		/* Zeroed for clang, which can't see that the loop below sets every
+		 * one or returns. */
+		EEL_ANALYZER_SKIP ("malloc-leak") // g_autofree frees it, and clang doesn't run cleanup functions
+		counts = g_new0 (guint32, entries);
+		EEL_ANALYZER_END
 		for (i = 0; i < entries; i++) {
 			guint narrow;
 
@@ -403,7 +410,9 @@ load (Reader *r, int size)
 		if (!skip (r, (guint64) (channels - used) * height * (r->big ? 4 : 2))) {
 			return NULL;
 		}
+		EEL_ANALYZER_SKIP ("malloc-leak") // g_autofree frees it, and clang doesn't run cleanup functions
 		packed = g_malloc (MAX (packed_max, 1));
+		EEL_ANALYZER_END
 	}
 
 	if (!s.nearest) {

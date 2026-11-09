@@ -460,7 +460,7 @@ main (int argc, char *argv[])
 	char **uris, **busy_uris;
 	Display *display;
 	NemoCacheDb *db = NULL;
-	gint64 made[PICTURES], drawn[PICTURES], quit[PICTURES];
+	gint64 made[PICTURES] = { 0 }, drawn[PICTURES] = { 0 }, quit[PICTURES] = { 0 };
 	gboolean with_bus;
 	GPid pid = 0;
 
@@ -528,7 +528,6 @@ main (int argc, char *argv[])
 	check (!all_stored (db, busy_uris));
 	check (close_window (display, pid));
 	check (wait_exit (pid, EXIT_SECS));
-	pid = 0;
 	check (journal_empty (db_path));
 
 	/* First run on the small set makes the thumbnails. Closing it with them
@@ -540,7 +539,6 @@ main (int argc, char *argv[])
 
 	check (close_window (display, pid));
 	check (wait_exit (pid, EXIT_SECS));
-	pid = 0;
 	check (journal_empty (db_path));
 	read_counts (db, uris, made);
 

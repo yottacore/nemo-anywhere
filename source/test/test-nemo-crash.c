@@ -20,6 +20,7 @@
 #include <libnemo-private/nemo-crash.h>
 
 #include "test-scratch.h"
+#include <eel/eel-analyzer.h>
 #include "test-check.h"
 
 static volatile int *null_pointer = NULL;
@@ -144,7 +145,9 @@ run_child (const char *how)
 	/* A call through a pointer that is no longer there: the shape a freed
 	   object takes, and the one an unwinder is most likely to give up on. */
 	if (strcmp (how, "nullcall") == 0) {
+		EEL_ANALYZER_SKIP ("null-dereference") // the crash this case is for
 		null_function ();
+		EEL_ANALYZER_END
 	}
 
 	if (strcmp (how, "overflow") == 0) {
@@ -183,7 +186,9 @@ run_child (const char *how)
 	}
 #endif
 
+	EEL_ANALYZER_SKIP ("null-dereference") // the crash this case is for
 	*null_pointer = 1;
+	EEL_ANALYZER_END
 
 	return 0;
 }

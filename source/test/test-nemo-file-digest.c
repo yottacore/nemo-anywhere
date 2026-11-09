@@ -19,6 +19,7 @@
 #include <libnemo-private/nemo-file-digest.h>
 
 #include "test-scratch.h"
+#include <eel/eel-analyzer.h>
 #include "test-check.h"
 
 /* blake3 fills its test inputs with 0, 1, 2 ... 250 over and over. */
@@ -63,7 +64,9 @@ check_known_answers (void)
 	guint i;
 
 	for (i = 0; i < G_N_ELEMENTS (vectors); i++) {
+		EEL_ANALYZER_SKIP ("malloc-leak") // g_autofree frees it, and clang doesn't run cleanup functions
 		g_autofree guint8 *in = vector_input (vectors[i].len);
+		EEL_ANALYZER_END
 		g_autofree char   *got = NULL;
 		guint8 digest[NEMO_CACHE_DIGEST_LEN];
 

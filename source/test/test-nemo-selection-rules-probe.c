@@ -577,7 +577,7 @@ icon_blank (double near_x, double near_y, double *x, double *y)
 static gboolean
 click_blank (guint modifiers)
 {
-	double x, y;
+	double x = 0, y = 0;
 
 	if (list_mode) {
 		GtkTreePath *path = gtk_tree_path_new_from_indices (item_count () - 1, -1);

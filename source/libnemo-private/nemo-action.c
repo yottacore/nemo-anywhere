@@ -1776,8 +1776,6 @@ check_exec_condition (NemoAction  *action,
 
     DEBUG ("Checking exec condition: %s", exec->str);
 
-    return_code = -1;
-
 #ifdef G_OS_WIN32
     {
         gchar **argv;
@@ -1800,6 +1798,7 @@ check_exec_condition (NemoAction  *action,
         g_strfreev (argv);
     }
 #else
+    return_code = -1;
     if (!g_spawn_command_line_sync (exec->str,
                                     NULL,
                                     NULL,

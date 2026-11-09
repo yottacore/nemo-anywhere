@@ -892,6 +892,8 @@ nemo_network_win32_file_for_smb_uri (const char *uri)
 	if (path == NULL) {
 		path = g_strdup (slash);
 	}
+	/* smb_unescape fails only on a bad escape in slash, which is then kept as is. */
+	g_assert (path != NULL);
 	g_strdelimit (path, "/", '\\');
 	g_strstrip (path);
 	while (path[0] != '\0' && path[strlen (path) - 1] == '\\') {

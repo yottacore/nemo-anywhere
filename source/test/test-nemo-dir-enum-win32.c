@@ -32,7 +32,10 @@ static const char *entry_names[] = { "alpha.txt", "beta.txt", "gamma.txt", "subd
 static char *
 build_deep_folder (const char *root)
 {
-	char *deep = g_strdup (root);
+	char *deep;
+
+	g_assert (root != NULL);
+	deep = g_strdup (root);
 	const char *segment = "seg-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 	gsize i;
 

@@ -8,6 +8,7 @@
 
 #include "nemo-config.h"
 #include <glib/gi18n.h>
+#include <eel/eel-analyzer.h>
 
 #include "nemo-favorite-vfs-file.h"
 #include "nemo-favorite-vfs-file-enumerator.h"
@@ -61,7 +62,9 @@ nemo_fav_uri_to_display_name (const gchar *uri)
         ptr++;
     }
 
+    EEL_ANALYZER_SKIP ("out-of-bounds") // ptr is inside uri, which starts with ROOT_URI; gcc reads it as the bare ROOT_URI
     return g_strdup (ptr);
+    EEL_ANALYZER_END
 }
 
 G_DEFINE_TYPE_EXTENDED (NemoFavoriteVfsFile,

@@ -191,7 +191,7 @@ main (int argc, char *argv[])
 	files = g_list_append (NULL, nemo_file_get_by_uri (copied));
 	nemo_clipboard_set_files (window, files, TRUE);
 	held = clipboard_files (window, &cut);
-	check (g_list_length (held) == 1 && g_strcmp0 (held->data, copied) == 0);
+	check (held != NULL && held->next == NULL && g_strcmp0 (held->data, copied) == 0);
 	check (cut);
 	g_list_free_full (held, g_free);
 

@@ -56,6 +56,10 @@ RUN printf '%s\n' 'Types: deb' 'URIs: http://snapshot.debian.org/archive/debian-
 ADD --checksum=sha256:856da311e8f0b98b2507bc413efc9d807789eb570e185be3590072d8a1a7abc6 \
 	http://snapshot.debian.org/archive/debian/20260218T083118Z/pool/non-free/r/rar/rar_7.20-1_amd64.deb /tmp/rar.deb
 RUN dpkg -i /tmp/rar.deb && rm /tmp/rar.deb
+# heaptrack for the heap growth soak (heap-soak.bash, --leakcheck), from the
+# same snapshot. A layer of its own, so the ones above stay cached.
+RUN apt-get update && apt-get install -y --no-install-recommends heaptrack \
+	&& rm -rf /var/lib/apt/lists/*
 
 # fontconfig's cache holds each font folder's mtime to the nanosecond, and the
 # saved image keeps whole seconds, so a cache made during the build reads as

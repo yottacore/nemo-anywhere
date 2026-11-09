@@ -16,6 +16,8 @@
 #include <libnemo-private/nemo-search-engine-advanced.h>
 #include <libnemo-private/nemo-query.h>
 
+#include <eel/eel-analyzer.h>
+
 #include "test-scratch.h"
 
 static gboolean done;
@@ -43,7 +45,9 @@ write_file (const char *dir, const char *name, const char *contents, gssize len)
 	char *path = g_build_filename (dir, name, NULL);
 
 	if (!g_file_set_contents (path, contents, len, NULL)) {
+		EEL_ANALYZER_SKIP ("infinite-loop") // g_error's for (;;) after a fatal g_log
 		g_error ("could not write %s", path);
+		EEL_ANALYZER_END
 	}
 
 	g_free (path);

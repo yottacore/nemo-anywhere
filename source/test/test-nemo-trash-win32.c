@@ -1027,6 +1027,29 @@ plant_earlier_item (void)
 /* meson reports this exit code as SKIP rather than a pass. */
 #define TEST_SKIPPED 77
 
+/* A bad escape names no real path. Matching such an item against another one
+ * read a NULL path, and its parent came from a NULL folder name. */
+static void
+test_bad_escape (void)
+{
+	GFile *bad = g_file_new_for_uri ("trash:///%zz%5Cchild");
+	GFile *other = g_file_new_for_uri ("trash:///C%3A%5Cnemoverify");
+	GFile *parent;
+	char *uri;
+
+	check (!g_file_has_prefix (bad, other));
+	check (!g_file_has_prefix (other, bad));
+
+	parent = g_file_get_parent (bad);
+	uri = parent != NULL ? g_file_get_uri (parent) : NULL;
+	check (g_strcmp0 (uri, "trash:///") == 0);
+
+	g_free (uri);
+	g_clear_object (&parent);
+	g_object_unref (other);
+	g_object_unref (bad);
+}
+
 int
 main (void)
 {
@@ -1047,6 +1070,7 @@ main (void)
 	test_fresh_item_parent ();
 	test_same_count_change_noticed ();
 	test_vanished_item_not_healthy ();
+	test_bad_escape ();
 
 	if (earlier != NULL) {
 		if (!g_file_test (earlier, G_FILE_TEST_IS_REGULAR)) {

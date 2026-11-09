@@ -379,8 +379,12 @@ main (int argc, char *argv[])
 	/* What this release made of its own file is what the app showed then. */
 	back = shcl_parse (text, len);
 	out = fopen (argv[2], "wb");
-	if (back == NULL || out == NULL)
+	if (back == NULL || out == NULL) {
+		shcl_free (back);
+		if (out != NULL)
+			fclose (out);
 		return 1;
+	}
 	for (i = 0; i < N_ENTRIES; i++) {
 		if ((entries[i].how == HAND && !hand) || (bare && left_out (&entries[i])))
 			continue;

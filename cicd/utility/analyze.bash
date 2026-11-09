@@ -5,24 +5,27 @@
 ##	  and the cross build's /build-win, which has the Windows-only files, each
 ##	  read in step containers of their own. Run on the host, after the cross build,
 ##	  so both lists are current.
-##	- Report only for now (backlog 2026102114400584): findings are counted per
-##	  area and kept, and don't fail the run. Vendored findings are listed in
-##	  analyze-vendored.txt, each with why it's safe, and count as suppressed; an
-##	  entry there that matches nothing shows as stale.
-##	- The stage fails when a tracked .c outside source/unused/ is in neither
-##	  list, when one under it is in either, when an analyzer misses the planted
-##	  leak or null dereference, when a run itself fails, or on a malformed entry
-##	  in analyze-vendored.txt.
+##	- Findings are counted per area and kept. Vendored findings are listed in
+##	  analyze-vendored.txt, each with why it's safe, and count as suppressed.
+##	  Ours and inherited ones are suppressed at the line, with EEL_ANALYZER_SKIP.
+##	- The stage fails on any finding left, a system header's included, on an
+##	  entry in analyze-vendored.txt that matches nothing, or is malformed
+##	  (backlog 2026102114400591, test de8en), and on a file not analyzed, such
+##	  as one cut off at the cap (2026110815102912). It also fails when a tracked .c
+##	  outside source/unused/ is in neither list, when one under it is in either,
+##	  when an analyzer misses the planted leak or null dereference, or when a run
+##	  itself fails.
 ##	- The last run's logs are in cicd/artifacts/analyze/last/. Each run also keeps
 ##	  counts_<stamp>.txt and findings_<stamp>.tgz there, GFS-rotated.
-##	- An analyzer missing from its container shows as "not run" in the counts.
-##	  The Linux lane's container is "step", run through docker-run.bash, and
-##	  the Windows lane's "winstep", through win/win-run.bash. The cross-build
-##	  image has no clang yet.
-##	- CICD_MAX_JOBS caps the jobs of all 4 runs together. gcc spends many minutes
-##	  on a few files (the blake3 SIMD ones and nemo-config.c, at -O0), and
-##	  ANALYZE_TU_TIMEOUT (900 s) caps each file; one cut off counts as failed.
-##	  A plain cicd run sets 120 and --long 900, in config.bash.
+##	- Both images carry both analyzers, so one missing from its container fails
+##	  the stage, and shows as "not run" in the counts. The Linux lane's
+##	  container is "step", run through docker-run.bash, and the Windows lane's
+##	  "winstep", through win/win-run.bash.
+##	- CICD_MAX_JOBS caps the jobs of all 4 runs together. ANALYZE_TU_TIMEOUT
+##	  (900 s) caps each file. A plain cicd run sets 120 and --long 900, in
+##	  config.bash. The few files gcc can't finish inside that at the build's
+##	  flags, blake3's SIMD ones and the 2 that build SHCL, are on
+##	  analyze-slow.txt, each with how its lane runs it and what still covers it.
 ##	- --self-test runs analyze.py's own self-test and the planted faults only.
 ##	- Syntax: cicd/utility/analyze.bash [--self-test]
 ##	- Test ID: de8es
@@ -73,7 +76,7 @@ fPlanted(){
 			rc=0; fInLane "${container}" "planted-${a}" python3 "${tool}" planted --tool "${a}" --cc "${cc}" | grep -E '^\[|^### SKIP' || rc="${PIPESTATUS[0]}"
 			case "${rc}" in
 				0)  ;;
-				77) fEcho "${a}-${lane}: not run, no ${a} in ${container}" ;;
+				77) fEcho "FAILED: ${a}-${lane}: not run, no ${a} in ${container}"; failed=1 ;;
 				*)  fEcho "FAILED: ${a}-${lane} missed a planted fault"; failed=1 ;;
 			esac
 		done
@@ -109,13 +112,17 @@ pids=(); names=()
 for l in "${lanes[@]}"; do
 	IFS='|' read -r lane container db cc <<< "${l}"
 	for a in gcc clang; do
-		fInLane "${container}" "${a}" env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-900}" nice -n 19 python3 "${tool}" run --tool "${a}" --db "${db}" --jobs "${each}" > "${last}/${a}-${lane}.log" 2>&1 &
+		fInLane "${container}" "${a}" env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-900}" nice -n 19 python3 "${tool}" run --tool "${a}" --db "${db}" --lane "${lane}" --jobs "${each}" > "${last}/${a}-${lane}.log" 2>&1 &
 		pids+=("$!"); names+=("${a}-${lane}")
 	done
 done
 for i in "${!pids[@]}"; do
 	rc=0; wait "${pids[i]}" || rc=$?
-	[[ "${rc}" == 0 || "${rc}" == 77 ]] || { fEcho "FAILED: ${names[i]} exited ${rc}"; failed=1; }
+	case "${rc}" in
+		0)  ;;
+		77) fEcho "FAILED: ${names[i]}: not run, the analyzer is missing in its container"; failed=1 ;;
+		*)  fEcho "FAILED: ${names[i]} exited ${rc}"; grep -h '^\[ FAILED' "${last}/${names[i]}.log" || true; failed=1 ;;
+	esac
 done
 fEcho "analyzers took $(( SECONDS - t0 )) s"
 
@@ -125,10 +132,16 @@ gfs_rotate "${out}" counts txt   >/dev/null 2>&1 || true
 gfs_rotate "${out}" findings tgz >/dev/null 2>&1 || true
 
 ((failed)) && fDie "analyzer stage"
-fEcho "OK: analyzer stage (report only)"
+fEcho "OK: analyzer stage"
 
 ##	History:
 ##		- 2026-10-21: First version, report only.
 ##		- 2026-10-24: Vendored suppression list.
 ##		- 2026-10-26: The Linux lane runs in step containers, not nemo-build,
 ##		  and the Windows lane in its own, not nemo-winbuild.
+##		- 2026-11-08: The gate goes live: a finding left, or a stale entry,
+##		  fails the stage.
+##		- 2026-11-08: The cross-build image has clang, so the clang-win lane
+##		  runs, and an analyzer missing from either image fails the stage.
+##		- 2026-11-08: analyze-slow.txt for the files gcc can't finish inside the
+##		  cap, and a file cut off fails the stage.

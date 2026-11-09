@@ -442,7 +442,7 @@ render (GtkWidget *widget, int x, int y, int width, int height)
 {
 	cairo_surface_t *surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, width, height);
 	cairo_t *cr = cairo_create (surface);
-	guchar *pixels = g_new (guchar, (gsize) width * height * 4);
+	guchar *pixels = g_new0 (guchar, (gsize) width * height * 4);
 	int stride, row;
 
 	cairo_translate (cr, -x, -y);

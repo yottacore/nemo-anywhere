@@ -25,6 +25,7 @@
 #include "nemo-delete-testguard.h"
 
 #include <glib/gi18n.h>
+#include <eel/eel-analyzer.h>
 #include <eel/eel-stock-dialogs.h>
 
 #include "nemo-delete-guard.h"
@@ -459,7 +460,9 @@ ask (const char *op, char *primary, char *detail)
 		show_dialog (data);
 
 		g_mutex_lock (&data->lock);
+		EEL_ANALYZER_SKIP ("use-after-free") // refs was 2, so show_dialog's unref left data; clang loses refs across the lock calls
 		go_ahead = data->go_ahead;
+		EEL_ANALYZER_END
 		g_mutex_unlock (&data->lock);
 	} else {
 		gint64 deadline = g_get_monotonic_time () + ANSWER_TIMEOUT_USEC;
