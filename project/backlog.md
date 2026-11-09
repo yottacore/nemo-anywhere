@@ -33,139 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Compress dialog: the Reset button's text sits about 8 px below the Advanced label.
-	- ID: 2026110817490431
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261108-174904
-	- Opened by: t00mietum
-	- Related IDs: 2026100516274646
-	- Target OS: Linux, Windows
-	- Steps to reproduce: Open Compress on any file and look at the row with Advanced and Reset.
-	- Incorrect behavior: Reset's text sits about 8 px lower than the Advanced label's, grayed and lit alike (Adwaita, at fdce4acd).
-	- Expected behavior: the two labels share a baseline, within a pixel or two.
-	- Possible cause: Reset is a flat button in an hbox beside the expander, not in its label widget, so the button's padding pushes its text down.
-	- Test case: none yet. dd5dm could compare the two labels' baselines.
-
-- Static analyzers: the vendored suppression list is out of date since SHCL 3.0.0-beta1.
-	- ID: 2026110814550429
-	- Type: Task
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261108-145504
-	- Opened by: t00mietum
-	- Related IDs: 2026102114400586, 2026102114400591, 2026110520234226
-	- Requirements:
-		- `analyze-vendored.txt` matches the vendored findings of a full run again, each with why it's safe, and no entry is stale. The gate in `...591` fails on either.
-	- Notes:
-		- The analyzer run of 20261108 lists the 6 `vendor/shcl/shcl.h` entries as stale, since that file is 3.0.0-beta1 now and has no findings. 7 findings in `vendor/shcl-old/` aren't listed: the dead store and the out-of-bounds read in 1.0.0-beta1, 1.0.0-beta2, 1.0.0-rc1 and 1.1.0, which look like the 1.2.0 ones already listed, and `2.0.0/shcl.h:2217` core.NullDereference.
-	- Estimated effort: Low
-	- Actual effort: Low
-	- Progress log:
-		- 20261108: the 6 `vendor/shcl/shcl.h` entries are gone. SHCL 3.0.0-beta1 has no findings from clang on Linux, nor from gcc on Windows over `nemo-config.c` and `fuzz-shcl.c` run past the cap, at 230 s. The 7 old-release findings are listed: 4 dead stores and 2 out-of-bounds reads like the 1.2.0 ones, and `2.0.0/shcl.h:2217`.
-	- Decisions:
-		- The out-of-bounds read is only in 1.0.0-rc1 and 1.1.0, not in 1.0.0-beta1 and beta2 as the note had it. The list follows the logs.
-		- `2.0.0/shcl.h:2217` is safe, since `group_of` gets an entry only after `names` gets one. Not a bug, so nothing went upstream.
-	- Branch: round1108a
-	- Test case: de8em (the list parses), and de8en (a finding left or a stale entry fails the stage).
-	- Verified: 20261108, `analyze.py count` over the logs of the analyzer run of 20261108: vendored 0 in every lane that ran, 11 suppressed, none stale. Every `shcl-old-writer.c` run at HEAD, in clang-linux, gcc-linux and gcc-win, gives the 11 listed and nothing else.
-		- Unverified: gcc on Linux over the 2 files that build SHCL 3, which it never finishes at `-O0`, and clang on Windows. Both are children of `...591`.
-	- Acceptance signoff: Self-closed: the list matches every vendored finding the lanes that run give, and none is stale.
-	- Closed: 20261108-151107
-
-- README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
-	- ID: 2026101417352264
-	- Type: Task
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261014-173522
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut.
-	- Progress log:
-		- README's Installation section, with its 3 subsections, moved to a new `install.md` at the repo root. "Set up development environment" moved to a new `building.md` beside it. The text moved as it was; only the subsection headings went up a level.
-		- README keeps a short Installation section that links to both. Its TOC lost the moved entries.
-		- Each new file has the markdownlint header, a title and a `Copyright and license` section, in README's GPL v2 form rather than the design docs' CC BY 4.0. install.md has a TOC; building.md is too short for one.
-		- The prose lint's spelling check now covers both files.
-	- Decisions:
-		- Left at signoff for the file names and layout, the README lines that link to them, and the license line on the new files.
-		- 20261108: the names follow the usual INSTALL and BUILDING pair in the docs' lowercase form, and the license line matches README's, which these files came out of. Cheap to change if wanted, so closed.
-	- Swept: nothing in the repo linked to the moved headings. Checked other docs, contributing.md, design.md and its Building section, the installers, the man page, the Windows setup script, `.github/` and the cicd scripts. The pre-push hook and release.bash read README only for the release badge, which stays.
-	- Branch: instdocs
-	- Commit: c5eb2000
-	- Test case: none new, docs only. The lint stage passes, and its prose check now reads install.md and building.md.
-	- Acceptance signoff: Self-closed: README links both files, both pass the markdown check, and the full run at d6c7ae09 passed lint with both in the prose check.
-	- Closed: 20261108-174838
-
-- Settings, List columns: split into two sub-tabs.
-	- ID: 2026110520234231
-	- Type: Enhancement
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261105-202342
-	- Opened by: t00mietum
-	- Related IDs: 2026101405542816
-	- Requirements:
-		- Before the next cut.
-		- Split the List columns tab into two sub-tabs:
-			- Regular list view
-			- Search list view
-	- Progress log:
-		- 20261107: the tab only had the one list, a folder's default columns. Find results keep their own columns, set from the column menu in find mode, but had no list in Settings. So List columns is now a parent tab with 2 sub-tabs, listed under it in the tab list as Behavior's are. Regular list view holds the list it had, unchanged. Search list view holds a new list over the columns find results keep, Hits included, and saves to the same setting the column menu does. Matching the defaults saves nothing, as Use default there does, so later defaults still reach it. Its Use default puts back only the columns, not the sort, as the other list's does. Find results already showing pick a change up on the next search, not at once.
-		- 20261107: Left at signoff for the look of the two sub-tabs.
-	- Swept: every place that reads or writes the find results' columns: the column menu, its Use default, a header drag and the list view's load. All go through the same few calls in nemo-column-utilities.c, which the new list uses too. The column chooser is only built in Settings, so its new search mode touches nothing else. design.md "Search" and the Settings design doc's tab list say so.
-	- Branch: colstabs
-	- Commit: d4e7656
-	- Test case: dd5df, Settings dialog test. It now checks List columns is a stack of 2 sub-tabs titled Regular list view and Search list view, in that order, each holding a column list, that only the search one has Hits, that the search one shows the saved find results' columns, and that clicking each row shows and lights it. It fails before the fix and passes after. dbnfq, Settings widgets test, now lists the new page among those sized.
-	- Acceptance signoff: Self-closed: the two sub-tabs are rows of the same tab list Behavior and Views use, drawn and lit the same way. dd5df and dbnfq passed in the full run at d6c7ae09.
-	- Closed: 20261108-174838
-
-- Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
-	- ID: 2026100516274646
-	- Type: Enhancement
-	- Status: Done
-		- The look of Reset beside Options, now Advanced, went to its own Bug, 2026110817490431.
-	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
-	- Needs external testing: no. dd5dm passed on vm925w with a 560 px work area on 20261102.
-	- Opened: 20261005-162747
-	- Opened by: compression reset split
-	- Parent ID: 2026092910143202
-	- Prereq IDs: 2026100516274386
-	- Target OS: Linux, Windows
-	- Design: [Options expander](design_docs/20260929-101432_compression.md#options-expander) and [Options the writer can't do](design_docs/20260929-101432_compression.md#options-the-writer-cant-do).
-	- Requirements:
-		- Options opens when a remembered choice isn't the default, one the format forced off included.
-		- A button beside Options puts every choice under it back to default, drops the remembered ones from the settings file, and collapses Options. It is disabled when all are at default.
-		- An option the writer can't do is unticked and disabled. That doesn't overwrite the remembered choice, so switching back restores it.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261013-084544: built. Left at signoff for the look, and for these calls:
-			- The button is a flat "Reset" to the right of Options, with Alt+E. It sits a few pixels lower than the Options label, and makes the closed dialog a little taller.
-			- Options opens once the dialog is on screen, the way a click opens it, so it scrolls on a short screen. The dialog shows closed for a moment first.
-			- The password and the delete box count as choices under Options: either one set lights Reset, and Reset clears them. Neither is remembered.
-			- The format and Compress each item separately sit above Options, so Reset leaves them alone.
-			- A password the format can't take shows as none rather than as dots in a grayed field.
-			- Follow nested and other filesystems show off as well as grayed when nothing selected has a folder or link. dd5dm's check that nested stays ticked there is commented out with the reason.
-			- The compression level is a slider, so a format with no levels leaves it where it was, grayed.
-		- 20261016: still at signoff for the look. The Reset button sitting a few pixels below the Options label needs an eye on a real desktop.
-	- Done: the dialog keeps the choices under Options as chosen, and every box shows what the format can do of them, the same way a grayed store choice from 2026100516274386 shows as Ignore. A box the format can't do is unticked and grayed, and comes back with a format that can. What's remembered is what was chosen, so a forced off doesn't overwrite it. Options opens by itself when what's remembered isn't the defaults, a forced off one included. Reset puts everything under Options back, drops the remembered ones from the settings file, and closes Options; it's grayed while everything is at its default. Compress each item separately, grayed for one item, no longer overwrites what was remembered for it either.
-	- Swept: every control under Options goes through the one kept-and-shown path: the 7 boxes, the password, the level, the volume size, the 2 radio groups, the 2 filesystem boxes and the delete box. The dialog's two callers, the view and the test. Saving and loading moved into `nemo-archive-host.c` beside the link choices, which were the only other place the keys were read or written. Reset drops the 2 retired link keys too.
-	- Verified: 20261013, dd5dm and dcwjb went red with each of: no opening by itself, the lock left out of the default check, Symlinks left out of the reset, a forced off box left ticked, a forced off written back over the choice, Options left open after Reset, Reset always lit, the password not counted, and a preset saved with its note. Both pass on Linux and under wine. Full Linux suite 196 of 196, the Windows cross build, lint clean apart from ddagc.
-	- Branch: optreset
-	- Commit: c0a7ede
-	- Test case: dd5dm, Compress dialog height test: closed with Reset grayed at the defaults, Reset lit by a change and by a password alone, Reset clearing them and closing Options, opening by itself for remembered choices with the buttons on screen, Reset dropping them from the settings file, and a remembered lock the format can't do opening Options, shown off and grayed, and back on with rar. dcwjb, Archive settings test, test_choices: the defaults match the settings table, each choice off its default counts, a forced off shows off and leaves the choice, saving keeps it with a preset as its size, and the reset drops every key under Options and nothing else.
-	- Stand-in: 20261025 on vm925w at a61c4f91: dd5dm passes on the real desktop, with a 1392 px work area. Options opened by itself and the 787 px dialog stayed on screen. The lower resolution for a short screen didn't take, so that part is still to run.
-	- 20261031: not run. vm925w-iommu still can't start while vmKt6m holds SPICE port 5900.
-	- 20261028: not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
-	- Verified: 20261102 on vm925w, dd5dm from round1102a at 1aadd7b9 (nothing under Compress changed after it), with the work area cut to 560 px in two ways, 3 runs: each passed, Options got 272 px and scrolled, and the 543 px dialog stayed inside the work area. The screen kept its size, since the dialog sizes itself to the work area and not the screen.
-	- Stand-in: none (20261102). Only the look of Reset beside Options is left, which turns on taste. In Adwaita at fdce4acd its text sits about 8 px below the Options label's, grayed and lit alike, as the 20261013 note says.
-	- Decisions:
-		- 20261108: what was left is a measurable misalignment rather than taste, so it's a Low Bug of its own, 2026110817490431, with a baseline check as its test. Everything the requirements ask for is covered by dd5dm and dcwjb.
-	- Acceptance signoff: Self-closed: dd5dm and dcwjb passed in the full run at d6c7ae09, and dd5dm on vm925w at 1aadd7b9.
-	- Closed: 20261108-174838
-
 - The native gate on b29w sometimes fails on test-nemo-office's leftover folder.
 	- ID: 2026103116203164
 	- Type: Bug
@@ -865,6 +732,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261025: split into children 2026102517333367 (`cicd.bash`, the gate included) and 2026102517333373 (`cicd-win.ps1` and the other boxes).
 	- Test case: none yet.
 
+- The private runner's mac GUI tests fail when another user holds b26's console.
+	- ID: 2026110817502353
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261108-175023
+	- Opened by:
+	- Target OS: macOS
+	- Steps to reproduce: sign in as another user on b26's console, then run the private runner step of a full run.
+	- Incorrect behavior: dd5ca, dd5dk and der9s fail every time, on the clipboard, a tab's width and a drop, and the step fails as if the code broke.
+	- Expected behavior: the step warns that b26's console isn't collierjr's and skips the GUI tests, the way the native Windows lane warns on a locked session, or the tests run in the session that has the console.
+	- Reproduced: 20261108, full run at d6c7ae09 and 1 rerun each, with mactest holding the console since 13:35 b26 time.
+	- Progress log:
+		- Where the fix goes: the private repo's runner, so it's for that repo's round.
+	- Test case: none yet. The runner is in nemo-anywhere-private.
+
 - ddepv on b29w: the heap grew over 64 rounds again.
 	- ID: 2026103116284963
 	- Type: Bug
@@ -888,155 +771,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- No change to the readings until that's known. A fifth showing would only make it rarer, since the failing runs grew in 4 readings in a row, and leaving out the process heap or blocks of that size would hide a real leak there, as 2026101913541101 decided.
 	- Test case: ddepv on b29w over ssh.
 
-- Static analyzers: fix or suppress the findings in our own code.
-	- ID: 2026102114400588
-	- Type: Task
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261021-144005
-	- Opened by: t00mietum
-	- Parent ID: 2026101619020505
-	- Prereq IDs: 2026102114400584
-	- Requirements:
-		- Each finding in a file added since the baseline, tests aside, is fixed, or suppressed at the line with a one-line reason, per the parent.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261108: 21 findings in our files in the analyzer run of 20261108 (gcc-linux 0, gcc-win 6, clang-linux 15), and 3 in GLib headers reached from our files. 9 fixed in the code, 1 of them a real bug, and 12 suppressed with `EEL_ANALYZER_SKIP`, each with its reason on the line. 3 more showed only once the first were gone: clang's leak report moved to the next allocation in `nemo-psd.c`, and the GLib header lines were reached from `nemo-row-hover.c` too.
-	- Decisions:
-		- clang's analyzer doesn't run cleanup functions, so a `g_autofree` or `g_autoptr` allocation looks leaked on every early return. 11 of those are suppressed at the allocation, not at the return, since a suppression at one return moves the report to the next. gcc still checks them.
-		- A value that can't be NULL, where a suppression would only move the finding to the next use, gets a `g_assert` with its reason, as in `...587`.
-		- `nemo_desktop_thumbnail_factory_can_thumbnail` allowed a NULL uri in its first check and then passed it to `strlen`. It now refuses NULL with a critical. No caller passes one, so there's no test.
-		- The PSD reader's row counts are zeroed when allocated, rather than suppressed, since clang can't see that the loop after sets them all. One more memset at load.
-	- Actual fix: the Windows recycle bin backend read a NULL path for an item whose URI holds a bad escape, such as `trash:///%zz`. Its prefix check crashed in `strncmp`, and its parent came from a NULL folder name. Such an item is now below nothing, and its parent is the root.
-	- Swept: the other 3 callers of `uri_to_real_path`, which already check for NULL. Every `g_error` in our files and the tests, of which 3 test ones reach a finding, suppressed in `...589`. The other `g_strdup` of a string past a matched prefix that gcc reads past the literal, in `nemo-row-hover.c`.
-	- Needs external testing: No
-	- Branch: round1108a
-	- Test case: da8rb (the bad escape case: both prefix checks, and the parent). The rest is the gate in 2026102114400591, once live.
-	- Verified: 20261108, the whole analyzer stage over both lists, then the files changed after it again in both lanes: our files have no findings in any lane, and neither do the GLib header lines they reached. The bad escape case fails on the old `nemo-trash-win32.c`, crashing in `strncmp`, and passes on the new, both in the cross build container. The native run is still to do. `cicd.bash --backlog-run-quick` passed, and the cross build compiles every changed file with no warnings.
-	- Verified: 20261108, full run at d6c7ae09: PASS da8rb in the native Windows gate step, the bad escape case included.
-	- Closed: 20261108
-
-- Static analyzers: fix or suppress the findings in the tests and fuzz targets.
-	- ID: 2026102114400589
-	- Type: Task
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261021-144005
-	- Opened by: t00mietum
-	- Parent ID: 2026101619020505
-	- Prereq IDs: 2026102114400584
-	- Requirements:
-		- Each finding under `source/test/` and `source/fuzz/` is fixed, or suppressed at the line with a one-line reason, per the parent.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261108: 31 findings in the analyzer run of 20261108, and 1 in a GLib header, `g_error`'s loop, reached from the tests. 25 fixed in the code and 6 suppressed with `EEL_ANALYZER_SKIP`, each with its reason on the line. 4 more showed once the first were gone: the `g_error` loop from 3 other places in 2 test files, and a file descriptor left open by the first fix in `test-nemo-fence.c`.
-	- Decisions:
-		- The two deliberate crashes in `test-nemo-crash.c` are suppressed, since crashing is what those cases test.
-		- A test that can't go on without a value, such as a canvas item or a list, asserts it rather than checking it and then reading it anyway.
-		- `fuzz-main.c` seeks back to the start with `fseek` instead of `rewind`, which can't report a failure.
-		- `shcl-old-writer.c` frees the parsed document and closes the file on its early exit.
-	- Swept: `g_autofree` and `g_strdup` cases as in `...588`.
-	- Branch: round1108a
-	- Test case: the gate in 2026102114400591, once live. No real bug in the app here, so no new test.
-	- Verified: 20261108, the whole analyzer stage over both lists, then the files changed after it again in both lanes: no findings under `source/test/` or `source/fuzz/` in any lane. `cicd.bash --backlog-run-quick` passed, and the cross build compiles the changed win32 tests with no warnings.
-	- Acceptance signoff: Self-closed: no finding left in the tests and fuzz targets in any lane.
-	- Closed: 20261108-145536
-
-- Static analyzers: the gate goes live.
-	- ID: 2026102114400591
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: No
-	- Priority|Severity: Avg
-	- Opened: 20261021-144005
-	- Opened by: t00mietum
-	- Parent ID: 2026101619020505
-	- Prereq IDs: 2026102114400584, 2026102114400586, 2026102114400587, 2026102114400588, 2026102114400589, 2026102408163141, 2026110814550429
-		- `...0429` first too, since its stale `shcl.h` entries would fail the gate.
-		- `...163141` first, since until then the `shcl-old/2.0.0` suppressions read as stale and would fail the gate.
-	- Requirements:
-		- Any finding that isn't suppressed fails the stage, per the parent. No baseline file.
-		- A suppression that no longer matches a finding fails too, so the list can't go stale.
-		- clang runs over the Windows list too. `nemo-winbuild`'s image gets clang 19, pinned.
-		- gcc analyzes every file on the Linux list inside the cap. 3 hit the 900 s cap at `-O0` (see `...584`).
-		- It moves behind a flag only if a full run shows it's too slow.
-	- Estimated effort: Low
-	- Progress log:
-		- 20261108: `analyze.py count` fails on any finding left, a system header's included, and on a stale entry, and the stage fails with it. A file cut off at the cap still shows as not analyzed, without failing.
-		- 20261108: split off `2026110815102895` (clang over the Windows list), Done, and `2026110815102912` (gcc inside the cap), Waiting on automated testing.
-	- Decisions:
-		- A finding in a system header fails too. It's suppressed at the caller's line, since it counts toward its callers, per the parent.
-		- A file cut off doesn't fail the stage yet, since a plain run cuts off 7 today. `...912` makes it fail.
-		- `count` takes `--supp <list>`, so the test needs no copy of the repo.
-	- Swept: the callers of `count` (`cmd_count` and 4 in the self-test), the stage's call of `count` in `analyze.bash`, and the "report only" text in `analyze.bash`, `config.bash` and `cicd.bash`. design.md never said report only.
-	- Branch: round1108a
-	- Test case: de8en (`test-analyze-gate.bash`, lint stage: a planted finding in our code, in a system header, and in gcc's `-Werror` form each fail, and so does a stale entry. A listed finding alone passes). de8em for `count` itself.
-	- Verified: 20261108, de8en fails with `count`'s old exit (4 cases), with a stale entry passing (1), and with findings left uncollected (6), and passes as committed. de8em and de8es pass. Over the analyzer run of 20261108, `count` exits 1 on the 4 findings that 6096a887 fixed after it, and the files that reached them, rerun at HEAD in their lanes, give none.
-	- Verified: 20261108, full run at d6c7ae09: the live analyzer gate passed on the whole tree, 0 findings left in all 4 lanes, 18 suppressed, none stale, and de8en passed in the native Windows gate's lints too.
-	- Closed: 20261108
-
-- Static analyzers: clang over the Windows list.
-	- ID: 2026110815102895
-	- Type: Enhancement
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261108-151028
-	- Opened by: 2026102114400591
-	- Parent ID: 2026102114400591
-	- Requirements:
-		- The cross-build image (`NEMO_WIN_IMAGE`) gets clang 19, pinned, so the clang-win lane runs.
-		- Each finding it shows is fixed, or suppressed per the parent. Inherited lines inside `G_OS_WIN32` blocks get their first clang look here.
-		- The planted faults in de8es are found in that lane too.
-	- Estimated effort: Avg
-	- Actual effort: Low
-	- Progress log:
-		- 20261108: `cicd/win/Dockerfile` installs `clang-19` (19.1.7) from the same snapshot, in a layer of its own after the sysroot. The image is `nemo-winbuild:bef581656714`, 5.7 GB, up from 5.35.
-		- 20261108: the first clang-win run over the 476 Windows runs gave 6 findings, none vendored: 2 dead stores and a null dereference in `G_OS_WIN32` code, and 2 dead stores and an `fputs` of a second `getenv` in the Windows tests. All 6 are fixed rather than suppressed. The 7 vendored entries already listed match here too.
-		- 20261108: an analyzer missing from either image fails the stage and de8es now, rather than showing as not run.
-	- Decisions:
-		- `clang-19` by name, so the major can't move with trixie's `clang`, and the snapshot pins the rest.
-		- Its own layer after the sysroot, so a box with the old layers cached builds only that one.
-		- A missing analyzer fails, since both images carry both now, and a lane that quietly stops running hides every finding it would have shown.
-		- The null dereference in `query_info_callback` came from the Windows block testing `error != NULL`, which GIO already promises when the info is NULL. The test is gone, rather than suppressed.
-	- Swept: the other `getenv` pairs in `test-fake-tool.c` (`NEMO_FAKE_TOOL_EXIT` read once now too), the `place` and `place_tool` callers in both Windows tests, and every "no clang" note under `cicd/`.
-	- Branch: round1108a
-	- Test case: de8es (the planted faults, clang-win lane), and de8en for the gate.
-	- Verified: 20261108, de8es finds both planted faults in all 4 lanes, and fails from the old image with "clang-win: not run". Over all 4 lanes at the change, `analyze.py count` exits 0, with only the files cut off at the 2 min cap left as not analyzed. The cross build with `-Werror` and `cicd/cicd.bash --backlog-run-quick` passed (241 OK, 1 skipped), de8en, de8em and depf5 included.
-	- Acceptance signoff: Self-closed: the clang-win lane runs and is clean, and de8es pins it.
-	- Closed: 20261108-154221
-
-- Static analyzers: gcc analyzes every file inside the cap.
-	- ID: 2026110815102912
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: No
-	- Priority|Severity: Avg
-	- Opened: 20261108-151029
-	- Opened by: 2026102114400591
-	- Parent ID: 2026102114400591
-	- Requirements:
-		- gcc analyzes every file on both lists inside the cap, and then a file cut off fails the stage.
-		- At the plain run's 120 s cap, gcc-linux cuts off `nemo-config.c`, `fuzz-shcl.c` and blake3's AVX2, SSE2 and SSE4.1 files, and gcc-win `nemo-config.c` and `fuzz-shcl.c`. The 2 that build SHCL took about 190 and 200 s on the Windows list on 20261108, since SHCL 3.0.0-beta1, and gcc never sees SHCL 3 in a plain run.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261108: `cicd/utility/analyze-slow.txt` names the files gcc can't finish at their build's flags, how its lane runs each, and what still covers it. gcc-linux analyzes blake3's 3 SIMD files at `-O1`, about 5 s each. gcc-win gives the 2 that build SHCL 8 min and starts them first; they took 155 and 177 s. gcc-linux skips those 2. `count` fails on any file not analyzed.
-	- Decisions:
-		- `-O1` for blake3 in gcc-linux, not a skip, so gcc still reads them there. gcc-win runs them at the build's `-O3`.
-		- gcc-linux skips the 2 SHCL files, which departs from "every file on both lists". At `-O0`, `-Og`, `-O1` and `-O2` each took over 230 s there. gcc-win reads the same SHCL code, and clang reads it in both lanes, the POSIX branches included.
-		- Not a smaller analyzer budget (`analyzer-max-enodes-per-program-point`, `analyzer-bb-explosion-factor`). At 2 nodes a point `fuzz-shcl.c` fit, but gcc gave up on 6076 paths as too complex, and `nemo-config.c` still didn't finish at 1.
-		- A file that didn't compile fails too, since it wasn't analyzed either.
-		- An entry naming a file not in its lane's compile list fails the run, so a rename can't leave it stale. Whether an entry is still needed isn't checked, so a vendor bump gets them timed again.
-		- The listed cap is a floor. `--long`'s 15 min, or `ANALYZE_TU_TIMEOUT` by hand, still wins when longer.
-	- Swept: the callers of `parse_log`, `count` and `run_one`, the "doesn't fail yet" text in `analyze.bash` and `config.bash`, and design.md's run lengths line.
-	- Branch: round1108a
-	- Test case: de8en (a file cut off fails, one the slow list skips passes) and de8em (the list parses, cut-off and skipped runs counted apart, the repo's list has no bad line). The full run's analyzer stage with no "not analyzed" line.
-	- Verified: 20261108, de8en fails on the old `analyze.py` (2 cases) and passes on the new, and de8em passes. gcc-linux's `run` over the 5 listed files and 3 others analyzes the blake3 files in seconds and skips the SHCL 2, and an entry for a file missing from the compile list fails it. gcc-win's `run` at a 120 s cap finishes both SHCL files, under their listed 8 min, in 176 s. `cicd/cicd.bash --backlog-run-quick` passed.
-	- Verified: 20261108, full run at d6c7ae09: the analyzer stage passed in 430 s with no file cut off, and gcc-linux skipped only the 2 listed SHCL files.
-	- Closed: 20261108
-
 - Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
 	- ID: 2026102114400592
 	- Type: Enhancement
@@ -1051,36 +785,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Each is pinned, in a container, and fails on a planted leak and null dereference first.
 	- Estimated effort: High
 	- Test case: de8ep (CodeQL) and de8eq (cross-file clang), each with a planted fault.
-
-- Heap growth soak test under `--leakcheck`.
-	- ID: 2026102114400593
-	- Type: Enhancement
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261021-144005
-	- Opened by: t00mietum
-	- Parent ID: 2026101619020505
-	- Prereq IDs: 2026101911105600
-	- Requirements:
-		- The parent's heaptrack soak test, on a plain build, with its report kept with the run's artifacts.
-		- heaptrack goes in the image, pinned. It isn't in `nemo-build` since that container was remade.
-		- It fails on a planted loop that grows the heap first.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Progress log:
-		- 20261108: real runs grew 57 to 192 KB from round 12 to 24, and 74 KB from round 30 to 60, so the growth is caches filling, not a leak a round.
-	- Decisions:
-		- The pass or fail comes from glibc's heap count, read inside the program after round N and 2N, each the least of 6 readings half a second apart. heaptrack's data has no round marks to read the heap at, so it gives the report of where the memory went.
-		- N is 12 and the margin 384 KB, about twice the most a real run grew. A smaller leak a round is the leak cases' to find. The step takes about 2.3 min, the planted run included.
-		- The planted run keeps 96 KB a round, and has to go over the margin before the real run counts.
-		- Its own step, after the static analyzers, whenever the leak checks are on: a plain run, `--long`, `--merge-gate`, `--backlog-run-full`, and `--quick --leakcheck`.
-		- heaptrack 1.5.0 comes from the dev image's dated snapshot, in a layer of its own.
-	- Branch: round1108a
-	- Commit: c3a4e8fd
-	- Test case: de8er (`cicd/utility/heap-soak.bash`, the Heap soak step), with its planted heap growth. de54r covers when the step runs.
-	- Verified: 20261108, de8er passes in the dev image: the planted run grew 1.27 MB, over the margin, and the real run 57 KB. With a margin of 1000 bytes the real run fails. de54r passes, and fails with the step run whatever the leak checks say. Quick gate passed (241 OK, 1 skipped).
-	- Swept: the other places `leakcheck` is read in `cicd.bash`, the plan and its preflight line. `--help` already named the soak. No other step reads it yet; 2026102114400592 will.
-	- Closed: 20261108-165419
 
 - Settings: search.
 	- ID: 2026101417352263
@@ -1249,6 +953,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: tooltips moved to the settings design doc.
 		- 20261020: the xattrs checkbox is today's "Save checksums onto the files", moved and relabeled.
 	- Test case: none yet.
+
+- Compress dialog: the Reset button's text sits about 8 px below the Advanced label.
+	- ID: 2026110817490431
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261108-174904
+	- Opened by: t00mietum
+	- Related IDs: 2026100516274646
+	- Target OS: Linux, Windows
+	- Steps to reproduce: Open Compress on any file and look at the row with Advanced and Reset.
+	- Incorrect behavior: Reset's text sits about 8 px lower than the Advanced label's, grayed and lit alike (Adwaita, at fdce4acd).
+	- Expected behavior: the two labels share a baseline, within a pixel or two.
+	- Possible cause: Reset is a flat button in an hbox beside the expander, not in its label widget, so the button's padding pushes its text down.
+	- Test case: none yet. dd5dm could compare the two labels' baselines.
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
@@ -5269,6 +4988,258 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de025, Folder open time test. Goes into 9 folders of 120 from the list view, and back up after each. 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
 	- Acceptance signoff: Self-closed: de025 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
+
+- Static analyzers: the vendored suppression list is out of date since SHCL 3.0.0-beta1.
+	- ID: 2026110814550429
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261108-145504
+	- Opened by: t00mietum
+	- Related IDs: 2026102114400586, 2026102114400591, 2026110520234226
+	- Requirements:
+		- `analyze-vendored.txt` matches the vendored findings of a full run again, each with why it's safe, and no entry is stale. The gate in `...591` fails on either.
+	- Notes:
+		- The analyzer run of 20261108 lists the 6 `vendor/shcl/shcl.h` entries as stale, since that file is 3.0.0-beta1 now and has no findings. 7 findings in `vendor/shcl-old/` aren't listed: the dead store and the out-of-bounds read in 1.0.0-beta1, 1.0.0-beta2, 1.0.0-rc1 and 1.1.0, which look like the 1.2.0 ones already listed, and `2.0.0/shcl.h:2217` core.NullDereference.
+	- Estimated effort: Low
+	- Actual effort: Low
+	- Progress log:
+		- 20261108: the 6 `vendor/shcl/shcl.h` entries are gone. SHCL 3.0.0-beta1 has no findings from clang on Linux, nor from gcc on Windows over `nemo-config.c` and `fuzz-shcl.c` run past the cap, at 230 s. The 7 old-release findings are listed: 4 dead stores and 2 out-of-bounds reads like the 1.2.0 ones, and `2.0.0/shcl.h:2217`.
+	- Decisions:
+		- The out-of-bounds read is only in 1.0.0-rc1 and 1.1.0, not in 1.0.0-beta1 and beta2 as the note had it. The list follows the logs.
+		- `2.0.0/shcl.h:2217` is safe, since `group_of` gets an entry only after `names` gets one. Not a bug, so nothing went upstream.
+	- Branch: round1108a
+	- Test case: de8em (the list parses), and de8en (a finding left or a stale entry fails the stage).
+	- Verified: 20261108, `analyze.py count` over the logs of the analyzer run of 20261108: vendored 0 in every lane that ran, 11 suppressed, none stale. Every `shcl-old-writer.c` run at HEAD, in clang-linux, gcc-linux and gcc-win, gives the 11 listed and nothing else.
+		- Unverified: gcc on Linux over the 2 files that build SHCL 3, which it never finishes at `-O0`, and clang on Windows. Both are children of `...591`.
+	- Acceptance signoff: Self-closed: the list matches every vendored finding the lanes that run give, and none is stale.
+	- Closed: 20261108-151107
+
+- README.md: move installation instructions, including development, to one or more .mds, and link to it/them.
+	- ID: 2026101417352264
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261014-173522
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+	- Progress log:
+		- README's Installation section, with its 3 subsections, moved to a new `install.md` at the repo root. "Set up development environment" moved to a new `building.md` beside it. The text moved as it was; only the subsection headings went up a level.
+		- README keeps a short Installation section that links to both. Its TOC lost the moved entries.
+		- Each new file has the markdownlint header, a title and a `Copyright and license` section, in README's GPL v2 form rather than the design docs' CC BY 4.0. install.md has a TOC; building.md is too short for one.
+		- The prose lint's spelling check now covers both files.
+	- Decisions:
+		- Left at signoff for the file names and layout, the README lines that link to them, and the license line on the new files.
+		- 20261108: the names follow the usual INSTALL and BUILDING pair in the docs' lowercase form, and the license line matches README's, which these files came out of. Cheap to change if wanted, so closed.
+	- Swept: nothing in the repo linked to the moved headings. Checked other docs, contributing.md, design.md and its Building section, the installers, the man page, the Windows setup script, `.github/` and the cicd scripts. The pre-push hook and release.bash read README only for the release badge, which stays.
+	- Branch: instdocs
+	- Commit: c5eb2000
+	- Test case: none new, docs only. The lint stage passes, and its prose check now reads install.md and building.md.
+	- Acceptance signoff: Self-closed: README links both files, both pass the markdown check, and the full run at d6c7ae09 passed lint with both in the prose check.
+	- Closed: 20261108-174838
+
+- Settings, List columns: split into two sub-tabs.
+	- ID: 2026110520234231
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261105-202342
+	- Opened by: t00mietum
+	- Related IDs: 2026101405542816
+	- Requirements:
+		- Before the next cut.
+		- Split the List columns tab into two sub-tabs:
+			- Regular list view
+			- Search list view
+	- Progress log:
+		- 20261107: the tab only had the one list, a folder's default columns. Find results keep their own columns, set from the column menu in find mode, but had no list in Settings. So List columns is now a parent tab with 2 sub-tabs, listed under it in the tab list as Behavior's are. Regular list view holds the list it had, unchanged. Search list view holds a new list over the columns find results keep, Hits included, and saves to the same setting the column menu does. Matching the defaults saves nothing, as Use default there does, so later defaults still reach it. Its Use default puts back only the columns, not the sort, as the other list's does. Find results already showing pick a change up on the next search, not at once.
+		- 20261107: Left at signoff for the look of the two sub-tabs.
+	- Swept: every place that reads or writes the find results' columns: the column menu, its Use default, a header drag and the list view's load. All go through the same few calls in nemo-column-utilities.c, which the new list uses too. The column chooser is only built in Settings, so its new search mode touches nothing else. design.md "Search" and the Settings design doc's tab list say so.
+	- Branch: colstabs
+	- Commit: d4e7656
+	- Test case: dd5df, Settings dialog test. It now checks List columns is a stack of 2 sub-tabs titled Regular list view and Search list view, in that order, each holding a column list, that only the search one has Hits, that the search one shows the saved find results' columns, and that clicking each row shows and lights it. It fails before the fix and passes after. dbnfq, Settings widgets test, now lists the new page among those sized.
+	- Acceptance signoff: Self-closed: the two sub-tabs are rows of the same tab list Behavior and Views use, drawn and lit the same way. dd5df and dbnfq passed in the full run at d6c7ae09.
+	- Closed: 20261108-174838
+
+- Static analyzers: fix or suppress the findings in our own code.
+	- ID: 2026102114400588
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026102114400584
+	- Requirements:
+		- Each finding in a file added since the baseline, tests aside, is fixed, or suppressed at the line with a one-line reason, per the parent.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261108: 21 findings in our files in the analyzer run of 20261108 (gcc-linux 0, gcc-win 6, clang-linux 15), and 3 in GLib headers reached from our files. 9 fixed in the code, 1 of them a real bug, and 12 suppressed with `EEL_ANALYZER_SKIP`, each with its reason on the line. 3 more showed only once the first were gone: clang's leak report moved to the next allocation in `nemo-psd.c`, and the GLib header lines were reached from `nemo-row-hover.c` too.
+	- Decisions:
+		- clang's analyzer doesn't run cleanup functions, so a `g_autofree` or `g_autoptr` allocation looks leaked on every early return. 11 of those are suppressed at the allocation, not at the return, since a suppression at one return moves the report to the next. gcc still checks them.
+		- A value that can't be NULL, where a suppression would only move the finding to the next use, gets a `g_assert` with its reason, as in `...587`.
+		- `nemo_desktop_thumbnail_factory_can_thumbnail` allowed a NULL uri in its first check and then passed it to `strlen`. It now refuses NULL with a critical. No caller passes one, so there's no test.
+		- The PSD reader's row counts are zeroed when allocated, rather than suppressed, since clang can't see that the loop after sets them all. One more memset at load.
+	- Actual fix: the Windows recycle bin backend read a NULL path for an item whose URI holds a bad escape, such as `trash:///%zz`. Its prefix check crashed in `strncmp`, and its parent came from a NULL folder name. Such an item is now below nothing, and its parent is the root.
+	- Swept: the other 3 callers of `uri_to_real_path`, which already check for NULL. Every `g_error` in our files and the tests, of which 3 test ones reach a finding, suppressed in `...589`. The other `g_strdup` of a string past a matched prefix that gcc reads past the literal, in `nemo-row-hover.c`.
+	- Needs external testing: No
+	- Branch: round1108a
+	- Test case: da8rb (the bad escape case: both prefix checks, and the parent). The rest is the gate in 2026102114400591, once live.
+	- Verified: 20261108, the whole analyzer stage over both lists, then the files changed after it again in both lanes: our files have no findings in any lane, and neither do the GLib header lines they reached. The bad escape case fails on the old `nemo-trash-win32.c`, crashing in `strncmp`, and passes on the new, both in the cross build container. The native run is still to do. `cicd.bash --backlog-run-quick` passed, and the cross build compiles every changed file with no warnings.
+	- Verified: 20261108, full run at d6c7ae09: PASS da8rb in the native Windows gate step, the bad escape case included.
+	- Closed: 20261108
+
+- Static analyzers: fix or suppress the findings in the tests and fuzz targets.
+	- ID: 2026102114400589
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026102114400584
+	- Requirements:
+		- Each finding under `source/test/` and `source/fuzz/` is fixed, or suppressed at the line with a one-line reason, per the parent.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261108: 31 findings in the analyzer run of 20261108, and 1 in a GLib header, `g_error`'s loop, reached from the tests. 25 fixed in the code and 6 suppressed with `EEL_ANALYZER_SKIP`, each with its reason on the line. 4 more showed once the first were gone: the `g_error` loop from 3 other places in 2 test files, and a file descriptor left open by the first fix in `test-nemo-fence.c`.
+	- Decisions:
+		- The two deliberate crashes in `test-nemo-crash.c` are suppressed, since crashing is what those cases test.
+		- A test that can't go on without a value, such as a canvas item or a list, asserts it rather than checking it and then reading it anyway.
+		- `fuzz-main.c` seeks back to the start with `fseek` instead of `rewind`, which can't report a failure.
+		- `shcl-old-writer.c` frees the parsed document and closes the file on its early exit.
+	- Swept: `g_autofree` and `g_strdup` cases as in `...588`.
+	- Branch: round1108a
+	- Test case: the gate in 2026102114400591, once live. No real bug in the app here, so no new test.
+	- Verified: 20261108, the whole analyzer stage over both lists, then the files changed after it again in both lanes: no findings under `source/test/` or `source/fuzz/` in any lane. `cicd.bash --backlog-run-quick` passed, and the cross build compiles the changed win32 tests with no warnings.
+	- Acceptance signoff: Self-closed: no finding left in the tests and fuzz targets in any lane.
+	- Closed: 20261108-145536
+
+- Static analyzers: the gate goes live.
+	- ID: 2026102114400591
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: No
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026102114400584, 2026102114400586, 2026102114400587, 2026102114400588, 2026102114400589, 2026102408163141, 2026110814550429
+		- `...0429` first too, since its stale `shcl.h` entries would fail the gate.
+		- `...163141` first, since until then the `shcl-old/2.0.0` suppressions read as stale and would fail the gate.
+	- Requirements:
+		- Any finding that isn't suppressed fails the stage, per the parent. No baseline file.
+		- A suppression that no longer matches a finding fails too, so the list can't go stale.
+		- clang runs over the Windows list too. `nemo-winbuild`'s image gets clang 19, pinned.
+		- gcc analyzes every file on the Linux list inside the cap. 3 hit the 900 s cap at `-O0` (see `...584`).
+		- It moves behind a flag only if a full run shows it's too slow.
+	- Estimated effort: Low
+	- Progress log:
+		- 20261108: `analyze.py count` fails on any finding left, a system header's included, and on a stale entry, and the stage fails with it. A file cut off at the cap still shows as not analyzed, without failing.
+		- 20261108: split off `2026110815102895` (clang over the Windows list), Done, and `2026110815102912` (gcc inside the cap), Waiting on automated testing.
+	- Decisions:
+		- A finding in a system header fails too. It's suppressed at the caller's line, since it counts toward its callers, per the parent.
+		- A file cut off doesn't fail the stage yet, since a plain run cuts off 7 today. `...912` makes it fail.
+		- `count` takes `--supp <list>`, so the test needs no copy of the repo.
+	- Swept: the callers of `count` (`cmd_count` and 4 in the self-test), the stage's call of `count` in `analyze.bash`, and the "report only" text in `analyze.bash`, `config.bash` and `cicd.bash`. design.md never said report only.
+	- Branch: round1108a
+	- Test case: de8en (`test-analyze-gate.bash`, lint stage: a planted finding in our code, in a system header, and in gcc's `-Werror` form each fail, and so does a stale entry. A listed finding alone passes). de8em for `count` itself.
+	- Verified: 20261108, de8en fails with `count`'s old exit (4 cases), with a stale entry passing (1), and with findings left uncollected (6), and passes as committed. de8em and de8es pass. Over the analyzer run of 20261108, `count` exits 1 on the 4 findings that 6096a887 fixed after it, and the files that reached them, rerun at HEAD in their lanes, give none.
+	- Verified: 20261108, full run at d6c7ae09: the live analyzer gate passed on the whole tree, 0 findings left in all 4 lanes, 18 suppressed, none stale, and de8en passed in the native Windows gate's lints too.
+	- Closed: 20261108
+
+- Static analyzers: clang over the Windows list.
+	- ID: 2026110815102895
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261108-151028
+	- Opened by: 2026102114400591
+	- Parent ID: 2026102114400591
+	- Requirements:
+		- The cross-build image (`NEMO_WIN_IMAGE`) gets clang 19, pinned, so the clang-win lane runs.
+		- Each finding it shows is fixed, or suppressed per the parent. Inherited lines inside `G_OS_WIN32` blocks get their first clang look here.
+		- The planted faults in de8es are found in that lane too.
+	- Estimated effort: Avg
+	- Actual effort: Low
+	- Progress log:
+		- 20261108: `cicd/win/Dockerfile` installs `clang-19` (19.1.7) from the same snapshot, in a layer of its own after the sysroot. The image is `nemo-winbuild:bef581656714`, 5.7 GB, up from 5.35.
+		- 20261108: the first clang-win run over the 476 Windows runs gave 6 findings, none vendored: 2 dead stores and a null dereference in `G_OS_WIN32` code, and 2 dead stores and an `fputs` of a second `getenv` in the Windows tests. All 6 are fixed rather than suppressed. The 7 vendored entries already listed match here too.
+		- 20261108: an analyzer missing from either image fails the stage and de8es now, rather than showing as not run.
+	- Decisions:
+		- `clang-19` by name, so the major can't move with trixie's `clang`, and the snapshot pins the rest.
+		- Its own layer after the sysroot, so a box with the old layers cached builds only that one.
+		- A missing analyzer fails, since both images carry both now, and a lane that quietly stops running hides every finding it would have shown.
+		- The null dereference in `query_info_callback` came from the Windows block testing `error != NULL`, which GIO already promises when the info is NULL. The test is gone, rather than suppressed.
+	- Swept: the other `getenv` pairs in `test-fake-tool.c` (`NEMO_FAKE_TOOL_EXIT` read once now too), the `place` and `place_tool` callers in both Windows tests, and every "no clang" note under `cicd/`.
+	- Branch: round1108a
+	- Test case: de8es (the planted faults, clang-win lane), and de8en for the gate.
+	- Verified: 20261108, de8es finds both planted faults in all 4 lanes, and fails from the old image with "clang-win: not run". Over all 4 lanes at the change, `analyze.py count` exits 0, with only the files cut off at the 2 min cap left as not analyzed. The cross build with `-Werror` and `cicd/cicd.bash --backlog-run-quick` passed (241 OK, 1 skipped), de8en, de8em and depf5 included.
+	- Acceptance signoff: Self-closed: the clang-win lane runs and is clean, and de8es pins it.
+	- Closed: 20261108-154221
+
+- Static analyzers: gcc analyzes every file inside the cap.
+	- ID: 2026110815102912
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: No
+	- Priority|Severity: Avg
+	- Opened: 20261108-151029
+	- Opened by: 2026102114400591
+	- Parent ID: 2026102114400591
+	- Requirements:
+		- gcc analyzes every file on both lists inside the cap, and then a file cut off fails the stage.
+		- At the plain run's 120 s cap, gcc-linux cuts off `nemo-config.c`, `fuzz-shcl.c` and blake3's AVX2, SSE2 and SSE4.1 files, and gcc-win `nemo-config.c` and `fuzz-shcl.c`. The 2 that build SHCL took about 190 and 200 s on the Windows list on 20261108, since SHCL 3.0.0-beta1, and gcc never sees SHCL 3 in a plain run.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261108: `cicd/utility/analyze-slow.txt` names the files gcc can't finish at their build's flags, how its lane runs each, and what still covers it. gcc-linux analyzes blake3's 3 SIMD files at `-O1`, about 5 s each. gcc-win gives the 2 that build SHCL 8 min and starts them first; they took 155 and 177 s. gcc-linux skips those 2. `count` fails on any file not analyzed.
+	- Decisions:
+		- `-O1` for blake3 in gcc-linux, not a skip, so gcc still reads them there. gcc-win runs them at the build's `-O3`.
+		- gcc-linux skips the 2 SHCL files, which departs from "every file on both lists". At `-O0`, `-Og`, `-O1` and `-O2` each took over 230 s there. gcc-win reads the same SHCL code, and clang reads it in both lanes, the POSIX branches included.
+		- Not a smaller analyzer budget (`analyzer-max-enodes-per-program-point`, `analyzer-bb-explosion-factor`). At 2 nodes a point `fuzz-shcl.c` fit, but gcc gave up on 6076 paths as too complex, and `nemo-config.c` still didn't finish at 1.
+		- A file that didn't compile fails too, since it wasn't analyzed either.
+		- An entry naming a file not in its lane's compile list fails the run, so a rename can't leave it stale. Whether an entry is still needed isn't checked, so a vendor bump gets them timed again.
+		- The listed cap is a floor. `--long`'s 15 min, or `ANALYZE_TU_TIMEOUT` by hand, still wins when longer.
+	- Swept: the callers of `parse_log`, `count` and `run_one`, the "doesn't fail yet" text in `analyze.bash` and `config.bash`, and design.md's run lengths line.
+	- Branch: round1108a
+	- Test case: de8en (a file cut off fails, one the slow list skips passes) and de8em (the list parses, cut-off and skipped runs counted apart, the repo's list has no bad line). The full run's analyzer stage with no "not analyzed" line.
+	- Verified: 20261108, de8en fails on the old `analyze.py` (2 cases) and passes on the new, and de8em passes. gcc-linux's `run` over the 5 listed files and 3 others analyzes the blake3 files in seconds and skips the SHCL 2, and an entry for a file missing from the compile list fails it. gcc-win's `run` at a 120 s cap finishes both SHCL files, under their listed 8 min, in 176 s. `cicd/cicd.bash --backlog-run-quick` passed.
+	- Verified: 20261108, full run at d6c7ae09: the analyzer stage passed in 430 s with no file cut off, and gcc-linux skipped only the 2 listed SHCL files.
+	- Closed: 20261108
+
+- Heap growth soak test under `--leakcheck`.
+	- ID: 2026102114400593
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026101911105600
+	- Requirements:
+		- The parent's heaptrack soak test, on a plain build, with its report kept with the run's artifacts.
+		- heaptrack goes in the image, pinned. It isn't in `nemo-build` since that container was remade.
+		- It fails on a planted loop that grows the heap first.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261108: real runs grew 57 to 192 KB from round 12 to 24, and 74 KB from round 30 to 60, so the growth is caches filling, not a leak a round.
+	- Decisions:
+		- The pass or fail comes from glibc's heap count, read inside the program after round N and 2N, each the least of 6 readings half a second apart. heaptrack's data has no round marks to read the heap at, so it gives the report of where the memory went.
+		- N is 12 and the margin 384 KB, about twice the most a real run grew. A smaller leak a round is the leak cases' to find. The step takes about 2.3 min, the planted run included.
+		- The planted run keeps 96 KB a round, and has to go over the margin before the real run counts.
+		- Its own step, after the static analyzers, whenever the leak checks are on: a plain run, `--long`, `--merge-gate`, `--backlog-run-full`, and `--quick --leakcheck`.
+		- heaptrack 1.5.0 comes from the dev image's dated snapshot, in a layer of its own.
+	- Branch: round1108a
+	- Commit: c3a4e8fd
+	- Test case: de8er (`cicd/utility/heap-soak.bash`, the Heap soak step), with its planted heap growth. de54r covers when the step runs.
+	- Verified: 20261108, de8er passes in the dev image: the planted run grew 1.27 MB, over the margin, and the real run 57 KB. With a margin of 1000 bytes the real run fails. de54r passes, and fails with the step run whatever the leak checks say. Quick gate passed (241 OK, 1 skipped).
+	- Swept: the other places `leakcheck` is read in `cicd.bash`, the plan and its preflight line. `--help` already named the soak. No other step reads it yet; 2026102114400592 will.
+	- Closed: 20261108-165419
 
 - Tree view: the horizontal scroll keeps the selected folders and their first-level children in view.
 	- ID: 2026102018234902
@@ -10439,6 +10410,51 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: ef05a4f
 	- Test case: ddeqt Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one didn't end in 100 s. After, both take 0.01 s. ddetk Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
 	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
+
+- Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
+	- ID: 2026100516274646
+	- Type: Enhancement
+	- Status: Done
+		- The look of Reset beside Options, now Advanced, went to its own Bug, 2026110817490431.
+	- Needs local test suite run?: no. The full Linux suite passed on the branch, 196 of 196.
+	- Needs external testing: no. dd5dm passed on vm925w with a 560 px work area on 20261102.
+	- Opened: 20261005-162747
+	- Opened by: compression reset split
+	- Parent ID: 2026092910143202
+	- Prereq IDs: 2026100516274386
+	- Target OS: Linux, Windows
+	- Design: [Options expander](design_docs/20260929-101432_compression.md#options-expander) and [Options the writer can't do](design_docs/20260929-101432_compression.md#options-the-writer-cant-do).
+	- Requirements:
+		- Options opens when a remembered choice isn't the default, one the format forced off included.
+		- A button beside Options puts every choice under it back to default, drops the remembered ones from the settings file, and collapses Options. It is disabled when all are at default.
+		- An option the writer can't do is unticked and disabled. That doesn't overwrite the remembered choice, so switching back restores it.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261013-084544: built. Left at signoff for the look, and for these calls:
+			- The button is a flat "Reset" to the right of Options, with Alt+E. It sits a few pixels lower than the Options label, and makes the closed dialog a little taller.
+			- Options opens once the dialog is on screen, the way a click opens it, so it scrolls on a short screen. The dialog shows closed for a moment first.
+			- The password and the delete box count as choices under Options: either one set lights Reset, and Reset clears them. Neither is remembered.
+			- The format and Compress each item separately sit above Options, so Reset leaves them alone.
+			- A password the format can't take shows as none rather than as dots in a grayed field.
+			- Follow nested and other filesystems show off as well as grayed when nothing selected has a folder or link. dd5dm's check that nested stays ticked there is commented out with the reason.
+			- The compression level is a slider, so a format with no levels leaves it where it was, grayed.
+		- 20261016: still at signoff for the look. The Reset button sitting a few pixels below the Options label needs an eye on a real desktop.
+	- Done: the dialog keeps the choices under Options as chosen, and every box shows what the format can do of them, the same way a grayed store choice from 2026100516274386 shows as Ignore. A box the format can't do is unticked and grayed, and comes back with a format that can. What's remembered is what was chosen, so a forced off doesn't overwrite it. Options opens by itself when what's remembered isn't the defaults, a forced off one included. Reset puts everything under Options back, drops the remembered ones from the settings file, and closes Options; it's grayed while everything is at its default. Compress each item separately, grayed for one item, no longer overwrites what was remembered for it either.
+	- Swept: every control under Options goes through the one kept-and-shown path: the 7 boxes, the password, the level, the volume size, the 2 radio groups, the 2 filesystem boxes and the delete box. The dialog's two callers, the view and the test. Saving and loading moved into `nemo-archive-host.c` beside the link choices, which were the only other place the keys were read or written. Reset drops the 2 retired link keys too.
+	- Verified: 20261013, dd5dm and dcwjb went red with each of: no opening by itself, the lock left out of the default check, Symlinks left out of the reset, a forced off box left ticked, a forced off written back over the choice, Options left open after Reset, Reset always lit, the password not counted, and a preset saved with its note. Both pass on Linux and under wine. Full Linux suite 196 of 196, the Windows cross build, lint clean apart from ddagc.
+	- Branch: optreset
+	- Commit: c0a7ede
+	- Test case: dd5dm, Compress dialog height test: closed with Reset grayed at the defaults, Reset lit by a change and by a password alone, Reset clearing them and closing Options, opening by itself for remembered choices with the buttons on screen, Reset dropping them from the settings file, and a remembered lock the format can't do opening Options, shown off and grayed, and back on with rar. dcwjb, Archive settings test, test_choices: the defaults match the settings table, each choice off its default counts, a forced off shows off and leaves the choice, saving keeps it with a preset as its size, and the reset drops every key under Options and nothing else.
+	- Stand-in: 20261025 on vm925w at a61c4f91: dd5dm passes on the real desktop, with a 1392 px work area. Options opened by itself and the 787 px dialog stayed on screen. The lower resolution for a short screen didn't take, so that part is still to run.
+	- 20261031: not run. vm925w-iommu still can't start while vmKt6m holds SPICE port 5900.
+	- 20261028: not run. vm925w-iommu wouldn't start on 20261028, since the paused vmKt6m held its SPICE port 5900.
+	- Verified: 20261102 on vm925w, dd5dm from round1102a at 1aadd7b9 (nothing under Compress changed after it), with the work area cut to 560 px in two ways, 3 runs: each passed, Options got 272 px and scrolled, and the 543 px dialog stayed inside the work area. The screen kept its size, since the dialog sizes itself to the work area and not the screen.
+	- Stand-in: none (20261102). Only the look of Reset beside Options is left, which turns on taste. In Adwaita at fdce4acd its text sits about 8 px below the Options label's, grayed and lit alike, as the 20261013 note says.
+	- Decisions:
+		- 20261108: what was left is a measurable misalignment rather than taste, so it's a Low Bug of its own, 2026110817490431, with a baseline check as its test. Everything the requirements ask for is covered by dd5dm and dcwjb.
+	- Acceptance signoff: Self-closed: dd5dm and dcwjb passed in the full run at d6c7ae09, and dd5dm on vm925w at 1aadd7b9.
+	- Closed: 20261108-174838
 
 - Compression reset: the job follows the new link and filesystem choices.
 	- ID: 2026100516274423
