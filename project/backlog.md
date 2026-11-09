@@ -746,7 +746,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The private runner's mac GUI tests fail when another user holds b26's console.
 	- ID: 2026110817502353
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261108-175023
 	- Opened by:
@@ -757,7 +757,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261108, full run at d6c7ae09 and 1 rerun each, with mactest holding the console since 13:35 b26 time.
 	- Progress log:
 		- Where the fix goes: the private repo's runner, so it's for that repo's round.
+		- 20261109: with someone else on the console, the runner warns and skips the 3 tests that need it. The rest of the mac suite runs, 159 OK.
 	- Test case: none yet. The runner is in nemo-anywhere-private.
+	- Acceptance signoff: Self-closed: the private runner passed with mactest holding the console, 159 OK and the 3 skipped.
+	- Closed: 20261109-141500
 
 - The native Windows gate removes its folder after a failure, test log and all.
 	- ID: 2026110910285880
