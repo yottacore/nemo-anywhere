@@ -485,6 +485,30 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: anydefault
 	- Test case: dd5df checks the dropdown's order and the default, and that a settings file naming a model keeps it. The rename region test (test-eel-rename-region) checks the whole-name setting counts under v1 and Classic and not under the default.
 
+- ddepv on b29w: the heap grew over 64 rounds again.
+	- ID: 2026103116284963
+	- Type: Bug
+	- Status: Started
+	- Priority|Severity: Avg
+	- Opened: 20261031-162849
+	- Opened by: 2026103114202730
+	- Related IDs: 2026101913541101
+	- Target OS: Windows
+	- Steps to reproduce: the native gate on b29w over ssh, `-Gate -Yes -NoSync -NoFmt`.
+	- Incorrect behavior: ddepv fails at `test-nemo-leaks.c:1187`, "the heap grew 4368 bytes over 64 rounds", after 3 readings were taken again. The run also shows "gdk_monitor_get_geometry: assertion 'GDK_IS_MONITOR (monitor)' failed".
+	- Expected behavior: ddepv passes every time, as on vm925w after 2026101913541101.
+	- Reproduced: 20261031 on b29w at round1031a, 1 run of 3, in session 0.
+		- 20261104: on b29w over ssh at round1104a, the test alone: 3 runs of 54 failed, 2 of 30 one at a time and 1 of 24 four at a time. In most of the passing runs the first readings grew too, and a later one gave it back.
+	- Possible cause: the same 4 KB COM buffers as 2026101913541101, which closed on vm925w in the desktop session. b29w over ssh is session 0, and has more apps installed. 2026101913541101 has closed once and come back once already.
+		- 20261104: the growth is whole blocks of 4368 bytes in the process heap, 1 to 20 of them a reading, taken while the bookmarks file loads and given back a few readings later. On the same box ddept, the same load with no file, and the progress case grew 0 bytes in every reading. Waiting 30 s after start before the rounds didn't help: 3 runs of 10 failed, and the first reading grew 30 to 96 KB. So it's the load with a file that sets it off, not GIO's start-up scan alone. What takes the blocks isn't named yet.
+		- The GDK assertion shows in the passing cases too, at start. It's GDK's own, with no monitor in session 0.
+	- Progress log:
+		- 20261104: cause narrowed as above, no change made. Next: name what takes the 4368-byte blocks during the counted rounds, then the step of the load that reaches it: the exists check, the metadata file read, or the bookmark's file.
+		- 20261109: failed again in the full run's native gate on b29w at a3593116, the one failure in 192. The gate removed its folder with the test log in it, so the reading wasn't seen. Filed 2026110910285880 for that.
+	- Decisions:
+		- No change to the readings until that's known. A fifth showing would only make it rarer, since the failing runs grew in 4 readings in a row, and leaving out the process heap or blocks of that size would hide a real leak there, as 2026101913541101 decided.
+	- Test case: ddepv on b29w over ssh.
+
 - Tree view: in "Checkmark selection" mode, folders follow the content view's selection rules and can be fully edited.
 	- ID: 2026102018234903
 	- Type: Enhancement
@@ -748,28 +772,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Where the fix goes: the private repo's runner, so it's for that repo's round.
 	- Test case: none yet. The runner is in nemo-anywhere-private.
 
-- ddepv on b29w: the heap grew over 64 rounds again.
-	- ID: 2026103116284963
-	- Type: Bug
+- The native Windows gate removes its folder after a failure, test log and all.
+	- ID: 2026110910285880
+	- Type: Task
 	- Status: Queued
 	- Priority|Severity: Avg
-	- Opened: 20261031-162849
-	- Opened by: 2026103114202730
-	- Related IDs: 2026101913541101
+	- Opened: 20261109-102858
+	- Opened by: t00mietum
+	- Related IDs: 2026103116284963
 	- Target OS: Windows
-	- Steps to reproduce: the native gate on b29w over ssh, `-Gate -Yes -NoSync -NoFmt`.
-	- Incorrect behavior: ddepv fails at `test-nemo-leaks.c:1187`, "the heap grew 4368 bytes over 64 rounds", after 3 readings were taken again. The run also shows "gdk_monitor_get_geometry: assertion 'GDK_IS_MONITOR (monitor)' failed".
-	- Expected behavior: ddepv passes every time, as on vm925w after 2026101913541101.
-	- Reproduced: 20261031 on b29w at round1031a, 1 run of 3, in session 0.
-		- 20261104: on b29w over ssh at round1104a, the test alone: 3 runs of 54 failed, 2 of 30 one at a time and 1 of 24 four at a time. In most of the passing runs the first readings grew too, and a later one gave it back.
-	- Possible cause: the same 4 KB COM buffers as 2026101913541101, which closed on vm925w in the desktop session. b29w over ssh is session 0, and has more apps installed. 2026101913541101 has closed once and come back once already.
-		- 20261104: the growth is whole blocks of 4368 bytes in the process heap, 1 to 20 of them a reading, taken while the bookmarks file loads and given back a few readings later. On the same box ddept, the same load with no file, and the progress case grew 0 bytes in every reading. Waiting 30 s after start before the rounds didn't help: 3 runs of 10 failed, and the first reading grew 30 to 96 KB. So it's the load with a file that sets it off, not GIO's start-up scan alone. What takes the blocks isn't named yet.
-		- The GDK assertion shows in the passing cases too, at start. It's GDK's own, with no monitor in session 0.
+	- Requirements:
+		- On a failed gate, `win/lane.bash` copies the box's `meson-logs/testlog-*.txt` to `cicd/artifacts/build-win/` here before it removes the folder.
+		- The copy's name has the box and the folder's stamp, so a later run doesn't write over it.
+		- A passing gate copies nothing.
 	- Progress log:
-		- 20261104: cause narrowed as above, no change made. Next: name what takes the 4368-byte blocks during the counted rounds, then the step of the load that reaches it: the exists check, the metadata file read, or the bookmark's file.
-	- Decisions:
-		- No change to the readings until that's known. A fifth showing would only make it rarer, since the failing runs grew in 4 readings in a row, and leaving out the process heap or blocks of that size would hide a real leak there, as 2026101913541101 decided.
-	- Test case: ddepv on b29w over ssh.
+		- 20261109: ddepv failed in the full run's native gate on b29w, and its log went with the folder.
+	- Test case: test-lane.bash, a failed gate leaves the test log here.
 
 - Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
 	- ID: 2026102114400592
