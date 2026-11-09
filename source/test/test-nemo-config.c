@@ -141,9 +141,12 @@ test_product_defaults (void)
 	check (nemo_config_get_boolean (prefs, NEMO_PREFERENCES_CONFIRM_MOVE_TO_TRASH) == TRUE);
 
 	cols = nemo_config_get_strv (list_view, NEMO_PREFERENCES_LIST_VIEW_DEFAULT_VISIBLE_COLUMNS);
+#ifdef G_OS_WIN32
+	/* Windows has no group or mode bits to show, and each owner name costs a
+	   call to the local security service. */
+	check (!g_strv_contains ((const char *const *) cols, "owner"));
+#else
 	check (g_strv_contains ((const char *const *) cols, "owner"));
-#ifndef G_OS_WIN32
-	/* Windows has no group or mode bits to show. */
 	check (g_strv_contains ((const char *const *) cols, "group"));
 	check (g_strv_contains ((const char *const *) cols, "permissions"));
 #endif
@@ -538,7 +541,7 @@ test_duplicate_key_falls_back (NemoConfigGroup *prefs, NemoConfigGroup *list_vie
 	cols = nemo_config_get_strv (list_view, "default-visible-columns");
 	check (g_strv_length (cols) > 1);
 	check (cols[0] != NULL && g_strcmp0 (cols[0], "name") == 0);
-	check (g_strv_contains ((const char *const *) cols, "owner"));
+	check (g_strv_contains ((const char *const *) cols, "date_modified"));
 	g_strfreev (cols);
 
 	check (nemo_config_get_boolean (prefs, "show-hidden-files") == FALSE);

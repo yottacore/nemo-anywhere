@@ -2988,6 +2988,23 @@ column_header_clicked (G_GNUC_UNUSED GtkWidget *column_button,
 	return TRUE;
 }
 
+/* The columns that show owner or group names, which on Windows are loaded
+   only for a view that shows one. */
+static gboolean
+shows_owner (char **visible_columns)
+{
+	static const char *const owner_columns[] = { "owner", "owner_name", "owner_and_name", "group", NULL };
+	gint i;
+
+	for (i = 0; visible_columns[i] != NULL; i++) {
+		if (g_strv_contains (owner_columns, visible_columns[i])) {
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
 static void
 apply_columns_settings (NemoListView *list_view,
 			char **column_order,
@@ -3003,6 +3020,7 @@ apply_columns_settings (NemoListView *list_view,
 
 	file = nemo_view_get_directory_as_file (NEMO_VIEW (list_view));
 	drop_where = grouping_search_results (list_view);
+	nemo_view_set_wants_owner (NEMO_VIEW (list_view), shows_owner (visible_columns));
 
 	/* prepare ordered list of view columns using column_order and visible_columns */
 	view_columns = NULL;

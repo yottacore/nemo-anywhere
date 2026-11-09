@@ -1049,6 +1049,23 @@ set_columns_same_width (NemoIconView *icon_view)
 	}
 }
 
+/* A caption with owner or group names needs them loaded, which on Windows
+   is done only for a view that shows one. */
+static void
+update_wants_owner (NemoIconView *icon_view)
+{
+	static const char *const owner_captions[] = { "owner", "owner_name", "owner_and_name", "group", NULL };
+	char **captions = nemo_config_get_strv (nemo_icon_view_preferences, NEMO_PREFERENCES_ICON_VIEW_CAPTIONS);
+	gboolean wants = FALSE;
+	gint i;
+
+	for (i = 0; captions != NULL && captions[i] != NULL && !wants; i++) {
+		wants = g_strv_contains (owner_captions, captions[i]);
+	}
+	g_strfreev (captions);
+	nemo_view_set_wants_owner (NEMO_VIEW (icon_view), wants);
+}
+
 static void
 nemo_icon_view_begin_loading (NemoView *view)
 {
@@ -1062,6 +1079,7 @@ nemo_icon_view_begin_loading (NemoView *view)
 	g_return_if_fail (NEMO_IS_ICON_VIEW (view));
 
 	icon_view = NEMO_ICON_VIEW (view);
+	update_wants_owner (icon_view);
 	file = nemo_view_get_directory_as_file (view);
 	uri = nemo_file_get_uri (file);
 	icon_container = GTK_WIDGET (get_icon_container (icon_view));
@@ -2256,6 +2274,7 @@ text_attribute_names_changed_callback (gpointer callback_data)
 
 	icon_view = NEMO_ICON_VIEW (callback_data);
 
+	update_wants_owner (icon_view);
 	nemo_icon_container_request_update_all (get_icon_container (icon_view));
 }
 

@@ -33,8 +33,10 @@
 #include <eel/eel-glib-extensions.h>
 #include <eel/eel-string.h>
 
-#define NEMO_FILE_DEFAULT_ATTRIBUTES				\
-	"standard::*,access::*,mountable::*,time::*,unix::*,owner::*,selinux::*,thumbnail::*,id::filesystem,trash::orig-path,trash::deletion-date,metadata::*,preview::icon"
+/* Leaves out owner::* where the owner is loaded on its own, see
+   NEMO_FILE_ATTRIBUTE_OWNER. */
+#define NEMO_FILE_DEFAULT_ATTRIBUTES (nemo_file_default_attributes ())
+#define NEMO_FILE_OWNER_ATTRIBUTES "owner::*"
 
 /* These are in the typical sort order. Known things come first, then
  * things where we can't know, finally things where we don't yet know.
@@ -263,6 +265,8 @@ struct NemoFileDetails
 	eel_boolean_bit filesystem_readonly           : 1;
 	eel_boolean_bit filesystem_use_preview        : 2; /* GFilesystemPreviewType */
     eel_boolean_bit filesystem_info_is_up_to_date : 1;
+	/* Only kept where the owner is loaded on its own. */
+	eel_boolean_bit owner_is_up_to_date           : 1;
 	/* Made by New folder and not named yet. */
 	eel_boolean_bit fresh_folder                  : 1;
 
@@ -309,6 +313,11 @@ void          nemo_file_clear_info                     (NemoFile           *file
 /* Compare file's state with a fresh file info struct, return FALSE if
  * no change, update file and return TRUE if the file info contains
  * new state.  */
+const char *  nemo_file_default_attributes             (void);
+gboolean      nemo_file_owner_comes_with_info          (void);
+void          nemo_file_set_owner_comes_with_info_for_test (gboolean       with_info);
+gboolean      nemo_file_update_owner                   (NemoFile           *file,
+							    GFileInfo              *info);
 gboolean      nemo_file_update_info                    (NemoFile           *file,
 							    GFileInfo              *info);
 gboolean      nemo_file_update_name                    (NemoFile           *file,

@@ -2049,6 +2049,15 @@ test('dct7k Owner columns test',
   args: []
 )
 
+test('df30s Separate owner load test',
+  executable('test-nemo-owner-load',
+    [ 'test-nemo-owner-load.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('dd5cc Uri under another test',
   executable('test-nemo-uri-under',
     [ 'test-nemo-uri-under.c' ],

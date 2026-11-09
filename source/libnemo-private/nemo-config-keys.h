@@ -114,7 +114,8 @@ static const char *const deflist_icon_view_captions[] = { "none", "size", "date_
 static const char *const deflist_icon_view_text_ellipsis_limit[] = { "3", NULL };
 #ifdef G_OS_WIN32
 static const char *const deflist_list_view_default_column_order[] = { "name", "where", "size", "extension", "type", "date_modified", "owner", "owner_name", "owner_and_name", "permissions_source", NULL };
-static const char *const deflist_list_view_default_visible_columns[] = { "name", "size", "extension", "type", "date_modified", "owner", NULL };
+/* No owner on Windows, where each name is a call to the local security service. */
+static const char *const deflist_list_view_default_visible_columns[] = { "name", "size", "extension", "type", "date_modified", NULL };
 #else
 static const char *const deflist_list_view_default_column_order[] = { "name", "where", "size", "extension", "type", "date_modified", "owner", "owner_name", "owner_and_name", "group", "permissions", NULL };
 static const char *const deflist_list_view_default_visible_columns[] = { "name", "size", "extension", "type", "date_modified", "owner", "group", "permissions", NULL };
