@@ -899,6 +899,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A value that is text with a comma in it isn't taken for a list. Only a key whose schema type is a list is converted.
 	- Progress log:
 		- 20261109: seen in a dogfood settings file on Windows: the favorites line was bare, so the favorites read as the default. Fixed there by hand.
+		- 20261110: the full run's gcc analyzer found a file left open on a short write in shcl-dev-writer.c's put; fixed, and the generator with it.
 	- Decisions:
 		- Changed my mind on 2026110520234226's "isn't converted" for these files.
 		- Only a list key's line that SHCL refuses with E026 gets brackets, so a file today's rules read cleanly is never rewritten. A hand-typed `a,b`, with no space, reads as one item, as today's rules read it, though those builds read 2.
@@ -934,8 +935,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: the clang analyzer in cross-file mode under `--leakcheck`, report only.
 	- ID: 2026110920250275
 	- Type: Enhancement
-	- Status: Waiting on automated testing
-	- Needs local test suite run?: yes, `bash cicd/utility/analyze.bash --ctu` once, after a debug build and the Windows cross build, for its time, its memory and the findings and cut-off files in each lane. A `--long` full run covers it too.
+	- Status: Done
+	- Needs local test suite run?: No
 	- Priority|Severity: Avg
 	- Opened: 20261109-202502
 	- Opened by: 2026102114400592
@@ -961,7 +962,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: round1110a
 	- Test case: de8eq (`analyze.bash --ctu`, the planted pair in both containers), and desha for when the step runs.
 	- Verified: 20261110, de8eq passes in both containers, and fails in both with the cross-file switch turned off. desha passes with its new cases, and fails with the step put in a plain run. test-cicd-help, test-cicd-quick, test-cicd-list, test-analyze-gate and de8em pass. In `cicd/cicd.bash --backlog-run-quick` the lints passed, and the tests area passed in the new image (242 OK, 1 skipped), run alone after a timeout cut the first run short.
+	- Verified: 20261110: the full run's Cross-file analyzer step took 861 s at 4 jobs, 2 lanes at once, and de8eq passed. Its count then crashed on the CTU index line, so it printed no table and still passed; fixed in analyze.py parse_log with a de8em case that failed first. Over the saved logs: Linux 55 findings (6 ours, 7 tests, 42 inherited), Windows 67 (7 ours, 17 tests, 43 inherited), 0 files cut off.
 	- Swept: every reader of `leakcheck` in `cicd.bash` (plan, preflight, step), `--help`, `config.bash`, design.md's test and run lengths text, the callers of `analyzer_argv` and `count`, and the tests that copy `cicd.bash`.
+	- Closed: 20261109-235909
 
 - Static analyzers: CodeQL under `--leakcheck`.
 	- ID: 2026110920250293
@@ -997,6 +1000,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Then a finding left, or a file cut off at the cap, fails the step, as in the per-file stage.
 	- Estimated effort: Avg
 	- Test case: de8eq, and de8en for the count it then fails on.
+	- 20261110: first whole-tree counts: Linux 55 (6 ours, 7 tests, 42 inherited), Windows 67 (7 ours, 17 tests, 43 inherited), 0 cut off, 861 s for both lanes. The report-only branch in analyze.bash takes any non-zero exit from count as findings, so a crash of count passed too; making findings fail closes that.
 
 - Settings: search.
 	- ID: 2026101417352263
