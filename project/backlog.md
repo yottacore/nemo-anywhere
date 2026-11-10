@@ -509,6 +509,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: treeedit
 	- Test case: df066 (Ctrl+C in the tree with the whole list selected).
 
+- Nemo Anywhere selection model: need to be able to initiate a left-drag-to-select from the checkmark column.
+	- ID: 2026110919315994
+	- Type: Bug
+	- Status: Queued
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261109-193159
+	- Opened by: t00mietum
+	- Related IDs: 2026102407515573
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+	- Steps to reproduce: list view under the Nemo Anywhere model, left drag starting in the checkmark column.
+	- Incorrect behavior: a left-drag-to-select can't be started from the checkmark column.
+	- Expected behavior: a left drag from the checkmark column selects, in addition to right-drag-to-select etc.
+	- Notes:
+		- 2026102407515573 already plans a plain drag band from the checkmark column.
+	- Test case: none yet.
+
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
 	- Type: Enhancement
