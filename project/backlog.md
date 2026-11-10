@@ -743,11 +743,76 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The dim checkmark, in an invisible column left of the tree.
 		- When the tree has the focus and the viewed folder is selected there, every object in the content view is drawn with the dim mark.
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view".
-	- Notes:
-		- Needs more thought: whether the tree takes a multi-selection with the switch off, since its click opens the folder, and how much of 2026102018234903 that needs first.
+	- Decided: the tree stays single-select with the switch off, per the 20261110 Decisions row on 2026102018234903. Only the edit keys and menu entries come over, acting on the one selected folder.
 	- Progress log:
 		- 20261024: opened.
-	- Test case: none yet.
+		- 20261110: split into children, worked in this order: 2026111013031711 (the dim checkmark column), ...729 (the content view's marks while the tree has the focus), ...747 (the tree's focus and keys).
+	- Test case: one per child.
+
+- Nemo Anywhere tree view: the dim checkmark column.
+	- ID: 2026111013031711
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261110-130317
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515574
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Only under Nemo Anywhere. A thin column left of the tree, with no header, holding a dim checkmark on the selected row and none on the rest. It takes the row's highlight.
+		- It comes and goes with the selection model setting, live. Under the other models it isn't in the tree, so nothing moves there.
+		- A test that the mark follows the selection after a click and a key move, and that the column is there only under Nemo Anywhere.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view".
+	- Progress log:
+		- 20261110: under Nemo Anywhere the tree's first column holds a dim checkmark on the selected row, inside its highlight. The expanders and the indent stay with the names. The column follows the setting live, and the other models don't have it.
+	- Decisions:
+		- The same glyph and dim look as the list view column, in the row's selected text color.
+		- The column is left of the indent, so a deep folder's mark sits at the pane's left edge, away from its name. When the tree scrolls sideways for a deep folder, the marks scroll out with the rest of the left side. For a top row the scroll leaves the mark showing, as it left the row's start before.
+		- The keyboard menu and the sideways scroll measure the name column, not column 0.
+	- Swept: every `gtk_tree_view_get_column (..., 0)` on the tree in the sidebar and the tests (the keyboard menu's place, the sideways scroll, and the tree clicks in de8bd, de8dm, dec8w, df066 and df06r). Places and the list view keep theirs.
+	- Branch: round1110b
+	- Test case: de8bd, de8dm and dec8w, where every tree check also checks the marks: on the selected row only under Nemo Anywhere, and no column for them under the other models. The result counts don't change. df06r covers the sideways scroll with the column there.
+	- Not covered by a test yet: the column coming and going when the setting changes while the window is open, and the scroll for a top row whose name is wider than the pane.
+	- Verified: 20261110, dec8w fails with no marks drawn and de8bd fails with the column under every model; both pass with the fix. de8dm, df066, df06r, ddg88 and dd8dp pass. The quick gate passed (lints, and 242 OK, 1 skipped). Both analyzers report nothing on the 4 changed files.
+	- Verified: 20261110, the tree under Nemo Anywhere in Adwaita and Adwaita dark: a dim mark left of the viewed folder's row, inside its highlight, and none on the other rows.
+	- Acceptance signoff: Self-closed: de8bd and dec8w, and the look checked in Adwaita light and dark.
+	- Closed: 20261110-132028
+
+- Nemo Anywhere tree view: the content view's dim marks while the tree has the focus on the viewed folder.
+	- ID: 2026111013031729
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261110-130317
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515574
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Only under Nemo Anywhere. While the tree has the keyboard focus and its selected row is the viewed folder, every object in the content view draws the dim mark, in all 3 views. The content view's selection itself doesn't change.
+		- The marks go back to following the content view's selection once the focus leaves the tree.
+		- A test of the marks in each view with the tree focused, and after the focus goes back.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view".
+
+- Nemo Anywhere tree view: its own focus and anchor, under the content view's mouse and keyboard rules.
+	- ID: 2026111013031747
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261110-130317
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515574
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Only under Nemo Anywhere, and single-select, per the parent.
+		- No focus outline, except while a Ctrl+Up or Ctrl+Down has put the focus on a row that isn't selected.
+		- Ctrl+Up and Ctrl+Down move the focus alone, opening nothing. Ctrl+Space selects the focused row, which opens it. After a Ctrl move, Up and Down count from the focus.
+		- Ctrl+Home and Ctrl+End are the same as the key alone.
+		- Escape drops a Ctrl move's focus. What else it clears needs a Decisions row, since the tree's selected row is the viewed folder.
+		- df066 checks each key.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view", "Mouse" and "Keyboard".
 
 - Affirmative checkmarks: the switch and the places it will plug into, with no affirmative behavior yet.
 	- ID: 2026102019174477
