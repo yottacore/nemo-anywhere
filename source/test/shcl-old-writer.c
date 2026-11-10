@@ -77,6 +77,13 @@ static const Entry entries[] = {
 	{ "preferences.thumbnail-limit", 'i', SET, 0, NULL, { 0 }, 0, 1000000, 0, NULL },
 	{ "file-cache.max-size-gib", 'f', SET, 0, NULL, { 0 }, 0, 0, 2.5, NULL },
 	{ "file-cache.memory-gib", 'f', SET, 0, NULL, { 0 }, 0, 0, 0.125, NULL },
+#ifdef SHCL_OLD_STAMPED
+	/* The dev header wrote these in double quotes with backslash escapes. */
+	{ "window-state.geometry", 's', SET, 0, "line 1\nline 2", { 0 }, 0, 0, 0, NULL },
+	{ "search.search-sort-column", 's', SET, 0, "it's \"x # y\" C:\\a", { 0 }, 0, 0, 0, NULL },
+	{ "windows.terminal-candidates", 'l', SET, 0, NULL,
+	  { "say \"it's\" C:\\x", "wt.exe" }, 2, 0, 0, NULL },
+#endif
 
 	/* Escapes in bare text, which format 3 reads another way. */
 	{ "search.search-regex-format", 's', HAND, 0, "a\\,b", { 0 }, 0, 0, 0, NULL },
@@ -102,10 +109,10 @@ escaped (const Entry *e)
 {
 	int i;
 
-	if (e->text != NULL && strpbrk (e->text, "\\\t") != NULL)
+	if (e->text != NULL && strpbrk (e->text, "\\\t\n") != NULL)
 		return 1;
 	for (i = 0; i < e->n; i++) {
-		if (strpbrk (e->list[i], "\\\t") != NULL)
+		if (strpbrk (e->list[i], "\\\t\n") != NULL)
 			return 1;
 	}
 	return 0;

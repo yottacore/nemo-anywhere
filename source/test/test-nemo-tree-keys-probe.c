@@ -243,7 +243,7 @@ click_tree_path (GtkTreePath *path)
 	if (path == NULL) {
 		return FALSE;
 	}
-	gtk_tree_view_get_cell_area (tree, path, gtk_tree_view_get_column (tree, 0), &area);
+	gtk_tree_view_get_cell_area (tree, path, gtk_tree_view_get_expander_column (tree), &area);
 	gtk_tree_path_free (path);
 	stamp += 1000;
 	send (bin, GDK_BUTTON_PRESS, area.x + 30, area.y + area.height / 2, 0);

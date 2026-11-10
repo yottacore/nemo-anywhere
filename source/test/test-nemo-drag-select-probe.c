@@ -42,7 +42,6 @@
 static FILE           *out;
 static const char     *folder_name;
 static gboolean        list_mode;
-static gboolean        compact_mode;
 static gboolean        classic;
 static gboolean        anywhere;
 static GtkWidget      *window;
@@ -387,16 +386,15 @@ icon_marked_list (void)
 	return g_string_free (list, FALSE);
 }
 
-/* Under Nemo Anywhere the marks are part of every list and icon view check,
-   and under the other models the icon view has none. The compact view's come
-   with its own item, 2026102411133419. */
+/* Under Nemo Anywhere the marks are part of every check in all 3 views, and
+   under the other models the icon and compact views have none. */
 static char *
 marks (void)
 {
 	if (list_mode) {
 		return anywhere ? marked_list () : NULL;
 	}
-	return compact_mode ? NULL : icon_marked_list ();
+	return icon_marked_list ();
 }
 
 /* For a check that doesn't name the whole selection. */
@@ -426,6 +424,21 @@ check_selection (const char *want, const char *what)
 	g_free (line);
 	g_free (marked);
 	g_free (got);
+}
+
+/* The row the keyboard focus is on, or -1. */
+static int
+cursor_row (void)
+{
+	GtkTreePath *path = NULL;
+	int row = -1;
+
+	gtk_tree_view_get_cursor (GTK_TREE_VIEW (pane), &path, NULL);
+	if (path != NULL) {
+		row = gtk_tree_path_get_indices (path)[0];
+		gtk_tree_path_free (path);
+	}
+	return row;
 }
 
 /* A row's middle, at x. */
@@ -815,7 +828,8 @@ list_tick (void)
 			return TRUE;
 		}
 		break;
-	/* Nemo Anywhere's checkmark column bands on a plain drag. */
+	/* Every drag from Nemo Anywhere's checkmark column bands, selected row
+	   or not. */
 	case 18:
 		select_items (none);
 		if (checkmark_column () == NULL) {
@@ -848,6 +862,83 @@ list_tick (void)
 		press (bin, 1, checks_x (), row_y (3), 0);
 		release (bin, 1, 0, checks_x (), row_y (3));
 		check_selection ("3", "a click in the checkmark column of a selected row selects it alone");
+		break;
+	case 22:
+		select_items (second_to_fourth);
+		press_and_move (bin, 1, GDK_CONTROL_MASK, checks_x (), row_y (2), checks_x (), row_y (5));
+		release (bin, 1, GDK_CONTROL_MASK, checks_x (), row_y (5));
+		report (drags == 0, "Ctrl and a drag from the checkmark column of a selected row drags no files");
+		check_selection ("1,2,3,4,5", "and bands, adding to the selection");
+		break;
+	case 23:
+		select_items (first_and_fourth);
+		press_and_move (bin, 1, GDK_SHIFT_MASK, checks_x (), row_y (3), checks_x (), row_y (5));
+		release (bin, 1, GDK_SHIFT_MASK, checks_x (), row_y (5));
+		report (drags == 0, "Shift and a drag from the checkmark column of a selected row drags no files");
+		check_selection ("3,4,5", "and bands, in place of the selection");
+		break;
+	case 24:
+		select_items (second_to_fourth);
+		press_and_move (bin, 3, 0, checks_x (), row_y (2), checks_x (), row_y (4));
+		release (bin, 3, 0, checks_x (), row_y (4));
+		break;
+	case 25:
+		report (shown_menu () == NULL && drags == 0,
+			"a right drag from the checkmark column of a selected row opens no menu and drags no files");
+		check_selection ("2,3,4", "and bands, in place of the selection");
+		close_menu ();
+		break;
+	case 26:
+		select_items (second_to_fourth);
+		press_and_move (bin, 2, 0, checks_x (), row_y (2), checks_x (), row_y (5));
+		release (bin, 2, 0, checks_x (), row_y (5));
+		report (drags == 0, "a middle drag from the checkmark column of a selected row drags no files");
+		check_selection ("2,3,4,5", "and bands, in place of the selection");
+		break;
+	case 27:
+		select_items (first_and_fourth);
+		press (bin, 1, checks_x (), row_y (0), GDK_CONTROL_MASK);
+		release (bin, 1, GDK_CONTROL_MASK, checks_x (), row_y (0));
+		check_selection ("3", "Ctrl and a click in the checkmark column of a selected row unselects it");
+		break;
+	/* A band leaves the focus and the anchor on the last row it touched. */
+	case 28: {
+		int n = item_count ();
+		char *want = g_strdup_printf ("%d,%d,%d", n - 3, n - 2, n - 1);
+
+		select_items (none);
+		path = gtk_tree_path_new_from_indices (n - 1, -1);
+		gtk_tree_view_get_background_area (GTK_TREE_VIEW (pane), path, NULL, &area);
+		gtk_tree_path_free (path);
+		below = area.y + area.height + 20;
+		press_and_move (bin, 1, 0, checks_x (), row_y (n - 3), checks_x (), below);
+		release (bin, 1, 0, checks_x (), below);
+		check_selection (want, "a drag from the checkmark column down past the rows bands to the last row");
+		report (cursor_row () == n - 1, "and leaves the focus on the last row");
+		g_free (want);
+		break;
+	}
+	case 29: {
+		int n = item_count ();
+		char *want = g_strdup_printf ("%d,%d,%d,%d,%d", n - 5, n - 4, n - 3, n - 2, n - 1);
+
+		press (bin, 1, 40, row_y (n - 5), GDK_SHIFT_MASK);
+		release (bin, 1, GDK_SHIFT_MASK, 40, row_y (n - 5));
+		check_selection (want, "Shift and a click then pick the run from the last row");
+		g_free (want);
+		break;
+	}
+	case 30:
+		select_items (first);
+		press_and_move (bin, 1, GDK_CONTROL_MASK, blank_x (), row_y (5), blank_x (), row_y (3));
+		release (bin, 1, GDK_CONTROL_MASK, blank_x (), row_y (3));
+		check_selection ("0,3,4,5", "Ctrl and a drag up from a row not selected bands, adding to the selection");
+		report (cursor_row () == 3, "and leaves the focus on the top row it reached");
+		break;
+	case 31:
+		press (bin, 1, 40, row_y (1), GDK_SHIFT_MASK);
+		release (bin, 1, GDK_SHIFT_MASK, 40, row_y (1));
+		check_selection ("1,2,3", "Shift and a click then pick the run from that row");
 		finish ();
 		return TRUE;
 	}
@@ -994,6 +1085,40 @@ icon_tick (void)
 		}
 		report (TRUE, "and opens it when the button comes up");
 		close_menu ();
+		if (!anywhere) {
+			finish ();
+			return TRUE;
+		}
+		break;
+	/* A band leaves the focus and the anchor on the last icon it touched,
+	   the one under the pointer here. */
+	case 16:
+		select_items (none);
+		icon_center (0, &x1, &y1);
+		if (!icon_blank (x1, y1, &x0, &y0)) {
+			report (FALSE, "there is a spot clear of the icons");
+			break;
+		}
+		icon_center (2, &x1, &y1);
+		press_and_move (bin, 1, 0, x0, y0, x1, y1);
+		break;
+	case 17:
+		release (bin, 1, 0, x1, y1);
+		{
+			/* More than one, so the anchor isn't just the one icon picked. */
+			char *got = selected_list ();
+			char *line = g_strdup_printf ("a drag from the background to an icon bands over it and more (selected %s)",
+						      got);
+
+			report (drags == 0 && bands == 1 && is_selected (2) && strchr (got, ',') != NULL &&
+				marks_follow (), line);
+			g_free (line);
+			g_free (got);
+		}
+		icon_center (5, &x0, &y0);
+		press (bin, 1, x0, y0, GDK_SHIFT_MASK);
+		release (bin, 1, GDK_SHIFT_MASK, x0, y0);
+		check_selection ("2,3,4,5", "Shift and a click then pick the run from the icon the band ended on");
 		finish ();
 		return TRUE;
 	}
@@ -1066,7 +1191,6 @@ probe_start (void)
 		return;
 	}
 	list_mode = g_strcmp0 (view, "list-view") == 0;
-	compact_mode = g_strcmp0 (view, "compact-view") == 0;
 	out = fopen (path, "w");
 	if (out == NULL) {
 		return;

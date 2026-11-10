@@ -35,6 +35,7 @@
 
 #include "nemo-actions.h"
 #include "nemo-tree-sidebar-model.h"
+#include "nemo-view.h"
 #include "nemo-properties-window.h"
 #include "nemo-window-slot.h"
 
@@ -76,6 +77,13 @@ typedef struct {
 struct FMTreeViewDetails {
 	NemoWindow *window;
 	GtkTreeView *tree_widget;
+	GtkTreeViewColumn *name_column;
+	/* Nemo Anywhere's dim checkmarks. Column 0 under that model, and out
+	   of the tree under the others. */
+	GtkTreeViewColumn *checkmark_column;
+	GtkCellRenderer *checkmark_cell;
+	/* The content view the tree has marked whole, weak. */
+	NemoView *marked_view;
 	GtkTreeModelSort *sort_model;
 	FMTreeModel *child_model;
 
@@ -1364,7 +1372,7 @@ popup_menu (FMTreeView     *view,
         path = popup_row (view, NULL);
         if (path != NULL) {
             have_item = eel_gtk_tree_view_get_row_rect (tree_view, path,
-                                                        gtk_tree_view_get_column (tree_view, 0),
+                                                        view->details->name_column,
                                                         &item);
             gtk_tree_path_free (path);
         }
@@ -1796,7 +1804,7 @@ hscroll_idle_callback (gpointer callback_data)
 {
 	FMTreeView *view = FM_TREE_VIEW (callback_data);
 	GtkTreeView *tree_view = view->details->tree_widget;
-	GtkTreeViewColumn *column = gtk_tree_view_get_column (tree_view, 0);
+	GtkTreeViewColumn *column = view->details->name_column;
 	GtkAdjustment *adjustment = gtk_scrollable_get_hadjustment (GTK_SCROLLABLE (tree_view));
 	GtkTreeModel *model = gtk_tree_view_get_model (tree_view);
 	GList *rows, *l;
@@ -1833,10 +1841,12 @@ hscroll_idle_callback (gpointer callback_data)
 		return G_SOURCE_REMOVE;
 	}
 
-	/* Leave the selected row's own expander showing too. */
+	/* Leave the selected row's own expander showing too, and the checkmarks
+	   when a top row is selected. */
 	gtk_widget_style_get (GTK_WIDGET (tree_view), "expander-size", &expander, NULL);
 	page = gtk_adjustment_get_page_size (adjustment);
-	value = MIN (MAX (0, right - page), MAX (0, left - expander));
+	value = MIN (MAX (0, right - page),
+		     MAX (0, left - expander - gtk_tree_view_column_get_x_offset (column)));
 	/* Until the tree has grown wide enough, the next allocation tries again. */
 	view->details->hscroll_wanted =
 		value > gtk_adjustment_get_upper (adjustment) - page;
@@ -1892,6 +1902,109 @@ hscroll_row_inserted (G_GNUC_UNUSED GtkTreeModel *model,
 		schedule_hscroll (view);
 	}
 	gtk_tree_path_free (parent);
+}
+
+#define CHECKMARK_TEXT "\u2713"
+
+/* The tree is single-select, so there's one mark at most. Dim is the cell's
+   insensitive look, as in the list view. */
+static void
+checkmark_cell_data_func (GtkTreeViewColumn *column,
+			  GtkCellRenderer   *renderer,
+			  G_GNUC_UNUSED GtkTreeModel *model,
+			  GtkTreeIter       *iter,
+			  G_GNUC_UNUSED gpointer data)
+{
+	GtkWidget *tree = gtk_tree_view_column_get_tree_view (column);
+	gboolean marked = tree != NULL &&
+		gtk_tree_selection_iter_is_selected (gtk_tree_view_get_selection (GTK_TREE_VIEW (tree)), iter);
+
+	g_object_set (renderer, "text", marked ? CHECKMARK_TEXT : "", NULL);
+}
+
+static void
+checkmark_column_fit (FMTreeView *view)
+{
+	gint width = 0;
+
+	if (view->details->checkmark_cell == NULL) {
+		return;
+	}
+	g_object_set (view->details->checkmark_cell, "text", CHECKMARK_TEXT, NULL);
+	gtk_cell_renderer_get_preferred_width (view->details->checkmark_cell,
+					       GTK_WIDGET (view->details->tree_widget),
+					       NULL, &width);
+	gtk_tree_view_column_set_fixed_width (view->details->checkmark_column, MAX (width, 1));
+}
+
+/* Under Nemo Anywhere, while the tree has the focus on the viewed folder,
+   every item in the content view takes the dim mark (#2026111013031729). */
+static void
+update_content_marks (FMTreeView *view)
+{
+	NemoWindowSlot *slot = view->details->window != NULL ?
+		nemo_window_get_active_slot (view->details->window) : NULL;
+	NemoView *content = slot != NULL ? nemo_window_slot_get_current_view (slot) : NULL;
+	GtkTreeView *tree_view = view->details->tree_widget;
+	gboolean marks_all = FALSE;
+	GtkTreeIter iter;
+
+	if (content != NULL && tree_view != NULL &&
+	    nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE &&
+	    gtk_widget_has_focus (GTK_WIDGET (tree_view)) &&
+	    gtk_tree_selection_get_selected (gtk_tree_view_get_selection (tree_view), NULL, &iter)) {
+		NemoFile *file = sort_model_iter_to_file (view, &iter);
+		GFile *location = nemo_window_slot_get_location (slot);
+
+		if (file != NULL && location != NULL) {
+			GFile *row = nemo_file_get_location (file);
+
+			marks_all = g_file_equal (row, location);
+			g_object_unref (row);
+		}
+		nemo_file_unref (file);
+		g_clear_object (&location);
+	}
+
+	if (view->details->marked_view != NULL && view->details->marked_view != content) {
+		nemo_view_set_marks_all (view->details->marked_view, FALSE);
+		g_object_remove_weak_pointer (G_OBJECT (view->details->marked_view),
+					      (gpointer *) &view->details->marked_view);
+		view->details->marked_view = NULL;
+	}
+	if (content == NULL) {
+		return;
+	}
+	if (view->details->marked_view == NULL) {
+		view->details->marked_view = content;
+		g_object_add_weak_pointer (G_OBJECT (content), (gpointer *) &view->details->marked_view);
+	}
+	nemo_view_set_marks_all (content, marks_all);
+}
+
+static void
+content_marks_changed (FMTreeView *view)
+{
+	update_content_marks (view);
+}
+
+static void
+checkmark_column_update (FMTreeView *view)
+{
+	GtkTreeView *tree_view = view->details->tree_widget;
+	gboolean shown = nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE;
+
+	if (tree_view == NULL || view->details->checkmark_column == NULL ||
+	    (gtk_tree_view_column_get_tree_view (view->details->checkmark_column) != NULL) == shown) {
+		return;
+	}
+	if (shown) {
+		gtk_tree_view_insert_column (tree_view, view->details->checkmark_column, 0);
+		checkmark_column_fit (view);
+	} else {
+		gtk_tree_view_remove_column (tree_view, view->details->checkmark_column);
+	}
+	schedule_hscroll (view);
 }
 
 static void
@@ -2010,6 +2123,38 @@ create_tree (FMTreeView *view)
                                          NULL);
 
 	gtk_tree_view_append_column (view->details->tree_widget, column);
+	view->details->name_column = column;
+	gtk_tree_view_set_expander_column (view->details->tree_widget, column);
+
+	view->details->checkmark_cell = gtk_cell_renderer_text_new ();
+	g_object_set (view->details->checkmark_cell,
+		      "xalign", 0.5,
+		      "xpad", 2,
+		      "sensitive", FALSE,
+		      NULL);
+	view->details->checkmark_column = gtk_tree_view_column_new ();
+	g_object_ref_sink (view->details->checkmark_column);
+	gtk_tree_view_column_pack_start (view->details->checkmark_column,
+					 view->details->checkmark_cell, TRUE);
+	gtk_tree_view_column_set_cell_data_func (view->details->checkmark_column,
+						 view->details->checkmark_cell,
+						 checkmark_cell_data_func, NULL, NULL);
+	gtk_tree_view_column_set_sizing (view->details->checkmark_column, GTK_TREE_VIEW_COLUMN_FIXED);
+	checkmark_column_update (view);
+	g_signal_connect_object (nemo_preferences,
+				 "changed::" NEMO_PREFERENCES_SELECTION_MODEL,
+				 G_CALLBACK (checkmark_column_update),
+				 view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (view->details->tree_widget, "style-updated",
+				 G_CALLBACK (checkmark_column_fit), view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (view->details->tree_widget, "notify::has-focus",
+				 G_CALLBACK (content_marks_changed), view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (gtk_tree_view_get_selection (view->details->tree_widget), "changed",
+				 G_CALLBACK (content_marks_changed), view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_preferences,
+				 "changed::" NEMO_PREFERENCES_SELECTION_MODEL,
+				 G_CALLBACK (content_marks_changed),
+				 view, G_CONNECT_SWAPPED);
 
 	gtk_widget_show (GTK_WIDGET (view->details->tree_widget));
 
@@ -2091,6 +2236,7 @@ loading_uri_callback (G_GNUC_UNUSED NemoWindow *window,
 
 	view = FM_TREE_VIEW (callback_data);
 	schedule_select_and_show_location (view, location);
+	update_content_marks (view);
 }
 
 static void
@@ -2264,6 +2410,16 @@ fm_tree_view_dispose (GObject *object)
 
     g_clear_object (&view->details->action_manager);
     g_clear_object (&view->details->ui_manager);
+
+	g_signal_handlers_disconnect_by_func (nemo_preferences, checkmark_column_update, view);
+	g_signal_handlers_disconnect_by_func (nemo_preferences, content_marks_changed, view);
+	if (view->details->marked_view != NULL) {
+		g_object_remove_weak_pointer (G_OBJECT (view->details->marked_view),
+					      (gpointer *) &view->details->marked_view);
+		view->details->marked_view = NULL;
+	}
+	view->details->checkmark_cell = NULL;
+	g_clear_object (&view->details->checkmark_column);
 
 	view->details->window = NULL;
 

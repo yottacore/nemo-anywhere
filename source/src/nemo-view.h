@@ -318,6 +318,10 @@ struct NemoViewClass {
 	   view's coordinates. FALSE when none is in sight. */
 	gboolean (* get_selection_menu_rect)   (NemoView          *view,
 						GdkRectangle      *rect);
+
+	/* Nemo Anywhere: the tree's pick of the viewed folder marks every
+	   item, not only the selected ones. */
+	void     (* marks_all_changed)         (NemoView          *view);
 };
 
 /* GObject support */
@@ -326,6 +330,9 @@ GType               nemo_view_get_type                         (void);
 /* Functions callable from the user interface and elsewhere. */
 NemoWindow     *nemo_view_get_nemo_window              (NemoView  *view);
 NemoWindowSlot *nemo_view_get_nemo_window_slot     (NemoView  *view);
+gboolean        nemo_view_get_marks_all            (NemoView  *view);
+void            nemo_view_set_marks_all            (NemoView  *view,
+						    gboolean   marks_all);
 char *              nemo_view_get_uri                          (NemoView  *view);
 
 void                nemo_view_display_selection_info           (NemoView  *view);

@@ -1045,9 +1045,9 @@ win32_drag (NemoListView *view,
 #endif
 
 /* The band. A plain drag on a row moves files, so a band starts only from
- * below the rows or the checkmark column, with Ctrl or Shift from a row not
- * yet selected, or with the right button. Shift and a plain band replace the
- * selection, Ctrl adds. */
+ * below the rows, with Ctrl or Shift from a row not yet selected, or with the
+ * right button. Every drag from the checkmark column bands, selected row or
+ * not. Shift and a plain band replace the selection, Ctrl adds. */
 
 static GtkTreePath *
 last_shown_row (GtkTreeView *tree_view)
@@ -1234,6 +1234,19 @@ band_motion (NemoListView *view, GdkEventMotion *event)
 	}
 }
 
+static gboolean band_end_takes_focus (void);
+static gboolean ctrl_click_sets_anchor (void);
+
+/* In a multiple selection GTK's Shift anchor goes to each row
+   gtk_tree_selection_select_path selects, so code that puts rows back
+   leaves it on the last one. This puts it on path, which stays selected. */
+static void
+anchor_to (GtkTreeSelection *selection, GtkTreePath *path)
+{
+	gtk_tree_selection_unselect_path (selection, path);
+	gtk_tree_selection_select_path (selection, path);
+}
+
 /* TRUE when it was dragging, so the release was no click. */
 static gboolean
 band_stop (NemoListView *view)
@@ -1251,10 +1264,15 @@ band_stop (NemoListView *view)
 		GtkTreePath *end = NULL;
 		int height = gdk_window_get_height (gtk_tree_view_get_bin_window (details->tree_view));
 
-		/* The keyboard carries on from where the band ended, as GTK's does. */
+		/* The keyboard carries on from where the band ended, as GTK's does.
+		   Nemo Anywhere counts the pointer below the rows too, as
+		   band_select does, so the end is always the last row touched. */
 		gtk_tree_view_get_path_at_pos (details->tree_view, 0,
 					       CLAMP (details->band.y, 0, MAX (height - 1, 0)),
 					       &end, NULL, NULL, NULL);
+		if (end == NULL && details->band.from != NULL && band_end_takes_focus ()) {
+			end = last_shown_row (details->tree_view);
+		}
 		if (end != NULL && gtk_tree_selection_path_is_selected (selection, end)) {
 			GList *rows = gtk_tree_selection_get_selected_rows (selection, NULL);
 			GList *l;
@@ -1262,6 +1280,9 @@ band_stop (NemoListView *view)
 			gtk_tree_view_set_cursor (details->tree_view, end, NULL, FALSE);
 			for (l = rows; l != NULL; l = l->next) {
 				gtk_tree_selection_select_path (selection, l->data);
+			}
+			if (band_end_takes_focus ()) {
+				anchor_to (selection, end);
 			}
 			g_list_free_full (rows, (GDestroyNotify) gtk_tree_path_free);
 		}
@@ -1840,6 +1861,8 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 	int cell_x;
 	int expander_size, horizontal_separator;
 	gboolean on_expander;
+	gboolean on_checks;
+	gboolean right_drags_files;
 	gboolean primary;
 
 	view = NEMO_LIST_VIEW (callback_data);
@@ -1904,6 +1927,9 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 					   &path, &column, &cell_x, NULL)) {
 		gboolean was_selected = gtk_tree_selection_path_is_selected (selection, path);
 
+		/* That column is for picking, so no file drag starts there. */
+		on_checks = column != NULL && column == view->details->checkmark_column;
+
         if (expanders_enabled (view)) {
     		gtk_widget_style_get (widget,
     				      "expander-size", &expander_size,
@@ -1961,10 +1987,10 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 				} else if ((event->state & eel_gtk_primary_mask (event->window)) != 0) {
 					GList *selected_rows;
 					GList *l;
+					GtkTreePath *cursor = NULL;
 
 					call_parent = FALSE;
 					if ((event->state & GDK_SHIFT_MASK) != 0) {
-						GtkTreePath *cursor;
 						gtk_tree_view_get_cursor (tree_view, &cursor, NULL);
 						if (cursor != NULL) {
 							gtk_tree_selection_select_range (selection, cursor, path);
@@ -1988,6 +2014,11 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 						gtk_tree_path_free (p);
 					}
 					g_list_free (selected_rows);
+					/* A Ctrl+Shift+click's run keeps the end it ran from. */
+					if (ctrl_click_sets_anchor ()) {
+						anchor_to (selection, cursor != NULL ? cursor : path);
+					}
+					gtk_tree_path_free (cursor);
 				} else {
 					view->details->ignore_button_release = on_expander;
 				}
@@ -2014,11 +2045,9 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 				band_arm (view, event, primary);
 			} else if ((event->button == 1 || event->button == 2) &&
 			    event->type == GDK_BUTTON_PRESS) {
-				/* A plain drag from the checkmarks bands, selected row
-				   or not. Without a move it's still a click. */
-				if (event->button == 1 && column == view->details->checkmark_column &&
-				    !button_event_modifies_selection (event)) {
-					band_arm (view, event, FALSE);
+				/* Without a move it's still a click. */
+				if (on_checks) {
+					band_arm (view, event, primary && event->button == 1);
 				}
 				view->details->drag_started = FALSE;
 				view->details->drag_button = event->button;
@@ -2036,13 +2065,18 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 						      event->x, event->y);
 #ifdef G_OS_WIN32
 				/* As in Explorer, a right drag from an item moves files. */
-				view->details->drag_started = FALSE;
-				view->details->drag_button = event->button;
-				view->details->drag_x = event->x;
-				view->details->drag_y = event->y;
+				right_drags_files = !on_checks;
 #else
-				band_arm (view, event, FALSE);
+				right_drags_files = FALSE;
 #endif
+				if (right_drags_files) {
+					view->details->drag_started = FALSE;
+					view->details->drag_button = event->button;
+					view->details->drag_x = event->x;
+					view->details->drag_y = event->y;
+				} else {
+					band_arm (view, event, FALSE);
+				}
 			}
 		}
 
@@ -3260,10 +3294,10 @@ checkmark_cell_data_func (GtkTreeViewColumn *column,
                           NemoListView      *view)
 {
     GtkTreeSelection *selection = gtk_tree_view_get_selection (view->details->tree_view);
+    gboolean marked = nemo_view_get_marks_all (NEMO_VIEW (view)) ||
+                      gtk_tree_selection_iter_is_selected (selection, iter);
 
-    g_object_set (renderer,
-                  "text", gtk_tree_selection_iter_is_selected (selection, iter) ? CHECKMARK_TEXT : "",
-                  NULL);
+    g_object_set (renderer, "text", marked ? CHECKMARK_TEXT : "", NULL);
     shade_row_cell_data_func (column, renderer, model, iter, view);
 }
 
@@ -3281,6 +3315,16 @@ checkmark_column_fit (NemoListView *view)
                                            GTK_WIDGET (view->details->tree_view),
                                            NULL, &width);
     gtk_tree_view_column_set_fixed_width (view->details->checkmark_column, MAX (width, 1));
+}
+
+static void
+nemo_list_view_marks_all_changed (NemoView *view)
+{
+    GtkTreeView *tree_view = NEMO_LIST_VIEW (view)->details->tree_view;
+
+    if (tree_view != NULL) {
+        gtk_widget_queue_draw (GTK_WIDGET (tree_view));
+    }
 }
 
 static gboolean
@@ -4814,17 +4858,42 @@ classic_key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer call
 static gboolean
 add_run_from_anchor (NemoListView *view, GtkWidget *widget, GdkEventKey *event)
 {
-	GtkTreeSelection *selection = gtk_tree_view_get_selection (view->details->tree_view);
+	GtkTreeView *tree_view = view->details->tree_view;
+	GtkTreeSelection *selection = gtk_tree_view_get_selection (tree_view);
 	GList *kept = gtk_tree_selection_get_selected_rows (selection, NULL);
+	GtkTreePath *was = NULL;
+	GtkTreePath *cursor = NULL;
+	GtkTreePath *anchor = NULL;
 	GList *l;
 
 	g_signal_handlers_block_by_func (selection, list_selection_changed_callback, view);
+	gtk_tree_view_get_cursor (tree_view, &was, NULL);
 	event->state &= ~GDK_CONTROL_MASK;
 	gtk_bindings_activate_event (G_OBJECT (widget), event);
+	gtk_tree_view_get_cursor (tree_view, &cursor, NULL);
+	/* Shift's run is all that's selected now, so the anchor is the end
+	   the cursor isn't on. At the edge nothing moved. */
+	if (cursor != NULL && (was == NULL || gtk_tree_path_compare (was, cursor) != 0)) {
+		GList *run = gtk_tree_selection_get_selected_rows (selection, NULL);
+
+		if (run != NULL) {
+			GtkTreePath *first = run->data;
+
+			anchor = gtk_tree_path_copy (gtk_tree_path_compare (first, cursor) == 0 ?
+						     g_list_last (run)->data : first);
+		}
+		g_list_free_full (run, (GDestroyNotify) gtk_tree_path_free);
+	}
 	for (l = kept; l != NULL; l = l->next) {
 		gtk_tree_selection_select_path (selection, l->data);
 	}
+	if (anchor != NULL) {
+		anchor_to (selection, anchor);
+	}
 	g_signal_handlers_unblock_by_func (selection, list_selection_changed_callback, view);
+	gtk_tree_path_free (anchor);
+	gtk_tree_path_free (cursor);
+	gtk_tree_path_free (was);
 	g_list_free_full (kept, (GDestroyNotify) gtk_tree_path_free);
 	list_selection_changed_callback (selection, view);
 
@@ -4921,6 +4990,12 @@ typedef struct {
 	gboolean (*key_press) (GtkWidget *widget, GdkEventKey *event, gpointer callback_data);
 	gboolean (*focus_in) (GtkWidget *widget, GdkEventFocus *event, gpointer user_data);
 	gboolean gtk_bands;
+	/* Our band leaves the focus and the anchor on the last row it touched,
+	   wherever the pointer ends. */
+	gboolean band_end_takes_focus;
+	/* A Ctrl+click leaves the anchor on the row clicked, where v1's is
+	   wherever putting the selection back left it. */
+	gboolean ctrl_click_sets_anchor;
 } ListViewRules;
 
 static const ListViewRules rules_anywhere_v1 = {
@@ -4941,8 +5016,8 @@ static const ListViewRules rules_classic = {
 	.gtk_bands = TRUE,
 };
 
-/* Nemo Anywhere starts from v1's set, with its own keys. The drag rule changes
-   it next (2026102407515573). */
+/* Nemo Anywhere starts from v1's set, with its own keys and press, and its
+   band ends on the last row it touched. */
 static const ListViewRules rules_anywhere = {
 	.button_press = anywhere_button_press_callback,
 	.button_release = button_release_callback,
@@ -4950,6 +5025,8 @@ static const ListViewRules rules_anywhere = {
 	.key_press = anywhere_key_press_callback,
 	.focus_in = focus_in_event_callback,
 	.gtk_bands = FALSE,
+	.band_end_takes_focus = TRUE,
+	.ctrl_click_sets_anchor = TRUE,
 };
 
 static const ListViewRules *
@@ -4964,6 +5041,18 @@ list_view_rules (void)
 		return &rules_anywhere;
 	}
 	g_return_val_if_reached (&rules_anywhere_v1);
+}
+
+static gboolean
+band_end_takes_focus (void)
+{
+	return list_view_rules ()->band_end_takes_focus;
+}
+
+static gboolean
+ctrl_click_sets_anchor (void)
+{
+	return list_view_rules ()->ctrl_click_sets_anchor;
 }
 
 static gboolean
@@ -7069,6 +7158,7 @@ nemo_list_view_class_init (NemoListViewClass *class)
     nemo_view_class->merge_menus = nemo_list_view_merge_menus;
     nemo_view_class->unmerge_menus = nemo_list_view_unmerge_menus;
 	nemo_view_class->update_menus = nemo_list_view_update_menus;
+	nemo_view_class->marks_all_changed = nemo_list_view_marks_all_changed;
 	nemo_view_class->reset_to_defaults = nemo_list_view_reset_to_defaults;
 	nemo_view_class->restore_default_icon_size = nemo_list_view_restore_default_icon_size;
     nemo_view_class->get_default_icon_size = nemo_list_view_get_default_icon_size_vfunc;

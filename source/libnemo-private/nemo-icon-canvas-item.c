@@ -81,6 +81,8 @@ struct NemoIconCanvasItemDetails {
 	/* Size of the text at current font. */
 	int text_dx;
 	int text_width;
+	/* Part of text_width kept for the compact view's mark. */
+	int checkmark_room;
 
 	/* actual size required for rendering the text to display */
 	int text_height;
@@ -175,6 +177,8 @@ static void     draw_pixbuf                          (GdkPixbuf                 
 						      cairo_t                       *cr,
 						      int                            x,
 						      int                            y);
+static PangoLayout *create_label_layout              (NemoIconCanvasItem        *item,
+						      const char                    *text);
 static PangoLayout *get_label_layout                 (PangoLayout                  **layout,
 						      NemoIconCanvasItem        *item,
 						      const char                    *text);
@@ -184,6 +188,11 @@ static gboolean hit_test_stretch_handle              (NemoIconCanvasItem        
 
 static void       nemo_icon_canvas_item_ensure_bounds_up_to_date (NemoIconCanvasItem *icon_item);
 static gboolean   shows_dim_checkmark                  (NemoIconCanvasItem        *item);
+static int        measure_checkmark_room               (NemoIconCanvasItem        *item);
+static void       draw_name_checkmark                  (NemoIconCanvasItem        *item,
+						        cairo_t                   *cr,
+						        GtkStyleContext           *context,
+						        const EelIRect            *text_rect);
 static gboolean   shows_focus_outline                  (NemoIconCanvasItem        *item);
 
 /* Object initialization function for the icon item. */
@@ -917,6 +926,7 @@ measure_label_text (NemoIconCanvasItem *item)
 		details->text_height_for_layout = 0;
 		details->text_height_for_entire_text = 0;
 		details->text_width = 0;
+		details->checkmark_room = 0;
 		return;
 	}
 
@@ -995,8 +1005,9 @@ measure_label_text (NemoIconCanvasItem *item)
 
 	/* add some extra space for highlighting even when we don't highlight so things won't move */
 
+    details->checkmark_room = measure_checkmark_room (item);
     if (IS_COMPACT_VIEW (container)) {
-        details->text_width += TEXT_BACK_PADDING_X;
+        details->text_width += TEXT_BACK_PADDING_X + details->checkmark_room;
         details->text_height_for_layout += TEXT_BACK_PADDING_Y*2;
     } else {
         /* extra slop for nicer highlighting */
@@ -1111,8 +1122,10 @@ draw_label_text (NemoIconCanvasItem *item,
 		gtk_style_context_restore (context);
 	}
 
+	draw_name_checkmark (item, cr, context, &text_rect);
+
 	if (container->details->label_position == NEMO_ICON_LABEL_POSITION_BESIDE) {
-		x = text_rect.x0 + 2;
+		x = text_rect.x0 + 2 + (is_rtl_label_beside ? 0 : details->checkmark_room);
         y = text_rect.y0;
 	} else {
 		x = text_rect.x0 + ((text_rect.x1 - text_rect.x0) - max_text_width) / 2;
@@ -1373,14 +1386,65 @@ shows_dim_checkmark (NemoIconCanvasItem *item)
 {
 	NemoIconContainer *container;
 
-	if (!item->details->is_highlighted_for_selection ||
-	    nemo_global_preferences_get_selection_model () != NEMO_SELECTION_MODEL_ANYWHERE ||
+	if (nemo_global_preferences_get_selection_model () != NEMO_SELECTION_MODEL_ANYWHERE ||
 	    EEL_CANVAS_ITEM (item)->canvas == NULL) {
 		return FALSE;
 	}
 	container = NEMO_ICON_CONTAINER (EEL_CANVAS_ITEM (item)->canvas);
 
-	return !container->details->is_desktop && !nemo_icon_container_is_layout_vertical (container);
+	return !container->details->is_desktop &&
+	       (item->details->is_highlighted_for_selection || container->details->marks_all);
+}
+
+/* Every name in the compact view keeps room for the mark on its icon side, so
+   names don't shift as the selection changes. */
+static int
+measure_checkmark_room (NemoIconCanvasItem *item)
+{
+	NemoIconContainer *container = NEMO_ICON_CONTAINER (EEL_CANVAS_ITEM (item)->canvas);
+	PangoLayout *layout;
+	int width;
+
+	if (!IS_COMPACT_VIEW (container) || container->details->is_desktop ||
+	    nemo_global_preferences_get_selection_model () != NEMO_SELECTION_MODEL_ANYWHERE) {
+		return 0;
+	}
+
+	layout = create_label_layout (item, CHECKMARK_TEXT);
+	pango_layout_get_pixel_size (layout, &width, NULL);
+	g_object_unref (layout);
+
+	return width + 2;
+}
+
+/* In the label's font, on the selection frame already drawn under it. */
+static void
+draw_name_checkmark (NemoIconCanvasItem *item,
+                     cairo_t            *cr,
+                     GtkStyleContext    *context,
+                     const EelIRect     *text_rect)
+{
+	PangoLayout *layout;
+	int x;
+
+	if (item->details->checkmark_room == 0 || item->details->is_renaming ||
+	    !shows_dim_checkmark (item)) {
+		return;
+	}
+
+	x = nemo_icon_container_is_layout_rtl (NEMO_ICON_CONTAINER (EEL_CANVAS_ITEM (item)->canvas)) ?
+	    text_rect->x1 - item->details->checkmark_room : text_rect->x0 + 2;
+
+	layout = create_label_layout (item, CHECKMARK_TEXT);
+	gtk_style_context_save (context);
+	/* Off the highlight, as when the tree marks every item, it's the dim
+	   text color, as on a list view row not selected. */
+	gtk_style_context_set_state (context, item->details->is_highlighted_for_selection ?
+				     GTK_STATE_FLAG_SELECTED | GTK_STATE_FLAG_INSENSITIVE :
+				     GTK_STATE_FLAG_INSENSITIVE);
+	gtk_render_layout (context, cr, x, text_rect->y0, layout);
+	gtk_style_context_restore (context);
+	g_object_unref (layout);
 }
 
 /* Nemo Anywhere outlines the focus only while it is on an icon not selected,
@@ -1406,7 +1470,7 @@ draw_dim_checkmark (NemoIconCanvasItem *item,
 	int width, height, side, room;
 	double scale;
 
-	if (!shows_dim_checkmark (item)) {
+	if (!shows_dim_checkmark (item) || IS_COMPACT_VIEW (NEMO_ICON_CONTAINER (EEL_CANVAS_ITEM (item)->canvas))) {
 		return;
 	}
 
@@ -2064,6 +2128,14 @@ nemo_icon_canvas_item_set_renaming (NemoIconCanvasItem *item, gboolean state)
 
 	item->details->is_renaming = state;
 	eel_canvas_item_request_update (EEL_CANVAS_ITEM (item));
+}
+
+/* In canvas pixels, 0 where there's no room kept. */
+int
+nemo_icon_canvas_item_get_checkmark_room (NemoIconCanvasItem *item)
+{
+	measure_label_text (item);
+	return item->details->checkmark_room;
 }
 
 double

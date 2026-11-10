@@ -33,41 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Nemo Anywhere dim checkmarks: the icon view.
-	- ID: 2026102411133414
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Needs local test suite run?: no. The quick gate's tests passed with it.
-	- Priority|Severity: High
-	- Opened: 20261024-111334
-	- Opened by: t00mietum
-	- Parent ID: 2026102407515571
-	- Prereq IDs: 2026102411133409
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- Only under Nemo Anywhere. A dim checkmark on every selected icon, and none on the rest. The text doesn't change.
-		- In the top-left corner of the icon, on a small scrim that reads on any thumbnail.
-		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
-	- Progress log:
-		- 20261024: opened.
-		- 20261109: under Nemo Anywhere each selected icon in the icon view gets a dim checkmark in its top-left corner, on a small patch of the selection color. Labels are unchanged. The marks follow the setting live. The compact view and the desktop get none yet.
-		- 20261110: left at signoff for the look of the mark on icons, as the list view column's was. Tests pass.
-	- Decisions:
-		- The patch is the theme's selection background, and the mark is the selected text in the insensitive look, the same pair as the list view's column. So the mark reads the same in both views, and the patch stands out on light, dark and busy thumbnails.
-		- The mark is the list view's size, shrunk to two fifths of the icon on small icons.
-		- It sits at the corner of the icon image, so on a theme icon with empty margins it can sit a little off the visible shape.
-		- Top-left in a right-to-left layout too, as the design doc says.
-		- The icon item has a read-only `dim-checkmark` property, which gives what the drawing goes by, for the tests.
-	- Swept: the label highlight and the drag image (no mark in either), the compact view's layout (left to 2026102411133419), the desktop, and the model switch in the list view and the icon container.
-	- Branch: round1110a
-	- Test case: dec8w and dec8v, where every icon view check also checks the marks: on the selected icons under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). Under Nemo Anywhere the two icon view band checks in dec8v check them too. The result counts don't change.
-	- Not covered by a test yet: the marks coming and going when the setting changes while the window is open.
-	- Verified: 20261109, dec8w, dec8v, de8bd, de8dm, ddy5f and de8ec pass, and fail with marks drawn on every icon under every model. The quick gate passed (lints, and 242 OK, 1 skipped). The clang analyzer reports nothing on the two changed files.
-	- Verified: 20261109, the icon view under Nemo Anywhere in Adwaita and Adwaita dark, with 3 of 7 icons selected: a mark on each selected icon and none on the rest, labels unchanged. It reads on white, black, blue and striped thumbnails.
-	- Acceptance signoff: Pending: the look of the mark on icons. dec8w and dec8v pass.
-
 - The native gate on b29w sometimes fails on test-nemo-office's leftover folder.
 	- ID: 2026103116203164
 	- Type: Bug
@@ -466,33 +431,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261108: `nemo-anywhere` is the default and heads the dropdown, ahead of the other children. See ...575.
 	- Test case: one per child.
 
-- Nemo Anywhere: dim checkmarks that follow the selection, in all 3 views.
-	- ID: 2026102407515571
-	- Type: Enhancement
-	- Status: Started
-	- Needs local test suite run?: Yes
-	- Priority|Severity: High
-	- Opened: 20261024-075155
-	- Opened by: t00mietum
-	- Parent ID: 2026102019174440
-	- Prereq IDs: 2026102407515570
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- Only under Nemo Anywhere. A dim checkmark on every selected object, and none on the rest. The text doesn't change.
-		- List view: a thin new column left of Name, with nothing else in it. It can't be hidden or moved.
-		- Icon view: the top-left corner of the icon, on a small scrim that reads on any thumbnail.
-		- Compact view: left of the name text.
-		- A test per view that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
-	- Notes:
-		- Sorting on the column belongs with the affirmative half, since with the switch off it sorts on the selection.
-		- The color per bundled theme is its own roadmap step. Until then the mark takes the theme's selection color, dimmed.
-	- Progress log:
-		- 20261024: opened.
-		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
-	- Test case: one per child.
-
 - Nemo Anywhere: the switch-off wording and keys, then the dropdown entry and the default.
 	- ID: 2026102407515575
 	- Type: Enhancement
@@ -543,102 +481,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Left: F2 rename in the tree, and whether the tree takes a multi-selection with the switch off (needs more thought, with 2026102407515574).
 	- Branch: treeedit
 	- Test case: df066 (Ctrl+C in the tree with the whole list selected).
-
-- Nemo Anywhere dim checkmarks: the compact view.
-	- ID: 2026102411133419
-	- Type: Enhancement
-	- Status: Queued
-	- Needs local test suite run?: Yes
-	- Priority|Severity: High
-	- Opened: 20261024-111334
-	- Opened by: t00mietum
-	- Parent ID: 2026102407515571
-	- Prereq IDs: 2026102411133414
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- Only under Nemo Anywhere. A dim checkmark on every selected item, and none on the rest. The text doesn't change.
-		- Left of the name text.
-		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
-	- Notes:
-		- Shares the icon container's drawing with the icon view, so it follows that child.
-	- Progress log:
-		- 20261024: opened.
-	- Test case: none yet.
-
-- Nemo Anywhere: the focus outline and the keyboard rules, per view.
-	- ID: 2026102407515572
-	- Type: Enhancement
-	- Status: Queued
-	- Needs local test suite run?: Yes
-	- Priority|Severity: High
-	- Opened: 20261024-075155
-	- Opened by: t00mietum
-	- Parent ID: 2026102019174440
-	- Prereq IDs: 2026102407515570
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- No focus outline, except while a Ctrl+arrow move has put the focus on an object that isn't selected.
-		- Up, Down, Page Up and Page Down count from the range ends, and Left and Right too in the icon views. After a Ctrl+arrow move they count from the focus.
-		- Ctrl with an arrow moves the focus alone. Ctrl+Space adds or removes the focused object. Ctrl+Shift with an arrow adds the run from the anchor. Ctrl+Home and Ctrl+End are the same as the key alone.
-		- Escape clears the selection, the focus and the anchor. A second Escape does nothing, and the next arrow starts at the first object. An Escape that cancels something else does only that.
-		- Space previews, and never starts type-ahead on its own.
-		- de8bd's expectations under Nemo Anywhere change to match, with a check per key and view.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
-	- Progress log:
-		- 20261024: opened.
-		- 20261024: split into children, one per view: 2026102412041967 (list view), ...969 (icon view), ...971 (compact view).
-	- Test case: one per child.
-
-- Nemo Anywhere focus outline and keys: the compact view.
-	- ID: 2026102412041971
-	- Type: Enhancement
-	- Status: Queued
-	- Needs local test suite run?: Yes
-	- Priority|Severity: High
-	- Opened: 20261024-120419
-	- Opened by: t00mietum
-	- Parent ID: 2026102407515572
-	- Prereq IDs: 2026102412041969
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- The icon view's rules, in the compact view's layout, where Up and Down run down a column and Left and Right go across.
-		- dec8w checks each key in the compact view.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
-	- Notes:
-		- Shares the icon container's key handling with the icon view, so it follows that child.
-	- Progress log:
-		- 20261024: opened.
-	- Test case: none yet.
-
-- Nemo Anywhere: the mouse and drag rules, the list view drag rule among them.
-	- ID: 2026102407515573
-	- Type: Enhancement
-	- Status: Queued
-	- Needs local test suite run?: Yes
-	- Priority|Severity: High
-	- Opened: 20261024-075155
-	- Opened by: t00mietum
-	- Parent ID: 2026102019174440
-	- Prereq IDs: 2026102407515570, 2026102407515571
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- List view: a plain drag bands only from the checkmark column or the blank space below the rows. A plain drag from a row is a file drag.
-		- Ctrl, Shift, Ctrl+Shift and right drags from empty space, or from an object that isn't selected, band. Ctrl and Ctrl+Shift add, Shift and right replace. In list view from any column. From a selected object each is a file drag.
-		- A band moves the focus and the anchor to the last object it touched.
-		- The rest of the mouse rules stay as v1 has them, and are pinned under Nemo Anywhere.
-		- ddy5f's expectations under Nemo Anywhere change to match.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Mouse".
-	- Notes:
-		- v1 already has the plain drag rule and the Ctrl, Shift and right bands from a row (ddy5f). What's new is the band from the checkmark column, and where a band leaves the focus and the anchor.
-	- Progress log:
-		- 20261024: opened.
-		- 20261110: a plain drag from the checkmark column bands now, done in 2026110919315994 (dec8v). Still left: where a band leaves the focus and the anchor.
-	- Test case: none yet.
+	- Decisions: 20261110, the tree stays single-select. Only the edit keys and menu entries come over, acting on the one selected folder. Multi-select waits for the affirmative switch.
 
 - Nemo Anywhere: the tree view rules, less the affirmative parts.
 	- ID: 2026102407515574
@@ -658,11 +501,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The dim checkmark, in an invisible column left of the tree.
 		- When the tree has the focus and the viewed folder is selected there, every object in the content view is drawn with the dim mark.
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view".
-	- Notes:
-		- Needs more thought: whether the tree takes a multi-selection with the switch off, since its click opens the folder, and how much of 2026102018234903 that needs first.
+	- Decided: the tree stays single-select with the switch off, per the 20261110 Decisions row on 2026102018234903. Only the edit keys and menu entries come over, acting on the one selected folder.
 	- Progress log:
 		- 20261024: opened.
-	- Test case: none yet.
+		- 20261110: split into children, worked in this order: 2026111013031711 (the dim checkmark column), ...729 (the content view's marks while the tree has the focus), ...747 (the tree's focus and keys).
+		- 20261110: ...711 and ...729 are done. ...747 is queued.
+	- Test case: one per child.
+
+- Nemo Anywhere tree view: its own focus and anchor, under the content view's mouse and keyboard rules.
+	- ID: 2026111013031747
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261110-130317
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515574
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Only under Nemo Anywhere, and single-select, per the parent.
+		- No focus outline, except while a Ctrl+Up or Ctrl+Down has put the the focus on a row that isn't selected.
+		- Ctrl+Up and Ctrl+Down move the focus alone, opening nothing. Ctrl+Space selects the focused row, which opens it. After a Ctrl move, Up and Down count from the focus.
+		- Ctrl+Home and Ctrl+End are the same as the key alone.
+		- Escape drops a Ctrl move's focus. What else it clears needs a Decisions row, since the tree's selected row is the viewed folder.
+		- df066 checks each key.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view", "Mouse" and "Keyboard".
 
 - Affirmative checkmarks: the switch and the places it will plug into, with no affirmative behavior yet.
 	- ID: 2026102019174477
@@ -751,6 +614,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- After the rc.1 cut, since the release build works as it is.
 		- Split it before starting. It doesn't fit one worker's time cap.
 	- Estimated effort: High
+	- 20261110: if the patched gtk3 of 2026102112223038 (children 2026111011404145 on) is in by then, it has to be rebuilt for UCRT64 too.
 
 - Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
 	- ID: 2026102114400592
@@ -973,35 +837,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: the xattrs checkbox is today's "Save checksums onto the files", moved and relabeled.
 	- Test case: none yet.
 
-- A tab or newline in a dev build's settings file before SHCL 3.0.0-beta1 reads as a backslash and a letter.
-	- ID: 2026110921160616
+- List view under Nemo Anywhere: Ctrl+Shift+click runs from the focus, not the anchor.
+	- ID: 2026111012592994
 	- Type: Bug
 	- Status: Queued
 	- Priority|Severity: Low
-	- Opened: 20261109-211606
-	- Opened by: item 2026110911251998
-	- Related IDs: 2026110911251998, 2026110520234226
-	- Steps to reproduce [Bug]: with a dev or dogfood build from 20260925 to 20261105, set a value with a tab in it, such as `archive.create-with-rar` to `rar<tab>a`. Then start this build on the same settings.
-	- Incorrect behavior [Bug]: it reads as `rar\ta`, a backslash and a t. The same goes for a newline, and for `\\` and `\"` in a double-quoted value, which those builds wrote for text holding a backslash and both kinds of quote.
-	- Expected behavior [Bug]: every value reads as that build read it.
-	- Reproduced [Bug]: yes, 20261109, Linux. ddf4w's dev case has the tab, marked as read another way.
-	- Possible cause [Bug]: those builds read `\t \n \\ \" \'` as escapes inside double quotes. 3.0.0-beta1 reads a backslash there as text, and writes a tab as a named escape. The file says format 3 either way, so a double-quoted backslash in it can't be told from one typed for today's rules, such as `"C:\temp #1"`, which is how it writes that text now. Only a file with a bare list is known to be from such a build.
-	- Test case: ddf4w, Config old formats test: the 3.0.0-dev case marks `archive.create-with-rar`, and fails once it reads as that build read it.
-
-- Compress dialog: the Reset button's text sits about 8 px below the Advanced label.
-	- ID: 2026110817490431
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261108-174904
+	- Opened: 20261110-125929
 	- Opened by: t00mietum
-	- Related IDs: 2026100516274646
-	- Target OS: Linux, Windows
-	- Steps to reproduce: Open Compress on any file and look at the row with Advanced and Reset.
-	- Incorrect behavior: Reset's text sits about 8 px lower than the Advanced label's, grayed and lit alike (Adwaita, at fdce4acd).
-	- Expected behavior: the two labels share a baseline, within a pixel or two.
-	- Possible cause: Reset is a flat button in an hbox beside the expander, not in its label widget, so the button's padding pushes its text down.
-	- Test case: none yet. dd5dm could compare the two labels' baselines.
+	- Related IDs: 2026111012335173
+	- Target OS: All
+	- Steps to reproduce: list view, Nemo Anywhere. Click row 2, Ctrl+Down twice, then Ctrl+Shift+click row 6.
+	- Incorrect behavior: likely adds rows 4 to 6, from the focus, and not 2 to 6. The anchor then goes to row 4.
+	- Expected behavior: the run goes from the anchor, and the anchor stays, per the design doc's "Mouse".
+	- Reproduced: no. From a reading of the press code.
+	- Possible cause: the press runs from GTK's cursor, since GTK has no call that gives its anchor. The two differ after a Ctrl+arrow, since a Shift run already holds the rows between them. A Ctrl+click on a selected row may leave the focus behind the same way, since the release only unselects it.
+	- Test case: none yet. dec8w would get a Ctrl+arrow then a Ctrl+Shift+click.
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
@@ -1033,8 +883,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
 		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
 		- 20261108: our own patched GTK means building gtk3 from MSYS2's recipe with the patch, then pinning that package in place of MSYS2's in both `msys2-pins.txt` and `sysroot-pins.txt`. Neither the hosted build nor the cross sysroot has a patch step yet. First check whether MR 10551 has merged and a 3.24 release has it.
+		- 20261110: MR 10551 isn't merged. `gtk-3-24` has no change to the win32 drag code since 3.24.52, which is still the newest 3.24 release. So we build our own, split into 2026111011404145, 2026111011404856, 2026111011405776, 2026111011405793 and 2026111011410487.
+		- Decided: the patched package is a file on a prerelease of this repo, tagged `msys2-gtk3-<version>`, built by a hosted workflow from MSYS2's recipe plus the patch. Not in git, since a binary of several MB stays in history for good. Not a workflow artifact, since those expire. Not a repo of its own, which would need making.
+		- Decided: both pin lists name it by URL and sha256 through an overrides file that `update` applies, so a pins move keeps it. `update` stops when MSYS2's gtk3 moves past the version it was built from. A GTK release with the fix then means dropping the override, and one without means a rebuild.
+		- Decided: pkgrel `1.1`, so pacman takes it over MSYS2's 3.24.52-1, and a newer MSYS2 build still sorts above it.
+		- Decided: only gtk3 comes from our build. The recipe also makes gtk-update-icon-cache, which has no drag code.
+		- Decided: the build's own deps come from the day's MSYS2 database. The result is pinned by sha256, so they can't change a later build.
+		- Decided: the workflow runs on a push that changes the recipe, since GitHub won't start a new workflow by hand until it's on `main`, which is release-only. MSYSTEM is one setting there, so the UCRT64 move (2026110920004210) rebuilds it by changing that.
+		- Decided: the cross sysroot takes it through `sysroot-pins.txt` like any other package, so `fetch-sysroot.bash` only needs to fetch a URL line. The image tag hashes that list, so the image rebuilds on its own.
+		- Decided: the native lane installs the overrides on the box before building, so the native gate tests the GTK the release has.
 	- Actual fix: none in the app.
-	- Test case: none. The fix is upstream, and nothing in the app hits it.
+	- Test case: in 2026111011410487. The pinned GTK has to free a drag canceled in the turn it began.
 	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
 	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
 
@@ -1069,6 +928,100 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the same icons as the single exe, tan and lined.
 	- Reproduced: 20261022 on vm925w, while checking 2026101007562511.
 	- Test case: none yet.
+
+- Windows: build MSYS2's gtk3 with the OLE drag abort fix, as a pinned release file.
+	- ID: 2026111011404145
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261110-114041
+	- Opened by: 2026102112223038
+	- Parent ID: 2026102112223038
+	- Related IDs: 2026110920004210
+	- Target OS: Windows
+	- Requirements:
+		- `cicd/win/gtk3/` has MSYS2's `mingw-w64-gtk3` recipe from MINGW-packages `75dcb5fa3cb9` (3.24.52-1) with its license notice, plus the patch from GTK MR 10551, and pkgrel `1.1`.
+		- A hosted workflow builds it on windows-latest under MINGW64, with setup-msys2 pinned to the commit `msys2-pins.bash` has.
+		- It runs on a push that changes the recipe or the workflow, and by hand once it's on `main`. GitHub can't start a new workflow by hand before then.
+		- It puts the gtk3 package on a prerelease tagged `msys2-gtk3-3.24.52-1.1`, not marked latest, only when that release doesn't exist yet. It never replaces a file there. The sha256 goes in the run's summary.
+		- install.bash and install.ps1 skip release tags that don't start with `v`.
+		- A lint-stage test checks the recipe's patch sum, the `.N` pkgrel and the setup-msys2 commit.
+	- Estimated effort: Avg
+	- Test case: a new lint-stage test for the recipe and the workflow, and the installers' own tests for the tag filter. The hosted run is the real test.
+
+- Windows pins: take a package we build from its own URL, in place of MSYS2's.
+	- ID: 2026111011404856
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261110-114048
+	- Opened by: 2026102112223038
+	- Parent ID: 2026102112223038
+	- Related IDs: 2026103113501526
+	- Target OS: Windows
+	- Requirements:
+		- `cicd/win/msys2-overrides.txt` lists the packages we build, as `<base URL> <file> <sha256>`, kept LF like the pin lists.
+		- `msys2-pins.bash update` puts each override in place of MSYS2's line for the same package, in both lists. It fails when MSYS2's version of that package isn't the one the override was built from, so a GTK move needs a choice.
+		- `msys2-pins.bash overrides` does the same to both lists as they are, without fetching a database or moving anything else.
+		- `msys2-pins.bash install` and `fetch-sysroot.bash` fetch a line whose first column is an https URL from that URL.
+		- dehzp and depf5 allow a URL line only for a package in the overrides file, with the same sha256.
+		- design.md "Building on Windows" and "Reproducible builds" say where an override comes from.
+	- Estimated effort: Avg
+	- Test case: dehzp and depf5, with cases for an override line, a URL line not in the overrides file, a sha256 that differs from it, and an `update` against an MSYS2 version that moved.
+
+- Windows pins: point gtk3 at our patched build.
+	- ID: 2026111011405776
+	- Type: Task
+	- Status: Queued
+	- Needs external testing: the hosted release-win.yml run on the round branch. The round has to push 2026111011404145 first, so its build has run and the release file exists.
+	- Priority|Severity: Low
+	- Opened: 20261110-114057
+	- Opened by: 2026102112223038
+	- Parent ID: 2026102112223038
+	- Prereq IDs: 2026111011404145, 2026111011404856
+	- Target OS: Windows
+	- Requirements:
+		- Add the release file from 2026111011404145's run to `msys2-overrides.txt`, with the sha256 from the run's summary checked against the file itself.
+		- Run `msys2-pins.bash overrides`, so both lists name it. Only gtk3's line changes.
+		- Edits pins only, with the tools above, so it goes to the light tier.
+	- Estimated effort: Low
+	- Test case: dehzp and depf5, the cross build image built from the new sysroot list, and the hosted release-win.yml run.
+
+- Native Windows lane: install the override packages before building.
+	- ID: 2026111011405793
+	- Type: Task
+	- Status: Queued
+	- Needs external testing: the native gate on vm925w-iommu, which should install the patched gtk3 once and leave it the next run.
+	- Priority|Severity: Low
+	- Opened: 20261110-114057
+	- Opened by: 2026102112223038
+	- Parent ID: 2026102112223038
+	- Prereq IDs: 2026111011404856
+	- Target OS: Windows
+	- Requirements:
+		- The native lane installs each package in `msys2-overrides.txt` on b29w and vm925w-iommu before it builds, with its sha256 checked, when the box has another version.
+		- It says what it installed. A box that already has that version is left as is.
+		- Without this the native gate tests the box's stock gtk3, not the one the release has.
+	- Estimated effort: Low
+	- Test case: dejjt, or a new pwsh test, for the step with a stubbed pacman. The native gate is the real run.
+
+- Test: on Windows, a GTK drag canceled in the turn it began frees its context and drag window.
+	- ID: 2026111011410487
+	- Type: Task
+	- Status: Queued
+	- Needs external testing: the native gate, on a box that has the patched gtk3 from 2026111011405793.
+	- Priority|Severity: Low
+	- Opened: 20261110-114104
+	- Opened by: 2026102112223038
+	- Parent ID: 2026102112223038
+	- Prereq IDs: 2026111011405776, 2026111011405793
+	- Target OS: Windows
+	- Requirements:
+		- A Windows-only test turns on OLE drag as `nemo_dnd_win32_prepare` does, then begins a GTK drag and cancels it in the same turn, a few times.
+		- Every drag's context is finalized and its drag window freed. `private/upstream/gdk-win32-ole-drag-abort-leak.c` is the repro to start from.
+		- It runs under wine on the cross build, which has the pinned sysroot, and in the native gate. Linux skips it.
+	- Estimated effort: Avg
+	- Test case: the new test. It has to fail on MSYS2's stock gtk3 3.24.52-1 and pass on the pinned one.
 
 - Write a long list in the settings file one `- ` item per line, not in brackets.
 	- ID: 2026110911301888
@@ -1171,18 +1124,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual cause:
 		- A plain press on a row armed a file drag wherever it landed, the checkmark column included.
 		- The press counted as one on the expanders when its x was within their width of the row's left edge. Name has the expanders, and under Nemo Anywhere the checkmark column comes first, so a press there was taken for one, and Ctrl and Shift couldn't band from it.
-	- Actual fix: a plain left press in the checkmark column arms a band, on a selected row too. A release with no move is still a click on the row. The expander test goes by the column hit and the x inside it.
+	- Actual fix: any press in the checkmark column arms a band, on a selected row too, with Ctrl, Shift, the right or the middle button. A release with no move is still a click on the row. The expander test goes by the column hit and the x inside it.
 	- Progress log:
 		- 20261109: the checkmark column bands on a plain left drag, and Shift and Ctrl band from it as from the rest of a row.
+		- 20261110: every drag from the checkmark column bands, selected row or not. On Windows a right drag from there bands too, where a right drag from the rest of a row still moves files.
 	- Decisions:
-		- Only the plain drag is new there. Ctrl, Shift and right drags from the checkmark column follow the row rules: a band from a row not selected, a file drag from a selected one. The design doc's "always a band, even on a selected row" is part of the affirmative override, which the switch-off model leaves out.
+		- Every drag from the checkmark column bands, Ctrl, Shift and right drags on a selected row included, per the 20261110 entry below. The design doc's switch-off list says so now. It sets no affirmative checkmarks, since the switch-off model has none.
+		- A middle drag from there bands too, and replaces, since no file drag starts from that column. The design doc's override names only left and right.
+		- Ctrl and Ctrl+Shift add, as from the rest of a row. A Ctrl+click there with no move still unselects a selected row.
 		- The band replaces the selection from the row pressed, as Shift's does.
-	- Swept: the other expander tests in the list view (the name cell click test already takes the column's offset; Nemo Classic's press has no checkmark column), and every place a band ends without a release, so a lost release can't start a file drag.
-	- Branch: round1110a
-	- Test case: dec8v, with 7 new list view results under Nemo Anywhere, 31 up from 24: a plain drag from the checkmark column of a row not selected and of a selected one, a Shift drag from it, and a click there. ddy5f and de8ec keep their counts.
+		- 20261110: changed my mind. Every drag from the checkmark column bands, Ctrl, Shift and right drags on a selected row included. Normal mouse file actions don't start from that column, since it's only for multi-select.
+	- Swept: the other expander tests in the list view (the name cell click test already takes the column's offset; Nemo Classic's press has no checkmark column), and every place a band ends without a release, so a lost release can't start a file drag. Every place the list view arms a file drag: only the two in the press handler, both now skip the checkmark column.
+	- Branch: round1110b
+	- Test case: dec8v, with 16 new list view results under Nemo Anywhere, 40 up from 24: from the checkmark column, a plain drag from a row not selected and from a selected one, a Shift drag from a row not selected, and from a selected row a Ctrl, a Shift, a right and a middle drag, a click, and a Ctrl+click. ddy5f and de8ec keep their counts.
+		- 20261110: dec8v's list view count under Nemo Anywhere went from 31 to 40.
 	- Verified: 20261109, dec8v fails on the old code (4 checks) and with only the expander part left out (2 checks), and passes with the fix. ddy5f and de8ec pass. The quick gate's lints, and its tests (242 OK, 1 skipped), pass. Both analyzers report nothing on the changed files.
+	- Verified: 20261110, dec8v fails with the 20261109 fix alone (6 checks: the Ctrl, Shift and middle drags from a selected row) and passes with this one. ddy5f and de8ec pass. The quick gate passed (lints, and 242 OK, 1 skipped). The Windows cross build passes. Both analyzers report nothing on the changed files.
+	- Not covered by a test yet: the right drag from the checkmark column on Windows, since dec8v isn't built there. On Linux a right drag from a selected row already banded.
 	- Acceptance signoff: Self-closed: dec8v.
-	- Closed: 20261109-205746
+	- Closed: 20261110-105420
 
 - ddagc fails in a round worktree, so the lint stage stops before the tests after it.
 	- ID: 2026110313162837
@@ -1827,6 +1787,276 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. dd8d9 covers it.
 	- Closed: 20261003-112426
+
+- Nemo Anywhere dim checkmarks: the icon view.
+	- ID: 2026102411133414
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The quick gate's tests passed with it.
+	- Priority|Severity: High
+	- Opened: 20261024-111334
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515571
+	- Prereq IDs: 2026102411133409
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Only under Nemo Anywhere. A dim checkmark on every selected icon, and none on the rest. The text doesn't change.
+		- In the top-left corner of the icon, on a small scrim that reads on any thumbnail.
+		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
+	- Progress log:
+		- 20261024: opened.
+		- 20261109: under Nemo Anywhere each selected icon in the icon view gets a dim checkmark in its top-left corner, on a small patch of the selection color. Labels are unchanged. The marks follow the setting live. The compact view and the desktop get none yet.
+		- 20261110: left at signoff for the look of the mark on icons, as the list view column's was. Tests pass.
+		- 20261110: the look checked again at d51fe106 and matches the item: top-left corner, on a patch that reads on every thumbnail tried. Closed.
+	- Decisions:
+		- The patch is the theme's selection background, and the mark is the selected text in the insensitive look, the same pair as the list view's column. So the mark reads the same in both views, and the patch stands out on light, dark and busy thumbnails.
+		- The mark is the list view's size, shrunk to two fifths of the icon on small icons.
+		- It sits at the corner of the icon image, so on a theme icon with empty margins it can sit a little off the visible shape.
+		- Top-left in a right-to-left layout too, as the design doc says.
+		- The icon item has a read-only `dim-checkmark` property, which gives what the drawing goes by, for the tests.
+	- Swept: the label highlight and the drag image (no mark in either), the compact view's layout (left to 2026102411133419), the desktop, and the model switch in the list view and the icon container.
+	- Branch: round1110a
+	- Test case: dec8w and dec8v, where every icon view check also checks the marks: on the selected icons under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). Under Nemo Anywhere the two icon view band checks in dec8v check them too. The result counts don't change.
+	- Not covered by a test yet: the marks coming and going when the setting changes while the window is open.
+	- Verified: 20261109, dec8w, dec8v, de8bd, de8dm, ddy5f and de8ec pass, and fail with marks drawn on every icon under every model. The quick gate passed (lints, and 242 OK, 1 skipped). The clang analyzer reports nothing on the two changed files.
+	- Verified: 20261109, the icon view under Nemo Anywhere in Adwaita and Adwaita dark, with 3 of 7 icons selected: a mark on each selected icon and none on the rest, labels unchanged. It reads on white, black, blue and striped thumbnails.
+	- Verified: 20261110, at d51fe106, the icon view under Nemo Anywhere in Adwaita and Adwaita dark: a mark in the top-left corner of each selected icon and none on the rest, labels unchanged, reading on white, black, blue and striped thumbnails.
+	- Acceptance signoff: Self-closed: the look checked at d51fe106 in Adwaita light and dark, as the list view column's was. dec8w and dec8v pass.
+	- Closed: 20261110-135037
+
+- Nemo Anywhere: dim checkmarks that follow the selection, in all 3 views.
+	- ID: 2026102407515571
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Prereq IDs: 2026102407515570
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Only under Nemo Anywhere. A dim checkmark on every selected object, and none on the rest. The text doesn't change.
+		- List view: a thin new column left of Name, with nothing else in it. It can't be hidden or moved.
+		- Icon view: the top-left corner of the icon, on a small scrim that reads on any thumbnail.
+		- Compact view: left of the name text.
+		- A test per view that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
+	- Notes:
+		- Sorting on the column belongs with the affirmative half, since with the switch off it sorts on the selection.
+		- The color per bundled theme is its own roadmap step. Until then the mark takes the theme's selection color, dimmed.
+	- Progress log:
+		- 20261024: opened.
+		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
+		- 20261110: children 2026102411133414 2026102411133419 wait on UAT, and the rest are closed
+		- 20261110: all 3 children are closed.
+	- Test case: its children's: 2026102411133414: dec8w and dec8v, where every icon view check also checks the marks: on the selected icons under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). Under Nemo Anywhere the two icon view band checks in dec8v check them too. The result counts don't change.; 2026102411133419: dec8w and dec8v, where every compact view check also checks the marks: on the selected items under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). The result counts don't change.; 2026102411133409: dec8w and dec8v, where every list view check also checks the marks, the bands included. de8bd, de8dm and dec8w check the column is there only under Nemo Anywhere, thin, and without the expanders.
+	- Closed: 20261110-135253
+
+- Nemo Anywhere dim checkmarks: the compact view.
+	- ID: 2026102411133419
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The quick gate's tests passed with it.
+	- Priority|Severity: High
+	- Opened: 20261024-111334
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515571
+	- Prereq IDs: 2026102411133414
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Only under Nemo Anywhere. A dim checkmark on every selected item, and none on the rest. The text doesn't change.
+		- Left of the name text.
+		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
+	- Notes:
+		- Shares the icon container's drawing with the icon view, so it follows that child.
+	- Progress log:
+		- 20261024: opened.
+		- 20261110: under Nemo Anywhere each selected item in the compact view gets a dim checkmark just left of its name, inside the name's highlight. Every name keeps room for the mark, so names don't move as the selection changes. The room and the marks follow the setting live. The other models are unchanged.
+		- 20261110: left at signoff for the look of the mark beside names. Tests pass.
+		- 20261110: the look checked again at d51fe106 and matches the item: the mark sits left of each selected name, inside its highlight, and the names stay lined up. Closed.
+	- Decisions:
+		- The mark is in the label's font, in the selected text color with the insensitive look, the same as the list view column's. Inside the highlight it reads on the selection color, so it needs no patch of its own as on icons.
+		- The room is kept on every name, selected or not, under Nemo Anywhere only. So names sit one mark further from their icons than under the other models.
+		- In a right-to-left layout the mark is on the name's icon side, its right, as the list view's column is.
+		- A slow second click on the mark doesn't start a rename, since it isn't part of the name. The rename box starts where the name does.
+		- The drag image shows the mark too, since it draws the name as it is on screen, highlight included.
+	- Swept: the icon view's corner mark (now left out of the compact view), the drag image, the rename box and the slow-click rename, the item's bounds and band hits (the room is part of the name's rectangle), and the setting's live change in the icon container.
+	- Branch: round1110b
+	- Test case: dec8w and dec8v, where every compact view check also checks the marks: on the selected items under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). The result counts don't change.
+	- Not covered by a test yet: where the mark sits, and the room coming and going when the setting changes while the window is open.
+	- Verified: 20261110, dec8w, dec8v, de8bd, de8dm, ddy5f and de8ec pass, and dec8w and dec8v fail with the compact view left out of the marks. The quick gate passed (lints, and 242 OK, 1 skipped). gcc's and clang's analyzers report nothing on the 4 changed files.
+	- Verified: 20261110, the compact view under Nemo Anywhere in Adwaita and Adwaita dark, with 3 of 7 items selected: a mark left of each selected name and none on the rest, names unchanged and lined up. Under Nemo Anywhere v1, no room and no marks.
+	- Verified: 20261110, at d51fe106, the compact view under Nemo Anywhere in Adwaita and Adwaita dark, with 3 of 7 items selected: a mark left of each selected name and none on the rest, names unchanged and lined up.
+	- Acceptance signoff: Self-closed: the look checked at d51fe106 in Adwaita light and dark, as the list view column's was. dec8w and dec8v pass.
+	- Closed: 20261110-135037
+
+- Nemo Anywhere: the focus outline and the keyboard rules, per view.
+	- ID: 2026102407515572
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Prereq IDs: 2026102407515570
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- No focus outline, except while a Ctrl+arrow move has put the focus on an object that isn't selected.
+		- Up, Down, Page Up and Page Down count from the range ends, and Left and Right too in the icon views. After a Ctrl+arrow move they count from the focus.
+		- Ctrl with an arrow moves the focus alone. Ctrl+Space adds or removes the focused object. Ctrl+Shift with an arrow adds the run from the anchor. Ctrl+Home and Ctrl+End are the same as the key alone.
+		- Escape clears the selection, the focus and the anchor. A second Escape does nothing, and the next arrow starts at the first object. An Escape that cancels something else does only that.
+		- Space previews, and never starts type-ahead on its own.
+		- de8bd's expectations under Nemo Anywhere change to match, with a check per key and view.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
+	- Progress log:
+		- 20261024: opened.
+		- 20261024: split into children, one per view: 2026102412041967 (list view), ...969 (icon view), ...971 (compact view).
+	- Test case: its children's: 2026102412041971: dec8w, Selection rules test, Nemo Anywhere: the compact view's key checks, the outline among them.; 2026102412041969: dec8w, Selection rules test, Nemo Anywhere: the icon view's key checks, the outline among them.; 2026102412041967: dec8w, Selection rules test, Nemo Anywhere: the list view's key checks, the outline among them.
+	- Closed: 20261110-122330
+
+- Nemo Anywhere focus outline and keys: the compact view.
+	- ID: 2026102412041971
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The Linux suite passed in the quick gate, 242 OK and 1 skipped.
+	- Priority|Severity: High
+	- Opened: 20261024-120419
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515572
+	- Prereq IDs: 2026102412041969
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- The icon view's rules, in the compact view's layout, where Up and Down run down a column and Left and Right go across.
+		- dec8w checks each key in the compact view.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
+	- Notes:
+		- Shares the icon container's key handling with the icon view, so it follows that child.
+	- Progress log:
+		- 20261024: opened.
+		- 20261110: the icon container's Nemo Anywhere key handler from 2026102412041969 already gives the compact view these rules, so no app code changed. Items run down each column there, so a run is in that order: Up and Down count from its first or last item and wrap between columns, and Left, Right, Page Up and Page Down count from the same ends and go across.
+		- 20261110: dec8w expects 101 compact view results under Nemo Anywhere, up from 75. de8bd and de8dm stay at 75.
+	- Decisions:
+		- The compact view gets its own set of checks, not the icon view's set run again, since a run there is a column's worth of items and the folder has 3 columns.
+	- Swept: every key the design doc's "Keyboard" names, against the icon container's key handler, the arrow keys' column wrap in the compact layout, the page keys' sideways path, and the outline's one draw site.
+	- Branch: round1110b
+	- Test case: dec8w, Selection rules test, Nemo Anywhere: the compact view's key checks, the outline among them.
+	- Verified: 20261110, dec8w fails 11 of the new compact view checks with the icon container's Nemo Anywhere key rules bypassed, and 1 with the outline drawn on selected items, and passes with both. de8bd and de8dm pass. The quick gate passed: lint, and the Linux suite, 242 OK and 1 skipped. gcc's and clang's analyzers report nothing on the 2 changed files.
+	- Not covered by a test yet: a right-to-left layout, Shift with Page Up and Page Down, and a folder wider than a page.
+	- Acceptance signoff: Self-closed: dec8w on Linux.
+	- Closed: 20261110-121957
+
+- Nemo Anywhere: the mouse and drag rules, the list view drag rule among them.
+	- ID: 2026102407515573
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The Linux suite passed in the quick gate, 242 OK and 1 skipped.
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Prereq IDs: 2026102407515570, 2026102407515571
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- List view: a plain drag bands only from the checkmark column or the blank space below the rows. A plain drag from a row is a file drag.
+		- Ctrl, Shift, Ctrl+Shift and right drags from empty space, or from an object that isn't selected, band. Ctrl and Ctrl+Shift add, Shift and right replace. In list view from any column. From a selected object each is a file drag.
+		- A band moves the focus and the anchor to the last object it touched.
+		- The rest of the mouse rules stay as v1 has them, and are pinned under Nemo Anywhere.
+		- ddy5f's expectations under Nemo Anywhere change to match.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Mouse".
+	- Notes:
+		- v1 already has the plain drag rule and the Ctrl, Shift and right bands from a row (ddy5f). What's new is the band from the checkmark column, and where a band leaves the focus and the anchor.
+	- Progress log:
+		- 20261024: opened.
+		- 20261110: every drag from the checkmark column bands now, on a selected row too, done in 2026110919315994 (dec8v). Still left: where a band leaves the focus and the anchor.
+		- 20261110: under Nemo Anywhere a band leaves the focus and the anchor on the last object it touched, in all 3 views. The rest of the mouse rules were already v1's, and dec8v runs ddy5f's checks under Nemo Anywhere.
+	- Decisions:
+		- The last object a band touched is the one at the pointer's end of it. In the list view that's the row under the pointer, or the last row when the pointer ends below the rows. In the icon views it's the icon in the band nearest the pointer. For a band dragged out and back, that's where it ends, not the farthest it reached.
+		- A band that holds nothing leaves the focus and the anchor where they were.
+		- In the icon views the focus is the one a Ctrl+arrow moves. It draws no outline there, since the icon is selected, and plain arrows still count from the range ends.
+		- v1 and Classic keep theirs. v1's list view band puts the focus on the row under the pointer only, and its anchor on the last row put back. Its icon band moves the anchor only when it picked one icon.
+	- Swept: every way a band ends, in the list view and in the icon container (the release, a grab change, a press whose release never came). The keyboard band in the icon views isn't a mouse band, so it stays. The list view's Ctrl+click and Ctrl+Shift with an arrow put rows back the same way the band did, which moves GTK's anchor; filed as 2026111012335173.
+	- Branch: round1110b
+	- Test case: dec8v, Drag select test, Nemo Anywhere. In the list view: a band from the checkmark column down past the rows, and a Ctrl band up from a row not selected, each followed by the focus and a Shift+click from the anchor. In the icon and compact views: a band from the background over 2 or more icons, then a Shift+click. ddy5f and de8ec keep their counts.
+		- 20261110: dec8v's list view count under Nemo Anywhere went from 40 to 46, and the icon and compact views from 15 to 17.
+	- Verified: 20261110, dec8v fails on the old code (5 checks: the list view focus, both Shift+clicks there, and the Shift+click in the icon and compact views) and passes with the fix. ddy5f, de8ec, de8bd, de8dm and dec8w pass. The quick gate passed (lints, and 242 OK, 1 skipped). Both analyzers report nothing on the changed files.
+	- Not covered by a test yet: the focus in the icon views, since only the anchor is checked there, and a band that scrolls. dec8v isn't built for Windows.
+	- Acceptance signoff: Self-closed: dec8v.
+	- Closed: 20261110-123842
+
+- Nemo Anywhere tree view: the dim checkmark column.
+	- ID: 2026111013031711
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261110-130317
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515574
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Only under Nemo Anywhere. A thin column left of the tree, with no header, holding a dim checkmark on the selected row and none on the rest. It takes the row's highlight.
+		- It comes and goes with the selection model setting, live. Under the other models it isn't in the tree, so nothing moves there.
+		- A test that the mark follows the selection after a click and a key move, and that the column is there only under Nemo Anywhere.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view".
+	- Progress log:
+		- 20261110: under Nemo Anywhere the tree's first column holds a dim checkmark on the selected row, inside its highlight. The expanders and the indent stay with the names. The column follows the setting live, and also the other models don't have it.
+	- Decisions:
+		- The same glyph and dim look as the list view column, in the row's selected text color.
+		- The column is left of the indent, so a deep folder's mark sits at the pane's left edge, away from its name. When the tree scrolls sideways for a deep folder, the marks scroll out with the rest of the left side. For a top row the scroll leaves the mark showing, as it left the row's start before.
+		- The keyboard menu and the sideways scroll measure the name column, not column 0.
+	- Swept: every `gtk_tree_view_get_column (..., 0)` on the tree in the sidebar and the tests (the keyboard menu's place, the sideways scroll, and the tree clicks in de8bd, de8dm, dec8w, df066 and df06r). Places and the list view keep theirs.
+	- Branch: round1110b
+	- Test case: de8bd, de8dm and dec8w, where every tree check also checks the marks: on the selected row only under Nemo Anywhere, and no column for them under the other models. The result counts don't change. df06r covers the sideways scroll with the column there.
+	- Not covered by a test yet: the column coming and going when the setting changes while the window is open, and the scroll for a top row whose name is wider than the pane.
+	- Verified: 20261110, dec8w fails with no marks drawn and de8bd fails with the column under every model; both pass with the fix. de8dm, df066, df06r, ddg88 and dd8dp pass. The quick gate passed (lints, and 242 OK, 1 skipped). Both analyzers report nothing on the 4 changed files.
+	- Verified: 20261110, the tree under Nemo Anywhere in Adwaita and Adwaita dark: a dim mark left of the viewed folder's row, inside its highlight, and none on the other rows.
+	- Acceptance signoff: Self-closed: de8bd and dec8w, and the look checked in Adwaita light and dark.
+	- Closed: 20261110-132028
+
+- Nemo Anywhere tree view: the content view's dim marks while the tree has the focus on the viewed folder.
+	- ID: 2026111013031729
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261110-130317
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515574
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Only under Nemo Anywhere. While the tree has the keyboard focus and its selected row is the viewed folder, every object in the content view draws the dim mark, in all 3 views. The content view's selection itself doesn't change.
+		- The marks go back to following the content view's selection once the focus leaves the tree.
+		- A test of the marks in each view with the tree focused, and after the focus goes back.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view".
+	- Progress log:
+		- 20261110: under Nemo Anywhere, while the tree has the keyboard focus and its selected row is the viewed folder, every item in the content view draws the dim mark, in all 3 views. The selection doesn't change. The marks follow the selection again as soon as the focus leaves the tree, or the tree's row moves off the viewed folder.
+		- 20261110: left at signoff for the look of the marks on items not selected.
+		- 20261110: the look checked again at d51fe106 in the icon and compact views and matches the item: with the tree focused on the viewed folder every item is marked and the selection is unchanged. Closed.
+	- Decisions:
+		- The tree tells the active tab's view, and checks again on a focus change, a change of row, a folder change and a change of the setting. A view it marked before is cleared when another tab or pane becomes the active one.
+		- "Has the focus" is GTK's: switching to another program takes the marks off, and they come back with the window's focus.
+		- In the compact view a mark on a name that isn't selected is the dim text color, as on a list view row not selected. The icon view's corner mark keeps its patch, so it looks the same on every icon.
+		- While a key move in the tree waits to open its folder, the row isn't the viewed folder yet, so the marks follow the selection until the folder opens.
+	- Swept: the 3 places a dim mark is decided: the list view column's cell, and `shows_dim_checkmark` for the icon view's corner and the compact view's name. The desktop still has none.
+	- Branch: round1110b
+	- Test case: dec8w, Selection rules test, Nemo Anywhere: in each view, the check that every item is marked while the tree has the focus on the viewed folder, and that a click in the view takes the marks back to its selection.
+		- 20261110: dec8w's counts under Nemo Anywhere went from 90 to 92 in the list view, 101 to 103 in the icon view and 103 to 105 in the compact view.
+	- Not covered by a test yet: a switch of tab or pane while the tree has the focus, and the marks coming back after a key move in the tree opens its folder.
+	- Verified: 20261110, dec8w fails in all 3 views with the tree never marking the view, and passes with it. de8bd and df066 pass. The quick gate passed (lints, and 242 OK, 1 skipped). Both analyzers report nothing on the 8 changed files.
+	- Verified: 20261110, the compact view in Adwaita and Adwaita dark and the icon view in Adwaita, with the tree focused and 2 items selected: a mark on every item, dim gray on the names not selected.
+	- Verified: 20261110, at d51fe106, the icon and compact views under Nemo Anywhere in Adwaita and Adwaita dark, with the tree focused on the viewed folder and 2 of 7 items selected: a mark on all 7, the selection unchanged, dim gray on the compact view's names not selected, and the icon view's corner mark the same on every icon.
+	- Acceptance signoff: Self-closed: the look checked at d51fe106 in Adwaita light and dark, in the icon and compact views. The list view's look wasn't checked again, since its marks on rows not selected are the column's own dim drawing. dec8w passes in all 3 views.
+	- Closed: 20261110-135037
 
 - Nemo Anywhere focus outline and keys: the icon view.
 	- ID: 2026102412041969
@@ -3082,6 +3312,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261022, round1022: the full Linux suite, 231 OK. FreeBSD lane as `bsdtest`, 212 OK and 20 skipped, de8dm, de8ec, de8bd, ddy5f and dd5df among them.
 	- Closed: 20261022-214700
 	- Verified: 20261021, de8dm, de8ec, de8bd and ddy5f pass in all 3 views. dd5df, dbnfq, dbsx7 and dc8tz pass. The build has no warnings, the Windows cross build with warnings as errors is clean, and the UI case and test ID checks pass.
+
+- List view: after a Ctrl+click, a Shift+click runs from another row than the one clicked.
+	- ID: 2026111012335173
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261110-123351
+	- Opened by: t00mietum
+	- Related IDs: 2026102407515573, 2026111012592994
+	- Target OS: All
+	- Steps to reproduce: list view, Nemo Anywhere or v1. Click row 6, Ctrl+click row 2, then Shift+click row 4.
+	- Incorrect behavior: the run likely goes from row 6, the last row put back, and not from row 2. Ctrl+Shift with an arrow key may move the anchor the same way.
+	- Expected behavior: a Ctrl+click moves the anchor to the row clicked, per the design doc's "Mouse".
+	- Reproduced: 20261110, under Nemo Anywhere in dec8w's new checks. That Shift+click selected rows 4 to 6. After a Ctrl+Shift+click a Shift+click ran from row 6 too, and after Ctrl+Space on row 6 and a Ctrl+Shift+Down, a Shift+click ran from row 5.
+	- Possible cause: in a multiple selection, `gtk_tree_selection_select_path` moves GTK's Shift anchor to each row it selects.
+	- Actual cause:
+		- As above. The Ctrl+click and Ctrl+Shift+click press puts the selection back after setting the cursor, and Ctrl+Shift with an arrow puts back what Shift's run dropped. Each left the anchor on the last row put back.
+	- Actual fix: under Nemo Anywhere a Ctrl+click puts the anchor back on the row clicked, and a Ctrl+Shift+click on the row its run started from. Ctrl+Shift with an arrow puts it back on the end of the run the cursor isn't on. The band uses the same helper.
+	- Decisions:
+		- v1 and Classic keep theirs, as for the band in 2026102407515573, since v1 is pinned as found and Classic is upstream's.
+		- A Ctrl+Shift+click still runs from the focus, as before, since GTK gives no way to read its anchor. The two differ mostly after a Ctrl+arrow; filed as 2026111012592994.
+		- Ctrl+Shift with an arrow at the first or last row moves nothing, so the anchor is left as it was.
+	- Swept: every place the list view selects rows again after a cursor move or a run: the band, both presses (Classic keeps upstream's), the release after a click on a selected row (it unselects the rest, which leaves the anchor right), and Ctrl+Shift with an arrow. The tree pane and the places sidebar don't put rows back.
+	- Branch: round1110b
+	- Test case: dec8w, in the list view and both icon views under Nemo Anywhere: a Shift+click after a Ctrl+Shift+click, and a Shift+click after a Ctrl+click. In the list view also a Shift+click after Ctrl+Space and Ctrl+Shift+Down.
+		- 20261110: dec8w's list view count under Nemo Anywhere went from 87 to 90, the icon view from 99 to 101, and the compact view from 101 to 103.
+	- Verified: 20261110, dec8w fails on the old code (the 3 list view checks) and passes with the fix. de8bd, de8dm, dec8v, ddy5f and de8ec pass. The quick gate's lints pass. Both analyzers report nothing on the changed files.
+	- Acceptance signoff: Self-closed: dec8w.
+	- Closed: 20261110-125942
 
 - The private runner's mac GUI tests fail when another user holds b26's console.
 	- ID: 2026110817502353
@@ -7113,6 +7372,60 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddf4w Config old formats test.
 	- Acceptance signoff: Self-closed: ddf4w is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- A tab or newline in a dev build's settings file before SHCL 3.0.0-beta1 reads as a backslash and a letter.
+	- ID: 2026110921160616
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261109-211606
+	- Opened by: item 2026110911251998
+	- Related IDs: 2026110911251998, 2026110520234226
+	- Steps to reproduce [Bug]: with a dev or dogfood build from 20260925 to 20261105, set a value with a tab in it, such as `archive.create-with-rar` to `rar<tab>a`. Then start this build on the same settings.
+	- Incorrect behavior [Bug]: it reads as `rar\ta`, a backslash and a t. The same goes for a newline, and for `\\` and `\"` in a double-quoted value, which those builds wrote for text holding a backslash and both kinds of quote.
+	- Expected behavior [Bug]: every value reads as that build read it.
+	- Reproduced [Bug]: yes, 20261109, Linux. ddf4w's dev case has the tab, marked as read another way.
+	- Possible cause [Bug]: those builds read `\t \n \\ \" \'` as escapes inside double quotes. 3.0.0-beta1 reads a backslash there as text, and writes a tab as a named escape. The file says format 3 either way, so a double-quoted backslash in it can't be told from one typed for today's rules, such as `"C:\temp #1"`, which is how it writes that text now. Only a file with a bare list is known to be from such a build.
+	- Actual cause [Bug]: as above. Those builds read `\t \n \\ \" \'` as escapes in double quotes, and 3.0.0-beta1 reads a backslash there as text.
+	- Decisions:
+		- Only a file with a bare list on a list key is taken as from such a build, as for the brackets. A file without one keeps today's reading, since today's app writes `C:\temp #1` as `"C:\temp #1"`.
+		- The cost: a current file with a bare list typed in while the app was closed is converted too, so a double-quoted backslash in it reads the old way. The file as written goes to the backup first.
+		- Only text and list keys, on key lines. A stacked item, on its own line after a `-`, isn't converted, since those builds never wrote one.
+		- A converted line isn't warned about at load for what today's rules find wrong with it, since its value is set as the old build read it.
+	- Actual fix [Bug]: at startup, in a format 3 file with a bare list, each text or list value with a double-quoted item holding a backslash is set as that build read it. The file is then backed up as `format-v3` and rewritten, as for the bare lists.
+	- Verified: 20261110, Linux: ddf4w fails before the fix on a tab, a line break, and `\"` with `\\` in a text value and in a list item, in the plain, hand and no-backup cases, and passes after. Quick gate passed (242 OK, 1 skipped). clang's analyzer finds nothing in the 3 changed C files, and gcc's nothing in the 2 test files.
+	- Swept: the conversion has one call, in `load_locked`, from startup and from `reload_locked` while the startup file couldn't be saved over. The other readers of settings text without SHCL read today's files.
+	- Branch: round1110b
+	- Commit: 5fa44c29
+	- Test case: ddf4w, Config old formats test: release 3.0.0-dev, plain, hand and no backup, with a tab, a line break, and both quote kinds with a backslash, in a text value and a list item.
+	- Acceptance signoff: Self-closed: ddf4w fails without the fix and passes with it.
+	- Closed: 20261110-111502
+
+- Compress dialog: the Reset button's text sits about 8 px below the Advanced label.
+	- ID: 2026110817490431
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261108-174904
+	- Opened by: t00mietum
+	- Related IDs: 2026100516274646
+	- Target OS: Linux, Windows
+	- Steps to reproduce: Open Compress on any file and look at the row with Advanced and Reset.
+	- Incorrect behavior: Reset's text sits about 8 px lower than the Advanced label's, grayed and lit alike (Adwaita, at fdce4acd).
+	- Expected behavior: the two labels share a baseline, within a pixel or two.
+	- Reproduced: 20261110, Linux. The new check in dd5dm read Reset's text 8 px below Advanced's, with Advanced closed and open.
+	- Possible cause: Reset is a flat button in an hbox beside the expander, not in its label widget, so the button's padding pushes its text down.
+	- Actual cause: the button's top border and padding. The row puts both at its top, and the expander gives the row no baseline to line them up by.
+	- Decisions:
+		- The gap is measured once the row is laid out, rather than a fixed margin or a slimmer button, since it's whatever the theme and font pad a button by. Reset stays out of the expander's title, where a click would only open and close it.
+		- The open dialog is 8 px taller in Adwaita, 712 rather than 704 on the 1024 px test screen, since the options now start below Reset rather than beside it. The closed height, and so the room the options get on a short screen, is unchanged.
+	- Actual fix: once the row is laid out, whichever text sits higher is moved down to the other by a top margin. In Adwaita that moves Advanced down 8 px.
+	- Swept: the 3 other expanders, in the extract and file conflict dialogs and eel's details dialog, have no button beside their title.
+	- Verified: 20261110, dd5dm's baseline check failed before the fix, 8 px open and closed, and passes after, on Linux and under wine. Quick gate passed (242 OK, 1 skipped), the Windows cross build, and gcc's and clang's analyzers on both changed files.
+	- Branch: round1110b
+	- Test case: dd5dm, Compress dialog height test: Reset's text and Advanced's share a baseline within a pixel, closed with Reset grayed, and open with it lit.
+	- Acceptance signoff: Self-closed: dd5dm measures the two baselines.
+	- Closed: 20261110-113150
 
 - dct7k fails as an elevated login on b29w: the real file's owner is Administrators.
 	- ID: 2026110911200530

@@ -683,6 +683,52 @@ options_open (GtkWidget *dialog)
 	return gtk_expander_get_expanded (GTK_EXPANDER (find_type (dialog, GTK_TYPE_EXPANDER)));
 }
 
+/* Where a label's first line of text sits, in the dialog's coordinates. The
+   layout offsets count from the parent window, as the allocation does. */
+static int
+baseline_of (GtkWidget *label, GtkWidget *dialog)
+{
+	GtkAllocation allocation;
+	int x, y, dialog_x, dialog_y;
+
+	gtk_widget_get_allocation (label, &allocation);
+	gtk_label_get_layout_offsets (GTK_LABEL (label), &x, &y);
+	if (!gtk_widget_translate_coordinates (label, dialog, x - allocation.x, y - allocation.y,
+					       &dialog_x, &dialog_y)) {
+		return G_MININT / 2;
+	}
+
+	return dialog_y + pango_layout_get_baseline (gtk_label_get_layout (GTK_LABEL (label))) / PANGO_SCALE;
+}
+
+/* Reset's text sat about 8 pixels below Advanced's, open or closed, grayed
+   or lit. */
+static void
+check_reset_baseline (GtkWidget *dialog)
+{
+	GtkWidget *expander = find_type (dialog, GTK_TYPE_EXPANDER);
+	GtkWidget *reset = named (dialog, "reset-options");
+	GtkWidget *advanced, *text;
+	int apart;
+
+	if (expander == NULL || reset == NULL) {
+		check (FALSE);
+		return;
+	}
+	advanced = gtk_expander_get_label_widget (GTK_EXPANDER (expander));
+	text = gtk_bin_get_child (GTK_BIN (reset));
+	check (GTK_IS_LABEL (advanced) && GTK_IS_LABEL (text));
+	if (!GTK_IS_LABEL (advanced) || !GTK_IS_LABEL (text)) {
+		return;
+	}
+
+	apart = baseline_of (text, dialog) - baseline_of (advanced, dialog);
+	if (ABS (apart) > 1) {
+		g_printerr ("Reset's text is %d px off Advanced's\n", apart);
+	}
+	check (ABS (apart) <= 1);
+}
+
 /* Everything at its default: Options closed and Reset grayed. A change makes
    Reset do something, and Reset puts it back, password and all. */
 static gboolean
@@ -702,11 +748,14 @@ probe_reset (gpointer data)
 
 	check (!options_open (dialog));
 	check (!can_click (dialog, "reset-options"));
+	check_reset_baseline (dialog);
 
 	gtk_expander_set_expanded (GTK_EXPANDER (find_type (dialog, GTK_TYPE_EXPANDER)), TRUE);
 	settle ();
 	click (dialog, "symlinks-follow");
 	check (can_click (dialog, "reset-options"));
+	settle ();
+	check_reset_baseline (dialog);
 	if (id != NULL) {
 		set_format (dialog, id);
 		click (dialog, "solid");

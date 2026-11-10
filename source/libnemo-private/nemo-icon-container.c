@@ -162,6 +162,7 @@ static gboolean model_search_key_press_event (GtkWidget *widget, GdkEventKey *ev
 					      NemoIconContainer *container);
 static gboolean bands_flip (void);
 static gboolean keys_from_range_ends (void);
+static gboolean band_end_takes_focus (void);
 
 static gpointer accessible_parent_class;
 
@@ -240,11 +241,19 @@ clicked_on_text (NemoIconContainer *container,
     if (icon == NULL)
         return FALSE;
 
-    double eventX, eventY;
+    double eventX, eventY, room;
     EelDRect icon_rect;
 
     icon_rect = nemo_icon_canvas_item_get_text_rectangle (icon->item, TRUE);
     eel_canvas_window_to_world (EEL_CANVAS (container), event->x, event->y, &eventX, &eventY);
+
+    /* The compact view's mark is no more the name than the icon's is. */
+    room = nemo_icon_canvas_item_get_checkmark_room (icon->item) / EEL_CANVAS (container)->pixels_per_unit;
+    if (nemo_icon_container_is_layout_rtl (container)) {
+        icon_rect.x1 -= room;
+    } else {
+        icon_rect.x0 += room;
+    }
 
     gboolean ret =  (eventX > icon_rect.x0) &&
            (eventX < icon_rect.x1) &&
@@ -1023,6 +1032,10 @@ rename_widget_place (NemoIconContainer *container, NemoIcon *icon, int width, in
 				text_rect.x0,
 				text_rect.y0,
 				x, y);
+		/* The name stays put, beside its mark. */
+		if (!nemo_icon_container_is_layout_rtl (container)) {
+			*x += nemo_icon_canvas_item_get_checkmark_room (icon->item);
+		}
 	} else {
 		eel_canvas_w2c (EEL_CANVAS_ITEM (icon->item)->canvas,
 				(icon_rect.x0 + icon_rect.x1) / 2,
@@ -1168,6 +1181,18 @@ invalidate_label_sizes (NemoIconContainer *container)
 
 		nemo_icon_canvas_item_invalidate_label_size (icon->item);
 	}
+}
+
+/* The compact view keeps room beside each name for the mark, so it lays out
+   again. */
+static void
+selection_model_changed_callback (NemoIconContainer *container)
+{
+	if (nemo_icon_container_is_layout_vertical (container)) {
+		invalidate_label_sizes (container);
+		schedule_redo_layout (container);
+	}
+	gtk_widget_queue_draw (GTK_WIDGET (container));
 }
 
 static void
@@ -1430,6 +1455,8 @@ rubberband_update (NemoIconContainer *container)
 	band_info->prev_y = y;
 
 	band_info->prev_rect = selection_rect;
+	band_info->end_x = world_x;
+	band_info->end_y = world_y;
 }
 
 static int
@@ -1468,6 +1495,10 @@ start_rubberbanding (NemoIconContainer *container,
 	eel_canvas_window_to_world
 		(EEL_CANVAS (container), x, y,
 		 &band_info->start_x, &band_info->start_y);
+	band_info->end_x = band_info->start_x;
+	band_info->end_y = band_info->start_y;
+	band_info->prev_rect.x0 = band_info->prev_rect.x1 = band_info->start_x;
+	band_info->prev_rect.y0 = band_info->prev_rect.y1 = band_info->start_y;
 
 	context = gtk_widget_get_style_context (GTK_WIDGET (container));
 	gtk_style_context_save (context);
@@ -1532,6 +1563,48 @@ wait_for_band (NemoIconContainer *container,
 	details->band_press_y = (int) y;
 }
 
+/* The last icon a band touched: of those it holds, the one nearest the
+   pointer's corner. NULL when it holds none. */
+static NemoIcon *
+band_end_icon (NemoIconContainer *container)
+{
+	NemoIconRubberbandInfo *band_info = &container->details->rubberband_info;
+	NemoIcon *best = NULL;
+	double best_distance = 0;
+	EelIRect canvas_rect;
+	GList *p;
+
+	if (container->details->icons == NULL) {
+		return NULL;
+	}
+	eel_canvas_w2c (EEL_CANVAS (container), band_info->prev_rect.x0, band_info->prev_rect.y0,
+			&canvas_rect.x0, &canvas_rect.y0);
+	eel_canvas_w2c (EEL_CANVAS (container), band_info->prev_rect.x1, band_info->prev_rect.y1,
+			&canvas_rect.x1, &canvas_rect.y1);
+
+	for (p = container->details->icons; p != NULL; p = p->next) {
+		NemoIcon *icon = p->data;
+		double x0, y0, x1, y1, dx, dy, distance;
+
+		if (!icon->is_selected ||
+		    !nemo_icon_canvas_item_hit_test_rectangle (icon->item, canvas_rect)) {
+			continue;
+		}
+		eel_canvas_item_get_bounds (EEL_CANVAS_ITEM (icon->item), &x0, &y0, &x1, &y1);
+		dx = band_info->end_x < x0 ? x0 - band_info->end_x :
+		     band_info->end_x > x1 ? band_info->end_x - x1 : 0;
+		dy = band_info->end_y < y0 ? y0 - band_info->end_y :
+		     band_info->end_y > y1 ? band_info->end_y - y1 : 0;
+		distance = dx * dx + dy * dy;
+		if (best == NULL || distance < best_distance) {
+			best = icon;
+			best_distance = distance;
+		}
+	}
+
+	return best;
+}
+
 static void
 stop_rubberbanding (NemoIconContainer *container,
 		    guint32 time)
@@ -1560,13 +1633,22 @@ stop_rubberbanding (NemoIconContainer *container,
 	}
 	band_info->selection_rectangle = NULL;
 
-	/* if only one item has been selected, use it as range
-	 * selection base (cf. handle_icon_button_press) */
-	icons = nemo_icon_container_get_selected_icons (container);
-	if (icons != NULL && icons->next == NULL) {
-		container->details->range_selection_base_icon = icons->data;
+	if (band_end_takes_focus ()) {
+		NemoIcon *end = band_end_icon (container);
+
+		if (end != NULL) {
+			container->details->range_selection_base_icon = end;
+			set_keyboard_focus (container, end);
+		}
+	} else {
+		/* if only one item has been selected, use it as range
+		 * selection base (cf. handle_icon_button_press) */
+		icons = nemo_icon_container_get_selected_icons (container);
+		if (icons != NULL && icons->next == NULL) {
+			container->details->range_selection_base_icon = icons->data;
+		}
+		g_list_free (icons);
 	}
-	g_list_free (icons);
 
 	g_signal_emit (container,
 			 signals[BAND_SELECT_ENDED], 0);
@@ -5186,7 +5268,7 @@ nemo_icon_container_init (NemoIconContainer *container)
     /* The dim checkmarks come and go with the model. */
     g_signal_connect_object (nemo_preferences,
                              "changed::" NEMO_PREFERENCES_SELECTION_MODEL,
-                             G_CALLBACK (gtk_widget_queue_draw),
+                             G_CALLBACK (selection_model_changed_callback),
                              container, G_CONNECT_SWAPPED);
 
     container->details->show_icon_view_tooltips = nemo_config_get_boolean (nemo_preferences,
@@ -5820,6 +5902,9 @@ typedef struct {
 	/* A plain arrow key counts from the selection's first or last icon, and
 	   Ctrl+Shift with one adds a run rather than a band. */
 	gboolean keys_from_range_ends;
+	/* A mouse band leaves the focus and the anchor on the last icon it
+	   touched. */
+	gboolean band_end_takes_focus;
 } ContainerRules;
 
 static const ContainerRules rules_anywhere_v1 = {
@@ -5844,8 +5929,8 @@ static const ContainerRules rules_classic = {
 	.band_flips = TRUE,
 };
 
-/* Nemo Anywhere, switch off. v1's rules but for its keys, until the rest of
-   its own go in (2026102019174440). */
+/* Nemo Anywhere, switch off. v1's rules but for its keys and where a band
+   leaves the focus, until the rest of its own go in (2026102019174440). */
 static const ContainerRules rules_anywhere = {
 	.button_press = button_press_event,
 	.button_release = button_release_event,
@@ -5855,6 +5940,7 @@ static const ContainerRules rules_anywhere = {
 	.item_event = item_event_callback,
 	.band_flips = FALSE,
 	.keys_from_range_ends = TRUE,
+	.band_end_takes_focus = TRUE,
 };
 
 static const ContainerRules *
@@ -5881,6 +5967,12 @@ static gboolean
 keys_from_range_ends (void)
 {
 	return container_rules ()->keys_from_range_ends;
+}
+
+static gboolean
+band_end_takes_focus (void)
+{
+	return container_rules ()->band_end_takes_focus;
 }
 
 static gboolean
@@ -8068,6 +8160,17 @@ nemo_icon_container_get_is_desktop (NemoIconContainer *container)
 	g_return_val_if_fail (NEMO_IS_ICON_CONTAINER (container), FALSE);
 
 	return container->details->is_desktop;
+}
+
+void
+nemo_icon_container_set_marks_all (NemoIconContainer *container, gboolean marks_all)
+{
+	g_return_if_fail (NEMO_IS_ICON_CONTAINER (container));
+
+	if (container->details->marks_all != marks_all) {
+		container->details->marks_all = marks_all;
+		gtk_widget_queue_draw (GTK_WIDGET (container));
+	}
 }
 
 void

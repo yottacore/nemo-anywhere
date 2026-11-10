@@ -39,6 +39,7 @@ typedef struct {
 
 	EelCanvasItem *selection_rectangle;
 	EelDRect prev_rect;
+	double end_x, end_y;		/* the pointer's corner, in world */
 	guint timer_id;
 
 	guint prev_x, prev_y;
@@ -265,6 +266,9 @@ struct NemoIconContainerDetails {
 	
 	/* Is the container for a desktop window */
 	gboolean is_desktop;
+
+	/* Nemo Anywhere: every item draws the dim mark, selected or not. */
+	gboolean marks_all;
 
     /* Used by desktop grid container only */
     gboolean horizontal;

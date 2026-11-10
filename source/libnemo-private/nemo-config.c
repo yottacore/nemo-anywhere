@@ -382,15 +382,139 @@ known_keys_only (shcl_doc *from)
 	return to;
 }
 
+/* A value as a dev build before SHCL 3.0.0-beta1 read it, where today's
+ * rules read it another way. */
+typedef struct {
+	const NemoConfigKey *key;
+	GPtrArray           *items;  /* GString each, one for a text key */
+	gsize                line;
+	gboolean             set;
+} DevValue;
+
+static void
+dev_value_free (gpointer data)
+{
+	DevValue *v = data;
+
+	g_ptr_array_unref (v->items);
+	g_free (v);
+}
+
+static void
+gstring_free_whole (gpointer data)
+{
+	g_string_free (data, TRUE);
+}
+
+/* Those builds read \t \n \\ \" \' in double quotes as escapes, and any
+ * other backslash as text. */
+static void
+append_dev_unescaped (GString *out, const char *s, gsize n)
+{
+	gsize i;
+
+	for (i = 0; i < n; i++) {
+		char c = s[i];
+
+		if (c == '\\' && i + 1 < n) {
+			switch (s[i + 1]) {
+			case 't':
+				c = '\t';
+				i++;
+				break;
+			case 'n':
+				c = '\n';
+				i++;
+				break;
+			case '\\':
+			case '"':
+			case '\'':
+				c = s[++i];
+				break;
+			default:
+				break;
+			}
+		}
+		g_string_append_c (out, c);
+	}
+}
+
+/* The items of a value as those builds read it: every comma outside quotes
+ * splits, a # outside quotes starts a comment, and a quote pairs up only
+ * when the item ends right after it closes. Today's rules read it the same
+ * unless a double-quoted item holds a backslash, so any other value gives
+ * NULL. */
+static GPtrArray *
+dev_items (const char *s, gsize n)
+{
+	GPtrArray *items = g_ptr_array_new_with_free_func (gstring_free_whole);
+	gboolean   escaped = FALSE;
+	gsize      pos = 0;
+
+	for (;;) {
+		gsize    start, end;
+		gboolean quoted = FALSE;
+
+		while (pos < n && (s[pos] == ' ' || s[pos] == '\t'))
+			pos++;
+		start = pos;
+		if (pos < n && (s[pos] == '"' || s[pos] == '\'')) {
+			char  q = s[pos];
+			gsize close = pos + 1, after;
+
+			for (; close < n && s[close] != q; close++) {
+				if (q == '"' && s[close] == '\\' && close + 1 < n)
+					close++;
+			}
+			for (after = close + 1; after < n && (s[after] == ' ' || s[after] == '\t'); after++)
+				;
+			if (close < n && (after >= n || s[after] == ',' || s[after] == '#')) {
+				GString *item = g_string_new (NULL);
+
+				if (q == '"') {
+					append_dev_unescaped (item, s + start + 1, close - start - 1);
+					escaped = escaped || memchr (s + start + 1, '\\', close - start - 1) != NULL;
+				} else {
+					g_string_append_len (item, s + start + 1, (gssize) (close - start - 1));
+				}
+				g_ptr_array_add (items, item);
+				pos = after;
+				quoted = TRUE;
+			}
+		}
+		if (!quoted) {
+			for (end = start; pos < n && s[pos] != ',' && s[pos] != '#'; pos++) {
+				if (s[pos] != ' ' && s[pos] != '\t')
+					end = pos + 1;
+			}
+			if (end > start)
+				g_ptr_array_add (items, g_string_new_len (s + start, (gssize) (end - start)));
+		}
+		if (pos >= n || s[pos] == '#')
+			break;
+		pos++;
+	}
+	if (!escaped)
+		g_clear_pointer (&items, g_ptr_array_unref);
+	return items;
+}
+
 /* A dev build from 20260925 to 20261105 stamped its file format 3 but wrote
  * a list bare, `a, b`, which format 3 refuses (E026), so the key reads as its
  * default. Those builds split such a value on every unquoted comma, as format
  * 3 does inside brackets, so brackets around it read the same items. Only a
  * line SHCL refuses that way and whose key is a list is changed: text with a
  * comma in it stays text, and a file today's rules read cleanly is left
- * alone. Returns the changed text, malloc'd, or NULL when nothing changed. */
+ * alone. Returns the changed text, malloc'd, or NULL when nothing changed.
+ *
+ * Those builds also read a backslash in double quotes as an escape, which
+ * today's rules read as text. A file in format 3 that today's rules also
+ * read can't say which rules it was written for, so only a file with a bare
+ * list is taken as from such a build. Then each text or list key that reads
+ * another way goes to *dev_values, to be set as that build read it, and the
+ * text comes back even with no bracket added. */
 static char *
-bracket_bare_lists (const char *text, gsize len, size_t *out_len)
+bracket_bare_lists (const char *text, gsize len, size_t *out_len, GPtrArray **dev_values)
 {
 	shcl_doc    *doc = shcl_parse (text, len);
 	shcl_tokens  tok, val;
@@ -400,7 +524,10 @@ bracket_bare_lists (const char *text, gsize len, size_t *out_len)
 	GString     *out = NULL;
 	gsize        at = 0, line = 0, i, copied = 0;
 	char        *result = NULL;
+	GPtrArray   *found;
+	gboolean     bare_list = FALSE;
 
+	*dev_values = NULL;
 	if (doc == NULL)
 		return NULL;
 
@@ -417,6 +544,7 @@ bracket_bare_lists (const char *text, gsize len, size_t *out_len)
 
 	groups = g_ptr_array_new_with_free_func (g_free);
 	depths = g_array_new (FALSE, FALSE, sizeof (gsize));
+	found = g_ptr_array_new_with_free_func (dev_value_free);
 	memset (&tok, 0, sizeof tok);
 	memset (&val, 0, sizeof val);
 
@@ -467,10 +595,30 @@ bracket_bare_lists (const char *text, gsize len, size_t *out_len)
 		}
 		k = find_key (NULL, path->str);
 		g_string_free (path, TRUE);
+		/* From the value on to the line end, since today's rules can take
+		 * a # inside those quotes for a comment. */
+		if (k != NULL && (k->type == NEMO_CONFIG_STRING || k->type == NEMO_CONFIG_STRING_LIST) &&
+		    memchr (p + indent + tok.value_start, '"', n - indent - tok.value_start) != NULL) {
+			GPtrArray *items = dev_items (p + indent + tok.value_start,
+			                              n - indent - tok.value_start);
+
+			if (items != NULL && (k->type == NEMO_CONFIG_STRING_LIST || items->len == 1)) {
+				DevValue *v = g_new (DevValue, 1);
+
+				v->key   = k;
+				v->items = items;
+				v->line  = line;
+				v->set   = FALSE;
+				g_ptr_array_add (found, v);
+			} else if (items != NULL) {
+				g_ptr_array_unref (items);
+			}
+		}
 		if (k == NULL || k->type != NEMO_CONFIG_STRING_LIST ||
 		    !g_hash_table_contains (refused, GSIZE_TO_POINTER (line)) ||
 		    tok.has_array)
 			continue;
+		bare_list = TRUE;
 
 		/* Brackets that don't make a well formed list leave it as it was. */
 		br = g_string_new ("[");
@@ -501,13 +649,80 @@ bracket_bare_lists (const char *text, gsize len, size_t *out_len)
 		memcpy (result, out->str, out->len + 1);
 		*out_len = out->len;
 		g_string_free (out, TRUE);
+	} else if (bare_list && found->len > 0) {
+		result = malloc (len + 1);
+		if (result == NULL)
+			SHCL_OOM ();
+		memcpy (result, text, len);
+		result[len] = '\0';
+		*out_len = len;
 	}
+	if (result != NULL && found->len > 0)
+		*dev_values = g_steal_pointer (&found);
+	else
+		g_ptr_array_unref (found);
 
 	g_ptr_array_unref (groups);
 	g_array_unref (depths);
 	g_hash_table_destroy (refused);
 	shcl_free (doc);
 	return result;
+}
+
+/* Each value in @values as the dev build that wrote it read it. One SHCL
+ * won't write keeps today's reading. */
+static void
+set_dev_values (shcl_doc *doc, GPtrArray *values)
+{
+	guint i, j;
+
+	for (i = 0; i < values->len; i++) {
+		DevValue *v    = values->pdata[i];
+		char     *path = key_path (v->key);
+		gsize     plen = strlen (path);
+		gboolean  set;
+
+		if (v->key->type == NEMO_CONFIG_STRING_LIST) {
+			const char **items = g_new0 (const char *, v->items->len + 1);
+			size_t      *lens  = g_new0 (size_t, v->items->len + 1);
+
+			for (j = 0; j < v->items->len; j++) {
+				GString *item = v->items->pdata[j];
+
+				items[j] = item->str;
+				lens[j]  = item->len;
+			}
+			set = shcl_set_string_array (doc, path, plen, items, lens,
+			                             v->items->len) == SHCL_SET_OK;
+			g_free (items);
+			g_free (lens);
+		} else {
+			GString *item = v->items->pdata[0];
+
+			set = shcl_set_string (doc, path, plen, item->str, item->len) == SHCL_SET_OK;
+		}
+		if (!set)
+			g_warning ("nemo-config: %s couldn't be set as the build that wrote %s "
+			           "read it", path, config_path);
+		v->set = set;
+		g_free (path);
+	}
+}
+
+/* Whether @line's value was set by set_dev_values, so what today's rules
+ * found wrong with it no longer applies. */
+static gboolean
+dev_value_on_line (GPtrArray *values, gsize line)
+{
+	guint i;
+
+	for (i = 0; values != NULL && i < values->len; i++) {
+		DevValue *v = values->pdata[i];
+
+		if (v->set && v->line == line)
+			return TRUE;
+	}
+	return FALSE;
 }
 
 /* @at_start: a file with no format line is read as 2.x only at startup. One
@@ -541,6 +756,7 @@ load_locked (gboolean at_start)
 		shcl_migration  conv = { NULL, 0, 0, 0, 0 };
 		gboolean        was_hands_off = hands_off;
 		gboolean        bare_lists = FALSE;
+		GPtrArray      *dev_values = NULL;
 
 		hands_off = FALSE;
 		rewrite_due = FALSE;
@@ -559,7 +775,7 @@ load_locked (gboolean at_start)
 			/* Only at startup, as for a file with no format line: a bare
 			 * list typed while running is a hand edit by today's rules. */
 			if (at_start || still_old)
-				conv.text = bracket_bare_lists (text, len, &conv.len);
+				conv.text = bracket_bare_lists (text, len, &conv.len, &dev_values);
 			bare_lists = conv.text != NULL;
 		} else if (format >= 0 ? format < SHCL_FORMAT_MAJOR : at_start || still_old) {
 			/* No format line: every file a 2.x release wrote, or a hand edit
@@ -608,7 +824,10 @@ load_locked (gboolean at_start)
 		fresh = conv.text != NULL ? shcl_parse (conv.text, conv.len)
 		                          : shcl_parse (text, len);
 		free (conv.text);
+		if (fresh != NULL && dev_values != NULL)
+			set_dev_values (fresh, dev_values);
 		if (fresh == NULL) {
+			g_clear_pointer (&dev_values, g_ptr_array_unref);
 			g_warning ("nemo-config: out of memory reading %s", config_path);
 			g_free (text);
 			rewrite_due = FALSE;
@@ -625,12 +844,14 @@ load_locked (gboolean at_start)
 		n = shcl_diag_count (config_doc);
 		for (i = 0; i < n && i < 10; i++) {
 			shcl_str m = shcl_diag_message (config_doc, i);
-			if (shcl_diag_severity (config_doc, i) != SHCL_SEV_ERROR)
+			if (shcl_diag_severity (config_doc, i) != SHCL_SEV_ERROR ||
+			    dev_value_on_line (dev_values, shcl_diag_line (config_doc, i)))
 				continue;
 			g_warning ("nemo-config: %s line %zu [%s] %.*s",
 			           config_path, shcl_diag_line (config_doc, i),
 			           shcl_diag_code (config_doc, i), (int) m.n, m.p);
 		}
+		g_clear_pointer (&dev_values, g_ptr_array_unref);
 
 		/* Anything the parse could not keep is gone from the next save, so say
 		 * so rather than let a hand-edited line disappear without a word. */

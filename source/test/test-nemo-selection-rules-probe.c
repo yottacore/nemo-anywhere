@@ -397,16 +397,15 @@ icon_marked_list (void)
 	return g_string_free (list, FALSE);
 }
 
-/* Under Nemo Anywhere the marks are part of every list and icon view check,
-   and under the other models the icon view has none. The compact view's come
-   with its own item, 2026102411133419. */
+/* Under Nemo Anywhere the marks are part of every check in all 3 views, and
+   under the other models the icon and compact views have none. */
 static char *
 marks (void)
 {
 	if (list_mode) {
 		return anywhere ? marked_list () : NULL;
 	}
-	return compact_mode ? NULL : icon_marked_list ();
+	return icon_marked_list ();
 }
 
 static void
@@ -675,13 +674,67 @@ tree_selected (GtkTreeView *tree)
 	return gtk_tree_model_get_string_from_iter (model, &iter);
 }
 
+/* Adds each marked row under parent to marked, as tree_selected names it. */
+static void
+tree_marked_rows (GtkTreeModel *model, GtkTreeViewColumn *column, GtkTreeIter *parent, GString *marked)
+{
+	GtkTreeIter iter;
+	gboolean more;
+
+	for (more = gtk_tree_model_iter_children (model, &iter, parent); more;
+	     more = gtk_tree_model_iter_next (model, &iter)) {
+		GList *cells = gtk_cell_layout_get_cells (GTK_CELL_LAYOUT (column));
+		char *text = NULL;
+
+		gtk_tree_view_column_cell_set_cell_data (column, model, &iter, FALSE, FALSE);
+		if (cells != NULL) {
+			g_object_get (cells->data, "text", &text, NULL);
+		}
+		g_list_free (cells);
+		if (text != NULL && text[0] != '\0') {
+			char *row = gtk_tree_model_get_string_from_iter (model, &iter);
+
+			g_string_append_printf (marked, "%s%s", marked->len > 0 ? " " : "", row);
+			g_free (row);
+		}
+		g_free (text);
+		tree_marked_rows (model, column, &iter, marked);
+	}
+}
+
+/* Under Nemo Anywhere the tree's first column holds the dim checkmark, on the
+   selected row only (#2026111013031711). The other models have no column for it. */
+static gboolean
+tree_marks_follow (GtkTreeView *tree, const char *selected)
+{
+	GtkTreeViewColumn *marks = gtk_tree_view_get_column (tree, 0);
+	GString *marked;
+	gboolean right;
+
+	if (!anywhere) {
+		return gtk_tree_view_get_n_columns (tree) == 1;
+	}
+	if (gtk_tree_view_get_n_columns (tree) != 2 || marks == gtk_tree_view_get_expander_column (tree) ||
+	    gtk_tree_view_column_get_width (marks) <= 0 || gtk_tree_view_column_get_width (marks) >= 40) {
+		return FALSE;
+	}
+	marked = g_string_new (NULL);
+	tree_marked_rows (gtk_tree_view_get_model (tree), marks, NULL, marked);
+	right = strcmp (marked->str, selected) == 0;
+	if (!right) {
+		fprintf (out, "# tree marks on \"%s\", selected \"%s\"\n", marked->str, selected);
+	}
+	g_string_free (marked, TRUE);
+	return right;
+}
+
 static void
 want_tree (GtkTreeView *tree, const char *wanted, const char *what)
 {
 	char *got = tree_selected (tree);
 	char *line = g_strdup_printf ("%s (tree row %s, want %s)", what, got, wanted);
 
-	report (strcmp (got, wanted) == 0, line);
+	report (strcmp (got, wanted) == 0 && tree_marks_follow (tree, got), line);
 	g_free (line);
 	g_free (got);
 }
@@ -692,7 +745,7 @@ click_tree_row (GtkTreeView *tree, const char *row, guint modifiers)
 	GtkTreePath *path = gtk_tree_path_new_from_string (row);
 	GdkRectangle area;
 
-	gtk_tree_view_get_cell_area (tree, path, gtk_tree_view_get_column (tree, 0), &area);
+	gtk_tree_view_get_cell_area (tree, path, gtk_tree_view_get_expander_column (tree), &area);
 	gtk_tree_path_free (path);
 	stamp += 1000;
 	press_release (gtk_tree_view_get_bin_window (tree), 1, area.x + 30, area.y + area.height / 2,
@@ -803,7 +856,7 @@ step_or_stay (int item, int dx, int dy)
 }
 
 /* Nemo Anywhere's own icon view keys (#2026102412041969). The compact view
-   shares them, and gets its own checks with 2026102412041971. */
+   shares them, in its own layout, below. */
 static void
 anywhere_icon_keys (void)
 {
@@ -883,6 +936,103 @@ anywhere_icon_keys (void)
 	report (!typeahead_shown (), "and starts no type-ahead");
 }
 
+/* The icon view's keys in the compact view (#2026102412041971). Items run
+   down each column, so a run is in that order: Up and Down step through it,
+   and Left, Right and the page keys go a column across. */
+static void
+anywhere_compact_keys (void)
+{
+	int r2 = next_item (1, 1, 0);
+	int r3 = r2 >= 0 ? next_item (r2, 1, 0) : -1;
+	int d1 = r2 >= 0 ? next_item (r2, 0, 1) : -1;
+	int d2 = d1 >= 0 ? next_item (d1, 0, 1) : -1;
+	int e2 = d2 >= 0 ? next_item (d2, 1, 0) : -1;
+	int head = next_item (0, 1, 0);
+	int foot = 0, next;
+	char *run;
+
+	while ((next = next_item (foot, 0, 1)) >= 0) {
+		foot = next;
+	}
+	/* The first column's foot is the item just before the next one's head. */
+	if (r3 < 0 || e2 < 0 || foot < 4 || head != foot + 1) {
+		report (FALSE, "there are 3 columns of 5 items or more");
+		return;
+	}
+	click (2, 0);
+	report (!outline_shown (), "a click shows no focus outline");
+	key (GDK_KEY_Down, GDK_SHIFT_MASK);
+	report (!outline_shown (), "nor does Shift+Down");
+	key (GDK_KEY_Up, 0);
+	want (items (1, -1), "Up counts from the first item of a run");
+	click (2, 0);
+	key (GDK_KEY_Up, GDK_SHIFT_MASK);
+	key (GDK_KEY_Down, 0);
+	want (items (3, -1), "and Down from the last");
+	click (foot - 1, 0);
+	key (GDK_KEY_Down, GDK_SHIFT_MASK);
+	key (GDK_KEY_Down, 0);
+	want (items (head, -1), "Down from the last item of a run at a column's foot goes on to the next column's head");
+	click (head, 0);
+	key (GDK_KEY_Down, GDK_SHIFT_MASK);
+	key (GDK_KEY_Up, 0);
+	want (items (foot, -1), "and Up from the first back to the foot");
+	click (r2, 0);
+	key (GDK_KEY_Left, GDK_SHIFT_MASK);
+	key (GDK_KEY_Right, 0);
+	want (items (r3, -1), "Right counts from the last item of a run");
+	click (r2, 0);
+	key (GDK_KEY_Right, GDK_SHIFT_MASK);
+	key (GDK_KEY_Left, 0);
+	want (items (1, -1), "and Left from the first");
+	click (3, 0);
+	key (GDK_KEY_Up, GDK_SHIFT_MASK);
+	key (GDK_KEY_Page_Down, 0);
+	want (items (page_end (3, 1), -1), "Page Down counts from the last item of a run");
+	click (r2, 0);
+	key (GDK_KEY_Down, GDK_SHIFT_MASK);
+	key (GDK_KEY_Page_Up, 0);
+	want (items (page_end (r2, -1), -1), "and Page Up from the first");
+
+	click (1, 0);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	want (items (1, -1), "Ctrl+Down twice leaves the selection alone");
+	report (outline_shown (), "and the focus outline shows on the item it went to");
+	key (GDK_KEY_Down, 0);
+	want (items (4, -1), "Down then counts from the focus");
+	report (!outline_shown (), "and the outline goes");
+
+	click (1, 0);
+	key (GDK_KEY_Right, GDK_CONTROL_MASK);
+	report (outline_shown (), "Ctrl+Right shows the focus outline");
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	report (!outline_shown (), "and it goes once Ctrl+Space selects the focused item");
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
+	want (items (1, r2, d1, d2, -1), "Ctrl+Shift+Down adds the run from the Ctrl+Space item and keeps the rest");
+	key (GDK_KEY_Right, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
+	run = run_of (r2, e2, -1);
+	want (g_strdup_printf ("1,%s", run), "and Ctrl+Shift+Right runs on from it to the next column");
+	g_free (run);
+
+	key (GDK_KEY_Escape, 0);
+	want (g_strdup (""), "Escape clears the selection");
+	report (!outline_shown (), "and shows no focus outline");
+	key (GDK_KEY_Escape, 0);
+	want (g_strdup (""), "a second Escape changes nothing");
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	want (g_strdup (""), "nor does Ctrl+Space with no focus");
+	report (!outline_shown (), "and it shows no outline");
+	key (GDK_KEY_Down, 0);
+	want (items (0, -1), "and Down then starts at the first item");
+
+	click (3, 0);
+	key (GDK_KEY_space, 0);
+	want (items (3, -1), "Space leaves the selection alone");
+	report (!typeahead_shown (), "and starts no type-ahead");
+}
+
 /* Nemo Anywhere's own list keys (#2026102412041967). */
 static void
 anywhere_list_keys (void)
@@ -915,6 +1065,8 @@ anywhere_list_keys (void)
 	key (GDK_KEY_Down, GDK_CONTROL_MASK);
 	key (GDK_KEY_Down, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
 	want (items (5, 6, 7, 8, -1), "Ctrl+Shift+Down adds the run from the Ctrl+Space row and keeps the rest");
+	click (3, GDK_SHIFT_MASK);
+	want (run_of (3, 6, -1), "and a Shift+click then runs from that row too");
 
 	key (GDK_KEY_Escape, 0);
 	want (g_strdup (""), "Escape clears the selection");
@@ -980,6 +1132,15 @@ rules_tick (void)
 		click (2, GDK_CONTROL_MASK);
 		click (4, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
 		want (items (2, 3, 4, 6, -1), "Ctrl+Shift+click adds the run from the last Ctrl+click");
+		if (anywhere) {
+			/* #2026111012335173 */
+			click (0, GDK_SHIFT_MASK);
+			want (run_of (0, 2, -1), "and a Shift+click then runs from the same item");
+			click (6, 0);
+			click (2, GDK_CONTROL_MASK);
+			click (4, GDK_SHIFT_MASK);
+			want (run_of (2, 4, -1), "a Shift+click after a Ctrl+click runs from the Ctrl+clicked item");
+		}
 		break;
 	case 7:
 		if (!click_blank (0)) {
@@ -1202,7 +1363,9 @@ rules_tick (void)
 		}
 		if (anywhere && list_mode) {
 			anywhere_list_keys ();
-		} else if (anywhere && !compact_mode) {
+		} else if (anywhere && compact_mode) {
+			anywhere_compact_keys ();
+		} else if (anywhere) {
 			anywhere_icon_keys ();
 		}
 		break;
@@ -1303,7 +1466,7 @@ rules_tick (void)
 			GdkWindow *tree_bin = gtk_tree_view_get_bin_window (tree);
 			GdkRectangle area;
 
-			gtk_tree_view_get_cell_area (tree, row, gtk_tree_view_get_column (tree, 0), &area);
+			gtk_tree_view_get_cell_area (tree, row, gtk_tree_view_get_expander_column (tree), &area);
 			gtk_tree_path_free (row);
 			stamp += 1000;
 			press (tree_bin, 3, area.x + 30, area.y + area.height / 2, 0);
@@ -1329,8 +1492,24 @@ rules_tick (void)
 		if (!find_pane () || item_named ("data") < 0 || item_named (folder_name) < 0) {
 			return FALSE;
 		}
+		if (anywhere) {
+			/* The tree still has the focus, on the viewed folder, so every
+			   item takes the mark (#2026111013031729). */
+			char *all = run_of (0, item_count () - 1, -1);
+			char *marked = marks ();
+			char *line = g_strdup_printf ("with the tree focused on the viewed folder, every item is marked "
+						      "(marked %s, want %s)", marked, all);
+
+			report (gtk_widget_has_focus (GTK_WIDGET (tree)) && strcmp (marked, all) == 0, line);
+			g_free (line);
+			g_free (marked);
+			g_free (all);
+		}
 		note_title ();
 		click (item_named ("data"), 0);
+		if (anywhere) {
+			want (items (item_named ("data"), -1), "a click in the view takes the marks back to its selection");
+		}
 		gtk_widget_grab_focus (pane);
 		key (GDK_KEY_Return, 0);
 		break;
