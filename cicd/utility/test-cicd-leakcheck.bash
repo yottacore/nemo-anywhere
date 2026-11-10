@@ -3,8 +3,10 @@
 ##	- Purpose: Check cicd.bash --leakcheck and --no-leakcheck. A plain run has
 ##	  the leak checks on and --quick has them off. --leakcheck turns them on and
 ##	  --no-leakcheck off, under --quick or not, with -q too, and the last of the
-##	  two on the command line wins. Both are in --help. A copy of cicd.bash runs
-##	  with a debug build that fails, so the run stops right after its plan.
+##	  two on the command line wins. Both are in --help. The cross-file analyzer
+##	  runs only with the leak checks on and --long or --leakcheck named, so not
+##	  in a plain run. A copy of cicd.bash runs with a debug build that fails, so
+##	  the run stops right after its plan.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-leakcheck.bash
 ##	- Test ID: desha
@@ -45,6 +47,7 @@ cat > "${scratch}/cicd/config.bash" <<-CFG
 	VERSION_MANIFEST="meson.build"; PRIVATE_RUNNER=""; LINT_LOG_DIR=""
 	DOGFOOD_FIXED_DESTS=(); DOGFOOD_ROTATING_DESTS=(); DOGFOOD_CROSS_DESTS=(); DOGFOOD_HOOK=()
 	DOGFOOD_REMOTE=(); GIT_PUBLISH=(true); PUBLISH_AUTO_MESSAGE="unused"
+	ANALYZE_CTU_CMD=(ctu-step)
 CFG
 
 ## $1 on or off, rest the options.
@@ -68,6 +71,25 @@ fCase on  --quick --no-leakcheck --leakcheck
 fCase off --quick --leakcheck --no-leakcheck
 fCase off -q --no-leakcheck
 fCase on  -q --quick --leakcheck
+
+## $1 on or off, rest the options.
+fCaseCtu(){
+	local want="$1" out got; shift
+	out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync "$@" 2>&1 </dev/null || true)"
+	got="$(sed -n 's/^ *Cross-file analyzer \.* *: //p' <<< "$out")"
+	case "$got" in ctu-step) got=on ;; "(skipped"*) got=off ;; esac
+	[[ "$got" == "$want" ]] || fFail "[${*:-no options}]: cross-file analyzer '${got:-none}', want ${want}"
+}
+
+fCaseCtu off
+fCaseCtu on  --leakcheck
+fCaseCtu on  --long
+fCaseCtu on  --quick --leakcheck
+fCaseCtu off --quick
+fCaseCtu off --quick --long --no-leakcheck
+fCaseCtu off --long --no-leakcheck
+fCaseCtu on  --no-leakcheck --leakcheck
+fCaseCtu off --leakcheck --no-leakcheck
 
 if ((failures)); then exit 1; fi
 fEcho "OK: --leakcheck and --no-leakcheck"

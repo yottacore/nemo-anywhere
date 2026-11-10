@@ -8,7 +8,9 @@
 #            prints each run's diagnostics, paths made relative to the repo.
 #            A file on analyze-slow.txt for the lane is run as listed there,
 #            and before the rest. Fails on a bad line there, or an entry for
-#            the lane naming a file that isn't in its list.
+#            the lane naming a file that isn't in its list. With --ctu, clang
+#            only, it first indexes every file's external functions, so the
+#            analyzer follows calls into the other .c files of the same list.
 #   cover    Fails when a tracked .c is in neither compile list, or when one
 #            under source/unused/, which nothing should build, is in one.
 #   count    Counts unique findings per area from run's logs. Vendored ones on
@@ -17,16 +19,18 @@
 #            matches nothing, so the list can't go stale, and on a file not
 #            analyzed, cut off at the cap or not compiled.
 #   planted  Inside a build container. Runs one analyzer over a planted leak and
-#            null dereference, and fails unless it reports both.
+#            null dereference, and fails unless it reports both. With --ctu,
+#            the leak and the NULL come from a second file, and a plain clang
+#            run has to miss both, so only following the call finds them.
 #
 # --self-test runs cover and count over made-up input, the -Werror form of a
 # gcc finding included, since a parser that only knows "warning:" counts 0.
 # Test ID: de8em
 #
-# Syntax: analyze.py run --tool gcc|clang --db <compile_commands.json> [--lane linux|win] [--jobs N]
+# Syntax: analyze.py run --tool gcc|clang --db <compile_commands.json> [--lane linux|win] [--jobs N] [--ctu]
 #         analyze.py cover <repo root> <db>...
-#         analyze.py count [--supp <list>] <repo root> <log>...
-#         analyze.py planted --tool gcc|clang --cc <compiler>
+#         analyze.py count [--supp <list>] [--no-stale] <repo root> <log>...
+#         analyze.py planted --tool gcc|clang --cc <compiler> [--ctu]
 #         analyze.py --self-test
 
 # Copyright (c) 2026 t00mietum
@@ -107,8 +111,8 @@ def analyzer_argv(entry, tool, clang):
     # The mingw driver name tells clang the target; it reads the same headers.
     target = ["--target=x86_64-w64-mingw32"] if "mingw32" in os.path.basename(argv[0]) else []
     out = [a for a in out if a != "-c"]
-    return [clang] + target + out + ["--analyze", "--analyzer-output", "text", "-fno-color-diagnostics",
-                                     "-Wno-unknown-warning-option", "-Wno-unused-command-line-argument", "-o", "/dev/null"]
+    return [clang] + target + out + ["-Wno-unknown-warning-option", "-Wno-unused-command-line-argument"] \
+        + ([] if tool == "clang-parse" else ["--analyze", "--analyzer-output", "text", "-fno-color-diagnostics", "-o", "/dev/null"])
 
 
 def rel(directory, path):
@@ -140,7 +144,7 @@ def run_one(full, entry, tool, clang, tag="", extra=(), cap=None):
     return "### %s rc=%d\n%s" % (name, rc, "\n".join(lines) + ("\n" if lines else ""))
 
 
-SLOW_RE = re.compile(r"^((?:gcc|clang)-(?:linux|win))\s+(\S+)\s+(-O[0-3gs]|cap=[1-9][0-9]*|skip)\s+(\S.*)$")
+SLOW_RE = re.compile(r"^((?:gcc|clang|clang-ctu)-(?:linux|win))\s+(\S+)\s+(-O[0-3gs]|cap=[1-9][0-9]*|skip)\s+(\S.*)$")
 
 
 # {lane: {path: how}}, and a problem per bad line.
@@ -171,14 +175,74 @@ def slow_plan(how):
     return None, (how,), None
 
 
+def find_tool(name):
+    return shutil.which(name) or shutil.which(name + "-19")
+
+
+# The cross-file index in tmp: externalDefMap.txt, from each external function's
+# USR to the one file that defines it, and the command that parses that file.
+# A USR more than one file defines, such as each test's main, is left out, so
+# the analyzer never picks one at random. Returns the analyzer's extra flags.
+# On-demand parsing, not saved ASTs, so it needs no disk for the whole tree.
+def ctu_prepare(runs, clang, tmp, jobs):
+    mapper = find_tool("clang-extdef-mapping")
+    if not mapper:
+        return None
+    firsts = {}
+    for full, e, _ in runs:
+        firsts.setdefault(full, e)
+
+    def flags(full, e):
+        src = os.path.normpath(os.path.join(e["directory"], e["file"]))
+        return [a for a in analyzer_argv(e, "clang-parse", clang)[1:]
+                if os.path.normpath(os.path.join(e["directory"], a)) != src]
+
+    def defs(item):
+        full, e = item
+        try:
+            p = subprocess.run([mapper, full, "--"] + flags(full, e), cwd=e["directory"], stdin=subprocess.DEVNULL,
+                               capture_output=True, text=True, errors="replace", timeout=TU_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            return full, [], 124
+        usrs = []
+        for line in p.stdout.splitlines():
+            n, _, rest = line.partition(":")
+            if n.isdigit() and len(rest) > int(n):
+                usrs.append(rest[:int(n)])
+        return full, usrs, p.returncode
+    where = collections.defaultdict(set)
+    bad = 0
+    with concurrent.futures.ThreadPoolExecutor(jobs) as pool:
+        for full, usrs, rc in pool.map(defs, sorted(firsts.items())):
+            bad += rc != 0
+            for u in usrs:
+                where[u].add(full)
+    once = sorted((u, next(iter(f))) for u, f in where.items() if len(f) == 1)
+    with open(os.path.join(tmp, "externalDefMap.txt"), "w", encoding="utf-8") as f:
+        f.writelines("%d:%s %s\n" % (len(u), u, path) for u, path in once)
+    # JSON is YAML, which the invocation list is read as.
+    with open(os.path.join(tmp, "invocations.yaml"), "w", encoding="utf-8") as f:
+        json.dump({full: [clang, full] + flags(full, e) for full, e in firsts.items()}, f)
+    print("### CTU index: %d files, %d functions, %d defined in more than one file, %d files not indexed"
+          % (len(firsts), len(once), len(where) - len(once), bad))
+    sys.stdout.flush()
+    return [x for kv in ("experimental-enable-naive-ctu-analysis=true", "ctu-dir=" + tmp,
+                         "ctu-invocation-list=" + os.path.join(tmp, "invocations.yaml"))
+            for x in ("-Xclang", "-analyzer-config", "-Xclang", kv)]
+
+
 def cmd_run(args):
     tool = args[args.index("--tool") + 1]
     db = args[args.index("--db") + 1]
-    lane = "%s-%s" % (tool, args[args.index("--lane") + 1]) if "--lane" in args else None
+    ctu = "--ctu" in args
+    if ctu and tool != "clang":
+        print("[ FAILED: --ctu is clang's only ]")
+        return 2
+    lane = "%s-%s" % ("clang-ctu" if ctu else tool, args[args.index("--lane") + 1]) if "--lane" in args else None
     jobs = int(args[args.index("--jobs") + 1]) if "--jobs" in args else max(1, (os.cpu_count() or 2) // 2)
     clang = None
     if tool == "clang":
-        clang = shutil.which("clang") or shutil.which("clang-19")
+        clang = find_tool("clang")
         if not clang:
             print("### SKIP no clang in this container")
             return 77
@@ -191,13 +255,24 @@ def cmd_run(args):
     slow = slow.get(lane, {})
     runs = [r for r in load_db(db) if r[0].startswith(SRC) and r[0].endswith(".c")]
     stale = sorted(set(slow) - {rel("/", r[0]) for r in runs})
+    with tempfile.TemporaryDirectory(prefix="ctu-") as tmp:
+        ctu_flags = ctu_prepare(runs, clang, tmp, jobs) if ctu else []
+        if ctu_flags is None:
+            print("### SKIP no clang-extdef-mapping in this container")
+            return 77
+        rc = run_all(runs, slow, ctu_flags, tool, clang, jobs)
+    for path in stale:
+        print("[ FAILED: %s: %s not in %s ]" % (SLOW_FILE, path, db))
+    return 1 if stale or rc else 0
 
+
+def run_all(runs, slow, ctu_flags, tool, clang, jobs):
     def one(r):
         name = rel("/", r[0])
         block, extra, cap = slow_plan(slow.get(name))
         if block:
             return "### %s rc=0\n%s" % (name + (" [%s]" % r[2] if r[2] else ""), block)
-        return run_one(r[0], r[1], tool, clang, r[2], extra, cap)
+        return run_one(r[0], r[1], tool, clang, r[2], tuple(ctu_flags) + extra, cap)
     # The slow ones start first, so the rest overlap them. Output keeps the list's order.
     order = sorted(range(len(runs)), key=lambda i: not slow.get(rel("/", runs[i][0]), "").startswith("cap="))
     with concurrent.futures.ThreadPoolExecutor(jobs) as pool:
@@ -205,38 +280,71 @@ def cmd_run(args):
         for i in range(len(runs)):
             sys.stdout.write(futures[i].result())
             sys.stdout.flush()
-    for path in stale:
-        print("[ FAILED: %s: %s not in %s ]" % (SLOW_FILE, path, db))
-    return 1 if stale else 0
+    return 0
 
 
 PLANTED = """#include <stdlib.h>
 int planted_leak(int n) { int *p = malloc(4 * sizeof *p); if (!p) return -1; p[0] = n; return p[0]; }
 int planted_null(int n) { int *q = 0; if (n > 1) return 0; return *q; }
 """
+# The same 2 faults, with the malloc and the read of NULL in the other file. Not
+# a NULL returned from there, since clang drops a report on a NULL an inlined
+# call returned (suppress-null-return-paths).
+PLANTED_CALLER = """int *planted_make(int n);
+int planted_read(const int *q);
+int planted_leak(int n) { int *p = planted_make(n); if (!p) return -1; return p[0]; }
+int planted_null(void) { return planted_read(0); }
+"""
+PLANTED_CALLEE = """#include <stdlib.h>
+int *planted_make(int n) { int *p = malloc(4 * sizeof *p); if (p) p[0] = n; return p; }
+int planted_read(const int *q) { return *q; }
+"""
+
+
+def planted_found(block):
+    return {m.group(4) for m in (GCC_RE.match(x) or CLANG_RE.match(x) for x in block.splitlines())
+            if m and os.path.basename(m.group(1)).startswith("planted")}
 
 
 def cmd_planted(args):
     tool = args[args.index("--tool") + 1]
     cc = args[args.index("--cc") + 1]
+    ctu = "--ctu" in args
     clang = None
     if tool == "clang":
-        clang = shutil.which("clang") or shutil.which("clang-19")
+        clang = find_tool("clang")
         if not clang:
             print("### SKIP no clang in this container")
             return 77
-    with tempfile.TemporaryDirectory() as tmp:
-        with open(os.path.join(tmp, "planted.c"), "w", encoding="utf-8") as f:
-            f.write(PLANTED)
-        block = run_one(os.path.join(tmp, "planted.c"),
-                        {"directory": tmp, "file": "planted.c", "arguments": [cc, "-Wall", "-c", "planted.c", "-o", "planted.o"]},
-                        tool, clang)
-    sys.stdout.write(block)
-    found = {m.group(4) for m in (GCC_RE.match(x) or CLANG_RE.match(x) for x in block.splitlines()) if m}
     want = {"gcc": {"analyzer-malloc-leak", "analyzer-null-dereference"}, "clang": {"unix.Malloc", "core.NullDereference"}}[tool]
-    missing = want - found
-    print("[ %s: planted faults %s ]" % (tool, "missed: " + ", ".join(sorted(missing)) if missing else "found"))
-    return 1 if missing else 0
+    with tempfile.TemporaryDirectory() as tmp:
+        files = {"planted.c": PLANTED_CALLER, "planted_callee.c": PLANTED_CALLEE} if ctu else {"planted.c": PLANTED}
+        entries = []
+        for name, text in files.items():
+            with open(os.path.join(tmp, name), "w", encoding="utf-8") as f:
+                f.write(text)
+            entries.append((os.path.join(tmp, name), {"directory": tmp, "file": name,
+                            "arguments": [cc, "-Wall", "-c", name, "-o", name + ".o"]}, ""))
+        plain = None
+        if ctu:
+            plain = run_one(entries[0][0], entries[0][1], tool, clang)
+            with tempfile.TemporaryDirectory(prefix="ctu-") as ctu_tmp:
+                flags = ctu_prepare(entries, clang, ctu_tmp, 1)
+                if flags is None:
+                    print("### SKIP no clang-extdef-mapping in this container")
+                    return 77
+                block = run_one(entries[0][0], entries[0][1], tool, clang, extra=flags)
+        else:
+            block = run_one(entries[0][0], entries[0][1], tool, clang)
+    sys.stdout.write(block)
+    missing = want - planted_found(block)
+    print("[ %s%s: planted faults %s ]" % (tool, " across files" if ctu else "",
+                                           "missed: " + ", ".join(sorted(missing)) if missing else "found"))
+    # A plain run that finds them too means the planted pair doesn't need the other file.
+    seen = planted_found(plain) & want if plain is not None else set()
+    if seen:
+        print("[ FAILED: a plain clang run found %s too, so the planted pair proves nothing ]" % ", ".join(sorted(seen)))
+    return 1 if missing or seen else 0
 
 
 UNUSED = "source/unused/"
@@ -352,9 +460,12 @@ def count(logs, inherited, supp=None):
 
 
 def cmd_count(args):
-    supp_file = None
-    if args and args[0] == "--supp":
-        supp_file, args = args[1], args[2:]
+    supp_file, no_stale = None, False
+    while args and args[0] in ("--supp", "--no-stale"):
+        if args[0] == "--supp":
+            supp_file, args = args[1], args[2:]
+        else:
+            no_stale, args = True, args[1:]
     root, paths = args[0], args[1:]
     base = subprocess.run(["git", "-C", root, "rev-list", "--max-parents=0", "HEAD"], check=True,
                           capture_output=True, text=True).stdout.split()[-1]
@@ -371,6 +482,8 @@ def cmd_count(args):
         with open(p, encoding="utf-8", errors="replace") as f:
             logs[os.path.basename(p).rsplit(".", 1)[0]] = f.read()
     table, failed, stale, left, listed = count(logs, inherited, supp)
+    # The cross-file run reads only clang's logs, so a vendored entry for gcc matches nothing there.
+    stale = [] if no_stale else stale
     print("%-14s %s %7s %10s %9s" % ("log", " ".join("%9s" % a for a in AREAS), "total", "suppressed", "failed"))
     for name, row in table.items():
         if row is None:

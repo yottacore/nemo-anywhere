@@ -60,6 +60,10 @@ RUN dpkg -i /tmp/rar.deb && rm /tmp/rar.deb
 # same snapshot. A layer of its own, so the ones above stay cached.
 RUN apt-get update && apt-get install -y --no-install-recommends heaptrack \
 	&& rm -rf /var/lib/apt/lists/*
+# clang-extdef-mapping, for the cross-file clang analyzer (analyze.bash --ctu,
+# --leakcheck). Same snapshot, its own layer.
+RUN apt-get update && apt-get install -y --no-install-recommends clang-tools-19 \
+	&& rm -rf /var/lib/apt/lists/*
 
 # fontconfig's cache holds each font folder's mtime to the nanosecond, and the
 # saved image keeps whole seconds, so a cache made during the build reads as

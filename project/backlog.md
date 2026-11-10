@@ -858,7 +858,73 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The parent's CodeQL and cross-file clang requirements, over the same 2 compile lists.
 		- Each is pinned, in a container, and fails on a planted leak and null dereference first.
 	- Estimated effort: High
+	- Progress log:
+		- 20261110: Split into children: `2026110920250275` (cross-file clang, report only), `...293` (CodeQL) and `...1244` (the cross-file findings fixed or suppressed, then they fail the run). The first is in; the other 2 are Queued.
 	- Test case: de8ep (CodeQL) and de8eq (cross-file clang), each with a planted fault.
+
+- Static analyzers: the clang analyzer in cross-file mode under `--leakcheck`, report only.
+	- ID: 2026110920250275
+	- Type: Enhancement
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: yes, `bash cicd/utility/analyze.bash --ctu` once, after a debug build and the Windows cross build, for its time, its memory and the findings and cut-off files in each lane. A `--long` full run covers it too.
+	- Priority|Severity: Avg
+	- Opened: 20261109-202502
+	- Opened by: 2026102114400592
+	- Parent ID: 2026102114400592
+	- Prereq IDs: 2026101911105600
+	- Target OS: Linux
+	- Requirements:
+		- The clang analyzer over both compile lists, following calls into the other .c files of the same list.
+		- Pinned, in both build images, and fails when it misses a planted leak or null dereference that needs the other file.
+		- Findings are counted and kept with the run's artifacts, and don't fail the run yet.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261110: `analyze.bash --ctu` is the "Cross-file analyzer" step, after the heap soak. `analyze.py run --ctu` indexes each file's external functions, leaves out any that more than one file defines, and has clang parse the other file when a call needs it. clang-tools-19 is in both images, from their snapshots.
+		- Times on the Linux box at 8 jobs: indexing the Linux list's 484 files took 19 s. A sample of 26 files, 1 in 20, took 79 s per file and 216 s across files, with 3 findings against 1. `nemo-list-view.c` took 19 s and 80 s, at 1.1 GB. So about 17 to 20 min for both lists at a quarter of the cores.
+	- Decisions:
+		- Runs with `--long`, or `--leakcheck` named, and not in a plain run, where the leak checks are on by default. It would add about 20 min there, against the 5 min a step may add.
+		- Report only, as the per-file stage was at first. 2026110920251244 fixes or suppresses its findings and then makes them fail the run. Until then it fails only on a missed planted pair, a lane that doesn't run, or a missing tool.
+		- Each file is parsed again when a call needs it, rather than saved as an AST, so it needs no disk for the whole tree's ASTs.
+		- The planted NULL is read in the other file, not returned from it, since clang by default drops a report on a NULL that an inlined call returned. A plain clang run has to miss both planted faults, so a pass shows the run went across files.
+		- A 10 min cap a file (`ANALYZE_TU_TIMEOUT`, 600), since following calls takes about 3 times as long. A file cut off is reported, not failed, until 2026110920251244.
+		- The count leaves out the stale suppression check, since a gcc-only vendored entry matches nothing in clang's logs.
+	- Branch: round1110a
+	- Test case: de8eq (`analyze.bash --ctu`, the planted pair in both containers), and desha for when the step runs.
+	- Verified: 20261110, de8eq passes in both containers, and fails in both with the cross-file switch turned off. desha passes with its new cases, and fails with the step put in a plain run. test-cicd-help, test-cicd-quick, test-cicd-list, test-analyze-gate and de8em pass. In `cicd/cicd.bash --backlog-run-quick` the lints passed, and the tests area passed in the new image (242 OK, 1 skipped), run alone after a timeout cut the first run short.
+	- Swept: every reader of `leakcheck` in `cicd.bash` (plan, preflight, step), `--help`, `config.bash`, design.md's test and run lengths text, the callers of `analyzer_argv` and `count`, and the tests that copy `cicd.bash`.
+
+- Static analyzers: CodeQL under `--leakcheck`.
+	- ID: 2026110920250293
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261109-202502
+	- Opened by: 2026102114400592
+	- Parent ID: 2026102114400592
+	- Prereq IDs: 2026101911105600
+	- Target OS: Linux
+	- Requirements:
+		- The parent's CodeQL requirements, over the same 2 compile lists, the Python included.
+		- A pinned CLI and query packs, run locally in a container, with no hosted service. It fails on a planted leak and null dereference first.
+	- Estimated effort: High
+	- Test case: de8ep, with a planted leak and null dereference.
+
+- Static analyzers: the cross-file clang findings fixed or suppressed, then they fail the run.
+	- ID: 2026110920251244
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261109-202512
+	- Opened by: 2026102114400592
+	- Parent ID: 2026102114400592
+	- Prereq IDs: 2026110920250275
+	- Target OS: Linux
+	- Requirements:
+		- Every finding the cross-file run adds over the per-file one is fixed, or suppressed at the line with a one-line reason, or for vendored code in `analyze-vendored.txt`.
+		- Then a finding left, or a file cut off at the cap, fails the step, as in the per-file stage.
+	- Estimated effort: Avg
+	- Test case: de8eq, and de8en for the count it then fails on.
 
 - Settings: search.
 	- ID: 2026101417352263
