@@ -548,8 +548,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere dim checkmarks: the compact view.
 	- ID: 2026102411133419
 	- Type: Enhancement
-	- Status: Queued
-	- Needs local test suite run?: Yes
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The quick gate's tests passed with it.
 	- Priority|Severity: High
 	- Opened: 20261024-111334
 	- Opened by: t00mietum
@@ -566,7 +566,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Shares the icon container's drawing with the icon view, so it follows that child.
 	- Progress log:
 		- 20261024: opened.
-	- Test case: none yet.
+		- 20261110: under Nemo Anywhere each selected item in the compact view gets a dim checkmark just left of its name, inside the name's highlight. Every name keeps room for the mark, so names don't move as the selection changes. The room and the marks follow the setting live. The other models are unchanged.
+		- 20261110: left at signoff for the look of the mark beside names. Tests pass.
+	- Decisions:
+		- The mark is in the label's font, in the selected text color with the insensitive look, the same as the list view column's. Inside the highlight it reads on the selection color, so it needs no patch of its own as on icons.
+		- The room is kept on every name, selected or not, under Nemo Anywhere only. So names sit one mark further from their icons than under the other models.
+		- In a right-to-left layout the mark is on the name's icon side, its right, as the list view's column is.
+		- A slow second click on the mark doesn't start a rename, since it isn't part of the name. The rename box starts where the name does.
+		- The drag image shows the mark too, since it draws the name as it is on screen, highlight included.
+	- Swept: the icon view's corner mark (now left out of the compact view), the drag image, the rename box and the slow-click rename, the item's bounds and band hits (the room is part of the name's rectangle), and the setting's live change in the icon container.
+	- Branch: round1110b
+	- Test case: dec8w and dec8v, where every compact view check also checks the marks: on the selected items under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). The result counts don't change.
+	- Not covered by a test yet: where the mark sits, and the room coming and going when the setting changes while the window is open.
+	- Verified: 20261110, dec8w, dec8v, de8bd, de8dm, ddy5f and de8ec pass, and dec8w and dec8v fail with the compact view left out of the marks. The quick gate passed (lints, and 242 OK, 1 skipped). gcc's and clang's analyzers report nothing on the 4 changed files.
+	- Verified: 20261110, the compact view under Nemo Anywhere in Adwaita and Adwaita dark, with 3 of 7 items selected: a mark left of each selected name and none on the rest, names unchanged and lined up. Under Nemo Anywhere v1, no room and no marks.
+	- Acceptance signoff: Pending: the look of the mark beside names. dec8w and dec8v pass.
 
 - Nemo Anywhere: the focus outline and the keyboard rules, per view.
 	- ID: 2026102407515572

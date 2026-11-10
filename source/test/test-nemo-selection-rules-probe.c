@@ -397,16 +397,15 @@ icon_marked_list (void)
 	return g_string_free (list, FALSE);
 }
 
-/* Under Nemo Anywhere the marks are part of every list and icon view check,
-   and under the other models the icon view has none. The compact view's come
-   with its own item, 2026102411133419. */
+/* Under Nemo Anywhere the marks are part of every check in all 3 views, and
+   under the other models the icon and compact views have none. */
 static char *
 marks (void)
 {
 	if (list_mode) {
 		return anywhere ? marked_list () : NULL;
 	}
-	return compact_mode ? NULL : icon_marked_list ();
+	return icon_marked_list ();
 }
 
 static void

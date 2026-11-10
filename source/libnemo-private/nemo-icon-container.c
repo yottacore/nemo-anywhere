@@ -240,11 +240,19 @@ clicked_on_text (NemoIconContainer *container,
     if (icon == NULL)
         return FALSE;
 
-    double eventX, eventY;
+    double eventX, eventY, room;
     EelDRect icon_rect;
 
     icon_rect = nemo_icon_canvas_item_get_text_rectangle (icon->item, TRUE);
     eel_canvas_window_to_world (EEL_CANVAS (container), event->x, event->y, &eventX, &eventY);
+
+    /* The compact view's mark is no more the name than the icon's is. */
+    room = nemo_icon_canvas_item_get_checkmark_room (icon->item) / EEL_CANVAS (container)->pixels_per_unit;
+    if (nemo_icon_container_is_layout_rtl (container)) {
+        icon_rect.x1 -= room;
+    } else {
+        icon_rect.x0 += room;
+    }
 
     gboolean ret =  (eventX > icon_rect.x0) &&
            (eventX < icon_rect.x1) &&
@@ -1023,6 +1031,10 @@ rename_widget_place (NemoIconContainer *container, NemoIcon *icon, int width, in
 				text_rect.x0,
 				text_rect.y0,
 				x, y);
+		/* The name stays put, beside its mark. */
+		if (!nemo_icon_container_is_layout_rtl (container)) {
+			*x += nemo_icon_canvas_item_get_checkmark_room (icon->item);
+		}
 	} else {
 		eel_canvas_w2c (EEL_CANVAS_ITEM (icon->item)->canvas,
 				(icon_rect.x0 + icon_rect.x1) / 2,
@@ -1168,6 +1180,18 @@ invalidate_label_sizes (NemoIconContainer *container)
 
 		nemo_icon_canvas_item_invalidate_label_size (icon->item);
 	}
+}
+
+/* The compact view keeps room beside each name for the mark, so it lays out
+   again. */
+static void
+selection_model_changed_callback (NemoIconContainer *container)
+{
+	if (nemo_icon_container_is_layout_vertical (container)) {
+		invalidate_label_sizes (container);
+		schedule_redo_layout (container);
+	}
+	gtk_widget_queue_draw (GTK_WIDGET (container));
 }
 
 static void
@@ -5186,7 +5210,7 @@ nemo_icon_container_init (NemoIconContainer *container)
     /* The dim checkmarks come and go with the model. */
     g_signal_connect_object (nemo_preferences,
                              "changed::" NEMO_PREFERENCES_SELECTION_MODEL,
-                             G_CALLBACK (gtk_widget_queue_draw),
+                             G_CALLBACK (selection_model_changed_callback),
                              container, G_CONNECT_SWAPPED);
 
     container->details->show_icon_view_tooltips = nemo_config_get_boolean (nemo_preferences,

@@ -75,6 +75,7 @@ void        nemo_icon_canvas_item_set_emblems              (NemoIconCanvasItem  
 void        nemo_icon_canvas_item_set_show_stretch_handles (NemoIconCanvasItem       *item,
 								gboolean                      show_stretch_handles);
 double      nemo_icon_canvas_item_get_max_text_width       (NemoIconCanvasItem       *item);
+int         nemo_icon_canvas_item_get_checkmark_room       (NemoIconCanvasItem       *item);
 const char *nemo_icon_canvas_item_get_editable_text        (NemoIconCanvasItem       *icon_item);
 void        nemo_icon_canvas_item_set_renaming             (NemoIconCanvasItem       *icon_item,
 								gboolean                      state);
