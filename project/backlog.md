@@ -752,6 +752,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- After the rc.1 cut, since the release build works as it is.
 		- Split it before starting. It doesn't fit one worker's time cap.
 	- Estimated effort: High
+	- 20261110: if the patched gtk3 of 2026102112223038 (children 2026111011404145 on) is in by then, it has to be rebuilt for UCRT64 too.
 
 - Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
 	- ID: 2026102114400592
