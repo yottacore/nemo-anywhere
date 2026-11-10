@@ -6,10 +6,12 @@
  * since its 10,000 lines would cost every analyzer lane a slow file for 3
  * fixed files. Same arguments as shcl-old-writer.
  *
- * 3 values are marked as read another way today, so the check fails once
- * they read as that build read them: a tab it wrote as "rar\ta", since a
- * backslash in double quotes is text now, and 2 hand lines, `a\,b`, which
- * it took for a list and today's rules for text, and 'it''s'.
+ * Those builds read a backslash in double quotes as an escape, as for the
+ * tab in "rar\ta", where today's rules read it as text. The app reads such
+ * a value as they did when the file has a bare list, as plain and hand do.
+ * 2 hand lines are marked as read another way today, so the check fails
+ * once they read as that build read them: `a\,b`, which it took for a list
+ * and today's rules for text, and 'it''s'.
  *
  *   shcl-dev-writer <settings.shcl> <expect.txt> plain|hand|nobackslash */
 
@@ -56,9 +58,11 @@ static const Variant variants[] = {
 	  "windows:\n"
 	  "\tpath-separator: slash\n"
 	  "\tassociations: \"txt=notepad.exe %1\", 'log=C:\\Tools\\view.exe \"%1\"', \"md=typora, with comma\"\n"
+	  "\tterminal-candidates: \"say \\\"it's\\\" C:\\\\x\", wt.exe\n"
 	  "\n"
 	  "search:\n"
 	  "\tsearch-skip-folders: node_modules, \"a, b\", \"\", \"x#y\", \"'q'\"\n"
+	  "\tsearch-sort-column: \"it's \\\"x # y\\\" C:\\\\a\"\n"
 	  "\n"
 	  "plugins:\n"
 	  "\tdisabled-extensions:\n"
@@ -69,6 +73,9 @@ static const Variant variants[] = {
 	  "file-cache:\n"
 	  "\tmax-size-gib: 2.5\n"
 	  "\tmemory-gib: 0.125\n"
+	  "\n"
+	  "window-state:\n"
+	  "\tgeometry: \"line 1\\nline 2\"\n"
 	  "\n"
 	  "##\n"
 	  "## This config file format is SHCL.\n"
@@ -85,7 +92,7 @@ static const Variant variants[] = {
 	  "list-view.row-shading-color\ts\t0\t7267626128302c20302c20302c20302e3129\n"
 	  "preferences.bulk-rename-tool\ts\t0\t433a5c50726f6772616d2046696c65735c52656e616d65725c722e657865202d2d666c6167\n"
 	  "archive.create-with-7z\ts\t0\t746f6f6c735c377a2e657865\n"
-	  "archive.create-with-rar\ts\t1\t7261720961\n"
+	  "archive.create-with-rar\ts\t0\t7261720961\n"
 	  "archive.extract-with-7z\ts\t0\t\n"
 	  "archive.extract-with-rar\ts\t0\t206c65616420616e6420747261696c20\n"
 	  "appearance.mode\ts\t0\t6461726b\n"
@@ -100,7 +107,10 @@ static const Variant variants[] = {
 	  "preferences.thumbnail-threads\ti\t0\t-3\n"
 	  "preferences.thumbnail-limit\ti\t0\t1000000\n"
 	  "file-cache.max-size-gib\tf\t0\t2.5\n"
-	  "file-cache.memory-gib\tf\t0\t0.125\n" },
+	  "file-cache.memory-gib\tf\t0\t0.125\n"
+	  "window-state.geometry\ts\t0\t6c696e6520310a6c696e652032\n"
+	  "search.search-sort-column\ts\t0\t69742773202278202320792220433a5c61\n"
+	  "windows.terminal-candidates\tl\t0\t2:7361792022697427732220433a5c78,77742e657865\n" },
 	{ "hand",
 	  "appearance:\n"
 	  "\t# Theme, with a # and a \\ in the note\n"
@@ -134,9 +144,11 @@ static const Variant variants[] = {
 	  "windows:\n"
 	  "\tpath-separator: slash\n"
 	  "\tassociations: \"txt=notepad.exe %1\", 'log=C:\\Tools\\view.exe \"%1\"', \"md=typora, with comma\"\n"
+	  "\tterminal-candidates: \"say \\\"it's\\\" C:\\\\x\", wt.exe\n"
 	  "\n"
 	  "search:\n"
 	  "\tsearch-skip-folders: node_modules, \"a, b\", \"\", \"x#y\", \"'q'\"\n"
+	  "\tsearch-sort-column: \"it's \\\"x # y\\\" C:\\\\a\"\n"
 	  "\n"
 	  "plugins:\n"
 	  "\tdisabled-extensions:\n"
@@ -147,6 +159,9 @@ static const Variant variants[] = {
 	  "file-cache:\n"
 	  "\tmax-size-gib: 2.5\n"
 	  "\tmemory-gib: 0.125\n"
+	  "\n"
+	  "window-state:\n"
+	  "\tgeometry: \"line 1\\nline 2\"\n"
 	  "search.search-regex-format: a\\,b\n"
 	  "list-view.row-hover-color: 'it''s'\n"
 	  "preferences.image-viewers-with-external-sort: a, b\\, c\n"
@@ -166,7 +181,7 @@ static const Variant variants[] = {
 	  "list-view.row-shading-color\ts\t0\t7267626128302c20302c20302c20302e3129\n"
 	  "preferences.bulk-rename-tool\ts\t0\t433a5c50726f6772616d2046696c65735c52656e616d65725c722e657865202d2d666c6167\n"
 	  "archive.create-with-7z\ts\t0\t746f6f6c735c377a2e657865\n"
-	  "archive.create-with-rar\ts\t1\t7261720961\n"
+	  "archive.create-with-rar\ts\t0\t7261720961\n"
 	  "archive.extract-with-7z\ts\t0\t\n"
 	  "archive.extract-with-rar\ts\t0\t206c65616420616e6420747261696c20\n"
 	  "appearance.mode\ts\t0\t6461726b\n"
@@ -182,6 +197,9 @@ static const Variant variants[] = {
 	  "preferences.thumbnail-limit\ti\t0\t1000000\n"
 	  "file-cache.max-size-gib\tf\t0\t2.5\n"
 	  "file-cache.memory-gib\tf\t0\t0.125\n"
+	  "window-state.geometry\ts\t0\t6c696e6520310a6c696e652032\n"
+	  "search.search-sort-column\ts\t0\t69742773202278202320792220433a5c61\n"
+	  "windows.terminal-candidates\tl\t0\t2:7361792022697427732220433a5c78,77742e657865\n"
 	  "search.search-regex-format\ts\t1\t615c2c2062\n"
 	  "list-view.row-hover-color\ts\t1\t27697427277327\n"
 	  "preferences.image-viewers-with-external-sort\tl\t0\t3:61,625c,63\n" },
