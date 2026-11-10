@@ -396,6 +396,8 @@ def parse_log(text):
         if line.startswith("### SKIP"):
             skipped = True
             continue
+        if line.startswith("### CTU index:"):
+            continue
         if line.startswith("### "):
             # A file that didn't compile was never analyzed, which isn't a clean result.
             if tu and rc not in (0,) and seen_error:
@@ -530,6 +532,14 @@ def self_test():
         bad.append("left %r, want the 5 counted" % left)
     if count({"x": "### SKIP no clang"}, set())[0]["x"] is not None:
         bad.append("a skipped log counted as clean")
+    # The cross-file run's index line heads its log, and isn't a file.
+    ctu_log = "### CTU index: 2 files, 3 functions, 0 defined in more than one file, 0 files not indexed\n### source/src/c.c rc=0\n"
+    try:
+        table, failed, _, _, _ = count({"clang-linux": ctu_log}, set())
+        if failed["clang-linux"] or table["clang-linux"]["ours"]:
+            bad.append("the CTU index line read as a file")
+    except ValueError as e:
+        bad.append("the CTU index line read as a file: %s" % e)
     # The vendored finding is listed; a second entry matches nothing, by line and by checker.
     supp, problems = parse_supp("\n".join([
         "# comment",
