@@ -109,6 +109,9 @@ typedef struct {
 	int        height_now;
 	gboolean   recenter_wanted;
 	guint      recenter_id;
+
+	GtkWidget *options_header;	/* Advanced and Reset */
+	guint      line_up_id;
 } ArchiveDialog;
 
 static NemoArchiveFormat
@@ -812,6 +815,73 @@ open_remembered (GtkWidget     *widget,
 	return FALSE;
 }
 
+/* Where a label's first line of text sits, in the coordinates of a widget
+   holding it. The layout offsets count from the parent window, as the
+   allocation does. */
+static int
+label_baseline (GtkWidget *label,
+		GtkWidget *within)
+{
+	GtkAllocation allocation;
+	int x, y, within_x, within_y;
+
+	gtk_widget_get_allocation (label, &allocation);
+	gtk_label_get_layout_offsets (GTK_LABEL (label), &x, &y);
+	if (!gtk_widget_translate_coordinates (label, within, x - allocation.x, y - allocation.y,
+					       &within_x, &within_y)) {
+		return -1;
+	}
+
+	return within_y + pango_layout_get_baseline (gtk_label_get_layout (GTK_LABEL (label))) / PANGO_SCALE;
+}
+
+/* A button's padding puts Reset's text below Advanced's, by however much the
+   theme pads it, and the expander has no baseline for the box to line them
+   up by. So whichever text sits higher is moved down to the other. Margins
+   only, so the next allocation finds them level and changes nothing. */
+static gboolean
+line_up_reset (gpointer data)
+{
+	ArchiveDialog *self = data;
+	GtkWidget *advanced, *text;
+	int advanced_at, reset_at, lower;
+
+	self->line_up_id = 0;
+	if (self->destroyed) {
+		return G_SOURCE_REMOVE;
+	}
+
+	advanced = gtk_expander_get_label_widget (GTK_EXPANDER (self->expander));
+	text = gtk_bin_get_child (GTK_BIN (self->reset_button));
+	if (!GTK_IS_LABEL (advanced) || !GTK_IS_LABEL (text)) {
+		return G_SOURCE_REMOVE;
+	}
+
+	advanced_at = label_baseline (advanced, self->options_header);
+	reset_at = label_baseline (text, self->options_header);
+	if (advanced_at < 0 || reset_at < 0 || advanced_at == reset_at) {
+		return G_SOURCE_REMOVE;
+	}
+
+	lower = gtk_widget_get_margin_top (self->expander) -
+		gtk_widget_get_margin_top (self->reset_button) + reset_at - advanced_at;
+	gtk_widget_set_margin_top (self->expander, MAX (lower, 0));
+	gtk_widget_set_margin_top (self->reset_button, MAX (-lower, 0));
+
+	return G_SOURCE_REMOVE;
+}
+
+/* Out of the size-allocate, since a margin set inside one asks for another. */
+static void
+options_header_allocated (G_GNUC_UNUSED GtkWidget    *widget,
+			  G_GNUC_UNUSED GdkRectangle *allocation,
+			  ArchiveDialog *self)
+{
+	if (self->line_up_id == 0) {
+		self->line_up_id = g_idle_add (line_up_reset, self);
+	}
+}
+
 static void
 build_options (ArchiveDialog *self,
 	       GtkWidget     *box)
@@ -839,7 +909,9 @@ build_options (ArchiveDialog *self,
 	/* Reset sits beside Options rather than in its title, where a click
 	   would only open and close it. */
 	header = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
+	self->options_header = header;
 	gtk_box_pack_start (GTK_BOX (box), header, FALSE, FALSE, 0);
+	g_signal_connect_after (header, "size-allocate", G_CALLBACK (options_header_allocated), self);
 
 	expander = gtk_expander_new_with_mnemonic (_("_Advanced"));
 	self->expander = expander;
@@ -1365,6 +1437,9 @@ dialog_free (ArchiveDialog *self)
 {
 	if (self->recenter_id != 0) {
 		g_source_remove (self->recenter_id);
+	}
+	if (self->line_up_id != 0) {
+		g_source_remove (self->line_up_id);
 	}
 
 	g_list_free_full (self->files, g_object_unref);

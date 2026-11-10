@@ -1005,7 +1005,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Compress dialog: the Reset button's text sits about 8 px below the Advanced label.
 	- ID: 2026110817490431
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261108-174904
 	- Opened by: t00mietum
@@ -1014,8 +1014,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce: Open Compress on any file and look at the row with Advanced and Reset.
 	- Incorrect behavior: Reset's text sits about 8 px lower than the Advanced label's, grayed and lit alike (Adwaita, at fdce4acd).
 	- Expected behavior: the two labels share a baseline, within a pixel or two.
+	- Reproduced: 20261110, Linux. The new check in dd5dm read Reset's text 8 px below Advanced's, with Advanced closed and open.
 	- Possible cause: Reset is a flat button in an hbox beside the expander, not in its label widget, so the button's padding pushes its text down.
-	- Test case: none yet. dd5dm could compare the two labels' baselines.
+	- Actual cause: the button's top border and padding. The row puts both at its top, and the expander gives the row no baseline to line them up by.
+	- Decisions:
+		- The gap is measured once the row is laid out, rather than a fixed margin or a slimmer button, since it's whatever the theme and font pad a button by. Reset stays out of the expander's title, where a click would only open and close it.
+		- The open dialog is 8 px taller in Adwaita, 712 rather than 704 on the 1024 px test screen, since the options now start below Reset rather than beside it. The closed height, and so the room the options get on a short screen, is unchanged.
+	- Actual fix: once the row is laid out, whichever text sits higher is moved down to the other by a top margin. In Adwaita that moves Advanced down 8 px.
+	- Swept: the 3 other expanders, in the extract and file conflict dialogs and eel's details dialog, have no button beside their title.
+	- Verified: 20261110, dd5dm's baseline check failed before the fix, 8 px open and closed, and passes after, on Linux and under wine. Quick gate passed (242 OK, 1 skipped), the Windows cross build, and gcc's and clang's analyzers on both changed files.
+	- Branch: round1110b
+	- Test case: dd5dm, Compress dialog height test: Reset's text and Advanced's share a baseline within a pixel, closed with Reset grayed, and open with it lit.
+	- Acceptance signoff: Self-closed: dd5dm measures the two baselines.
+	- Closed: 20261110-113150
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
