@@ -977,7 +977,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - A tab or newline in a dev build's settings file before SHCL 3.0.0-beta1 reads as a backslash and a letter.
 	- ID: 2026110921160616
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261109-211606
 	- Opened by: item 2026110911251998
@@ -987,7 +987,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior [Bug]: every value reads as that build read it.
 	- Reproduced [Bug]: yes, 20261109, Linux. ddf4w's dev case has the tab, marked as read another way.
 	- Possible cause [Bug]: those builds read `\t \n \\ \" \'` as escapes inside double quotes. 3.0.0-beta1 reads a backslash there as text, and writes a tab as a named escape. The file says format 3 either way, so a double-quoted backslash in it can't be told from one typed for today's rules, such as `"C:\temp #1"`, which is how it writes that text now. Only a file with a bare list is known to be from such a build.
-	- Test case: ddf4w, Config old formats test: the 3.0.0-dev case marks `archive.create-with-rar`, and fails once it reads as that build read it.
+	- Actual cause [Bug]: as above. Those builds read `\t \n \\ \" \'` as escapes in double quotes, and 3.0.0-beta1 reads a backslash there as text.
+	- Decisions:
+		- Only a file with a bare list on a list key is taken as from such a build, as for the brackets. A file without one keeps today's reading, since today's app writes `C:\temp #1` as `"C:\temp #1"`.
+		- The cost: a current file with a bare list typed in while the app was closed is converted too, so a double-quoted backslash in it reads the old way. The file as written goes to the backup first.
+		- Only text and list keys, on key lines. A stacked item, on its own line after a `-`, isn't converted, since those builds never wrote one.
+		- A converted line isn't warned about at load for what today's rules find wrong with it, since its value is set as the old build read it.
+	- Actual fix [Bug]: at startup, in a format 3 file with a bare list, each text or list value with a double-quoted item holding a backslash is set as that build read it. The file is then backed up as `format-v3` and rewritten, as for the bare lists.
+	- Verified: 20261110, Linux: ddf4w fails before the fix on a tab, a line break, and `\"` with `\\` in a text value and in a list item, in the plain, hand and no-backup cases, and passes after. Quick gate passed (242 OK, 1 skipped). clang's analyzer finds nothing in the 3 changed C files, and gcc's nothing in the 2 test files.
+	- Swept: the conversion has one call, in `load_locked`, from startup and from `reload_locked` while the startup file couldn't be saved over. The other readers of settings text without SHCL read today's files.
+	- Branch: round1110b
+	- Commit: 5fa44c29
+	- Test case: ddf4w, Config old formats test: release 3.0.0-dev, plain, hand and no backup, with a tab, a line break, and both quote kinds with a backslash, in a text value and a list item.
+	- Acceptance signoff: Self-closed: ddf4w fails without the fix and passes with it.
+	- Closed: 20261110-111502
 
 - Compress dialog: the Reset button's text sits about 8 px below the Advanced label.
 	- ID: 2026110817490431
