@@ -256,8 +256,12 @@ put (const char *path, const char *text)
 {
 	FILE  *out = fopen (path, "wb");
 	size_t n = strlen (text);
+	int    ok;
 
-	return out != NULL && fwrite (text, 1, n, out) == n && fclose (out) == 0;
+	if (out == NULL)
+		return 0;
+	ok = fwrite (text, 1, n, out) == n;
+	return fclose (out) == 0 && ok;
 }
 
 int
