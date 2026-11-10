@@ -802,7 +802,7 @@ step_or_stay (int item, int dx, int dy)
 }
 
 /* Nemo Anywhere's own icon view keys (#2026102412041969). The compact view
-   shares them, and gets its own checks with 2026102412041971. */
+   shares them, in its own layout, below. */
 static void
 anywhere_icon_keys (void)
 {
@@ -875,6 +875,103 @@ anywhere_icon_keys (void)
 	report (!outline_shown (), "and it shows no outline");
 	key (GDK_KEY_Right, 0);
 	want (items (0, -1), "and Right then starts at the first item");
+
+	click (3, 0);
+	key (GDK_KEY_space, 0);
+	want (items (3, -1), "Space leaves the selection alone");
+	report (!typeahead_shown (), "and starts no type-ahead");
+}
+
+/* The icon view's keys in the compact view (#2026102412041971). Items run
+   down each column, so a run is in that order: Up and Down step through it,
+   and Left, Right and the page keys go a column across. */
+static void
+anywhere_compact_keys (void)
+{
+	int r2 = next_item (1, 1, 0);
+	int r3 = r2 >= 0 ? next_item (r2, 1, 0) : -1;
+	int d1 = r2 >= 0 ? next_item (r2, 0, 1) : -1;
+	int d2 = d1 >= 0 ? next_item (d1, 0, 1) : -1;
+	int e2 = d2 >= 0 ? next_item (d2, 1, 0) : -1;
+	int head = next_item (0, 1, 0);
+	int foot = 0, next;
+	char *run;
+
+	while ((next = next_item (foot, 0, 1)) >= 0) {
+		foot = next;
+	}
+	/* The first column's foot is the item just before the next one's head. */
+	if (r3 < 0 || e2 < 0 || foot < 4 || head != foot + 1) {
+		report (FALSE, "there are 3 columns of 5 items or more");
+		return;
+	}
+	click (2, 0);
+	report (!outline_shown (), "a click shows no focus outline");
+	key (GDK_KEY_Down, GDK_SHIFT_MASK);
+	report (!outline_shown (), "nor does Shift+Down");
+	key (GDK_KEY_Up, 0);
+	want (items (1, -1), "Up counts from the first item of a run");
+	click (2, 0);
+	key (GDK_KEY_Up, GDK_SHIFT_MASK);
+	key (GDK_KEY_Down, 0);
+	want (items (3, -1), "and Down from the last");
+	click (foot - 1, 0);
+	key (GDK_KEY_Down, GDK_SHIFT_MASK);
+	key (GDK_KEY_Down, 0);
+	want (items (head, -1), "Down from the last item of a run at a column's foot goes on to the next column's head");
+	click (head, 0);
+	key (GDK_KEY_Down, GDK_SHIFT_MASK);
+	key (GDK_KEY_Up, 0);
+	want (items (foot, -1), "and Up from the first back to the foot");
+	click (r2, 0);
+	key (GDK_KEY_Left, GDK_SHIFT_MASK);
+	key (GDK_KEY_Right, 0);
+	want (items (r3, -1), "Right counts from the last item of a run");
+	click (r2, 0);
+	key (GDK_KEY_Right, GDK_SHIFT_MASK);
+	key (GDK_KEY_Left, 0);
+	want (items (1, -1), "and Left from the first");
+	click (3, 0);
+	key (GDK_KEY_Up, GDK_SHIFT_MASK);
+	key (GDK_KEY_Page_Down, 0);
+	want (items (page_end (3, 1), -1), "Page Down counts from the last item of a run");
+	click (r2, 0);
+	key (GDK_KEY_Down, GDK_SHIFT_MASK);
+	key (GDK_KEY_Page_Up, 0);
+	want (items (page_end (r2, -1), -1), "and Page Up from the first");
+
+	click (1, 0);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	want (items (1, -1), "Ctrl+Down twice leaves the selection alone");
+	report (outline_shown (), "and the focus outline shows on the item it went to");
+	key (GDK_KEY_Down, 0);
+	want (items (4, -1), "Down then counts from the focus");
+	report (!outline_shown (), "and the outline goes");
+
+	click (1, 0);
+	key (GDK_KEY_Right, GDK_CONTROL_MASK);
+	report (outline_shown (), "Ctrl+Right shows the focus outline");
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	report (!outline_shown (), "and it goes once Ctrl+Space selects the focused item");
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
+	want (items (1, r2, d1, d2, -1), "Ctrl+Shift+Down adds the run from the Ctrl+Space item and keeps the rest");
+	key (GDK_KEY_Right, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
+	run = run_of (r2, e2, -1);
+	want (g_strdup_printf ("1,%s", run), "and Ctrl+Shift+Right runs on from it to the next column");
+	g_free (run);
+
+	key (GDK_KEY_Escape, 0);
+	want (g_strdup (""), "Escape clears the selection");
+	report (!outline_shown (), "and shows no focus outline");
+	key (GDK_KEY_Escape, 0);
+	want (g_strdup (""), "a second Escape changes nothing");
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	want (g_strdup (""), "nor does Ctrl+Space with no focus");
+	report (!outline_shown (), "and it shows no outline");
+	key (GDK_KEY_Down, 0);
+	want (items (0, -1), "and Down then starts at the first item");
 
 	click (3, 0);
 	key (GDK_KEY_space, 0);
@@ -1201,7 +1298,9 @@ rules_tick (void)
 		}
 		if (anywhere && list_mode) {
 			anywhere_list_keys ();
-		} else if (anywhere && !compact_mode) {
+		} else if (anywhere && compact_mode) {
+			anywhere_compact_keys ();
+		} else if (anywhere) {
 			anywhere_icon_keys ();
 		}
 		break;

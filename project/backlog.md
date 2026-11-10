@@ -611,8 +611,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere focus outline and keys: the compact view.
 	- ID: 2026102412041971
 	- Type: Enhancement
-	- Status: Queued
-	- Needs local test suite run?: Yes
+	- Status: Done
+	- Needs local test suite run?: no. The Linux suite passed in the quick gate, 242 OK and 1 skipped.
 	- Priority|Severity: High
 	- Opened: 20261024-120419
 	- Opened by: t00mietum
@@ -628,7 +628,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Shares the icon container's key handling with the icon view, so it follows that child.
 	- Progress log:
 		- 20261024: opened.
-	- Test case: none yet.
+		- 20261110: the icon container's Nemo Anywhere key handler from 2026102412041969 already gives the compact view these rules, so no app code changed. Items run down each column there, so a run is in that order: Up and Down count from its first or last item and wrap between columns, and Left, Right, Page Up and Page Down count from the same ends and go across.
+		- 20261110: dec8w expects 101 compact view results under Nemo Anywhere, up from 75. de8bd and de8dm stay at 75.
+	- Decisions:
+		- The compact view gets its own set of checks, not the icon view's set run again, since a run there is a column's worth of items and the folder has 3 columns.
+	- Swept: every key the design doc's "Keyboard" names, against the icon container's key handler, the arrow keys' column wrap in the compact layout, the page keys' sideways path, and the outline's one draw site.
+	- Branch: round1110b
+	- Test case: dec8w, Selection rules test, Nemo Anywhere: the compact view's key checks, the outline among them.
+	- Verified: 20261110, dec8w fails 11 of the new compact view checks with the icon container's Nemo Anywhere key rules bypassed, and 1 with the outline drawn on selected items, and passes with both. de8bd and de8dm pass. The quick gate passed: lint, and the Linux suite, 242 OK and 1 skipped. gcc's and clang's analyzers report nothing on the 2 changed files.
+	- Not covered by a test yet: a right-to-left layout, Shift with Page Up and Page Down, and a folder wider than a page.
+	- Acceptance signoff: Self-closed: dec8w on Linux.
+	- Closed: 20261110-121957
 
 - Nemo Anywhere: the mouse and drag rules, the list view drag rule among them.
 	- ID: 2026102407515573
