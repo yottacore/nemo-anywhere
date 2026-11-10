@@ -400,6 +400,18 @@ blank_x (void)
 	return cell.x + 4;
 }
 
+/* The middle of the checkmark column. */
+static double
+checks_x (void)
+{
+	GtkTreePath *path = gtk_tree_path_new_from_indices (0, -1);
+	GdkRectangle cell;
+
+	gtk_tree_view_get_background_area (GTK_TREE_VIEW (pane), path, checkmark_column (), &cell);
+	gtk_tree_path_free (path);
+	return cell.x + cell.width / 2;
+}
+
 static void
 icon_center (int item, double *x, double *y)
 {
@@ -747,6 +759,44 @@ list_tick (void)
 			check_selection ("5", "and the row pressed is selected");
 		}
 		report (pane_is_active (pane), "and that pane is the active one now");
+		if (!anywhere) {
+			finish ();
+			return TRUE;
+		}
+		break;
+	/* Nemo Anywhere's checkmark column bands on a plain drag. */
+	case 18:
+		select_items (none);
+		if (checkmark_column () == NULL) {
+			report (FALSE, "the checkmark column is showing");
+			finish ();
+			return TRUE;
+		}
+		press_and_move (bin, 1, 0, checks_x (), row_y (1), checks_x (), row_y (3));
+		release (bin, 1, 0, checks_x (), row_y (3));
+		report (drags == 0, "a plain drag from the checkmark column drags no files");
+		check_selection ("1,2,3", "and bands from the row pressed");
+		break;
+	case 19:
+		select_items (second_to_fourth);
+		press_and_move (bin, 1, 0, checks_x (), row_y (2), checks_x (), row_y (5));
+		release (bin, 1, 0, checks_x (), row_y (5));
+		report (drags == 0, "a plain drag from the checkmark column of a selected row drags no files");
+		check_selection ("2,3,4,5", "and bands, in place of the selection");
+		break;
+	case 20:
+		/* The expanders are Name's, so this isn't a press on one. */
+		select_items (first);
+		press_and_move (bin, 1, GDK_SHIFT_MASK, checks_x (), row_y (4), checks_x (), row_y (6));
+		release (bin, 1, GDK_SHIFT_MASK, checks_x (), row_y (6));
+		report (drags == 0, "Shift and a drag from the checkmark column drags no files");
+		check_selection ("4,5,6", "and bands, in place of the selection");
+		break;
+	case 21:
+		select_items (first_and_fourth);
+		press (bin, 1, checks_x (), row_y (3), 0);
+		release (bin, 1, 0, checks_x (), row_y (3));
+		check_selection ("3", "a click in the checkmark column of a selected row selects it alone");
 		finish ();
 		return TRUE;
 	}

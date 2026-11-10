@@ -1045,8 +1045,9 @@ win32_drag (NemoListView *view,
 #endif
 
 /* The band. A plain drag on a row moves files, so a band starts only from
- * below the rows, with Ctrl or Shift from a row not yet selected, or with the
- * right button. Shift and a plain band replace the selection, Ctrl adds. */
+ * below the rows or the checkmark column, with Ctrl or Shift from a row not
+ * yet selected, or with the right button. Shift and a plain band replace the
+ * selection, Ctrl adds. */
 
 static GtkTreePath *
 last_shown_row (GtkTreeView *tree_view)
@@ -1367,6 +1368,7 @@ motion_notify_callback (GtkWidget *widget,
 	if (view->details->band.button != 0 &&
 	    (event->state & (GDK_BUTTON1_MASK << (view->details->band.button - 1))) == 0) {
 		band_stop (view);
+		stop_drag_check (view);
 	}
 
 	if (view->details->band.button != 0) {
@@ -1834,6 +1836,8 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 	GtkTreeSelection *selection;
 	GtkWidgetClass *tree_view_class;
 
+	GtkTreeViewColumn *column;
+	int cell_x;
 	int expander_size, horizontal_separator;
 	gboolean on_expander;
 	gboolean primary;
@@ -1897,7 +1901,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 
 	call_parent = TRUE;
 	if (gtk_tree_view_get_path_at_pos (tree_view, event->x, event->y,
-					   &path, NULL, NULL, NULL)) {
+					   &path, &column, &cell_x, NULL)) {
 		gboolean was_selected = gtk_tree_selection_path_is_selected (selection, path);
 
         if (expanders_enabled (view)) {
@@ -1909,8 +1913,10 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
     		 * EXPANDER_EXTRA_PADDING from GtkTreeView.
     		 */
     		expander_size += 4;
-    		on_expander = (event->x <= horizontal_separator / 2 +
-    			       gtk_tree_path_get_depth (path) * expander_size);
+    		/* Name has them, and the checkmarks may come first. */
+    		on_expander = column == gtk_tree_view_get_expander_column (tree_view) &&
+    			      cell_x <= horizontal_separator / 2 +
+    			      gtk_tree_path_get_depth (path) * expander_size;
         } else {
             on_expander = FALSE;
         }
@@ -2008,6 +2014,12 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 				band_arm (view, event, primary);
 			} else if ((event->button == 1 || event->button == 2) &&
 			    event->type == GDK_BUTTON_PRESS) {
+				/* A plain drag from the checkmarks bands, selected row
+				   or not. Without a move it's still a click. */
+				if (event->button == 1 && column == view->details->checkmark_column &&
+				    !button_event_modifies_selection (event)) {
+					band_arm (view, event, FALSE);
+				}
 				view->details->drag_started = FALSE;
 				view->details->drag_button = event->button;
 				view->details->drag_x = event->x;
@@ -2083,8 +2095,10 @@ button_release_callback (GtkWidget *widget,
 		return GDK_EVENT_STOP;
 	}
 
-	if (event->button == view->details->band.button) {
-		band_stop (view);
+	if (event->button == view->details->band.button && band_stop (view) &&
+	    event->button == view->details->drag_button) {
+		/* It banded, so the row it started on wasn't clicked. */
+		stop_drag_check (view);
 	}
 
 	if (eel_menu_press_end (&view->details->menu_press, widget, event->button,

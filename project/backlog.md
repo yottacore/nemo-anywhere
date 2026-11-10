@@ -530,8 +530,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere selection model: need to be able to initiate a left-drag-to-select from the checkmark column.
 	- ID: 2026110919315994
 	- Type: Bug
-	- Status: Queued
-	- Needs local test suite run?: Yes
+	- Status: Done
+	- Needs local test suite run?: no. dec8v covers it, and the quick gate passed.
 	- Priority|Severity: High
 	- Opened: 20261109-193159
 	- Opened by: t00mietum
@@ -544,7 +544,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: a left drag from the checkmark column selects, in addition to right-drag-to-select etc.
 	- Notes:
 		- 2026102407515573 already plans a plain drag band from the checkmark column.
-	- Test case: none yet.
+	- Reproduced: 20261109, in dec8v's new checks: a plain drag from the checkmark column dragged files and left only the row pressed selected, and a Shift drag from there dragged files too.
+	- Actual cause:
+		- A plain press on a row armed a file drag wherever it landed, the checkmark column included.
+		- The press counted as one on the expanders when its x was within their width of the row's left edge. Name has the expanders, and under Nemo Anywhere the checkmark column comes first, so a press there was taken for one, and Ctrl and Shift couldn't band from it.
+	- Actual fix: a plain left press in the checkmark column arms a band, on a selected row too. A release with no move is still a click on the row. The expander test goes by the column hit and the x inside it.
+	- Progress log:
+		- 20261109: the checkmark column bands on a plain left drag, and Shift and Ctrl band from it as from the rest of a row.
+	- Decisions:
+		- Only the plain drag is new there. Ctrl, Shift and right drags from the checkmark column follow the row rules: a band from a row not selected, a file drag from a selected one. The design doc's "always a band, even on a selected row" is part of the affirmative override, which the switch-off model leaves out.
+		- The band replaces the selection from the row pressed, as Shift's does.
+	- Swept: the other expander tests in the list view (the name cell click test already takes the column's offset; Nemo Classic's press has no checkmark column), and every place a band ends without a release, so a lost release can't start a file drag.
+	- Branch: round1110a
+	- Test case: dec8v, with 7 new list view results under Nemo Anywhere, 31 up from 24: a plain drag from the checkmark column of a row not selected and of a selected one, a Shift drag from it, and a click there. ddy5f and de8ec keep their counts.
+	- Verified: 20261109, dec8v fails on the old code (4 checks) and with only the expander part left out (2 checks), and passes with the fix. ddy5f and de8ec pass. The quick gate's lints, and its tests (242 OK, 1 skipped), pass. Both analyzers report nothing on the changed files.
+	- Acceptance signoff: Self-closed: dec8v.
+	- Closed: 20261109-205746
 
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
