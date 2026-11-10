@@ -1154,7 +1154,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere selection model: need to be able to initiate a left-drag-to-select from the checkmark column.
 	- ID: 2026110919315994
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Needs local test suite run?: no. dec8v covers it, and the quick gate passed.
 	- Priority|Severity: High
 	- Opened: 20261109-193159
@@ -1172,18 +1172,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual cause:
 		- A plain press on a row armed a file drag wherever it landed, the checkmark column included.
 		- The press counted as one on the expanders when its x was within their width of the row's left edge. Name has the expanders, and under Nemo Anywhere the checkmark column comes first, so a press there was taken for one, and Ctrl and Shift couldn't band from it.
-	- Actual fix: a plain left press in the checkmark column arms a band, on a selected row too. A release with no move is still a click on the row. The expander test goes by the column hit and the x inside it.
+	- Actual fix: any press in the checkmark column arms a band, on a selected row too, with Ctrl, Shift, the right or the middle button. A release with no move is still a click on the row. The expander test goes by the column hit and the x inside it.
 	- Progress log:
 		- 20261109: the checkmark column bands on a plain left drag, and Shift and Ctrl band from it as from the rest of a row.
+		- 20261110: every drag from the checkmark column bands, selected row or not. On Windows a right drag from there bands too, where a right drag from the rest of a row still moves files.
 	- Decisions:
-		- Only the plain drag is new there. Ctrl, Shift and right drags from the checkmark column follow the row rules: a band from a row not selected, a file drag from a selected one. The design doc's "always a band, even on a selected row" is part of the affirmative override, which the switch-off model leaves out.
+		- Every drag from the checkmark column bands, Ctrl, Shift and right drags on a selected row included, per the 20261110 entry below. The design doc's switch-off list says so now. It sets no affirmative checkmarks, since the switch-off model has none.
+		- A middle drag from there bands too, and replaces, since no file drag starts from that column. The design doc's override names only left and right.
+		- Ctrl and Ctrl+Shift add, as from the rest of a row. A Ctrl+click there with no move still unselects a selected row.
 		- The band replaces the selection from the row pressed, as Shift's does.
 		- 20261110: changed my mind. Every drag from the checkmark column bands, Ctrl, Shift and right drags on a selected row included. Normal mouse file actions don't start from that column, since it's only for multi-select.
-	- Swept: the other expander tests in the list view (the name cell click test already takes the column's offset; Nemo Classic's press has no checkmark column), and every place a band ends without a release, so a lost release can't start a file drag.
-	- Branch: round1110a
-	- Test case: dec8v, with 7 new list view results under Nemo Anywhere, 31 up from 24: a plain drag from the checkmark column of a row not selected and of a selected one, a Shift drag from it, and a click there. ddy5f and de8ec keep their counts.
+	- Swept: the other expander tests in the list view (the name cell click test already takes the column's offset; Nemo Classic's press has no checkmark column), and every place a band ends without a release, so a lost release can't start a file drag. Every place the list view arms a file drag: only the two in the press handler, both now skip the checkmark column.
+	- Branch: round1110b
+	- Test case: dec8v, with 16 new list view results under Nemo Anywhere, 40 up from 24: from the checkmark column, a plain drag from a row not selected and from a selected one, a Shift drag from a row not selected, and from a selected row a Ctrl, a Shift, a right and a middle drag, a click, and a Ctrl+click. ddy5f and de8ec keep their counts.
+		- 20261110: dec8v's list view count under Nemo Anywhere went from 31 to 40.
 	- Verified: 20261109, dec8v fails on the old code (4 checks) and with only the expander part left out (2 checks), and passes with the fix. ddy5f and de8ec pass. The quick gate's lints, and its tests (242 OK, 1 skipped), pass. Both analyzers report nothing on the changed files.
+	- Verified: 20261110, dec8v fails with the 20261109 fix alone (6 checks: the Ctrl, Shift and middle drags from a selected row) and passes with this one. ddy5f and de8ec pass. The quick gate passed (lints, and 242 OK, 1 skipped). The Windows cross build passes. Both analyzers report nothing on the changed files.
+	- Not covered by a test yet: the right drag from the checkmark column on Windows, since dec8v isn't built there. On Linux a right drag from a selected row already banded.
 	- Acceptance signoff: Self-closed: dec8v.
+	- Closed: 20261110-105420
 
 - ddagc fails in a round worktree, so the lint stage stops before the tests after it.
 	- ID: 2026110313162837

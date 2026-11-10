@@ -815,7 +815,8 @@ list_tick (void)
 			return TRUE;
 		}
 		break;
-	/* Nemo Anywhere's checkmark column bands on a plain drag. */
+	/* Every drag from Nemo Anywhere's checkmark column bands, selected row
+	   or not. */
 	case 18:
 		select_items (none);
 		if (checkmark_column () == NULL) {
@@ -848,6 +849,44 @@ list_tick (void)
 		press (bin, 1, checks_x (), row_y (3), 0);
 		release (bin, 1, 0, checks_x (), row_y (3));
 		check_selection ("3", "a click in the checkmark column of a selected row selects it alone");
+		break;
+	case 22:
+		select_items (second_to_fourth);
+		press_and_move (bin, 1, GDK_CONTROL_MASK, checks_x (), row_y (2), checks_x (), row_y (5));
+		release (bin, 1, GDK_CONTROL_MASK, checks_x (), row_y (5));
+		report (drags == 0, "Ctrl and a drag from the checkmark column of a selected row drags no files");
+		check_selection ("1,2,3,4,5", "and bands, adding to the selection");
+		break;
+	case 23:
+		select_items (first_and_fourth);
+		press_and_move (bin, 1, GDK_SHIFT_MASK, checks_x (), row_y (3), checks_x (), row_y (5));
+		release (bin, 1, GDK_SHIFT_MASK, checks_x (), row_y (5));
+		report (drags == 0, "Shift and a drag from the checkmark column of a selected row drags no files");
+		check_selection ("3,4,5", "and bands, in place of the selection");
+		break;
+	case 24:
+		select_items (second_to_fourth);
+		press_and_move (bin, 3, 0, checks_x (), row_y (2), checks_x (), row_y (4));
+		release (bin, 3, 0, checks_x (), row_y (4));
+		break;
+	case 25:
+		report (shown_menu () == NULL && drags == 0,
+			"a right drag from the checkmark column of a selected row opens no menu and drags no files");
+		check_selection ("2,3,4", "and bands, in place of the selection");
+		close_menu ();
+		break;
+	case 26:
+		select_items (second_to_fourth);
+		press_and_move (bin, 2, 0, checks_x (), row_y (2), checks_x (), row_y (5));
+		release (bin, 2, 0, checks_x (), row_y (5));
+		report (drags == 0, "a middle drag from the checkmark column of a selected row drags no files");
+		check_selection ("2,3,4,5", "and bands, in place of the selection");
+		break;
+	case 27:
+		select_items (first_and_fourth);
+		press (bin, 1, checks_x (), row_y (0), GDK_CONTROL_MASK);
+		release (bin, 1, GDK_CONTROL_MASK, checks_x (), row_y (0));
+		check_selection ("3", "Ctrl and a click in the checkmark column of a selected row unselects it");
 		finish ();
 		return TRUE;
 	}

@@ -1045,9 +1045,9 @@ win32_drag (NemoListView *view,
 #endif
 
 /* The band. A plain drag on a row moves files, so a band starts only from
- * below the rows or the checkmark column, with Ctrl or Shift from a row not
- * yet selected, or with the right button. Shift and a plain band replace the
- * selection, Ctrl adds. */
+ * below the rows, with Ctrl or Shift from a row not yet selected, or with the
+ * right button. Every drag from the checkmark column bands, selected row or
+ * not. Shift and a plain band replace the selection, Ctrl adds. */
 
 static GtkTreePath *
 last_shown_row (GtkTreeView *tree_view)
@@ -1840,6 +1840,8 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 	int cell_x;
 	int expander_size, horizontal_separator;
 	gboolean on_expander;
+	gboolean on_checks;
+	gboolean right_drags_files;
 	gboolean primary;
 
 	view = NEMO_LIST_VIEW (callback_data);
@@ -1903,6 +1905,9 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 	if (gtk_tree_view_get_path_at_pos (tree_view, event->x, event->y,
 					   &path, &column, &cell_x, NULL)) {
 		gboolean was_selected = gtk_tree_selection_path_is_selected (selection, path);
+
+		/* That column is for picking, so no file drag starts there. */
+		on_checks = column != NULL && column == view->details->checkmark_column;
 
         if (expanders_enabled (view)) {
     		gtk_widget_style_get (widget,
@@ -2014,11 +2019,9 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 				band_arm (view, event, primary);
 			} else if ((event->button == 1 || event->button == 2) &&
 			    event->type == GDK_BUTTON_PRESS) {
-				/* A plain drag from the checkmarks bands, selected row
-				   or not. Without a move it's still a click. */
-				if (event->button == 1 && column == view->details->checkmark_column &&
-				    !button_event_modifies_selection (event)) {
-					band_arm (view, event, FALSE);
+				/* Without a move it's still a click. */
+				if (on_checks) {
+					band_arm (view, event, primary && event->button == 1);
 				}
 				view->details->drag_started = FALSE;
 				view->details->drag_button = event->button;
@@ -2036,13 +2039,18 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 						      event->x, event->y);
 #ifdef G_OS_WIN32
 				/* As in Explorer, a right drag from an item moves files. */
-				view->details->drag_started = FALSE;
-				view->details->drag_button = event->button;
-				view->details->drag_x = event->x;
-				view->details->drag_y = event->y;
+				right_drags_files = !on_checks;
 #else
-				band_arm (view, event, FALSE);
+				right_drags_files = FALSE;
 #endif
+				if (right_drags_files) {
+					view->details->drag_started = FALSE;
+					view->details->drag_button = event->button;
+					view->details->drag_x = event->x;
+					view->details->drag_y = event->y;
+				} else {
+					band_arm (view, event, FALSE);
+				}
 			}
 		}
 
