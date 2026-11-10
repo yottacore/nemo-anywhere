@@ -1,7 +1,8 @@
 /* A settings file from an older SHCL format is kept as a backup beside the
  * original and written again in the current one. A newer format is read and
  * never saved over. Conversion only happens when the store opens, so this is
- * its own program with the old file in place first. */
+ * its own program with the old file in place first. So is a dev build's file
+ * from before SHCL 3.0.0-beta1, stamped format 3 with its lists bare. */
 
 #include <config.h>
 
@@ -21,6 +22,18 @@ static const char old_file[] =
 	"preferences.show-hidden-files: true\n"
 	"terminal.exec-arg: -x\\#y\n"
 	"gone.removed-key: 42\n";
+
+/* A list key's bare list gets brackets; a text key's comma stays text and is
+ * refused as before; a list already in brackets is left as it is. */
+static const char dev_file[] =
+	"favorites: /home/a, \"/b, c\"  # pinned\r\n"
+	"terminal.exec-arg: -x, -y\r\n"
+	"list-view:\r\n"
+	"\tdefault-visible-columns: [name, size]\r\n"
+	"icon-view:\r\n"
+	"\tcaptions: owner, group\r\n"
+	"\r\n"
+	"##    Format   3\r\n";
 
 static int changed_count;
 
@@ -51,6 +64,16 @@ settle (void)
 		g_main_context_iteration (NULL, FALSE);
 		g_usleep (2000);
 	}
+}
+
+static gboolean
+strv_is (char **got, const char *want0, const char *want1)
+{
+	gboolean same = got != NULL && g_strv_length (got) == 2 &&
+	                strcmp (got[0], want0) == 0 && strcmp (got[1], want1) == 0;
+
+	g_strfreev (got);
+	return same;
 }
 
 static char *
@@ -104,7 +127,7 @@ main (void)
 {
 	char            *tmp, *path, *dir, *text, *first_backup;
 	GPtrArray       *backups;
-	NemoConfigGroup *prefs, *terminal;
+	NemoConfigGroup *prefs, *terminal, *root;
 	char            *exec_arg;
 	gulong           id;
 
@@ -221,7 +244,74 @@ main (void)
 	check (strstr (text, "show-hidden-files: true") != NULL);
 	g_free (text);
 
+	/* A bare list typed into a current file while running is a hand edit by
+	 * today's rules: refused, and nothing converts. */
+	root = nemo_config_get_group ("");
+	changed_count = 0;
+	check (g_file_set_contents (path,
+	                            "preferences.show-hidden-files: false\n"
+	                            "favorites: /x, /y\n"
+	                            "\n"
+	                            "##    Format   3\n", -1, NULL));
+	wait_for_change (0);
+	settle ();
+	check (nemo_config_get_boolean (prefs, "show-hidden-files") == FALSE);
+	check (!strv_is (nemo_config_get_strv (root, "favorites"), "/x", "/y"));
+	backups = list_backups (dir);
+	check (backups->len == 2);
+	g_ptr_array_unref (backups);
+
 	g_signal_handler_disconnect (prefs, id);
+	nemo_config_shutdown ();
+
+	/* The same spelling at startup is a dev build's file: backed up as format
+	 * 3 and rewritten with brackets. */
+	check (g_file_set_contents (path, dev_file, -1, NULL));
+	nemo_config_init ();
+	root     = nemo_config_get_group ("");
+	terminal = nemo_config_get_group ("terminal");
+	check (strv_is (nemo_config_get_strv (root, "favorites"), "/home/a", "/b, c"));
+	check (strv_is (nemo_config_get_strv (nemo_config_get_group ("icon-view"), "captions"),
+	                "owner", "group"));
+	check (strv_is (nemo_config_get_strv (nemo_config_get_group ("list-view"),
+	                                      "default-visible-columns"), "name", "size"));
+	exec_arg = nemo_config_get_string (terminal, "exec-arg");
+	check (g_strcmp0 (exec_arg, "-e") == 0);
+	g_free (exec_arg);
+
+	backups = list_backups (dir);
+	check (backups->len == 3);
+	{
+		guint    i;
+		gboolean found = FALSE;
+
+		for (i = 0; i < backups->len; i++) {
+			char *full = g_build_filename (dir, backups->pdata[i], NULL);
+
+			text = read_path (full);
+			if (strcmp (text, dev_file) == 0) {
+				found = TRUE;
+				check (backup_name_ok (backups->pdata[i], "3"));
+			}
+			g_free (text);
+			g_free (full);
+		}
+		check (found);
+	}
+	g_ptr_array_unref (backups);
+	text = read_path (path);
+	check (strstr (text, "captions: [owner, group]") != NULL);
+	check (strstr (text, "-x, -y") == NULL);
+	g_free (text);
+	nemo_config_shutdown ();
+
+	/* What it wrote is current and reads cleanly, so nothing converts again. */
+	nemo_config_init ();
+	check (strv_is (nemo_config_get_strv (nemo_config_get_group (""), "favorites"),
+	                "/home/a", "/b, c"));
+	backups = list_backups (dir);
+	check (backups->len == 3);
+	g_ptr_array_unref (backups);
 	nemo_config_shutdown ();
 
 	g_free (first_backup);

@@ -8,6 +8,10 @@
  * 1.0.0-beta1 had no setters, so its file is typed out the way a person would
  * have written one (SHCL_OLD_NO_WRITER).
  *
+ * SHCL_OLD_STAMPED adds the info block the app wrote from 20260925, for the
+ * dev header that stamped format 3 but wrote lists bare. That header isn't
+ * kept here; shcl-dev-writer.c holds what this wrote with it.
+ *
  * plain is only what the app's own setters wrote. hand adds lines spelled the
  * way a person might have written them under the old rules. nobackslash is
  * plain without the values the old setters escaped and the lists of more than
@@ -369,6 +373,17 @@ main (int argc, char *argv[])
 			return 1;
 		len += (size_t) n;
 	}
+
+#ifdef SHCL_OLD_STAMPED
+	{
+		static const char banner[] = "\n" SHCL_GEN_BANNER;
+
+		if (cap - len < sizeof banner)
+			return 1;
+		memcpy (text + len, banner, sizeof banner - 1);
+		len += sizeof banner - 1;
+	}
+#endif
 
 	out = fopen (argv[1], "wb");
 	if (out == NULL || fwrite (text, 1, len, out) != len || fclose (out) != 0) {
