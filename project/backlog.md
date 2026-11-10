@@ -33,6 +33,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- A tab or newline in a dev build's settings file before SHCL 3.0.0-beta1 reads as a backslash and a letter.
+	- ID: 2026110921160616
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261109-211606
+	- Opened by: item 2026110911251998
+	- Related IDs: 2026110911251998, 2026110520234226
+	- Steps to reproduce [Bug]: with a dev or dogfood build from 20260925 to 20261105, set a value with a tab in it, such as `archive.create-with-rar` to `rar<tab>a`. Then start this build on the same settings.
+	- Incorrect behavior [Bug]: it reads as `rar\ta`, a backslash and a t. The same goes for a newline, and for `\\` and `\"` in a double-quoted value, which those builds wrote for text holding a backslash and both kinds of quote.
+	- Expected behavior [Bug]: every value reads as that build read it.
+	- Reproduced [Bug]: yes, 20261109, Linux. ddf4w's dev case has the tab, marked as read another way.
+	- Possible cause [Bug]: those builds read `\t \n \\ \" \'` as escapes inside double quotes. 3.0.0-beta1 reads a backslash there as text, and writes a tab as a named escape. The file says format 3 either way, so a double-quoted backslash in it can't be told from one typed for today's rules, such as `"C:\temp #1"`, which is how it writes that text now. Only a file with a bare list is known to be from such a build.
+	- Test case: ddf4w, Config old formats test: the 3.0.0-dev case marks `archive.create-with-rar`, and fails once it reads as that build read it.
+
 - Move every Windows lane from MSYS2's MINGW64 to UCRT64.
 	- ID: 2026110920004210
 	- Type: Task
@@ -845,11 +860,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Convert a settings file stamped format 3 by a dev build before SHCL 3.0.0-beta1.
 	- ID: 2026110911251998
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261109-112519
 	- Opened by: t00mietum
-	- Related IDs: 2026110520234226
+	- Related IDs: 2026110520234226, 2026110921160616
 	- Requirements:
 		- Every SHCL format the app has written loads and is converted, not only the released ones.
 		- That takes in a file a dev or dogfood build wrote from 20260925 to 20261105. It says format 3 but writes a list bare, as `a, b`, which format 3 refuses with E026, so the list reads as its default.
@@ -859,7 +874,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261109: seen in a dogfood settings file on Windows: the favorites line was bare, so the favorites read as the default. Fixed there by hand.
 	- Decisions:
 		- Changed my mind on 2026110520234226's "isn't converted" for these files.
-	- Test case: none yet. ddf4w, Config old formats test, is where it belongs.
+		- Only a list key's line that SHCL refuses with E026 gets brackets, so a file today's rules read cleanly is never rewritten. A hand-typed `a,b`, with no space, reads as one item, as today's rules read it, though those builds read 2.
+		- Only at startup, or while the file from startup couldn't be saved over, as for a file with no format line. A bare list typed while the app runs is a hand edit, read by today's rules.
+		- The dev header isn't kept in `vendor/shcl-old/`. Its 10,000 lines would add a slow file to every analyzer lane. What `shcl-old-writer` wrote with it is kept in `shcl-dev-writer.c`, which ddf4w runs as release 3.0.0-dev.
+		- Departs from "every format loads": 3 values that aren't lists still read another way. A tab or newline those builds wrote in double quotes is filed as 2026110921160616. 2 hand spellings, `a\,b` and `'it''s'`, read by today's rules. All 3 are marked in ddf4w.
+	- Actual fix: at startup, a format 3 file with a list key written bare, as `a, b`, gets brackets around that value, then is backed up as `format-v3` and rewritten, as the old format conversion does. The items read as those builds read them, since they split on every unquoted comma, as format 3 does inside brackets.
+	- Verified: 20261109, Linux: ddf4w and ddez6 fail with the conversion turned off and pass with it. ddf4w's no-backup case also fails when only startup converts. Quick gate passed (242 OK, 1 skipped). clang's analyzer finds nothing in the 4 changed C files.
+	- Swept: the conversion has one call, in `load_locked`, reached from startup and from `reload_locked`. The other readers of settings text without SHCL read today's files, and the layout editor's `split_list` already takes a list either way.
+	- Branch: round1110a
+	- Commit: e582647d
+	- Test case: ddf4w, Config old formats test: release 3.0.0-dev, a file from a dev build's setters, plain, hand-edited, and with no bare list, reads as that build read it, and saves with brackets. ddez6, Config format upgrade test: a root key, a text key, a bracketed list and CRLF lines at startup, and a bare list typed while running.
+	- Acceptance signoff: Self-closed: ddf4w and ddez6 fail without the conversion and pass with it.
+	- Closed: 20261109-212427
 
 - Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
 	- ID: 2026102114400592
