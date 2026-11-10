@@ -29,7 +29,8 @@
  * are test-nemo-drag-select's. The "nemo-classic" results are upstream
  * 6.6.4's own, seen there, but for the ones the probe marks
  * (#2026102016594200). "nemo-anywhere" expects v1's results but where its
- * own rules are in (#2026102019174440), and has more list view checks.
+ * own rules are in (#2026102019174440), and has more list and icon view
+ * checks.
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Runs
  * on an X server of its own, since menus take the pointer. Linux and FreeBSD
@@ -223,7 +224,8 @@ main (int argc, char *argv[])
 
 	run_view (argv[1], argv[2], model, "list-view", 10,
 		  strcmp (model, "nemo-anywhere") == 0 ? 87 : 72);
-	run_view (argv[1], argv[2], model, "icon-view", 24, 75);
+	run_view (argv[1], argv[2], model, "icon-view", 24,
+		  strcmp (model, "nemo-anywhere") == 0 ? 99 : 75);
 	run_view (argv[1], argv[2], model, "compact-view", 60, 75);
 
 	if (failures > 0) {

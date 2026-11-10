@@ -148,7 +148,8 @@ enum {
 	PROP_HIGHLIGHTED_FOR_CLIPBOARD,
     PROP_PINNED,
     PROP_FAV_UNAVAILABLE,
-	PROP_DIM_CHECKMARK
+	PROP_DIM_CHECKMARK,
+	PROP_FOCUS_OUTLINE
 };
 
 typedef enum {
@@ -183,6 +184,7 @@ static gboolean hit_test_stretch_handle              (NemoIconCanvasItem        
 
 static void       nemo_icon_canvas_item_ensure_bounds_up_to_date (NemoIconCanvasItem *icon_item);
 static gboolean   shows_dim_checkmark                  (NemoIconCanvasItem        *item);
+static gboolean   shows_focus_outline                  (NemoIconCanvasItem        *item);
 
 /* Object initialization function for the icon item. */
 static void
@@ -421,6 +423,10 @@ nemo_icon_canvas_item_get_property (GObject        *object,
 
 	case PROP_DIM_CHECKMARK:
 		g_value_set_boolean (value, shows_dim_checkmark (NEMO_ICON_CANVAS_ITEM (object)));
+		break;
+
+	case PROP_FOCUS_OUTLINE:
+		g_value_set_boolean (value, shows_focus_outline (NEMO_ICON_CANVAS_ITEM (object)));
 		break;
 
         case PROP_HIGHLIGHTED_FOR_DROP:
@@ -1159,7 +1165,7 @@ draw_label_text (NemoIconCanvasItem *item,
         gtk_style_context_restore (context);
 	}
 
-	if (item->details->is_highlighted_as_keyboard_focus) {
+	if (shows_focus_outline (item)) {
 		if (needs_highlight) {
 			state = GTK_STATE_FLAG_SELECTED;
 		}
@@ -1375,6 +1381,16 @@ shows_dim_checkmark (NemoIconCanvasItem *item)
 	container = NEMO_ICON_CONTAINER (EEL_CANVAS_ITEM (item)->canvas);
 
 	return !container->details->is_desktop && !nemo_icon_container_is_layout_vertical (container);
+}
+
+/* Nemo Anywhere outlines the focus only while it is on an icon not selected,
+   as after a Ctrl+arrow (2026102412041969). */
+static gboolean
+shows_focus_outline (NemoIconCanvasItem *item)
+{
+	return item->details->is_highlighted_as_keyboard_focus &&
+	       !(item->details->is_highlighted_for_selection &&
+		 nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE);
 }
 
 /* The icon's top-left corner, on a patch of the selection color so it reads
@@ -2211,6 +2227,13 @@ nemo_icon_canvas_item_class_init (NemoIconCanvasItemClass *class)
 		g_param_spec_boolean ("dim-checkmark",
 				      "dim checkmark",
 				      "whether Nemo Anywhere's dim checkmark is drawn on the icon",
+				      FALSE, G_PARAM_READABLE));
+	g_object_class_install_property (
+		object_class,
+		PROP_FOCUS_OUTLINE,
+		g_param_spec_boolean ("focus-outline",
+				      "focus outline",
+				      "whether the keyboard focus outline is drawn on the icon",
 				      FALSE, G_PARAM_READABLE));
 
 	item_class->update = nemo_icon_canvas_item_update;

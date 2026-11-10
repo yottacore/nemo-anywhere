@@ -662,8 +662,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere focus outline and keys: the icon view.
 	- ID: 2026102412041969
 	- Type: Enhancement
-	- Status: Queued
-	- Needs local test suite run?: Yes
+	- Status: Done
+	- Needs local test suite run?: no. The Linux suite passed in the quick gate, 242 OK and 1 skipped.
 	- Priority|Severity: High
 	- Opened: 20261024-120419
 	- Opened by: t00mietum
@@ -681,7 +681,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
 	- Progress log:
 		- 20261024: opened.
-	- Test case: none yet.
+		- 20261109: under Nemo Anywhere the icon container has its own key handler. Ctrl+Home and Ctrl+End drop the Ctrl, Page Up and Page Down move the selection, and Ctrl+Space toggles the focus and moves the anchor to it. Plain arrow keys count from the selection's first or last icon, and from the focus while it is on an icon not selected. Ctrl+Shift with an arrow adds Shift's run from the anchor, where v1 makes a band. An icon draws the focus outline only while it isn't selected.
+		- 20261109: Escape, the second Escape, the arrow after it and Space were already right in v1's handlers, so they only got checks.
+		- 20261109: dec8w expects 99 icon view results, up from 75. de8bd and de8dm stay at 75.
+	- Decisions:
+		- The keyboard focus v1 already keeps, set by a Ctrl+arrow and cleared by a click, a plain key or Escape, stands in for the list view's flag. Whether the outline shows is read from it and the selection.
+		- Page Down goes to the farthest icon a page down the column, and from the bottom of a column to the last icon. Page Up is the same upward.
+		- Ctrl+Space with no focus, as after Escape, does nothing. v1 puts the outline on the first icon there, which this model shows only after a Ctrl+arrow.
+		- The compact view shares the handler, so it has these rules too. Its Page Up and Page Down go a page across, since it scrolls sideways. Its shared dec8w checks follow, and its own checks are 2026102412041971's.
+	- Not covered by a test yet: Shift with Page Up and Page Down, a folder longer than a page, and the outline as drawn on screen.
+	- Swept: every key the design doc's "Keyboard" names, in the icon container's key handler, keyboard_move_to's callers (Home, End, the arrows, the new page keys), v1's Ctrl+Space, the outline's one draw site, and the icon view's Escape handler.
+	- Branch: round1110a
+	- Test case: dec8w, Selection rules test, Nemo Anywhere: the icon view's key checks, the outline among them.
+	- Verified: 20261109, dec8w fails 17 icon view and 6 compact view checks with the icon container's Nemo Anywhere key rules bypassed, and 2 with the outline drawn on selected icons, and passes with both. de8bd, de8dm, ddy5f and dec8v pass. The quick gate passed: lint, and the Linux suite, 242 OK and 1 skipped.
+	- Closed: 20261109-221825
 
 - Nemo Anywhere focus outline and keys: the compact view.
 	- ID: 2026102412041971

@@ -736,22 +736,151 @@ note_title (void)
 static const char *const typed = "file-07";
 
 /* Each step waits on what the one before set going, up to ten seconds. */
-/* The list hides its cursor's outline with these. */
+/* The list hides its cursor's outline with these, and an icon says whether
+   it draws one. */
 static gboolean
 outline_shown (void)
 {
 	GtkStyleContext *context = gtk_widget_get_style_context (pane);
+	int i;
 
-	return !gtk_style_context_has_class (context, "nemo-focus-quiet") &&
-	       !gtk_style_context_has_class (context, "nemo-cursor-forgotten");
+	if (list_mode) {
+		return !gtk_style_context_has_class (context, "nemo-focus-quiet") &&
+		       !gtk_style_context_has_class (context, "nemo-cursor-forgotten");
+	}
+	for (i = 0; i < item_count (); i++) {
+		gboolean outlined = FALSE;
+
+		g_object_get (canvas_item (i), "focus-outline", &outlined, NULL);
+		if (outlined) {
+			return TRUE;
+		}
+	}
+	return FALSE;
 }
 
+/* The icon views' type-ahead is a popup window of its own. */
 static gboolean
 typeahead_shown (void)
 {
-	GtkEntry *entry = gtk_tree_view_get_search_entry (GTK_TREE_VIEW (pane));
+	GList *toplevels, *l;
+	gboolean shown = FALSE;
 
-	return entry != NULL && gtk_widget_get_mapped (GTK_WIDGET (entry));
+	if (list_mode) {
+		GtkEntry *entry = gtk_tree_view_get_search_entry (GTK_TREE_VIEW (pane));
+
+		return entry != NULL && gtk_widget_get_mapped (GTK_WIDGET (entry));
+	}
+	toplevels = gtk_window_list_toplevels ();
+	for (l = toplevels; l != NULL && !shown; l = l->next) {
+		shown = gtk_window_get_window_type (l->data) == GTK_WINDOW_POPUP &&
+			find_widget (l->data, "GtkEntry") != NULL;
+	}
+	g_list_free (toplevels);
+	return shown;
+}
+
+/* The far end of an item's column, or of its row in the compact view, which
+   scrolls sideways. */
+static int
+page_end (int item, int toward)
+{
+	int next;
+
+	while ((next = next_item (item, compact_mode ? toward : 0, compact_mode ? 0 : toward)) >= 0) {
+		item = next;
+	}
+	return item;
+}
+
+/* The item one step over, or the same one at an edge. */
+static int
+step_or_stay (int item, int dx, int dy)
+{
+	int next = next_item (item, dx, dy);
+
+	return next >= 0 ? next : item;
+}
+
+/* Nemo Anywhere's own icon view keys (#2026102412041969). The compact view
+   shares them, and gets its own checks with 2026102412041971. */
+static void
+anywhere_icon_keys (void)
+{
+	int b1 = next_item (1, 0, 1);
+	int b2 = next_item (2, 0, 1);
+	int c1 = next_item (b1, 0, 1);
+	int r2 = next_item (1, 1, 0);
+	int r3 = next_item (r2, 1, 0);
+	int r4 = next_item (r3, 1, 0);
+
+	if (b1 < 0 || b2 < 0 || c1 < 0 || r4 < 0) {
+		report (FALSE, "there are 3 rows of 5 icons or more");
+		return;
+	}
+	click (2, 0);
+	report (!outline_shown (), "a click shows no focus outline");
+	click (b1, 0);
+	key (GDK_KEY_Down, GDK_SHIFT_MASK);
+	report (!outline_shown (), "nor does Shift+Down");
+	key (GDK_KEY_Up, 0);
+	want (items (1, -1), "Up counts from the first item of a run");
+	click (b1, 0);
+	key (GDK_KEY_Up, GDK_SHIFT_MASK);
+	key (GDK_KEY_Down, 0);
+	want (items (c1, -1), "and Down from the last");
+	click (r3, 0);
+	key (GDK_KEY_Left, GDK_SHIFT_MASK);
+	key (GDK_KEY_Right, 0);
+	want (items (r4, -1), "Right counts from the last item of a run");
+	click (r2, 0);
+	key (GDK_KEY_Right, GDK_SHIFT_MASK);
+	key (GDK_KEY_Left, 0);
+	want (items (1, -1), "and Left from the first");
+	click (b2, 0);
+	key (GDK_KEY_Left, GDK_SHIFT_MASK);
+	key (GDK_KEY_Page_Down, 0);
+	want (items (page_end (b2, 1), -1), "Page Down counts from the last item of a run");
+	click (b1, 0);
+	key (GDK_KEY_Right, GDK_SHIFT_MASK);
+	key (GDK_KEY_Page_Up, 0);
+	want (items (1, -1), "and Page Up from the first");
+
+	click (1, 0);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	want (items (1, -1), "Ctrl+Down twice leaves the selection alone");
+	report (outline_shown (), "and the focus outline shows on the icon it went to");
+	key (GDK_KEY_Down, 0);
+	want (items (step_or_stay (c1, 0, 1), -1), "Down then counts from the focus");
+	report (!outline_shown (), "and the outline goes");
+
+	click (1, 0);
+	key (GDK_KEY_Right, GDK_CONTROL_MASK);
+	report (outline_shown (), "Ctrl+Right shows the focus outline");
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	report (!outline_shown (), "and it goes once Ctrl+Space selects the focused icon");
+	key (GDK_KEY_Right, GDK_CONTROL_MASK);
+	key (GDK_KEY_Right, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
+	want (items (1, r2, r3, r4, -1), "Ctrl+Shift+Right adds the run from the Ctrl+Space icon and keeps the rest");
+	key (GDK_KEY_Down, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
+	want (run_of (1, next_item (r4, 0, 1), -1), "and Ctrl+Shift+Down runs on from it to the row below");
+
+	key (GDK_KEY_Escape, 0);
+	want (g_strdup (""), "Escape clears the selection");
+	report (!outline_shown (), "and shows no focus outline");
+	key (GDK_KEY_Escape, 0);
+	want (g_strdup (""), "a second Escape changes nothing");
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	want (g_strdup (""), "nor does Ctrl+Space with no focus");
+	report (!outline_shown (), "and it shows no outline");
+	key (GDK_KEY_Right, 0);
+	want (items (0, -1), "and Right then starts at the first item");
+
+	click (3, 0);
+	key (GDK_KEY_space, 0);
+	want (items (3, -1), "Space leaves the selection alone");
+	report (!typeahead_shown (), "and starts no type-ahead");
 }
 
 /* Nemo Anywhere's own list keys (#2026102412041967). */
@@ -995,7 +1124,7 @@ rules_tick (void)
 		want (items (0, -1), "and Shift+Home takes it back to the first");
 		click (3, 0);
 		key (GDK_KEY_End, GDK_CONTROL_MASK);
-		if (anywhere && list_mode) {
+		if (anywhere) {
 			want (items (last, -1), "Ctrl+End selects the last item alone, as End does");
 			key (GDK_KEY_space, GDK_CONTROL_MASK);
 			want (g_strdup (""), "and Ctrl+Space then takes it out");
@@ -1014,18 +1143,24 @@ rules_tick (void)
 		} else if (classic) {
 			want (items (next_item (1, 0, 1), -1),
 			      "Ctrl+Shift+Down flips the clicked item out and the next one down in");
+		} else if (anywhere) {
+			want (run_of (1, next_item (1, 0, 1), -1), "Ctrl+Shift+Down adds the run to the next item down");
 		} else {
 			want (items (1, next_item (1, 0, 1), -1), "Ctrl+Shift+Down adds the next item down");
 		}
 		click (0, 0);
 		key (GDK_KEY_Page_Down, 0);
-		/* Every row is in sight, and the icon views don't take the key. */
-		want (items (list_mode ? last : 0, -1),
-		      list_mode ? "Page Down selects the last row in sight alone" :
-				  "Page Down leaves the selection alone");
+		/* Every row is in sight, and v1's icon views don't take the key. */
+		if (list_mode) {
+			want (items (last, -1), "Page Down selects the last row in sight alone");
+		} else if (anywhere) {
+			want (items (page_end (0, 1), -1), "Page Down selects the farthest item a page on alone");
+		} else {
+			want (items (0, -1), "Page Down leaves the selection alone");
+		}
 		click (3, 0);
 		key (GDK_KEY_Home, GDK_CONTROL_MASK);
-		if (anywhere && list_mode) {
+		if (anywhere) {
 			want (items (0, -1), "Ctrl+Home selects the first item alone, as Home does");
 			key (GDK_KEY_space, GDK_CONTROL_MASK);
 			want (g_strdup (""), "and Ctrl+Space then takes it out");
@@ -1043,9 +1178,13 @@ rules_tick (void)
 		}
 		click (last, 0);
 		key (GDK_KEY_Page_Up, 0);
-		want (items (list_mode ? 0 : last, -1),
-		      list_mode ? "Page Up selects the first row in sight alone" :
-				  "Page Up leaves the selection alone");
+		if (list_mode) {
+			want (items (0, -1), "Page Up selects the first row in sight alone");
+		} else if (anywhere) {
+			want (items (page_end (last, -1), -1), "Page Up selects the farthest item a page back alone");
+		} else {
+			want (items (last, -1), "Page Up leaves the selection alone");
+		}
 		click (2, 0);
 		key (GDK_KEY_Tab, 0);
 		want (items (2, -1), "Tab leaves the selection alone");
@@ -1063,6 +1202,8 @@ rules_tick (void)
 		}
 		if (anywhere && list_mode) {
 			anywhere_list_keys ();
+		} else if (anywhere && !compact_mode) {
+			anywhere_icon_keys ();
 		}
 		break;
 	case 27:
