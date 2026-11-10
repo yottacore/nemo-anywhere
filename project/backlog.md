@@ -81,7 +81,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs local test suite run?: no. The quick gate's tests passed with it.
 	- Priority|Severity: High
 	- Opened: 20261024-111334
@@ -99,6 +99,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: opened.
 		- 20261109: under Nemo Anywhere each selected icon in the icon view gets a dim checkmark in its top-left corner, on a small patch of the selection color. Labels are unchanged. The marks follow the setting live. The compact view and the desktop get none yet.
 		- 20261110: left at signoff for the look of the mark on icons, as the list view column's was. Tests pass.
+		- 20261110: the look checked again at d51fe106 and matches the item: top-left corner, on a patch that reads on every thumbnail tried. Closed.
 	- Decisions:
 		- The patch is the theme's selection background, and the mark is the selected text in the insensitive look, the same pair as the list view's column. So the mark reads the same in both views, and the patch stands out on light, dark and busy thumbnails.
 		- The mark is the list view's size, shrunk to two fifths of the icon on small icons.
@@ -111,7 +112,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Not covered by a test yet: the marks coming and going when the setting changes while the window is open.
 	- Verified: 20261109, dec8w, dec8v, de8bd, de8dm, ddy5f and de8ec pass, and fail with marks drawn on every icon under every model. The quick gate passed (lints, and 242 OK, 1 skipped). The clang analyzer reports nothing on the two changed files.
 	- Verified: 20261109, the icon view under Nemo Anywhere in Adwaita and Adwaita dark, with 3 of 7 icons selected: a mark on each selected icon and none on the rest, labels unchanged. It reads on white, black, blue and striped thumbnails.
-	- Acceptance signoff: Pending: the look of the mark on icons. dec8w and dec8v pass.
+	- Verified: 20261110, at d51fe106, the icon view under Nemo Anywhere in Adwaita and Adwaita dark: a mark in the top-left corner of each selected icon and none on the rest, labels unchanged, reading on white, black, blue and striped thumbnails.
+	- Acceptance signoff: Self-closed: the look checked at d51fe106 in Adwaita light and dark, as the list view column's was. dec8w and dec8v pass.
+	- Closed: 20261110-135037
 
 - The native gate on b29w sometimes fails on test-nemo-office's leftover folder.
 	- ID: 2026103116203164
@@ -537,6 +540,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: opened.
 		- 20261024: split into children, one per view: 2026102411133409 (list view), ...414 (icon view), ...419 (compact view).
 		- 20261110: children 2026102411133414 2026102411133419 wait on UAT, and the rest are closed
+		- 20261110: all 3 children are closed.
 	- Test case: its children's: 2026102411133414: dec8w and dec8v, where every icon view check also checks the marks: on the selected icons under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). Under Nemo Anywhere the two icon view band checks in dec8v check them too. The result counts don't change.; 2026102411133419: dec8w and dec8v, where every compact view check also checks the marks: on the selected items under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). The result counts don't change.; 2026102411133409: dec8w and dec8v, where every list view check also checks the marks, the bands included. de8bd, de8dm and dec8w check the column is there only under Nemo Anywhere, thin, and without the expanders.
 
 - Nemo Anywhere: the switch-off wording and keys, then the dropdown entry and the default.
@@ -594,7 +598,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere dim checkmarks: the compact view.
 	- ID: 2026102411133419
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs local test suite run?: no. The quick gate's tests passed with it.
 	- Priority|Severity: High
 	- Opened: 20261024-111334
@@ -614,6 +618,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: opened.
 		- 20261110: under Nemo Anywhere each selected item in the compact view gets a dim checkmark just left of its name, inside the name's highlight. Every name keeps room for the mark, so names don't move as the selection changes. The room and the marks follow the setting live. The other models are unchanged.
 		- 20261110: left at signoff for the look of the mark beside names. Tests pass.
+		- 20261110: the look checked again at d51fe106 and matches the item: the mark sits left of each selected name, inside its highlight, and the names stay lined up. Closed.
 	- Decisions:
 		- The mark is in the label's font, in the selected text color with the insensitive look, the same as the list view column's. Inside the highlight it reads on the selection color, so it needs no patch of its own as on icons.
 		- The room is kept on every name, selected or not, under Nemo Anywhere only. So names sit one mark further from their icons than under the other models.
@@ -626,7 +631,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Not covered by a test yet: where the mark sits, and the room coming and going when the setting changes while the window is open.
 	- Verified: 20261110, dec8w, dec8v, de8bd, de8dm, ddy5f and de8ec pass, and dec8w and dec8v fail with the compact view left out of the marks. The quick gate passed (lints, and 242 OK, 1 skipped). gcc's and clang's analyzers report nothing on the 4 changed files.
 	- Verified: 20261110, the compact view under Nemo Anywhere in Adwaita and Adwaita dark, with 3 of 7 items selected: a mark left of each selected name and none on the rest, names unchanged and lined up. Under Nemo Anywhere v1, no room and no marks.
-	- Acceptance signoff: Pending: the look of the mark beside names. dec8w and dec8v pass.
+	- Verified: 20261110, at d51fe106, the compact view under Nemo Anywhere in Adwaita and Adwaita dark, with 3 of 7 items selected: a mark left of each selected name and none on the rest, names unchanged and lined up.
+	- Acceptance signoff: Self-closed: the look checked at d51fe106 in Adwaita light and dark, as the list view column's was. dec8w and dec8v pass.
+	- Closed: 20261110-135037
 
 - Nemo Anywhere: the focus outline and the keyboard rules, per view.
 	- ID: 2026102407515572
@@ -747,7 +754,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261024: opened.
 		- 20261110: split into children, worked in this order: 2026111013031711 (the dim checkmark column), ...729 (the content view's marks while the tree has the focus), ...747 (the tree's focus and keys).
-		- 20261110: ...711 is done and ...729 is at signoff for the look. ...747 is queued.
+		- 20261110: ...711 and ...729 are done. ...747 is queued.
 	- Test case: one per child.
 
 - Nemo Anywhere tree view: the dim checkmark column.
@@ -783,7 +790,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere tree view: the content view's dim marks while the tree has the focus on the viewed folder.
 	- ID: 2026111013031729
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261110-130317
 	- Opened by: t00mietum
@@ -798,6 +805,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261110: under Nemo Anywhere, while the tree has the keyboard focus and its selected row is the viewed folder, every item in the content view draws the dim mark, in all 3 views. The selection doesn't change. The marks follow the selection again as soon as the focus leaves the tree, or the tree's row moves off the viewed folder.
 		- 20261110: left at signoff for the look of the marks on items not selected.
+		- 20261110: the look checked again at d51fe106 in the icon and compact views and matches the item: with the tree focused on the viewed folder every item is marked and the selection is unchanged. Closed.
 	- Decisions:
 		- The tree tells the active tab's view, and checks again on a focus change, a change of row, a folder change and a change of the setting. A view it marked before is cleared when another tab or pane becomes the active one.
 		- "Has the focus" is GTK's: switching to another program takes the marks off, and they come back with the window's focus.
@@ -810,7 +818,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Not covered by a test yet: a switch of tab or pane while the tree has the focus, and the marks coming back after a key move in the tree opens its folder.
 	- Verified: 20261110, dec8w fails in all 3 views with the tree never marking the view, and passes with it. de8bd and df066 pass. The quick gate passed (lints, and 242 OK, 1 skipped). Both analyzers report nothing on the 8 changed files.
 	- Verified: 20261110, the compact view in Adwaita and Adwaita dark and the icon view in Adwaita, with the tree focused and 2 items selected: a mark on every item, dim gray on the names not selected.
-	- Acceptance signoff: Pending: the look of the marks on items not selected. dec8w passes.
+	- Verified: 20261110, at d51fe106, the icon and compact views under Nemo Anywhere in Adwaita and Adwaita dark, with the tree focused on the viewed folder and 2 of 7 items selected: a mark on all 7, the selection unchanged, dim gray on the compact view's names not selected, and the icon view's corner mark the same on every icon.
+	- Acceptance signoff: Self-closed: the look checked at d51fe106 in Adwaita light and dark, in the icon and compact views. The list view's look wasn't checked again, since its marks on rows not selected are the column's own dim drawing. dec8w passes in all 3 views.
+	- Closed: 20261110-135037
 
 - Nemo Anywhere tree view: its own focus and anchor, under the content view's mouse and keyboard rules.
 	- ID: 2026111013031747
