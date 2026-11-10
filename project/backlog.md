@@ -517,7 +517,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere: dim checkmarks that follow the selection, in all 3 views.
 	- ID: 2026102407515571
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Needs local test suite run?: Yes
 	- Priority|Severity: High
 	- Opened: 20261024-075155
@@ -542,6 +542,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261110: children 2026102411133414 2026102411133419 wait on UAT, and the rest are closed
 		- 20261110: all 3 children are closed.
 	- Test case: its children's: 2026102411133414: dec8w and dec8v, where every icon view check also checks the marks: on the selected icons under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). Under Nemo Anywhere the two icon view band checks in dec8v check them too. The result counts don't change.; 2026102411133419: dec8w and dec8v, where every compact view check also checks the marks: on the selected items under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). The result counts don't change.; 2026102411133409: dec8w and dec8v, where every list view check also checks the marks, the bands included. de8bd, de8dm and dec8w check the column is there only under Nemo Anywhere, thin, and without the expanders.
+	- Closed: 20261110-135253
 
 - Nemo Anywhere: the switch-off wording and keys, then the dropdown entry and the default.
 	- ID: 2026102407515575
