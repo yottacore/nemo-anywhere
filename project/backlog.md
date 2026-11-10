@@ -784,7 +784,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The native Windows gate removes its folder after a failure, test log and all.
 	- ID: 2026110910285880
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261109-102858
 	- Opened by: t00mietum
@@ -796,7 +796,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A passing gate copies nothing.
 	- Progress log:
 		- 20261109: ddepv failed in the full run's native gate on b29w, and its log went with the folder.
-	- Test case: test-lane.bash, a failed gate leaves the test log here.
+		- 20261109: done. After a gate or desktop step that ended and failed, the lane brings the box's `meson-logs/testlog*.txt` back to `cicd/artifacts/build-win/<box>_<folder>_testlog.txt`, then removes the folder. `lane.bash`, `test-lane.bash` and design.md's native gate bullet.
+	- Decisions:
+		- `testlog*.txt` rather than `testlog-*.txt`. The gate's `meson test` has no `--setup`, so meson names it `testlog.txt`, and a setup's `testlog-<setup>.txt` still matches.
+		- The name is the box, then the folder's own name, stamp and counter, so 2 runs in the same second don't write over each other.
+		- A failed desktop step keeps it too, since its tests write the same log in the same build.
+		- A stop from outside, a TERM, Ctrl+C or HUP, keeps nothing, so the stop stays quick. So does a lane failure before the gate wrote its exit code.
+	- Test case: depg0: a failing gate and a failing desktop step each keep the one log, by its name, asked for before the folder's removal. A passing gate and a TERM mid-gate keep none.
+	- Verified: 20261109, depg0 passes, and fails its 2 new checks against the old `lane.bash`. On b29w, the lane's own `fKeepTestLogs` brought back a staged `testlog.txt` from a run folder under `%ProgramData%`, by name and content, left its `testlog.json`, and `lane-box.ps1 -Remove` then removed the folder.
+	- Verified: 20261109, `cicd/cicd.bash --backlog-run-quick` passes.
+	- Acceptance signoff: Self-closed: depg0 pins it, and the copy ran on b29w.
+	- Closed: 20261109-194400
 
 - Convert a settings file stamped format 3 by a dev build before SHCL 3.0.0-beta1.
 	- ID: 2026110911251998
