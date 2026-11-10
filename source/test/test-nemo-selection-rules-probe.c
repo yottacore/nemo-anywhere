@@ -1492,8 +1492,24 @@ rules_tick (void)
 		if (!find_pane () || item_named ("data") < 0 || item_named (folder_name) < 0) {
 			return FALSE;
 		}
+		if (anywhere) {
+			/* The tree still has the focus, on the viewed folder, so every
+			   item takes the mark (#2026111013031729). */
+			char *all = run_of (0, item_count () - 1, -1);
+			char *marked = marks ();
+			char *line = g_strdup_printf ("with the tree focused on the viewed folder, every item is marked "
+						      "(marked %s, want %s)", marked, all);
+
+			report (gtk_widget_has_focus (GTK_WIDGET (tree)) && strcmp (marked, all) == 0, line);
+			g_free (line);
+			g_free (marked);
+			g_free (all);
+		}
 		note_title ();
 		click (item_named ("data"), 0);
+		if (anywhere) {
+			want (items (item_named ("data"), -1), "a click in the view takes the marks back to its selection");
+		}
 		gtk_widget_grab_focus (pane);
 		key (GDK_KEY_Return, 0);
 		break;

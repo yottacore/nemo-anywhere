@@ -205,6 +205,7 @@ struct NemoViewDetails
 {
 	NemoWindow *window;
 	NemoWindowSlot *slot;
+	gboolean marks_all;
 	NemoDirectory *model;
 	NemoFile *directory_as_file;
 	NemoFile *location_popup_directory_as_file;
@@ -1088,6 +1089,29 @@ nemo_view_get_nemo_window_slot (NemoView  *view)
 	g_assert (view->details->slot != NULL);
 
 	return view->details->slot;
+}
+
+gboolean
+nemo_view_get_marks_all (NemoView *view)
+{
+	g_return_val_if_fail (NEMO_IS_VIEW (view), FALSE);
+
+	return view->details->marks_all;
+}
+
+/* Set by the folder tree (#2026111013031729). */
+void
+nemo_view_set_marks_all (NemoView *view, gboolean marks_all)
+{
+	g_return_if_fail (NEMO_IS_VIEW (view));
+
+	if (view->details->marks_all == marks_all) {
+		return;
+	}
+	view->details->marks_all = marks_all;
+	if (NEMO_VIEW_GET_CLASS (view)->marks_all_changed != NULL) {
+		NEMO_VIEW_GET_CLASS (view)->marks_all_changed (view);
+	}
 }
 
 /* Returns the GtkWindow that this directory view occupies, or NULL

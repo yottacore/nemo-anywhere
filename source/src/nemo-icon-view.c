@@ -245,6 +245,16 @@ nemo_icon_view_get_icon_container (NemoIconView *icon_view)
 	return get_icon_container (icon_view);
 }
 
+static void
+nemo_icon_view_marks_all_changed (NemoView *view)
+{
+	NemoIconContainer *container = get_icon_container (NEMO_ICON_VIEW (view));
+
+	if (container != NULL) {
+		nemo_icon_container_set_marks_all (container, nemo_view_get_marks_all (view));
+	}
+}
+
 static gboolean
 nemo_icon_view_supports_manual_layout (NemoIconView *view)
 {
@@ -3076,6 +3086,7 @@ nemo_icon_view_class_init (NemoIconViewClass *klass)
         nemo_view_class->sort_favorites_first_changed = nemo_icon_view_sort_favorites_first_changed;
         nemo_view_class->start_renaming_file = nemo_icon_view_start_renaming_file;
         nemo_view_class->update_menus = nemo_icon_view_update_menus;
+	nemo_view_class->marks_all_changed = nemo_icon_view_marks_all_changed;
 	nemo_view_class->using_manual_layout = nemo_icon_view_using_manual_layout;
 	nemo_view_class->widget_to_file_operation_position = nemo_icon_view_widget_to_file_operation_position;
 	nemo_view_class->get_view_id = nemo_icon_view_get_id;

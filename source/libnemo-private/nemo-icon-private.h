@@ -267,6 +267,9 @@ struct NemoIconContainerDetails {
 	/* Is the container for a desktop window */
 	gboolean is_desktop;
 
+	/* Nemo Anywhere: every item draws the dim mark, selected or not. */
+	gboolean marks_all;
+
     /* Used by desktop grid container only */
     gboolean horizontal;
     gint h_adjust;

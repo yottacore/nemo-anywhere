@@ -747,6 +747,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261024: opened.
 		- 20261110: split into children, worked in this order: 2026111013031711 (the dim checkmark column), ...729 (the content view's marks while the tree has the focus), ...747 (the tree's focus and keys).
+		- 20261110: ...711 is done and ...729 is at signoff for the look. ...747 is queued.
 	- Test case: one per child.
 
 - Nemo Anywhere tree view: the dim checkmark column.
@@ -782,7 +783,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere tree view: the content view's dim marks while the tree has the focus on the viewed folder.
 	- ID: 2026111013031729
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on signoff
 	- Priority|Severity: High
 	- Opened: 20261110-130317
 	- Opened by: t00mietum
@@ -794,6 +795,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The marks go back to following the content view's selection once the focus leaves the tree.
 		- A test of the marks in each view with the tree focused, and after the focus goes back.
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view".
+	- Progress log:
+		- 20261110: under Nemo Anywhere, while the tree has the keyboard focus and its selected row is the viewed folder, every item in the content view draws the dim mark, in all 3 views. The selection doesn't change. The marks follow the selection again as soon as the focus leaves the tree, or the tree's row moves off the viewed folder.
+		- 20261110: left at signoff for the look of the marks on items not selected.
+	- Decisions:
+		- The tree tells the active tab's view, and checks again on a focus change, a change of row, a folder change and a change of the setting. A view it marked before is cleared when another tab or pane becomes the active one.
+		- "Has the focus" is GTK's: switching to another program takes the marks off, and they come back with the window's focus.
+		- In the compact view a mark on a name that isn't selected is the dim text color, as on a list view row not selected. The icon view's corner mark keeps its patch, so it looks the same on every icon.
+		- While a key move in the tree waits to open its folder, the row isn't the viewed folder yet, so the marks follow the selection until the folder opens.
+	- Swept: the 3 places a dim mark is decided: the list view column's cell, and `shows_dim_checkmark` for the icon view's corner and the compact view's name. The desktop still has none.
+	- Branch: round1110b
+	- Test case: dec8w, Selection rules test, Nemo Anywhere: in each view, the check that every item is marked while the tree has the focus on the viewed folder, and that a click in the view takes the marks back to its selection.
+		- 20261110: dec8w's counts under Nemo Anywhere went from 90 to 92 in the list view, 101 to 103 in the icon view and 103 to 105 in the compact view.
+	- Not covered by a test yet: a switch of tab or pane while the tree has the focus, and the marks coming back after a key move in the tree opens its folder.
+	- Verified: 20261110, dec8w fails in all 3 views with the tree never marking the view, and passes with it. de8bd and df066 pass. The quick gate passed (lints, and 242 OK, 1 skipped). Both analyzers report nothing on the 8 changed files.
+	- Verified: 20261110, the compact view in Adwaita and Adwaita dark and the icon view in Adwaita, with the tree focused and 2 items selected: a mark on every item, dim gray on the names not selected.
+	- Acceptance signoff: Pending: the look of the marks on items not selected. dec8w passes.
 
 - Nemo Anywhere tree view: its own focus and anchor, under the content view's mouse and keyboard rules.
 	- ID: 2026111013031747

@@ -339,6 +339,8 @@ gboolean          nemo_icon_container_get_is_fixed_size             (NemoIconCon
 void              nemo_icon_container_set_is_fixed_size             (NemoIconContainer  *container,
 									 gboolean                is_fixed_size);
 gboolean          nemo_icon_container_get_is_desktop                (NemoIconContainer  *container);
+void              nemo_icon_container_set_marks_all                 (NemoIconContainer  *container,
+									 gboolean                marks_all);
 void              nemo_icon_container_set_is_desktop                (NemoIconContainer  *container,
 									 gboolean                is_desktop);
 void              nemo_icon_container_reset_scroll_region           (NemoIconContainer  *container);

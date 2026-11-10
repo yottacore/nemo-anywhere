@@ -3294,10 +3294,10 @@ checkmark_cell_data_func (GtkTreeViewColumn *column,
                           NemoListView      *view)
 {
     GtkTreeSelection *selection = gtk_tree_view_get_selection (view->details->tree_view);
+    gboolean marked = nemo_view_get_marks_all (NEMO_VIEW (view)) ||
+                      gtk_tree_selection_iter_is_selected (selection, iter);
 
-    g_object_set (renderer,
-                  "text", gtk_tree_selection_iter_is_selected (selection, iter) ? CHECKMARK_TEXT : "",
-                  NULL);
+    g_object_set (renderer, "text", marked ? CHECKMARK_TEXT : "", NULL);
     shade_row_cell_data_func (column, renderer, model, iter, view);
 }
 
@@ -3315,6 +3315,16 @@ checkmark_column_fit (NemoListView *view)
                                            GTK_WIDGET (view->details->tree_view),
                                            NULL, &width);
     gtk_tree_view_column_set_fixed_width (view->details->checkmark_column, MAX (width, 1));
+}
+
+static void
+nemo_list_view_marks_all_changed (NemoView *view)
+{
+    GtkTreeView *tree_view = NEMO_LIST_VIEW (view)->details->tree_view;
+
+    if (tree_view != NULL) {
+        gtk_widget_queue_draw (GTK_WIDGET (tree_view));
+    }
 }
 
 static gboolean
@@ -7148,6 +7158,7 @@ nemo_list_view_class_init (NemoListViewClass *class)
     nemo_view_class->merge_menus = nemo_list_view_merge_menus;
     nemo_view_class->unmerge_menus = nemo_list_view_unmerge_menus;
 	nemo_view_class->update_menus = nemo_list_view_update_menus;
+	nemo_view_class->marks_all_changed = nemo_list_view_marks_all_changed;
 	nemo_view_class->reset_to_defaults = nemo_list_view_reset_to_defaults;
 	nemo_view_class->restore_default_icon_size = nemo_list_view_restore_default_icon_size;
     nemo_view_class->get_default_icon_size = nemo_list_view_get_default_icon_size_vfunc;

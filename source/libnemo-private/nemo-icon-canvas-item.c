@@ -1384,13 +1384,16 @@ map_surface (NemoIconCanvasItem *icon_item)
 static gboolean
 shows_dim_checkmark (NemoIconCanvasItem *item)
 {
-	if (!item->details->is_highlighted_for_selection ||
-	    nemo_global_preferences_get_selection_model () != NEMO_SELECTION_MODEL_ANYWHERE ||
+	NemoIconContainer *container;
+
+	if (nemo_global_preferences_get_selection_model () != NEMO_SELECTION_MODEL_ANYWHERE ||
 	    EEL_CANVAS_ITEM (item)->canvas == NULL) {
 		return FALSE;
 	}
+	container = NEMO_ICON_CONTAINER (EEL_CANVAS_ITEM (item)->canvas);
 
-	return !NEMO_ICON_CONTAINER (EEL_CANVAS_ITEM (item)->canvas)->details->is_desktop;
+	return !container->details->is_desktop &&
+	       (item->details->is_highlighted_for_selection || container->details->marks_all);
 }
 
 /* Every name in the compact view keeps room for the mark on its icon side, so
@@ -1434,7 +1437,11 @@ draw_name_checkmark (NemoIconCanvasItem *item,
 
 	layout = create_label_layout (item, CHECKMARK_TEXT);
 	gtk_style_context_save (context);
-	gtk_style_context_set_state (context, GTK_STATE_FLAG_SELECTED | GTK_STATE_FLAG_INSENSITIVE);
+	/* Off the highlight, as when the tree marks every item, it's the dim
+	   text color, as on a list view row not selected. */
+	gtk_style_context_set_state (context, item->details->is_highlighted_for_selection ?
+				     GTK_STATE_FLAG_SELECTED | GTK_STATE_FLAG_INSENSITIVE :
+				     GTK_STATE_FLAG_INSENSITIVE);
 	gtk_render_layout (context, cr, x, text_rect->y0, layout);
 	gtk_style_context_restore (context);
 	g_object_unref (layout);

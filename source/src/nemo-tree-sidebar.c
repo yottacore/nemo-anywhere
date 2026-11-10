@@ -35,6 +35,7 @@
 
 #include "nemo-actions.h"
 #include "nemo-tree-sidebar-model.h"
+#include "nemo-view.h"
 #include "nemo-properties-window.h"
 #include "nemo-window-slot.h"
 
@@ -81,6 +82,8 @@ struct FMTreeViewDetails {
 	   of the tree under the others. */
 	GtkTreeViewColumn *checkmark_column;
 	GtkCellRenderer *checkmark_cell;
+	/* The content view the tree has marked whole, weak. */
+	NemoView *marked_view;
 	GtkTreeModelSort *sort_model;
 	FMTreeModel *child_model;
 
@@ -1934,6 +1937,57 @@ checkmark_column_fit (FMTreeView *view)
 	gtk_tree_view_column_set_fixed_width (view->details->checkmark_column, MAX (width, 1));
 }
 
+/* Under Nemo Anywhere, while the tree has the focus on the viewed folder,
+   every item in the content view takes the dim mark (#2026111013031729). */
+static void
+update_content_marks (FMTreeView *view)
+{
+	NemoWindowSlot *slot = view->details->window != NULL ?
+		nemo_window_get_active_slot (view->details->window) : NULL;
+	NemoView *content = slot != NULL ? nemo_window_slot_get_current_view (slot) : NULL;
+	GtkTreeView *tree_view = view->details->tree_widget;
+	gboolean marks_all = FALSE;
+	GtkTreeIter iter;
+
+	if (content != NULL && tree_view != NULL &&
+	    nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE &&
+	    gtk_widget_has_focus (GTK_WIDGET (tree_view)) &&
+	    gtk_tree_selection_get_selected (gtk_tree_view_get_selection (tree_view), NULL, &iter)) {
+		NemoFile *file = sort_model_iter_to_file (view, &iter);
+		GFile *location = nemo_window_slot_get_location (slot);
+
+		if (file != NULL && location != NULL) {
+			GFile *row = nemo_file_get_location (file);
+
+			marks_all = g_file_equal (row, location);
+			g_object_unref (row);
+		}
+		nemo_file_unref (file);
+		g_clear_object (&location);
+	}
+
+	if (view->details->marked_view != NULL && view->details->marked_view != content) {
+		nemo_view_set_marks_all (view->details->marked_view, FALSE);
+		g_object_remove_weak_pointer (G_OBJECT (view->details->marked_view),
+					      (gpointer *) &view->details->marked_view);
+		view->details->marked_view = NULL;
+	}
+	if (content == NULL) {
+		return;
+	}
+	if (view->details->marked_view == NULL) {
+		view->details->marked_view = content;
+		g_object_add_weak_pointer (G_OBJECT (content), (gpointer *) &view->details->marked_view);
+	}
+	nemo_view_set_marks_all (content, marks_all);
+}
+
+static void
+content_marks_changed (FMTreeView *view)
+{
+	update_content_marks (view);
+}
+
 static void
 checkmark_column_update (FMTreeView *view)
 {
@@ -2093,6 +2147,14 @@ create_tree (FMTreeView *view)
 				 view, G_CONNECT_SWAPPED);
 	g_signal_connect_object (view->details->tree_widget, "style-updated",
 				 G_CALLBACK (checkmark_column_fit), view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (view->details->tree_widget, "notify::has-focus",
+				 G_CALLBACK (content_marks_changed), view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (gtk_tree_view_get_selection (view->details->tree_widget), "changed",
+				 G_CALLBACK (content_marks_changed), view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_preferences,
+				 "changed::" NEMO_PREFERENCES_SELECTION_MODEL,
+				 G_CALLBACK (content_marks_changed),
+				 view, G_CONNECT_SWAPPED);
 
 	gtk_widget_show (GTK_WIDGET (view->details->tree_widget));
 
@@ -2174,6 +2236,7 @@ loading_uri_callback (G_GNUC_UNUSED NemoWindow *window,
 
 	view = FM_TREE_VIEW (callback_data);
 	schedule_select_and_show_location (view, location);
+	update_content_marks (view);
 }
 
 static void
@@ -2349,6 +2412,12 @@ fm_tree_view_dispose (GObject *object)
     g_clear_object (&view->details->ui_manager);
 
 	g_signal_handlers_disconnect_by_func (nemo_preferences, checkmark_column_update, view);
+	g_signal_handlers_disconnect_by_func (nemo_preferences, content_marks_changed, view);
+	if (view->details->marked_view != NULL) {
+		g_object_remove_weak_pointer (G_OBJECT (view->details->marked_view),
+					      (gpointer *) &view->details->marked_view);
+		view->details->marked_view = NULL;
+	}
 	view->details->checkmark_cell = NULL;
 	g_clear_object (&view->details->checkmark_column);
 

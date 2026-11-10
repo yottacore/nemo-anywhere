@@ -8163,6 +8163,17 @@ nemo_icon_container_get_is_desktop (NemoIconContainer *container)
 }
 
 void
+nemo_icon_container_set_marks_all (NemoIconContainer *container, gboolean marks_all)
+{
+	g_return_if_fail (NEMO_IS_ICON_CONTAINER (container));
+
+	if (container->details->marks_all != marks_all) {
+		container->details->marks_all = marks_all;
+		gtk_widget_queue_draw (GTK_WIDGET (container));
+	}
+}
+
+void
 nemo_icon_container_set_is_desktop (NemoIconContainer *container,
 					   gboolean is_desktop)
 {

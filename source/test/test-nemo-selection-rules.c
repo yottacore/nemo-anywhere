@@ -223,11 +223,11 @@ main (int argc, char *argv[])
 	}
 
 	run_view (argv[1], argv[2], model, "list-view", 10,
-		  strcmp (model, "nemo-anywhere") == 0 ? 90 : 72);
+		  strcmp (model, "nemo-anywhere") == 0 ? 92 : 72);
 	run_view (argv[1], argv[2], model, "icon-view", 24,
-		  strcmp (model, "nemo-anywhere") == 0 ? 101 : 75);
-	run_view (argv[1], argv[2], model, "compact-view", 60,
 		  strcmp (model, "nemo-anywhere") == 0 ? 103 : 75);
+	run_view (argv[1], argv[2], model, "compact-view", 60,
+		  strcmp (model, "nemo-anywhere") == 0 ? 105 : 75);
 
 	if (failures > 0) {
 		g_printerr ("%d failure(s)\n", failures);
