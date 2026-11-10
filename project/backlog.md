@@ -1058,10 +1058,113 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261021: it goes upstream as an issue plus MR, with the GLib one, after a last read. The patch still applies to `gtk-3-24`.
 		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
 		- 20261108: our own patched GTK means building gtk3 from MSYS2's recipe with the patch, then pinning that package in place of MSYS2's in both `msys2-pins.txt` and `sysroot-pins.txt`. Neither the hosted build nor the cross sysroot has a patch step yet. First check whether MR 10551 has merged and a 3.24 release has it.
+		- 20261110: MR 10551 isn't merged. `gtk-3-24` has no change to the win32 drag code since 3.24.52, which is still the newest 3.24 release. So we build our own, split into 2026111011404145, 2026111011404856, 2026111011405776, 2026111011405793 and 2026111011410487.
+		- Decided: the patched package is a file on a prerelease of this repo, tagged `msys2-gtk3-<version>`, built by a hosted workflow from MSYS2's recipe plus the patch. Not in git, since a binary of several MB stays in history for good. Not a workflow artifact, since those expire. Not a repo of its own, which would need making.
+		- Decided: both pin lists name it by URL and sha256 through an overrides file that `update` applies, so a pins move keeps it. `update` stops when MSYS2's gtk3 moves past the version it was built from. A GTK release with the fix then means dropping the override, and one without means a rebuild.
+		- Decided: pkgrel `1.1`, so pacman takes it over MSYS2's 3.24.52-1, and a newer MSYS2 build still sorts above it.
+		- Decided: only gtk3 comes from our build. The recipe also makes gtk-update-icon-cache, which has no drag code.
+		- Decided: the build's own deps come from the day's MSYS2 database. The result is pinned by sha256, so they can't change a later build.
+		- Decided: the workflow runs on a push that changes the recipe, since GitHub won't start a new workflow by hand until it's on `main`, which is release-only. MSYSTEM is one setting there, so the UCRT64 move (2026110920004210) rebuilds it by changing that.
+		- Decided: the cross sysroot takes it through `sysroot-pins.txt` like any other package, so `fetch-sysroot.bash` only needs to fetch a URL line. The image tag hashes that list, so the image rebuilds on its own.
+		- Decided: the native lane installs the overrides on the box before building, so the native gate tests the GTK the release has.
 	- Actual fix: none in the app.
-	- Test case: none. The fix is upstream, and nothing in the app hits it.
+	- Test case: in 2026111011410487. The pinned GTK has to free a drag canceled in the turn it began.
 	- Verified: under wine, GTK 3.24.52, OLE on: begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. Cancel 300 ms in frees both, as does OLE off either way. The same on Windows 11, 20261022. With the patch, on Windows 11 20261022: a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
 	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, with no pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
+
+- Windows: build MSYS2's gtk3 with the OLE drag abort fix, as a pinned release file.
+	- ID: 2026111011404145
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261110-114041
+	- Opened by: 2026102112223038
+	- Parent ID: 2026102112223038
+	- Related IDs: 2026110920004210
+	- Target OS: Windows
+	- Requirements:
+		- `cicd/win/gtk3/` has MSYS2's `mingw-w64-gtk3` recipe from MINGW-packages `75dcb5fa3cb9` (3.24.52-1) with its license notice, plus the patch from GTK MR 10551, and pkgrel `1.1`.
+		- A hosted workflow builds it on windows-latest under MINGW64, with setup-msys2 pinned to the commit `msys2-pins.bash` has.
+		- It runs on a push that changes the recipe or the workflow, and by hand once it's on `main`. GitHub can't start a new workflow by hand before then.
+		- It puts the gtk3 package on a prerelease tagged `msys2-gtk3-3.24.52-1.1`, not marked latest, only when that release doesn't exist yet. It never replaces a file there. The sha256 goes in the run's summary.
+		- install.bash and install.ps1 skip release tags that don't start with `v`.
+		- A lint-stage test checks the recipe's patch sum, the `.N` pkgrel and the setup-msys2 commit.
+	- Estimated effort: Avg
+	- Test case: a new lint-stage test for the recipe and the workflow, and the installers' own tests for the tag filter. The hosted run is the real test.
+
+- Windows pins: take a package we build from its own URL, in place of MSYS2's.
+	- ID: 2026111011404856
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261110-114048
+	- Opened by: 2026102112223038
+	- Parent ID: 2026102112223038
+	- Related IDs: 2026103113501526
+	- Target OS: Windows
+	- Requirements:
+		- `cicd/win/msys2-overrides.txt` lists the packages we build, as `<base URL> <file> <sha256>`, kept LF like the pin lists.
+		- `msys2-pins.bash update` puts each override in place of MSYS2's line for the same package, in both lists. It fails when MSYS2's version of that package isn't the one the override was built from, so a GTK move needs a choice.
+		- `msys2-pins.bash overrides` does the same to both lists as they are, without fetching a database or moving anything else.
+		- `msys2-pins.bash install` and `fetch-sysroot.bash` fetch a line whose first column is an https URL from that URL.
+		- dehzp and depf5 allow a URL line only for a package in the overrides file, with the same sha256.
+		- design.md "Building on Windows" and "Reproducible builds" say where an override comes from.
+	- Estimated effort: Avg
+	- Test case: dehzp and depf5, with cases for an override line, a URL line not in the overrides file, a sha256 that differs from it, and an `update` against an MSYS2 version that moved.
+
+- Windows pins: point gtk3 at our patched build.
+	- ID: 2026111011405776
+	- Type: Task
+	- Status: Queued
+	- Needs external testing: the hosted release-win.yml run on the round branch. The round has to push 2026111011404145 first, so its build has run and the release file exists.
+	- Priority|Severity: Low
+	- Opened: 20261110-114057
+	- Opened by: 2026102112223038
+	- Parent ID: 2026102112223038
+	- Prereq IDs: 2026111011404145, 2026111011404856
+	- Target OS: Windows
+	- Requirements:
+		- Add the release file from 2026111011404145's run to `msys2-overrides.txt`, with the sha256 from the run's summary checked against the file itself.
+		- Run `msys2-pins.bash overrides`, so both lists name it. Only gtk3's line changes.
+		- Edits pins only, with the tools above, so it goes to the light tier.
+	- Estimated effort: Low
+	- Test case: dehzp and depf5, the cross build image built from the new sysroot list, and the hosted release-win.yml run.
+
+- Native Windows lane: install the override packages before building.
+	- ID: 2026111011405793
+	- Type: Task
+	- Status: Queued
+	- Needs external testing: the native gate on vm925w-iommu, which should install the patched gtk3 once and leave it the next run.
+	- Priority|Severity: Low
+	- Opened: 20261110-114057
+	- Opened by: 2026102112223038
+	- Parent ID: 2026102112223038
+	- Prereq IDs: 2026111011404856
+	- Target OS: Windows
+	- Requirements:
+		- The native lane installs each package in `msys2-overrides.txt` on b29w and vm925w-iommu before it builds, with its sha256 checked, when the box has another version.
+		- It says what it installed. A box that already has that version is left as is.
+		- Without this the native gate tests the box's stock gtk3, not the one the release has.
+	- Estimated effort: Low
+	- Test case: dejjt, or a new pwsh test, for the step with a stubbed pacman. The native gate is the real run.
+
+- Test: on Windows, a GTK drag canceled in the turn it began frees its context and drag window.
+	- ID: 2026111011410487
+	- Type: Task
+	- Status: Queued
+	- Needs external testing: the native gate, on a box that has the patched gtk3 from 2026111011405793.
+	- Priority|Severity: Low
+	- Opened: 20261110-114104
+	- Opened by: 2026102112223038
+	- Parent ID: 2026102112223038
+	- Prereq IDs: 2026111011405776, 2026111011405793
+	- Target OS: Windows
+	- Requirements:
+		- A Windows-only test turns on OLE drag as `nemo_dnd_win32_prepare` does, then begins a GTK drag and cancels it in the same turn, a few times.
+		- Every drag's context is finalized and its drag window freed. `private/upstream/gdk-win32-ole-drag-abort-leak.c` is the repro to start from.
+		- It runs under wine on the cross build, which has the pinned sysroot, and in the native gate. Linux skips it.
+	- Estimated effort: Avg
+	- Test case: the new test. It has to fail on MSYS2's stock gtk3 3.24.52-1 and pass on the pinned one.
 
 - ddqdq with no monitor: the copies never list a titled window.
 	- ID: 2026103115510091
