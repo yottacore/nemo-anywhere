@@ -1095,7 +1095,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - dct7k fails as an elevated login on b29w: the real file's owner is Administrators.
 	- ID: 2026110911200530
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261109-112005
 	- Opened by: t00mietum
@@ -1105,7 +1105,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: `check_windows_lookup` fails, "owner_name is '(null)', wanted 'Lumpy Prime'". A file an elevated login makes is owned by `BUILTIN\Administrators`, which has no full name.
 	- Expected behavior: the check makes a file the current user owns, or skips the full name part when the owner isn't the current user.
 	- Reproduced: 20261109 on b29w at dev, 2 runs, one with the login's TEMP and one with TEMP under `%ProgramData%`. Not seen in the native gate, which passed dct7k.
+	- Actual cause: the test assumed the file it writes is owned by whoever runs it. An elevated login's new files are owned by Administrators, so the lookup rightly found no full name.
+	- Decisions:
+		- The test hands the file to the current user, rather than skipping, so the full name is still checked on an elevated login. Naming your own user as owner needs no privilege. If that fails, it prints a note and skips that part.
+	- Actual fix: dct7k sets the scratch file's owner to the current user before the lookup.
+	- Swept: the other real-file check in dct7k is notepad.exe, owned by TrustedInstaller whoever runs it. No other test reads an owner's full name.
+	- Verified: 20261109, on b29w over ssh as collierjr (High integrity), dct7k failed before the fix and passed after, with the login's TEMP and with TEMP under `%ProgramData%`. It passes under wine, and the quick gate passes.
+	- Branch: round1110a
+	- Commit: 9d9cbf6b
 	- Test case: dct7k on b29w over ssh.
+	- Closed: 20261109-195742
 
 - The hosted Windows build warns that MSYS2's MINGW64 environment is deprecated.
 	- ID: 2026102809292776
