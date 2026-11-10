@@ -884,12 +884,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261022: filed as GTK issue 8497, with MR 10551 against `gtk-3-24`.
 		- 20261108: our own patched GTK means building gtk3 from MSYS2's recipe with the patch, then pinning that package in place of MSYS2's in both `msys2-pins.txt` and `sysroot-pins.txt`. Neither the hosted build nor the cross sysroot has a patch step yet. First check whether MR 10551 has merged and a 3.24 release has it.
 		- 20261110: MR 10551 isn't merged. `gtk-3-24` has no change to the win32 drag code since 3.24.52, which is still the newest 3.24 release. So we build our own, split into 2026111011404145, 2026111011404856, 2026111011405776, 2026111011405793 and 2026111011410487.
-		- Decided: the patched package is a file on a prerelease of this repo, tagged `msys2-gtk3-<version>`, built by a hosted workflow from MSYS2's recipe plus the patch. Not in git, since a binary of several MB stays in history for good. Not a workflow artifact, since those expire. Not a repo of its own, which would need making.
+		- Decided: the patched package is a release file in a public repo of its own, `t00mietum/nemo-anywhere-deps`, built there by a hosted workflow from MSYS2's recipe plus the patch. The app's Releases page and tags stay app-only, and the installers need no tag filter. Not a prerelease here, not in git (several MB in history for good), not a workflow artifact (they expire), not in the org (needs org admin). Changed my mind 20261110 from a prerelease of this repo.
 		- Decided: both pin lists name it by URL and sha256 through an overrides file that `update` applies, so a pins move keeps it. `update` stops when MSYS2's gtk3 moves past the version it was built from. A GTK release with the fix then means dropping the override, and one without means a rebuild.
 		- Decided: pkgrel `1.1`, so pacman takes it over MSYS2's 3.24.52-1, and a newer MSYS2 build still sorts above it.
 		- Decided: only gtk3 comes from our build. The recipe also makes gtk-update-icon-cache, which has no drag code.
 		- Decided: the build's own deps come from the day's MSYS2 database. The result is pinned by sha256, so they can't change a later build.
-		- Decided: the workflow runs on a push that changes the recipe, since GitHub won't start a new workflow by hand until it's on `main`, which is release-only. MSYSTEM is one setting there, so the UCRT64 move (2026110920004210) rebuilds it by changing that.
+		- Decided: the workflow lives on the deps repo's default branch, so it runs by hand or on a push that changes the recipe. MSYSTEM is one setting there, so the UCRT64 move (2026110920004210) rebuilds it by changing that.
 		- Decided: the cross sysroot takes it through `sysroot-pins.txt` like any other package, so `fetch-sysroot.bash` only needs to fetch a URL line. The image tag hashes that list, so the image rebuilds on its own.
 		- Decided: the native lane installs the overrides on the box before building, so the native gate tests the GTK the release has.
 	- Actual fix: none in the app.
@@ -929,7 +929,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261022 on vm925w, while checking 2026101007562511.
 	- Test case: none yet.
 
-- Windows: build MSYS2's gtk3 with the OLE drag abort fix, as a pinned release file.
+- Windows: build MSYS2's gtk3 with the OLE drag abort fix in `t00mietum/nemo-anywhere-deps`, as a pinned release file.
 	- ID: 2026111011404145
 	- Type: Task
 	- Status: Queued
@@ -940,14 +940,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026110920004210
 	- Target OS: Windows
 	- Requirements:
-		- `cicd/win/gtk3/` has MSYS2's `mingw-w64-gtk3` recipe from MINGW-packages `75dcb5fa3cb9` (3.24.52-1) with its license notice, plus the patch from GTK MR 10551, and pkgrel `1.1`.
+		- Create the public repo `t00mietum/nemo-anywhere-deps` (go-ahead given 20261110), checked out at `../nemo-anywhere-deps/repo` beside this project, with a README saying what it's for and the license notices.
+		- Its `gtk3/` has MSYS2's `mingw-w64-gtk3` recipe from MINGW-packages `75dcb5fa3cb9` (3.24.52-1) with its license notice, plus the patch from GTK MR 10551, and pkgrel `1.1`.
 		- A hosted workflow builds it on windows-latest under MINGW64, with setup-msys2 pinned to the commit `msys2-pins.bash` has.
-		- It runs on a push that changes the recipe or the workflow, and by hand once it's on `main`. GitHub can't start a new workflow by hand before then.
-		- It puts the gtk3 package on a prerelease tagged `msys2-gtk3-3.24.52-1.1`, not marked latest, only when that release doesn't exist yet. It never replaces a file there. The sha256 goes in the run's summary.
-		- install.bash and install.ps1 skip release tags that don't start with `v`.
-		- A lint-stage test checks the recipe's patch sum, the `.N` pkgrel and the setup-msys2 commit.
+		- It runs on a push that changes the recipe or the workflow, and by hand.
+		- It puts the gtk3 package on a release there tagged `gtk3-3.24.52-1.1`, only when that release doesn't exist yet. It never replaces a file there. The sha256 goes in the run's summary.
+		- The deps repo's workflow checks the recipe's patch sum, the `.N` pkgrel and the setup-msys2 commit before it builds, and fails on any mismatch.
 	- Estimated effort: Avg
-	- Test case: a new lint-stage test for the recipe and the workflow, and the installers' own tests for the tag filter. The hosted run is the real test.
+	- Test case: the deps repo's workflow checks, which must fail on a wrong patch sum. The hosted run there is the real test.
 
 - Windows pins: take a package we build from its own URL, in place of MSYS2's.
 	- ID: 2026111011404856
@@ -973,7 +973,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026111011405776
 	- Type: Task
 	- Status: Queued
-	- Needs external testing: the hosted release-win.yml run on the round branch. The round has to push 2026111011404145 first, so its build has run and the release file exists.
+	- Needs external testing: the hosted release-win.yml run on the round branch. 2026111011404145's build in `t00mietum/nemo-anywhere-deps` has to have run first, so the release file exists.
 	- Priority|Severity: Low
 	- Opened: 20261110-114057
 	- Opened by: 2026102112223038
