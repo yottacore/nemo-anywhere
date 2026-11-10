@@ -41,7 +41,7 @@ gboolean nemo_shortcut_win32_read   (const char  *lnk_path,
 
 /* The same, and whether the shell itself could place the target. A shortcut
  * made off Windows has none of what the shell reads, so its target is taken
- * from the relative or share path it holds instead, and only something that
+ * from the relative or share path it has instead, and only something that
  * opens the target directly can follow it. */
 gboolean nemo_shortcut_win32_read_target (const char  *lnk_path,
                                           char       **target_path,
@@ -71,7 +71,7 @@ gboolean nemo_shortcut_win32_target_is_dir (const char *lnk_path,
 
 /* Open a .lnk the way a double-click in the shell would: the target's
  * associated program for a document, the program itself for an executable,
- * carrying the arguments, working directory and window state stored in the
+ * with the arguments, working directory and window state stored in the
  * shortcut. Handing over the shortcut rather than its target is the point -
  * none of that is reachable from the target path alone. */
 gboolean nemo_shortcut_win32_launch (const char  *lnk_path,
@@ -81,7 +81,7 @@ gboolean nemo_shortcut_win32_launch (const char  *lnk_path,
  * followed to its end first. */
 typedef enum {
 	NEMO_SHORTCUT_OPEN_NOT_A_SHORTCUT,
-	NEMO_SHORTCUT_OPEN_HERE,	/* a folder, or a file the shell cannot place */
+	NEMO_SHORTCUT_OPEN_HERE,	/* a folder, or a file the shell can't place */
 	NEMO_SHORTCUT_OPEN_BY_SHELL	/* everything else, the shortcut itself handed over */
 } NemoShortcutOpen;
 

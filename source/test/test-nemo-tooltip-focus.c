@@ -24,8 +24,8 @@
  * had the focus sat over that program's window. Now the app shows none while
  * none of its windows has the focus, and one already up goes when the focus
  * leaves. The built program runs with test-nemo-tooltip-focus-probe preloaded,
- * which hovers a toolbar button, a place, an icon and a list row, first
- * focused and then with this program, run again as --thief, holding the focus.
+ * which hovers a toolbar button, a place, an icon, and a list row, first
+ * focused and then with this program, run again as --thief, taking the focus.
  *
  * Needs the built program (argv[1]), the probe (argv[2]) adn a display. Runs
  * on an X server of its own, with no window manager, so focus moves only when
@@ -96,7 +96,7 @@ give_up (G_GNUC_UNUSED gpointer data)
 	return G_SOURCE_REMOVE;
 }
 
-/* The other program: a small window clear of the app's, holding the focus
+/* The other program: a small window clear of the app's, keeping the focus
    until it is stopped, or for a minute at most. */
 static int
 run_thief (int argc, char *argv[])

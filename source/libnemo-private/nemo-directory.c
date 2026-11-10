@@ -939,7 +939,7 @@ call_get_file_info_free_list (gpointer key, gpointer value, gpointer user_data)
 }
 
 /* An entry coming or going changes the folder's own modified time as well as
-   its count. The parent's monitor does not report that, so its row kept the
+   its count. The parent's monitor doesn't report that, so its row kept the
    old date. */
 static void
 invalidate_folder_after_entry_change (NemoFile *folder)
@@ -1419,7 +1419,7 @@ nemo_directory_notify_files_moved (GList *file_pairs)
 			collect_parent_directories (parent_directories,
 						    new_directory);
 			/* changed_lists is drained with call_files_changed_free_list,
-			   which does not unref - so balance nemo_file_get_existing the
+			   which doesn't unref - so balance nemo_file_get_existing the
 			   same way the move branch below does. */
 			unref_list = g_list_prepend (unref_list, file);
 		}
@@ -1748,7 +1748,7 @@ nemo_directory_is_mostly_images (NemoDirectory *directory)
 	for (l = files; l != NULL; l = l->next) {
 		NemoFile *file = NEMO_FILE (l->data);
 
-		/* Folders are not counted either way. A folder of photos with
+		/* Folders aren't counted either way. A folder of photos with
 		   sub-folders in it is still a folder of photos. */
 		if (nemo_file_is_directory (file)) {
 			continue;

@@ -20,10 +20,10 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* Where we shell out to somebody else's program, the command line lives in the
+/* Where we shell out to somebody else's program, the command line is in the
  * config file rather than in here, so a person can point it at a different
  * build, add a switch we never thought to offer, or work around a version that
- * spells something its own way.
+ * writes something its own way.
  *
  * Placeholders are {{UPPER_SNAKE}}, and that is the convention for anything
  * else that grows one later. Braces because no shell and no platform expands
@@ -34,7 +34,7 @@
  *
  * The template is split into arguments FIRST and tokens are replaced inside
  * each one after, which is what makes it safe: no value is ever re-parsed, so
- * a file named with a space, a quote or a backslash cannot become two
+ * a file named with a space, a quote or a backslash can't become 2
  * arguments or a switch. Nothing here is quoted and nothing here needs to be.
  * The template text itself is split by nemo_user_text_split_command: on
  * Windows a backslash in it is a path character and double quotes group,
@@ -58,8 +58,8 @@ typedef enum {
 } NemoCommandTemplateError;
 
 /* One replaceable value. values is NULL-terminated; NULL or empty means the
- * token stands for nothing, and the argument carrying it drops out entirely -
- * which is how an option the user did not ask for leaves no trace.
+ * token stands for nothing, and the argument with it drops out entirely -
+ * which is how an option the user didn't ask for leaves no trace.
  *
  * Set warn_if_dropped on the tokens that stand for a choice made elsewhere in
  * the UI - an edit that leaves one out turns that control into a no-op, which
@@ -79,7 +79,7 @@ char   **nemo_command_template_expand      (const char             *template_tex
 					    const NemoCommandToken *tokens,
 					    GError                **error);
 
-/* Tokens that carry a value the template never mentions - an edit that dropped
+/* Tokens with a value the template never mentions - an edit that dropped
  * {{SPLIT}} while the user is asking for volumes. NULL when nothing is
  * missing, otherwise a NULL-terminated list of names to free with g_strfreev.
  * Only warn_if_dropped tokens are considered, and only while they stand for
@@ -87,7 +87,7 @@ char   **nemo_command_template_expand      (const char             *template_tex
 char   **nemo_command_template_unused      (const char             *template_text,
 					    const NemoCommandToken *tokens);
 
-/* Says so, once per call, when a template has left a carried value nowhere to
+/* Says so, once per call, when a template has left a token's value nowhere to
  * go. what names the setting, so the message points at the line to fix. */
 void     nemo_command_template_warn_unused (const char             *what,
 					    const char             *template_text,

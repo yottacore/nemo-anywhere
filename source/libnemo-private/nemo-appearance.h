@@ -20,13 +20,13 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* Three settings drive everything here: appearance.mode (system/light/dark),
+/* There are 3 settings behind everything here: appearance.mode (system/light/dark),
  * appearance.gtk-theme and appearance.icon-theme. "system" defers to whatever
  * the platform reports - the Windows AppsUseLightTheme registry value, and on
  * a desktop that already told GTK, GTK's own answer - so it is a no-op where
  * the desktop is already in charge.
  *
- * Themes come from four places, searched user-first: the user's own drop-in
+ * Themes come from 4 places, searched user-first: the user's own drop-in
  * folder, the folder installed beside the app, the set compiled into the
  * binary, and whatever GTK already knows about. Each is offered to the picker
  * only for the backgrounds it was drawn for; see nemo_appearance_list_themes.
@@ -74,7 +74,7 @@ typedef struct {
 void     nemo_appearance_init      (void);
 void     nemo_appearance_shutdown  (void);
 
-/* The mode actually in force, with "system" already resolved. */
+/* The mode in force, with "system" already resolved. */
 gboolean nemo_appearance_is_dark   (void);
 
 /* Themes that suit @fits, newly allocated, sorted by display name. Pass

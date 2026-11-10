@@ -1,4 +1,4 @@
-/* The settings file carries a commented list of everything not set, so that
+/* The settings file has a commented list of everything not set, so that
  * opening it shows what there is to change. Checks that the list is written,
  * that it leaves out both the keys the app writes back itself and the keys
  * already set, that uncommenting a line takes effect, and that a save is a
@@ -77,11 +77,11 @@ test_list_written (NemoConfigGroup *prefs)
 	check (strstr (text, "\n# One click or two to open a file\n"
 	                     "#preferences.click-policy: double\n") != NULL);
 
-	/* A list default, spelled the way the writer spells one. */
+	/* A list default, written the way the writer writes one. */
 	check (strstr (text, "\n#windows.terminal-candidates: [wt.exe, pwsh.exe,"
 	                     " powershell.exe, cmd.exe]\n") != NULL);
 	check (strstr (text, "\n#plugins.disabled-extensions: []\n") != NULL);
-	/* A group nested two deep keeps its whole path. */
+	/* A group nested 2 deep keeps its whole path. */
 	check (strstr (text, "\n#preferences.menu-config.selection-menu-copy: true\n") != NULL);
 	g_free (text);
 }
@@ -126,7 +126,7 @@ test_set_key_drops_out (NemoConfigGroup *prefs)
 }
 
 /* Saving twice over the same settings must write the same bytes. The list
- * comes back through the parser as ordinary comments, so a save that did not
+ * comes back through the parser as ordinary comments, so a save that didn't
  * take the old copy off would stack another one on every write. */
 static void
 test_save_is_a_fixed_point (NemoConfigGroup *prefs)
@@ -163,7 +163,7 @@ on_changed (G_GNUC_UNUSED NemoConfigGroup *group, G_GNUC_UNUSED const char *key,
 }
 
 /* Put text on disk the way an editor would and wait for the store to notice.
- * The monitor is async, so the wait is on the change actually arriving. */
+ * The monitor is async, so the wait is on the change arriving. */
 static void
 write_and_wait (const char *text, NemoConfigGroup *group, const char *key)
 {
@@ -359,7 +359,7 @@ test_line_after_banner (NemoConfigGroup *prefs)
 	nemo_config_flush ();
 }
 
-/* A comment somebody wrote themselves is not ours to remove, a bare "##" of
+/* A comment somebody wrote themselves isn't ours to remove, a bare "##" of
  * their own included. */
 static void
 test_own_comment_kept (NemoConfigGroup *prefs)
@@ -383,7 +383,7 @@ test_own_comment_kept (NemoConfigGroup *prefs)
 
 /* Only a run of "##" lines that names the format is the info block. Lines
  * spelled like its fields elsewhere are somebody's notes, and so is a "##"
- * written against the block that is not one of its own lines. */
+ * written against the block that isn't one of its own lines. */
 static void
 test_banner_like_comment_kept (NemoConfigGroup *prefs)
 {

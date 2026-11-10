@@ -94,7 +94,7 @@ eel_vfs_supports_uri_scheme (const gchar *scheme)
 }
 
 /* Find the variable reference starting at p, if there is one. Returns the name
- * bounds and where to carry on from; name_start stays NULL when there is not
+ * bounds and where to go on from; name_start stays NULL when there isn't
  * one, including for a lone % or a $ with nothing usable after it. */
 static void
 find_variable (const char  *p,
@@ -158,7 +158,7 @@ eel_expand_user_input (const char *text)
 
 #ifdef G_OS_WIN32
 	/* Only here: on POSIX glib's own parse expands a leading ~, and knows the
-	 * ~user form as well, which this does not. */
+	 * ~user form as well, which this doesn't. */
 	if (p[0] == '~' && (p[1] == '\0' || p[1] == '/' || p[1] == '\\')) {
 		g_string_append (out, g_get_home_dir ());
 		p++;
@@ -242,7 +242,7 @@ eel_g_file_new_for_user_input (const char *text)
 	}
 
 	/* A home shorthand or a variable only ever stands in for a local path, so
-	 * it is tried last and only when the literal is not already something that
+	 * it is tried last and only when the literal isn't already something that
 	 * can be opened. The expansion is worked out first because it costs
 	 * nothing - that keeps the existence check off every other typed path. */
 	expanded = eel_expand_user_input (text);

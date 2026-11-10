@@ -21,7 +21,7 @@
 */
 
 /* The manifest is read before any of our code runs, so the only way to see it
- * work is from inside a process that carries it. This exe links the app's own.
+ * work is from inside a process that has it. This exe links the app's own.
  *
  * - The process code page is UTF-8, so a narrow call anywhere under us takes
  *   a name outside the machine's code page.
@@ -73,7 +73,7 @@ check_dpi (void)
 	g_print ("  session %lu, awareness %d, v2 %d\n", session, awareness (get_context ()),
 		 equal (get_context (), (HANDLE) (INT_PTR) -4));
 
-	/* Session 0, where an ssh login runs, answers per-monitor v1 with the
+	/* Session 0, where an ssh login runs, reports per-monitor v1 with the
 	   manifest and without it, so only a desktop session can tell. */
 	if (session == 0) {
 		g_print ("  note: session 0, DPI awareness not checked\n");
@@ -150,7 +150,7 @@ main (int argc, char *argv[])
 	check (GetACP () == CP_UTF8);
 
 	/* Before the toolkit, which would set an awareness of its own if the
-	   manifest had not. */
+	   manifest hadn't. */
 	check_dpi ();
 
 	home = test_scratch_dir ("nemo-Gr\xc3\xb6\xc3\x9f" "e-\xe8\xa8\xad\xe5\xae\x9a-XXXXXX", &error);

@@ -27,7 +27,7 @@ G_BEGIN_DECLS
 
 /* The core never reads a settings file. The app reads its own and hands the
    values in, and a job keeps a copy, so a change made while it runs doesn't
-   reach it halfway. */
+   affect it halfway. */
 
 typedef enum {
 	ARC_LINE_CREATE_7Z,

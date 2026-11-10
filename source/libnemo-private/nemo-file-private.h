@@ -85,7 +85,7 @@ struct NemoFileDetails
 	/* owner_real is looked up by us on Windows, once per info load. */
 	guint win32_owner_real_read : 1;
 	/* Whether a link leads nowhere, worked out when first asked and again
-	   after each info load. GIO cannot tell there. */
+	   after each info load. GIO can't tell there. */
 	guint win32_link_end_read : 1;
 	guint win32_link_leads_nowhere : 1;
 #endif
@@ -97,9 +97,9 @@ struct NemoFileDetails
     time_t btime; /* 0 is unknown */
 	
 	char *symlink_name;
-	/* Whether the file leads onto a share its folder is not on, by a link
+	/* Whether the file leads onto a share its folder isn't on, by a link
 	   or as the mount point of one, and the share generation that answer was
-	   read against; 0 is not read yet. */
+	   read against; 0 isn't read yet. */
 	guint share_link_gen;
 	guint share_link_leaves : 1;
 	/* Listed as the link itself, since it leads onto a share. */
@@ -135,7 +135,7 @@ struct NemoFileDetails
 	time_t thumbnail_mtime;
     /* Sizes in device pixels. `want` is the last draw's, `stored` what the
      * file cache's copy was rendered for, and `asked` the last render queued,
-     * so a render that came back no bigger is not asked for again. */
+     * so a render that came back no bigger isn't asked for again. */
     gint thumbnail_want_size;
     gint thumbnail_stored_size;
     gint thumbnail_asked_size;
@@ -146,7 +146,7 @@ struct NemoFileDetails
     eel_boolean_bit thumbnail_from_store : 1;
     /* Set by a refresh, so the freedesktop copy stops being used. */
     eel_boolean_bit thumbnail_ignore_shared : 1;
-    /* The store has a picture for it that is not held, to be read back once
+    /* The store has a picture for it that isn't held, to be read back once
      * the file is near the view. */
     eel_boolean_bit thumbnail_in_store : 1;
 

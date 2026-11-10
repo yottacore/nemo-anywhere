@@ -777,7 +777,7 @@ nemo_bookmark_uri_get_exists (NemoBookmark *bookmark)
 
     /* Asked on the window's thread for every bookmark, on every rebuild of
        the side pane while it reads as missing. One on a share is taken as
-       there, so it never waits on a host that is not answering. */
+       there, so it never waits on a host that isn't answering. */
     if (path_name != NULL && nemo_path_is_on_a_share (path_name)) {
         exists = TRUE;
     } else if (g_file_is_native (bookmark->details->location) &&

@@ -67,7 +67,7 @@ else
 			fFail "source not on a dated snapshot: ${line}"
 		fi
 	done <<<"$uris"
-	[[ "$(sort -u <<<"$dates" | grep -c .)" == 1 ]] || fFail "sources do not share one snapshot: $(sort -u <<<"$dates" | grep . | tr '\n' ' ')"
+	[[ "$(sort -u <<<"$dates" | grep -c .)" == 1 ]] || fFail "sources don't share one snapshot: $(sort -u <<<"$dates" | grep . | tr '\n' ' ')"
 	before="${joined%%debian.sources*}"
 	[[ "$before" != *apt-get* && "$before" != *"apt "* ]] || fFail "apt runs before the sources are moved to the snapshot"
 	grep -q 'Check-Valid-Until "false"' <<<"$joined" || fFail "apt would refuse the snapshot's expired Release files"

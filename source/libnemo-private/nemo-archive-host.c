@@ -110,7 +110,7 @@ nemo_archive_link_options_save (const ArcLinkOptions *options)
 }
 
 /* The defaults are the settings table's, read back with nothing set. The
-   settings test holds the two to each other. */
+   settings test checks that the two match. */
 void
 nemo_archive_choices_init (NemoArchiveChoices *choices)
 {

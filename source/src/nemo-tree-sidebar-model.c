@@ -877,7 +877,7 @@ destroy_children_by_function (FMTreeModel *model, TreeNode *parent, FilePredicat
 		}
 	}
 
-	/* Monitoring is stopped by now, so destroy_node could not tell this
+	/* Monitoring is stopped by now, so destroy_node couldn't tell this
 	 * from a collapse, and the folder would keep a dummy row nobody loads. */
 	if (had_children && parent->first_child == NULL && parent->directory != NULL
 	    && parent->done_loading
@@ -898,7 +898,7 @@ destroy_by_function (FMTreeModel *model, FilePredicate f)
 /* Finds the folders with no sub-folders at all, so they can go without an
  * expander before anyone opens them. One folder at a time and at low priority,
  * since expanding a big folder queues every folder in it. Never on a share,
- * where one folder that is not answering costs about twenty seconds. Hidden
+ * where one folder that isn't answering costs about 20 seconds. Hidden
  * folders count too, so a wrong answer only ever leaves an expander that goes
  * away once the folder is opened. */
 
@@ -920,7 +920,7 @@ probe_free (SubfolderProbe *probe)
 }
 
 /* The two answers differ only where hidden files are off and every sub-folder
-   is hidden. Taking the expander away needs the first: a folder that holds
+   is hidden. Taking the expander away needs the first: a folder that has
    nothing at all. Putting one back needs the second, or opening a folder and
    finding it shows nothing would be undone by the next probe. */
 static void
@@ -988,7 +988,7 @@ probe_files_ready (GObject *source, GAsyncResult *result, gpointer user_data)
 	}
 	g_list_free_full (infos, g_object_unref);
 
-	/* A huge folder of plain files is not worth reading to the end. */
+	/* A huge folder of plain files isn't worth reading to the end. */
 	if (probe->found_shown || probe->seen >= 2000) {
 		probe_done (probe, TRUE, probe->found_shown);
 		return;
@@ -1060,7 +1060,7 @@ probe_next (gpointer user_data)
 	return G_SOURCE_REMOVE;
 }
 
-/* From idle, so a collapse that destroys a long queue does not start and
+/* From idle, so a collapse that destroys a long queue doesn't start and
  * cancel one probe per folder on its way through. */
 static void
 schedule_subfolder_probe (FMTreeModel *model)

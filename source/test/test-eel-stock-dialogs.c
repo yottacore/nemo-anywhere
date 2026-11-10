@@ -22,7 +22,7 @@
 
 /* The message in an error or question dialog can be selected, so it can be
  * copied. A selectable label also takes focus, and the first one took it with
- * the whole message highlighted and the default button unfocused, so every
+ * the whole message selected and the default button unfocused, so every
  * label in the message area has to be selectable and unable to take focus.
  * Needs a display and skips without one. */
 

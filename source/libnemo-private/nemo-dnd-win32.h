@@ -26,7 +26,7 @@
 #include <gtk/gtk.h>
 
 /* Drag @uri_list as Windows itself would, so programs outside the toolkit see
- * the files. @icon_list is nemo's own payload, carried alongside for our own
+ * the files. @icon_list is nemo's own payload, sent alongside for our own
  * windows, and may be NULL. @icon is the drag image and may be NULL. @widget is
  * where the drag started. Blocks until the drag ends, and puts what the target
  * did in @performed.
@@ -35,7 +35,7 @@
  * did the move itself.
  *
  * FALSE means nothing was dragged and the caller should fall back to the
- * toolkit's own drag - anything without a local path cannot go this way. */
+ * toolkit's own drag - anything without a local path can't go this way. */
 gboolean nemo_dnd_win32_drag (GtkWidget       *widget,
 			      GdkDragAction    actions,
 			      const char      *uri_list,

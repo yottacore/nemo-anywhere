@@ -25,7 +25,7 @@
 
 G_BEGIN_DECLS
 
-/* The copies reach each other through the calls below, which carry D-Bus
+/* The copies reach each other through the calls below, which pass D-Bus
    style calls: an interface, a method and a GVariant tuple. Over the session
    bus where there is one. On Windows there is none, since GLib would have to
    start a bus of its own there, so each copy serves a named pipe instead (see
@@ -47,7 +47,7 @@ void      nemo_instances_serve  (const char          *interface_xml,
 
 /* Starts serving, shares settings changes, and takes this copy's place in the
    list. The application's actions can be activated from the other copies,
-   which is how they are asked to quit. FALSE when the others cannot be
+   which is how they are asked to quit. FALSE when the others can't be
    reached at all, such as with no session bus. */
 gboolean  nemo_instances_start  (GApplication *application);
 
@@ -55,12 +55,12 @@ gboolean  nemo_instances_start  (GApplication *application);
 void      nemo_instances_stop   (void);
 
 /* Every other running copy, by a name only good for nemo_instances_call.
-   NULL when they cannot be reached.
+   NULL when they can't be reached.
    Returns: (transfer full): free with g_strfreev */
 GStrv     nemo_instances_list_others (void);
 
 /* One call to every other copy, with no answer waited for. Takes a floating
-   parameters. FALSE when they cannot be reached. */
+   parameters. FALSE when they can't be reached. */
 gboolean  nemo_instances_send_to_others (const char *interface_name,
                                          const char *method_name,
                                          GVariant   *parameters);
@@ -77,7 +77,7 @@ GVariant *nemo_instances_call   (const char          *other,
                                  GError             **error);
 
 #ifndef G_OS_WIN32
-/* Every running copy queues on the one name, so the oldest answers callers
+/* Every running copy queues on the one name, so the oldest takes callers
    from outside and the name passes on when it quits. The list of copies comes
    from numbered slot names instead, since GLib's own bus answers both
    ListQueuedOwners and ListNames with an empty list. Each copy takes the first

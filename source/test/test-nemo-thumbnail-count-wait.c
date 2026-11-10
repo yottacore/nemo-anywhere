@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 
-/* test-nemo-thumbnail-count-wait.c - a slow sub-folder count holds back no
-   picture's thumbnail lookup.
+/* test-nemo-thumbnail-count-wait.c - a slow sub-folder count doesn't hold back
+   any picture's thumbnail lookup.
 
    Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu).
 
@@ -140,7 +140,7 @@ write_image (const char *path, int n)
 	check (gdk_pixbuf_save (pixbuf, path, "png", NULL, NULL));
 	g_object_unref (pixbuf);
 
-	/* Back-dated, or a picture changed in the last two seconds is left
+	/* Back-dated, or a picture changed in the last 2 seconds is left
 	   alone in case it's still being written. */
 	check (g_file_set_attribute_uint64 (location, G_FILE_ATTRIBUTE_TIME_MODIFIED,
 					    (guint64) (g_get_real_time () / G_USEC_PER_SEC) - 3600 - n,

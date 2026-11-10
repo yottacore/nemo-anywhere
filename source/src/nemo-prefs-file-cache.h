@@ -25,7 +25,7 @@
 
 #include <gtk/gtk.h>
 
-/* Binds the cache settings, and wires the usage line and the two buttons. */
+/* Binds the cache settings, and connects the usage line and the 2 buttons. */
 void nemo_prefs_file_cache_setup (GtkBuilder *builder);
 
 #endif /* NEMO_PREFS_FILE_CACHE_H */

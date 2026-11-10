@@ -22,15 +22,15 @@
 
 /* The check that runs before originals are deleted has to find every folder
  * in the archive. A writer may store only the files, and then a folder is
- * there when anything under it is. Answering that by walking every entry once
+ * there when anything under it is. Finding that by walking every entry once
  * per folder made the check grow with folders times entries.
  *
- * So the same tree is checked against two archives of it: one with its folder
- * entries and one without. Both hold the same files plus a pile of others, as
+ * So the same tree is checked against 2 archives of it: one with its folder
+ * entries and one without. Both have the same files plus a pile of others, as
  * a real archive of more than the selection would. The one without may take
- * at most twice as long as the one with. Today the two take about the same;
+ * at most twice as long as the one with. Today the 2 take about the same;
  * with the walk put back, the one without takes several times as long. Both
- * are timed in turn, three times each, and the best of each is compared, so a
+ * are timed in turn, 3 times each, and the best of each is compared, so a
  * busy box slows both sides alike. */
 
 #include <config.h>
@@ -121,7 +121,7 @@ make_tree (const char *top)
 	}
 }
 
-/* Microseconds for one check, or -1 when it does not pass. */
+/* Microseconds for one check, or -1 when it doesn't pass. */
 static gint64
 time_verify (GFile                    *archive,
 	     GList                    *sources,

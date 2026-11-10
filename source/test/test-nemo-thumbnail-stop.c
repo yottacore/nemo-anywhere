@@ -21,7 +21,7 @@
 */
 
 /* Leaving a folder dropped its queued thumbnails, but one a thread had
- * started ran to the end: a 42 MB Photoshop file held its thread for about
+ * started ran to the end: a 42 MB Photoshop file tied up its thread for about
  * 11 s. Here the same file is dropped partway through, on the only thread,
  * and the next picture has to be made within a few seconds. Nothing may be
  * stored for the dropped one, not even a failure.
@@ -115,7 +115,7 @@ set_old_mtime (const char *path)
 {
 	g_autoptr (GFile) location = g_file_new_for_path (path);
 
-	/* Or it is left alone for being changed in the last two seconds. */
+	/* Or it is left alone for being changed in the last 2 seconds. */
 	check (g_file_set_attribute_uint64 (location, G_FILE_ATTRIBUTE_TIME_MODIFIED,
 					    (guint64) (g_get_real_time () / G_USEC_PER_SEC) - 3600,
 					    G_FILE_QUERY_INFO_NONE, NULL, NULL));

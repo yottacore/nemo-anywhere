@@ -152,8 +152,8 @@ run_view (const char *exe, const char *probe, const char *model, const char *vie
 		goto out;
 	}
 
-	/* A run takes about fifteen seconds. The probe gives up on a step after ten,
-	   and three views at this cap still fit the test's timeout. */
+	/* A run takes about 15 seconds. The probe gives up on a step after 10,
+	   and 3 views at this cap still fit the test's timeout. */
 	for (i = 0; i < 900 && alive (pid) && !done; i++) {
 		g_usleep (100 * 1000);
 		g_free (text);

@@ -31,7 +31,7 @@
  * there, with single backslashes, and once with them doubled.
  *
  * Each is started by the app itself, never through GLib's spawn helper, which
- * no bundle has. A helper that will not start is told once, not per file. */
+ * no bundle has. A helper that won't start is told once, not per file. */
 
 #include <config.h>
 
@@ -201,7 +201,7 @@ check_compress (void)
 	check (ours ("rar"));
 	g_free (take_messages ());
 
-	/* Both outputs reach the error, which is all a tool has to say why. */
+	/* Both outputs end up in the error, which is all a tool has to say why. */
 	g_setenv ("NEMO_FAKE_TOOL_FAIL", "1", TRUE);
 	check (!compress ("two.rar"));
 	g_unsetenv ("NEMO_FAKE_TOOL_FAIL");
@@ -320,8 +320,8 @@ check_search (const char *ext, const char *tool)
 
 	search_done = FALSE;
 	check (g_mkdir (docs, 0755) == 0);
-	/* Not text, or it would be read without the converter. A type nothing
-	   shipped has a converter for, so only ours is tried. */
+	/* Not text, or it would be read without the converter. A type no
+	   bundled converter handles, so only ours is tried. */
 	check (g_file_set_contents (doc, "\xd0\xcf\x11\xe0\0\0\0\0", 8, NULL));
 	g_setenv ("NEMO_FAKE_TOOL_SAYS", "alpha november zulu", TRUE);
 
@@ -382,7 +382,7 @@ count_failed (G_GNUC_UNUSED const gchar *program, G_GNUC_UNUSED const gchar *mes
 }
 
 /* Said once per program, so a thumbnailer missing from a bundle is seen
- * without a box for every file. One that runs and says no is not a failure. */
+ * without a box for every file. One that runs and says no isn't a failure. */
 static void
 check_failed_start (const char *tool)
 {
@@ -493,7 +493,7 @@ main (int argc, char *argv[])
 	g_free (text);
 	g_free (dir);
 
-	/* A bare name, as the shipped thumbnailers have, and a full path. */
+	/* A bare name, as the bundled thumbnailers have, and a full path. */
 	dir = g_build_filename (g_get_user_data_dir (), "thumbnailers", NULL);
 	write_text (dir, "fake.thumbnailer",
 		    "[Thumbnailer Entry]\nExec=fake-thumb %i %o\nMimeType=application/x-nemo-fake;\n");

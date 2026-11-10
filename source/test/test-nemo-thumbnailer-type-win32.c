@@ -23,9 +23,9 @@
 /* On Windows a file's type is its extension, ".pdf", while thumbnailers and
  * the list of types not to thumbnail name MIME types, so no thumbnailer was
  * ever found. A stand-in thumbnailer for PDF, this program run with --draw,
- * draws a green 5x4 picture. An OpenDocument file holding a red 5x4 thumbnail
+ * draws a green 5x4 picture. An OpenDocument file with a red 5x4 thumbnail
  * gets it from the app's own reader, by its extension too. And the same file
- * reached as a share is not thumbnailed with the default settings. */
+ * seen through a share isn't thumbnailed with the default settings. */
 
 #include <config.h>
 
@@ -238,7 +238,7 @@ main (int argc, char *argv[])
 	spin ();
 
 	/* The same file through the drive's admin share. Only its path is
-	   looked at, so it need not answer. */
+	   looked at, so it doesn't have to respond. */
 	g_print ("share\n");
 	share = g_strdup_printf ("\\\\localhost\\%c$%s", g_ascii_toupper (path[0]), path + 2);
 	share_uri = g_filename_to_uri (share, NULL, NULL);

@@ -16,7 +16,7 @@
  * one, else what the shell would open it with. NULL when neither knows. */
 GAppInfo    *nemo_associations_win32_default_for_type (const gchar *content_type);
 
-/* The command line an app info made here carries, %1 standing for the file;
+/* The command line an app info made here has, %1 standing for the file;
  * NULL for one that came from GIO. */
 const gchar *nemo_associations_win32_command_of      (GAppInfo    *app);
 

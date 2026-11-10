@@ -1,17 +1,16 @@
 # Fuzz targets for the parsers that read text from outside the program.
 #
-# The same files build two ways. Ordinarily fuzz-main.c is compiled in and each
+# The same files build 2 ways. Ordinarily fuzz-main.c is compiled in and each
 # target is registered as a test that replays its seed corpus, so the targets
 # keep building and the seeds keep meaning something on every suite run - a
 # fuzz target nobody runs is a file that rots. With -Dfuzzing=true, clang and
 # libFuzzer take over: libFuzzer brings its own main, so the driver is left
 # out, and cicd/linux/fuzz.bash runs the real search.
 
-# Replaying seeds through a plain build only proves the targets still run: an
-# over-read walks off the end of the buffer and nothing says so. Backing the
-# drag parser's bookkeeping fix out was seen to pass clean without this and to
-# be caught with it, so the corpus tests carry AddressSanitizer themselves
-# rather than waiting for somebody to set -Db_sanitize for the whole tree. The
+# Replaying seeds through a plain build only proves the targets still run. An
+# over-read walks off the end of the buffer and nothing says so, so the corpus
+# tests build with AddressSanitizer themselves rather than waiting for
+# somebody to set -Db_sanitize for the whole tree. The
 # instrumented target is enough: ASan's allocator sees the overflow wherever the
 # read happens. Dropped where the toolchain has no ASan, which leaves the
 # targets as compile-and-run checks there.
@@ -32,7 +31,7 @@ if get_option('fuzzing')
 endif
 
 # The settings parser is vendored and header-only, so this one links nothing
-# but libm, which its integer parsing reaches for.
+# but libm, which its integer parsing needs.
 fuzzShcl = executable('fuzz-shcl',
   [ 'fuzz-shcl.c' ] + fuzzDriver,
   include_directories: [ shclInclude, ],
@@ -99,7 +98,7 @@ if not is_windows
     link_args: fuzzLinkArgs,
   )
 
-  # Edit link reads the old shortcut again to keep what it does not change.
+  # Edit link reads the old shortcut again to keep what it doesn't change.
   # The target writes each input to a scratch file, removed at exit.
   fuzzLnkEdit = executable('fuzz-lnk-edit',
     [ 'fuzz-lnk-edit.c' ] + fuzzDriver,
@@ -110,8 +109,8 @@ if not is_windows
   )
 endif
 
-# The three old binary Office parsers in the app, each on one stream.
-# fuzz-ole2 reaches them through the compound file as well.
+# The 3 old binary Office parsers in the app, each on one stream.
+# fuzz-ole2 gets to them through the compound file as well.
 fuzzXls = executable('fuzz-xls',
   [ 'fuzz-xls.c' ] + fuzzDriver,
   include_directories: [ rootInclude, ],
@@ -284,11 +283,11 @@ fuzzLnkEditCorpus = files(
 # Under -Dfuzzing there is no main to hand a file list to; the targets are
 # driven by fuzz.bash instead.
 #
-# No colons in these names: meson reads "a:b" as suite:test, so a name carrying
-# one cannot be picked out on the command line.
+# No colons in these names: meson reads "a:b" as suite:test, so a name with
+# one can't be picked out on the command line.
 #
 # These look for a bad access, so a plain build has leak checks off: GLib and
-# GTK hold allocations for the life of the process by design. The sanitizer
+# GTK keep some allocations for the life of the process. The sanitizer
 # lane has suppressions for those, and there the lane's own options stand.
 if not get_option('fuzzing')
   fuzzTestEnv = []

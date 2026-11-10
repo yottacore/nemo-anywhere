@@ -155,8 +155,8 @@ close_menu (void)
 }
 
 /* A closed menu's pointer and keyboard grab lasts until the X server has
-   answered the ungrab. On a busy box that can take a while, and a click or
-   key sent before then never reaches the view (#2026102413432024). */
+   processed the ungrab. On a busy box that can take a while, and a click or
+   key sent before then never gets to the view (#2026102413432024). */
 static gboolean
 grab_held (void)
 {
@@ -482,7 +482,7 @@ item_name (int item)
 	return name;
 }
 
-/* The item with this name, or -1. What else the home folder holds depends
+/* The item with this name, or -1. What else is in the home folder depends
    on the box, so its folders are found by name (#2026102821124143). */
 static int
 item_named (const char *wanted)
@@ -702,7 +702,7 @@ tree_marked_rows (GtkTreeModel *model, GtkTreeViewColumn *column, GtkTreeIter *p
 	}
 }
 
-/* Under Nemo Anywhere the tree's first column holds the dim checkmark, on the
+/* Under Nemo Anywhere the tree's first column has the dim checkmark, on the
    selected row only (#2026111013031711). The other models have no column for it. */
 static gboolean
 tree_marks_follow (GtkTreeView *tree, const char *selected)
@@ -788,7 +788,7 @@ note_title (void)
 
 static const char *const typed = "file-07";
 
-/* Each step waits on what the one before set going, up to ten seconds. */
+/* Each step waits on what the one before set going, up to 10 seconds. */
 /* The list hides its cursor's outline with these, and an icon says whether
    it draws one. */
 static gboolean

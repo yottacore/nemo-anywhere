@@ -24,7 +24,7 @@
  * thumbnail through the thumbnail factory and its text through a real
  * content search. A thumbnailer and a search helper for every one of these
  * types are installed, both this program run with --ran, which leaves a mark.
- * Nothing may leave one. Then damaged files, which must answer nothing. */
+ * Nothing may leave one. Then damaged files, which must return nothing. */
 
 #include <config.h>
 

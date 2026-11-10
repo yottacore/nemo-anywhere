@@ -7,7 +7,7 @@
 ##	    inside it can hit the packer's error box (2026100617051745).
 ##	  - So is gsf-office's. The app reads office files itself, and the
 ##	    program is in no bundle. MSYS2 still has it on a box that has libgsf.
-##	  - The rest get bare program names. MSYS2 ships some with
+##	  - The rest get bare program names. MSYS2 packages some with
 ##	    `/mingw64/bin/...`, which names nothing on a real Windows box.
 ##	  - fetch-sysroot.bash does the same to the cross sysroot with its own
 ##	    commands, since it runs alone inside the image build.

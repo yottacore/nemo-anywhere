@@ -27,7 +27,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 file="${2:-${here}/../../changelog.md}"
 [[ -f "$file" ]] || { echo "no changelog at ${file}" >&2; exit 1; }
 
-## Matched as a literal string, not a pattern - versions carry dots and hyphens.
+## Matched as a literal string, not a pattern, since versions have dots and hyphens.
 ## The template section at the top is commented out, so it is skipped rather than
 ## mistaken for a real release.
 notes="$(awk -v want="## v${version}" '

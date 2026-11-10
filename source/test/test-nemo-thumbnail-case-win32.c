@@ -22,12 +22,12 @@
 
 /* A picture gets a thumbnail whatever the case of its extension, as cameras
  * name them IMG_1001.JPG. On Windows a file's type is its extension as
- * written, so ".JPG" and ".jpg" are two types there, and only the MIME type
+ * written, so ".JPG" and ".jpg" are 2 types there, and only the MIME type
  * behind them is the same.
  *
  * The data dirs point at an empty folder, as in the bundle, which has no
  * gdk-pixbuf-thumbnailer descriptor. A build tree or an MSYS2 install has one,
- * and it answers for image/jpeg in any case, which hides the bug.
+ * and it handles image/jpeg in any case, which hides the bug.
  *
  * Windows-only. */
 

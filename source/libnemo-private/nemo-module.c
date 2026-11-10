@@ -115,7 +115,7 @@ module_object_weak_notify (G_GNUC_UNUSED gpointer user_data, GObject *object)
 }
 
 /* External-plugin loading path: unused on Windows, where nemo loads no plugins
- * (a bad plugin must never hang the app). nemo_module_add_type stays available. */
+ * so a bad plugin can't hang the app. nemo_module_add_type stays available. */
 #ifndef G_OS_WIN32
 static gboolean
 module_is_selected (GType type)

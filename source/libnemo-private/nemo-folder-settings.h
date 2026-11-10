@@ -26,7 +26,7 @@
  * written while "Remember per-folder settings" is off.
  *
  * Changing one value in a folder with no set of its own first copies the
- * set it was using, so the other values do not jump back to the defaults.
+ * set it was using, so the other values don't jump back to the defaults.
  */
 
 #ifndef NEMO_FOLDER_SETTINGS_H

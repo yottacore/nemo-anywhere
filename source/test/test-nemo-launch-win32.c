@@ -1,6 +1,6 @@
 /* Starting a program on Windows. The command-line split runs everywhere; the
- * two brokers only when NEMO_PROBE_LAUNCH is set, since they start real
- * processes. Each broker is asked on its own, so one cannot pass for the other. */
+ * 2 brokers only when NEMO_PROBE_LAUNCH is set, since they start real
+ * processes. Each broker is asked on its own, so one can't pass for the other. */
 
 #include <config.h>
 
@@ -64,8 +64,8 @@ test_split (void)
 	check_split ("\"C:\\unbalanced.exe", "C:\\unbalanced.exe", NULL);
 }
 
-/* A path that is not there must be refused here rather than handed over: the
- * shell answers one with a message box, and the call blocks until it is gone. */
+/* A path that isn't there must be refused here rather than handed over: the
+ * shell shows a message box for one, and the call blocks until it is gone. */
 static void
 test_missing_is_refused (void)
 {

@@ -22,7 +22,7 @@
 
 /* Windows only, and deliberately not built on GTK: it has to be on screen
  * before gtk_init has run. Everywhere else these are no-ops - a Linux or BSD
- * launch reaches its window in about a second and has nothing to cover.
+ * launch shows its window in about a second and has nothing to cover.
  *
  * It runs its own thread and its own message loop, so it keeps painting and
  * scrolling while the main thread is busy starting the application.

@@ -1,5 +1,5 @@
 # Config for ruff, which cicd/utility/lint-python.bash runs over the project's
-# own Python. There is no Python package here to build - this file exists only
+# own Python. There's no Python package here to build. This file is only here
 # so the checker and the editor agree on one set of rules.
 
 [tool.ruff]
@@ -19,8 +19,8 @@ extend-exclude = [
 
 [tool.ruff.lint]
 # Narrow on purpose. W191 and E101 are the indentation rules this config is
-# really for; F and the E7/E9 group are the ones that catch a real mistake.
-# The rest of pycodestyle is whitespace opinion and is not worth the churn.
+# for, and F and the E7/E9 group are the ones that catch a real mistake.
+# The rest of pycodestyle is whitespace opinion and isn't worth the churn.
 # PLW1514: open() with no encoding takes the locale's, which is cp1252 under
 # Windows Python, and these scripts read UTF-8. It's a preview rule, so preview
 # is on for the rules named here only.

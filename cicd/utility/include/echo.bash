@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: The pipeline's output helpers, in one place. Several scripts used
-##	  to carry their own one-line copy of fEcho_Clean, which lost the repeated-
+##	  to have their own one-line copy of fEcho_Clean, which lost the repeated-
 ##	  blank collapsing and made their section spacing differ from everything else.
 ##	- fEcho "msg"       -> a bracketed "[ msg ]" status line
 ##	- fEcho_Clean "msg" -> a plain line; a bare call emits one blank at most,

@@ -108,7 +108,7 @@ nemo_ui_scale_image (GtkImage *image, gdouble leftover)
 
 	g_return_if_fail (GTK_IS_IMAGE (image));
 
-	/* Only these two go through the pixel size; anything else is a picture
+	/* Only these 2 go through the pixel size; anything else is a picture
 	   the code drew at the size it wanted. */
 	type = gtk_image_get_storage_type (image);
 	if (type != GTK_IMAGE_ICON_NAME && type != GTK_IMAGE_GICON) {

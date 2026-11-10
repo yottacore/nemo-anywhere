@@ -28,7 +28,7 @@
 #include <libnemo-extension/nemo-column.h>
 #include <libnemo-private/nemo-file.h>
 
-/* Two type columns nobody outside a terminal wants to read: the raw mime type
+/* There are 2 type columns nobody outside a terminal wants to read: the raw mime type
  * ("application/vnd.oasis.opendocument.text") and the long-form description
  * beside the plain Type column that already says the same thing shorter. Off
  * here rather than deleted, because the attributes behind them are still what
@@ -47,7 +47,7 @@ GList *nemo_sort_columns          (GList       *columns,
 				       char       **column_order);
 
 /* The columns find results show, and their order. Kept always, since find
- * results are not a folder; remember-folder-settings has no say. Saving NULL
+ * results aren't a folder; remember-folder-settings has no say. Saving NULL
  * goes back to the defaults. */
 char **nemo_search_columns_get_visible         (void);
 char **nemo_search_columns_get_order           (void);

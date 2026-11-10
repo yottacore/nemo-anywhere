@@ -2,7 +2,7 @@
 
 ##	- Purpose: Run one shell command in a Windows cross-build step container of
 ##	  its own (win-box.bash), and remove the container after. The command's
-##	  exit code is the result, 77 included. stdin reaches it when it isn't a
+##	  exit code is the result, 77 included. stdin is passed to it when it isn't a
 ##	  terminal. SOURCE_DATE_EPOCH and the job count go in with it.
 ##	- Syntax: win-run.bash [--no-build-win] <label> <sh-command>
 ##	  <label> names the step, and the container after it.

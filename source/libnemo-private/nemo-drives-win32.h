@@ -50,13 +50,13 @@ gboolean nemo_drive_win32_has_media (char letter);
 gboolean nemo_drive_win32_bin_askable (char letter);
 
 /* \\server\share for a letter mapped to a share, read from the same entry.
-   NULL when it is not one, or the entry does not say.
+   NULL when it isn't one, or the entry doesn't say.
    Returns: (transfer full): free with g_free. */
 char *nemo_drive_win32_remote_path (char letter);
 
 /* The mounts GLib's volume monitor would list, one per drive letter shown.
    GLib asks the shell for each one's name as the list is made, and for its
-   icon when drawn, so a letter mapped to a share that is not answering held
+   icon when drawn, so a letter mapped to a share that isn't answering held
    the side pane for the network timeout. A mapped drive here is named and
    drawn from its letter and its entry instead. A name is made only when it is
    first asked for.

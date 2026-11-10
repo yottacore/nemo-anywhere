@@ -24,9 +24,9 @@ $installer = Join-Path $PSScriptRoot "../../install.ps1"
 $tokens = $null
 $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($installer, [ref]$tokens, [ref]$parseErrors)
-if ($parseErrors) { Write-Host "[ FAILED: install.ps1 does not parse: $($parseErrors[0].Message) ]"; exit 1 }
+if ($parseErrors) { Write-Host "[ FAILED: install.ps1 doesn't parse: $($parseErrors[0].Message) ]"; exit 1 }
 
-## Only the three that do the work. fPathRead and fPathWrite are the registry.
+## Only the 3 that do the work. fPathRead and fPathWrite are the registry.
 foreach ($name in @("fPathContains", "fPathAdd", "fPathRemove")) {
 	$def = $ast.Find({
 		param($node)
@@ -74,7 +74,7 @@ foreach ($before in @(
 	$afterAdd = $script:fakePath
 	$held = @($afterAdd -split ';' | Where-Object { $_ -ceq $dir }).Count
 	if (-not $added) { fFail "add to '${before}' reported nothing added" }
-	if ($held -ne 1) { fFail "add to '${before}' gave '${afterAdd}', holding the folder ${held} time(s)" }
+	if ($held -ne 1) { fFail "add to '${before}' gave '${afterAdd}', with the folder in it ${held} time(s)" }
 	if ($before.EndsWith(';') -ne $afterAdd.EndsWith(';')) { fFail "add to '${before}' changed the trailing ';': '${afterAdd}'" }
 
 	$removed = fPathRemove "User" $dir
@@ -92,13 +92,13 @@ foreach ($before in @(
 	$script:fakePath = $before
 	$added = fPathAdd "User" $dir
 	if ($added) { fFail "add to '${before}' added it a second time" }
-	if (-not ($script:fakePath -ceq $before)) { fFail "add to '${before}', which already held it, changed it to '$($script:fakePath)'" }
+	if (-not ($script:fakePath -ceq $before)) { fFail "add to '${before}', which already had it, changed it to '$($script:fakePath)'" }
 }
 
 ## Nothing of ours there: a remove leaves the value alone.
 $script:fakePath = 'a;C:\Other\Nemo Anywhere Two;b;'
-if (fPathRemove "User" $dir) { fFail "remove took something out of a PATH that never held the folder" }
-if (-not ($script:fakePath -ceq 'a;C:\Other\Nemo Anywhere Two;b;')) { fFail "remove changed a PATH that never held the folder: '$($script:fakePath)'" }
+if (fPathRemove "User" $dir) { fFail "remove took something out of a PATH that never had the folder" }
+if (-not ($script:fakePath -ceq 'a;C:\Other\Nemo Anywhere Two;b;')) { fFail "remove changed a PATH that never had the folder: '$($script:fakePath)'" }
 
 if ($failures) {
 	Write-Host "[ FAILED: install.ps1 PATH round trip, ${failures} problem(s) ]"

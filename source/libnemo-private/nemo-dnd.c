@@ -204,7 +204,7 @@ nemo_drag_uri_list_from_array (const char **uris)
 }
 
 /* Split out from the public entry so the parser can be exercised on raw
-   bytes; GtkSelectionData is opaque and cannot be built in a test.
+   bytes; GtkSelectionData is opaque and can't be built in a test.
    Returns: (transfer full): free with nemo_drag_destroy_selection_list */
 GList *
 nemo_drag_build_selection_list_from_raw (const guchar *raw, int size)
@@ -557,7 +557,7 @@ nemo_drag_default_drop_action_for_icons (GdkDragContext *context,
     }
 
 #ifdef G_OS_WIN32
-	/* A held modifier says outright what to do, and on Windows it cannot
+	/* A held modifier says outright what to do, and on Windows it can't
 	 * reach us any other way - see nemo_dnd_win32_modifier_action. The
 	 * toolkit there always offers copy and move, so a link or the menu has
 	 * to go before the checks below, where it would be on X11. */
@@ -680,7 +680,7 @@ nemo_drag_default_drop_action_for_icons (GdkDragContext *context,
 }
 
 /* The first uri a text/uri-list payload names, which is all the move-or-copy
- * decision needs - a drag is one place to another, whatever it holds.
+ * decision needs - a drag is one place to another, whatever is in it.
  * Returns: (transfer full): free with g_free */
 char *
 nemo_drag_first_uri (GtkSelectionData *data)
@@ -701,9 +701,9 @@ nemo_drag_first_uri (GtkSelectionData *data)
 	return first;
 }
 
-/* Files dragged in from a program that is not nemo arrive as a plain uri list,
+/* Files dragged in from a program that isn't nemo arrive as a plain uri list,
  * with none of the per-icon detail, so this is the whole decision for them. It
- * has to reach the same answer as the icon-list path above or a drag from
+ * has to come to the same answer as the icon-list path above or a drag from
  * another file manager behaves differently from one out of our own window. */
 GdkDragAction
 nemo_drag_default_drop_action_for_uri_list (GdkDragContext *context,

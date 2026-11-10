@@ -105,7 +105,7 @@ create_shortcut (const char  *target_path,
 	/* IPersistFile::Save has no create-new mode, so without this it silently
 	 * writes over whatever is already there. Report the clash and let the caller
 	 * uniquify ("another link to ...") the way the symlink path does. The check
-	 * is racy - the shell offers nothing atomic - but the race is a rare loss
+	 * is racy, since the shell doesn't offer anything atomic, but the race is a rare loss
 	 * against an unconditional one. */
 	if (g_file_test (lnk_path, G_FILE_TEST_EXISTS)) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_EXISTS,
@@ -233,7 +233,7 @@ nemo_shortcut_win32_create_paths (const char  *target_path,
 	if (with_portable) {
 		portable = nemo_lnk_portable_path (target_path);
 	}
-	/* The block it goes in holds 260 characters. */
+	/* The block it goes in has room for 260 characters. */
 	if (portable != NULL && g_utf8_strlen (portable, -1) >= MAX_PATH) {
 		g_clear_pointer (&portable, g_free);
 	}
@@ -244,9 +244,9 @@ nemo_shortcut_win32_create_paths (const char  *target_path,
 }
 
 /* The shell reads a shortcut through its item id list, which one made off
- * Windows does not have. What that one holds instead is the path relative to
+ * Windows doesn't have. What that one has instead is the path relative to
  * itself, and the \\server\share path when the target was on a share. The
- * share goes last, since one that is not answering takes a long time to say
+ * share goes last, since one that isn't answering takes a long time to say
  * so. A path with variables in it is read by the shell, and comes here only
  * when the shell found nothing there. */
 static char *
@@ -394,7 +394,7 @@ nemo_shortcut_win32_read_target (const char  *lnk_path,
 	*target_path = g_utf16_to_utf8 ((const gunichar2 *) buf, -1, NULL, NULL, NULL);
 	ok = (*target_path != NULL);
 	if (!ok) {
-		/* Every other failure here leaves an error behind; this one did not. */
+		/* Every other failure here leaves an error behind; this one didn't. */
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA,
 				     _("The shortcut's target couldn't be read."));
 	}
@@ -478,7 +478,7 @@ nemo_shortcut_info_clear (NemoShortcutInfo *info)
 	g_clear_pointer (&info->description, g_free);
 }
 
-/* Unlike nemo_shortcut_win32_read, a shortcut with no file target is not an
+/* Unlike nemo_shortcut_win32_read, a shortcut with no file target isn't an
  * error here: the editor still has to open on it. Every field comes back set,
  * empty where the shortcut says nothing. */
 gboolean
@@ -535,8 +535,8 @@ nemo_shortcut_win32_read_info (const char        *lnk_path,
 #define TARGET_CACHE_LIMIT 2000
 
 /* Whether the shortcut points at a folder, read from the attributes the .lnk
- * stores rather than from the target itself - a shortcut to a share that is not
- * answering costs about twenty seconds, and this is asked from the draw path.
+ * stores rather than from the target itself - a shortcut to a share that isn't
+ * answering costs about 20 seconds, and this is asked from the draw path.
  * Kept for the same reason: it is a COM load and a file read each time. */
 gboolean
 nemo_shortcut_win32_target_is_dir (const char *lnk_path,
@@ -715,7 +715,7 @@ nemo_shortcut_win32_open_action (const char  *path,
 	}
 	g_hash_table_destroy (seen);
 
-	/* The shell cannot open a chain it could not read all of itself, so
+	/* The shell can't open a chain it couldn't read all of itself, so
 	 * a file at the end of one is opened here, as a folder is. Never a
 	 * shortcut, though: one that leads back to itself would be opened
 	 * here again, and again. */

@@ -53,7 +53,7 @@
    thread, which is what makes this enough. */
 static GPrivate covered = G_PRIVATE_INIT (NULL);
 
-/* The define is the loudest of the three ways in: on, nothing quiets it. */
+/* The define is the loudest of the 3 ways in: on, nothing quiets it. */
 static const gboolean forced_on = (NEMO_TESTGUARD_ALL_DELETES != 0);
 
 /* 1 for on, 0 for off, -1 for "said nothing". */
@@ -79,7 +79,7 @@ parse_choice (const char *text)
 	return -1;
 }
 
-/* Read once. The environment does not change under a running process, and a
+/* Read once. The environment doesn't change under a running process, and a
    delete is no place to be parsing strings. */
 static int
 env_choice (void)
@@ -319,7 +319,7 @@ dialog_monitor (GdkDisplay *display)
 	return monitor;
 }
 
-/* Forty paths and a call stack can be taller than the screen, so the detail
+/* A list of 40 paths and a call stack can be taller than the screen, so the detail
    scrolls and the buttons keep their own row below it. The window is only as
    big as its text wants, up to the caps above, and it takes width before
    height so a long path stays on one line where it can. */
@@ -437,7 +437,7 @@ ask (const char *op, char *primary, char *detail)
 	gboolean go_ahead;
 
 	/* A test binary has no display and often no loop to hand a dialog to, and
-	   waiting on an answer that cannot come would just hang it. */
+	   waiting on an answer that can't come would hang it. */
 	if (gdk_display_get_default () == NULL) {
 		nemo_delete_guard_log ("test guard: %s went ahead, nothing to ask on", op);
 		g_free (primary);
@@ -454,7 +454,7 @@ ask (const char *op, char *primary, char *detail)
 	g_cond_init (&data->done);
 
 	/* Owning the default context means this is the thread running the GTK
-	   loop, so the dialog can just go up here. */
+	   loop, so the dialog can go up here. */
 	if (g_main_context_is_owner (g_main_context_default ())) {
 		data->refs++;
 		show_dialog (data);
@@ -593,7 +593,7 @@ nemo_delete_testguard_describe_overwrite (GFile *source,
 }
 
 /* The two below share the delete path's dialog, but build their own middle
-   section: one list of paths cannot say which side is being lost. */
+   section: one list of paths can't say which side is being lost. */
 static gboolean
 ask_described (const char *op,
 	       char       *primary,

@@ -2,7 +2,7 @@
  *
  * A shortcut's icon is its target's, which only the shell knows how to find:
  * the target may be a program with its own icon, a folder, or a shell item
- * with no path at all. SHGetFileInfo answers with an index into the system
+ * with no path at all. SHGetFileInfo returns an index into the system
  * image lists, and the list for the wanted size hands back a real icon at
  * that size rather than a scaled one. None of it needs Explorer running.
  *
@@ -40,7 +40,7 @@ GdkPixbuf *gdk_win32_icon_to_pixbuf_libgtk_only (HICON    hicon,
 #define CACHE_LIMIT 2000
 
 /* Both on the main thread only. A cached NULL is a shortcut the shell had no
-   icon for, so it is not asked again. A pending key belongs to its lookup. */
+   icon for, so it isn't asked again. A pending key belongs to its lookup. */
 static GHashTable *cache = NULL;
 static GHashTable *pending = NULL;
 
@@ -212,8 +212,8 @@ drive_is_elsewhere (const NemoLnk *lnk)
 }
 
 /* The shell's icon for the shortcut at path, or for its target's name when
-   the target or the shortcut's own icon is on a share. A shortcut that cannot
-   be read gets none, since what it points at cannot be told. */
+   the target or the shortcut's own icon is on a share. A shortcut that can't
+   be read gets none, since what it points at can't be told. */
 static GdkPixbuf *
 shortcut_icon (const char *path, gint pixel_size)
 {

@@ -25,8 +25,8 @@
  * the heap grows by a block or more a round. A cache that fills on first use
  * is filled in the warm-up rounds, before the count starts.
  *
- * Argument: the case to run. A progress manager is held throughout, as the
- * app holds one for its life. */
+ * Argument: the case to run. A progress manager is kept throughout, as the
+ * app keeps one for its life. */
 
 #include <config.h>
 
@@ -205,7 +205,7 @@ typedef struct {
 	GList *dragged;
 } ClipboardCase;
 
-/* A drag of files that are not the ones cut, which leaves the cut alone. */
+/* A drag of files that aren't the ones cut, which leaves the cut alone. */
 static void
 clipboard_round (gpointer data)
 {
@@ -324,7 +324,7 @@ zip_cancel_round (gpointer data)
 	check (zip->canceled && !zip->succeeded);
 }
 
-/* Bytes that do not compress, so there is time to stop it. */
+/* Bytes that don't compress, so there is time to stop it. */
 #define NOISE_BYTES (8 * 1024 * 1024)
 
 static void
@@ -538,7 +538,7 @@ wait_for_flag (const gboolean *flag, const char *what)
 
 #ifdef G_OS_WIN32
 /* 2026101913541100: GLib's file monitor on Windows leaks the new name of a
-   rename it reports, and a settings round has two. Asked of the GLib that is
+   rename it reports, and a settings round has 2. Asked of the GLib that is
    loaded, by renaming a watched file away and back, so the settings case runs
    again once it has the fix. */
 typedef struct {
@@ -1082,7 +1082,7 @@ worker_main (gpointer data)
 	return NULL;
 }
 
-/* Returns once the worker holds its memory, so it counts in this round. */
+/* Returns once the worker has its memory, so it counts in this round. */
 static void
 worker_start (Worker *worker)
 {
@@ -1119,7 +1119,7 @@ typedef struct {
 	Worker second;
 } SelfCheck;
 
-/* Leaks one small block a round. A thread starts in each of the first two
+/* Leaks one small block a round. A thread starts in each of the first 2
    counts and the first one ends in the third, giving back more than half of
    what the leak took there. Taking the third count as it came, the leak got
    through. */

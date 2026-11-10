@@ -122,7 +122,7 @@ add (Scan *s, gboolean rgb, goffset offset, goffset length, guint width, guint h
 
 /* Walks the markers to the frame header for its size. Several cameras store
  * the sensor data itself as a lossless or 12 bit JPEG, which the toolkit
- * cannot decode, so only an ordinary 8 bit frame counts. */
+ * can't decode, so only an ordinary 8 bit frame counts. */
 static gboolean
 jpeg_size (Reader *r, goffset at, goffset length, guint *width, guint *height)
 {
@@ -545,7 +545,7 @@ scan_cr3 (Scan *s)
 	goffset body, end, inner, inner_end;
 	guint8 b[16];
 
-	/* The preview box sits in a top level box of Canon's own, after eight
+	/* The preview box is in a top level box of Canon's own, after 8
 	 * bytes of its own. Its JPEG follows sixteen bytes of size fields. */
 	if (find_box (s->r, 0, s->r->size, "uuid", preview_id, &body, &end) &&
 	    find_box (s->r, body + 8, end, "PRVW", NULL, &inner, &inner_end) &&
@@ -653,7 +653,7 @@ nemo_raw_load (GInputStream *stream, int size, GCancellable *cancellable)
 {
 	/* A chain that loops, with every entry pointing at the same maker note or
 	 * preview, repeats its reads up to MAX_IFDS times over, and each is a
-	 * seek and a read on the file. Real files need under fifty. */
+	 * seek and a read on the file. Real files need under 50. */
 	Reader r = { stream, cancellable, 0, MAX_READS };
 	Scan s = { 0 };
 	GdkPixbuf *pixbuf = NULL;
@@ -694,7 +694,7 @@ nemo_raw_load (GInputStream *stream, int size, GCancellable *cancellable)
 		s.found[j] = p;
 	}
 
-	/* One that will not decode gives way to the next. */
+	/* One that won't decode gives way to the next. */
 	for (i = 0; i < s.n_found && pixbuf == NULL; i++) {
 		if (g_cancellable_is_cancelled (cancellable)) {
 			return NULL;
@@ -705,7 +705,7 @@ nemo_raw_load (GInputStream *stream, int size, GCancellable *cancellable)
 		return NULL;
 	}
 
-	/* The file's own orientation wins over any the JPEG carries, since the
+	/* The file's own orientation wins over any the JPEG has, since the
 	 * preview is stored the way the sensor saw it. */
 	own = gdk_pixbuf_get_option (pixbuf, "orientation");
 	orientation = s.orientation >= 1 && s.orientation <= 8 ? s.orientation :

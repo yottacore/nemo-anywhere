@@ -1586,7 +1586,7 @@ setup_file_path_mounted_mount (GFile *location, ButtonData *button_data)
             if (button_data) {
                 button_data->mount_icon_name = nemo_get_mount_icon_name (mount);
                 /* The volume monitor calls a drive root "(C:) Windows"; every
-                   other surface calls it "C:\", so this one does too. */
+                   other part of the UI calls it "C:\", so this one does too. */
                 button_data->dir_name = nemo_get_drive_root_name (location);
                 if (button_data->dir_name == NULL) {
                     button_data->dir_name = g_mount_get_name (mount);

@@ -2,17 +2,18 @@
 ##		- GUI launch smoke for the native Windows build: start the exe on a
 ##		  scratch folder, wait for its main window, see that it is still alive a
 ##		  few seconds later, then end it by its pid. The --version smoke never
-##		  opens a window, so it proves nothing about GTK, the theme or the first
-##		  listing.
+##		  opens a window, so it proves nothing about GTK, the theme, or the
+##		  first listing.
 ##		- Every setting and cache goes to a scratch folder, so the box's own
 ##		  config is never read or written. A crash report there fails the run.
 ##		- Any critical on stderr fails the run, apart from the few GDK logs on
-##		  every start in a session with no monitor. That is both an ssh login
-##		  (session 0) and the disconnected desktop session a scheduled task
-##		  reaches, so G_DEBUG=fatal-criticals would stop every run there.
+##		  every start in a session with no monitor. Both an ssh login, which is
+##		  session 0, and the disconnected desktop session a scheduled task runs
+##		  in have no monitor, so G_DEBUG=fatal-criticals would stop every run
+##		  there.
 ##		- Session 0 has no desktop to show on: the main window is made but never
 ##		  visible, so there it only has to exist. Anywhere else it has to show.
-##		- Exits 77 where it cannot run: not Windows, or no exe.
+##		- Exits 77 where it can't run: not Windows, or no exe.
 ##	Syntax:
 ##		pwsh -NoProfile -File cicd/win/gui-launch-smoke.ps1 -Exe <exe> -RuntimeBin <dir> [-Seconds <n>]
 ##	Test ID: dd5hy
@@ -116,7 +117,7 @@ try {
 			## It reads "Loading..." until the folder is listed.
 			$title = [NaSmoke]::MainWindow([uint32]$proc.Id, $session -ne 0)
 			Write-Host "  ${Seconds}s later: '${title}'"
-			if ($null -eq $title -or -not $title.Contains("browse here")) { $failures += "the window is not on the folder asked for: '${title}'" }
+			if ($null -eq $title -or -not $title.Contains("browse here")) { $failures += "the window isn't on the folder asked for: '${title}'" }
 		}
 	}
 } finally {

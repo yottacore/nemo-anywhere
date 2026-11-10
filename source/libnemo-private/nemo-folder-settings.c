@@ -259,7 +259,7 @@ nemo_folder_settings_adopt (NemoFile *folder)
 	nemo_file_set_metadata (folder, NEMO_METADATA_KEY_FOLDER_SETTINGS_SAVED, NULL, "true");
 }
 
-/* Views write their settings back while a folder loads. That is not a change,
+/* Views write their settings back while a folder loads. That isn't a change,
  * and must not give a folder that has nothing saved a set of its own. */
 static gboolean
 same_as_used (NemoFile *folder, const char *key, const char *default_value, const char *value)

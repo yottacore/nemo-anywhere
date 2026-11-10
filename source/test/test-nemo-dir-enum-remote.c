@@ -20,7 +20,7 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* While gvfsd-fuse runs, every gvfs location (smb, sftp and the rest) also has
+/* While gvfsd-fuse runs, every gvfs location, such as smb or sftp, also has
  * a path, under /run/user/<uid>/gvfs. gvfs's enumerator refuses its sync
  * next_file once it was opened async. The folder listing took any folder with
  * a path for local and read it through a wrapper that makes that sync call, so

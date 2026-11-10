@@ -86,7 +86,7 @@ arc_volume_preset_find (const char *text)
 
 /* Digits, grouped by commas the way the presets show them or not at all, then
    a point and more digits. "1,5" isn't a grouping, and could mean 1.5, so it
-   isn't a number here. No sign, exponent, hex, inf or nan, which strtod would
+   isn't a number here. No sign, exponent, hex, inf, or nan, which strtod would
    take. */
 static gboolean
 read_plain_number (const char  *text,
@@ -135,7 +135,7 @@ read_plain_number (const char  *text,
 	return TRUE;
 }
 
-/* Sizes are read the way archivers write them: k, m, g and t are 1024-based,
+/* Sizes are read the way archivers write them: k, m, g, and t are 1024-based,
    and a bare number is bytes. Anything that comes out under a byte, or past
    what a size can hold, is refused, since a size of 0 means no volumes. */
 gboolean
@@ -317,7 +317,7 @@ arc_volume_file (GFile     *destination,
 
 /* Renames a lone volume back to the name that was asked for. The digit count
    is whatever the first volume turned out to be written with, since rar picks
-   it and 7z always uses three. Answers the file the result is in either way.
+   it and 7z always uses 3. Answers the file the result is in either way.
    Returns: (transfer full): unref with g_object_unref */
 GFile *
 arc_collapse_volume (GFile     *destination,
@@ -379,7 +379,7 @@ unfinished_volume (GFile *file)
 	return tmp;
 }
 
-/* Walks the volumes a split actually left on disk, stopping at the first gap in
+/* Walks the volumes a split left on disk, stopping at the first gap in
    each digit width, since only one width was ever used. */
 void
 arc_for_each_volume (GFile       *destination,

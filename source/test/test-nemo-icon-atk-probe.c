@@ -30,7 +30,7 @@
  * index that were still valid. One "ok" or "FAIL" line per check goes to
  * $NEMO_ATK_OUT, and "done" at the end.
  *
- * No symbol of the program is used. Where an icon really is comes from the
+ * No symbol of the program is used. Where an icon is comes from the
  * canvas item behind its accessible object. */
 
 #include <stdio.h>
@@ -40,7 +40,7 @@
 #include <gtk/gtk.h>
 #include <eel/eel-canvas.h>
 
-/* Item bounds are doubles rounded two ways; allow for that. */
+/* Item bounds are doubles rounded 2 ways; allow for that. */
 #define SLACK 1
 
 static FILE       *out;
@@ -142,8 +142,8 @@ inside (const GdkRectangle *inner, const GdkRectangle *outer)
 		inner->y + inner->height <= outer->y + outer->height + SLACK;
 }
 
-/* In the icon view the picture sits centered at the top, with the label
-   below. In the compact view it sits at the left, with the label beside. */
+/* In the icon view the picture is centered at the top, with the label
+   below. In the compact view it's at the left, with the label beside. */
 static gboolean
 picture_placed (const GdkRectangle *image, const GdkRectangle *icon)
 {
@@ -342,7 +342,7 @@ check_removal (void)
 	g_free (line);
 }
 
-/* Up to ten seconds for the window and its icons. */
+/* Up to 10 seconds for the window and its icons. */
 static gboolean
 tick (G_GNUC_UNUSED gpointer data)
 {
@@ -391,7 +391,7 @@ tick (G_GNUC_UNUSED gpointer data)
 		start_removal ();
 		return G_SOURCE_CONTINUE;
 	}
-	/* The file monitor takes a moment; up to five seconds. */
+	/* The file monitor takes a moment; up to 5 seconds. */
 	if (removed_count == 0 && ++removal_waited < 50) {
 		return G_SOURCE_CONTINUE;
 	}

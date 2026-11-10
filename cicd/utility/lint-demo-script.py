@@ -3,7 +3,7 @@
 ##	- Purpose:
 ##		Static checks on the demo recorder. It drives the app through settings keys
 ##		and coordinates, and everything it gets wrong is silent: a renamed setting
-##		just stops configuring anything, and a column that prints an account name
+##		stops configuring anything, and a column that prints an account name
 ##		only shows up once the gif is published. Reading the file with ast keeps
 ##		this out of numpy, scipy and PIL, which the recorder itself needs.
 ##	- Syntax:
@@ -71,9 +71,9 @@ def main():
         fail("no settings found in the recorder - has START_SETTINGS been renamed?")
     for key in sorted(written):
         if key not in schema:
-            fail(f"demo writes '{key}', which is not a field in the schema")
+            fail(f"demo writes '{key}', which isn't a field in the schema")
 
-    ## Nothing on screen may carry the account name of the box it was recorded on.
+    ## Nothing on screen may show the account name of the box it was recorded on.
     columns = written.get("list-view.default-visible-columns") or ""
     for col in (c.strip() for c in columns.strip().strip("[]").split(",")):
         if col in SECRET_COLUMNS:

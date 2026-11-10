@@ -25,7 +25,7 @@
  * in the list view, and the probe sorts it by Size, largest first. Then:
  *
  * - It opens the picture folder inside, which switches itself to icons. Those
- *   are sorted by size, reversed, whether the window holds the sort or the
+ *   are sorted by size, reversed, whether the window has the sort or the
  *   picture folder takes the parent's settings.
  * - There it sorts by type and goes back. With per-folder settings off the
  *   window's sort follows, so the list is by Type. With them on the parent
@@ -219,8 +219,8 @@ in_folder (const char *name)
 	return title != NULL && g_str_has_prefix (title, name) && title[strlen (name)] == ' ';
 }
 
-/* A view settles a moment after it shows, so a check holds for a second
-   before it counts. Gives up after ten. */
+/* A view settles a moment after it shows, so a check has to pass for a second
+   before it counts. Gives up after 10. */
 static gboolean
 holds (gboolean now)
 {

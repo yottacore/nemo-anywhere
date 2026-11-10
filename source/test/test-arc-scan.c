@@ -1,6 +1,6 @@
 /* The scan behind the archive size totals, on a scratch tree: folder and
  * file links, a link back up that loops, one to itself, one that leads
- * nowhere, a .lnk, made-up nested, other and share mounts, and on Windows a
+ * nowhere, a .lnk, made-up nested, other, and share mounts, and on Windows a
  * junction and a junction loop. Each mix's total against what that mix lets
  * in, an option turned off and one turned on mid-scan, the gap between
  * reports, Cancel, and the app's own host on the same tree. Then the job's
@@ -497,7 +497,7 @@ listed_under (const char *relative)
 	return found;
 }
 
-/* Every report, and the narrowest gap between two. */
+/* Every report, and the narrowest gap between 2. */
 typedef struct {
 	ArcScanReport last;
 	guint         count;
@@ -775,7 +775,7 @@ check_reached_twice (void)
 }
 
 /* A name listed with no size, as in a folder that can be read but not
-   searched, and one with no type either, as a file the system holds in
+   searched, and one with no type either, as a system file in
    System Volume Information. Neither goes in the list, nor anything below
    them; both count as unreadable. b.bin has no size, deeper no type, so
    c.bin is never seen. */
@@ -941,7 +941,7 @@ list_of (ArcLinkChoice symlinks,
 	fake_reset (NULL);
 	list = arc_scan_list (&fake_host, root, paths, &links, stores, made_up_mounts (), NULL, NULL, NULL);
 	g_free (sel);
-	/* NULL only when cancelled, and nothing can cancel this. Every check
+	/* NULL only when canceled, and nothing can cancel this. Every check
 	   after it reads the list. */
 	if (list == NULL) {
 		EEL_ANALYZER_SKIP ("infinite-loop") // g_error's for (;;) after a fatal g_log

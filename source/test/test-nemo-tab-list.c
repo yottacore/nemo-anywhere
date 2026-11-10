@@ -244,7 +244,7 @@ main (int argc, char *argv[])
 	EXPECT (list, "A:0 *B:0 B1:1 *B2:1 *B2a:2 B2b:2 See:0");
 
 	/* Sub-tabs under a switch they share, from a stack marked as sub-tabs.
-	   A stack inside a page that is not marked is the page's own. */
+	   A stack inside a page that isn't marked is the page's own. */
 	{
 		GtkWidget *root3 = gtk_stack_new ();
 		GtkWidget *list3 = nemo_tab_list_new ();

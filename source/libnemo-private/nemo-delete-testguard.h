@@ -26,24 +26,24 @@
  * dialog. The normal confirmations are off while it is armed, so nothing is
  * asked about twice.
  *
- * Two more ways a file stops being where it was, neither of which reaches the
+ * There are 2 more ways a file stops being where it was, neither of which goes through the
  * delete path. A move takes the original away from its old location, and GIO
  * does that in one step with nothing to hook. An overwrite destroys whatever
  * was at the target, inside g_file_copy or g_file_move, with no call of ours
- * anywhere near it. Both ask here, and both name the two paths involved rather
+ * anywhere near it. Both ask here, and both name the 2 paths involved rather
  * than one list, since which side is being lost is the whole question.
  *
- * It sits at two levels. A job asks once, up front, for everything it is about
- * to take. Below that, the two functions that actually remove a file ask for
+ * It works at 2 levels. A job asks once, up front, for everything it is about
+ * to take. Below that, the 2 functions that remove a file ask for
  * anything that got there without a job having asked - that is the half which
  * catches a path nobody knew about. The two are kept from doubling up by a
  * thread-local mark, since a job and the removals it drives run on one thread.
  * The overwrite ask ignores that mark: a job asks about its sources, never
  * about a target that happened to already exist.
  *
- * Three things can arm it, and the first one that speaks wins. The define
+ * There are 3 things that can arm it, and the first one that speaks wins. The define
  * below only ever arms: at 1 every run of the build asks and neither of the
- * other two can take that back. At 0 the NEMO_TESTGUARD_ALL_DELETES
+ * other 2 can take that back. At 0 the NEMO_TESTGUARD_ALL_DELETES
  * environment variable decides, either way, and with nothing there the
  * debug.testguard-all-deletes setting does. That setting is on by default
  * while the removal it was built for is still unexplained, so a build asks
@@ -118,7 +118,7 @@ void     nemo_delete_testguard_end      (void);
 	nemo_delete_testguard_ask_overwrite_at ((op), (source), (target), G_STRFUNC, __FILE__, __LINE__)
 
 /* What the dialog would say, minus the backtrace. Exposed because the dialog
-   itself needs a display, and the wording of these two is the point of them. */
+   itself needs a display, and the wording of these 2 is the point of them. */
 char *nemo_delete_testguard_describe_move      (GList *files,
 						GFile *destination);
 char *nemo_delete_testguard_describe_overwrite (GFile *source,

@@ -79,7 +79,7 @@ stop (GPid pid)
 	g_spawn_close_pid (pid);
 }
 
-/* Different shapes, so the rows are not all one height. */
+/* Different aspect ratios, so the rows aren't all one height. */
 static void
 make_pictures (const char *folder)
 {

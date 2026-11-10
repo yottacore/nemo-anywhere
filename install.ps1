@@ -5,7 +5,7 @@
 ##		  covers: Windows, Linux, BSD, WSL, and macOS once there is a build.
 ##		  Fetches a release build, verifies its checksum, and installs it as a
 ##		  self-contained folder plus a menu entry and a name on PATH.
-##		- Full parity with install.bash - same options, same plan, same result.
+##		- Full parity with install.bash: same options, same plan, same result.
 ##		  Either script alone does the whole job. This one runs on Windows
 ##		  PowerShell 5.1 or PowerShell 7; install.bash needs nothing but a shell.
 ##		- Idempotent: reinstalling replaces the folder in place, and -Uninstall
@@ -42,7 +42,7 @@
 	Reinstalling replaces an existing copy in place. Nothing is changed until the
 	plan has been printed and accepted.
 
-	Covers Windows, Linux, BSD, WSL and macOS. install.bash is the same installer
+	Covers Windows, Linux, BSD, WSL, and macOS. install.bash is the same installer
 	for anyone who would rather not need PowerShell.
 
 .PARAMETER Release
@@ -55,7 +55,7 @@
 	installs for everyone and does need it. Defaults to user.
 
 .PARAMETER From
-	Install this archive - a path or a URL - instead of fetching a release.
+	Install this archive, from a path or a URL, instead of fetching a release.
 	It isn't checked against a checksums file.
 
 .PARAMETER NoVerify
@@ -73,7 +73,7 @@
 	Print the installer's version and exit.
 
 .PARAMETER Help
-	List the options and exit. Get-Help can't reach a script run as a one-liner,
+	List the options and exit. Get-Help can't read a script run as a one-liner,
 	so this is the way to see them there.
 
 .EXAMPLE
@@ -112,7 +112,7 @@ $InstallerVersion = "1.5.0"
 $AppName = "Nemo Anywhere"
 $ExeName = "nemo-anywhere"
 
-## `exit` is only safe when this really is its own process. The one-liner runs
+## `exit` is only safe when this is its own process. The one-liner runs
 ## the downloaded text inside the caller's shell, where an exit closes their
 ## window along with the error it just printed. So failures travel as an
 ## exception, and only a real script file turns that into an exit code.
@@ -126,7 +126,7 @@ $priv = $false
 #------------------------------------------------------------------------------
 # Output helpers
 
-## Same shape as install.bash: fEcho prints a bracketed status line,
+## Same format as install.bash: fEcho prints a bracketed status line,
 ## fEcho_Clean a plain one.
 function fEcho       { param([string]$Msg) Write-Host "[ $Msg ]" }
 function fEcho_Clean { param([string]$Msg = "") Write-Host $Msg }
@@ -137,7 +137,7 @@ function fFail {
 	Write-Host "FAILED: $Msg" -ForegroundColor Red
 	foreach ($hint in $Hints) { Write-Host "  $hint" }
 	Write-Host ""
-	## Carries nothing to print; fFail has said it all.
+	## Has nothing to print; fFail has said it all.
 	throw (New-Object System.OperationCanceledException "installer-abort")
 }
 
@@ -148,7 +148,7 @@ function fInnerMessage {
 	return $ex.Message
 }
 
-## Access denied and file in use are the two that happen, and they need
+## Access denied and file in use are the 2 that happen, and they need
 ## opposite advice.
 function fFileError {
 	param($ErrorRecord, [string]$What, [string]$Path)
@@ -244,7 +244,7 @@ function fResolveTag {
 	$tags = @(foreach ($rel in @($releases)) { if ($rel.tag_name) { [string]$rel.tag_name } })
 	if ($tags.Count -eq 0) { return $null }
 	## Ordinal, as install.bash sorts under LC_ALL=C. Sort-Object compares by
-	## culture and ignores case, so the two could pick different tags.
+	## culture and ignores case, so the 2 could pick different tags.
 	[string[]]$keys   = @($tags | ForEach-Object { fVersionKey $_ })
 	[string[]]$ranked = $tags
 	[Array]::Sort($keys, $ranked, [StringComparer]::Ordinal)
@@ -350,8 +350,8 @@ function fSafeRm_Under {
 			if ($LASTEXITCODE -ne 0) { fWarn "couldn't remove ${p}"; $ok = $false }
 			continue
 		}
-		## A virus scanner can hold a file just written for a moment, and Windows
-		## then refuses the delete.
+		## A virus scanner can lock a new file for a moment, and Windows then
+		## refuses the delete.
 		for ($try = 1; ; $try++) {
 			try { fSafeRm_Tree $item; break } catch {
 				if ($try -ge 10) { fWarn "couldn't remove ${p}: $(fInnerMessage $_)"; $ok = $false; break }
@@ -382,7 +382,7 @@ function fRmPrefix {
 function fHoldersOf {
 	param([string[]]$Folder)
 	## Win32_Process exposes ExecutablePath for processes whose handle Get-Process
-	## cannot open (protected or cross-session), so a running instance is not read
+	## can't open, protected or in another session, so a running instance isn't read
 	## as absent. Match on the folder plus a separator so C:\foo doesn't hit
 	## C:\foobar.
 	$fulls = @($Folder | ForEach-Object { [System.IO.Path]::GetFullPath($_).TrimEnd('\') + '\' })
@@ -405,9 +405,9 @@ function fHoldersOf {
 }
 
 ## A copy that is closing takes a moment, and the session bus an older build
-## started lives in the install folder and outlives its window by a few seconds,
-## so closing the app is not enough on its own. Wait it out, then say what is
-## actually holding the folder rather than blaming the app.
+## started runs from the install folder and outlives its window by a few seconds,
+## so closing the app isn't enough on its own. Wait it out, then say what has the
+## folder open rather than blaming the app.
 function fWaitUntilFree {
 	param([string[]]$Folder, [int]$Seconds = 10)
 	for ($i = 0; $i -lt $Seconds; $i++) {
@@ -423,7 +423,7 @@ function fWaitUntilFree {
 
 ## Not Move-Item: when a rename is refused, pwsh 7 falls back to moving the
 ## files one at a time, so a folder with one file held open ends up split in
-## two. Every caller renames within one folder, so no copy is ever needed.
+## 2. Every caller renames within one folder, so no copy is ever needed.
 function fRenameFolder {
 	param([string]$From, [string]$To)
 	[System.IO.Directory]::Move($From, $To)
@@ -535,7 +535,7 @@ function fSh {
 	if ($LASTEXITCODE -ne 0 -and -not $Soft) { fFail "$($Argv -join ' ') failed (exit ${LASTEXITCODE})" }
 }
 
-## Where a symlink points, or nothing when the path is not one.
+## Where a symlink points, or nothing when the path isn't one.
 function fLinkTarget {
 	param([string]$Path)
 	$item = Get-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
@@ -543,8 +543,8 @@ function fLinkTarget {
 	return @($item.Target)[0]
 }
 
-## Write the desktop launcher, preferring the one shipped in the prefix and
-## rewriting Exec/Icon to absolute paths (nothing else knows where we landed).
+## Write the desktop launcher, preferring the one in the prefix and rewriting
+## Exec/Icon to absolute paths, since nothing else knows where the prefix is.
 function fInstallLauncher {
 	$shipped = Join-Path $prefix "share/applications/${ExeName}.desktop"
 	$icon    = ""
@@ -602,7 +602,7 @@ function fRefreshCaches {
 # Script entry point
 
 ## Everything runs from here, so preferences and strict mode last only for the
-## run, the temp folder goes whatever happens, and a failure never reaches the
+## run, the temp folder goes whatever happens, and a failure never gets to the
 ## caller's shell as an exit.
 function fMain {
 	fEcho_Clean ""
@@ -642,8 +642,8 @@ function fMain {
 		default                   { fFail "unsupported architecture: ${rawArch}" }
 	}
 
-	## GUI package layout, both platforms: the whole folder in one place, reached by
-	## a menu entry and a name on PATH (a file manager gets started both ways).
+	## GUI package layout, both platforms: the whole folder in one place, started from
+	## a menu entry or a name on PATH, since a file manager gets started both ways.
 	$priv = $false
 	$setupKey = ""
 	if ($os -eq "windows") {
@@ -693,7 +693,7 @@ function fMain {
 		if (-not $prefix.StartsWith("/")) { fFail "refusing to touch a non-absolute prefix: ${prefix}" }
 	}
 
-	## Guard every destructive path: an unexpected prefix must never reach a delete.
+	## Guard every destructive path: an unexpected prefix must never get to a delete.
 	if ((Split-Path -Leaf $prefix) -ne $leafName) { fFail "refusing to touch a folder not named '${leafName}': ${prefix}" }
 
 	## A prefix that's a link, such as a folder moved to another disk and linked
@@ -770,7 +770,7 @@ function fMain {
 			}
 			$settings = "%APPDATA%\${ExeName}"
 		} else {
-			## Only unlink a symlink that actually points into our prefix.
+			## Only unlink a symlink that points into our prefix.
 			if ($linkTarget) {
 				if ($linkTarget.StartsWith("${prefix}/")) {
 					fSh @("rm", "-f", $symlink); fEcho_Clean "removed ${symlink}"
@@ -903,7 +903,7 @@ function fMain {
 		fEcho_Clean "got $((Get-Item -LiteralPath $archive).Length) bytes"
 	}
 
-	## A downloaded archive carries a mark-of-the-web that would follow every file
+	## A downloaded archive has a mark-of-the-web that would follow every file
 	## out of it and have SmartScreen block the exe. pwsh on Linux has the cmdlet
 	## too, but it throws there whatever -ErrorAction says, so ask the OS instead.
 	if ($os -eq "windows") {
@@ -949,7 +949,7 @@ function fMain {
 		if ($LASTEXITCODE -ne 0) { fFail "couldn't unpack the archive" }
 	}
 
-	## Archives carry one top-level folder; tolerate a flat one too.
+	## Archives have one top-level folder, but a flat one works too.
 	$tree    = $unpacked
 	$entries = @(Get-ChildItem -LiteralPath $unpacked -Force)
 	if ($entries.Count -eq 1 -and $entries[0].PSIsContainer) { $tree = $entries[0].FullName }
@@ -974,7 +974,7 @@ function fMain {
 		## failure never leaves nothing installed; the old copy is dropped only once
 		## the new one is in place.
 		## Copied, never moved, out of the temp folder: a move on one volume keeps
-		## the temp folder's permissions, so other accounts could not run a system
+		## the temp folder's permissions, so other accounts couldn't run a system
 		## install. New files take the install folder's own. A prefix that's a link
 		## keeps it, and the swap is done where it points.
 		$staging = "${realPrefix}.new.${PID}"
@@ -993,8 +993,8 @@ function fMain {
 				try {
 					fRenameFolder $realPrefix $backup
 				} catch {
-					## Something has the folder open that the process scan cannot see - a
-					## scanner, a shell window sitting in it, a handle from another session.
+					## Something has the folder open that the process scan can't see, such as
+					## a scanner, a shell window in it, or a handle from another session.
 					fFail "couldn't replace ${prefix} - something still has it open, close it and try again"
 				}
 			}
@@ -1033,7 +1033,7 @@ function fMain {
 	} else {
 		## Same as install.bash: stage beside the prefix, on its own filesystem, so
 		## the copy out of the temp folder is done before the old install is
-		## touched. Then swap with same-filesystem renames, which cannot fail
+		## touched. Then swap with same-filesystem renames, which can't fail
 		## partway and leave neither install.
 		$parent  = Split-Path -Parent $realPrefix
 		$staging = Join-Path $parent ".${ExeName}-install.${PID}"
@@ -1094,8 +1094,8 @@ function fMain {
 	Set-StrictMode -Version Latest
 	$ErrorActionPreference = "Stop"
 	$ProgressPreference    = "SilentlyContinue"   ## Invoke-WebRequest is far faster without the bar
-	## Native tools report through their exit code, which fSh checks itself. Left on
-	## (the 7.4 default) a non-zero exit would throw before that check is reached.
+	## Native tools report through their exit code, which fSh checks itself. Left on,
+	## as 7.4 has it by default, a non-zero exit would throw before that check runs.
 	$PSNativeCommandUseErrorActionPreference = $false
 	try {
 		if     ($Help)    { fHelp }

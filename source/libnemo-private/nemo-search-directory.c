@@ -782,7 +782,7 @@ nemo_search_directory_generate_new_uri (void)
 
 
 /* A search page outlives its folder object in the history, so each search
-   page's last query is kept here by its URI, for Back, Forward and the like. */
+   page's last query is kept here by its URI, for Back, Forward, and the like. */
 static GHashTable *last_queries;
 
 static gboolean

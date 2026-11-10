@@ -139,7 +139,7 @@ close_menu (void)
 }
 
 /* The pointer goes where each event says too, since the icon view's band
-   reads where the pointer really is. */
+   reads where the pointer is. */
 static void
 send (GdkWindow *window_for, GdkEventType type, guint button, double x, double y, guint state)
 {
@@ -179,7 +179,7 @@ send (GdkWindow *window_for, GdkEventType type, guint button, double x, double y
 	gdk_event_free (event);
 }
 
-/* GDK keeps a closed menu's grab on record until the X server has answered
+/* GDK keeps a closed menu's grab on record until the X server has processed
    the ungrab, and until then GTK sends each click to the menu's window, not
    the view (#2026102413432024). A band's grab lasts while the button is down
    from one step to the next and sends nothing elsewhere, so it is left alone
@@ -598,7 +598,7 @@ find_lists_cb (GtkWidget *widget, gpointer data)
 	}
 }
 
-/* The list in the other pane, once there are two. */
+/* The list in the other pane, once there are 2. */
 static GtkWidget *
 other_list (void)
 {
@@ -631,8 +631,8 @@ static const int first_and_fourth[] = { 0, 3, -1 };
 static const int second_to_fourth[] = { 1, 2, 3, -1 };
 static const int second[] = { 1, -1 };
 
-/* Each step waits on what the one before set going, up to ten seconds. No
-   two presses in a row hit one item, which would be a double click. */
+/* Each step waits on what the one before set going, up to 10 seconds. No
+   2 presses in a row hit one item, which would be a double click. */
 static gboolean
 list_tick (void)
 {
@@ -1105,7 +1105,7 @@ icon_tick (void)
 	case 17:
 		release (bin, 1, 0, x1, y1);
 		{
-			/* More than one, so the anchor isn't just the one icon picked. */
+			/* More than one, so the anchor isn't only the one icon picked. */
 			char *got = selected_list ();
 			char *line = g_strdup_printf ("a drag from the background to an icon bands over it and more (selected %s)",
 						      got);

@@ -21,9 +21,9 @@
 */
 
 /* Preloaded into the real program by test-nemo-held-view. It notes every
- * handler connected on a settings group, since the groups are not exported and
+ * handler connected on a settings group, since the groups aren't exported and
  * this is the only way to find them. When the program destroys a list or icon
- * view, it keeps a ref on the view, as an unmount, eject or rename still
+ * view, it keeps a ref on the view, as an unmount, eject, or rename still
  * running does, and then asks each group for any handler still connected with
  * the view or a widget inside it as its data. Only pointers are compared, so
  * nothing freed is read.
@@ -33,8 +33,8 @@
  *
  * It also counts the program's redraws, expander changes and shaded rows on
  * live tree views, and buttons taken off a path bar, so the driver can tell a
- * settings change reached the open tab. All of it goes to $NEMO_HELD_VIEW_OUT
- * ten times a second. */
+ * settings change got to the open tab. All of it goes to $NEMO_HELD_VIEW_OUT
+ * 10 times a second. */
 
 #define _GNU_SOURCE
 
@@ -99,7 +99,7 @@ note_handler (gpointer instance, const gchar *detailed_signal, gulong id, gpoint
 {
 	Dl_info image;
 	/* dladdr finds only addresses inside a loaded program or library, which
-	   a static is and anything allocated is not. */
+	   a static is and anything allocated isn't. */
 	Handler handler = { instance, id, data, g_strdup (detailed_signal),
 			    data == NULL || dladdr (data, &image) != 0 };
 
@@ -182,7 +182,7 @@ note_hits (GArray *found)
 		}
 	}
 
-	/* Anything connected some way the hooks above did not see. */
+	/* Anything connected some way the hooks above didn't see. */
 	for (j = 0; j < found->len; j++) {
 		Inside *inside = &g_array_index (found, Inside, j);
 		GHashTableIter iter;

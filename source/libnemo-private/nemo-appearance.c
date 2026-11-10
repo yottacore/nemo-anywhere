@@ -43,23 +43,23 @@
 #define ICON_SUBDIR	"icons"
 
 /* GTK resolves a named widget theme against its own search list only. A theme
- * dropped into one of our folders is not on that list, so we load its CSS
+ * dropped into one of our folders isn't on that list, so we load its CSS
  * ourselves - above GTK's own theme provider, below nemo's application sheet,
  * which is exactly where a theme belongs. */
 #define DROPIN_THEME_PRIORITY	GTK_STYLE_PROVIDER_PRIORITY_SETTINGS
 
 /* GTK resolves gtk-theme-name against its own search path and nothing else. A
- * theme we load ourselves is not on that path, so leaving the name pointing at
+ * theme we load ourselves isn't on that path, so leaving the name pointing at
  * it makes GTK fall back to its packaged default sheet - and that fallback
  * drops the dark variant. The base layer under our sheet then comes up light,
- * and everything the sheet does not itself style reads light in dark mode: the
+ * and everything the sheet doesn't itself style reads light in dark mode: the
  * breadcrumb buttons and any checked toolbar button, most visibly. Naming a
  * theme GTK really has keeps that base following the mode. */
 #define BASE_WIDGET_THEME	"Adwaita"
 
 /* The bundled set rides inside the binary as one resource rather than as a
  * couple of thousand loose files, which the packed Windows exe would charge
- * for at every launch. Three prefixes, laid out by
+ * for at every launch. There are 3 prefixes, laid out by
  * cicd/utility/gen-theme-resources.py:
  *
  *	icontheme/<name>/...	pointed at with gtk_icon_theme_add_resource_path
@@ -67,13 +67,13 @@
  *	catalog/<kind>/<name>/index.theme
  *
  * The catalog exists because GTK never reads index.theme off a resource path -
- * it treats what it finds there as part of hicolor - and ours carry the style,
+ * it treats what it finds there as part of hicolor - and ours have the style,
  * the modes and the light/dark counterpart the picker needs. */
 #define BUNDLE_ICONS	"/org/nemo/themes/icontheme"
 #define BUNDLE_WIDGETS	"/org/nemo/themes/widgettheme"
 #define BUNDLE_CATALOG	"/org/nemo/themes/catalog"
 
-/* Nemo's own art, in the main resource rather than the theme bundle - it is not
+/* Nemo's own art, in the main resource rather than the theme bundle - it isn't
  * a theme and is never picked. Installed as loose files too, but the portable
  * Windows bundle stages only the GTK stack's own hicolor, so without this every
  * nemo-* name misses there. See the note in gresources/nemo.gresource.xml. */
@@ -89,7 +89,7 @@ static gboolean         initialized;
 static gboolean         applying;
 
 /* Off Windows the platform's answer IS the GTK property we write to, so a
- * reading taken after we have written one would just echo us back and "system"
+ * reading taken after we have written one would echo us back and "system"
  * would latch on the last explicit choice. Keep the desktop's own answer
  * separately, refreshed only when the change came from outside. */
 static gboolean         desktop_dark;
@@ -210,7 +210,7 @@ strip_variant_suffix (const char *name, const char *word)
 	}
 }
 
-/* Same separator and capitalisation as @sibling_of, so a guessed counterpart
+/* Same separator and capitalization as @sibling_of, so a guessed counterpart
  * matches how the theme's own author spelled it. */
 static char *
 variant_sibling (const char *name, const char *word, gboolean capitalize)
@@ -272,7 +272,7 @@ widget_theme_at (const char *dir, const char *name, gboolean *has_dark_css)
 	return TRUE;
 }
 
-/* An icon theme is one with an index.theme carrying [Icon Theme] and at least
+/* An icon theme is one with an index.theme with [Icon Theme] and at least
  * one directory. That filters out cursor-only themes and stray folders. */
 static GKeyFile *
 icon_theme_index (const char *dir, const char *name)
@@ -345,10 +345,10 @@ scan_add (ScanState  *state,
 		info->display = g_strdup (name);
 	}
 
-	/* A widget theme carrying gtk-dark.css covers both on its own - GTK swaps
+	/* A widget theme with gtk-dark.css covers both on its own - GTK swaps
 	 * sheets on gtk-application-prefer-dark-theme without changing the name.
-	 * A theme that stated its own modes is not second-guessed, same rule as
-	 * infer_fits: a dropped-in theme can carry a dark sheet and still be half
+	 * A theme that stated its own modes isn't second-guessed, same rule as
+	 * infer_fits: a dropped-in theme can have a dark sheet and still be half
 	 * of a declared pair, and taking the sheet's word for it would put both
 	 * halves in the dark list under one name. */
 	if (has_dark_css && !info->declared) {
@@ -418,7 +418,7 @@ bundled_theme_index (NemoThemeKind kind, const char *name)
 	return keys;
 }
 
-/* Nothing at all on a build with no bundled set - the resource simply is not
+/* Nothing at all on a build with no bundled set - the resource isn't
  * there, and every caller here degrades to the filesystem. */
 static void
 scan_bundled (ScanState *state)
@@ -440,7 +440,7 @@ scan_bundled (ScanState *state)
 			name[len - 1] = '\0';
 		}
 
-		/* The legacy set is a shim carrying the two dozen names Adwaita
+		/* The legacy set is a shim with the two dozen names Adwaita
 		 * dropped, not something anyone would choose to look at. */
 		if (state->kind == NEMO_THEME_KIND_ICON &&
 		    g_strcmp0 (name, "AdwaitaLegacy") == 0) {
@@ -480,8 +480,8 @@ push_bundled_icon_paths (const char *chosen)
 	char            *path;
 	int              i;
 
-	/* Nothing to re-order when the answer has not moved, and apply_appearance
-	 * runs for a mode change too. Without this the list would grow by three
+	/* Nothing to re-order when the answer hasn't moved, and apply_appearance
+	 * runs for a mode change too. Without this the list would grow by 3
 	 * every time the desktop flipped between light and dark. */
 	if (pushed_once && g_strcmp0 (pushed, chosen) == 0) {
 		return;
@@ -613,7 +613,7 @@ infer_fits (ScanState *state)
 		char          *sibling;
 		gboolean       capitalized;
 
-		/* A theme that answered for itself is not second-guessed. Naming is
+		/* A theme that answered for itself isn't second-guessed. Naming is
 		 * only ever the fallback: "Foo-dark" that declares itself fit for
 		 * both really is fit for both. */
 		if (info->declared || info->counterpart != NULL) {
@@ -762,7 +762,7 @@ nemo_appearance_theme_for_mode (NemoThemeKind kind, const char *name)
 	return out != NULL ? out : g_strdup (name);
 }
 
-/* Both kinds carry X-Nemo-Style, so pairing them is a lookup rather than a
+/* Both kinds have X-Nemo-Style, so pairing them is a lookup rather than a
  * table that would go stale every time a theme is added.
  * Returns: (transfer full): free with g_free */
 char *
@@ -794,7 +794,7 @@ nemo_appearance_icons_for_widget_theme (const char *widget_name)
 	}
 
 	/* Only what suits the mode in force, so the answer is one the picker is
-	 * actually offering rather than the other half of a light/dark pair. */
+	 * offering rather than the other half of a light/dark pair. */
 	fits = nemo_appearance_is_dark () ? NEMO_THEME_FITS_DARK : NEMO_THEME_FITS_LIGHT;
 	themes = nemo_appearance_list_themes (NEMO_THEME_KIND_ICON, fits);
 	for (node = themes; node != NULL; node = node->next) {
@@ -824,7 +824,7 @@ gtk_knows_widget_theme (const char *name)
 	gboolean  found;
 	int       i;
 
-	/* GTK carries this one in its own resources, so it resolves everywhere and
+	/* GTK has this one in its own resources, so it resolves everywhere and
 	 * is never on disk. Searching for it finds nothing and warns about a theme
 	 * that works perfectly well. */
 	if (g_strcmp0 (name, BASE_WIDGET_THEME) == 0) {
@@ -1045,7 +1045,7 @@ apply_appearance (void)
 
 	g_object_set (settings, "gtk-application-prefer-dark-theme", dark, NULL);
 
-	/* The app's own default is not "do nothing": the Windows bundle names a theme
+	/* The app's own default isn't "do nothing": the Windows bundle names a theme
 	 * of its own in settings.ini, and that theme lives inside the binary. So
 	 * the platform's answer goes through exactly the same loaders as an
 	 * explicit choice - on a desktop that already has its theme installed the
@@ -1103,8 +1103,8 @@ apply_appearance (void)
 
 	applying = FALSE;
 
-	/* What actually reached GTK, which is the only way to check the chain on a
-	 * box that cannot show a window. G_MESSAGES_DEBUG="Nemo Anywhere" to see it. */
+	/* What GTK was handed, which is the only way to check the chain on a
+	 * box that can't show a window. G_MESSAGES_DEBUG="Nemo Anywhere" to see it. */
 	{
 		char *gtk_theme = NULL;
 		char *icon_theme = NULL;
@@ -1219,7 +1219,7 @@ nemo_appearance_init (void)
 			  G_CALLBACK (desktop_theme_notify_cb), NULL);
 
 	/* Goes on once and stays under whatever the user picks: a later resource
-	 * path only wins for a name both carry, and every name here is nemo-*. */
+	 * path only wins for a name both have, and every name here is nemo-*. */
 	gtk_icon_theme_add_resource_path (gtk_icon_theme_get_default (), APP_ICONS);
 
 	/* Icon themes need no special loader - GTK searches whatever it is told. */

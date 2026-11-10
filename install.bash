@@ -3,14 +3,14 @@
 ##	- Purpose: One-liner installer for Nemo Anywhere. Fetches a release build,
 ##	  verifies its checksum, and installs it as a self-contained prefix plus a
 ##	  desktop launcher and a command-line symlink.
-##	- Covers Linux, BSD and WSL, and macOS once there is a build for it.
+##	- Covers Linux, BSD, and WSL, and macOS once there's a build for it.
 ##	- install.ps1 is the same installer in PowerShell, and covers every platform
 ##	  this one does plus Windows. Either script alone does the whole job; this
 ##	  one is the no-dependencies option, since it needs nothing but a shell.
 ##	- Idempotent: reinstalling replaces the prefix in place, and --uninstall
 ##	  removes exactly what was installed. Nothing is touched before the plan is
 ##	  printed and confirmed.
-##	- Bash 3.2 compatible on purpose (that is what macOS still ships).
+##	- Bash 3.2 compatible on purpose, since that's what macOS still has.
 ##	- Syntax:
 ##	  bash <(curl -fsSL https://raw.githubusercontent.com/yottacore/nemo-anywhere/main/install.bash) [options]
 ##	    --release dev|stable    which release to take (default: stable)
@@ -42,7 +42,7 @@ EXE_NAME="nemo-anywhere"
 #••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 # Output helpers
 
-## Same shape as the project's cicd output: fEcho prints a bracketed status
+## Same format as the project's cicd output: fEcho prints a bracketed status
 ## line, fEcho_Clean a plain one and collapses repeated blanks.
 _wasLastEchoBlank=0
 fEcho_Clean(){ if [[ -n "${1:-}" ]]; then echo "$*"; _wasLastEchoBlank=0; elif [[ $_wasLastEchoBlank -eq 0 ]] && echo; then _wasLastEchoBlank=1; fi; }
@@ -84,7 +84,7 @@ fHelp(){
 		  ~/.local/bin. A system install goes to /opt/${EXE_NAME} (/usr/local on BSD)
 		  and needs sudo; the plan says so before anything happens.
 
-		  Covers Linux, BSD, WSL and macOS. install.ps1 is the same installer for
+		  Covers Linux, BSD, WSL, and macOS. install.ps1 is the same installer for
 		  PowerShell, and adds Windows.
 
 	EOF
@@ -133,8 +133,8 @@ case "$(uname -m)" in
 	*) fDie "unsupported architecture: $(uname -m)" ;;
 esac
 
-## GUI package layout: the whole prefix in one dir, reached by a desktop
-## launcher and a symlink on PATH (a file manager gets started both ways).
+## GUI package layout: the whole prefix in one dir, started from a desktop
+## launcher or a symlink on PATH, since a file manager gets started both ways.
 if [[ "$target" == "system" ]]; then
 	[[ "$os" == "bsd" ]] && prefix="/usr/local/${EXE_NAME}" || prefix="/opt/${EXE_NAME}"
 	appdir="/usr/local/share/applications"
@@ -147,14 +147,14 @@ fi
 launcher="${appdir}/${EXE_NAME}.desktop"
 symlink="${bindir}/${EXE_NAME}"
 
-## Privileged steps run through this; empty when we are already root.
+## Privileged steps run through this; empty when we're already root.
 priv=""
 if [[ "$target" == "system" && "$(id -u)" != "0" ]]; then
 	command -v sudo >/dev/null 2>&1 || fDie "--target system needs root, and sudo wasn't found - re-run as root"
 	priv="sudo"
 fi
 
-## A user install that cannot write where it is going would otherwise fail
+## A user install that can't write where it's going would otherwise fail
 ## halfway, on a bare command. Say so before asking. Renames need the parent.
 fCheckWritable(){
 	[[ -n "$priv" ]] && return 0
@@ -292,7 +292,7 @@ fVersionKeys(){
 ## version rather than by the order the API lists them in, and never through
 ## releases/latest, which 404s on a repo that has only prereleases.
 ## Takes the release list the caller fetched, so a failed request can be told
-## apart from an empty list. Prints nothing when there is no release at all - the
+## apart from an empty list. Prints nothing when there's no release at all. The
 ## caller reports that, since dying inside a command substitution only kills the
 ## subshell.
 fResolveTag(){ ## releases json
@@ -304,8 +304,8 @@ fResolveTag(){ ## releases json
 	if [[ "$release" == "stable" && -n "$stable" ]]; then echo "$stable"; else echo "$newest"; fi
 }
 
-## Write the desktop launcher, preferring the one shipped in the prefix and
-## rewriting Exec/Icon to absolute paths (nothing else knows where we landed).
+## Write the desktop launcher, preferring the one in the prefix and rewriting
+## Exec/Icon to absolute paths, since nothing else knows where the prefix is.
 fInstallLauncher(){
 	local shipped="${prefix}/share/applications/${EXE_NAME}.desktop"
 	local icon tmp; icon=""
@@ -376,7 +376,7 @@ if ((do_uninstall)); then
 
 	fEcho_Clean ""
 	fEcho "Removing"
-	## Only unlink a symlink that actually points into our prefix.
+	## Only unlink a symlink that points into our prefix.
 	if [[ -L "$symlink" ]]; then
 		linkdest="$(readlink "$symlink" || true)"
 		case "$linkdest" in
@@ -494,7 +494,7 @@ if [[ -z "$from" && -n "${sums_url}" ]]; then
 	fFetch "$sums_url" "${work}/sums.txt" || fDie "download failed: ${sums_url}"
 	expected="$(grep -E "[ *]${asset}\$" "${work}/sums.txt" | awk '{print $1}' | head -1 || true)"
 	[[ -n "$expected" ]] || fDie "${sums_asset} has no line for ${asset}"
-	actual="$(fSha256 "$archive")" || fDie "no sha256 tool found (sha256sum, shasum or openssl)"
+	actual="$(fSha256 "$archive")" || fDie "no sha256 tool found (sha256sum, shasum, or openssl)"
 	[[ "$actual" == "$expected" ]] || fDie "checksum mismatch - expected ${expected}, got ${actual}"
 	fEcho_Clean "sha256 verified"
 else
@@ -511,7 +511,7 @@ fEcho "Installing"
 mkdir -p "${work}/unpacked"
 tar -xzf "$archive" -C "${work}/unpacked" || fDie "couldn't unpack the archive"
 
-## Archives carry one top-level dir; tolerate a flat one too.
+## Archives have one top-level dir, but a flat one works too.
 tree="${work}/unpacked"
 entries="$(ls -A "$tree")"
 if [[ "$(printf '%s\n' "$entries" | wc -l | tr -d ' ')" == "1" && -d "${tree}/${entries}" ]]; then
@@ -521,7 +521,7 @@ fi
 
 ## Stage beside the prefix, on its own filesystem, so the cross-device copy
 ## out of TMPDIR happens before the existing install is touched. Then swap with
-## same-filesystem renames, which are atomic and cannot fail partway - a plain
+## same-filesystem renames, which are atomic and can't fail partway. A plain
 ## cross-device "mv $tree $prefix" could die mid-copy and lose both installs.
 ## A prefix that's a link keeps it, and the swap is done where it points.
 $priv mkdir -p "$(dirname "$realPrefix")"

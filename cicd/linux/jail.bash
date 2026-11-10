@@ -7,7 +7,7 @@
 ##	  cell a tmpfs of its own, and a private /tmp, /dev/shm and network. The X
 ##	  server's socket, lock and cookie come in read-only. A Linux box where the
 ##	  jail can't start fails the test. It never runs unjailed.
-##	- Elsewhere (FreeBSD, MSYS2 on Windows) there's no jail, so the cell is only
+##	- Elsewhere, as on FreeBSD and MSYS2 on Windows, there's no jail, so the cell is only
 ##	  HOME and the temp dir, on disk. The test library's fence refuses a delete
 ##	  outside the cell everywhere, Linux included (source/test/test-fence.c).
 ##	- The cell goes when the test ends. When the test left something in its temp
@@ -42,7 +42,7 @@ bwrapBase=(
 
 ## The cell is a tmpfs rather than a folder bound in, so it's a file system of
 ## its own. While something watches the mount table, as the app does, GLib
-## answers "read-only?" once per device. A cell on the root's device then read
+## checks "read-only?" once per device. A cell on the root's device then read
 ## as read-only whenever the root was asked about first, and New folder failed
 ## on it. The largest cell in the suite peaked near 120 MB.
 cellBytes=$(( 4 * 1024 * 1024 * 1024 ))

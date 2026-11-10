@@ -1,7 +1,7 @@
 /* The uri algebra of the Windows network:/// backend. Enumeration itself needs a
- * network - and an unreachable host costs the full timeout - so what is checked
- * here is the part that has to hold with no network at all: how a child uri is
- * built, and that two different server/share pairs cannot share one uri.
+ * network, and an unreachable host costs the full timeout, so what is checked
+ * here is the part that has to work with no network at all: how a child uri is
+ * built, and that 2 different server/share pairs can't share one uri.
  * Windows-only. */
 
 #include <config.h>
@@ -39,9 +39,9 @@ child_uri (const char *server, const char *share)
 	return uri;
 }
 
-/* What each WNet answer is shown as. This is the half that can actually be
+/* What each WNet result is shown as. This is the half that can be
  * wrong, and it used to be: the lookup worded every failure as a missing name,
- * so a refused share said it could not be found. No network needed. */
+ * so a refused share said it couldn't be found. No network needed. */
 static void
 check_error (gulong rc, const char *server, GIOErrorEnum want_code, const char *want_text)
 {
@@ -84,7 +84,7 @@ test_error_wording (void)
 	check_error (ERROR_NOT_ENOUGH_MEMORY, "FILESRV", G_IO_ERROR_NOT_FOUND, "FILESRV");
 }
 
-/* A name that cannot be on any network. The list has to come back refused with
+/* A name that can't be on any network. The list has to come back refused with
  * something to show, not as an empty folder that loaded fine. */
 static void
 test_missing_server (void)
@@ -119,7 +119,7 @@ test_missing_server (void)
 
 /* The neighborhood, against what the machine says about itself. With no network
  * the enumeration still succeeds and hands back an empty list, so this is the
- * check that the empty answer is not passed off as a loaded folder. */
+ * check that the empty list isn't passed off as a loaded folder. */
 static void
 test_root_against_the_machine (void)
 {
@@ -167,8 +167,8 @@ test_root_against_the_machine (void)
 	g_object_unref (root);
 }
 
-/* Browse a server that really is there, if this box is one. Enumeration is the
- * half the uri checks cannot reach, and a share only proves anything if it can
+/* Browse a server that is there, if this box is one. Enumeration is the
+ * half the uri checks can't test, and a share only proves anything if it can
  * be followed - so the target each one points at is opened for real. Skips, out
  * loud, on a box that shares nothing. */
 static void
@@ -230,7 +230,7 @@ test_live_shares (void)
 
 			/* Every share the enumeration offered has to sit under
 			 * the server it was listed beneath, or the uri built for
-			 * it names some other machine entirely. The two are not
+			 * it names some other machine entirely. The 2 aren't
 			 * comparable as files - the share is network:///HOST and
 			 * its target is a UNC path - so the host name is what is
 			 * checked. */
@@ -265,7 +265,7 @@ test_live_shares (void)
 	} else {
 		g_print ("  browsed \\\\%s: %d share(s), %d opened\n",
 			 host, shares, followed);
-		/* At least one has to actually open, or "browsing works" is a
+		/* At least one has to open, or "browsing works" is a
 		 * claim about a list nobody can follow. */
 		check (followed > 0);
 	}

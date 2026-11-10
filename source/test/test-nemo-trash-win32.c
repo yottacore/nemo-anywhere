@@ -4,7 +4,7 @@
  *
  * The seeded cases need wine, since they write straight into that XDG trash. The
  * rest recycle files of their own through the shell, so they run on either, and a
- * native run is where the recycle-bin behavior is actually observable: a listed
+ * native run is where the recycle-bin behavior is observable: a listed
  * name that keeps its extension, an original location worth restoring to, a 64-bit
  * deletion timestamp, and a uri from outside the bin being refused. */
 
@@ -22,7 +22,7 @@
 #include <libnemo-private/nemo-trash-win32.h>
 #include "test-check.h"
 
-/* Cleared only when the shell bin itself could not be worked, so a run that
+/* Cleared only when the shell bin itself couldn't be worked, so a run that
  * proved nothing is reported as a skip rather than a pass. */
 static gboolean real_bin_ran = FALSE;
 
@@ -32,7 +32,7 @@ static char *trash_info_dir;
 /* In every name and marker a case recycles, so an item an earlier run left in
  * the bin is never taken for this run's own. Purging that one is a delete
  * outside the test, which the fence refuses. Fixed width, so the size check
- * in the bin scan can't tell two runs apart either. */
+ * in the bin scan can't tell 2 runs apart either. */
 static char run_tag[25];
 
 static void
@@ -42,7 +42,7 @@ make_tag (char tag[sizeof run_tag])
 		    (unsigned long long) g_get_real_time (), g_random_int ());
 }
 
-/* The tag goes before the first dot, so "report.2026.txt" keeps its shape. */
+/* The tag goes before the first dot, so "report.2026.txt" keeps its form. */
 static char *
 tagged (const char *name)
 {
@@ -377,8 +377,8 @@ test_junction_in_bin (void)
  *
  * The seeded cases further down plant files into wine's XDG trash, so on real
  * Windows this is the only coverage listing, trash attributes and restore get.
- * The fixture name carries a dot before its extension deliberately: that is the
- * shape that breaks when a shortened name is repaired by looking for a dot. */
+ * The fixture name has a dot before its extension on purpose, since that's the
+ * kind of name that breaks when a shortened name is repaired by looking for a dot. */
 static void
 test_real_bin_roundtrip (void)
 {
@@ -389,7 +389,7 @@ test_real_bin_roundtrip (void)
 	GError *error = NULL;
 	g_autofree char *name = tagged ("report.2026.txt");
 
-	/* Under the home, not the temp dir: a volume the bin does not cover would
+	/* Under the home, not the temp dir: a volume the bin doesn't cover would
 	 * recycle nothing and the case would prove nothing. */
 	dir = g_build_filename (g_get_home_dir (), "nemoverify-trash", NULL);
 	g_mkdir_with_parents (dir, 0700);
@@ -497,8 +497,8 @@ test_outside_bin_refused (void)
 	item = g_file_new_for_uri (uri);
 
 	/* Each arm re-seeds: the first one succeeding would otherwise take the file
-	 * away and leave the next two passing because there was nothing left to act
-	 * on. Three separate entry points, three separate claims. */
+	 * away and leave the next 2 passing because there was nothing left to act
+	 * on. Three separate entry points, 3 separate claims. */
 	check (!g_file_delete (item, NULL, &error));
 	check (error != NULL);
 	g_clear_error (&error);
@@ -585,7 +585,7 @@ test_outside_bin_refused (void)
 /* The backing file of a bin item whose contents are exactly @marker, found by
  * reading the bin off disk. Going through the trash enumerator would refresh the
  * snapshot, which is the very thing the freshly-trashed case has to do without.
- * NULL if it is not there, or if the per-user folder cannot be read. Two matches
+ * NULL if it isn't there, or if the per-user folder can't be read. Two matches
  * fail the test rather than pick one, since the wrong one isn't ours to purge. */
 static char *
 find_backing_by_contents (const char *data, gsize data_len)
@@ -678,9 +678,9 @@ purge_backing (const char *backing_path)
 }
 
 /* A bin entry hangs off the root the moment it is trashed, not once a poll has
- * caught up. The top-level check used to answer off a snapshot taken before the
+ * caught up. The top-level check used to decide from a snapshot taken before the
  * item existed and, on the miss, treat it as something nested - so it was filed
- * under a parent folder that is not in the bin at all. */
+ * under a parent folder that isn't in the bin at all. */
 static void
 test_fresh_item_parent (void)
 {
@@ -688,8 +688,8 @@ test_fresh_item_parent (void)
 	char *fixture, *backing, *uri;
 	GFile *root, *item, *parent;
 
-	/* Warm the snapshot first, so the item below is genuinely one the cache
-	 * has never seen - which is the whole condition being tested. */
+	/* Warm the snapshot first, so the item below is one the cache
+	 * has never seen, which is the whole condition being tested. */
 	root = g_file_new_for_uri (TRASH_ROOT_URI);
 	{
 		GFileEnumerator *warm = g_file_enumerate_children (root, "standard::name",
@@ -754,12 +754,12 @@ note_monitor_fired (G_GNUC_UNUSED GFileMonitor *monitor, G_GNUC_UNUSED GFile *fi
 	*(gboolean *) user_data = TRUE;
 }
 
-/* A change that leaves the item count untouched still has to reach a watcher.
+/* A change that leaves the item count untouched still has to get to a watcher.
  * The poll compared counts alone, so an item replaced by another, or one going
  * as another arrives, was invisible until something else moved the count.
  *
  * Rewriting a backing file is no good as a stand-in: the shell reports the size
- * it recorded when the item was recycled, not what the file holds now, so that
+ * it recorded when the item was recycled, not what's in the file now, so that
  * changes nothing it can see. What does move it is one item leaving and a
  * differently-sized one arriving - the count comes back to where it started and
  * only the total size says anything happened. Both happen with the main loop
@@ -803,7 +803,7 @@ test_same_count_change_noticed (void)
 
 	/* Let everything the cases above set going finish first. Deleting through
 	 * the trash backend posts its notification to the main context, and that
-	 * notification reaches whichever monitors are registered when it finally
+	 * notification goes to whichever monitors are registered when it finally
 	 * runs - including one created here, which never asked for it. */
 	deadline = g_get_monotonic_time () + 2 * G_USEC_PER_SEC;
 	while (g_get_monotonic_time () < deadline) {
@@ -824,7 +824,7 @@ test_same_count_change_noticed (void)
 				  G_CALLBACK (note_monitor_fired), &fired);
 
 		/* Quiet first, for long enough to cover a poll turn: a monitor that
-		 * simply cries change on every turn would otherwise be counted as a
+		 * reports a change on every turn would otherwise be counted as a
 		 * pass by the check below. */
 		deadline = g_get_monotonic_time () + 5 * G_USEC_PER_SEC;
 		while (g_get_monotonic_time () < deadline) {
@@ -881,7 +881,7 @@ out:
 /* Something that has left the bin must not be listed as a healthy readable file.
  *
  * The entry list is snapshotted when the enumeration starts and each entry's
- * details are worked out only as it is read, so an item can genuinely be gone by
+ * details are worked out only as it is read, so an item can be gone by
  * the time anyone asks about it. The fallback used to invent a plain readable
  * file in that case, which is how a folder came back as a file and how something
  * already deleted still looked present until the next full refresh. */
@@ -898,7 +898,7 @@ test_vanished_item_not_healthy (void)
 	gboolean folder_seen = FALSE;
 	char *folder_fixture, *inner;
 
-	/* A folder alongside it, to confirm the other half of the same answer: a
+	/* A folder alongside it, to confirm the other half of the same check: a
 	 * directory in the bin is reported as a directory. */
 	folder_fixture = g_build_filename (g_get_home_dir (), folder_name, NULL);
 	inner = g_build_filename (folder_fixture, "inner.txt", NULL);
@@ -1003,7 +1003,7 @@ test_vanished_item_not_healthy (void)
 	g_object_unref (root);
 }
 
-/* An item an earlier run left behind: the fresh-parent case's fixture, holding
+/* An item an earlier run left behind: the fresh-parent case's fixture, with
  * that run's marker. Each case has to find its own item and leave this one be.
  * NULL where the bin can't be worked. */
 static char *
@@ -1082,9 +1082,9 @@ main (void)
 	}
 
 	/* The seeded cases plant files into wine's unix-style XDG trash layout, which
-	 * does not exist on real Windows. Everything above works the shell bin itself,
-	 * so a native run is a real result and says so; only the seeded half is out of
-	 * reach here. Reporting the whole test as a skip is what let the recycle-bin
+	 * doesn't exist on real Windows. Everything above works the shell bin itself,
+	 * so a native run is a real result and says so; only the seeded half can't
+	 * run here. Reporting the whole test as a skip is what let the recycle-bin
 	 * divergences through before. */
 	wine_home = g_getenv ("WINEHOMEDIR");
 	if (wine_home == NULL) {

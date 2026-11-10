@@ -77,8 +77,8 @@ main (void)
 	check (nemo_properties_win32_can_show (files));
 	nemo_file_list_free (files);
 
-	/* Several, as long as one folder holds them all - that is the only shape
-	 * the shell's multi-item sheet has. */
+	/* Several, as long as they're all in one folder, since the shell's
+	 * multi-item sheet only takes that. */
 	pair[0] = alpha;
 	pair[1] = beta;
 	files = file_list_for_paths (pair, 2);
@@ -92,7 +92,7 @@ main (void)
 	nemo_file_list_free (files);
 
 	/* Two folders deep is where a search result set sits, and the sheet
-	 * cannot show it - ours has to. */
+	 * can't show it - ours has to. */
 	pair[0] = alpha;
 	pair[1] = deep;
 	files = file_list_for_paths (pair, 2);
@@ -115,7 +115,7 @@ main (void)
 	check (!nemo_properties_win32_can_show (files));
 	nemo_file_list_free (files);
 
-	/* Nothing selected is not something to hand the shell either. */
+	/* Nothing selected isn't something to hand the shell either. */
 	check (!nemo_properties_win32_can_show (NULL));
 
 	g_unlink (alpha);

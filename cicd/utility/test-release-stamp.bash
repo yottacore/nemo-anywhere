@@ -2,7 +2,7 @@
 
 ##	- Purpose: Check that the release script refuses artifacts built from a
 ##	  commit other than the one it tags. Artifacts built on dev and then merged
-##	  have dev's commit date, so a rebuild of the tag would not match them and
+##	  have dev's commit date, so a rebuild of the tag wouldn't match them and
 ##	  the build number in the notes would be one no binary has.
 ##	- Runs a copy of release.bash, tag only, in a scratch repo with a dev commit
 ##	  merged --no-ff into main at a later date. Stand-in artifacts are stamped
@@ -116,7 +116,7 @@ fRelease(){
 	if [[ "$1" == refuses ]]; then
 		if [[ "$rc" == 0 ]]; then fFail "${2}: tagged anyway; said: ${out}"
 		elif fGit rev-parse -q --verify "refs/tags/v${ver}" >/dev/null; then fFail "${2}: failed but left a tag"
-		elif [[ "$out" != *"not stamped ${mergeDate}"* ]]; then fFail "${2}: failed for another reason: ${out}"
+		elif [[ "$out" != *"aren't stamped ${mergeDate}"* ]]; then fFail "${2}: failed for another reason: ${out}"
 		else fEcho "OK: ${2}: refused"
 		fi
 	else

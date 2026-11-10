@@ -1,5 +1,5 @@
 /* Every one of blake3's routines that the build has, against blake3's own
- * published answers. Which one the app runs is picked at run time from what the
+ * published test vectors. Which one the app runs is picked at run time from what the
  * processor reports, so the checksum test only ever sees the one its own box
  * picks. Here blake3 is made to believe the processor has less than it does, one
  * routine at a time. A routine the processor can't run is skipped, and said so.
@@ -24,8 +24,8 @@ static const char vector_key[] = "whats the Elvish word for friend";
 static const char vector_context[] = "BLAKE3 2019-12-27 16:29:52 test vectors context";
 
 /* From test_vectors.json at the vendored tag. The hash is the whole 131 bytes
- * given there, which reaches the extended output; the other two modes only
- * their first 32. */
+ * given there, which includes the extended output; the other 2 modes check
+ * only their first 32. */
 static const struct {
 	gsize       len;
 	const char *hash;
@@ -110,7 +110,7 @@ vector_input (gsize len)
 	return buf;
 }
 
-/* Against the start of want, so a 32-byte answer can be read off the 131. */
+/* Against the start of want, so a 32-byte hash can be read off the 131. */
 static gboolean
 same_hex (const guint8 *got, gsize len, const char *want)
 {

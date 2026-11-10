@@ -25,7 +25,7 @@
  * and Ctrl+Page Up and Down, and Ctrl+Tab, step the pages from a page, from a
  * scrolled window in one and from outside them, wrapping round past a hidden
  * page. A notebook inside a page keeps the keys while the focus is in it. The
- * _within form reaches the switchers GTK's About and shortcuts windows build
+ * _within form also works on the switchers GTK's About and shortcuts windows build
  * inside.
  *
  * Needs a display. The Tab walks need the keyboard too, and are skipped

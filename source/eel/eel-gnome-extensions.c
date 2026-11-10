@@ -62,7 +62,7 @@ static const struct {
 
 /* The desktop's terminal choice, where a desktop publishes one. NULL
    otherwise - the known-terminals scan below is the answer everywhere else.
-   (eel sits under libnemo-private, so it cannot ask the config store.) */
+   eel is under libnemo-private, so it can't ask the config store. */
 static GSettings *
 terminal_settings_new (void)
 {

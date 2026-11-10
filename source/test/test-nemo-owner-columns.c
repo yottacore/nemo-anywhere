@@ -1,4 +1,4 @@
-/* What the three owner columns show. Owner is the user name alone, Owner name
+/* What the 3 owner columns show. Owner is the user name alone, Owner name
  * the display name alone, and Owner - name both when they differ. An empty
  * display name, which is what an empty GECOS field gives, counts as none: it
  * once came out as "alice - ". On Windows the display name is looked up by us,
@@ -84,8 +84,8 @@ has_column (GList *columns, const char *wanted)
 }
 
 #ifdef G_OS_WIN32
-/* Asked the plain way, by the name of whoever runs the test, so the answer
-   does not come through the owner SID the way the code under test gets it. */
+/* Asked the plain way, by the name of whoever runs the test, so the name
+   doesn't come through the owner SID the way the code under test gets it. */
 static char *
 current_user_full_name (char **user_name)
 {

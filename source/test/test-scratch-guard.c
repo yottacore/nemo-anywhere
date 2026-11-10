@@ -55,13 +55,13 @@ main (void)
 	check (!g_file_test (doomed, G_FILE_TEST_EXISTS));
 	check (!g_file_test (inner_file, G_FILE_TEST_EXISTS));
 
-	/* The link was removed as itself, and what it pointed at was not touched. */
+	/* The link was removed as itself, and what it pointed at wasn't touched. */
 	check (g_file_test (keep_dir, G_FILE_TEST_IS_DIR));
 	check (g_file_test (precious, G_FILE_TEST_IS_REGULAR));
 
 	/* Anything outside a directory this process made is refused outright. The
 	 * one that exists is made by hand and thrown away by name below: if this
-	 * guard ever breaks, the test should not be the thing that takes out
+	 * guard ever breaks, the test shouldn't be the thing that takes out
 	 * whatever it was pointed at. */
 	stranger = g_build_filename (g_get_tmp_dir (), "nemo-scratch-guard-not-ours", NULL);
 	g_mkdir_with_parents (stranger, 0700);

@@ -26,7 +26,7 @@
  * folder tree. The release after it changes no selection, starts no rename
  * and opens nothing, and the menu stays up. A press that moved first is a
  * drag or a band and opens nothing. The built program runs once per view,
- * with test-nemo-long-press-probe preloaded to press, hold and check.
+ * with test-nemo-long-press-probe preloaded to press, hold, and check.
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and also a display. Runs
  * on an X server of its own, since the menu takes the pointer. Linux and
@@ -138,7 +138,7 @@ run_view (const char *exe, const char *probe, const char *view, int expected)
 		goto out;
 	}
 
-	/* The probe gives each step ten seconds, and most take one or two. */
+	/* The probe gives each step 10 seconds, and most take one or 2. */
 	for (i = 0; i < 1200 && alive (pid) && !done; i++) {
 		g_usleep (100 * 1000);
 		g_free (text);

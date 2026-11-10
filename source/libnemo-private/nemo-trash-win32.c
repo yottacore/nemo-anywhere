@@ -317,7 +317,7 @@ refresh_items_locked (void)
 				}
 			}
 			if (real_path == NULL || !g_path_is_absolute (real_path)) {
-				/* Shell-namespace-only item; we cannot proxy it. Say so - it
+				/* Shell-namespace-only item; we can't proxy it. Say so - it
 				   is missing from the listing while the bin's own count still
 				   includes it, which reads as an item that vanished. */
 				g_warning ("nemo-trash: skipping a recycle bin item with no file path%s%s",
@@ -364,15 +364,15 @@ refresh_items_locked (void)
 }
 
 /* Each local drive's bin in turn. Asking for every bin at once (a NULL root)
- * takes in mapped drives too, and one that is not answering would hold the
+ * takes in mapped drives too, and one that isn't answering would hold the
  * caller, the window's poll included, for the network timeout. A removable
  * drive keeps a bin only under the RecycleBinDrives policy, and is asked only
- * with a disk in it. Wine answers for the whole bin whatever root it is
+ * with a disk in it. Wine reports the whole bin whatever root it is
  * given, so the sum runs high there; nothing reads more than empty or not
  * and whether it changed.
  *
  * Count alone misses a change that keeps it the same - one item deleted and
- * another recycled between two polls, or an item replaced by a bigger one.
+ * another recycled between 2 polls, or an item replaced by a bigger one.
  * Total size moves in those cases; both together are a usable fingerprint. */
 static void
 query_bin_state (guint64 *count, guint64 *size)
@@ -473,8 +473,8 @@ uri_is_root (const char *uri)
 
 /* Lexical only - resolves . and .. and settles on one separator, without
  * touching the filesystem. Both the stored keys and anything compared against
- * them go through this, so two spellings of the same path compare equal and a
- * "\.." cannot walk out of a bin entry unnoticed. */
+ * them go through this, so 2 spellings of the same path compare equal and a
+ * "\.." can't walk out of a bin entry unnoticed. */
 static char *
 canonical_path (const char *path)
 {
@@ -544,7 +544,7 @@ is_bin_path_locked (const char *real_path)
 		return TRUE;
 	}
 
-	/* A miss may just be a stale snapshot. */
+	/* A miss may only be a stale snapshot. */
 	refresh_items_locked ();
 	return g_hash_table_lookup (trash_items, real_path) != NULL ||
 	       is_inside_item_locked (real_path);
@@ -552,7 +552,7 @@ is_bin_path_locked (const char *real_path)
 
 /* Every operation that touches a real file goes through here. The path comes
  * out of a uri any local process can construct and hand us over D-Bus, so it
- * has to be shown to name something the bin actually holds before anything is
+ * has to be shown to name something the bin has in it before anything is
  * read, moved or permanently deleted. */
 static char *
 uri_to_verified_real_path (const char *uri, GError **error)
@@ -640,7 +640,7 @@ uri_is_top_level_item (const char *uri)
 	result = g_hash_table_lookup (trash_items, real_path) != NULL;
 	if (!result) {
 		/* Refresh on a miss, the way the sibling lookup does. Without it a
-		 * just-trashed item is not yet in the snapshot, so it is taken for
+		 * just-trashed item isn't yet in the snapshot, so it is taken for
 		 * something inside a folder and filed under a parent that isn't
 		 * there - until the next poll happens to catch up. */
 		refresh_items_locked ();
@@ -685,8 +685,8 @@ make_item_info (TrashItem *item)
 		gboolean is_dir;
 
 		/* Backing file unreadable; guess enough from the name that downstream
-		 * never sees an info without type or icon - but do not call a folder a
-		 * file, and do not present something that is simply gone as healthy. */
+		 * never sees an info without type or icon - but don't call a folder a
+		 * file, and don't present something that's gone as healthy. */
 		is_dir = g_file_test (item->real_path, G_FILE_TEST_IS_DIR);
 
 		info = g_file_info_new ();
@@ -923,7 +923,7 @@ trash_file_query_info (GFile *file, G_GNUC_UNUSED const char *attributes,
 		g_file_info_set_display_name (info, _("Trash"));
 		g_file_info_set_content_type (info, "inode/directory");
 
-		/* One walk of the bin, not two - this runs on every look at the
+		/* One walk of the bin rather than 2 - this runs on every look at the
 		   trash folder. */
 		guint64 bin_count = query_bin_count ();
 
@@ -1046,10 +1046,10 @@ trash_file_enumerate_children (GFile *file, G_GNUC_UNUSED const char *attributes
 	GHashTableIter iter;
 	gpointer value;
 
-	/* Inside a trashed folder. Its contents are not bin entries of their own,
+	/* Inside a trashed folder. Its contents aren't bin entries of their own,
 	 * but they still have to list: the pre-delete count walks in here, and
 	 * without it a trashed folder can neither be opened nor permanently
-	 * deleted. A trashed file still answers NOT_DIRECTORY, from the enumerate
+	 * deleted. A trashed file still returns NOT_DIRECTORY, from the enumerate
 	 * of its backing path. */
 	if (!uri_is_root (self->uri)) {
 		GFileEnumerator *children;
@@ -1125,7 +1125,7 @@ trash_file_enumerate_children (GFile *file, G_GNUC_UNUSED const char *attributes
 
 /* A trashed folder goes as a unit. nemo's empty-trash walk deliberately stops
  * recursing at a trash:// item (delete_trash_file, nemo-file-operations.c) since
- * the contents of a trashed folder are not themselves trashed items, so the whole
+ * the contents of a trashed folder aren't themselves trashed items, so the whole
  * tree has to come out here - otherwise a bin holding any folder can neither be
  * emptied nor have that folder permanently deleted. */
 static gboolean
@@ -1171,7 +1171,7 @@ delete_real_tree (GFile *real, GCancellable *cancellable, GError **error)
 			GFileInfo *child_info;
 			GFile *child;
 
-			/* next_file answers NULL for both the end of the list and a
+			/* next_file returns NULL for both the end of the list and a
 			 * failure, so the error has to be asked for separately. */
 			child_info = g_file_enumerator_next_file (children, cancellable, &walk_error);
 			if (child_info == NULL) {
@@ -1505,7 +1505,7 @@ trash_vfs_lookup (G_GNUC_UNUSED GVfs *vfs, const char *identifier, G_GNUC_UNUSED
 /* GLib's g_file_trash leaves the shell's confirmation on, so Windows asked
    again for every file - and asked from behind nemo's progress window, which
    made a delete look wedged. NOCONFIRMATION on its own would also silently
-   destroy anything the bin cannot hold, so the nuke warning is asked back. */
+   destroy anything the bin can't take, so the nuke warning is asked back. */
 gboolean
 nemo_trash_win32_recycle (GFile *file, GError **error)
 {
@@ -1556,7 +1556,7 @@ nemo_trash_win32_recycle (GFile *file, GError **error)
 
 	if (aborted) {
 		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_CANCELLED,
-				     _("Cancelled."));
+				     _("Canceled."));
 		return FALSE;
 	}
 

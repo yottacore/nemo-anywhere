@@ -1,5 +1,5 @@
 /* How a shortcut is named on screen, and what a rename does with the extension
- * that is not on screen. The second half is the one that matters: a rename can
+ * that isn't on screen. The second half is the one that matters: a rename can
  * arrive without the extension, and without putting it back the shortcut turns
  * into an ordinary file and the target is gone.
  *

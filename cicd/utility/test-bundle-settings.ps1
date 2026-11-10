@@ -12,7 +12,7 @@
 ##		- With no -Path it reads this version's zip in cicd/artifacts/release,
 ##		  and exits 77 when there is none.
 ##		- -SelfTest makes small bundles with the files, without them, changed and
-##		  in the wrong place, and checks each answer. Runs in the lint stage.
+##		  in the wrong place, and checks each result. Runs in the lint stage.
 ##	Syntax:
 ##		pwsh -NoProfile -File cicd/utility/test-bundle-settings.ps1 [-SelfTest] [-Path <zip or folder>...]
 ##	Test ID: ddwhx
@@ -85,7 +85,7 @@ function Get-BundleContent {
 	return $found
 }
 
-## The problems with one bundle, one line each; none when it is good.
+## The problems with one bundle, one line each, and none when it's good.
 function Test-Bundle {
 	param([Parameter(Mandatory)][string]$Bundle, [Parameter(Mandatory)][hashtable]$Wanted)
 	$label = Split-Path -Leaf $Bundle

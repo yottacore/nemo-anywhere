@@ -23,7 +23,7 @@
 /* OOXML, OpenDocument and EPUB files are zips, read here through libarchive.
  * The older .doc, .xls and .ppt are OLE2 compound files, read through
  * nemo-ole2.c. No helper program is started for any of them. Everything in the file is taken
- * as hostile: no length it gives is trusted, and sizes, counts and path
+ * as hostile: no length it gives is trusted, and sizes, counts, and path
  * lengths are capped. Blocking, so never on the window's thread. */
 
 #ifndef NEMO_OFFICE_H

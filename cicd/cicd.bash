@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 
-## The template's file-wide shellcheck header is gone: none of those rules
-## fired here, and while it was up it hid two dead variables. A rule that
-## really needs to be off goes off at the line that needs it, with a reason.
+## There's no file-wide shellcheck header. None of the template's rules fired
+## here, and while it was in place it hid 2 dead variables. A rule that needs
+## to be off goes off on the line that needs it, with a reason.
 
-##	- Purpose: Local CI/CD pipeline. Generic engine, per-project settings live in config.bash.
-##	  The stage sequence is the enduring shape; the tools that fill each stage are
-##	  per-project (config.bash). A stage self-skips when its config vars are empty,
-##	  so stages nemo-anywhere can't do yet are simply left unset (see config.bash).
-##	- Stages (fail-fast, any error aborts before the next stage):
-##	   0. remote sync (fast-forward from upstream before anything is built)
-##	   1. format (source formatter)
-##	   2. debug build (this is what the tests + profiler run against)
-##	   3. regression tests + lints (+ fuzzing, the sanitizer suite, any headless harness)
-##	   4. profiler (flamegraph SVG; non-gating artifact - see failure policy)
-##	   5. release build (native + cross targets; optimized, for packaging + dogfood)
-##	   6. packages (per-OS distributables)
-##	   7. dogfood (install native release locally)
-##	   8. backup + publish to git (runs from repo root)
+##	- Purpose: Local CI/CD pipeline. The engine is generic, and per-project settings are in config.bash.
+##	  The stage order stays the same from project to project, and config.bash
+##	  names the tools for each stage. A stage skips itself when its config vars
+##	  are empty, so stages nemo-anywhere can't do yet are left unset there.
+##	- Stages, where any error stops the run before the next one:
+##	   0. remote sync, a fast-forward from upstream before anything is built
+##	   1. format
+##	   2. debug build, which the tests and profiler run against
+##	   3. regression tests and lints, plus fuzzing, the sanitizer suite, and any headless harness
+##	   4. profiler, a flamegraph SVG that doesn't fail the run (see failure policy)
+##	   5. release build of native and cross targets, optimized for packaging and dogfood
+##	   6. packages for each OS
+##	   7. dogfood, installing the native release locally
+##	   8. backup and publish to git, run from the repo root
 ##	- Syntax:
 ##	  cicd/cicd.bash [options]
 ##	  Options:
@@ -58,12 +58,12 @@
 ##	                       this adds them back there. The analyzer across
 ##	                       files takes about 20 min, so a plain run leaves it
 ##	                       to --long or this flag
-##	   --no-leakcheck      leave those out of a plain run. Whichever of the two
+##	   --no-leakcheck      leave those out of a plain run. Whichever of the 2
 ##	                       comes last on the command line wins
 ##	   --no-dogfood        skip installing the native release locally
 ##	   --no-publish        skip the git backup + publish stage
-##	   --allow-dirty       let publish commit an uncommitted working tree (it
-##	                       refuses one by default)
+##	   --allow-dirty       let publish commit an uncommitted working tree,
+##	                       which it refuses by default
 ##	   --keep-temp         keep the run's temp folder and containers, and
 ##	                       print where the folder is. Each run works in its
 ##	                       own folder under HOST_TEMP (or TMPDIR), removed at
@@ -102,7 +102,7 @@
 ##	   --gate              same as --backlog-run-quick
 ##	   --ci                same as --merge-gate
 ##	                       None of these 3 syncs, formats in place, dogfoods,
-##	                       installs, publishes, commits, pushes or prompts.
+##	                       installs, publishes, commits, pushes, or prompts.
 ##	                       They leave out screenshots and the demo video too
 ## - Reuse: copy the cicd/ directory into another project and edit config.bash.
 
@@ -115,8 +115,8 @@
 
 set -Eeuo pipefail
 
-## Help before anything else runs: the CPU scope and the container caps below
-## would otherwise go on just to print usage.
+## Help comes before anything else runs, or the CPU scope and the container
+## caps below would go on only to print usage.
 ## --no-container too, since the container caps go on before the options are read.
 ## Only the flag sets it here, so a test's copy run under such a run decides alone.
 ## --list too, which leaves the CPU scope and the container caps alone.
@@ -132,16 +132,16 @@ esac; done
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "${here}/.." && pwd)"   # the git repo root (cicd/..)
 ## Per-user bin dirs, so a run over ssh or from cron finds the same helpers an
-## interactive shell does - a non-interactive ssh gets a bare PATH and would
-## otherwise silently skip the lints (cppcheck) and the profiler (the cargo-installed
-## inferno-flamegraph). Cargo's goes last so its toolchain shadows nothing.
+## interactive shell does. A non-interactive ssh gets a bare PATH and would
+## otherwise skip cppcheck's lints and the profiler's cargo-installed
+## inferno-flamegraph without a word. Cargo's goes last so its toolchain shadows nothing.
 export PATH="${HOME}/.local/bin:${PATH}:${HOME}/.cargo/bin"
 ## Low priority for everything the run starts, CPU and disk both.
 renice -n 19 -p $$ >/dev/null 2>&1 || true
 command -v ionice >/dev/null 2>&1 && { ionice -c 3 -p $$ 2>/dev/null || true; }
 cores="$(nproc 2>/dev/null || echo 2)"
 
-## Job counts alone do not hold a run to half the machine: link-time optimization
+## Job counts alone don't limit a run to half the machine. Link-time optimization
 ## runs threads of its own under each ninja job, and rar uses every core. So the
 ## whole run goes inside one user scope with a CPU quota, which everything it
 ## starts inherits. With no user systemd manager only the job counts apply.
@@ -164,8 +164,8 @@ source "${here}/config.bash"
 
 ## A container's processes sit in docker's cgroup, not in this run's scope, so
 ## each gets the step's cap directly, and a low share of the CPU when others
-## want it. It sticks to the container, so a build run by hand in there is held
-## to it too.
+## want it. It stays with the container, so a build run by hand in there is
+## limited by it too.
 declare -p CICD_CONTAINERS &>/dev/null || CICD_CONTAINERS=()
 no_container=0
 if [[ "${CICD_NO_CONTAINER:-}" == "1" ]]; then no_container=1; CICD_CONTAINERS=(); DOCKER_SWEEP=0; fi
@@ -190,7 +190,7 @@ for v in LINT_CMD FUZZ_CMD FUZZ_QUICK_CMD SANITIZE_CMD ANALYZE_CMD ANALYZE_LONG_
 done
 ## NOT-READY (Rust origin): the source pipeline also exported CARGO_BUILD_JOBS and
 ## RUST_TEST_THREADS here to bound cargo's jobserver and the test run. No cargo in a
-## meson/ninja build - parallelism is bounded inside the build command instead.
+## meson/ninja build, so parallelism is bounded inside the build command instead.
 #export CARGO_BUILD_JOBS="${CICD_MAX_JOBS}"
 #export RUST_TEST_THREADS="${CICD_MAX_JOBS}"
 
@@ -257,7 +257,7 @@ esac; done
 [[ -z "$alias_note" ]] || echo "[ ${alias_note} ]"
 
 ## Checks only: a round or the pre-push hook runs these, so nothing may change
-## the tree, the box or the remote, and nobody is there to answer a prompt.
+## the tree, the box, or the remote, and nobody is there to answer a prompt.
 ## After the loop, so no later option can turn a step back on.
 if ((checks_only)); then
 	assume_yes=1; no_sync=1
@@ -344,11 +344,11 @@ fCross_Alongside(){
 	return 1
 }
 
-## Publish commit message: -m wins, then config, then whatever the auto-message
-## helper makes of the tree when unattended - one place owns the wording, so this
-## and the publisher cannot disagree about it.
-## Empty -> publish interactively (git commit opens an editor); when interactive
-## we offer to capture a message at the preflight prompt below.
+## Publish commit message. -m wins, then config, then whatever the auto-message
+## helper makes of the tree when unattended. The wording comes from one place, so
+## this and the publisher can't disagree about it.
+## Empty -> publish interactively, and git commit opens an editor. When
+## interactive, the preflight prompt below offers to take a message.
 publish_msg=""
 if   [[ -n "$cli_message" ]];              then publish_msg="$cli_message"
 elif [[ -n "${PUBLISH_AUTO_MESSAGE:-}" ]]; then publish_msg="$PUBLISH_AUTO_MESSAGE"
@@ -460,7 +460,7 @@ fStep_Cmd(){
 	esac
 }
 ## --list: the plan, and each step with the test IDs it would run, then exit.
-## Nothing has run by here: no run folder, sweep, CPU scope or container cap.
+## Nothing has run by here. There's no run folder, sweep, CPU scope, or container cap.
 fList(){
 	local x cmd
 	fSection "${APP_NAME} --list${run_mode:+ ${run_mode}}${areas[*]:+ ${areas[*]}}"
@@ -469,7 +469,7 @@ fList(){
 	for x in "${stepList[@]}"; do
 		cmd="$(fStep_Cmd "$x")"
 		printf '%s\t%s\n' "$x" "${cmd//[$'\t\n']/ }"
-	done | python3 "${here}/utility/test-id.py" --list "${root}" || fDie "could not list the steps' test IDs"
+	done | python3 "${here}/utility/test-id.py" --list "${root}" || fDie "couldn't list the steps' test IDs"
 	fEcho_Clean
 	exit 0
 }
@@ -483,7 +483,7 @@ in_use(){
 	local -r bin="$(realpath -e "$1" 2>/dev/null || true)"
 	[[ -n "$bin" ]] || return 1
 	## A prefix is in use when a running image sits anywhere inside it; a single
-	## binary, only when it IS the image.
+	## binary, only when it is the image.
 	local inside=""
 	[[ -d "$bin" ]] && inside="${bin}/"
 	local exe
@@ -500,11 +500,11 @@ in_use(){
 ##   version = "1.2.3"
 ## and meson's
 ##   version: '1.2.3'
-## are both accepted, so the engine does not care which build system fills the
+## are both accepted, so the engine doesn't care which build system fills the
 ## stages below it.
-## The lookbehind matters: meson.build carries meson_version and several
+## The lookbehind matters. meson.build has meson_version and several
 ## dependency versions on the same line as the project's own, and a pattern
-## without it happily returns '>=0.56.0'.
+## without it returns '>=0.56.0'.
 read_version(){
 	local file="${root}/${VERSION_MANIFEST}" v
 	[[ -f "$file" ]] || return 0
@@ -524,11 +524,11 @@ write_sums(){
 	  ((${#files[@]})) && sha256sum "${files[@]}" > "${sums}"
 	  true )
 }
-## Publishing pushes work that was committed deliberately; it is not a place to
-## sweep up whatever happens to be lying around. The publish stage runs a bare
-## `git add --all`, which cannot tell work in progress from a finished change, so
-## refuse instead. Gitignored paths (the artifacts dir the run itself writes to)
-## never show up here. --allow-dirty is the one-off way back to the old behavior.
+## Publishing pushes work that was committed on purpose, rather than whatever
+## happens to be lying around. The publish stage runs a bare `git add --all`,
+## which can't tell work in progress from a finished change, so refuse instead.
+## Gitignored paths never show up here, and the artifacts dir the run writes to
+## is one. --allow-dirty is the one-off way back to the old behavior.
 require_clean_tree_for_publish(){
 	((${#GIT_PUBLISH[@]})) || return 0
 	((allow_dirty)) && return 0
@@ -542,12 +542,12 @@ require_clean_tree_for_publish(){
 	fDie "working tree is dirty and the publish stage would commit all of it"
 }
 
-## Refresh from upstream BEFORE the build, so what publish pushes is what was
-## actually built and tested - the publish stage pulls too, but by then the
-## testing is already behind us. Behind-only fast-forwards (wrapping any dirty
-## tree in a stash); diverged aborts here rather than at the end; offline just
-## warns. Never runs in gate mode: the gate is a pre-push hook, and a hook that
-## pulls would rewrite the tree out from under the push that invoked it.
+## Refresh from upstream before the build, so what publish pushes is what was
+## built and tested. The publish stage pulls too, but by then the testing is
+## done. Behind-only fast-forwards, with any dirty tree stashed around it.
+## Diverged aborts here rather than at the end, and offline only warns. It never
+## runs in gate mode, because the gate is a pre-push hook, and a hook that pulls
+## would rewrite the tree out from under the push that started it.
 remote_sync(){
 	local ahead behind stashed=0
 
@@ -571,7 +571,7 @@ remote_sync(){
 	((ahead == 0)) || fDie "diverged from upstream (${ahead} ahead, ${behind} behind) - reconcile first, or rerun with --no-sync"
 
 	## --include-untracked, so the guard has to consider untracked files too or
-	## the pull can still abort on one that upstream just added.
+	## the pull can still abort on one that upstream added.
 	if ! git diff --quiet || ! git diff --cached --quiet || [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
 		fEcho_Clean "git stash push --include-untracked ..."
 		git stash push --include-untracked -m "auto-stash" >/dev/null && stashed=1
@@ -580,10 +580,10 @@ remote_sync(){
 	fGit pull --ff-only
 	if ((stashed)); then
 		fEcho_Clean "git stash pop ..."
-		## A conflicting pop leaves the stash held and the tree half-merged. Say
-		## exactly that, and how to get back, rather than aborting on the bare
-		## git error - the natural rerun with --no-sync would otherwise build and
-		## publish a tree missing the stashed work.
+		## A conflicting pop leaves the stash in place and the tree half-merged.
+		## Say so, and how to get back, rather than aborting on the bare git
+		## error. The obvious rerun with --no-sync would otherwise build and
+		## publish a tree without the stashed work.
 		if ! git stash pop >/dev/null; then
 			fEcho_Clean
 			fEcho "Your changes are still in the stash (git stash list)."
@@ -603,10 +603,10 @@ trap 'rc=$?; printf "\n[ CICD ABORTED (exit %s) at line %s: %s ]\n" "$rc" "$LINE
 ## when DOCKER_SWEEP is on. The signal traps turn Ctrl+C into an exit, so the
 ## EXIT trap runs. --list makes none, since it runs nothing.
 if ((! listOnly)); then
-	fRunTemp_Make "${EXE_NAME}" "${stamp}" || fDie "could not make a run folder under ${HOST_TEMP:-${TMPDIR:-/tmp}}/${EXE_NAME}"
+	fRunTemp_Make "${EXE_NAME}" "${stamp}" || fDie "couldn't make a run folder under ${HOST_TEMP:-${TMPDIR:-/tmp}}/${EXE_NAME}"
 fi
 ## The native Windows gate alongside the local steps, from the build on. In a
-## session of its own, so a TERM reaches the lock's wrap and the lane under
+## session of its own, so a TERM gets to the lock's wrap and the lane under
 ## it, which stop the gate and clear the box.
 winSidePid=""; winSideLog=""; winDeskList=""
 fWinSide_Stop(){
@@ -666,8 +666,8 @@ if ((! listOnly)); then
 	fRunTemp_Sweep
 fi
 
-## Warn (non-gating) when a pinned helper tool has drifted from TOOL_PINS, so a
-## box update can't silently change pipeline results. Before the gate, so the
+## Warn without failing when a pinned helper tool has drifted from TOOL_PINS, so
+## a box update can't change pipeline results unnoticed. Before the gate, so the
 ## pre-push run sees it too.
 if ((! listOnly)) && declare -p TOOL_PINS &>/dev/null; then
 	for pin in "${TOOL_PINS[@]}"; do
@@ -681,10 +681,10 @@ if ((! listOnly)) && declare -p TOOL_PINS &>/dev/null; then
 	done
 fi
 
-## --backlog-run-quick: format check + lints + tests, fail-fast, no
-## artifacts/log-tee/publish. The test stage builds first, since there is no
-## build stage here - so what is compiled is the working tree. Source tree
-## untouched, build directory written to.
+## --backlog-run-quick: format check, lints, and tests, fail-fast, with no
+## artifacts, log tee, or publish. The test stage builds first, since there's no
+## build stage here, so the working tree is what's compiled. The source tree is
+## left alone, and the build directory is written to.
 ## True when the area was named, or when none were.
 fArea(){ ((${#areas[@]} == 0)) || [[ " ${areas[*]} " == *" $1 "* ]]; }
 if ((gate)); then
@@ -811,7 +811,7 @@ fEcho_Clean "${APP_NAME} local CI/CD"
 fEcho_Clean
 fEcho_Clean "Repo root ...........: ${root}"
 fEcho_Clean "Run folder ..........: ${runTempDir}$( ((runTempKeep)) && echo '  (kept, --keep-temp)')"
-((checks_only)) && fEcho_Clean "Mode ................: ${run_mode}, checks only: no sync, in-place format, dogfood, publish, screenshots, demo or prompt"
+((checks_only)) && fEcho_Clean "Mode ................: ${run_mode}, checks only: no sync, in-place format, dogfood, publish, screenshots, demo, or prompt"
 fEcho_Clean "Remote sync .........: $( ((no_sync)) && echo "(skipped ${sync_why})" || echo 'fetch + fast-forward before building' )"
 fEcho_Clean "Build jobs ..........: $( [[ -n "${CICD_JOBS_PIN:-}" ]] && echo "${CICD_JOBS_PIN} (pinned)" || echo "half of ${cores} cores, a quarter on a busy box or for a hard step; ${CICD_MAX_JOBS} now, load ${jobsLoad}" )"
 fEcho_Clean "Priority ............: nice 19$(command -v ionice >/dev/null 2>&1 && echo ', ionice idle'); containers get --cpu-shares 256 and nice 19 inside"
@@ -924,17 +924,17 @@ fEcho_Clean
 fEcho_Clean "Fail-fast: any error aborts before the next stage."
 fEcho_Clean
 
-## Before the build, not after it: a dirty tree is a ten-second answer, and finding
+## Before the build, because a dirty tree takes 10 seconds to find, and finding
 ## out at stage 8 wastes the whole run.
 require_clean_tree_for_publish
 
 if ((! assume_yes)); then
-	## Capture the commit message up front so the run can finish unattended. This
-	## is the natural place to bail on the common (publish) path - Ctrl+C here
-	## aborts; there is no separate "Proceed? [y/N]" (removed to cut friction).
+	## Take the commit message up front so the run can finish unattended. On the
+	## usual publish path, Ctrl+C here aborts. There's no separate "Proceed? [y/N]"
+	## any more.
 	if ((${#GIT_PUBLISH[@]})) && [[ -z "$publish_msg" ]]; then
-		## No terminal - ssh with a command, cron, a piped run. Nobody can answer,
-		## and a bare `read` under set -e aborts the whole run with no message at all.
+		## No terminal, as with ssh and a command, cron, or a piped run. Nobody can
+		## answer, and a bare `read` under set -e aborts the whole run with no message.
 		if [[ -t 0 ]]; then
 			read -r -p "Publish commit message (blank = editor; Ctrl+C aborts): " m
 			fEcho_ResetBlankCounter
@@ -945,8 +945,8 @@ if ((! assume_yes)); then
 	fi
 fi
 
-## Tee the rest of the run (all stages) to a gitignored log so warnings from any
-## stage can be reviewed after the fact. Rotate the prior (closed) logs first.
+## Tee the rest of the run to a gitignored log so warnings from any stage can be
+## reviewed after the fact. Rotate the older logs first.
 if [[ -n "${LINT_LOG_DIR:-}" ]] && mkdir -p "${root}/${LINT_LOG_DIR}" 2>/dev/null; then
 	gfs_rotate "${root}/${LINT_LOG_DIR}" run log >/dev/null 2>&1 || true
 	exec > >(tee "${root}/${LINT_LOG_DIR}/run_${stamp}.log") 2>&1
@@ -995,7 +995,7 @@ fStep "Build (debug)"
 "${DEBUG_BUILD_CMD[@]}"
 fEcho "OK: debug build"
 
-## Stage 3: regression tests, lints, fuzzing, the sanitizer suite and the
+## Stage 3: regression tests, lints, fuzzing, the sanitizer suite, and the
 ## FreeBSD suite.
 fStep "Tests"
 "${TEST_CMD[@]}"
@@ -1034,16 +1034,16 @@ fi
 if ((${#DENY_CMD[@]})); then
 	fStep "Dependency check"
 	if "${DENY_PROBE[@]}" >/dev/null 2>&1; then
-		## Advisory-only for now: report license/advisory/duplicate findings
-		## without failing the pipeline (tighten to gating once tuned).
+		## Advisory only for now. Report license, advisory, and duplicate findings
+		## without failing the pipeline, until it's tuned enough to gate.
 		"${DENY_CMD[@]}" || fEcho "WARNING: cargo-deny reported findings (non-gating)"
 	else
 		fEcho "WARNING: deps check skipped: ${DENY_PROBE[*]} failed (cargo install cargo-deny)"
 	fi
 fi
-## Headless scroll regression harness (slow; skipped under --quick). It skips itself
-## on an environment miss (no Xvfb/binary) and exits non-zero only on a measured
-## regression - which aborts here.
+## Headless scroll regression harness, slow, so skipped under --quick. It skips
+## itself without Xvfb or the binary, and exits non-zero only on a measured
+## regression, which aborts here.
 if ((! quick)) && ((${#SCROLL_HARNESS[@]})); then
 	fStep "Scroll harness"
 	fEcho_Clean "scroll regression harness (headless, X11) ..."
@@ -1062,19 +1062,19 @@ if ((! quick)) && ((${#SCROLL_HARNESS[@]})); then
 	fi
 fi
 
-## Stage 4: profiler (non-gating artifact; failures classified below).
+## Stage 4: profiler. It doesn't fail the run, and its failures are sorted below.
 run_profiler(){
 	((PROFILE_ENABLE)) || { fEcho_Clean "profiler disabled"; return 0; }
 	if ! declare -p PROFILE_CMD &>/dev/null || ((${#PROFILE_CMD[@]} == 0)); then
 		fEcho "WARNING: profiler enabled but no PROFILE_CMD configured"; return 0
 	fi
 
-	## An environmental miss is the box's fault, not the app's, so warn and carry
-	## on (unless PROFILE_STRICT). A failure of the run itself still aborts.
+	## An environmental miss is the box's fault rather than the app's, so warn and
+	## go on, unless PROFILE_STRICT is set. A failure of the run itself still aborts.
 	local skip="" why=""
 	command -v python3 >/dev/null 2>&1 || skip="python3 not found"
 	if [[ -z "$skip" ]] && declare -p PROFILE_PROBE &>/dev/null && ((${#PROFILE_PROBE[@]})); then
-		## Keep what the probe said - naming the missing tool saves a dig.
+		## Keep what the probe said, since naming the missing tool saves a dig.
 		if ! why="$("${PROFILE_PROBE[@]}" 2>&1)"; then
 			why="$(printf '%s' "$why" | tail -1 | sed 's/^\[ *//; s/ *\]$//; s/^FAILED: //')"
 			skip="${why:-profiling tools missing}"
@@ -1105,8 +1105,8 @@ run_profiler(){
 	fEcho "OK: flamegraph: ${latest}"
 	fEcho_Clean "open: ${latest}  (in a browser)"
 
-	## Hot-spot summary into the log (non-fatal, no marker - the marker is for the
-	## per-session --check gate, not the pipeline).
+	## Hot-spot summary into the log. Non-fatal, and no marker, since the marker is
+	## for the per-session --check gate rather than the pipeline.
 	local report="${here}/utility/flame-report.py"
 	if [[ -f "$report" ]]; then
 		fEcho_Clean ""
@@ -1163,7 +1163,7 @@ if ((run_bsd_release)); then
 	esac
 fi
 
-## Collect the built binaries under versioned names + a sha256 checksums file,
+## Collect the built binaries under versioned names, plus a sha256 checksums file,
 ## ready to attach to a release as plain uploads. A project whose release lane
 ## already writes its own artifacts sets RELEASE_COLLECT=0 and keeps the dir.
 if [[ -n "${RELEASE_ARTIFACT_DIR:-}" ]] && ((${RELEASE_COLLECT:-1})); then
@@ -1198,10 +1198,10 @@ if ((run_ctu)) && ((${#ANALYZE_CTU_CMD[@]})); then
 	"${ANALYZE_CTU_CMD[@]}"
 fi
 
-## Stage 6: packages. Distributables built from what stage 5 produced, never
-## rebuilt from source. Which formats, and how, is entirely the project's business
-## (PACKAGE_CMDS in config.bash) - the engine only decides when it happens and that
-## a failing packager warns rather than aborting the run. Skipped under --quick.
+## Stage 6: packages, built from what stage 5 produced and never rebuilt from
+## source. PACKAGE_CMDS in config.bash picks the formats and how. The engine only
+## decides when it happens, and that a failing packager warns rather than
+## aborting the run. Skipped under --quick.
 ## PACKAGE_CHECKS run after, and those do abort: a check that fails means what
 ## the packagers made is broken, and dogfood and publish would pass it on.
 build_packages(){
@@ -1218,7 +1218,7 @@ build_packages(){
 		if eval "${cmd}"; then
 			made=$((made + 1))
 		else
-			## One format failing is not worth losing the others, or the run.
+			## One format failing isn't worth losing the others, or the run.
 			fEcho "WARNING: ${label} failed"
 		fi
 	done
@@ -1292,7 +1292,7 @@ if ((run_private)); then
 	((PACKAGE_ENABLE)) || priv_args+=(--no-store)
 	"${PRIVATE_RUNNER}" --public "${root}" "${priv_args[@]}" || fDie "a private runner job failed"
 	fEcho "OK: private runner"
-	## A build joins this run's dogfood only if the runner made it just now. One
+	## A build joins this run's dogfood only if the runner made it this run. One
 	## left from an earlier run of the same version must not be published again.
 	for entry in "${PRIVATE_DOGFOOD[@]:-}"; do
 		[[ -n "$entry" ]] || continue
@@ -1305,8 +1305,8 @@ if ((run_private)); then
 	rm -f "$priv_start"
 fi
 
-## Stage 7: dogfood. Three independent installs: fixed name, rotating dated copy,
-## and cross-built binaries for a box that cannot build its own.
+## Stage 7: dogfood, as 3 separate installs. A fixed name, a rotating dated copy,
+## and cross-built binaries for a box that can't build its own.
 ((run_dogfood)) && fStep "Dogfood"
 df_did=0
 
@@ -1328,9 +1328,9 @@ fi
 if ((${#DOGFOOD_FIXED_DESTS[@]})); then
 	if [[ -n "$fixed_dest" ]]; then
 		if [[ -n "${DOGFOOD_PREFIX_SRC:-}" ]]; then
-			## Copied alongside and swapped in, not rebuilt in place: a launcher on
-			## another box reads this dir whenever it feels like it, and a half-copied
-			## tree there reads as a perfectly good build.
+			## Copied alongside and swapped in rather than rebuilt in place, because
+			## a launcher on another box reads this dir at any time, and a half-copied
+			## tree there looks like a good build.
 			df_app="${fixed_dest}/${EXE_NAME}"
 			[[ "$df_app" == /*/"${EXE_NAME}" ]] || fDie "refusing to replace ${df_app}"
 			## The launcher runs its own local copy, but someone may have started
@@ -1384,7 +1384,7 @@ if ((${#DOGFOOD_ROTATING_DESTS[@]})) && [[ -n "${DOGFOOD_PREFIX:-}" ]]; then
 	fi
 fi
 
-## 7c. Cross-built binaries under a fixed name, for the box that cannot build them
+## 7c. Cross-built binaries under a fixed name, for the box that can't build them
 ## itself to pick up over the sync layer. Only targets built this run are copied.
 if ((${#DOGFOOD_CROSS_DESTS[@]})); then
 	for xd in "${DOGFOOD_CROSS_DESTS[@]}"; do
@@ -1406,7 +1406,7 @@ if ((${#DOGFOOD_CROSS_DESTS[@]})); then
 fi
 
 ## Private builds: what the private runner made this run for a platform this box
-## cannot build, swapped in whole the same way as 7a. Not under --no-dogfood.
+## can't build, swapped in whole the same way as 7a. Not under --no-dogfood.
 if ((${#DOGFOOD_FIXED_DESTS[@]})); then
 	for entry in "${priv_dogfood[@]:-}"; do
 		[[ -n "$entry" ]] || continue
@@ -1433,7 +1433,7 @@ fi
 if ((run_dogfood && ! df_did)); then fEcho_Clean "no dogfood dest set up"; fi
 
 ## 7d. Whatever else this project wants kept in step with a dogfood drop. Never
-## fatal - a launcher that didn't get updated is not a reason to fail a build.
+## fatal, since a launcher that didn't get updated isn't a reason to fail a build.
 if ((${#DOGFOOD_HOOK[@]})); then
 	if ! (cd "${root}" && "${DOGFOOD_HOOK[@]}"); then
 		fEcho "WARNING: dogfood hook failed (${DOGFOOD_HOOK[0]})"
@@ -1447,9 +1447,9 @@ if ((run_remote_df)); then
 	(cd "${root}" && "${DOGFOOD_REMOTE[@]}") || fEcho "WARNING: remote dogfood failed (${DOGFOOD_REMOTE[*]})"
 fi
 
-## Refresh README screenshots (skipped under --quick; non-fatal - a miss never
-## aborts). Runs before publish so changed images get committed; rendering needs
-## a headless X + magick, so a failure just warns.
+## Refresh README screenshots. Skipped under --quick, and a miss never aborts.
+## Runs before publish so changed images get committed. Rendering needs a
+## headless X and magick, so a failure only warns.
 if ((SHOTS_ENABLE && ! quick)) && [[ -x "$shots_hook" ]]; then
 	fStep "Screenshots"
 	if NEMO_BIN="${root}/${DOGFOOD_PREFIX_SRC}/bin/${EXE_NAME}" "$shots_hook" "${root}"; then
@@ -1459,9 +1459,9 @@ if ((SHOTS_ENABLE && ! quick)) && [[ -x "$shots_hook" ]]; then
 	fi
 fi
 
-## Re-record the demo video (same gating shape as screenshots: off by default,
-## skipped under --quick, never aborts). Both recordings GFS-rotate into the
-## demo-video/ directory beside the repo; the README gif is also written to
+## Re-record the demo video. Like screenshots, it's off by default, skipped
+## under --quick, and never aborts. Both recordings GFS-rotate into the
+## demo-video/ directory beside the repo, and the README gif is also written to
 ## assets/demo.gif. It runs on a private Xvfb, so nothing shows up on whatever
 ## display this was started from. It needs the release build, so it goes after
 ## stage 5.
@@ -1474,10 +1474,10 @@ if ((${DEMO_ENABLE:-0} && ! quick)) && [[ -f "$demo_hook" ]]; then
 	fi
 fi
 
-## Stage 8: backup + publish.
+## Stage 8: backup and publish.
 ((${#GIT_PUBLISH[@]})) && fStep "Publish"
-## Again: preflight cleared the tree, but a stage since then may have written to it
-## (an in-place formatter is the obvious one).
+## Again, because preflight cleared the tree, but a stage since then may have
+## written to it, such as an in-place formatter.
 require_clean_tree_for_publish
 ## Always run the publisher quiet: cicd already gave the initial prompt, so skip
 ## its redundant continue-prompt. With no message it still lets git open the editor.

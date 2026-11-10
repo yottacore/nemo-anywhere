@@ -51,7 +51,7 @@ test_slash_can_be_chosen (void)
 	check (nemo_path_get_display_separator () == '/');
 	check_applied ("C:\\Users\\someone", "C:/Users/someone");
 
-	/* A UNC path keeps its shape - both leading separators convert together. */
+	/* A UNC path keeps its form, since both leading separators convert together. */
 	check_applied ("\\\\server\\share\\file", "//server/share/file");
 
 	nemo_config_set_string (nemo_windows_preferences, NEMO_PREFERENCES_PATH_SEPARATOR, "backslash");
@@ -87,7 +87,7 @@ late_handler (gpointer data, G_GNUC_UNUSED const char *key)
 	*seen = nemo_path_get_display_separator ();
 }
 
-/* Everything that spells out a path does it from its own handler on this
+/* Everything that writes out a path does it from its own handler on this
  * setting, and GObject runs handlers in the order they were connected. So the
  * separator has to be refreshed by the time a handler connected later runs, or
  * the window ends up a step behind - which is what the breadcrumb did. */

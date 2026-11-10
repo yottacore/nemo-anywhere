@@ -109,7 +109,7 @@ if libexif_enabled
 endif
 
 # Windows: embed a VERSIONINFO resource (generated from nemo-anywhere.rc.in) so the
-# exe carries real publisher/version metadata. Empty list elsewhere (no-op).
+# exe has real publisher/version metadata. Empty list elsewhere (no-op).
 nemo_win_res = []
 if is_windows
   winmod = import('windows')

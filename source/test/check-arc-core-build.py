@@ -2,11 +2,11 @@
 
 ##	- Purpose: The archive core's own build keeps out GTK and the app. Every
 ##	  core file is compiled with nothing of theirs on its include path and no
-##	  app define, and the library it makes calls no gtk_, gdk_, nemo_ or eel_
+##	  app define, and the library it makes calls no gtk_, gdk_, nemo_, or eel_
 ##	  function. lint-c.bash reads the sources and meson.build for the same
 ##	  thing; this reads what the build did.
 ##	- Syntax: check-arc-core-build.py <source-root> <build-root> <libarc-core.a> [nm]
-##	  With no nm the symbol half answers 77, so the test shows as a skip.
+##	  With no nm the symbol half exits 77, so the test shows as a skip.
 ##	- Test ID: ddx6z
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -25,7 +25,7 @@ OUTSIDE = re.compile(r'(^|[/\\])(gtk|gdk|gdk-pixbuf|pango|cairo|atk|harfbuzz|lib
 APP_SYMBOL = re.compile(r'^_?(gtk|gdk|nemo|eel|pango|cairo|atk)_')
 
 
-# Where a stack is installed says nothing about what it holds: a GLib built
+# Where a stack is installed says nothing about what's in it: a GLib built
 # with GTK's own build tools can sit under ~/gtk/<stack>/inst. So only the
 # part from include or lib on is read.
 PREFIX_END = ('include', 'lib', 'lib64')

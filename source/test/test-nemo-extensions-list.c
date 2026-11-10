@@ -1,5 +1,5 @@
 /* The extension lister is a flag on the program itself rather than a second
- * binary. It has to answer without a display and without touching a copy that
+ * binary. It has to work without a display and without touching a copy that
  * is already running, so this drives it the way the plugin page does: run the
  * program (argv[1]) with the flag and read what comes back. */
 
@@ -29,7 +29,7 @@ main (int argc, char *argv[])
 	child_argv[2] = NULL;
 
 	/* No DISPLAY on purpose. A run that needed one would be a regression:
-	 * the flag is answered before anything starts up. */
+	 * the flag is handled before anything starts up. */
 	g_unsetenv ("DISPLAY");
 	g_unsetenv ("WAYLAND_DISPLAY");
 
@@ -43,7 +43,7 @@ main (int argc, char *argv[])
 	check (g_spawn_check_wait_status (status, NULL));
 
 	/* Whatever is installed on the machine running this, every line the
-	 * plugin page will parse has to carry the prefix it looks for. */
+	 * plugin page will parse has to have the prefix it looks for. */
 	lines = g_strsplit (out, "\n", -1);
 	for (i = 0; lines[i] != NULL; i++) {
 		if (lines[i][0] == '\0') {

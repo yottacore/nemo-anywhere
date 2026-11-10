@@ -94,7 +94,7 @@ check_no_helper (const char *how, char **lines, gboolean in_process)
 	}
 }
 
-/* None of the app's own settings reached it. */
+/* None of the app's own settings got to it. */
 static void
 check_not_ours (const char *how, char **lines, gboolean in_process)
 {

@@ -1,5 +1,5 @@
 /* A folder that is mostly images opens at its own default size. What counts as
- * mostly images is two rules at once - enough pictures to be a gallery, and
+ * mostly images is 2 rules at once - enough pictures to be a gallery, and
  * a big enough share of the files - and folders are left out of the count. Both
  * limits come from the settings. */
 
@@ -117,7 +117,7 @@ mostly_images (const char *base, const char *name,
 	return answer;
 }
 
-/* What is remembered about base/name, as 0 for no, 1 for yes and -1 for
+/* What is remembered about base/name, as 0 for no, 1 for yes, and -1 for
    nothing known. */
 static int
 remembered (const char *base, const char *name)
@@ -335,7 +335,7 @@ main (int argc, char **argv)
 
 	check (!mostly_images (tmp, "empty", 0, 0, 0));
 
-	/* One picture in a folder is not a gallery, whatever share it is of the
+	/* One picture in a folder isn't a gallery, whatever share it is of the
 	   files there. */
 	check (!mostly_images (tmp, "one-image", 1, 0, 0));
 	check (!mostly_images (tmp, "one-of-two", 1, 1, 0));
@@ -345,7 +345,7 @@ main (int argc, char **argv)
 	check (!mostly_images (tmp, "outnumbered", 2, 3, 0));
 	check (mostly_images (tmp, "gallery", 6, 2, 0));
 
-	/* Folders are not counted, so a set of pictures filed into sub-folders
+	/* Folders aren't counted, so a set of pictures filed into sub-folders
 	   still reads as a folder of pictures. */
 	check (mostly_images (tmp, "with-folders", 2, 0, 5));
 	check (!mostly_images (tmp, "folders-and-text", 2, 3, 5));
@@ -410,7 +410,7 @@ main (int argc, char **argv)
 			     NEMO_PREFERENCES_ICON_VIEW_IMAGE_FOLDER_MIN_PERCENT, 0);
 	check (!mostly_images (tmp, "text-only", 0, 3, 0));
 
-	/* The oldest answers go once the list is full, the newest stay. */
+	/* The oldest results go once the list is full, the newest stay. */
 	{
 		int i;
 

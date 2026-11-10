@@ -18,12 +18,12 @@
 		# non-ASCII byte in install.ps1, which is the rule that matters.
 		'PSUseBOMForUnicodeEncodedFile'
 
-		# Does not see a parameter used from the script body or from inside a
+		# Doesn't see a parameter used from the script body or from inside a
 		# script block, so it names switches in cicd-win.ps1 and one in
 		# pack-portable.ps1 that are all read a few lines later. Checked by
-		# hand. (-Quick really is a no-op there, which is its own open item.
-		# So are -Long, -Leakcheck, -NoLeakcheck, -NoContainer and -NoRemote,
-		# taken so a command line for cicd.bash works there.)
+		# hand. -Quick is a no-op there, and has a backlog item of its own.
+		# So are -Long, -Leakcheck, -NoLeakcheck, -NoContainer, and -NoRemote,
+		# which are taken so a command line for cicd.bash works there.
 		'PSReviewUnusedParameter'
 	)
 }

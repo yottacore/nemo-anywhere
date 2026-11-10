@@ -25,8 +25,8 @@
  * what gets drawn, so a thumbnail reads a few directories and one JPEG, never
  * the sensor data.
  *
- * Reads the TIFF based files (DNG, CR2, NEF, ARW, PEF, RW2, ORF and kin), Fuji
- * RAF and Canon CR3. A file with no usable preview answers NULL. */
+ * Reads the TIFF based files (DNG, CR2, NEF, ARW, PEF, RW2, ORF, and kin), Fuji
+ * RAF and Canon CR3. A file with no usable preview returns NULL. */
 
 #ifndef NEMO_RAW_H
 #define NEMO_RAW_H

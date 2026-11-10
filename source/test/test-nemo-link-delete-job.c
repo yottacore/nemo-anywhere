@@ -1,6 +1,6 @@
 /* Deleting or moving a link takes the link and nothing it points at. Runs the
  * real jobs; whatever they ask is answered yes from here, since nobody is
- * there to click. One job per run: nothing here holds the progress manager,
+ * there to click. One job per run: nothing here keeps the progress manager,
  * and without it the queue never starts a second job. test-nemo-link-copy-job.c
  * says why.
  *
@@ -71,7 +71,7 @@ is_label (const char *label, const char *want)
 	return label != NULL && want != NULL && strcmp (label, want) == 0;
 }
 
-/* Delete, Move to Trash and Empty Trash, as the jobs spell them, and the test
+/* Delete, Move to Trash, and Empty Trash, as the jobs write them, and the test
    guard, whose OK is a delete or a move going ahead. */
 static gboolean
 can_remove (GtkWidget *dialog, GList *buttons)
@@ -337,8 +337,8 @@ other_volume (const char *root)
 #endif
 }
 
-/* A folder link moved to another file system, told to take what it holds. It
-   goes as a link, and the folder it pointed at keeps what it holds. */
+/* A folder link moved to another file system, told to take what's in it. It
+   goes as a link, and the folder it pointed at keeps its contents. */
 static int
 test_move (const char *root, const char *outside, const char *precious, const char *deep)
 {

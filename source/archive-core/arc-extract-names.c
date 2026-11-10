@@ -22,9 +22,9 @@
 
 #include <string.h>
 
-/* Suffixes we offer to unpack, longest first so ".tar.gz" is not read as ".gz".
+/* Suffixes we offer to unpack, longest first so ".tar.gz" isn't read as ".gz".
    Much wider than the list we can write - libarchive reads a great deal it
-   cannot produce - and a name is the only thing there is to go on, since on
+   can't produce - and a name is the only thing there is to go on, since on
    win32 a file's mime type is its extension. */
 static const char * const archive_extensions[] = {
 	".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst", ".tar.lz", ".tar.lzma", ".tar.z",
@@ -37,7 +37,7 @@ static const char * const archive_extensions[] = {
 };
 
 /* 7z numbers a split archive "name.7z.001", so the name to read the format off
-   is the one underneath. Three digits is what it writes, including for the only
+   is the one underneath. It writes 3 digits, including for the only
    volume. Returns how much of the end to ignore, or 0 for an ordinary name. */
 static gsize
 volume_suffix_len (const char *name, gsize len)
@@ -91,8 +91,8 @@ arc_extract_is_archive_name (const char *name)
 	return matching_extension (name) != NULL;
 }
 
-/* Where unpacking a split archive has to start. Any other volume answers with
-   its ".001" sibling, and a name that is not a volume answers with itself. A
+/* Where unpacking a split archive has to start. Any other volume returns
+   its ".001" sibling, and a name that isn't a volume returns itself. A
    missing sibling is left alone, so the failure reads as the archive it was. */
 /* Returns: (transfer full) */
 GFile *
@@ -180,7 +180,7 @@ arc_extract_unique_name (const char *name,
 
 #ifdef G_OS_WIN32
 /* "CON", "nul.txt", "com1 .log" and the rest of Windows' device names. The
-   app keeps its own list, and dbj6w holds the two together. */
+   app keeps its own list, and dbj6w checks that the two match. */
 static gboolean
 is_device_name (const char *name)
 {
@@ -227,7 +227,7 @@ arc_extract_sanitize_path (const char *entry_path)
 	}
 
 	/* Archives written on Windows sometimes separate with backslashes, and
-	   a backslash is not a name character on either platform once it is a
+	   a backslash isn't a name character on either platform once it is a
 	   path inside an archive. */
 	normalized = g_strdelimit (g_strdup (entry_path), "\\", '/');
 	parts = g_strsplit (normalized, "/", -1);

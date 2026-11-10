@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 
-##	- Fetch the bundled theme set into vendor/ - the widget themes and icon
-##	  themes that ship inside the app on targets unlikely to have GTK themes
-##	  installed (Windows, macOS). Re-run to refresh from upstream.
-##	- Every upstream here is GPL-3.0 or MIT and is bundled as mere aggregation
-##	  (data GTK reads at runtime, never linked into nemo), so nemo stays
-##	  GPL-2.0-only. Each theme keeps its own license file, and the source commit
-##	  is pinned in vendor/README.md.
+##	- Fetch the bundled theme set into vendor/. That's the widget themes and
+##	  icon themes bundled with the app for Windows and macOS, which are unlikely
+##	  to have GTK themes installed. Re-run to refresh from upstream.
+##	- Every upstream here is GPL-3.0 or MIT and is bundled as mere aggregation.
+##	  GTK reads it as data at runtime and nothing is linked into nemo, so nemo
+##	  stays GPL-2.0-only. Each theme keeps its own license file, and the source
+##	  commit is pinned in vendor/README.md.
 ##	- Icon themes are trimmed to the names in theme-icon-names.txt and run
-##	  through svg-min.py. That is what holds a theme to a few hundred KB - the
+##	  through svg-min.py. That's what keeps a theme to a few hundred KB, since the
 ##	  full sets are thousands of per-application icons nemo never asks for.
-##	  Anything not shipped falls through Inherits to Adwaita, then hicolor.
+##	  Anything left out falls through Inherits to Adwaita, then hicolor.
 ##	- Upstream layouts all differ (src/16/places, src/scalable/places, mimes vs
 ##	  mimetypes, links/ aliases), so names are resolved by searching an index of
 ##	  the checkout rather than by hardcoding paths. Aliases are followed, real
 ##	  symlink or the text file a Windows checkout leaves in its place.
-##	- Our own Windows-look sets are NOT fetched here - Luna, Aero, Metro and
-##	  Mica live in assets/ and are built by gen-icon-theme.py. They are also
-##	  why no Windows-styled icon theme is vendored: every such set that
+##	- Our own Windows-look sets aren't fetched here. Luna, Aero, Metro, and
+##	  Mica are in assets/ and are built by gen-icon-theme.py. They're also
+##	  why no Windows-styled icon theme is vendored. Every such set that
 ##	  circulates draws blue folders, and Windows folders are yellow.
 ##	- Syntax: bash cicd/utility/vendor-themes.bash [themeId ...]   (needs git)
 
@@ -40,7 +40,7 @@ svgMin="$here/svg-min.py"
 if [[ -d "/c/Program Files/Git/bin" ]]; then export PATH="/c/Program Files/Git/bin:$PATH"; fi
 command -v git >/dev/null || { echo "[ FAILED: git not found ]"; exit 1; }
 
-## python3 is the Store shim on Windows and answers nothing useful; test, don't assume.
+## python3 is the Store shim on Windows and runs nothing useful; test, don't assume.
 python=""
 for candidate in python3 python py; do
 	if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; sys.exit(0)' >/dev/null 2>&1; then
@@ -62,29 +62,29 @@ fEcho_Clean(){ echo "$@"; }
 ##
 ##	roots       repo-relative dirs to search, space separated, best first. Also the
 ##	            sparse-checkout set, so naming Papirus's size buckets rather than
-##	            the whole theme keeps the index at 15k files instead of 88k -
-##	            which is the difference between two minutes and twenty.
+##	            the whole theme keeps the index at 15k files instead of 88k.
+##	            That's the difference between 2 minutes and 20.
 ##	darkFrom    where the dark half's art comes from, if upstream drew any:
 ##	            "suffix:-dark" for <name>-dark.svg beside the light one, or
 ##	            "roots:dark" for a separate overlay directory. Both conventions
-##	            are in use and both amount to two or three files - upstream
-##	            themes redraw the trash and the server for dark and nothing
-##	            else, because the rest genuinely reads on either background.
+##	            are in use and both come to 2 or 3 files. Upstream themes
+##	            redraw the trash and the server for dark and nothing else,
+##	            because the rest reads on either background.
 ##	ref         pinned commit, or HEAD to take whatever upstream has now
 ##	fetch       full, or sparse where the repo is far larger than what we want.
-##	            Sparse is NOT the default: a blobless checkout fetches its
-##	            blobs one batch at a time and measured nine times slower than
+##	            Sparse isn't the default. A blobless checkout fetches its
+##	            blobs one batch at a time and measured 9 times slower than
 ##	            one shallow packfile on a 38 MB repo. It only pays on Papirus,
 ##	            which is 350 MB.
 ##	inherits    the whole Inherits value, when the default "Adwaita,hicolor"
-##	            is wrong - Adwaita is the tail of that chain itself.
+##	            is wrong. Adwaita is the tail of that chain itself.
 ##
-##	A dark icon theme carries ONLY the files that actually differ and inherits
-##	the rest from its light half, so a paired variant costs a few KB.
+##	A dark icon theme has only the files that differ and inherits the rest
+##	from its light half, so a paired variant costs a few KB.
 ##
-##	Adwaita is here for the same reason as the rest. The sysroot ships it whole,
-##	AdwaitaLegacy beside it (1810 png at six sizes) and 33 X11 cursors we cannot
-##	use on Windows - 2693 files to answer the ~140 names we ask of it. Adwaita
+##	Adwaita is here for the same reason as the rest. The sysroot has it whole,
+##	with AdwaitaLegacy beside it at 1810 png in 6 sizes, and 33 X11 cursors we
+##	can't use on Windows. That's 2693 files for the ~140 names we ask of it. Adwaita
 ##	stopped drawing emblems and the color mimetypes, so the legacy set stays as
 ##	its own theme behind it, trimmed the same way, for the couple of dozen names
 ##	that live nowhere else.
@@ -113,7 +113,7 @@ iconThemes=(
 )
 
 ## Widget themes: the whole gtk-3.0 folder, normalized so gtk.css is always at
-## gtk-3.0/gtk.css (upstream may only have a gtk-3.20 variant).
+## gtk-3.0/gtk.css, even when upstream has only a gtk-3.20 variant.
 ##
 ##		id | outName | style | modes | counterpart | url | ref | subdir | layout
 ##
@@ -149,9 +149,9 @@ fWanted(){
 ## subshell and the same repo would be fetched once per theme that uses it.
 ##
 ## @3 is a space separated list of top-level dirs to check out, or empty for the
-## whole repo. Papirus alone is 350 MB, and we want a couple of hundred files out
-## of it, so a blobless sparse checkout is the difference between seconds and
-## minutes - blobs arrive only for what the sparse patterns actually place.
+## whole repo. Papirus alone is 350 MB, and we want a couple hundred files out of
+## it, so a blobless sparse checkout is the difference between seconds and
+## minutes. Blobs are fetched only for what the sparse patterns place.
 fClone(){
 	local url="$1" ref="$2" roots="${3:-}" fetch="${4:-full}" key dest
 	## Keyed on the ref as well as the url: rtl88-Themes keeps one theme family
@@ -160,9 +160,9 @@ fClone(){
 	dest="$tmp/$key"
 
 	if [[ -d "$dest/.git" ]]; then
-		## Several themes can come out of one sparse checkout - the six Simply
-		## Circles colors do - and each names only its own directory, so widen
-		## the checkout rather than reusing one that is missing the others.
+		## Several themes can come out of one sparse checkout, as the 6 Simply
+		## Circles colors do, and each names only its own directory. So widen
+		## the checkout rather than reusing one that's missing the others.
 		if [[ "$fetch" == "sparse" && -n "$roots" && "$roots" != "." ]]; then
 			# shellcheck disable=SC2086  ## roots is a space-separated list; the split is the point.
 			git -C "$dest" sparse-checkout add $roots >/dev/null 2>&1 || true
@@ -171,8 +171,8 @@ fClone(){
 	fi
 
 	## Every one of these repos has case-only filename pairs, so a checkout here
-	## prints a screenful of "paths have collided" that says nothing we do not
-	## already handle. Hold the output and show it only if the clone fails.
+	## prints a screenful of "paths have collided" that says nothing we don't
+	## already handle. Log the output and show it only if the clone fails.
 	local log="$tmp/clone-$key.log"
 
 	if [[ "$fetch" != "sparse" || -z "$roots" || "$roots" == "." ]]; then
@@ -192,9 +192,9 @@ fClone(){
 		git -C "$dest" checkout -q FETCH_HEAD > "$log" 2>&1 || { cat "$log" >&2; return 1; }
 	fi
 
-	## A couple of upstreams commit the icon set as a tar rather than as files -
-	## the theme is one blob in a repo that otherwise holds a GTK theme and some
-	## screenshots. Unpacking it in place turns it back into an ordinary
+	## A couple of upstreams commit the icon set as a tar rather than as files.
+	## The theme is one blob in a repo that otherwise has a GTK theme and some
+	## screenshots. Extracting it in place turns it back into an ordinary
 	## checkout, which is all the indexer downstream wants.
 	while IFS= read -r archive; do
 		[[ -n "$archive" ]] || continue
@@ -207,14 +207,14 @@ fClone(){
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 ## Index of every candidate file under the search roots, keyed by basename.
 ##
-## Held in an associative array rather than grepped out of a file per lookup:
-## a full theme is 26,000 files and 180 lookups, and the inner loop below runs
-## once per candidate. Everything from here down is deliberately fork-free -
-## the first cut shelled out for the path scoring and took five and a half
-## minutes for one theme.
+## Kept in an associative array rather than grepped out of a file per lookup.
+## A full theme is 26,000 files and 180 lookups, and the inner loop below runs
+## once per candidate. Everything from here down is fork-free, because the
+## first cut shelled out for the path scoring and took 5.5 minutes for one
+## theme.
 
-## Both are reached through the namerefs in fBuildIndex and fResolve, which
-## shellcheck cannot follow, so it reads them as never used.
+## Both are used through the namerefs in fBuildIndex and fResolve, which
+## shellcheck can't follow, so it reads them as never used.
 # shellcheck disable=SC2034
 declare -gA iconIndex=()
 # shellcheck disable=SC2034
@@ -248,7 +248,7 @@ fBuildIndex(){
 }
 
 ## Context names differ between upstreams; accept every spelling we have seen.
-## Answers through context_pattern, as fScore does through scored.
+## Returns through context_pattern, as fScore does through scored.
 fContextPattern(){
 	case "$1" in
 		## A dark overlay is a flat folder of a handful of files with no context
@@ -269,16 +269,16 @@ fContextPattern(){
 
 ## Rank a candidate path: bigger is better. Prefers real art over an alias, the
 ## scalable directory over a fixed size, and the largest fixed size otherwise.
-## Answers through a global rather than stdout - a command substitution here is
+## Returns through a global rather than stdout. A command substitution here is
 ## a fork, and this runs tens of thousands of times.
 fScore(){
 	local path="$1" size
 	scored=0
 
 	## The directory a theme drew the real artwork in outranks everything. The
-	## first cut had it the other way round - an alias under links/ was penalised
-	## hard enough that a 24px line variant of the same name won, so Fluent, Tela
-	## and Qogir all shipped outline folders instead of their real ones. An alias
+	## first cut had it the other way around. An alias under links/ was penalized
+	## hard enough that a 24px line variant of the same name won, so Fluent, Tela,
+	## and Qogir all bundled outline folders instead of their real ones. An alias
 	## still loses a tie to real art in the same directory, and nothing more.
 	[[ "$path" == *.svg ]] && scored=$(( scored + 2000 ))
 	[[ "$path" == */scalable/* ]] && scored=$(( scored + 1000 ))
@@ -300,9 +300,9 @@ fScore(){
 	fi
 }
 
-## Resolve one wanted name to a real file. Answers through resolved_path and
-## returns 1 when there is nothing, for the same reason fScore does: a command
-## substitution is a fork, and this is called up to six times per icon.
+## Resolve one wanted name to a real file. Returns it through resolved_path, and
+## returns 1 when there's nothing, for the same reason as fScore. A command
+## substitution is a fork, and this is called up to 6 times per icon.
 fResolve(){
 	local repo="$1" ctx="$2" file="$3" wantSymbolic="$4"
 	local pattern best bestScore path isSymbolic hops=0 line
@@ -322,7 +322,7 @@ fResolve(){
 			## A monochrome glyph is one in a symbolic/ directory or named
 			## <name>-symbolic. Matching "symbolic" anywhere in the path threw
 			## away emblem-symbolic-link, which is a color emblem for a
-			## symlink and the one every symlinked file in the view wears.
+			## symlink and the one every symlinked file in the view shows.
 			isSymbolic=0
 			[[ "$path" == */symbolic/* || "${path##*/}" == *-symbolic.* ]] && isSymbolic=1
 			[[ "$isSymbolic" == "$wantSymbolic" ]] || continue
@@ -338,7 +338,7 @@ fResolve(){
 			hops=$(( hops + 1 ))
 			(( hops > 6 )) && return 1
 			if [[ -L "$repo/$best" ]]; then
-				## A link that finds a file where it says is the answer, and
+				## A link that finds a file where it says is the result, and
 				## the copy downstream reads through it. Otherwise take the
 				## name it points at and look that up instead - upstream writes
 				## these relative to links/ while the art lives under src/, so
@@ -378,9 +378,9 @@ fIsLinkStub(){
 }
 
 ## One line of theme-icon-names.txt: resolve it, stage the file, and the dark
-## half's where upstream drew one. Works on fBuildIconTheme's locals - repo,
-## the two staging dirs, darkFrom, counterpart and the four counts - so the
-## fork count below runs the same body a build does.
+## half's where upstream drew one. Works on fBuildIconTheme's locals, which are
+## repo, the 2 staging dirs, darkFrom, counterpart, and the 4 counts. That way
+## the fork count below runs the same body a build does.
 fStageIcon(){
 	local ctx="$1" name="$2"
 	local symbolic=0 bucket=scalable src="" out darkSrc darkOut
@@ -422,7 +422,7 @@ fStageIcon(){
 	cp -f "$src" "$out"
 	found=$(( found + 1 ))
 
-	## The dark half takes only what upstream actually drew differently.
+	## The dark half takes only what upstream drew differently.
 	if [[ -n "$darkFrom" && -n "$counterpart" ]]; then
 		darkSrc=""
 		if [[ "$darkFrom" == roots:* ]]; then
@@ -442,9 +442,9 @@ fStageIcon(){
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 ## --self-test: resolution against a tree built here, no network and no clone.
 ##
-## Worth having because the resolver answers through a global rather than
-## stdout, which is easy to get subtly wrong, and because the only other way to
-## find out is a twenty minute run against twenty upstreams.
+## The resolver returns through a global rather than stdout, which is easy to
+## get wrong, and the only other way to find out is a 20 minute run against 20
+## upstreams.
 ## Test ID: dcwhs
 
 fSelfTestTree(){
@@ -455,19 +455,19 @@ fSelfTestTree(){
 	printf '<svg/>\n' > "$repo/scalable/actions/eject.svg"
 	printf '<svg/>\n' > "$repo/symbolic/places/folder-symbolic.svg"
 	printf '<svg/>\n' > "$repo/16x16/places/bitmap.png"
-	## An alias the Windows way: a text file holding the relative path its
+	## An alias the Windows way: a text file with the relative path its
 	## symlink had, which is what git leaves on a checkout with no symlinks.
 	printf '../../scalable/places/folder.svg\n' > "$repo/links/places/alias.svg"
 	## An alias the POSIX way.
 	ln -sf ../../scalable/places/folder.svg "$repo/links/places/reallink.svg"
-	## The shape upstream actually uses: an alias written relative to links/,
+	## The form upstream uses: an alias written relative to links/,
 	## naming art that only exists under the real source directory. It dangles
 	## where it sits, so it has to be followed by name rather than by path.
 	printf '<svg/>\n' > "$repo/scalable/places/default-folder-docs.svg"
 	ln -sf default-folder-docs.svg "$repo/links/places/folder-docs.svg"
 	## A link naming something that is nowhere in the tree.
 	ln -sf ../../scalable/places/gone.svg "$repo/links/places/dangling.svg"
-	## Two stubs naming each other. Without the hop limit this never returns.
+	## A pair of stubs naming each other. Without the hop limit this never returns.
 	printf 'loop2.svg\n' > "$repo/links/places/loop1.svg"
 	printf 'loop1.svg\n' > "$repo/links/places/loop2.svg"
 
@@ -493,7 +493,7 @@ fSelfTest(){
 	fResolve "$repo" places "folder-symbolic.svg" 1 || true
 	fCheck "symbolic name" "$repo/symbolic/places/folder-symbolic.svg" "$resolved_path"
 
-	## The context filter really filters: eject is under actions, not places.
+	## The context filter filters: eject is under actions, not places.
 	if fResolve "$repo" places "eject.svg" 0; then
 		fCheck "wrong context" "(no answer)" "$resolved_path"
 	fi
@@ -508,14 +508,14 @@ fSelfTest(){
 	fResolve "$repo" places "reallink.svg" 0 || true
 	fCheck "symlink alias followed" "$repo/links/places/reallink.svg" "$resolved_path"
 
-	## An alias that dangles where it sits still has to reach the real art.
+	## An alias that dangles where it sits still has to find the real art.
 	## This is the case the whole links/ layer turns on: every one of Qogir's
 	## 17,202 aliases is written this way.
 	fResolve "$repo" places "folder-docs.svg" 0 || true
 	fCheck "dangling alias followed by name" "$repo/scalable/places/default-folder-docs.svg" "$resolved_path"
 
-	## Named nothing that exists, so still no answer - but it was a candidate,
-	## which the index says and the resolver cannot.
+	## Named nothing that exists, so still no result. But it was a candidate,
+	## which the index says and the resolver can't.
 	fCheck "link to nothing is indexed" "links/places/dangling.svg"$'\n' "${iconIndex[dangling.svg]:-}"
 	if fResolve "$repo" places "dangling.svg" 0; then
 		fCheck "link to nothing" "(no answer)" "$resolved_path"
@@ -533,7 +533,7 @@ fSelfTest(){
 	fResolve "$repo" places "bitmap.png" 0 || true
 	fCheck "bitmap" "$repo/16x16/places/bitmap.png" "$resolved_path"
 
-	## fIsLinkStub's own edges: real art is not a stub, and neither is a long line.
+	## fIsLinkStub's own edges: real art isn't a stub, and neither is a long line.
 	if fIsLinkStub "$repo/scalable/places/folder.svg"; then
 		fCheck "svg is not a stub" "no" "yes"
 	fi
@@ -632,7 +632,7 @@ fIconContext(){
 }
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-## Build one icon theme (and its dark half, when the record names one).
+## Build one icon theme, and its dark half when the record names one.
 
 fBuildIconTheme(){
 	local record="$1"
@@ -684,7 +684,7 @@ fBuildIconTheme(){
 		fWriteIconIndex "$darkDest" "$counterpart" "$style" "dark" "$outName" "$outName,Adwaita,hicolor"
 		fEcho_Clean "    $counterpart: $darkFound tuned icons over $outName, $(fSize "$darkDest")"
 	elif [[ -n "$counterpart" ]]; then
-		## Nothing was drawn for dark, so the one theme serves both after all.
+		## Nothing was drawn for dark, so the one theme is used for both after all.
 		fWriteIconIndex "$dest" "$outName" "$style" "light;dark" "" "$inherits"
 		fEcho_Clean "    no dark art upstream - $outName covers both modes"
 	fi
@@ -706,8 +706,8 @@ fRecordFor(){
 
 	if [[ "$kind" == "themes" ]]; then arr=("${widgetThemes[@]}"); else arr=("${iconThemes[@]}"); fi
 
-	## Two passes, and the order matters: a dark half that has a record of its
-	## own must be credited to ITS upstream, not to the repo its light half
+	## There are 2 passes, and the order matters: a dark half that has a record of its
+	## own must be credited to its own upstream, not to the repo its light half
 	## happens to name it as a counterpart in. Getting this backwards credited
 	## macOS-dark and Windows-10-dark to the wrong repositories.
 	for record in "${arr[@]}"; do
@@ -761,15 +761,16 @@ fBuildWidgetTheme(){
 		cp -f "$base/3.0/gtk-Light.css" "$dest/gtk-3.0/gtk.css"
 		cp -f "$base/3.0/gtk-Dark.css"  "$dest/gtk-3.0/gtk-dark.css"
 	else
-		## Prefer the newest gtk-3.x sheet upstream ships; normalize it to gtk-3.0.
+		## Prefer the newest gtk-3.x sheet upstream has; normalize it to gtk-3.0.
 		src=""
 		for d in gtk-3.24 gtk-3.22 gtk-3.20 gtk-3.0 3.0; do
 			if [[ -f "$base/$d/gtk.css" ]]; then src="$base/$d"; break; fi
 		done
 		[[ -n "$src" ]] || { fEcho "SKIPPED: no gtk.css under $subdir"; fSafeRm_Under "$vendor/themes" "$dest"; return 0; }
 
-		## Everything the sheet can reference, and nothing else - no gtk-2.0,
-		## metacity, xfwm4, gnome-shell or cinnamon parts, which we never load.
+		## Everything the sheet can reference, and nothing else. That leaves out
+		## the gtk-2.0, metacity, xfwm4, gnome-shell, and cinnamon parts, which
+		## we never load.
 		( cd "$src" && find . -maxdepth 1 -mindepth 1 \
 			! -name 'gtk-3.*' ! -name 'thumbnail.png' -exec cp -r {} "$dest/gtk-3.0/" \; )
 	fi
@@ -841,7 +842,7 @@ fMdTable(){
 
 if (( ${#wanted[@]} == 0 )); then
 	## Anything from the first ### under Themes on is written by hand, such as the
-	## license notes, and is carried over rather than dropped.
+	## license notes, and is copied over rather than dropped.
 	handTail=""
 	[[ -f "$vendor/README.md" ]] && handTail="$(sed -n '/^## Themes/,$p' "$vendor/README.md" | sed -n '/^### /,$p')"
 	{
@@ -857,7 +858,7 @@ if (( ${#wanted[@]} == 0 )); then
 
 		## Driven off what is on disk rather than off the catalog, so a dark
 		## half that exists only as another record's counterpart still gets a
-		## row, and nothing gets two. Padded so the columns line up in a text
+		## row, and nothing gets 2. Padded so the columns line up in a text
 		## editor too, with no trailing pipe.
 		{
 			printf 'Theme\tKind\tStyle\tUpstream\tCommit\n'
@@ -884,9 +885,9 @@ if (( ${#wanted[@]} == 0 )); then
 fi
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-## The manifest that carries all of this inside the binary. Regenerated here so
-## it cannot drift from what is actually in vendor/ - a theme added and not
-## listed would simply be missing from the build with nothing to say so.
+## The manifest that puts all of this inside the binary. Regenerated here so it
+## can't drift from what's in vendor/. A theme added and not listed would be
+## missing from the build with nothing to say so.
 
 fEcho_Clean ""
 "$python" "$here/gen-theme-resources.py" "$root" | while read -r line; do fEcho_Clean "    $line"; done

@@ -22,14 +22,14 @@
 
 /* Starting with no session bus has to bring a window up with nothing logged at
  * critical level. It used to log a dozen pairs of "invalid (NULL) pointer
- * instance" criticals: signals connected to settings groups that were not open
+ * instance" criticals: signals connected to settings groups that weren't open
  * yet, since the store never opened without a bus. With a bus, a start writes
  * the D-Bus activation file into the user's own service folder, naming the
  * program this copy runs from, and leaves one that already does alone.
  *
  * Needs the built program (argv[1]) and a display; without a display it skips.
  * The activation half needs a session bus, and starts one if the environment
- * has none. POSIX: the window is found through X by the pid it carries. */
+ * has none. POSIX: the window is found through X by its pid. */
 
 #include <config.h>
 
@@ -135,7 +135,7 @@ launch (const char *exe, const char *root, gboolean with_bus, const char *err_pa
 }
 
 /* Other tests share the display, so a window from the list can be gone before
- * it is read. Xlib's default handler exits on that BadWindow; the read just
+ * it is read. Xlib's default handler exits on that BadWindow; the read only
  * fails instead. */
 static int
 ignore_x_error (G_GNUC_UNUSED Display *display, G_GNUC_UNUSED XErrorEvent *event)

@@ -71,7 +71,7 @@ w32 (W *w, guint32 v)
 	g_byte_array_append (w->out, b, 4);
 }
 
-/* In place: GLib may clear the tail of a shrunk array (G_DEBUG=gc-friendly). */
+/* In place: GLib may clear the tail of a shrunk array under G_DEBUG=gc-friendly. */
 static void
 patch32 (W *w, guint at, guint32 v)
 {
@@ -290,7 +290,7 @@ test_dng (void)
 	g_autoptr (GdkPixbuf) mid = read_array (le, 512);
 	g_autoptr (GdkPixbuf) big = read_array (be, 2048);
 
-	/* A small draw takes the smallest preview that is not a thumbnail. */
+	/* A small draw takes the smallest preview that isn't a thumbnail. */
 	check (color_is (small, 200, 30, 30));
 	check (fits (small, 128));
 	check (orientation_is (small, "6"));
@@ -324,7 +324,7 @@ test_rgb_only (void)
 	tiff_head (&w, 42);
 	rgb_at = blob (&w, rgb, sizeof rgb);
 	{
-		/* Bits per sample as three values, the usual way. */
+		/* Bits per sample as 3 values, the usual way. */
 		guint32 bits = w.out->len;
 		Entry e[] = {
 			{ 0x100, 4, 1, 6 },
@@ -342,7 +342,7 @@ test_rgb_only (void)
 		w16 (&w, 8);
 		w16 (&w, 8);
 		w16 (&w, 0);
-		/* Two strips of two rows each, back to back. */
+		/* Two strips of 2 rows each, back to back. */
 		offsets = w.out->len;
 		w32 (&w, rgb_at);
 		w32 (&w, rgb_at + sizeof rgb / 2);

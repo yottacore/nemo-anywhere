@@ -91,7 +91,7 @@ nemo_simple_button_new_from_file (const gchar *path, int icon_size)
   gint scale = 1;
 
   /* A lookup that fails leaves width/height untouched, so seed them: an
-     unrecognised icon size used to size the pixbuf off the stack. */
+     unrecognized icon size used to size the pixbuf off the stack. */
   width = height = 16;
   gtk_icon_size_lookup (icon_size, &width, &height);
 

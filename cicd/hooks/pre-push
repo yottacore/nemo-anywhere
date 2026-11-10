@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-##	- Purpose: Local merge gate. The stand-in for a hosted CI: nothing reaches the
-##	  release branch (main) unverified, even without a full cicd run.
+##	- Purpose: Local merge gate, in place of a hosted CI. Nothing goes to the
+##	  release branch, main, unverified, even without a full cicd run.
 ##	- Behavior (per push ref):
 ##	   - push to main         -> run the merge gate, every check of a plain run
 ##	     with nothing mutated. A failure blocks the push. Which gate depends on
@@ -9,11 +9,11 @@
 ##	     -MergeGate` on a Windows checkout, where cicd.bash has no docker to
 ##	     build in.
 ##	   - push to main that changes only paths in cicd/hooks/gate-skip-paths.txt
-##	     -> nothing below runs, since it can't change what ships.
+##	     -> nothing below runs, since it can't change what's released.
 ##	   - push to main         -> also a version-bump guard: source/meson.build must
-##	     be a strict version increase over what's already on main, and (once one
-##	     exists) the README "Release-<ver>" badge must match. So a release merge
-##	     can't ship the same-or-lower version. Both are read from the commit
+##	     be a strict version increase over what's already on main, and, once one
+##	     exists, the README "Release-<ver>" badge must match. So a release merge
+##	     can't publish the same or a lower version. Both are read from the commit
 ##	     being pushed, not the working tree.
 ##	   - push to main         -> refused when the tracked files differ from the
 ##	     commit being pushed: another branch checked out, or uncommitted edits.
@@ -21,10 +21,10 @@
 ##	     something other than what is pushed.
 ##	   - any other branch     -> not gated. dev included: a chunk is built and
 ##	     tested before it is merged there, and a full run's own publish would
-##	     only repeat the checks it just made.
+##	     only repeat the checks it already made.
 ##	- Skips: first push of a ref, branch deletes.
 ##	- Override: `git push --no-verify`, or SKIP_GATE=1.
-##	- Install: cicd/hooks/install.bash (copies this to .git/hooks/pre-push).
+##	- Install: cicd/hooks/install.bash, which copies this to .git/hooks/pre-push.
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under the GNU General Public License, version 2 only.
@@ -39,8 +39,8 @@ set -Eeuo pipefail
 _ver_from(){ grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "$1" 2>/dev/null | head -1; }
 
 ## Returns 0 when $2 is a strict increase over $1, 1 when they are equal and 2
-## when $2 is lower. Map '-' to '~' first (as package.bash does) so a
-## prerelease sorts BELOW its release - plain sort -V puts 1.0.0-beta2 after
+## when $2 is lower. Map '-' to '~' first, as package.bash does, so a
+## prerelease sorts below its release. Plain sort -V puts 1.0.0-beta2 after
 ## 1.0.0, which wrongly blocked the beta->final push.
 fVersionOrder(){
 	[[ "$1" == "$2" ]] && return 1
@@ -108,7 +108,7 @@ while read -r _ localsha remoteref remotesha; do
 	fi
 
 	## Version-bump guard, only when main already has a version to compare
-	## against (skips the very first push to main).
+	## against, so never on the first push to main.
 	if [[ "$remotesha" != "$z" ]]; then
 		newver="$(git show "${localsha}:source/meson.build" 2>/dev/null | _ver_from /dev/stdin || true)"
 		oldver="$(git show "${remotesha}:source/meson.build" 2>/dev/null | _ver_from /dev/stdin || true)"
@@ -121,8 +121,8 @@ while read -r _ localsha remoteref remotesha; do
 			fi
 			[[ "$order" == "0" ]] || { echo "FAILED: main version ${newver} is not greater than ${oldver}" >&2; exit 1; }
 		fi
-		## README release badge must match (once such a badge exists). shields.io
-		## escapes '-' as '--'. No badge yet = nothing to enforce (first release adds it).
+		## The README release badge must match, once there is one. shields.io
+		## escapes '-' as '--'. No badge yet = nothing to enforce, and the first release adds it.
 		readme="$(git show "${localsha}:README.md" 2>/dev/null || true)"
 		if grep -q "Release-[^ )]*-" <<<"$readme"; then
 			badge_ver="${newver//-/--}"
@@ -133,7 +133,7 @@ while read -r _ localsha remoteref remotesha; do
 	## Untracked files are left out: the lints only ever add them to what they check.
 	differs="$(git -C "$root" diff --name-only "$localsha" --)"
 	if [[ -n "$differs" ]]; then
-		echo "FAILED: the working tree is not the commit pushed to main (${localsha:0:12}), so the gate would test something else. Check that commit out, with nothing uncommitted. Differs:" >&2
+		echo "FAILED: the working tree isn't the commit pushed to main (${localsha:0:12}), so the gate would test something else. Check that commit out, with nothing uncommitted. Differs:" >&2
 		head -20 <<<"$differs" >&2
 		exit 1
 	fi

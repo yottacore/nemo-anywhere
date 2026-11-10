@@ -1,14 +1,14 @@
 /* Swapping the view on a folder that is already listed waits for INFO, MOUNT
  * and FILESYSTEM_INFO across every file in it. On Windows a link to a share
- * that is not answering costs about twenty seconds for each of those, one at a
+ * that isn't responding costs about 20 seconds for each of those, one at a
  * time, so a folder of links takes minutes to change view - while the same
  * folder swaps instantly the first time, when the listing is still empty and
  * there is nothing to ask about.
  *
- * Needs a share that is not there but is on the local subnet, which is the only
+ * Needs a share that isn't there but is on the local subnet, which is the only
  * address that reliably times out rather than failing at once. Set
  * NEMO_PROBE_DEAD_SHARE to one, with a last octet no run has used in the last
- * ten minutes - Windows remembers a failed lookup that long. Skipped without it. */
+ * 10 minutes - Windows remembers a failed lookup that long. Skipped without it. */
 
 #include <config.h>
 

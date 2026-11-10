@@ -1,17 +1,17 @@
 # Release-only Windows build, pack, and sign.
 #
-# Why this exists: it was introduced because SignPath Foundation (free OSS code
-# signing) will only sign artifacts built by a verifiable CI system, never a
-# locally-built exe. That application was refused and signing is deferred, so what
-# this earns its keep for now is being the reproducible public build of the
-# released Windows single-exe. Day-to-day dev and dogfooding stay local
-# (cicd-win.ps1); only the release artifact runs through this.
+# SignPath Foundation, which signs open source code for free, only signs
+# artifacts built by a verifiable CI system, never a locally-built exe. That
+# application was refused and signing is deferred, so for now this is the
+# reproducible public build of the released Windows single-exe. Day-to-day dev
+# and dogfooding stay local in cicd-win.ps1, and only the release artifact runs
+# through this.
 #
 # It mirrors the known-good local chain: MSYS2/mingw64 meson+ninja build ->
 # stage-native.bash (self-contained bundle) -> pack-portable.ps1 (EVB single exe).
 #
 # The SignPath step below is left in place but dormant: it is gated on the
-# SIGNPATH_API_TOKEN secret, which is not set, so the job hands over the UNSIGNED
+# SIGNPATH_API_TOKEN secret, which isn't set, so the job hands over the unsigned
 # exe and never hard-fails on a missing cert. Nothing here needs unpicking
 # if signing is picked back up. See cicd/win/signing.md for where that stands and
 # what the alternatives are.
@@ -43,7 +43,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # The action's commit fixes the dated base install it unpacks, and the
+      # The action's commit fixes the dated base install it extracts, and the
       # toolchain on top of it comes from cicd/win/msys2-pins.txt, so a tag
       # builds from the same packages whenever it runs. msys2-pins.bash moves them.
       # MSYS2 has deprecated MINGW64. The pins keep its packages from going away
@@ -96,7 +96,7 @@ jobs:
             Write-Host "choco install failed on attempt $try"
             Start-Sleep -Seconds (20 * $try)
           }
-          if (-not $installed) { throw "could not install Enigma Virtual Box" }
+          if (-not $installed) { throw "couldn't install Enigma Virtual Box" }
           pwsh -File cicd/win/pack-portable.ps1
           if (-not (Test-Path cicd/artifacts/win-portable/nemo-anywhere.exe)) {
             throw "pack produced no exe"
@@ -110,9 +110,9 @@ jobs:
           path: cicd/artifacts/win-portable/nemo-anywhere.exe
           if-no-files-found: error
 
-      # Submit the built exe to SignPath. Skipped (leaving the exe unsigned) until
+      # Submit the built exe to SignPath. Skipped, leaving the exe unsigned, until
       # SIGNPATH_API_TOKEN is set, so an unconfigured repo still produces a build.
-      # Input names track the action's README - re-check them at setup time.
+      # Input names follow the action's README, so re-check them at setup time.
       - name: Sign with SignPath
         id: sign
         if: ${{ env.SIGNPATH_API_TOKEN != '' }}
@@ -139,7 +139,7 @@ jobs:
           $ver = (Select-String -Path source/meson.build -Pattern "(?<![_\w])version\s*:\s*'([^']+)'" | Select-Object -First 1).Matches[0].Groups[1].Value
           if (-not $ver) { throw "no version in source/meson.build" }
           if ($env:GITHUB_REF -like 'refs/tags/*' -and $env:GITHUB_REF_NAME -ne "v$ver") {
-            throw "tag $env:GITHUB_REF_NAME is not v$ver from source/meson.build"
+            throw "tag $env:GITHUB_REF_NAME isn't v$ver from source/meson.build"
           }
           New-Item -ItemType Directory -Force release-files | Out-Null
           Copy-Item -LiteralPath $exe -Destination "release-files/nemo-anywhere-$ver-windows-x86_64-portable.exe"

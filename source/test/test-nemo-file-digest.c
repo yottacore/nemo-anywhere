@@ -1,13 +1,13 @@
 /* The file checksum. The point of checking it against blake3's own published
- * vectors rather than against itself is that the answer has to be the same
+ * vectors rather than against itself is that the result has to be the same
  * number anyone else's blake3 would give: a checksum written into an extended
  * attribute outlives this program, and a future duplicate finder will compare
  * numbers taken years apart on different machines.
  *
- * The lengths are chosen to reach every path the vendored code has. Up to 1024
+ * The lengths are chosen to run every path the vendored code has. Up to 1024
  * bytes is one chunk and the plain C routine; past that the wide routine runs,
  * and which wide routine is decided at run time by what the processor turns out
- * to have. 102400 is several levels of the tree deep. */
+ * to have. A length of 102400 is several levels of the tree deep. */
 
 #include <config.h>
 
@@ -79,7 +79,7 @@ check_known_answers (void)
 	}
 }
 
-/* Reading the file has to give the same answer as hashing the buffer, whatever
+/* Reading the file has to give the same checksum as hashing the buffer, whatever
  * the read gets broken into. */
 static void
 check_file_matches_buffer (const char *scratch)
@@ -108,9 +108,9 @@ check_file_matches_buffer (const char *scratch)
 	}
 }
 
-/* A file that is not there is an error, not a checksum of nothing. That
- * distinction matters: an empty file has a perfectly good checksum, so a
- * failure that answered one would look like a real result. */
+/* A file that isn't there is an error, not a checksum of nothing. An empty
+ * file has a valid checksum, so a failure that returned one would look like
+ * a real result. */
 static void
 check_missing_file_fails (const char *scratch)
 {
@@ -128,7 +128,7 @@ check_missing_file_fails (const char *scratch)
 	check (memcmp (digest, empty, sizeof (digest)) != 0);
 }
 
-/* A cancelled read must not answer either. The thumbnail queue cancels on every
+/* A canceled read must not return one either. The thumbnail queue cancels on every
  * folder change, so this is the ordinary case rather than an edge. */
 static void
 check_cancelled_read_fails (const char *scratch)
@@ -150,7 +150,7 @@ check_cancelled_read_fails (const char *scratch)
 }
 
 /* The text form is what goes into an extended attribute, so it has to survive
- * a round trip and refuse anything that is not one checksum. */
+ * a round trip and refuse anything that isn't one checksum. */
 static void
 check_text_form (void)
 {
@@ -164,7 +164,7 @@ check_text_form (void)
 
 	check (strlen (text) == NEMO_FILE_DIGEST_TEXT_LEN - 1);
 
-	/* base64url, so neither of the two characters plain base64 uses may show
+	/* base64url, so neither of the 2 characters plain base64 uses may show
 	 * up, and nor may the padding. */
 	check (strchr (text, '+') == NULL);
 	check (strchr (text, '/') == NULL);

@@ -58,7 +58,7 @@
 
 #ifdef G_OS_WIN32
 /* Bound on how many unstattable children we'll skip past before giving up on a
- * folder load (see more_files_callback). Just a paranoia cap - the enumerator
+ * folder load (see more_files_callback). Only a paranoia cap. The enumerator
  * advances past each bad entry, so it terminates at end-of-dir on its own. */
 #define DIRECTORY_LOAD_MAX_SKIP 256
 #endif
@@ -77,7 +77,7 @@ struct ThumbnailState {
 	GCancellable *cancellable;
 	NemoFile *file;
 
-	/* Copied off the file, since the worker cannot touch it. */
+	/* Copied off the file, since the worker can't touch it. */
 	char *uri;
 	char *shared_path;
 	NemoFileId id;
@@ -1758,8 +1758,8 @@ lacks_extension_info (NemoFile *file)
 
 /* Any file of a type that can be drawn might be in the file cache, so it is
  * asked about, not only a file the freedesktop cache has a copy of. One still
- * waiting in the render queue is not: its turn there reads it, so a picture
- * stored on an earlier visit is not shown out of turn either. */
+ * waiting in the render queue isn't: its turn there reads it, so a picture
+ * stored on an earlier visit isn't shown out of turn either. */
 static gboolean
 lacks_thumbnail (NemoFile *file)
 {
@@ -1774,8 +1774,8 @@ static gboolean
 lacks_mount (NemoFile *file)
 {
 	/* Asking what a share is mounted under means going and asking the share,
-	   which is fifty seconds when the host is not answering - and the answer
-	   is of no use on Windows, where a share is not a mount. */
+	   which is 50 seconds when the host isn't answering - and the answer
+	   is of no use on Windows, where a share isn't a mount. */
 	if (nemo_file_is_on_a_share (file)) {
 		return FALSE;
 	}
@@ -3028,7 +3028,7 @@ mime_list_state_free (MimeListState *state)
 static void
 /* @failed, despite what the old parameter name said - both branches always read
    it that way, and the enumerate-failure caller passing the other one recorded a
-   confirmed-empty type list for a directory it could not read. */
+   confirmed-empty type list for a directory it couldn't read. */
 mime_list_done (MimeListState *state, gboolean failed)
 {
 	NemoFile *file;
@@ -4366,7 +4366,7 @@ query_owner_callback (GObject *source_object,
 	gboolean changed = FALSE;
 
 	if (state->directory == NULL) {
-		/* Cancelled. */
+		/* Canceled. */
 		owner_state_free (state);
 		return;
 	}
@@ -4621,7 +4621,7 @@ extension_info_start (NemoDirectory *directory,
 
 /* Which fetch the work queue is parked on, and for how long. The calls are all
    async, so timing the call itself shows nothing - the wait is in the answer.
-   Set NEMO_DEBUG_IO to find the one that is costing twenty seconds. */
+   Set NEMO_DEBUG_IO to find the one that is costing 20 seconds. */
 static gint debug_io = -1;
 
 static void

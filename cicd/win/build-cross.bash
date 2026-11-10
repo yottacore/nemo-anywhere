@@ -2,14 +2,14 @@
 
 ##	- Purpose: Run the Windows cross build in a step container of its own
 ##	  (win-box.bash), on the cache volume at /build-win, with the build stamp set, so the exe is reproducible. The linker writes a timestamp
-##	  into the PE header, and left alone it writes the clock - meaning two builds
-##	  of the same commit differ. SOURCE_DATE_EPOCH replaces it with HEAD's commit
-##	  date, and docker exec does not carry the host environment across, so it has
+##	  into the PE header, and left alone it writes the clock, so 2 builds of the
+##	  same commit differ. SOURCE_DATE_EPOCH replaces it with HEAD's commit
+##	  date, and docker exec doesn't pass the host environment through, so it has
 ##	  to be handed over here.
 ##	- Release buildtype, same as the Linux release lane. Left off, meson defaults
-##	  to debug, and every exe this lane produced before 20260919 carried DWARF at
-##	  five times the size it needs. cicd/utility/check-win-build-flags.bash holds
-##	  that, and runs below once the exe is linked.
+##	  to debug, and every exe this lane produced before 20260919 had DWARF info at
+##	  5 times the size it needs. cicd/utility/check-win-build-flags.bash checks
+##	  for that, and runs below once the exe is linked.
 ##	- The checked exe is left at cicd/artifacts/cross/nemo-anywhere.exe, since
 ##	  the build dir is in a volume the host can't read.
 ##	- Syntax: build-cross.bash [--clean]
@@ -59,9 +59,9 @@ jobs="${CICD_MAX_JOBS}"
 ## warning on the way past. This is the one release-flags build that runs on an
 ## ordinary pipeline run, so it is where an unused-code warning gets caught: a
 ## release build compiles the DEBUG lines out, and anything that exists only for
-## one of them then has no reader. Four of those went unseen until this lane
+## one of them then has no reader. This lane missed 4 of those until it
 ## became a release build. Only what ninja recompiles is in the log, which is
-## enough - the commit that adds one compiles the file it is in.
+## enough, since the commit that adds one compiles the file it is in.
 fBuild(){
 	local log unused serial
 	log="$(mktemp)"
@@ -102,7 +102,7 @@ fStamp(){ fPeTimestamp <(docker exec "$CONTAINER" head -c 4096 "${BUILD}/src/nem
 
 ## meson's -Dstrip=true only runs on install, and this lane never installs -
 ## pack-zip.bash copies the exe straight out of the build directory. So the
-## strip happens here. It has to carry SOURCE_DATE_EPOCH: binutils rewrites the
+## strip happens here. It needs SOURCE_DATE_EPOCH: binutils rewrites the
 ## PE Time/Date field when it writes the file, and left to itself it writes the
 ## clock, which is what the whole stamp exists to avoid.
 fStrip(){
@@ -117,7 +117,7 @@ fEcho "Cross build (stamped $(date -u -d "@${SOURCE_DATE_EPOCH}" '+%Y-%m-%d %H:%
 ((clean)) && docker exec "$CONTAINER" find "$BUILD" -xdev -mindepth 1 -delete || true
 fBuild
 
-## The stamp is part of the output, but ninja does not know that, so an exe left
+## The stamp is part of the output, but ninja doesn't know that, so an exe left
 ## over from a build of an earlier commit looks up to date. Drop it and relink.
 ## Read before the strip: the strip writes SOURCE_DATE_EPOCH over whatever is
 ## there, so afterwards every exe looks current and this never fires.
@@ -139,10 +139,10 @@ pe="$(fStamp)"
 fEcho_Clean "exe stamped ${pe}"
 
 ## Read the exe back rather than trusting the flags above. Copied out first
-## because the check runs on the host and the exe lives in the container.
+## because the check runs on the host and the exe is in the container.
 tmpExe="$(mktemp)"
 docker exec "$CONTAINER" cat "${BUILD}/src/nemo-anywhere.exe" > "$tmpExe"
-bash "${ROOT}/cicd/utility/check-win-build-flags.bash" --shipped "$tmpExe" || fDie "the cross build is not a stripped release build"
+bash "${ROOT}/cicd/utility/check-win-build-flags.bash" --shipped "$tmpExe" || fDie "the cross build isn't a stripped release build"
 mkdir -p "${ROOT}/cicd/artifacts/cross"
 cp "$tmpExe" "${ROOT}/cicd/artifacts/cross/nemo-anywhere.exe"
 fEcho_Clean ""

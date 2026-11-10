@@ -2,8 +2,8 @@
  * success and then lists the process's working directory instead of the folder
  * asked for. That reads as an empty folder in the window and would send a
  * recursive walk into the wrong tree. These checks build a folder deeper than
- * the limit and hold nemo_enumerate_children to the real contents, sync and
- * async, against the same answers on a short path.
+ * the limit and check nemo_enumerate_children against the real contents, sync
+ * and async, and against the same results on a short path.
  *
  * The exe links the application manifest, because long-path awareness is a
  * property of the process, not of the call. Without it every check below would
@@ -26,7 +26,7 @@ static gboolean skipped = FALSE;
 static const char *entry_names[] = { "alpha.txt", "beta.txt", "gamma.txt", "subdir" };
 
 /* Deepen root by fixed-length segments until it is past MAX_PATH, then fill the
- * bottom folder with the four entries above. NULL if the box cannot make one -
+ * bottom folder with the 4 entries above. NULL if the box can't make one -
  * long paths are a registry opt-in, so a machine without it is a skip, not a
  * failure. */
 static char *
@@ -77,7 +77,7 @@ compare_names (const void *a, const void *b, G_GNUC_UNUSED gpointer user_data)
 	return g_ascii_strcasecmp (*(const char * const *) a, *(const char * const *) b);
 }
 
-/* Sorted names read out of an enumerator, so a comparison does not depend on
+/* Sorted names read out of an enumerator, so a comparison doesn't depend on
  * the order the file system hands them back. */
 static char **
 drain (GFileEnumerator *enumerator)
@@ -278,7 +278,7 @@ test_short_path_matches_glib (const char *root)
 	g_object_unref (dir);
 }
 
-/* A folder that is not there has to report that, not an empty listing. */
+/* A folder that isn't there has to report that, not an empty listing. */
 static void
 test_missing_long_path (const char *deep)
 {
@@ -332,7 +332,7 @@ main (void)
 		return EXIT_FAILURE;
 	}
 
-	/* The long paths are what this test is for, so without them it has not run. */
+	/* The long paths are what this test is for, so without them it hasn't run. */
 	if (skipped)
 		return 77;
 

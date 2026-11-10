@@ -1,8 +1,8 @@
 /* A settings change in one running copy shows in the others before the copy
- * that made it saves it, so not through the file. 2 copies of this test run
+ * that made it saves it, so not through the file. Here 2 copies of this test run
  * as the app does: one settings file, one bus, a slot each, and settings
  * shared through nemo-instances. Checked:
- *   - a set and a reset reach the other copy while the file still has the old
+ *   - a set and a reset get to the other copy while the file still has the old
  *     value, and its handler runs once, not again when the file catches up
  *   - the copy that only took the change never writes the file, even when
  *     the copy that made it dies before its save
@@ -433,7 +433,7 @@ stop (Peer *peer)
 	tell (peer, "quit");
 	bye = wait_for (peer, "bye");
 	g_free (bye);
-	/* Its reader holds stdin locked, and exit waits on that lock. */
+	/* Its reader keeps stdin locked, and exit waits on that lock. */
 	g_output_stream_close (peer->in, NULL, NULL);
 	clean = g_subprocess_wait_check (peer->process, NULL, NULL);
 	forget (peer);
@@ -605,7 +605,7 @@ test_same_key_at_once (Peer *a, Peer *b)
 		gint64 end, set_at = when;
 		char *stamp;
 
-		/* Each holds on after its set, so both are set before either takes
+		/* Each waits after its set, so both are set before either takes
 		   the other's. */
 		tell (a, "at %" G_GINT64_FORMAT ";set " STRING_KEY " a%d;stamp;hold 200", when, round);
 		tell (b, "at %" G_GINT64_FORMAT ";set " STRING_KEY " b%d;stamp;hold 200", when, round);
@@ -774,7 +774,7 @@ test_stale_save_repaired (Peer *a, Peer *b)
 	check_agree (a, b, "won", "a stale save");
 }
 
-/* As above, but a's message reaches b only after b has read a's save back from
+/* As above, but a's message gets to b only after b has read a's save back from
    the file, so b can't know yet that the value in it lost. */
 static void
 test_late_message_repaired (Peer *a, Peer *b)

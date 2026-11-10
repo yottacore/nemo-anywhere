@@ -1,7 +1,7 @@
 /* The Compress dialog starts from what it was last used with. This covers the
- * two halves of that: the settings table really carries the keys the dialog
- * writes (a typo in either would just be a setting that never takes, with
- * nothing to see), and they survive a restart.
+ * 2 halves of that: the settings table has the keys the dialog writes, and
+ * they survive a restart. A typo in either would be a setting that never
+ * takes, with nothing to see.
  *
  * Then the link choices: the old store links and follow links values mapped
  * over and dropped, what is kept and what never is, and the fall back to
@@ -208,7 +208,7 @@ check_confirm (gboolean delete_sources,
 	nemo_archive_options_clear (&options);
 }
 
-/* Only the two together. Either on its own leaves a way back: an archive with
+/* Only the 2 together. Either on its own leaves a way back: an archive with
    a mistyped password is still openable-by-nobody but the files are still
    there, and a delete with no password is a delete of files that went into an
    archive anyone can open. */
@@ -388,7 +388,7 @@ test_link_choices_kept (void)
 }
 
 /* A store choice falls back to Ignore exactly where the writer doesn't claim
-   to store links. The format's answer is the union over what's installed,
+   to store links. The format's claim is the union over what's installed,
    the same as its caps. */
 static void
 test_fall_back_follows_claims (void)

@@ -1,7 +1,7 @@
-/* Icon sizes are pixels rather than one of seven named levels. The check that
+/* Icon sizes are pixels rather than one of 7 named levels. The check that
  * matters most is the last one: a folder's size was saved as a level number
  * until 2026-09, and reading one of those as a pixel count would show every
- * remembered folder at a three pixel icon. */
+ * remembered folder at a 3 pixel icon. */
 
 #include <config.h>
 
@@ -34,7 +34,7 @@ main (void)
 	check (nemo_icon_size_step (NEMO_ICON_SIZE_MAX, 1) == NEMO_ICON_SIZE_MAX);
 	check (nemo_icon_size_step (NEMO_ICON_SIZE_MIN, -1) == NEMO_ICON_SIZE_MIN);
 
-	/* A size between two stops steps to the stop either side of it, not to
+	/* A size between 2 stops steps to the stop either side of it, not to
 	   the one it is nearest. */
 	check (nemo_icon_size_step (56, 1) == NEMO_ICON_SIZE_STANDARD);
 	check (nemo_icon_size_step (56, -1) == NEMO_ICON_SIZE_SMALL);
@@ -42,8 +42,8 @@ main (void)
 	check (nemo_icon_size_clamp (2) == NEMO_ICON_SIZE_MIN);
 	check (nemo_icon_size_clamp (99999) == NEMO_ICON_SIZE_MAX);
 
-	/* The slider's scale. A stop sits on a whole number, and half way
-	   between two of them is half way between their sizes. */
+	/* The slider's scale. A stop is on a whole number, and half way
+	   between 2 of them is half way between their sizes. */
 	for (i = 0; i < n_steps; i++) {
 		check (nemo_icon_size_position (steps[i]) == (gdouble) i);
 		check (nemo_icon_size_at_position ((gdouble) i) == steps[i]);
@@ -53,7 +53,7 @@ main (void)
 	check (nemo_icon_size_at_position (-5.0) == NEMO_ICON_SIZE_MIN);
 	check (nemo_icon_size_at_position (999.0) == NEMO_ICON_SIZE_MAX);
 
-	/* Per cent, which is what both the settings file and the settings window use. */
+	/* Percent, which is what both the settings file and the settings window use. */
 	check (nemo_icon_size_from_percent (100) == NEMO_ICON_SIZE_STANDARD);
 	check (nemo_icon_size_from_percent (500) == NEMO_ICON_SIZE_IMAGES);
 	check (nemo_icon_size_from_percent (1000) == NEMO_ICON_SIZE_MAX);
@@ -76,7 +76,7 @@ main (void)
 	check (nemo_icon_size_from_legacy_level (6) == NEMO_ICON_SIZE_LARGEST);
 	check (nemo_list_icon_size_from_legacy_level (2) == NEMO_LIST_ICON_SIZE_SMALL);
 
-	/* The list view is held to those same steps, and the size it shows for
+	/* The list view is limited to those same steps, and the size it shows for
 	   each one has to be what it always was. */
 	for (i = 0; i < 7; i++) {
 		size = nemo_icon_size_from_legacy_level (i);
@@ -84,11 +84,11 @@ main (void)
 		check ((gint) nemo_get_list_icon_size (size) == nemo_list_icon_size_from_legacy_level (i));
 	}
 
-	/* A size between two steps belongs to the step at or above it. */
+	/* A size between 2 steps belongs to the step at or above it. */
 	check (nemo_icon_size_legacy_level (56) == 3);
 	check (nemo_get_list_icon_size (56) == NEMO_LIST_ICON_SIZE_STANDARD);
 
-	/* Past the old top level, everything answers as the top one. */
+	/* Past the old top level, everything counts as the top one. */
 	check (nemo_icon_size_legacy_level (NEMO_ICON_SIZE_MAX) == 6);
 	check (nemo_get_list_icon_size (NEMO_ICON_SIZE_MAX) == NEMO_LIST_ICON_SIZE_LARGEST);
 

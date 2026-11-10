@@ -1,6 +1,6 @@
 /* Exercises the favorites list and its favorites:/// vfs: how stored entries are
  * read and written back, listing an entry that has gone away, the prefix and
- * relative-path answers, what a favorite with an unreachable target does, and a
+ * relative-path checks, what a favorite with an unreachable target does, and a
  * concurrent read while the list is rebuilt. Runs against a throwaway
  * XDG_CONFIG_HOME. */
 
@@ -40,7 +40,7 @@ test_entry_parsing (NemoFavorites *favorites)
 	const char *const no_mime[]    = { "::file:///tmp/nomime.txt", NULL };
 	NemoFavoriteInfo *info;
 
-	/* The mimetype half is stored first, so a name carrying the delimiter is
+	/* The mimetype half is stored first, so a name with the delimiter is
 	 * no longer split in the middle and repointed at another file. */
 	seed (colon_name);
 	check (nemo_favorites_get_n_favorites (favorites) == 1);
@@ -59,7 +59,7 @@ test_entry_parsing (NemoFavorites *favorites)
 	check (nemo_favorites_get_n_favorites (favorites) == 1);
 	check (nemo_favorites_find_by_uri (favorites, "file:///tmp/ok.txt") != NULL);
 
-	/* Nothing in the mimetype half is not a mimetype of "". */
+	/* Nothing in the mimetype half isn't a mimetype of "". */
 	seed (no_mime);
 	info = nemo_favorites_find_by_uri (favorites, "file:///tmp/nomime.txt");
 	check (info != NULL);
@@ -127,8 +127,8 @@ test_prefix_matches (void)
 	GFile *child = g_file_new_for_uri ("favorites:///one.txt");
 	char *rel;
 
-	/* The two used to be compared the wrong way round, so a real child of the
-	 * root answered FALSE. */
+	/* The 2 used to be compared the wrong way round, so a real child of the
+	 * root returned FALSE. */
 	check (g_file_has_prefix (child, root));
 	check (!g_file_has_prefix (root, root));
 	check (!g_file_has_prefix (root, child));
@@ -235,7 +235,7 @@ test_missing_target (NemoFavorites *favorites)
 	file = g_file_new_for_uri ("favorites:///ghost.txt");
 
 	/* The stand-in info used to build its icon from a NULL content type, which
-	 * cascaded into four criticals. */
+	 * cascaded into 4 criticals. */
 	info = g_file_query_info (file, "standard::*", G_FILE_QUERY_INFO_NONE, NULL, &error);
 	check (info != NULL);
 	check (error == NULL);
@@ -255,8 +255,8 @@ test_missing_target (NemoFavorites *favorites)
 
 /* teardown */
 
-/* Both of these used to unref the config group on the way out, dropping a ref
- * they never took - the store's own ref - so the group was freed while still in
+/* Both of these used to unref the config group on the way out, dropping the
+ * store's own ref, which they never took. So the group was freed while still in
  * the store's table and every later user of it read freed memory. */
 static void
 test_borrowed_settings_group (void)
@@ -268,8 +268,8 @@ test_borrowed_settings_group (void)
 	NemoFavorites *throwaway;
 	NemoDesktopThumbnailFactory *factory;
 
-	/* Weak pointers rather than ref counts: this has to answer "was the group
-	 * destroyed", and it has to answer it without reading freed memory. */
+	/* Weak pointers rather than ref counts: this has to tell whether the group
+	 * was destroyed, and it has to do it without reading freed memory. */
 	g_object_add_weak_pointer (G_OBJECT (favs_group), &favs_alive);
 	g_object_add_weak_pointer (G_OBJECT (thumb_group), &thumb_alive);
 
@@ -295,7 +295,7 @@ test_borrowed_settings_group (void)
 	}
 }
 
-/* A settings change after teardown used to reach a freed object: the handler was
+/* A settings change after teardown used to call into a freed object: the handler was
  * never disconnected, and a queued idle was left behind. */
 static void
 test_no_callbacks_after_dispose (void)
@@ -383,7 +383,7 @@ test_concurrent_reload (NemoFavorites *favorites)
 }
 
 /* No arguments runs the lot, which is how meson calls it. Naming one or more
- * runs just those - handy when an earlier one is expected to take the process
+ * runs only those, for when an earlier one is expected to take the process
  * down with it. */
 static gboolean
 want (const char *name, int argc, char *argv[])

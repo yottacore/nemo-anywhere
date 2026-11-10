@@ -1,9 +1,9 @@
 /* The list of running copies has every other copy in it and not the one
- * asking, on whatever bus the session has. 3 connections publish the way a
+ * asking, on whatever bus the session has. Here 3 connections publish the way a
  * copy does and each lists the others. The middle one drops off the bus as a
  * crash would, its slot passes up, and the 2 left see only each other. Then
  * the first leaves cleanly and a fourth joins. GLib's bus, the one Windows
- * runs, answered the old queue read with an empty list. Names are compared by
+ * runs, returned an empty list for the old queue read. Names are compared by
  * owner, so a copy of the app running on the same bus changes nothing.
  * Starts a bus under dbus-run-session where the environment has none. */
 
@@ -209,7 +209,7 @@ main (int argc, char **argv)
 	check (all_see_the_others (copies));
 
 	/* Gone with no goodbye, as a crash would be. Its slot passes to the copy
-	 * above it, so the walk does not stop short of that one. */
+	 * above it, so the walk doesn't stop short of that one. */
 	g_dbus_connection_close_sync (copies[1], NULL, NULL);
 	g_clear_object (&copies[1]);
 	check (all_see_the_others (copies));

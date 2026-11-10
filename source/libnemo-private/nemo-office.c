@@ -374,7 +374,7 @@ tag_is (const char *tag, gsize len, const char *want)
 	return local_name_is (tag, name_len (tag, len), want);
 }
 
-/* The five entities xml has, which an href with an & in it uses. */
+/* The 5 entities xml has, which an href with an & in it uses. */
 static char *
 unescape_attr (const char *value, gsize len)
 {
@@ -456,7 +456,7 @@ tag_attr (const char *tag, gsize len, const char *want)
 
 typedef gboolean (*TagFunc) (const char *tag, gsize len, gpointer data);
 
-/* Each start or empty tag, the text between < and >, until @each answers
+/* Each start or empty tag, the text between < and >, until @each returns
    TRUE. */
 static void
 each_tag (GBytes *xml, TagFunc each, gpointer data)
@@ -918,7 +918,7 @@ nemo_office_thumbnail_uri (const char *uri, int size, GCancellable *cancellable)
 }
 
 /* What the old mso-to-txt converter left out, matched against each part of a
-   member's path: styles, settings, layouts and the like. */
+   member's path: styles, settings, layouts, and the like. */
 static const char *const skip_names[] = {
 	"styles.xml", "theme", "_rels", "printerSettings", "media", "drawings",
 	"META-INF", "Thumbnails",

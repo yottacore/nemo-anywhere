@@ -25,7 +25,7 @@ typedef enum {
 goffset nemo_small_copy_limit (void);
 
 /* Copies a regular local file under limit bytes without letting the file
-   system clone it. Anything it will not take, or a target it cannot make, is
+   system clone it. Anything it won't take, or a target it can't make, is
    NOT_TRIED with nothing written, so the ordinary copy gives the usual answer.
    An overwrite is never taken. copied is the byte count on DONE. */
 NemoSmallCopyResult nemo_small_copy (GFile          *src,

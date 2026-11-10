@@ -1,13 +1,13 @@
-/* Which of the three ways in wins. The define only ever arms: the variable and
+/* Which of the 3 ways in wins. The define only ever arms: the variable and
  * the setting can turn a build with it at 0 on, and neither can turn a build
  * with it at 1 off. Which half of that is checked depends on how this build was
  * compiled, so both halves are here.
  *
  * Each case runs as a child of this binary, since the environment variable is
  * read once per process and a second read in the same one would see the first
- * answer. The child exits 0 armed, 1 quiet, so the parent just reads a status.
+ * value. The child exits 0 armed, 1 quiet, so the parent only reads a status.
  *
- * Also checks the two dialogs that name a pair of paths, since the two the
+ * Also checks the 2 dialogs that name a pair of paths, since the 2 the
  * wrong way round would read as the opposite of what is happening, and the
  * size caps that keep a long list from pushing the buttons off the screen.
  *
@@ -84,7 +84,7 @@ spawn_child (const char *self, const char *mode, const char *env_value)
 		return -1;
 	}
 
-	/* A non-zero exit is the answer here, not a failure, and this is the
+	/* A non-zero exit is the result here, not a failure, and this is the
 	   portable way back to the number the child returned. */
 	if (!g_spawn_check_exit_status (status, &error)) {
 		int code = error->domain == G_SPAWN_EXIT_ERROR ? error->code : -1;
@@ -96,10 +96,10 @@ spawn_child (const char *self, const char *mode, const char *env_value)
 	return CHILD_ARMED;
 }
 
-/* A move and an overwrite each lose one of two paths, and the dialog is only
+/* A move and an overwrite each lose one of 2 paths, and the dialog is only
    any use if it says which. Checked here rather than through the dialog, which
-   wants a display the gate does not have. The paths are looked for as the
-   dialog spells them, which on Windows is with backslashes. */
+   wants a display the gate doesn't have. The paths are looked for as the
+   dialog writes them, which on Windows is with backslashes. */
 static void
 check_wording (void)
 {
@@ -182,7 +182,7 @@ main (int argc, char *argv[])
 	store_off = test_scratch_dir ("nemo-testguard-off-XXXXXX", NULL);
 
 	if (NEMO_TESTGUARD_ALL_DELETES) {
-		/* The define only ever arms. Neither of the other two can take it
+		/* The define only ever arms. Neither of the other 2 can take it
 		   back, and off is all either of them has to say. */
 		test_scratch_point_config_at (store_off);
 		check (spawn_child (argv[0], "read", NULL) == CHILD_ARMED);
@@ -200,7 +200,7 @@ main (int argc, char *argv[])
 		test_scratch_point_config_at (store_off);
 		check (spawn_child (argv[0], "read", NULL) == CHILD_ARMED);
 
-		/* Before the settings file is read, the default answers, and the
+		/* Before the settings file is read, the default applies, and the
 		   variable still beats it. */
 		check (spawn_child (argv[0], "early", NULL) == CHILD_ARMED);
 		check (spawn_child (argv[0], "early", "0") == CHILD_QUIET);
@@ -219,7 +219,7 @@ main (int argc, char *argv[])
 		check (spawn_child (argv[0], "read", "1") == CHILD_ARMED);
 		check (spawn_child (argv[0], "read", "YES") == CHILD_ARMED);
 
-		/* A value that is neither is ignored, so the setting still answers. */
+		/* A value that is neither is ignored, so the setting still applies. */
 		check (spawn_child (argv[0], "read", "maybe") == CHILD_QUIET);
 		test_scratch_point_config_at (store_on);
 		check (spawn_child (argv[0], "read", "maybe") == CHILD_ARMED);

@@ -1,6 +1,6 @@
 /* Exercises the thumbnail factory's failure paths: a helper that never exits, an
  * image whose short side rounds away to nothing, a .thumbnailer that goes bad
- * while it is being watched, and one whose TryExec cannot be read. Runs against
+ * while it is being watched, and one whose TryExec can't be read. Runs against
  * a throwaway XDG_DATA_HOME so it sees only its own thumbnailers, never the ones
  * installed on the box.
  *
@@ -188,7 +188,7 @@ test_thumbnailer_reload (void)
 	g_object_unref (factory);
 }
 
-/* a TryExec GKeyFile cannot read, here a Windows path with its backslashes
+/* a TryExec GKeyFile can't read, here a Windows path with its backslashes
    not doubled, is no reason to skip the check. On Windows that path is read
    as written, so it is skipped for naming no program, and one naming a real
    program the same way is used. */
@@ -245,7 +245,7 @@ test_unreadable_try_exec (const char *self)
 /* gdk-pixbuf sniffs image types through GIO here, so an untyped loader needs the
  * shared mime database. Hiding that away along with the box's own thumbnailers
  * made the one image this test reads back fail to load, which read as a
- * thumbnailer defect. Windows has no such database and does not want one.
+ * thumbnailer defect. Windows has no such database and doesn't want one.
  */
 #ifndef G_OS_WIN32
 static void

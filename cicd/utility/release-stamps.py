@@ -10,7 +10,7 @@ Syntax: release-stamps.py [--expect EPOCH] [--exe NAME] FILE...
 With --expect, exits 1 when any artifact has another stamp. In a zip only
 the exe called NAME is read: the runtime's own exes keep their packagers' dates,
 and zip entry times are local time. A file it has no reader for is listed as
-unchecked and does not fail the run. So is a packed exe, since the packer writes
+unchecked and doesn't fail the run. So is a packed exe, since the packer writes
 the outer header.
 """
 

@@ -275,7 +275,7 @@ steps (void)
 	return TRUE;
 }
 
-/* Each step waits on what the one before set going, up to ten seconds. */
+/* Each step waits on what the one before set going, up to 10 seconds. */
 static gboolean
 tick (G_GNUC_UNUSED gpointer data)
 {

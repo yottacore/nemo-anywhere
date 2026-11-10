@@ -1,7 +1,7 @@
 /* An invalid filename regex must not crash the search. The advanced engine
  * left the compiled pattern NULL but kept regex mode on, then per file passed
  * that NULL to g_regex_match and unref'd an uninitialized match. Here we run
- * a real search over a temp dir with a deliberately broken pattern and just
+ * a real search over a temp dir with a deliberately broken pattern and only
  * require the engine to finish. Without the fix the worker thread faults. */
 
 #include <config.h>
@@ -65,7 +65,7 @@ main (int argc, char *argv[])
 
 	gtk_init_check (&argc, &argv);
 
-	/* A directory with a file or two to iterate over. */
+	/* A directory with a file or 2 to iterate over. */
 	dir = test_scratch_dir ("nemo-search-regex-XXXXXX", NULL);
 	if (!put (dir, "somefile.txt", "x") || !put (dir, "another.txt", "y")) {
 		return 1;

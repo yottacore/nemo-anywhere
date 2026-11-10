@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-"""Write the gresource manifest that carries the bundled themes inside the exe.
+"""Write the gresource manifest that puts the bundled themes inside the exe.
 
 	gen-theme-resources.py <repo-root> [out-xml]
 
-The bundled themes used to ship as loose files beside the exe - about 2,200 of
-them once the icon sets are counted. The Windows single-exe packer charges for
-every file it carries at every launch (measured at ~2.8 ms each), so they ride
-inside the binary as one resource blob instead.
+The bundled themes used to be loose files beside the exe, about 2,200 of them
+once the icon sets are counted. The Windows single-exe packer costs ~2.8 ms for
+every file it has at every launch, so they go inside the binary as one resource
+blob instead.
 
-Two things follow from how GTK reads icons out of resources:
+How GTK reads icons out of resources means 2 things:
 
   - A resource path is searched as though it were part of hicolor, so the
-	directory names have to be ones hicolor defines. Our symbolic/ folders are
-	not, and are folded into scalable/ - the -symbolic suffix on the filename is
-	what marks a glyph monochrome, not the folder it sits in.
-  - index.theme is never read from a resource path. Ours carry the style, the
-	modes and the light/dark counterpart that the picker needs, so they are
+	directory names have to be ones hicolor defines. Our symbolic/ folders
+	aren't, and are folded into scalable/. The -symbolic suffix on the filename
+	marks a glyph monochrome, not the folder it's in.
+  - index.theme is never read from a resource path. Ours have the style, the
+	modes, and the light/dark counterpart that the picker needs, so they're
 	copied into a catalog prefix the app reads itself.
 
 Re-run after changing anything under vendor/icons, vendor/themes or

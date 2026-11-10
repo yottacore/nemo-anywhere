@@ -108,7 +108,7 @@ void     nemo_list_model_sort_files                        (NemoListModel *model
 
 /* A row's icon comes out of one of the size columns above, so which column it
    reads decides how big it is. That caps the sizes the list view can take; the
-   backlog carries what it would need to be one column and a size. */
+   backlog has what it would need to be one column and a size. */
 guint             nemo_list_model_get_icon_size_from_column_id (int   column);
 int               nemo_list_model_get_column_id_for_icon_size  (gint  size);
 
@@ -133,7 +133,7 @@ void              nemo_list_model_set_drag_view (NemoListModel *model,
 						     int begin_y);
 
 GtkTargetList *   nemo_list_model_get_drag_target_list (void);
-/* The bytes one of the drag types carries for @path_list. Caller frees. */
+/* The bytes one of the drag types has for @path_list. Caller frees. */
 char *            nemo_list_model_drag_payload (NemoListModel *model,
 						GList *path_list,
 						guint info);

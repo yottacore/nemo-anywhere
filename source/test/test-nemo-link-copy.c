@@ -1,9 +1,9 @@
 /* Copying a link should be able to leave a link rather than a copy of what it
- * points at. Windows makes that harder than POSIX: there are three kinds to
+ * points at. Windows makes that harder than POSIX: there are 3 kinds to
  * tell apart, the toolkit says only "this is a link", and the kind has to come
  * from the reparse tag. These checks cover reading a link, making one back
  * again, and the rule that decides what a link becomes when the destination
- * cannot hold its own kind.
+ * can't have its own kind.
  */
 
 #include <config.h>
@@ -178,8 +178,8 @@ check_destination_support (const char *dir)
 	check (g_file_set_contents (real_file, "hello", 5, NULL));
 
 	/* Against the file system rather than against what the same call said a
-	   moment ago. A destination that claims a kind it will not take offers the
-	   user a choice the copy then cannot carry out. Only the file symlink is
+	   moment ago. A destination that claims a kind it won't take offers the
+	   user a choice the copy then can't carry out. Only the file symlink is
 	   checked this way: POSIX makes a symlink whatever kind is asked for, so a
 	   junction request here would succeed on a platform that has none. */
 	check (((kinds & NEMO_LINK_FILE_SYMLINK) != 0)
@@ -193,7 +193,7 @@ check_destination_support (const char *dir)
 	g_free (real_file);
 }
 
-/* How the Make link dialog spells a relative symlink. */
+/* How the Make link dialog writes a relative symlink. */
 static void
 check_relative_spelling (const char *dir)
 {
@@ -216,7 +216,7 @@ check_relative_spelling (const char *dir)
 	check (g_strcmp0 (text, "x.txt") == 0);
 	g_free (text);
 
-	/* A link to the folder it sits in. */
+	/* A link to the folder it's in. */
 	text = nemo_link_relative_target (from, from);
 	check (g_strcmp0 (text, ".") == 0);
 	g_free (text);
@@ -228,7 +228,7 @@ check_relative_spelling (const char *dir)
 	g_free (text);
 #else
 	/* Reached through a symlinked folder, the spelling is from where the
-	   link really sits, or it would point somewhere else. */
+	   link is on disk, or it would point somewhere else. */
 	{
 		char *alias = g_build_filename (dir, "alias", NULL);
 		char *made = g_build_filename (alias, "made", NULL);
@@ -314,7 +314,7 @@ check_link_options (void)
 	/* Every open starts the same way. */
 	nemo_link_options_initial (NEMO_LINK_ANY, &options);
 	/* "&& options.lnk_parts == NEMO_LNK_ALL_PARTS" dropped: the shortcut
-	   path choice is gone (backlog 2026092813381440). */
+	   path choice is gone, per backlog 2026092813381440. */
 	check (options.folder_kind == NEMO_MAKE_JUNCTION && options.file_kind == NEMO_MAKE_SYMLINK &&
 	       !options.relative);
 
@@ -331,14 +331,14 @@ check_link_options (void)
 	nemo_link_options_initial (0, &options);
 	check (options.folder_kind == NEMO_MAKE_SHORTCUT && options.file_kind == NEMO_MAKE_SHORTCUT);
 
-	/* A shortcut always carries every path it can. There is no choice left
-	   to check since the path choice went (backlog 2026092813381440).
+	/* A shortcut always has every path it can. There is no choice left
+	   to check since the path choice went, per backlog 2026092813381440.
 	check (options.lnk_parts == NEMO_LNK_ALL_PARTS);
 	*/
 
 	/* The path choice matters only while something comes out a symlink. A
 	   junction is always absolute, a hardlink has no path, and a shortcut
-	   carries every kind. */
+	   has every kind. */
 	options.folder_kind = NEMO_MAKE_JUNCTION;
 	options.file_kind = NEMO_MAKE_HARDLINK;
 	check (!nemo_link_options_uses_path (&options, 2, 3));
@@ -444,7 +444,7 @@ check_hardlink_of_symlink (const char *dir)
 }
 
 #ifdef G_OS_WIN32
-/* Windows cannot follow ".." above a share, so a link from one share to
+/* Windows can't follow ".." above a share, so a link from one share to
    another of the same server has only the full path. */
 static void
 check_relative_across_shares (void)
@@ -478,7 +478,7 @@ check_relative_across_shares (void)
 #endif
 
 /* Every row and every choice, for one link and for several: the wording
-   follows the count, and no two choices in a row read the same. */
+   follows the count, and no 2 choices in a row read the same. */
 static void
 check_labels (void)
 {

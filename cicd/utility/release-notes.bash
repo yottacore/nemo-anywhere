@@ -5,7 +5,7 @@
 ##	- With a version, prints the notes. The table comes from an assets file in
 ##	  the form `gh release view <tag> --json assets` prints, and is left out
 ##	  without one.
-##	- With --update <tag>, reads what the release holds now and edits its
+##	- With --update <tag>, reads what the release has now and edits its
 ##	  notes to match. The local cut runs this once the release is up. The
 ##	  list is read again after the edit, and the edit is redone if it moved
 ##	  meanwhile.
@@ -37,7 +37,7 @@ while (($#)); do case "$1" in
 esac; done
 [[ -n "${1:-}" ]] || { fHelp; exit 2; }
 
-## A Windows runner may answer python3 with the store stub, which runs nothing.
+## A Windows runner may start the store stub for python3, which runs nothing.
 py=""
 for cand in python3 python; do
 	if "$cand" -c '' >/dev/null 2>&1; then py="$cand"; break; fi
@@ -53,7 +53,7 @@ fNotes(){
 	fi
 	table=""
 	[[ -z "${2:-}" ]] || table="$("$py" "${here}/release-table.py" "$2")"
-	## Same number the binaries carry: both read it off HEAD's commit date.
+	## Same number the binaries have: both read it off HEAD's commit date.
 	build="$( source "${here}/include/source-date.bash"; fSetSourceDate "${here}/../.."
 		"$py" "${here}/../../source/build-number.py" )"
 	printf '%s\n' "$body"

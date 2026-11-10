@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ## The template's file-wide shellcheck header is gone: none of those rules
-## fired here. A rule that really needs to be off goes off at the line that
+## fired here. A rule that needs to be off goes off at the line that
 ## needs it, with a reason.
 
 ##	Purpose:
@@ -17,12 +17,12 @@
 ##		gui-headless.bash stop              ## kill only what we started
 ##	Notes:
 ##		Display/size is overridable via CICD_HEADLESS_DISPLAY / CICD_HEADLESS_SIZE
-##		(legacy RPD_* names still honored as fallbacks).
+##		The legacy RPD_* names still work as fallbacks.
 ##		A server belongs to the process that ran `start` (the calling script).
 ##		While that process lives, only it may stop the server, and another run's
 ##		`start` on the same number is refused rather than shared. Once it has
 ##		exited, as after a start by hand, anyone may stop the server or take it
-##		over. A number some other X server holds is refused outright.
+##		over. A number some other X server has is refused outright.
 ##	History: At bottom of script.
 
 ##	Copyright (c) 2026 Bubbles
@@ -40,11 +40,11 @@ num="${display#:}"
 ## as "headless display failed to start".
 run_dir="/tmp/cicd-gui-headless-${USER:-$(id -un)}"
 ## The name is predictable, so somebody else can get there first. Refuse anything
-## we do not own, and anything that is a link to somewhere else - the pid files
+## we don't own, and anything that is a link to somewhere else - the pid files
 ## under here are read and acted on, and the auth cookie is a key to the display.
 mkdir -p "$run_dir"
 if [[ -L "$run_dir" || ! -d "$run_dir" || ! -O "$run_dir" ]]; then
-	echo "${run_dir} is not ours; refusing to use it" >&2
+	echo "${run_dir} isn't ours; refusing to use it" >&2
 	exit 1
 fi
 chmod 700 "$run_dir"
@@ -63,7 +63,7 @@ auth="$run_dir/Xauthority-${num}"
 owner_file="$run_dir/owner-${num}"
 x_lock="/tmp/.X${num}-lock"
 
-## A pid alone is not a process: a run killed before `stop` leaves its pid file,
+## A pid alone isn't a process: a run killed before `stop` leaves its pid file,
 ## and the number can come back as anything. The start time from /proc goes with
 ## it, so a record names one process and no other.
 # shellcheck disable=2086  ## splitting $s into positional parameters is the point - field 20 is the start time
@@ -86,7 +86,7 @@ start() {
 		echo "$me" > "$owner_file"
 		echo "Xvfb already on $display (pid $(pid_of "$xvfb_pid"))"
 	else
-		## Another X server on this number would answer xdpyinfo in our place,
+		## Another X server on this number would reply to xdpyinfo in our place,
 		## while our own Xvfb quits at once.
 		local held; held="$(tr -dc '0-9' 2>/dev/null <"$x_lock" || true)"
 		if [[ -n "$held" && -d "/proc/$held" ]]; then
@@ -100,7 +100,7 @@ start() {
 		local pid=$!
 		record "$pid" > "$xvfb_pid"
 		echo "$me" > "$owner_file"
-		## Up means ours is still running, holds the number, and takes connections.
+		## Up means ours is still running, has the number, and takes connections.
 		local ok=""
 		for _ in $(seq 1 50); do
 			kill -0 "$pid" 2>/dev/null || break
@@ -111,7 +111,7 @@ start() {
 		if [[ -z "$ok" ]]; then
 			kill "$pid" 2>/dev/null || true
 			rm -f "$xvfb_pid" "$owner_file"
-			echo "Xvfb did not come up on $display; see $run_dir/xvfb-${num}.log" >&2
+			echo "Xvfb didn't come up on $display; see $run_dir/xvfb-${num}.log" >&2
 			exit 1
 		fi
 		echo "Started Xvfb on $display (pid $pid, $size)"
@@ -170,6 +170,6 @@ esac
 
 ##	Script history:
 ##		- 20260701: Created.
-##		- 20260917: A pid file carries the start time, so a reused pid is not
-##		  ours; start refuses a number another server holds and reports success
+##		- 20260917: A pid file has the start time, so a reused pid isn't
+##		  ours; start refuses a number another server has and reports success
 ##		  only for its own; a server belongs to the run that started it.

@@ -2,12 +2,12 @@
 
 ##	- Purpose: Headless GUI smoke test for the cross-built Windows target. Launches
 ##	  nemo-anywhere.exe under wine on a throwaway Xvfb display, confirms the main
-##	  window comes up, and drops a screenshot. The --version smoke does not exercise
-##	  GTK/gvfs at all, so this is what actually proves the app runs and browses.
-##	- Runs INSIDE a cross-build step container: bash cicd/win/win-run.bash "gui smoke" "bash /src/cicd/win/gui-smoke.bash"
+##	  window comes up, and drops a screenshot. The --version smoke doesn't exercise
+##	  GTK/gvfs at all, so this is what proves the app runs and browses.
+##	- Runs inside a cross-build step container: bash cicd/win/win-run.bash "gui smoke" "bash /src/cicd/win/gui-smoke.bash"
 ##	- Syntax: gui-smoke.bash [SHOT_PNG] [SECONDS]   (defaults /tmp/shot.png, 16)
 ##	- Wine needs its DLLs and schemas on-path: WINEPATH -> sysroot bin (the extension
-##	  lib is folded into the exe); GSETTINGS_SCHEMA_DIR -> a dir holding nemo's schema merged
+##	  lib is folded into the exe); GSETTINGS_SCHEMA_DIR -> a dir with nemo's schema merged
 ##	  with the sysroot GTK schemas, compiled here (glib-compile-schemas output is
 ##	  arch-independent, so the Linux tool's result works for the wine build).
 ##	- The display is the first free one from GUI_SMOKE_DISPLAY (default :120) up,

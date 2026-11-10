@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-##	- Purpose: Hold each cache dir under its cap. One that has grown past it is
+##	- Purpose: Keep each cache dir under its cap. One that has grown past it is
 ##	  emptied, with one line saying so, and the step builds it again from scratch.
 ##	- Runs in the step's container before the step, from docker-run.bash, over
 ##	  the cache volumes it mounts.

@@ -1,6 +1,6 @@
 /* The shell's icon for a shortcut: a real picture at each size, its target's
- * rather than one generic shape, and cached. One whose target or icon is on a
- * share gets the icon for the target's name, and the views' lookup answers at
+ * rather than one generic icon, and cached. One whose target or icon is on a
+ * share gets the icon for the target's name, and the views' lookup returns at
  * once and finds the icon off the main thread. */
 
 #include <config.h>
@@ -96,7 +96,7 @@ make_file (const char *dir, const char *name)
 	return path;
 }
 
-/* Written by the shell, since the reader here does not write an icon. */
+/* Written by the shell, since the reader here doesn't write an icon. */
 static gboolean
 make_with_icon (const char *target, const char *icon_file, int icon_index, const char *lnk_path)
 {
@@ -241,7 +241,7 @@ record_shared_drive (const char *lnk_path, const char *local, guint32 serial)
 }
 
 /* The shell honors the icon a shortcut names before anything else, so one
-   naming notepad's tells the two routes apart. */
+   naming notepad's tells the 2 routes apart. */
 static void
 test_share (const char *dir)
 {
@@ -439,7 +439,7 @@ main (int argc, char *argv[])
 	check (folder_icon != NULL && large != NULL && !same_picture (folder_icon, large),
 	       "a shortcut to a folder gets a different picture from one to a program");
 
-	/* The shell may answer a path that is not there with nothing, or with the
+	/* For a path that isn't there the shell may return nothing, or the
 	   generic unknown-file icon, and both are fine. What it may not do is hand
 	   back something that is neither, or an icon at the wrong size. */
 	missing = nemo_shell_icon_win32_for_path ("Q:\\no\\such\\thing.lnk", 32, 1);

@@ -39,7 +39,7 @@ gboolean nemo_path_is_on_a_share (const char *path);
 char    *nemo_share_root_of (const char *path);
 
 /* Whether a link sitting in link_folder, whose target reads target, leads
-   onto a share other than the one it sits on. The target is placed by its
+   onto a share other than the one it's on. The target is placed by its
    text alone, so only the first link of a chain is read. */
 gboolean nemo_share_link_leaves_for_a_share (const char *link_folder,
                                              const char *target);

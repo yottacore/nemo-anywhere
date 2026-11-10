@@ -1,10 +1,10 @@
-/* The location entry's context menu is the toolkit's own, reached through
+/* The location entry's context menu is the toolkit's own, opened through
  * nemo's key handler. A Windows report says the menu key does nothing while
  * text is selected, so every case here goes in through the key where the key
  * can be driven at all.
  *
- * The menu is only built once the clipboard has answered what it holds, so a
- * clipboard that never answers means no menu and nothing on screen to say why.
+ * The menu is only built once the clipboard has said what's on it, so a
+ * clipboard that never replies means no menu and nothing on screen to say why.
  */
 
 #include <config.h>
@@ -54,8 +54,8 @@ wait_for_menu (void)
 {
 	guint timeout;
 
-	/* The clipboard can answer before the loop is even entered, when we are
-	   the ones holding it. */
+	/* The clipboard can reply before the loop is even entered, when we
+	   own it. */
 	if (popup.menu == NULL) {
 		timeout = g_timeout_add_seconds (5, give_up, NULL);
 		g_main_loop_run (popup.loop);
@@ -82,7 +82,7 @@ dismiss_menu (GtkWidget *menu)
 }
 
 /* Wine loads no keyboard layout, so the win32 keymap knows no menu key and the
-   binding cannot match. There is no working around it: the toolkit translates
+   binding can't match. There is no working around it: the toolkit translates
    the keycode before it looks a binding up. */
 static gboolean
 menu_key_is_on_the_keymap (GtkWidget *window)
@@ -221,7 +221,7 @@ main (int argc, char *argv[])
 	GtkWidget *window, *entry;
 	guint bare, word, all;
 
-	/* A menu open in another test holds the pointer and keyboard. */
+	/* A menu open in another test grabs the pointer and keyboard. */
 	test_own_display (argc, argv, NULL);
 
 	if (!gtk_init_check (&argc, &argv)) {
@@ -283,7 +283,7 @@ main (int argc, char *argv[])
 		return 1;
 	}
 
-	/* Half a check is not a pass, so say so where meson can see it. */
+	/* Half a check isn't a pass, so say so where meson can see it. */
 	if (!use_key) {
 		g_print ("no menu key on this keymap; the key half did not run\n");
 		return 77;

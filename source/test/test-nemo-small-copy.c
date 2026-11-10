@@ -1,5 +1,5 @@
 /* A small file is copied with plain writes, so the file system never gets the
- * chance to clone it. Everything the helper will not take has to come back
+ * chance to clone it. Everything the helper won't take has to come back
  * with nothing written, since the ordinary copy runs next and must find the
  * target exactly as it was.
  */
@@ -116,7 +116,7 @@ copy_attributes (const char *from, const char *to)
 	GFile *src = g_file_new_for_path (pf);
 	GFile *dest = g_file_new_for_path (pt);
 
-	/* Some attribute nearly always refuses, so the answer means nothing here,
+	/* Some attribute nearly always refuses, so the result means nothing here,
 	   and both callers ignore it too. */
 	g_file_copy_attributes (src, dest, G_FILE_COPY_NONE, NULL, NULL);
 
@@ -156,7 +156,7 @@ check_modes_and_links (void)
 	check (g_stat (path, &st) == 0 && (st.st_mode & 0777) == 0750);
 	g_free (path);
 
-	/* A link copied as a link is not a small file. Followed, it is. */
+	/* A link copied as a link isn't a small file. Followed, it is. */
 	path = path_of ("link.bin");
 	check (symlink ("small.bin", path) == 0);
 	g_free (path);
@@ -169,7 +169,7 @@ check_modes_and_links (void)
 
 #ifdef __linux__
 /* 1 when some extent of the file is shared, 0 when none is, -1 when the file
-   system will not say. */
+   system won't say. */
 static int
 shared_extents (const char *name)
 {
@@ -283,7 +283,7 @@ main (int argc, char **argv)
 	check (copied == 0);
 	check (same_contents ("empty.bin", "empty-copy.bin"));
 
-	/* At the limit is not under it. */
+	/* At the limit isn't under it. */
 	check (copy ("big.bin", "big-copy.bin", G_FILE_COPY_NONE, LIMIT, &copied) == NEMO_SMALL_COPY_NOT_TRIED);
 	check (!exists ("big-copy.bin"));
 

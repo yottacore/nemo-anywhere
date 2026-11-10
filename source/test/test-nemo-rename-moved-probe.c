@@ -22,7 +22,7 @@
 */
 
 /* Preloaded into the real program by test-nemo-rename-photo, in place of
- * test-nemo-rename-photo-probe. A thumbnail of another shape coming in for the
+ * test-nemo-rename-photo-probe. A thumbnail of another aspect ratio coming in for the
  * row of a picture being renamed lays the icons out again. The picture moved
  * under the rename, and a move ended it, saving whatever had been typed so
  * far. A wider window lays the icons out again the same way, on demand.
@@ -184,7 +184,7 @@ send_escape (void)
 	gdk_event_free (event);
 }
 
-/* The box sits under the middle of the picture, on its item. Both are in
+/* The box is under the middle of the picture, on its item. Both are in
    the canvas's pixels. */
 static void
 check_place (GtkWidget *field, EelCanvasItem *item, const char *when)
@@ -211,7 +211,7 @@ widen (int extra)
 	gtk_window_resize (GTK_WINDOW (window), 1240 + extra, height);
 }
 
-/* Up to forty seconds in all. */
+/* Up to 40 seconds in all. */
 static gboolean
 tick (G_GNUC_UNUSED gpointer data)
 {

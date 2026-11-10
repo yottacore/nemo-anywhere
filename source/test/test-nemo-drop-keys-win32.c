@@ -23,7 +23,7 @@
 /* The toolkit on Windows offers copy and move for every drop, whatever is
  * pressed, so Control and Shift together moved the files where they should make
  * a link, and Alt or the right button never brought up the drop menu. And an
- * ask handed to the toolkit there becomes no drop at all, so it has to reach
+ * ask handed to the toolkit there becomes no drop at all, so it has to go to
  * Windows as a real effect and come back out as an ask. */
 
 #include <config.h>

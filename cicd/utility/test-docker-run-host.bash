@@ -6,7 +6,7 @@
 ##	  its build/host, and the command's exit code is its own. A host without the
 ##	  build stack stops it with one line and exit 1, running nothing. With
 ##	  CICD_NO_CONTAINER=1 it stops at once, and never calls docker. A copy runs
-##	  in a scratch dir with a stand-in docker, meson, ninja and pkg-config.
+##	  in a scratch dir with a stand-in docker, meson, ninja, and pkg-config.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-docker-run-host.bash
 ##	- Test ID: defky
@@ -27,7 +27,7 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 # shellcheck source=include/run-temp.bash
 source "${here}/include/run-temp.bash"
 HOST_TEMP="${TMPDIR:-/tmp}"
-fRunTemp_Make docker-run-host-check "$(date +%Y%m%d-%H%M%S)" || { fEcho "FAILED: could not make a scratch folder"; exit 1; }
+fRunTemp_Make docker-run-host-check "$(date +%Y%m%d-%H%M%S)" || { fEcho "FAILED: couldn't make a scratch folder"; exit 1; }
 scratch="${runTempDir}"
 trap 'fRunTemp_Done; rmdir "${HOST_TEMP}/docker-run-host-check" 2> /dev/null || true' EXIT
 
@@ -54,7 +54,7 @@ EOF
 printf '#!/usr/bin/env bash\n[[ "$*" != *gtk+-3.0* || -n "${HOST_GTK:-}" ]]\n' > "${scratch}/bin/pkg-config"
 printf '#!/usr/bin/env bash\nexit 0\n' > "${scratch}/bin/meson"
 cp "${scratch}/bin/meson" "${scratch}/bin/ninja"
-## So the nudge never reaches the real user services.
+## So the nudge never gets to the real user services.
 printf '#!/usr/bin/env bash\nexit 1\n' > "${scratch}/bin/systemctl"
 chmod +x "${scratch}/bin/"*
 

@@ -33,7 +33,7 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 # shellcheck source=../utility/include/run-temp.bash
 source "${root}/cicd/utility/include/run-temp.bash"
 HOST_TEMP="${TMPDIR:-/tmp}"
-fRunTemp_Make win-run-check "$(date +%Y%m%d-%H%M%S)" || { fEcho "FAILED: could not make a scratch folder"; exit 1; }
+fRunTemp_Make win-run-check "$(date +%Y%m%d-%H%M%S)" || { fEcho "FAILED: couldn't make a scratch folder"; exit 1; }
 scratch="${runTempDir}"
 trap 'fRunTemp_Done; rmdir "${HOST_TEMP}/win-run-check" 2> /dev/null || true' EXIT
 

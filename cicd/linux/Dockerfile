@@ -1,13 +1,13 @@
 # nemo-build-jammy: the Linux RELEASE build box.
 #
-# Day-to-day Linux dev builds run from nemo-build-deps (Debian 13, matches the host).
+# Day-to-day Linux dev builds run from nemo-build-deps, Debian 13 like the host.
 # Release tarballs must not: a binary linked against trixie's glibc 2.41 only
 # runs on distros from 2025 onward. Ubuntu 22.04 LTS gives glibc 2.35, which
-# covers Ubuntu 22.04+, Debian 12+, Mint 21+, Fedora 36+ - and a binary built
+# covers Ubuntu 22.04+, Debian 12+, Mint 21+, and Fedora 36+. A binary built
 # against an older glibc/GTK keeps working on newer ones, not the reverse.
 #
-# The release prefix links against the distro's own GTK3 (thin prefix - the
-# runtime is not bundled on Linux), so the GTK version here is the floor too:
+# The release prefix is thin and links against the distro's own GTK3, since the
+# runtime isn't bundled on Linux. So the GTK version here is the floor too,
 # 3.24.33, and every 3.24.x since is compatible.
 #
 # make is there for gcc's link-time step, which runs its jobs through it.
@@ -20,7 +20,7 @@
 # on 2026-08-04 from snapshot.ubuntu.com. Together they give the package set the
 # image was first built with. Move both on purpose, never one alone.
 # The same file builds the arm64 image. Its base lists ports.ubuntu.com, and the
-# snapshot host serves arm64 from the same /ubuntu/ path, so both go there.
+# snapshot host has arm64 under the same /ubuntu/ path, so both go there.
 # The snapshot host is https only, and the base has no CA certificates yet; the
 # first install skips the TLS check, which costs nothing, since apt still checks
 # every index and package against the archive's signed InRelease.

@@ -22,10 +22,10 @@
 */
 
 /* Preloaded into the real program by test-nemo-connecting. Every smb:// file
- * answers "not mounted", and a mount of one is held until this file lets it
- * go, so the window waits exactly as long as the probe wants. It types an
+ * comes back "not mounted", and a mount of one is held until this file lets it
+ * go, so the window waits as long as the probe wants. It types an
  * smb:// address into the location bar, looks at the path bar and the
- * pointer, watches the window fade, tries a shortcut, a click and a drop,
+ * pointer, watches the window fade, tries a shortcut, a click, and a drop,
  * presses Escape, then tries again and lets the mount fail, tries once more
  * with animations off, and last closes the window mid-attempt. One "ok" or
  * "FAIL" line per check goes to $NEMO_CONNECTING_OUT, and "done" at the
@@ -85,7 +85,7 @@ g_file_parse_name (const char *parse_name)
 	return real (parse_name);
 }
 
-/* Called from the listing threads too, hence nothing but the answer. */
+/* Called from the listing threads too, so it does nothing but return. */
 GFileInfo *
 g_file_query_info (GFile               *file,
 		   const char          *attributes,
@@ -351,7 +351,7 @@ click_view (void)
 		}
 	}
 
-	/* What the window does not ask for goes on to its parent. */
+	/* What the window doesn't ask for goes on to its parent. */
 	if ((gdk_window_get_events (target) & GDK_BUTTON_PRESS_MASK) == 0) {
 		presses++;
 	}
@@ -487,7 +487,7 @@ shoot (int n)
 	g_clear_pointer (&shots[n], g_free);
 	sizes[n] = 0;
 	covered[n] = -1;
-	/* GTK draws nothing for a widget whose new size is not worked out yet,
+	/* GTK draws nothing for a widget whose new size isn't worked out yet,
 	   and on a busy box the frame that would do it can come after this
 	   tick. Do it now, as that frame would. */
 	gtk_container_check_resize (GTK_CONTAINER (window));
@@ -501,7 +501,7 @@ shoot (int n)
 	g_free (alone);
 }
 
-/* How many pixels two of the shots differ by, or -1 if they can't be put
+/* How many pixels 2 of the shots differ by, or -1 if they can't be put
    side by side. */
 static int
 shots_apart (int a, int b)
@@ -572,7 +572,7 @@ closed_cb (G_GNUC_UNUSED GCancellable *cancellable, G_GNUC_UNUSED gpointer data)
 	closed = TRUE;
 }
 
-/* Each step waits for what the one before set going. Up to ten seconds each. */
+/* Each step waits for what the one before set going. Up to 10 seconds each. */
 static gboolean
 tick (G_GNUC_UNUSED gpointer data)
 {

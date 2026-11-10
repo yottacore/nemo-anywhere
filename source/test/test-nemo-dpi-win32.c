@@ -1,7 +1,7 @@
 /* The arithmetic behind following a monitor's DPI. The toolkit scales what it
- * draws by a whole number, so the font DPI has to carry the fraction that whole
- * number could not - and that sum is worth pinning down, because getting it
- * wrong is a window of double-sized type that no build error would catch.
+ * draws by a whole number, so the font DPI has to make up the fraction that
+ * whole number couldn't. Getting that sum wrong is a window of double-sized
+ * type that no build error would catch.
  *
  * Only the sum is here. Which monitor a window is on, and when to ask again,
  * need a screen. */
@@ -21,8 +21,8 @@ static void
 check_whole_steps (void)
 {
 	/* Where the scale factor already covers the whole of it, the font DPI
-	   does not move from the 96 everything is drawn against. 100% and 200%
-	   are the two the toolkit can do on its own. */
+	   doesn't move from the 96 everything is drawn against. 100% and 200%
+	   are the 2 the toolkit can do on its own. */
 	check (nemo_dpi_win32_font_dpi (96, 1) == DPI (96));
 	check (nemo_dpi_win32_font_dpi (192, 2) == DPI (96));
 	check (nemo_dpi_win32_font_dpi (288, 3) == DPI (96));
@@ -31,7 +31,7 @@ check_whole_steps (void)
 static void
 check_fractions (void)
 {
-	/* The cases the whole steps cannot reach. At 125% and 150% the toolkit
+	/* The cases the whole steps can't hit. At 125% and 150% the toolkit
 	   scales by 1, so the whole of it goes to the type. */
 	check (nemo_dpi_win32_font_dpi (120, 1) == DPI (120));
 	check (nemo_dpi_win32_font_dpi (144, 1) == DPI (144));
@@ -53,7 +53,7 @@ check_nonsense (void)
 	check (nemo_dpi_win32_font_dpi (96, -4) == DPI (96));
 	check (nemo_dpi_win32_font_dpi (0, 0) == DPI (96));
 
-	/* The answer is always usable as a font DPI - never zero, never
+	/* The result is always usable as a font DPI, never zero or
 	   negative, whatever it was handed. */
 	check (nemo_dpi_win32_font_dpi (1, 64) > 0);
 }

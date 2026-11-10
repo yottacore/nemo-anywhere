@@ -2,8 +2,8 @@
  *
  * The index answers a name or content search over anything it covers in a
  * fraction of the time a directory walk takes. This engine asks it first and
- * hands the walking engine everything the index cannot do: a folder it does
- * not cover, a network location, a regular expression or a case-sensitive
+ * hands the walking engine everything the index can't do: a folder it does
+ * not cover, a network location, a regular expression, or a case-sensitive
  * match on file contents.
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -26,7 +26,7 @@
 #include "nemo-global-preferences.h"
 #include "nemo-file.h"
 
-/* Spelled out here so nothing rides on which GUIDs the toolchain's libraries carry. */
+/* Spelled out here so nothing depends on which GUIDs the toolchain's libraries have. */
 static const GUID clsid_msdainitialize = { 0x2206CDB0, 0x19C1, 0x11D1, { 0x89, 0xE0, 0x00, 0xC0, 0x4F, 0xD7, 0xA8, 0x29 } };
 static const GUID iid_idatainitialize  = { 0x2206CCB1, 0x19C1, 0x11D1, { 0x89, 0xE0, 0x00, 0xC0, 0x4F, 0xD7, 0xA8, 0x29 } };
 static const GUID iid_idbinitialize    = { 0x0C733A8B, 0x2A1C, 0x11CE, { 0xAD, 0xE5, 0x00, 0xAA, 0x00, 0x44, 0x77, 0x3D } };
@@ -142,7 +142,7 @@ index_open (IndexConnection *conn)
 	return TRUE;
 }
 
-/* Runs one statement and hands each row to func until it answers FALSE.
+/* Runs one statement and hands each row to func until it returns FALSE.
  * FALSE back means the index refused the statement outright. */
 static gboolean
 index_query (IndexConnection *conn,
@@ -298,7 +298,7 @@ nemo_search_win32_build_sql (const gchar *folder,
 	g_free (url);
 
 	/* The name test proper is applied to every row afterwards. This only trims
-	 * what the index hands over, so a word LIKE cannot express is left out. */
+	 * what the index hands over, so a word LIKE can't express is left out. */
 	if (file_pattern != NULL && !file_pattern_is_regex) {
 		gchar **words = g_strsplit_set (file_pattern, " \t\r\n", -1);
 		gint i;
@@ -573,7 +573,7 @@ index_search_thread (gpointer data)
 			g_debug ("Windows Search: %s", search->sql);
 
 			if (!index_query (&conn, search->sql, collect_hit, search) && !search->sent_any) {
-				/* refused the statement: the walk answers instead */
+				/* refused the statement: the walk runs instead */
 				search->indexed = FALSE;
 			}
 

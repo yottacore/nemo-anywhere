@@ -66,7 +66,7 @@ g checkout -q main
 g merge -q --no-ff dev -m "Merge dev"
 fExpect "main after the release merge" "source/a.c source/a.h source/b.c source/cut-n-paste-code/egg.c source/cut-n-paste-code/egg.h vendor/v.c"
 fExpect "main, base named" "source/a.c source/a.h source/b.c source/cut-n-paste-code/egg.c source/cut-n-paste-code/egg.h vendor/v.c" dev
-## Untracked counts everywhere, and a file deleted in the tree is not listed.
+## Untracked counts everywhere, and a file deleted in the tree isn't listed.
 echo "int y;" > "${repo}/source/new.c"
 mv "${repo}/source/a.c" "${scratch}/a.c"
 fExpect "main with untracked and deleted files" "source/a.h source/b.c source/cut-n-paste-code/egg.c source/cut-n-paste-code/egg.h source/new.c vendor/v.c"

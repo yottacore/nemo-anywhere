@@ -2,7 +2,7 @@
  * backend that picks. Content search is covered separately.
  *
  * On Windows that front door can be the search index rather than a walk, and an
- * index does not see a file created a moment ago, so these checks want another
+ * index doesn't see a file created a moment ago, so these checks want another
  * look before the Windows suite is switched on.
  *
  * The engine walks the tree itself where there is no index, so a query with no
@@ -167,7 +167,7 @@ main (int argc, char *argv[])
 	g_list_free_full (names, g_free);
 
 	/* A pattern nothing matches still has to come back, or the view that
-	   asked for it sits on a spinner forever. */
+	   asked for it shows a spinner forever. */
 	names = search (uri, "no-such-file-anywhere", TRUE);
 	check (names == NULL);
 	g_list_free_full (names, g_free);

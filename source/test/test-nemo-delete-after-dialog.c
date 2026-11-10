@@ -190,7 +190,7 @@ main (int argc, char *argv[])
 		failures++;
 	}
 
-	/* The question was cancelled, so nothing is gone. */
+	/* The question was canceled, so nothing is gone. */
 	g_usleep (G_USEC_PER_SEC);
 	check (g_file_test (victim, G_FILE_TEST_EXISTS));
 

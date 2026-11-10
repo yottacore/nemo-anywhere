@@ -3,11 +3,11 @@
  * foreground while the user drags is what this guards against.
  *
  * Two copies of this program each show a window. This one takes the
- * foreground and holds it, so neither copy can take it on its own, and then
+ * foreground and keeps it, so neither copy can take it on its own, and then
  * hands the right to one of them by its window handle.
  *
- * Where this one cannot take the foreground at all (no desktop, as over ssh),
- * or a copy can take it with no right handed over, it cannot tell, and exits
+ * Where this one can't take the foreground at all, such as over ssh with no
+ * desktop, or a copy can take it with no right handed over, it can't tell, and exits
  * 77. */
 
 #include <config.h>
@@ -214,7 +214,7 @@ start_copy (Copy *copy, int x)
 	return copy->handle != 0;
 }
 
-/* 1 for yes, 0 for no, -1 when the copy did not answer. */
+/* 1 for yes, 0 for no, -1 when the copy didn't reply. */
 static int
 ask (Copy *copy, const char *command)
 {
@@ -283,7 +283,7 @@ main (int argc, char *argv[])
 
 	CloseHandle (CreateThread (NULL, 0, watchdog, NULL, 0, NULL));
 
-	/* The copies start before this one holds the foreground, or each would
+	/* The copies start before this one has the foreground, or each would
 	   be let in as started by it. */
 	if (!start_copy (&wanted, 40) || !start_copy (&other, 400)) {
 		fprintf (stderr, "FAIL: could not start the two copies\n");

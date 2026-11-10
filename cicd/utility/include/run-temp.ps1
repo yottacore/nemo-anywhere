@@ -13,7 +13,7 @@
 ##		  older than 2 days whose run.pid names no live process. A folder with
 ##		  no run.pid wasn't made by a run, so it stays.
 ##		- Remove-SafeTree -LiteralPath <path>... removes each path and what's
-##		  in it, when it's under a folder named tmp (or Temp, on Windows), never
+##		  in it, when it's under a folder named tmp, or Temp on Windows, never
 ##		  that folder itself, or under <HOST_TEMP>\<CICD_PROJECT>. With -Under
 ##		  <parent>, each must be strictly under that one parent instead.
 ##		  Refuses a relative or UNC path, .., a doubled separator, a newline, a
@@ -177,8 +177,8 @@ function Remove-SafeTree {
 		if ($null -eq $real -or -not [string]::Equals($real, $want, $script:SafeRmCase)) {
 			Write-Warning "safe-rm: refused, goes through a link: $p"; $ok = $false; continue
 		}
-		## A virus scanner can hold a file just written for a moment, and
-		## Windows then refuses the delete.
+		## A virus scanner can lock a new file for a moment, and Windows then
+		## refuses the delete.
 		for ($try = 1; ; $try++) {
 			try { Remove-SafeTreeItem -Item $item; break }
 			catch [IO.IOException], [UnauthorizedAccessException] {
@@ -245,6 +245,6 @@ function Remove-StaleRunTemp {
 
 ##	History:
 ##		- 2026-11-03: Created.
-##		- 2026-11-04: The temp root rule also holds when HOST_TEMP sits behind a
+##		- 2026-11-04: The temp root rule also applies when HOST_TEMP is behind a
 ##		  link.
 ##		- 2026-11-06: And when either side has a short (8.3) name in it.

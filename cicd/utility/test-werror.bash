@@ -29,8 +29,8 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 for lane in cicd/config.bash cicd/linux/run-tests.bash cicd/linux/fuzz.bash cicd/win/build-cross.bash cicd/cicd-win.ps1; do
 	text="$(cat "${root}/${lane}")"
-	[[ "$text" == *"-Dwerror=true"* ]] || fFail "${lane} does not pass -Dwerror=true"
-	[[ "$text" == *"check-werror.bash"* ]] || fFail "${lane} does not read werror back"
+	[[ "$text" == *"-Dwerror=true"* ]] || fFail "${lane} doesn't pass -Dwerror=true"
+	[[ "$text" == *"check-werror.bash"* ]] || fFail "${lane} doesn't read werror back"
 done
 ## The release lane reads its options back itself.
 text="$(cat "${root}/cicd/linux/release-setup.bash")"

@@ -21,8 +21,9 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* Opens a folder of sub/ (holding inner.txt), a.txt, b.txt and c.txt in the view argv[3] names
- * (list-view unless icon-view), with test-nemo-edit-keys-probe preloaded.
+/* Opens a folder of sub/, a.txt, b.txt, and c.txt in the view argv[3] names,
+ * list-view unless it's icon-view, with test-nemo-edit-keys-probe preloaded.
+ * sub/ has inner.txt in it.
  * The probe deletes b.txt for good and checks a.txt is left selected. In the
  * list view it then copies c.txt and, with sub selected and expanded, checks
  * that Ctrl+V pastes into sub and Ctrl+Shift+V into the viewed folder.
@@ -199,7 +200,7 @@ main (int argc, char *argv[])
 		failures++;
 	}
 
-	/* On disk: b.txt is gone, and in the list view sub holds the plain
+	/* On disk: b.txt is gone, and in the list view sub has the plain
 	   paste while the viewed folder took the other. */
 	path = g_build_filename (folder, "b.txt", NULL);
 	check (!g_file_test (path, G_FILE_TEST_EXISTS));

@@ -30,7 +30,7 @@ G_BEGIN_DECLS
 
 typedef enum {
 	NEMO_WIN32_PERM_SOURCE_NOT_COMPUTED = 0,
-	NEMO_WIN32_PERM_SOURCE_NONE,	/* no ACL to speak of, or it could not be read */
+	NEMO_WIN32_PERM_SOURCE_NONE,	/* no ACL to speak of, or it couldn't be read */
 	NEMO_WIN32_PERM_SOURCE_INHERITED,
 	NEMO_WIN32_PERM_SOURCE_LOCAL,
 	NEMO_WIN32_PERM_SOURCE_MIXED
@@ -40,7 +40,7 @@ typedef enum {
 NemoWin32PermSource nemo_security_win32_permissions_source (const char *path);
 
 /* The full name of the local account that owns path, or NULL when the owner
-   is not a local user or has no full name. */
+   isn't a local user or has no full name. */
 char *nemo_security_win32_owner_full_name (const char *path);
 
 G_END_DECLS

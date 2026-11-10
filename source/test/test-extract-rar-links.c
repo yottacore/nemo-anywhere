@@ -421,7 +421,7 @@ main (int argc, char *argv[])
 
 	/* Another rar may write other bytes, and then this case goes quietly
 	   untested. Only 3.7.x has been seen handing the link back; 3.8.7 stops
-	   at it whatever the bytes after it, so the pinned rar is then just one
+	   at it whatever the bytes after it, so the pinned rar is then only one
 	   more stop (2026102307150011). */
 	if (handback_seen_in_reader ()) {
 		if (!link_handed_back (pinned_rar)) {

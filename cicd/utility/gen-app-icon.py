@@ -7,7 +7,7 @@ in-binary icon theme read. Output is committed, so no build step depends on this
 script. Re-run it after changing the logo.
 
 With --check nothing is written. It fails if a committed icon no longer looks
-like the logo, which is how a new logo went unnoticed for two days.
+like the logo, which is how a new logo went unnoticed for 2 days.
 Test ID: dcyd3
 
 Syntax: gen-app-icon.py [--check] [<repo-root>]
@@ -18,7 +18,7 @@ import sys
 
 from PIL import Image, ImageChops
 
-# The exe carries every size Windows asks for, from the file list up to the
+# The exe has every size Windows asks for, from the file list up to the
 # 256 the large-icon views and the alt-tab switcher use.
 ICO_SIZES = (16, 24, 32, 48, 64, 128, 256)
 
@@ -51,7 +51,7 @@ def check(root, logo):
             stale.append(path)
 
     if stale:
-        print("[ FAIL: app icons do not match assets/logo.png; run cicd/utility/gen-app-icon.py ]")
+        print("[ FAIL: app icons don't match assets/logo.png; run cicd/utility/gen-app-icon.py ]")
         for path in stale:
             print("  " + os.path.relpath(path, root))
         return 1

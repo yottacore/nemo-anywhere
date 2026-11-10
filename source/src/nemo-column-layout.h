@@ -20,10 +20,10 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* Every column has three widths: the least it will ever be, the width it has
+/* Every column has 3 widths: the least it will ever be, the width it has
  * when the row has room, and the most it grows to. design.md's "List view
  * column widths" is the rule that sets them, and the only place it is written
- * down - restating it here would give two versions to keep in step. This file
+ * down - restating it here would give 2 versions to keep in step. This file
  * only counts what each column has seen and shares the row out between the
  * widths it is given.
  *
@@ -46,7 +46,7 @@ typedef struct {
 } NemoColumnLayoutItem;
 
 /* The width classes in design.md's "List view column widths". Name and
- * Location take what is left of the row. A fixed column holds a value that
+ * Location take what is left of the row. A fixed column has a value that
  * only varies in narrow bounds, like a date, and is always shown whole. The
  * rest are minor: their width is a judgement made from the values seen. */
 typedef enum {
@@ -63,10 +63,10 @@ typedef struct {
 	int heading;	/* the heading, which no column is ever narrower than */
 } NemoColumnMeasure;
 
-/* The three widths for one column of the given kind. pad is the air after a
+/* The 3 widths for one column of the given kind. pad is the air after a
  * value, ellipsis the width of one, and narrow the widest a minor column may
  * be and still go without one. dragged is a width the user dragged the column
- * to, or -1; a fixed column cannot be dragged. */
+ * to, or -1; a fixed column can't be dragged. */
 void nemo_column_layout_item_for_kind (NemoColumnKind           kind,
 				       const NemoColumnMeasure *measure,
 				       int                      pad,
@@ -76,7 +76,7 @@ void nemo_column_layout_item_for_kind (NemoColumnKind           kind,
 				       NemoColumnLayoutItem    *item);
 
 /* Writes n_items widths. They sum to available whenever the minimums allow it;
- * when they do not, each column is at its minimum and the row overflows. */
+ * when they don't, each column is at its minimum and the row overflows. */
 void nemo_column_layout_distribute (const NemoColumnLayoutItem *items,
 				    int                         n_items,
 				    int                         available,
@@ -113,7 +113,7 @@ NemoColumnTallyMode nemo_column_tally_get_mode (const NemoColumnTally *tally);
 
 /* Fold one value in. row keys an EACH_ROW tally and text an EACH_TEXT one; a
  * WIDEST tally ignores both. A row is only ever a key, never followed. A text
- * seen at two widths counts at the wider. TRUE when the fit may have moved. */
+ * seen at 2 widths counts at the wider. TRUE when the fit may have moved. */
 gboolean nemo_column_tally_note (NemoColumnTally *tally,
 				 gconstpointer    row,
 				 const char      *text,
@@ -127,7 +127,7 @@ gboolean nemo_column_tally_forget_row (NemoColumnTally *tally,
 void nemo_column_tally_clear (NemoColumnTally *tally);
 
 /* The width that shows `percent` of what was seen, the width that shows half,
- * and the widest. A WIDEST tally answers its widest for all three. */
+ * and the widest. A WIDEST tally returns its widest for all 3. */
 void nemo_column_tally_measure (NemoColumnTally *tally,
 				int              percent,
 				int             *fit,

@@ -3,7 +3,7 @@
 ##	- Purpose: The FreeBSD lane, run from the Linux box. Sends the working tree
 ##	  to the FreeBSD box and runs one of these there:
 ##	  --tests     build with -Dwerror=true, the suite on an X server of its own,
-##	              then --version (linux/run-tests.bash, which runs there too)
+##	              then --version, through linux/run-tests.bash, which runs there too
 ##	  --release   the release build and pkg file (bsd/release.bash). The prefix
 ##	              comes back and is packed here as the -bsd- tarball install.bash
 ##	              looks for, with the same stamp and order as the Linux one; the
@@ -21,13 +21,13 @@
 ##	  helper starts a VM that is off, waits for its ssh, and puts it back after.
 ##	  The lane then waits for its own user to log in, since that can lag right
 ##	  after a boot, and for its clock to agree with this one, since a VM
-##	  resumed from paused keeps the time it stopped at. A box that does not
-##	  answer in time, or whose clock stays off, is an error. One that doesn't
-##	  answer at all exits 77, a skip, unless it's a paused or off VM here, or
+##	  resumed from paused keeps the time it stopped at. A box that doesn't
+##	  respond in time, or whose clock stays off, is an error. One that doesn't
+##	  respond at all exits 77, a skip, unless it's a paused or off VM here, or
 ##	  another session holds it. A VM that's running with no network is a skip.
 ##	- The build and the suite run there under nice 19, with jobs worked out
 ##	  from that box's own CPU count and load, the same way as for a step here
-##	  (include/jobs.bash), just before they start.
+##	  (include/jobs.bash), right before they start.
 ##	- Its steps print the way cicd.bash's do, as "FreeBSD N of M", since the
 ##	  lane is itself one step of that run.
 ##	- NEMO_BSD_HOST is the ssh target (default bsdtest@vmFreeBSD), NEMO_BSD_LOCK
@@ -96,11 +96,11 @@ fSend(){
 	esac
 	fBoxWrap_ClockReady "$bsdHost" "${sshOpts[@]}" || fDie "${bsdHost} has the wrong time, and meson would stop on it"
 	fLaneStep "Send"
-	fBoxWrap_RunDir "$SLUG" "$bsdHost" "${sshOpts[@]}" || fDie "could not make a run folder on ${bsdHost}"
+	fBoxWrap_RunDir "$SLUG" "$bsdHost" "${sshOpts[@]}" || fDie "couldn't make a run folder on ${bsdHost}"
 	remoteDir="${boxRunDir}/src"
 	ssh "${sshOpts[@]}" "$bsdHost" "mkdir ${remoteDir}"
 	## --ignore-failed-read: a file deleted in the tree but not yet in git is
-	## still listed, and the Linux build would not see it either.
+	## still listed, and the Linux build wouldn't see it either.
 	( cd "$ROOT" && git ls-files -z --cached --others --exclude-standard \
 		| tar --null -T - --ignore-failed-read -cf - ) \
 		| ssh "${sshOpts[@]}" "$bsdHost" "tar -xf - -C ${remoteDir}"
@@ -114,7 +114,7 @@ fTests(){
 	fLaneStep_Plan FreeBSD "Box ready" "Send" "Build and suite"
 	fSend
 	fLaneStep "Build and suite"
-	fBoxWrap_Jobs "$jobsPin" "$bsdHost" "${sshOpts[@]}" || fDie "could not read the CPU count and load on ${bsdHost}"
+	fBoxWrap_Jobs "$jobsPin" "$bsdHost" "${sshOpts[@]}" || fDie "couldn't read the CPU count and load on ${bsdHost}"
 	ssh "${sshOpts[@]}" "$bsdHost" "$(fBoxWrap_RunCmd) BUILD_DIR=${boxRunDir}/build NEMO_TEST_JOBS=${boxJobs} ${remoteNice} bash cicd/linux/run-tests.bash"
 }
 
@@ -132,7 +132,7 @@ fRelease(){
 	fLaneStep_Plan FreeBSD "Box ready" "Send" "Release build" "Bring back"
 	fSend
 	fLaneStep "Release build"
-	fBoxWrap_Jobs "$jobsPin" "$bsdHost" "${sshOpts[@]}" || fDie "could not read the CPU count and load on ${bsdHost}"
+	fBoxWrap_Jobs "$jobsPin" "$bsdHost" "${sshOpts[@]}" || fDie "couldn't read the CPU count and load on ${bsdHost}"
 	started="$(date +%s)"
 	ssh "${sshOpts[@]}" "$bsdHost" "$(fBoxWrap_RunCmd) SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH} CICD_MAX_JOBS=${boxJobs} ${remoteNice} bash cicd/bsd/release.bash"
 	secs=$(( $(date +%s) - started ))

@@ -1,5 +1,5 @@
 /* nemo-link-copy.h - what happens to a link when it is copied somewhere else.
- * Every platform can hold a symlink; Windows adds the junction. The copy engine
+ * Every platform can have a symlink; Windows adds the junction. The copy engine
  * asks here what a link should become, and the answer comes from a dialog when
  * there is more than one sensible one.
  *
@@ -18,7 +18,7 @@
 
 G_BEGIN_DECLS
 
-/* A bitmask so a set of files can report every kind it holds at once. NONE
+/* A bitmask so a set of files can report every kind it has at once. NONE
    doubles as "copy what it points at" wherever a choice is being carried. */
 typedef enum {
 	NEMO_LINK_NONE         = 0,
@@ -29,7 +29,7 @@ typedef enum {
 
 #define NEMO_LINK_ANY (NEMO_LINK_FILE_SYMLINK | NEMO_LINK_DIR_SYMLINK | NEMO_LINK_JUNCTION)
 
-/* How many of each kind the source holds, links inside its folders
+/* How many of each kind the source has, links inside its folders
    included. The dialog words each row to match. */
 typedef struct {
 	guint file_symlinks;
@@ -37,7 +37,7 @@ typedef struct {
 	guint junctions;
 } NemoLinkCounts;
 
-/* The kinds counts holds at least one of, as a NemoLinkKind mask. */
+/* The kinds counts has at least one of, as a NemoLinkKind mask. */
 guint nemo_link_counts_kinds (const NemoLinkCounts *counts);
 
 /* What each kind found in the source should become. */
@@ -48,12 +48,12 @@ typedef struct {
 } NemoLinkChoice;
 
 /* What kind of link this is, or NONE. info may be NULL, and is only read for
-   the answer it already holds - nothing is queried through it. */
+   the answer it already has - nothing is queried through it. */
 NemoLinkKind nemo_link_kind (GFile     *file,
                              GFileInfo *info);
 
-/* What a link points at, spelled the way the link itself spells it, so a
-   relative one answers with its relative text. Caller frees. */
+/* What a link points at, spelled the way the link itself has it, so a
+   relative one returns its relative text. Caller frees. */
 gboolean nemo_link_read_target (GFile   *file,
                                 char   **target,
                                 GError **error);
@@ -74,11 +74,11 @@ gboolean nemo_link_create_hard (const char  *existing_path,
                                 const char  *link_path,
                                 GError     **error);
 
-/* target_path as a symlink sitting in dir would spell it relative to itself.
-   The answer always holds from the folder the link really sits in. Off
+/* target_path as a symlink sitting in dir would write it relative to itself.
+   The answer is always right from the folder the link really is in. Off
    Windows it is the shortest of the paths as spelled and as they really are,
-   links in the folders resolved, so a symlinked folder on the way does not
-   send it up to the root when it need not. NULL when no relative spelling
+   links in the folders resolved, so a symlinked folder on the way doesn't
+   send it up to the root when it doesn't have to. NULL when no relative spelling
    exists, which on Windows means another drive. */
 char    *nemo_link_relative_target (const char *target_path,
                                     const char *dir);
@@ -111,7 +111,7 @@ const char *nemo_link_choice_label     (NemoLinkKind found,
 const char *nemo_link_choice_tooltip   (NemoLinkKind found,
                                         NemoLinkKind offer);
 
-/* Returns FALSE if the operation was cancelled. supported is a NemoLinkKind
+/* Returns FALSE if the operation was canceled. supported is a NemoLinkKind
    bitmask. */
 gboolean nemo_link_choice_ask (GtkWindow            *parent,
                                GFile                *destination,
@@ -138,19 +138,19 @@ typedef struct {
 /* Where the dialog starts, every time: a junction for folders where the
    destination allows one, else a symlink, else a shortcut; a symlink for files,
    else a shortcut; and an absolute path for a symlink. A shortcut always
-   carries every path it can. supported is a NemoLinkKind mask. */
+   has every path it can. supported is a NemoLinkKind mask. */
 void     nemo_link_options_initial (guint                  supported,
                                     NemoLinkOptions       *options);
 
 /* Whether the relative or absolute choice changes anything that comes out.
    It does only for a symlink: a junction is always absolute, a hardlink has
-   no path, and a shortcut always carries every kind. */
+   no path, and a shortcut always has every kind. */
 gboolean nemo_link_options_uses_path (const NemoLinkOptions *options,
                                       int                    n_folders,
                                       int                    n_files);
 
 /* The Make link dialog. FALSE if canceled. say_where adds a line naming the
-   destination, for a drop, where it need not be the folder in view. */
+   destination, for a drop, where it might not be the folder in view. */
 gboolean nemo_link_options_ask (GtkWindow       *parent,
                                 GFile           *destination,
                                 int              n_folders,

@@ -175,7 +175,7 @@ test_hidden_folder_goes_first (void)
 	nemo_directory_unref (folder);
 }
 
-/* Nothing else holds the file, so without the folder's minute it would go at
+/* Nothing else keeps a ref on the file, so without the folder's minute it would go at
  * once, picture and all. */
 static void
 test_left_folder_kept (void)

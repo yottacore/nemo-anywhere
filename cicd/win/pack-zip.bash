@@ -3,11 +3,11 @@
 ##	- Purpose: Build the Windows release .zip from the cross-compiled build, so the
 ##	  one-liner installer has something to fetch. install.ps1 only ever looks for
 ##	  the contract-named zip, and until now nothing produced one.
-##	- Layout is the release contract from design.md, NOT the developer snapshot:
+##	- Layout is the release contract from design.md, not the developer snapshot:
 ##	  one top-level folder, with nemo-anywhere.exe at its root beside its DLLs, so
 ##	  the normal Windows DLL search finds them and no launcher or environment
-##	  wiring is needed. The dev snapshot's split app/ + mingw64/ tree is flattened.
-##	- Runs from the cross-build container, which holds both the built exe and the
+##	  setup is needed. The dev snapshot's split app/ + mingw64/ tree is flattened.
+##	- Runs from the cross-build container, which has both the built exe and the
 ##	  mingw sysroot the runtime comes from.
 ##	- Syntax:
 ##	  cicd/win/pack-zip.bash [options]
@@ -48,7 +48,7 @@ while (($#)); do case "$1" in
 	*)         fDie "unknown option: $1 (try --help)" ;;
 esac; done
 
-command -v zip >/dev/null 2>&1 || fDie "zip is not installed"
+command -v zip >/dev/null 2>&1 || fDie "zip isn't installed"
 work=""
 trap 'fSafeRm_IfThere "${work}"; fStepBox_Stop' EXIT
 fWinBox_Start "windows zip" || exit 1
@@ -62,7 +62,7 @@ fSetSourceDate "$ROOT"
 fWarnIfSourceDateIsAGuess "$ROOT"
 
 ## The exe was linked by a separate, manual cross build, so it can easily predate
-## the commit being packed. Its PE header says which commit it really came from.
+## the commit being packed. Its PE header says which commit it came from.
 pe="$(fPeTimestamp <(docker exec "$CONTAINER" head -c 4096 "${BUILD}/src/${SLUG}.exe"))"
 if [[ "$pe" != "${SOURCE_DATE_EPOCH}" ]]; then
 	fEcho "WARNING: the built exe is stamped ${pe:-unknown}, not ${SOURCE_DATE_EPOCH} - rebuild it before packing a release"
@@ -78,7 +78,7 @@ fEcho "Packing ${name}.zip"
 # Flatten the runtime into one folder inside the container
 
 ## Everything the app loads by a path relative to the exe (icons, themes, schemas,
-## pixbuf loaders, thumbnailers) keeps its share/ and lib/ shape; only the split
+## pixbuf loaders, thumbnailers) keeps its share/ and lib/ layout; only the split
 ## between the app and the sysroot goes away.
 ## The step's container is new, and goes at exit with its /tmp, so nothing
 ## there needs clearing first or after.
@@ -134,10 +134,10 @@ docker cp "${CONTAINER}:/tmp/${name}" "${work}/${name}" >/dev/null
 ## neither, and without them the zip drew with Adwaita (2026101007562511).
 mkdir -p "${work}/${name}/etc"
 cp -r "${ROOT}/cicd/win/bundle-etc/." "${work}/${name}/etc/"
-## Copied from the sysroot, where fetch-sysroot.bash only warns when it cannot
+## Copied from the sysroot, where fetch-sysroot.bash only warns when it can't
 ## make one.
 fCheckLoadersCache "${work}/${name}/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" \
-	|| fDie "the zip would carry no usable gdk-pixbuf loaders.cache - rebuild the sysroot"
+	|| fDie "the zip would have no usable gdk-pixbuf loaders.cache - rebuild the sysroot"
 
 mkdir -p "$OUT"
 rm -f "${OUT}/${name}.zip"

@@ -59,7 +59,7 @@ G_DEFINE_TYPE (NemoInterestingFolderBar, nemo_interesting_folder_bar, GTK_TYPE_I
 
 /* The document rides inside the binary, but it is handed to whatever the user
  * reads markdown with, and that needs a real file. Written out to the cache and
- * refreshed whenever the copy there is not what we carry. NULL if it could not
+ * refreshed whenever the copy there isn't what we have. NULL if it couldn't
  * be written. */
 static char *
 info_doc_path (const char *name)
@@ -257,7 +257,7 @@ return g_object_new (NEMO_TYPE_INTERESTING_FOLDER_BAR,
                      NULL);
 }
 
-/* Returns: (transfer floating): NULL when the folder is not one of these */
+/* Returns: (transfer floating): NULL when the folder isn't one of these */
 GtkWidget *
 nemo_interesting_folder_bar_new_for_location (NemoView *view, GFile *location)
 {

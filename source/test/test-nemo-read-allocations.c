@@ -20,16 +20,16 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* Heap allocations counted, rather than time, so a busy box cannot move it.
+/* Heap allocations counted, rather than time, so a busy box can't move it.
  *
  * Settings are read per icon hover, so a read of a flag or a number makes no
  * allocation: the "group.key" path is built once per key, not per read. Every
- * flag and number in the key table is read a thousand times, and the bar is
- * one allocation per ten reads. None is made today; building the path per
- * read made one or two.
+ * flag and number in the key table is read 1,000 times, and the bar is
+ * one allocation per 10 reads. None is made today; building the path per
+ * read made one or 2.
  *
  * A string or enum read makes one allocation of its own, the string handed
- * back or the nick looked up, so each kind is read a thousand times over the
+ * back or the nick looked up, so each kind is read 1,000 times over the
  * table on its own, with a bar of one and a half per read.
  *
  * A string list read hands back an array and a copy of each item, so its bar
@@ -39,7 +39,7 @@
  *
  * The Ext column asks every row for its extension, which is one string handed
  * back. The file name is looked at where it sits rather than copied first. The
- * bar is one and a half allocations per read: one today, two with the copy.
+ * bar is one and a half allocations per read: one today, 2 with the copy.
  *
  * The count comes from this program's own malloc, which only glibc lets it
  * put in front of the real one, and which a sanitizer build already owns. */
@@ -73,7 +73,7 @@ extern void *__libc_malloc (size_t size);
 extern void *__libc_calloc (size_t count, size_t size);
 extern void *__libc_realloc (void *block, size_t size);
 
-/* Per thread, so the file monitor's own work is not counted. */
+/* Per thread, so the file monitor's own work isn't counted. */
 static __thread gboolean counting;
 static __thread guint64  allocations;
 

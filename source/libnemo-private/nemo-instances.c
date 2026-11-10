@@ -42,7 +42,7 @@ static const char settings_xml[] =
 
 #ifndef G_OS_WIN32
 
-/* Only a stop for a bus that answers nonsense. */
+/* Only a stop for a bus that replies with nonsense. */
 #define SLOT_LIMIT 4096
 
 /* RequestName replies, from the D-Bus spec. */
@@ -139,7 +139,7 @@ nemo_instance_list_others (GDBusConnection *connection)
 		g_variant_get (reply, "(s)", &owner);
 		g_variant_unref (reply);
 
-		/* A copy holds every slot that passed up to it. */
+		/* A copy keeps every slot that passed up to it. */
 		if (g_strcmp0 (owner, me) == 0 ||
 		    g_ptr_array_find_with_equal_func (others, owner, g_str_equal, NULL)) {
 			g_free (owner);

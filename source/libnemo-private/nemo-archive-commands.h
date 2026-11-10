@@ -25,7 +25,7 @@
  * include it too - the default a key falls back to and the default the writer
  * runs are then the same text rather than two copies that can drift. The Compress dialog's remembered settings
  * are named here for the same reason: the table and the dialog have to agree
- * on the key, and a typo in one of them would just be a setting that never
+ * on the key, and a typo in one of them would be a setting that never
  * takes.
  *
  * The placeholders are documented for users in project/design.md; see
@@ -81,7 +81,7 @@
 #define NEMO_ARCHIVE_STATE_DEFAULT_FORMAT      "zip"
 #define NEMO_ARCHIVE_STATE_DEFAULT_SPLIT_SIZE  "2 GiB"
 
-/* Worth knowing before editing any of these four:
+/* Worth knowing before editing any of these 4:
    -y answers the prompts a program with no console would otherwise wait on
    forever; -bsp1 is what puts 7-Zip's percentage on stdout for the progress
    bar; -spd makes 7-Zip take a name with * or ? in it as that name, not a
@@ -91,9 +91,9 @@
    console's code page and match no file; "--" stops switch parsing, so a file
    whose name starts with a dash is read as a file; and "x" rather than "e" on
    the unpack lines is what keeps the paths stored in the archive. {{THREADS}}
-   is the one marker that does not come from the Compress dialog - it carries
+   is the one marker that doesn't come from the Compress dialog - it has
    the share of the machine's cores set once under "performance", and leaving
-   it out just lets the program pick for itself, so it goes unremarked. */
+   it out lets the program pick for itself, so it goes unremarked. */
 #define NEMO_ARCHIVE_COMMAND_7Z_DEFAULT \
 	"{{PROGRAM}} a {{FORMAT}} {{LEVEL}} {{THREADS}} -y -bsp1 -spd -sccUTF-8 " \
 	"{{PASSWORD}} {{SPLIT}} {{SOLID}} {{LINKS}} " \

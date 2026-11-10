@@ -24,7 +24,7 @@
  * indented, at any depth. Every row on the way to the page showing gets the
  * selected look, so a parent and its showing sub-tab both do.
  *
- * A page has sub-tabs when it is itself a GtkStack, or when it holds one with
+ * A page has sub-tabs when it is itself a GtkStack, or when it contains one with
  * the NEMO_TAB_LIST_SUB_TABS style class under something shared by all of its
  * sub-tabs, such as a switch above them. */
 

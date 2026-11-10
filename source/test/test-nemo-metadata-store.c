@@ -1,5 +1,5 @@
 /* Exercises the app-owned metadata store: set/unset, GFileInfo overlay,
- * move re-keying (including directory descendants), and the on-disk
+ * move re-keying with directory descendants, and the on-disk
  * round trip. Runs against a throwaway config root. First, before anything
  * has loaded the store, a damaged file is found in its place. */
 
@@ -34,7 +34,7 @@ info_string (const char *uri, const char *key)
 	return result;
 }
 
-/* A file that does not parse holds every folder's view, zoom, sort and layout
+/* A file that doesn't parse has every folder's view, zoom, sort, and layout
  * all the same. It used to leave an empty store that the next change wrote
  * straight over it. It is set aside whole instead, and the next save starts a
  * new file beside it. The warning it logs is expected. */
@@ -135,7 +135,7 @@ main (void)
 	value = info_string ("file:///tmp/dir", "dir-key");
 	check (value == NULL);
 
-	/* similarly-prefixed sibling is not swept up by the descendant rewrite */
+	/* similarly-prefixed sibling isn't swept up by the descendant rewrite */
 	nemo_metadata_store_set_string ("file:///tmp/dir2", "sib-key", "s");
 	nemo_metadata_store_rename ("file:///tmp/dir2x", "file:///tmp/elsewhere");
 	value = info_string ("file:///tmp/dir2", "sib-key");

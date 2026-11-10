@@ -27,7 +27,7 @@
  * Needs the built program (argv[1]) and a display, and runs on an X server of
  * its own, since it types into the window. The tree gets the keyboard the way
  * a person would give it, with F6. Down then moves to another folder, and
- * the window following it is how the test knows the keys reached the tree. */
+ * the window following it is how the test knows the keys got to the tree. */
 
 #include <config.h>
 

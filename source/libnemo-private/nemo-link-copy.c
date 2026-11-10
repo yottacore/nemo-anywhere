@@ -45,7 +45,7 @@ nemo_link_kind (GFile     *file,
 #ifdef G_OS_WIN32
 	/* The reparse tag is the only thing that tells a junction from a symlink,
 	   and it also keeps the other things the file system uses reparse points
-	   for - cloud placeholders, store app aliases - out of the way. */
+	   for, such as cloud placeholders and store app aliases, out of the way. */
 	return nemo_win32_link_kind (path);
 #else
 	if (info == NULL && !g_file_test (path, G_FILE_TEST_IS_SYMLINK)) {
@@ -434,7 +434,7 @@ nemo_link_choice_ask (GtkWindow            *parent,
 
 	box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
 
-	/* Say why an option is grayed out, for the two reasons a whole column can
+	/* Say why an option is grayed out, for the 2 reasons a whole column can
 	   be. Junctions without symlinks is only ever Windows without the
 	   privilege; nothing at all is a file system that keeps no links. */
 	if (is_move && supported == 0) {
@@ -442,7 +442,7 @@ nemo_link_choice_ask (GtkWindow            *parent,
 	} else if (supported == 0) {
 		note = gtk_label_new (_("This folder can't hold links, so only a copy is possible."));
 	} else if ((supported & NEMO_LINK_JUNCTION) && !(supported & NEMO_LINK_DIR_SYMLINK)) {
-		note = gtk_label_new (_("Symlinks need Developer Mode turned on, or nemo running as administrator."));
+		note = gtk_label_new (_("Symlinks need Developer Mode turned on, or Nemo Anywhere running as administrator."));
 	} else if (is_move) {
 		note = gtk_label_new (_("A link is moved as a link. Only a copy can take what it points at."));
 	} else {
@@ -521,7 +521,7 @@ nemo_link_create_hard (const char  *existing_path,
 #endif
 }
 
-/* The folder as it really is. A folder that cannot be resolved is left as
+/* The folder as it really is. A folder that can't be resolved is left as
    spelled, cleaned up. */
 static char *
 real_dir (const char *dir)
@@ -633,7 +633,7 @@ spell_relative (const char *dir, const char *target)
 }
 
 #ifndef G_OS_WIN32
-/* Whether text, followed from the folder the link really sits in, comes out
+/* Whether text, followed from the folder the link really is in, comes out
    at real_target. The kernel takes each ".." from where the folder before it
    really is, and realpath walks the same way. */
 static gboolean
@@ -679,7 +679,7 @@ nemo_link_relative_target (const char *target_path,
 	char *target_parent, *target_base, *real_parent, *real_target, *real_link_dir;
 	char *answer;
 
-	/* The target itself is not resolved, since it may be a link that is
+	/* The target itself isn't resolved, since it may be a link that is
 	   meant to be pointed at. */
 	target_parent = g_path_get_dirname (target_path);
 	target_base = g_path_get_basename (target_path);
@@ -750,7 +750,7 @@ nemo_link_options_initial (guint            supported,
 }
 
 /* A junction is always absolute, a hardlink has no path at all, and a
-   shortcut can carry both kinds at once. */
+   shortcut can have both kinds at once. */
 static gboolean
 kind_uses_path (NemoMakeLink kind)
 {
@@ -808,7 +808,7 @@ update_make_link_dialog (G_GNUC_UNUSED GtkToggleButton *button, MakeLinkDialog *
 
 	read_options (d, &options);
 
-	/* Hidden rather than grayed, but still laid out, so the dialog does not
+	/* Hidden rather than grayed, but still laid out, so the dialog doesn't
 	   change height as the choices change. Insensitive too, which keeps
 	   focus and mnemonics off it. */
 	uses_path = nemo_link_options_uses_path (&options, d->n_folders, d->n_files);
@@ -817,7 +817,7 @@ update_make_link_dialog (G_GNUC_UNUSED GtkToggleButton *button, MakeLinkDialog *
 		gtk_widget_set_child_visible (path_row[i], uses_path);
 	}
 
-	/* Nothing is made until every row holds a choice this folder allows. */
+	/* Nothing is made until every row has a choice this folder allows. */
 	folders_ok = d->n_folders == 0 || options.folder_kind == NEMO_MAKE_SHORTCUT ||
 		     (d->supported & (options.folder_kind == NEMO_MAKE_JUNCTION
 				      ? NEMO_LINK_JUNCTION : NEMO_LINK_DIR_SYMLINK));
@@ -904,7 +904,7 @@ confirm_hardlinks (GtkWindow *parent, int n_files)
 		   "without a word, and later edits no longer match."),
 		N_("Permissions and dates are shared. A change to one name is a change to all."),
 		N_("Deleting one name frees no space until every name is gone."),
-		N_("Copying to another drive, zipping, cloud sync and many backups and "
+		N_("Copying to another drive, zipping, cloud sync, and many backups and "
 		   "restores turn each name back into a full, separate copy."),
 	};
 	GtkDialog *dialog;
@@ -952,8 +952,8 @@ confirm_hardlinks (GtkWindow *parent, int n_files)
 	gtk_box_pack_start (GTK_BOX (box),
 			    warning_text (_("Hardlinks are only safe where they plainly mean the same "
 					    "file, as in backup tools that keep versions of whole folder "
-					    "trees. Files that just happen to have the same content are "
-					    "not that.")),
+					    "trees. Files that just happen to have the same content aren't "
+					    "that.")),
 			    FALSE, FALSE, 0);
 
 	area = gtk_message_dialog_get_message_area (GTK_MESSAGE_DIALOG (dialog));
@@ -980,7 +980,7 @@ static void
 set_shortcut_tooltip (GtkWidget *button)
 {
 	gtk_widget_set_tooltip_text (button,
-		_("A Windows shortcut file (.lnk) that opens a folder, file or program at its "
+		_("A Windows shortcut file (.lnk) that opens a folder, file, or program at its "
 		  "original location. On Windows, it's limited to programs that use the Windows "
 		  "shell library, such as Explorer (and Nemo Anywhere). Off Windows, only Nemo "
 		  "Anywhere can use them. Everything else sees a small file of that name."));
@@ -1145,7 +1145,7 @@ nemo_link_options_ask (GtkWindow       *parent,
 	if (d.supported == 0) {
 		why = _("This folder can't hold symlinks or junctions.");
 	} else if (!(d.supported & NEMO_LINK_FILE_SYMLINK)) {
-		why = _("Symlinks need Developer Mode turned on, or nemo running as administrator.");
+		why = _("Symlinks need Developer Mode turned on, or Nemo Anywhere running as administrator.");
 	}
 
 	box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);

@@ -25,7 +25,7 @@ while [[ -L "${self}" ]]; do
 done
 selfDir="$(cd -P "$(dirname "${self}")" && pwd)"
 
-## Sits two levels under the util dir, next to which 0_crossplatform lives. The
+## Sits 2 levels under the util dir, which has 0_crossplatform in it. The
 ## home-relative spelling is the fallback for a copy dropped somewhere else.
 candidates=(
 	"${selfDir}/../../0_crossplatform/n8runfm.ps1"
@@ -45,8 +45,8 @@ if [[ -z "${ps1}" ]]; then
 	exit 1
 fi
 
-## pwsh 7 only. The launcher uses $IsWindows and friends, which 5.1 does not have,
-## and 5.1 does not exist here anyway.
+## pwsh 7 only. The launcher uses $IsWindows and friends, which 5.1 doesn't have,
+## and 5.1 isn't installed here anyway.
 if ! command -v pwsh >/dev/null 2>&1; then
 	echo "PowerShell 7 (pwsh) wasn't found on PATH." >&2
 	exit 1

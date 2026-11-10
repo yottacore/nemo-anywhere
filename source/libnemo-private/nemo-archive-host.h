@@ -79,7 +79,7 @@ void     nemo_archive_choices_shown      (const NemoArchiveChoices *chosen,
    which on Windows start from the one place that may start them. */
 void nemo_archive_host_init         (ArcHost              *host);
 
-/* What a job's calls reach: its progress, the window its dialogs and the
+/* What a job's calls act on: its progress, the window its dialogs and the
    trash go over, and for a job that asks questions, the I/O job they wait
    on the main loop through. */
 typedef struct {

@@ -22,7 +22,7 @@
 
 /* Reached by running our own exe with --extensions-list, which is what the
  * plugin page in Settings does. It is a separate process because reading an
- * extension's name means instantiating it, and a loaded module cannot be
+ * extension's name means instantiating it, and a loaded module can't be
  * unloaded again - the answer would otherwise cost the running app every
  * extension the user has switched off.
  *

@@ -76,7 +76,7 @@ check_location_title (GFile *location, const char *expected)
 	g_free (got);
 }
 
-/* The path the title should carry for a folder, spelled the way the display
+/* The path the title should have for a folder, spelled the way the display
    separator says. */
 static char *
 display_path (GFile *location)
@@ -87,8 +87,8 @@ display_path (GFile *location)
 	return path;
 }
 
-/* The home folder answered "Home" before the preference was read, so turning
-   it on there did nothing. The sub folder sits in the scratch dir, which is
+/* The home folder's title was "Home" before the preference was read, so turning
+   it on there did nothing. The sub folder is in the scratch dir, which is
    also home wherever GLib honors HOME. */
 static void
 check_full_path_preference (const char *scratch)
@@ -129,12 +129,12 @@ main (int argc, char *argv[])
 {
 	char *scratch;
 
-	/* A folder name, which is what the title holds with the full-path
+	/* A folder name, which is what the title shows with the full-path
 	   preference off. */
 	check_is ("Documents", "Documents - Nemo Anywhere");
 	check_is ("Home", "Home - Nemo Anywhere");
 
-	/* A path, which is what it holds with the preference on. Both separators,
+	/* A path, which is what it shows with the preference on. Both separators,
 	   since the display separator follows the platform. */
 	check_is ("/home/somebody/Documents",
 		  "/home/somebody/Documents - Nemo Anywhere");
@@ -142,7 +142,7 @@ main (int argc, char *argv[])
 		  "C:\\Users\\somebody\\Documents - Nemo Anywhere");
 
 	/* A space anywhere in it, folder or parent, puts the whole thing in
-	   quotes, so the " - " before the program name cannot be mistaken for
+	   quotes, so the " - " before the program name can't be mistaken for
 	   part of it. */
 	check_is ("My Documents", "\"My Documents\" - Nemo Anywhere");
 	check_is ("/home/some body/Documents",
@@ -153,7 +153,7 @@ main (int argc, char *argv[])
 	   That was a bug once; see the closed item in the backlog. */
 	check_is ("Windows (C:)", "\"Windows (C:)\" - Nemo Anywhere");
 
-	/* Nothing to name yet - a window that has not loaded a location. */
+	/* Nothing to name yet - a window that hasn't loaded a location. */
 	check_is (NULL, "Nemo Anywhere");
 	check_is ("", "Nemo Anywhere");
 
@@ -165,7 +165,7 @@ main (int argc, char *argv[])
 	check_long_one_is_truncated ();
 
 	scratch = test_scratch_config_home ("nemo-window-title-XXXXXX");
-	/* A NemoFile reaches for the icon theme as it is made. */
+	/* A NemoFile loads the icon theme as it is made. */
 	gtk_init_check (&argc, &argv);
 	nemo_global_preferences_init ();
 	check_full_path_preference (scratch);

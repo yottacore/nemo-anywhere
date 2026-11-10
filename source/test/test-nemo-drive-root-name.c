@@ -1,6 +1,6 @@
-/* One name for a drive root, shared by every surface that shows one. gio calls
+/* One name for a drive root, shared by every place that shows one. gio calls
  * it "\" (the basename), the volume monitor calls it "(C:) Windows" and the
- * sidebar used to build "Windows (C:)" - three names for the same place, none
+ * sidebar used to build "Windows (C:)" - 3 names for the same place, none
  * of which is what a user would type. Windows-only. */
 
 #include <config.h>
@@ -14,7 +14,7 @@
 #include "test-scratch.h"
 #include "test-check.h"
 
-/* Name of the location @uri points at, or NULL if it is not a drive root. */
+/* Name of the location @uri points at, or NULL if it isn't a drive root. */
 static char *
 name_for_uri (const char *uri)
 {
@@ -51,13 +51,13 @@ main (void)
 	check (g_strcmp0 (name, "C:\\") == 0);
 	g_free (name);
 
-	/* Any letter, not just the one this box happens to boot from. */
+	/* Any letter, as well as the one this box happens to boot from. */
 	name = name_for_uri ("file:///K:/");
 	check (g_strcmp0 (name, "K:\\") == 0);
 	g_free (name);
 
-	/* Case is normalized up, so two spellings of one drive cannot show as
-	 * two differently-named places. */
+	/* Case is normalized up, so 2 spellings of one drive can't show as
+	 * 2 differently-named places. */
 	name = name_for_uri ("file:///k:/");
 	check (g_strcmp0 (name, "K:\\") == 0);
 	g_free (name);
@@ -76,12 +76,12 @@ main (void)
 	check (name_for_uri ("trash:///") == NULL);
 	check (!is_root_uri ("network:///"));
 
-	/* A UNC share root is not a drive root: it has no letter, and naming it
+	/* A UNC share root isn't a drive root: it has no letter, and naming it
 	 * after one would be wrong rather than merely unhelpful. */
 	check (!is_root_uri ("file://server/share"));
 	check (name_for_uri ("file://server/share") == NULL);
 
-	/* Both separators reach the same place, so both must be recognized -
+	/* Both separators lead to the same place, so both must be recognized.
 	 * nemo builds "file:///C:/" itself while a typed path arrives as C:\. */
 	check (is_root_uri ("file:///C:/"));
 	{
@@ -95,8 +95,8 @@ main (void)
 		g_object_unref (back);
 	}
 
-	/* NULL must be answered, not crashed on: callers ask about a location
-	 * they have not established is real yet. */
+	/* NULL must return FALSE rather than crash: callers ask about a location
+	 * they haven't established is real yet. */
 	check (!nemo_location_is_drive_root (NULL));
 	check (nemo_get_drive_root_name (NULL) == NULL);
 

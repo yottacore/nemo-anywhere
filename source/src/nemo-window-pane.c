@@ -274,8 +274,8 @@ toolbar_focus_in_callback (G_GNUC_UNUSED GtkWidget *widget,
 	return FALSE;
 }
 
-/* Anything that takes the focus off the entry leaves entry mode, not just
-   Escape. Losing the whole window is not that - a typed path should still be
+/* Escape leaves entry mode, and so does anything that takes the focus off the
+   entry. Losing the whole window isn't that - a typed path should still be
    there on the way back. */
 static gboolean
 toolbar_focus_out_callback (G_GNUC_UNUSED GtkWidget *widget,
@@ -800,7 +800,7 @@ notebook_create_window_cb (GtkNotebook *notebook,
 	slot = NEMO_WINDOW_SLOT (page);
 
 	if (nemo_application_window_per_process ()) {
-		/* A page cannot move into another process, so it is handed over:
+		/* A page can't move into another process, so it is handed over:
 		 * to the window it was dropped on, or to a new one. */
 		nemo_tab_move_tear_off (slot);
 
@@ -1217,7 +1217,7 @@ nemo_window_pane_get_toolbar_action_group (NemoWindowPane *pane)
 	return pane->toolbar_action_group;
 }
 
-/* Redraw whatever spells out a path, without any of the rest of a location
+/* Redraw whatever shows a path, without any of the rest of a location
    change - the user has only changed how it is written. */
 void
 nemo_window_pane_resync_path_spelling (NemoWindowPane *pane)

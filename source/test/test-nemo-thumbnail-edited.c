@@ -20,13 +20,13 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* A thumbnail job carries the size and time the view last saw. When the file
+/* A thumbnail job has the size and time the view last saw. When the file
  * changed after that, the job checksummed the new contents and stored the
  * checksum under the old size. Only the checksum is unique, so every later
  * store of those contents, under any name, was refused, and the picture was
  * made again on every visit.
  *
- * The main loop is not run between the edit and the store, so the view never
+ * The main loop isn't run between the edit and the store, so the view never
  * hears of the edit and the job keeps the old size and time. */
 
 #include <config.h>
@@ -61,7 +61,7 @@ save_picture (const char *path, int width, int height, guint32 fill)
 	return saved;
 }
 
-/* Back far enough that the job does not wait out the just-changed delay. */
+/* Back far enough that the job doesn't wait out the just-changed delay. */
 static gboolean
 set_age (GFile *location, gint64 secs_ago)
 {
@@ -135,7 +135,7 @@ test_edited_before_made (NemoFile *file, const char *path)
 	check (wait_until_stored (db, uri, 20000));
 
 	/* No checksum may stand for the size and time the job was queued with,
-	 * since that is not what was read. */
+	 * since that isn't what was read. */
 	check (!nemo_cache_db_lookup_digest (db, uri, seen.bytes, seen.mtime, back));
 
 	/* What the user sees: the new contents, found at their real size under

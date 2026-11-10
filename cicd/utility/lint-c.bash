@@ -70,7 +70,7 @@ fRun(){
 }
 
 ## Every delete in nemo-file-operations.c goes through file_delete_wrapper, so
-## the delete guard sees it. Two calls in make_link_copy sat outside it until
+## the delete guard sees it. A pair of calls in make_link_copy were outside it until
 ## 20260917 and were reachable with no guard at all. Whole-tree, since the rule
 ## is about that one file whether or not this change touched it.
 ## Test ID: dcrgq
@@ -92,7 +92,7 @@ fRun fCheckDeleteWrapper
 ## G_FILE_COPY_OVERWRITE destroys the target inside glib, where there is nothing
 ## of ours to hook, so the test guard has to ask before the flag goes on. Both
 ## uses sit a few lines after the ask at their retry label; anything further
-## away has grown a path that reaches the flag without asking. Whole-tree, same
+## away has grown a path that sets the flag without asking. Whole-tree, same
 ## reason as above.
 ## Test ID: dcrjk
 fCheckOverwriteAsk(){
@@ -119,17 +119,17 @@ fRun fCheckOverwriteAsk
 ## Nothing may trash, delete or move a person's files unless it started in a
 ## window. Another program must have no way in: the bus exported CopyURIs,
 ## MoveURIs and EmptyTrash, left over from the Nemo desktop, until 20260917.
-## These four checks hold that. A new entry on any of their lists wants a
+## These 4 checks enforce that. A new entry on any of their lists wants a
 ## reason, and whoever adds one should be able to say what window starts it.
 
 ## Bus methods: the freedesktop file manager interface, the tab hand-over
 ## between our own windows, which lists windows and opens a folder in a tab, and
 ## settings changes passed between our own copies, which only change what a
-## copy holds in memory, the same as an edit to the settings file it watches.
-## Activate is the actions call GLib's bus export answers, written out for the
-## Windows pipes, where the only action is quit (see fCheckAppActions). None
-## of them touches a file. Tests are left out: a test that stands in for
-## another program's server is not something the app exports.
+## copy has in memory, the same as an edit to the settings file it watches.
+## Activate is the actions call GLib's bus export handles, written out for the
+## Windows pipes, where the only action is quit, per fCheckAppActions. None
+## of them touch a file. Tests are left out: a test that stands in for
+## another program's server isn't something the app exports.
 ## Test ID: dcrx7
 fCheckBusMethods(){
 	local allowed=' ShowFolders ShowItems ShowItemProperties ListWindows TakeTab TakeSettings Activate '
@@ -164,8 +164,8 @@ fCheckAppActions(){
 }
 fRun fCheckAppActions
 
-## Who may start a trash, delete, empty trash or move job. Each file here is
-## reached from something done in a window.
+## Who may start a trash, delete, empty trash, or move job. Each file here is
+## called from something done in a window.
 ## Test ID: dcrx9
 fCheckJobCallers(){
 	local allowed=' '
@@ -226,7 +226,7 @@ fRun fCheckRawDeletes
 
 ## A tree removal walks into a real folder only, never through a symlink or a
 ## junction. GIO calls a junction a folder on Windows even with NOFOLLOW, so the
-## type alone let three of these walks through one until 20260918. Any function
+## type alone let 3 of these walks through one until 20260918. Any function
 ## that lists a folder and removes things has to ask
 ## nemo_delete_guard_is_real_folder, or be on the list with a reason.
 ## Test ID: dcsz2
@@ -260,7 +260,7 @@ fCheckTreeWalks(){
 }
 fRun fCheckTreeWalks
 
-## Same rule for the suite, narrowed to the shape that can do the damage: a
+## Same rule for the suite, narrowed to the kind that can do the damage: a
 ## function that calls itself, lists a directory and removes what it finds.
 ## The fixtures plant links on purpose, so one of those walking into a link
 ## takes out something the test never made. test-scratch.c owns the one guarded
@@ -295,9 +295,9 @@ fCheckTestTreeWalks(){
 }
 fRun fCheckTestTreeWalks
 
-## Two test helpers that used to be copied instead of shared. The check macro
-## was in the tree in two spellings across sixty-odd files, and twenty-odd
-## tests each set the same three environment variables by hand to get a
+## A pair of test helpers that used to be copied instead of shared. The check
+## macro was in the tree in 2 spellings across 60-odd files, and 20-odd tests
+## each set the same 3 environment variables by hand to get a
 ## throwaway config root. A fresh copy of either drifts from the rest.
 ## Test ID: dcwr8
 fCheckTestHelpers(){
@@ -351,9 +351,9 @@ fRun fCheckCellPlain
 
 ## The list view works out every column width itself and hands out widths that
 ## come to exactly the row. An expanding column lets GTK add more on top, from a
-## share it worked out while the view was wider, and it will not give that back
-## until some width really changes - so the row scrolls sideways while fitting.
-## The places sidebar has its own tree view and is not covered by any of this.
+## share it worked out while the view was wider, and it won't give that back
+## until some width changes. So the row scrolls sideways while fitting.
+## The places sidebar has its own tree view and isn't covered by any of this.
 ## Test ID: dcwvn
 fCheckColumnExpand(){
 	local src='source/src/nemo-list-view.c'
@@ -368,7 +368,7 @@ fCheckColumnExpand(){
 fRun fCheckColumnExpand
 
 ## Column samples only ever grow, so a file that leaves keeps its widths in
-## every column but Name. That held a scrollbar on a folder with nothing left
+## every column but Name. That kept a scrollbar on a folder with nothing left
 ## needing it, emptied or not. A removal marks the samples stale, and a layout
 ## whose minimums overflow while they are stale samples the folder again.
 ## Test ID: dd13y
@@ -415,7 +415,7 @@ fRun fCheckStatusAfterChanges
 ## costs to load. GTK only allows it while every column sizes FIXED, and it
 ## goes wrong quietly rather than loudly: a column left to size itself makes
 ## the tree view measure every row again, which is the cost being avoided.
-## So the two are pinned together.
+## So the 2 are pinned together.
 ## Test ID: dcwwp
 fCheckFixedHeight(){
 	local src='source/src/nemo-list-view.c'
@@ -446,7 +446,7 @@ fCheckFixedHeight(){
 fRun fCheckFixedHeight
 
 ## The measuring cache in the list view. Each rule below is what keeps a
-## remembered width honest; without one the columns come out wrong or the
+## remembered width right; without one the columns come out wrong or the
 ## cache grows per row.
 ## Test ID: dcwxs
 fCheckMeasureCache(){
@@ -480,9 +480,9 @@ fCheckMeasureCache(){
 fRun fCheckMeasureCache
 
 ## A theme change can bring a new font, which makes every remembered width
-## wrong. The handler has to send the rows back to be measured - but only on a
+## wrong. The handler has to send the rows back to be measured, but only on a
 ## change that moved something, since style-updated also fires for a state or
-## a CSS class and 50,000 rows is not free.
+## a CSS class and 50,000 rows isn't free.
 ## Test ID: dcwym
 fCheckStyleRemeasure(){
 	local src='source/src/nemo-list-view.c'
@@ -561,7 +561,7 @@ fRun fCheckToolbarStack
 ## Sizing a folder of images reads: either the folder's own image size, which is
 ## already stored, or the image default, which has to stay a default so the
 ## preference can still move it. Writing here would pin a folder at whatever the
-## setting said the first time it was opened, and in a window that is not
+## setting said the first time it was opened, and in a window that isn't
 ## remembering per folder it would follow you into the next folder.
 ## Test ID: dcx3r
 fCheckImageDefault(){
@@ -584,7 +584,7 @@ fCheckImageDefault(){
 }
 fRun fCheckImageDefault
 
-## With per-folder settings off the window holds three icon sizes: plain and
+## With per-folder settings off the window stores 3 icon sizes: plain and
 ## pictures for the icon view, and one for list view. Anything in the icon view
 ## reaching past held_icon_size/hold_icon_size to the window picks one without
 ## asking which kind of folder is in front, and that is how the picture size
@@ -650,14 +650,14 @@ fCheckNoSessionRegister(){
 }
 fRun fCheckNoSessionRegister
 
-## A checksum is kept on a file in three attributes, and the order they are
+## A checksum is kept on a file in 3 attributes, and the order they're
 ## written in is the only thing standing between a torn write and a checksum
 ## that vouches for contents it has never seen. Reading requires the size and
 ## the time to match, so the time has to be written last: then a write that
 ## stops part way leaves the old time next to the new checksum, and the reader
 ## throws it away. Write the time first and a half-finished write leaves the
 ## old checksum under a size and time that both match, which no reader can
-## catch. No test can hold this - the bad state is one a read cannot tell from
+## catch. No test can check this, because a read can't tell the bad state from
 ## a good one.
 ## Test ID: dcy09
 fCheckDigestAttrOrder(){
@@ -677,11 +677,11 @@ fCheckDigestAttrOrder(){
 }
 fRun fCheckDigestAttrOrder
 
-## A test that cannot run exits 77, which meson counts as a skip. Three tests
+## A test that can't run exits 77, which meson counts as a skip. Earlier, 3 tests
 ## said they were skipping and then exited 0, so the suite counted a pass for
-## something that never ran. Two shapes are caught: a skip message whose block
-## goes on to exit 0, and one that jumps to the end of a main with no way to
-## exit 77. A skip of one case that lets the rest run is not either shape.
+## something that never ran. This catches a skip message whose block goes on
+## to exit 0, and one that jumps to the end of a main with no way to exit 77.
+## A skip of one case that lets the rest run is neither.
 ## Test ID: dd5az
 fCheckTestSkipExit(){
 	local bad
@@ -715,7 +715,7 @@ fCheckTestSkipExit(){
 	' source/test/*.c)"
 
 	if [[ -n "$bad" ]]; then
-		fEcho "FAIL: a test says it skips and exits 0 - a test that cannot run exits 77"
+		fEcho "FAIL: a test says it skips and exits 0 - a test that can't run exits 77"
 		printf '%s\n' "$bad"
 		exit 2
 	fi
@@ -723,7 +723,7 @@ fCheckTestSkipExit(){
 fRun fCheckTestSkipExit
 
 ## Scratch directories come from test_scratch_dir, which removes them at exit
-## and keeps two runs apart. One test made and removed its own by hand, and two
+## and keeps 2 runs apart. One test made and removed its own by hand, and 2
 ## copies running at once destroyed each other's tree. test-scratch.c is the
 ## helper; test-nemo-scratch.c needs one the helper has no claim on.
 ## Test ID: dd5b0
@@ -759,9 +759,9 @@ fCheckNoUtime(){
 }
 fRun fCheckNoUtime
 
-## A cancellable source cancelled from another thread, while the thread that
+## A cancellable source canceled from another thread, while the thread that
 ## owns its context tears both down, writes into freed memory on GLib 2.84. A
-## thumbnail job cancelled at quit hung the app that way (ddc84). Use
+## thumbnail job canceled at quit hung the app that way in ddc84. Use
 ## g_cancellable_connect, and g_cancellable_disconnect before the teardown.
 ## Test ID: der15
 fCheckNoCancellableSource(){
@@ -841,8 +841,8 @@ fCheckByUser(){
 }
 fRun fCheckByUser
 
-## A link to a share that is not answering costs about twenty seconds for each
-## question asked of it, and a folder waits on all of them. These three leave
+## A link to a share that doesn't respond costs about 20 seconds for each
+## question asked of it, and a folder waits on all of them. These 3 leave
 ## anything on a share alone; without them a folder of such links took minutes
 ## to list or to switch view.
 ## Test ID: dd5b2
@@ -865,7 +865,7 @@ fRun fCheckShareGates
 ## Setting the list's bottom margin asks for another allocation. The size
 ## handler set it on every one, which redrew the view at the frame rate - the
 ## strobing scrollbar. Each set sits behind a check that the value moved.
-## Starting a folder load resets it once, which cannot loop.
+## Starting a folder load resets it once, which can't loop.
 ## Test ID: dd5b3
 fCheckMarginGuard(){
 	local src='source/src/nemo-list-view.c'
@@ -921,7 +921,7 @@ fRun fCheckWinLaunch
 ## GLib's own spawn on Windows goes through a helper program, which gives a
 ## console tool a console window and never starts it at all from the single
 ## exe. Off Windows it is fine, so every call that starts a program is on this
-## list with why Windows never reaches it, or why it does no harm there. GLib's
+## list with why Windows never runs it, or why it does no harm there. GLib's
 ## app launch spawns the same way for anything but a store app, and so does
 ## GTK's show-uri through it, which an About box or a link button calls on a
 ## click unless told otherwise.
@@ -945,7 +945,7 @@ fCheckGlibSpawn(){
 	allowed+='nemo-program-choosing.c:nemo_launch_application_by_uri '	# Windows: only a store app, which the shell starts
 	allowed+='nemo-program-choosing.c:launch_application_from_command_internal '	# not built on Windows
 	allowed+='nemo-program-choosing.c:nemo_launch_desktop_file '			# same
-	allowed+='eel-gnome-extensions.c:eel_gnome_open_terminal_on_screen '	# its one caller is not built on Windows
+	allowed+='eel-gnome-extensions.c:eel_gnome_open_terminal_on_screen '	# its one caller isn't built on Windows
 	allowed+='nemo-template-config-widget.c:on_edit_template_clicked '		# Windows goes through nemo-launch-win32.c
 	allowed+='nemo-program-choosing.c:nemo_show_uri '					# Windows goes through nemo-launch-win32.c
 	allowed+='nemo-window-menus.c:action_about_nemo_callback '			# its links go through nemo_show_uri
@@ -1009,10 +1009,10 @@ fCheckUserEnviron(){
 fRun fCheckUserEnviron
 
 ## Nothing may ask for the session bus on Windows. GLib starts a bus of its own
-## there (gdbus.exe) the first time anything does, and the copies use named
-## pipes instead (nemo-instances-win32.c). The app also sets the bus address to
-## "disabled:" at startup, which is what keeps GApplication off it, but every
-## call that would ask is on this list with why Windows never reaches it.
+## there, gdbus.exe, the first time anything does, and the copies use named
+## pipes from nemo-instances-win32.c instead. The app also sets the bus address
+## to "disabled:" at startup, which is what keeps GApplication off it, but every
+## call that would ask is on this list with why Windows never runs it.
 ## Test ID: ddqe1
 fCheckSessionBus(){
 	local allowed=' '
@@ -1089,7 +1089,7 @@ fCheckWinTrash(){
 fRun fCheckWinTrash
 
 ## An open view follows its default zoom and the default view. Nothing
-## watched them, so a changed default reached only folders opened after it.
+## watched them, so a changed default applied only to folders opened after it.
 ## Test ID: dd5b7
 fCheckDefaultsFollowed(){
 	local want
@@ -1172,9 +1172,9 @@ fCheckSidebarFocus(){
 }
 fRun fCheckSidebarFocus
 
-## A Windows-only test is left out of the build elsewhere and carries no stub
+## A Windows-only test is left out of the build elsewhere and has no stub
 ## for the other platform. Some were built and reported a skip and some had
-## stubs never compiled, so a Linux run could not say what it had covered.
+## stubs never compiled, so a Linux run couldn't say what it had covered.
 ## Test ID: dd5ba
 fCheckWinTests(){
 	local build='source/test/meson.build'
@@ -1244,9 +1244,9 @@ fCheckTestFence(){
 }
 fRun fCheckTestFence
 
-## A test that takes the foreground, or holds a menu open, runs alone on Windows,
+## A test that takes the foreground, or keeps a menu open, runs alone on Windows,
 ## where every test shares one desktop. A menu closes when its window loses the
-## focus, and any test's window coming up beside it takes the focus, not only one
+## focus, and any test's window coming up beside it takes the focus, as well as one
 ## that forces its way to the front (dd5dc, 2026102322330406 and
 ## 2026102409082700). A widget's own menu asked for by the menu key or its
 ## popup-menu signal counts too (dcd70, 2026110413033064). Only a test's own .c
@@ -1306,8 +1306,8 @@ fCheckForegroundAlone(){
 }
 fRun fCheckForegroundAlone
 
-## Taking the focus off the path entry puts the buttons back, not only Escape.
-## Switching to another program does not, so a half-typed path survives it.
+## Taking the focus off the path entry puts the buttons back, as Escape does.
+## Switching to another program doesn't, so a half-typed path survives it.
 ## Test ID: dd5bb
 fCheckEntryFocusOut(){
 	local src='source/src/nemo-window-pane.c'
@@ -1332,7 +1332,7 @@ fCheckEntryFocusOut(){
 }
 fRun fCheckEntryFocusOut
 
-## Same idea as fCheckStyleRemeasure, for the other two things that make every
+## Same idea as fCheckStyleRemeasure, for the other 2 things that make every
 ## remembered width wrong: a zoom changes the font and the icon, and a column
 ## coming or going changes what the rest have to fit into.
 ## Test ID: dd5bc
@@ -1354,7 +1354,7 @@ fRun fCheckZoomRemeasure
 
 ## Nothing runs off inserted media, on any platform, and there is no option to
 ## turn it on. The media bar offered to run the software types until the
-## autorun helper was removed, so those three stay refused there. The
+## autorun helper was removed, so those 3 stay refused there. The
 ## translation catalogs keep upstream's strings until they are regenerated.
 ## Test ID: dd5bd
 fCheckNoAutorun(){
@@ -1381,8 +1381,8 @@ fCheckNoAutorun(){
 }
 fRun fCheckNoAutorun
 
-## View and layout state on a file is ours alone, so its keys carry the app
-## name; upstream Nemo reads the same files, and the two builds fought over the
+## View and layout state on a file is ours alone, so its keys include the app
+## name; upstream Nemo reads the same files, and the 2 builds fought over the
 ## view. Keys other file managers read too stay bare, or they stop sharing.
 ## Test ID: dd5be
 fCheckMetadataSlug(){
@@ -1409,7 +1409,7 @@ fCheckMetadataSlug(){
 fRun fCheckMetadataSlug
 
 ## A domain named in a UI file beats the one the code sets, and upstream's
-## "nemo" sent two windows to Nemo's catalog instead of ours.
+## "nemo" sent 2 windows to Nemo's catalog instead of ours.
 ## Test ID: dd5kd
 fCheckUiDomain(){
 	local bad
@@ -1440,10 +1440,10 @@ fCheckMintIcons(){
 }
 fRun fCheckMintIcons
 
-## A click or scroll takes the primary modifier (eel_gtk_primary_mask), which
+## A click or scroll takes the primary modifier from eel_gtk_primary_mask, which
 ## is Cmd on macOS. Plain Control in a button or scroll handler is a click that
 ## missed that change; the list view's add-to-selection on Ctrl+click did.
-## Keyboard handlers mix both on purpose and are not checked.
+## Keyboard handlers mix both on purpose and aren't checked.
 ## Test ID: dddq2
 fCheckClickPrimary(){
 	local bad f
@@ -1499,7 +1499,7 @@ fCheckSignShift(){
 fRun fCheckSignShift
 
 ## On Windows GLib's mount list asks the shell for every drive letter's name as
-## it is made, so a letter mapped to a share that is not answering held the side
+## it's made, so a letter mapped to a share that didn't respond blocked the side
 ## pane for the network timeout. Every list goes through nemo_get_mounts, and no
 ## bin is asked for with a NULL root, which takes in every drive, mapped too.
 ## Test ID: ddj3k
@@ -1523,7 +1523,7 @@ fRun fCheckMountList
 ## A file or command line a user writes takes a Windows path as written there,
 ## and GKeyFile and g_shell_parse_argv both read a backslash as an escape. So
 ## those go through nemo-user-text.c, and the rest are on this list with why
-## the text is not the user's.
+## the text isn't the user's.
 ## Test ID: ddkng
 fCheckUserText(){
 	local allowed=' '
@@ -1567,8 +1567,8 @@ fCheckLnkCase(){
 fRun fCheckLnkCase
 
 ## The archive core links nothing of the app, so it could leave for a project
-## of its own, and it never deletes, walks a folder, starts a program or reads
-## a command line by itself: it asks its host (arc-host.h), which is how the
+## of its own, and it never deletes, walks a folder, starts a program, or reads
+## a command line by itself. It asks its host through arc-host.h, which is how the
 ## delete guard, the long-path walk and the one Windows launcher still see all
 ## of it. Win32 calls in it go in its own *-win32.c. Its test links the core
 ## alone. The rules above scan the app's folders only, so this one is the
@@ -1612,7 +1612,7 @@ fCheckArcCore(){
 }
 fRun fCheckArcCore
 
-## Tabs are for the pointer: no tab holds the keyboard, and Ctrl+Page Up and
+## Tabs are for the pointer: no tab takes the keyboard focus, and Ctrl+Page Up and
 ## Down step the pages. GTK's tabs get that from eel_gtk_tabs_keep_focus_off,
 ## or eel_gtk_notebook_keep_focus_off_tabs for the main window, which steps its
 ## own. The About and shortcuts windows build tabs inside, hence _within. NemoTabList keeps the focus off by itself, and whoever shows one binds
@@ -1682,7 +1682,7 @@ fi
 GIT+=(-c core.safecrlf=false)
 
 ## UI case first, and unconditionally: the checks below bail early when nothing
-## C changed, and a label is just as wrong on a .glade-only change.
+## C changed, and a label is as wrong on a .glade-only change.
 PY=""
 for cand in python3 python; do
 	command -v "$cand" >/dev/null 2>&1 && { PY="$cand"; break; }
@@ -1697,12 +1697,12 @@ elif [[ -n "$PY" ]]; then
 	"$PY" cicd/utility/lint-demo-script.py .
 	## Whole-tree too: a disconnect aimed at the wrong preference group removes
 	## nothing and says nothing, and the handler then runs on a freed object.
-	## So does one left for finalize while a view is still held, which is why
+	## So does one left for finalize while a view is still alive, which is why
 	## a plain connect for an object is reported too. A handler listening on a
-	## group that does not have its key is never called, and says nothing.
+	## group that doesn't have its key is never called, and says nothing.
 	fTest "$PY" cicd/utility/lint-pref-handlers.py --self-test
 	"$PY" cicd/utility/lint-pref-handlers.py source
-	## A key claimed by two actions does whichever GTK merged first, and says
+	## A key claimed by 2 actions does whichever GTK merged first, and says
 	## nothing about it.
 	"$PY" cicd/utility/lint-accels.py source
 	## Who frees a returned pointer is written above the function, since C
@@ -1728,7 +1728,7 @@ fi
 ## unix64 on every host: G_GINT64_FORMAT and friends are written as Linux has
 ## them, so under MSYS2's own win64 every one of them read as a wrong printf
 ## type. The compiler checks the real formats on Windows. .cppcheck-macros.h
-## has the macros it cannot see.
+## has the macros it can't see.
 cppcheckArgs=('--enable=warning,portability' --platform=unix64 --library=gtk --include=.cppcheck-macros.h
 	--inline-suppr --suppressions-list=.cppcheck-suppressions)
 if ((! listOnly)); then
@@ -1737,7 +1737,7 @@ if ((! listOnly)); then
 fi
 
 ## cppcheck gives up on a whole file at the first macro it doesn't know between
-## two strings, says unknownMacro, and checks nothing else in it. With that
+## 2 strings, says unknownMacro, and checks nothing else in it. With that
 ## suppressed, 40 files went unchecked past it until 20261019. So: a leak after
 ## the macros we define has to be found, and a macro nobody defines has to fail.
 ## Test ID: de5ka

@@ -1677,7 +1677,7 @@ eel_editable_label_realize (GtkWidget *widget)
                             GDK_POINTER_MOTION_MASK |
                             GDK_ENTER_NOTIFY_MASK |
                             GDK_LEAVE_NOTIFY_MASK);
-  /* x, y, width and height are still the allocation from above. */
+  /* x, y, width, and height are still the allocation from above. */
   attributes_mask = GDK_WA_X | GDK_WA_Y | GDK_WA_CURSOR;
 
   label->text_area = gdk_window_new (gtk_widget_get_parent_window (widget),

@@ -1,5 +1,5 @@
 /* Dragging a file over the empty space below the last row crashed the app.
- * gtk_tree_view_is_blank_at_pos answers no when the position is past every row,
+ * gtk_tree_view_is_blank_at_pos returns FALSE when the position is past every row,
  * and leaves the path it was asked for untouched - so an uninitialized pointer
  * was read and then freed.
  *
@@ -42,7 +42,7 @@ main (int argc, char *argv[])
 							  "text", 0,
 							  NULL);
 	/* Wide enough that a position past the text is still inside the column,
-	 * which an autosized column would not give us. */
+	 * which an autosized column wouldn't give us. */
 	gtk_tree_view_column_set_sizing (column, GTK_TREE_VIEW_COLUMN_FIXED);
 	gtk_tree_view_column_set_fixed_width (column, 380);
 	gtk_tree_view_append_column (GTK_TREE_VIEW (tree_view), column);
@@ -62,14 +62,14 @@ main (int argc, char *argv[])
 		failures++;
 	}
 
-	/* Over the first row's text, which still has to answer yes. */
+	/* Over the first row's text, which still has to count as a row. */
 	if (!eel_gtk_get_treeview_row_text_at_pos (GTK_TREE_VIEW (tree_view), 10, 10)) {
 		g_printerr ("FAIL: the first row's text does not read as a row's text\n");
 		failures++;
 	}
 
 	/* The list view treats a click anywhere in a row as a click on that row,
-	 * so it asks get_path_at_pos and not is_blank_at_pos. The two disagree past
+	 * so it asks get_path_at_pos and not is_blank_at_pos. The 2 disagree past
 	 * the end of the text, which is the whole point. */
 	path = NULL;
 	if (!gtk_tree_view_get_path_at_pos (GTK_TREE_VIEW (tree_view), 300, 10,
@@ -86,7 +86,7 @@ main (int argc, char *argv[])
 		failures++;
 	}
 
-	/* Below every row is the one place that really is the background. */
+	/* Below every row is the one place that is the background. */
 	if (gtk_tree_view_get_path_at_pos (GTK_TREE_VIEW (tree_view), 40, 250,
 					   NULL, NULL, NULL, NULL)) {
 		g_printerr ("FAIL: empty space below the rows reads as a row\n");

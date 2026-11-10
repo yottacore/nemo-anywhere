@@ -10,12 +10,12 @@
 G_BEGIN_DECLS
 
 /* A view's icon size is a number of pixels at a scale factor of 1. It used to
- * be one of seven named levels, which meant eight separate tables keyed by the
- * level and no way to ask for a size that was not on the list. The names
+ * be one of 7 named levels, which meant 8 separate tables keyed by the
+ * level and no way to ask for a size that wasn't on the list. The names
  * survive below only as the steps the slider marks, what Zoom In and Zoom Out
  * move between, and what an older settings file has to be read as.
  *
- * Icons are assumed to fit a square, though an individual image need not be
+ * Icons are assumed to fit a square, though an individual image doesn't have to be
  * square and can be stretched, so this is a nominal size rather than a bound.
  */
 
@@ -58,7 +58,7 @@ G_BEGIN_DECLS
 #define NEMO_DESKTOP_TEXT_WIDTH_LARGER 200
 
 /* A name runs as wide as the icon above it, but never narrower than this, or
- * an ordinary file name wraps into three lines at the usual size. The old
+ * an ordinary file name wraps into 3 lines at the usual size. The old
  * table of widths had 110 here and nothing wider until the icon passed it. */
 #define NEMO_ICON_LABEL_WIDTH_MIN 110
 
@@ -121,11 +121,11 @@ gint  nemo_icon_size_clamp                       (gint size);
 /* Where a size sits along the steps, counting a size between two of them as a
  * fraction of the way from one to the next. The slider runs on this rather
  * than on pixels, so its marks come out evenly spaced over a range that is
- * nearly thirty times as wide at one end as the other. */
+ * nearly 30 times as wide at one end as the other. */
 gdouble nemo_icon_size_position                  (gint size);
 gint  nemo_icon_size_at_position                 (gdouble position);
 
-/* A size as a per cent of the standard size, which is how both the settings
+/* A size as a percent of the standard size, which is how both the settings
  * file and the settings window express one. */
 gint  nemo_icon_size_from_percent                (gint percent);
 gint  nemo_icon_size_percent                     (gint size);
@@ -135,7 +135,7 @@ guint nemo_get_list_icon_size                    (gint size);
 guint nemo_get_desktop_icon_size                 (gint size);
 guint nemo_get_desktop_text_width                (gint size);
 
-/* Sizes were one of seven levels until 2026-09. A saved value that small is
+/* Sizes were one of 7 levels until 2026-09. A saved value that small is
  * one of those rather than a number of pixels. */
 gboolean nemo_icon_size_is_legacy_level          (gint saved);
 gint  nemo_icon_size_from_legacy_level           (gint level);

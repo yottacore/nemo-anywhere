@@ -59,7 +59,7 @@ typedef struct {
 	} u;
 } ReparseBuffer;
 
-/* Through PrintNameLength - what precedes the two names in a mount point. */
+/* Through PrintNameLength - what precedes the 2 names in a mount point. */
 #define MOUNT_POINT_HEADER_BYTES 16
 
 static gunichar2 *
@@ -108,7 +108,7 @@ nemo_win32_link_kind (const char *path)
 	}
 
 	/* Reads the directory entry rather than opening the file, so a link whose
-	   target is not answering costs nothing. */
+	   target isn't answering costs nothing. */
 	handle = FindFirstFileW ((LPCWSTR) w_path, &found);
 	g_free (w_path);
 	if (handle == INVALID_HANDLE_VALUE) {
@@ -197,7 +197,7 @@ nemo_win32_link_read_target (const char  *link_path,
 	}
 
 	/* The print name is the readable spelling and is what a relative symlink
-	   carries; some links leave it empty, and then the substitute name with its
+	   has; some links leave it empty, and then the substitute name with its
 	   \??\ prefix taken off is the same thing. */
 	if (print_length > 0) {
 		offset = print_offset;
@@ -229,7 +229,7 @@ nemo_win32_link_read_target (const char  *link_path,
 
 /* A junction can only point at a fully qualified local path - not a relative
    name and not a share. Returns the target spelled the way the reparse point
-   wants it, or NULL when a junction is not an option. */
+   wants it, or NULL when a junction isn't an option. */
 static char *
 junction_target (const char *target_path)
 {
@@ -251,7 +251,7 @@ junction_target (const char *target_path)
 	return native;
 }
 
-/* Make link_path a junction pointing at target_path. Junctions carry no
+/* Make link_path a junction pointing at target_path. Junctions have no
    privilege requirement, which is the whole reason to prefer one: a folder link
    works with Developer Mode off and without running elevated. */
 static gboolean
@@ -340,7 +340,7 @@ try_junction (const char *target_path,
 	return ok;
 }
 
-/* A relative target is stored as given, and Windows does not take / as a
+/* A relative target is stored as given, and Windows doesn't take / as a
    separator in one, so "sub/x" would lead nowhere. An absolute one is
    rewritten by the call anyway. */
 static gboolean
@@ -366,7 +366,7 @@ try_symlink (const char *target_path,
 	ok = CreateSymbolicLinkW ((LPCWSTR) w_link, (LPCWSTR) w_target, flags) != 0;
 	*win_error = ok ? 0 : GetLastError ();
 
-	/* Wine answers yes and makes nothing, so only a link that is there counts. */
+	/* Wine returns success and makes nothing, so only a link that is there counts. */
 	if (ok) {
 		DWORD attributes = GetFileAttributesW ((LPCWSTR) w_link);
 
@@ -441,8 +441,8 @@ nemo_win32_link_leads_somewhere (const char *path)
 		return TRUE;
 	}
 
-	/* Something there that will not open, such as a file in use or one
-	   that is not ours to read, is still somewhere. A target spelled with /
+	/* Something there that won't open, such as a file in use or one
+	   that isn't ours to read, is still somewhere. A target spelled with /
 	   is the invalid name. */
 	switch (win_error) {
 	case ERROR_FILE_NOT_FOUND:
@@ -458,7 +458,7 @@ nemo_win32_link_leads_somewhere (const char *path)
 }
 
 /* A drive letter mapped to a share, or a subst onto one. QueryDosDevice reads
-   the drive's entry in the object table, so the share itself is not asked. */
+   the drive's entry in the object table, so the share itself isn't asked. */
 static gboolean
 drive_is_remote (const char *path, gint depth)
 {
@@ -526,7 +526,7 @@ target_is_remote (const char *target)
 }
 
 /* A name's reparse tag, or 0, read from the listing of the folder above it,
-   so a link is not followed and nothing behind it is opened. FALSE when
+   so a link isn't followed and nothing behind it is opened. FALSE when
    nothing has that name. */
 static gboolean
 read_entry (const char *path,
@@ -570,7 +570,7 @@ push_parts (GQueue     *parts,
 	g_free (split);
 }
 
-/* "C:\" for anything on drive C, or NULL when path is not on a drive. */
+/* "C:\" for anything on drive C, or NULL when path isn't on a drive. */
 static char *
 drive_root (const char *path)
 {
@@ -595,7 +595,7 @@ nemo_win32_link_leads_nowhere_here (const char *link_path)
 		return FALSE;
 	}
 
-	/* The folder the link sits in is where the user already is. Every name
+	/* The folder the link is in is where the user already is. Every name
 	   from there on is read from the listing of the folder above it, and
 	   each link's target from its own reparse point. */
 	walked = g_path_get_dirname (link_path);
@@ -619,7 +619,7 @@ nemo_win32_link_leads_nowhere_here (const char *link_path)
 			continue;
 		}
 
-		/* No name holds these. The lookup below would read / as a
+		/* No name contains these. The lookup below would read / as a
 		   separator and the rest as a pattern. */
 		if (strpbrk (part, "/*?<>\"|") != NULL) {
 			nowhere = TRUE;
@@ -646,7 +646,7 @@ nemo_win32_link_leads_nowhere_here (const char *link_path)
 			g_free (candidate);
 			break;
 		}
-		/* Not knowing is not broken. */
+		/* Not knowing isn't broken. */
 		if (!nemo_win32_link_read_target (candidate, &target, NULL) ||
 		    target_is_remote (target)) {
 			g_free (target);
@@ -923,8 +923,8 @@ nemo_win32_link_kinds_supported (const char *dir_path)
 	}
 
 	root = g_utf16_to_utf8 ((const gunichar2 *) volume_root, -1, NULL, NULL, NULL);
-	/* A junction has to name a local drive, so a share cannot hold one that
-	   means anything - and Windows will not make one there either. */
+	/* A junction has to name a local drive, so a share can't have one that
+	   means anything - and Windows won't make one there either. */
 	if (root != NULL && g_ascii_isalpha (root[0]) && root[1] == ':') {
 		kinds |= NEMO_LINK_JUNCTION;
 	}

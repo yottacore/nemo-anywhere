@@ -1,29 +1,29 @@
 #!/usr/bin/env bash
 
-##	- Purpose: Keep the two Windows lanes asking for a release build. Every tag
+##	- Purpose: Keep the 2 Windows lanes asking for a release build. Every tag
 ##	  cut before 20260919 published a debug exe: neither lane passed a buildtype,
-##	  and meson's default is debug, so the signed artifact carried full DWARF at
+##	  and meson's default is debug, so the signed artifact had full DWARF at
 ##	  15.7 MB against 3.0 MB for the Linux release binary beside it.
-##	- Two halves. The text half reads the meson setup line out of each lane and
+##	- It has 2 halves. The text half reads the meson setup line out of each lane and
 ##	  fails on a missing flag; it is the only thing that can watch the hosted
 ##	  workflow, which runs on a release tag and nowhere else. The artifact half
-##	  reads a built exe and fails on a size only a debug build reaches, so the
-##	  check sits on the path that makes the file.
+##	  reads a built exe and fails on a size only a debug build has, so the
+##	  check is on the path that makes the file.
 ##	- --shipped adds the stricter half: no debug sections at all. meson's
 ##	  -Dstrip=true only runs on install and neither Windows lane installs, so
 ##	  build-cross.bash and stage-native.bash strip what they produce and call
-##	  this on it. mingw's own static objects carry debug information even in a
-##	  release link, so an unstripped exe will not pass --shipped.
-##	- The artifact half also reads back what the exe has to carry, each of which
+##	  this on it. mingw's own static objects have debug information even in a
+##	  release link, so an unstripped exe won't pass --shipped.
+##	- The artifact half also reads back what the exe has to contain, each of which
 ##	  has gone missing before: the compiled-in resource bundle (without it there
 ##	  is no menu bar and every .ui lookup fails), the manifest with long paths
 ##	  and the UTF-8 code page, the GUI subsystem (a console one opens a console
 ##	  window behind the app), and the version resource with a FileVersion that
 ##	  matches source/meson.build and a CompanyName.
 ##	- The artifact half is skipped when no exe is named, and when objdump or
-##	  windres cannot be found, the same way lint-c.bash skips a missing
+##	  windres can't be found, the same way lint-c.bash skips a missing
 ##	  cppcheck. STRICT=1 turns any skip into a failure. Nothing is looked for by
-##	  default: the stale artifacts of an earlier run are not what a bare run
+##	  default: the stale artifacts of an earlier run aren't what a bare run
 ##	  should be judging.
 ##	- Syntax: check-win-build-flags.bash [--shipped] [path-to-exe]
 ##	- Test ID: dcvpj
@@ -57,8 +57,8 @@ fEcho(){ echo "[ $* ]"; }
 fFail(){ fEcho "FAIL: $*"; failures=$(( failures + 1 )); }
 fSkip(){ if [[ "$strict" == 1 ]]; then fFail "$*"; else fEcho "SKIP: $*"; fi ;}
 
-## Pull the meson setup line out of a lane and check it carries every flag. The
-## lanes are written by hand in two different languages, so matching the command
+## Pull the meson setup line out of a lane and check it has every flag. The
+## lanes are written by hand in 2 different languages, so matching the command
 ## rather than the surrounding syntax is what keeps this working across both.
 fCheckLane(){
 	local file="$1"; shift
@@ -78,7 +78,7 @@ fCheckLane(){
 	done
 }
 
-## The manifest and the version block, read back through windres. Held in a
+## The manifest and the version block, read back through windres. Read into a
 ## variable and searched there: a reader that stops at its first match would
 ## kill the writer upstream of it.
 fCheckResources(){
@@ -116,7 +116,7 @@ fCheckExe(){
 	local bytes sections headers subsystem
 
 	if ! command -v objdump >/dev/null 2>&1; then
-		fSkip "objdump not found, so ${path} was not read"
+		fSkip "objdump not found, so ${path} wasn't read"
 		return
 	fi
 
@@ -129,8 +129,8 @@ fCheckExe(){
 	subsystem="$(awk '$1 == "Subsystem" { print $2 }' <<<"$headers")"
 	[[ "$subsystem" == "00000002" ]] || fFail "${path}: PE subsystem is ${subsystem:-unreadable}, expected 00000002 (Windows GUI)"
 
-	## Content of nemo-shell-ui.xml, which only the bundle carries. Its resource
-	## path is no proof: the code that looks it up spells that out too.
+	## Content of nemo-shell-ui.xml, which only the bundle has. Its resource
+	## path is no proof: the code that looks it up names it too.
 	LC_ALL=C grep -a -q -F '<menubar name="MenuBar">' "$path" \
 		|| fFail "${path}: the compiled-in resource bundle is missing (no nemo-shell-ui.xml content)"
 
@@ -147,7 +147,7 @@ fCheckExe(){
 
 fCheckLane 'cicd/win/build-cross.bash' '--buildtype=release' '-Dstrip=true' '-Db_lto=true'
 fCheckLane '.github/workflows/release-win.yml' '--buildtype=release' '-Dstrip=true' '-Db_lto=true' '-Drelease='
-## The Linux lane has always passed the first two. Checked here so all three stay together.
+## The Linux lane has always passed the first 2. Checked here so all 3 stay together.
 fCheckLane 'cicd/linux/release-setup.bash' '--buildtype=release' '-Dstrip=true' '-Db_lto=true' '-Drelease=true'
 
 if [[ -n "$exe" && -f "$exe" ]]; then

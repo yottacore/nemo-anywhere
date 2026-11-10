@@ -22,7 +22,7 @@
 
 /* A packed helper stuck on the packer's error box stayed up for good once the
  * app was gone. Here a copy of this program plays the app: it starts the fake
- * tool, which hangs, says the tool's PID, and then quits or is killed. A
+ * tool, which hangs, prints the tool's PID, and then quits or is killed. A
  * thumbnailer-style run and a tool with its output read have to end with it,
  * either way. A user's own console program, started for an action, has to
  * outlive it, as it does on Linux. */

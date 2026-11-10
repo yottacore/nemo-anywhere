@@ -18,11 +18,11 @@
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
-/* Reading reaches much further than writing does. libarchive opens the tar,
- * zip, 7z, rar, cab, lha, cpio, xar and iso families and the bare compressors
+/* Many more formats can be read than written. libarchive opens the tar,
+ * zip, 7z, rar, cab, lha, cpio, xar, and iso families and the bare compressors
  * on their own, so most of what a person double-clicks needs nothing installed.
- * A 7z or rar command is still reached for where libarchive will not open the
- * file at all - a multi-volume set, or headers it cannot decrypt - and that
+ * A 7z or rar command is still used where libarchive won't open the
+ * file at all - a multi-volume set, or headers it can't decrypt - and that
  * path stages into a temporary folder so the same collision handling applies
  * to both.
  *

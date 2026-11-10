@@ -515,7 +515,7 @@ nemo_file_management_properties_dialog_setup_templates_page (GtkBuilder *builder
  * Only the themes drawn for the mode in force are offered, so the two lists
  * change as the mode does. Each row remembers the theme's directory name in a
  * parallel array; row 0 is the app's own default - whatever the platform picked,
- * which on the bundled targets is the theme the app ships with - and is stored
+ * which on the bundled targets is the theme the app comes with - and is stored
  * as an empty string.
  */
 
@@ -673,7 +673,7 @@ create_date_format_menu (GtkBuilder *builder)
 }
 
 #ifdef G_OS_WIN32
-/* A forward slash cannot be refused while it is the separator on screen, so the
+/* A forward slash can't be refused while it is the separator on screen, so the
    switch is pinned on and grayed out for as long as it is. */
 static void
 path_separator_changed (GtkComboBox *combo_box,
@@ -701,7 +701,7 @@ hide_group (GtkBuilder *builder, const char *id)
 #endif
 
 /* Everything on the Windows page is meaningless elsewhere, so the page goes.
-   The shortcut group is not on it: .desktop launchers hide their extension too. */
+   The shortcut group isn't on it: .desktop launchers hide their extension too. */
 static void
 set_up_windows_page (GtkBuilder *builder)
 {
@@ -950,7 +950,7 @@ uint_enum_get_mapping (GValue                *value,
 
 	v = (guint64) config_value->i;
 
-	/* Exact first, so a list carrying a zero for "no limit" finds it wherever
+	/* Exact first, so a list with a zero for "no limit" finds it wherever
 	   it sits rather than settling on the smallest real entry. */
 	for (i = 0; i < binding->n_values; i++) {
 		if (binding->values[i] == v) {
@@ -1002,7 +1002,7 @@ bind_builder_uint_enum (GtkBuilder *builder,
 				      binding, g_free);
 }
 
-/* A size spin box holds a per cent of the standard 64 pixels. The widget's own
+/* A size spin box has a percent of the standard 64 pixels. The widget's own
    value is a double and the setting is a whole number. */
 static gboolean
 percent_get_mapping (GValue                *value,
@@ -1256,7 +1256,7 @@ nemo_file_management_properties_dialog_setup_appearance_page (GtkBuilder *builde
 	}
 }
 
-/* The dialog opens at least this big whatever it holds, so it does not come up
+/* The dialog opens at least this big whatever is in it, so it doesn't come up
    as a cramped little box. Written for a 96dpi screen - see text_scale. */
 #define PREFERENCES_MIN_WIDTH 1000
 #define PREFERENCES_MIN_HEIGHT 700
@@ -1264,7 +1264,7 @@ nemo_file_management_properties_dialog_setup_appearance_page (GtkBuilder *builde
 /* Windows hands a fractional display scale to GTK as a font size and nothing
    else, so at 150% the text grows and a floor written in raw pixels quietly
    means two thirds of what it says. Everything measured scales itself; only the
-   two constants above need this. */
+   2 constants above need this. */
 static double
 text_scale (void)
 {
@@ -1293,7 +1293,7 @@ page_content (GtkWidget *page, gint *border)
 	return gtk_bin_get_child (GTK_BIN (page));
 }
 
-/* The pages that hold settings, sub-tabs included. A page with sub-tabs is a
+/* The pages that have settings, sub-tabs included. A page with sub-tabs is a
    stack of its own. */
 static void
 collect_pages (GtkWidget *stack, GPtrArray *pages)
@@ -1381,7 +1381,7 @@ dialog_page_keys (GtkWidget   *dialog,
 	return GDK_EVENT_STOP;
 }
 
-/* Give the window enough for the longest page, not just the one it opens on:
+/* Give the window enough for the longest page rather than the one it opens on:
    sizing to Views alone left Display and Behavior scrolling from the start.
    Measured rather than fixed, because the same page is a different height under
    a different theme, font size or translation. */
@@ -1431,7 +1431,7 @@ size_dialog_to_longest_page (GtkBuilder *builder,
 
 	width = MIN (width, work.width * 9 / 10);
 
-	/* Height depends on width - a label that fits on one line here takes two in
+	/* Height depends on width - a label that fits on one line here takes 2 in
 	   a narrower window - so ask only once the width is settled. */
 	for (i = 0; i < pages->len; i++) {
 		gint border = 0;
@@ -1449,7 +1449,7 @@ size_dialog_to_longest_page (GtkBuilder *builder,
 	}
 	g_ptr_array_free (pages, TRUE);
 
-	/* The close bar sits under every page, outside the scrolling. */
+	/* The close bar is under every page, outside the scrolling. */
 	bar = GTK_WIDGET (gtk_builder_get_object (builder, "close_bar"));
 	if (bar != NULL) {
 		gtk_widget_get_preferred_size (bar, &wanted, NULL);
@@ -1470,7 +1470,7 @@ size_dialog_to_longest_page (GtkBuilder *builder,
 
 /* An overlay scrollbar stays hidden until the pointer is over it, so a page or
    page list cut off by a small screen looks complete. Classic bars still only
-   show when something does not fit. The sidebar's own scrolled window is an
+   show when something doesn't fit. The sidebar's own scrolled window is an
    internal child, hence forall. */
 static void
 show_scrollbars_when_needed (GtkWidget *widget,
@@ -1502,8 +1502,8 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
 	nemo_file_management_properties_size_group_create (builder,
 							       (char *)"captions_label",
 							       3);
-	/* The two command entries on Behavior start at the same x, so the pair
-	   reads as one block rather than two rows that happen to be near. */
+	/* The 2 command entries on Behavior start at the same x, so the pair
+	   reads as one block rather than 2 rows that happen to be near. */
 	nemo_file_management_properties_size_group_create (builder,
 							       (char *)"command_label",
 							       2);

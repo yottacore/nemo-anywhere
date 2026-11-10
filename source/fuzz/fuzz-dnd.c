@@ -21,14 +21,14 @@
 */
 
 /* An x-special/gnome-icon-list payload arrives from whatever the drag came
- * from, which need not be a file manager and need not be friendly. The parser
- * has been off the end of this buffer before - see the guard-page test beside
- * it - so it is worth a real search rather than the handful of cases that test
- * can spell out.
+ * from, which doesn't have to be a file manager or a friendly one. The parser
+ * has read off the end of this buffer before, which the guard-page test beside
+ * it checks, so it gets a real search rather than the handful of cases that
+ * test can list.
  *
- * The NUL below is not padding. The no-geometry branch reads one byte past the
+ * The NUL below isn't padding. The no-geometry branch reads one byte past the
  * payload, where GtkSelectionData guarantees a terminator, so a harness that
- * left it out would report an overread the real caller cannot reach. */
+ * left it out would report an overread the real caller can't hit. */
 
 #include <config.h>
 

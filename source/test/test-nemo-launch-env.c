@@ -116,7 +116,7 @@ read_dump (const char *out, const char *name)
 	return text;
 }
 
-/* var's line in a dump, or NULL when it is not set there. */
+/* var's line in a dump, or NULL when it isn't set there. */
 static char *
 value_in (const char *text, const char *var)
 {

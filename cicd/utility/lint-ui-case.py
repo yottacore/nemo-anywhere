@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 ##	- Purpose: Every piece of text the interface shows reads as a sentence, not
-##	  as a headline: only the first word capitalised, and anything that is a
-##	  name left alone. This is easy to undo by accident - a label copied from
-##	  upstream nemo arrives in Title Case - so it is checked rather than trusted.
+##	  as a headline: only the first word capitalized, and anything that's a
+##	  name left alone. This is easy to undo by accident, since a label copied
+##	  from upstream nemo comes in Title Case, so it's checked rather than trusted.
 ##	- Scope: text already marked translatable, and nothing else. That is the
 ##	  body of _() and N_() in C, the text of a translatable element in a
 ##	  .ui/.glade, and the Name/Comment of a bundled action.
 ##	- A word is left alone when it starts a sentence, is a name (NAMES below),
-##	  is an acronym, or carries a capital of its own past the first letter.
+##	  is an acronym, or has a capital of its own past the first letter.
 ##	  Whole strings that the rule reads wrong are listed in KEEP, each with why.
 ##	- Words the interface no longer uses are reported too (RETIRED below). The
 ##	  settings window was Preferences upstream, and a label copied from there
@@ -103,7 +103,7 @@ KEEP = set([
     "You have chosen to hide the main menu.  You can get it back temporarily by:\\n\\n- Tapping the <Alt> key\\n- Right-clicking an empty region of the main toolbar\\n- Right-clicking an empty region of the status bar.\\n\\nYou can restore it permanently by selecting this option again from the View menu.",
     # Windows names both of these itself, capitals and all.
     "Windows allows symlinks only with Developer Mode turned on, or when running as administrator.",
-    "Symlinks need Developer Mode turned on, or nemo running as administrator.",
+    "Symlinks need Developer Mode turned on, or Nemo Anywhere running as administrator.",
     "Points to the original by its path. Programs treat it as the original. "
     "The computer opening the link follows the path, so over a network share an "
     "absolute one can lead to that computer's own disk, and Windows skips symlinks "
@@ -121,8 +121,8 @@ RETIRED = {
     "preferences": "Settings",
 }
 
-# A mnemonic underscore sits inside the word it marks, so it is part of the
-# token and the letter after it does not start a word of its own.
+# A mnemonic underscore is inside the word it marks, so it's part of the
+# token and the letter after it doesn't start a word of its own.
 WORD_RE = re.compile(r"\\n|<[^>]*>|[A-Za-z][A-Za-z'’_]*|[.?!:;\"'‘“]")
 
 # A long message is often written as adjacent literals; they are one string to
@@ -131,7 +131,7 @@ C_RE = re.compile(r'\b(?:N_|_)\(\s*("(?:[^"\\]|\\.)*"(?:\s*"(?:[^"\\]|\\.)*")*)'
 UI_RE = re.compile(r'translatable="yes"[^>]*>([^<]*)</')
 ACTION_RE = re.compile(r'^(?:Name|Comment)=(.*)$', re.M)
 LITERAL_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
-# A plural call carries two labels of its own and is easy to overlook - it is
+# A plural call has 2 labels of its own and is easy to overlook. That's
 # what left "Copy Paths" and "Make Links" in Title Case after the first sweep.
 NGETTEXT_RE = re.compile(r'\bngettext\s*\(')
 

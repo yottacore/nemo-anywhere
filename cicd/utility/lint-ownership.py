@@ -18,7 +18,7 @@
 # a spelling shows up there rather than as a clean run over the tree.
 # Test ID: ddhse
 #
-# Syntax: lint-ownership.py [root]   (default: the repo's source/)
+# Syntax: lint-ownership.py [root]   root defaults to the repo's source/
 #         lint-ownership.py --self-test
 
 # Copyright (c) 2026 Bubbles
@@ -341,7 +341,7 @@ def main():
 
     root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[2] / "source"
     if not root.is_dir():
-        print(f"[ FAILED: {root} is not a directory ]")
+        print(f"[ FAILED: {root} isn't a directory ]")
         return 1
 
     bad = run(root)

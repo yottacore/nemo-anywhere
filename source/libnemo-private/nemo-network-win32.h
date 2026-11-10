@@ -37,12 +37,12 @@ void nemo_network_win32_register (void);
 #ifdef G_OS_WIN32
 /* What a WNet failure is shown as. @server names the machine being browsed, or
  * NULL for the neighborhood itself. Public so the failures can be checked on a
- * box that does not fail in those ways. */
+ * box that doesn't fail in those ways. */
 void nemo_network_win32_set_error (GError      **error,
 				   gulong        rc,
 				   const gchar  *server);
 
-/* Whether this machine has a network at all. The enumeration cannot say: it
+/* Whether this machine has a network at all. The enumeration can't say: it
  * succeeds with an empty list either way. */
 gboolean nemo_network_win32_is_available (void);
 

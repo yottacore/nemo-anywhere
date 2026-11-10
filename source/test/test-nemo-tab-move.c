@@ -140,7 +140,7 @@ owner_pid (const char *unique)
 	return (GPid) pid;
 }
 
-/* The unique name the process with this pid holds its place in the queue by. */
+/* The unique name the process with this pid is queued under. */
 static char *
 name_of (GPid pid)
 {
@@ -285,7 +285,7 @@ queued (void)
 	return names;
 }
 
-/* A copy that is not one of these, started by one of them. */
+/* A copy that isn't one of these, started by one of them. */
 static char *
 wait_new_copy (const char * const *known, int seconds)
 {
@@ -348,7 +348,7 @@ state_says (const char *state, const char *key, const char *want)
 }
 
 /* The window shows the folder, in the view, with these names selected. A
-   NULL view or selection is not looked at. */
+   NULL view or selection isn't looked at. */
 static gboolean
 wait_shows (GPid pid, const char *folder, const char *view, const char *selected)
 {
@@ -623,7 +623,7 @@ main (int argc, char *argv[])
 	}
 	check (alive (beta_pid));
 
-	/* A window that is not there, or something that is not a URI, is refused
+	/* A window that isn't there, or something that isn't a URI, is refused
 	   and changes nothing. */
 	{
 		const char *none[] = { NULL };
@@ -676,7 +676,7 @@ main (int argc, char *argv[])
 		check (wait_title (alpha_name, "alpha", &alpha_id));
 	}
 
-	/* One of two tabs dragged to empty screen goes to a new copy, view and
+	/* One of 2 tabs dragged to empty screen goes to a new copy, view and
 	   selection with it, and the tab it was goes. */
 	{
 		const char *known[] = { alpha_name, beta_name, third_name, NULL };
@@ -697,7 +697,7 @@ main (int argc, char *argv[])
 
 	/* The only tab dropped on another copy's window goes there, and the window
 	   it left closes cleanly. Its tab used to be freed after the window, and
-	   took its menus off a window that was gone. The copies from the two
+	   took its menus off a window that was gone. The copies from the 2
 	   cases above can sit over beta's window, so they go first. */
 	stop_other (torn_pid);
 	torn_pid = 0;
@@ -726,7 +726,7 @@ main (int argc, char *argv[])
 	}
 
 	/* The only tab closed from the tab menu closes the window cleanly too. The
-	   menu's Move tab to items hold the tab as well. */
+	   menu's Move tab to items keep a ref on the tab as well. */
 	epsilon_log = g_build_filename (probe_dir, "epsilon.log", NULL);
 	{
 		char *args[] = { exe, (char *) "--geometry=600x400", epsilon, NULL };

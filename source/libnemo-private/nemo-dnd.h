@@ -106,7 +106,7 @@ typedef void		(* NemoDragEachSelectedItemIterator)	(NemoDragEachSelectedItemData
 								 gpointer iterator_context, 
 								 gpointer data);
 
-/* The raw bytes one of the drag types carries, or NULL for a type this does not
+/* The raw bytes one of the drag types has, or NULL for a type this doesn't
  * build. Caller frees. */
 char			   *nemo_drag_selection_payload		(guint				       info,
 									 gpointer			       container_context,
@@ -169,7 +169,7 @@ GdkDragAction		    nemo_drag_drop_action_ask		(GtkWidget			      *widget,
 									 GdkDragAction			       possible_actions);
 
 /* gdk_drag_status and gdk_drag_context_get_selected_action for a drop target,
-   which also carry an ask through on Windows. Use these in their place. */
+   which also pass an ask through on Windows. Use these in their place. */
 void			    nemo_drag_status			(GdkDragContext			      *context,
 									 GdkDragAction			       action,
 									 guint32			       time);

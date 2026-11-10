@@ -33,7 +33,7 @@
 #define THUMBNAIL_CREATION_DELAY_SECS 3
 
 /* Thumbnails are made and loaded at a multiple of this, so a zoom that moves a
- * few pixels at a time does not render or reload on every step. */
+ * few pixels at a time doesn't render or reload on every step. */
 #define NEMO_THUMBNAIL_SIZE_STEP 128
 
 /* What a load found. `pixbuf` is NULL when there is nothing to show. */
@@ -43,17 +43,17 @@ typedef struct {
 	gboolean   from_store;
 	int        stored_size;		/* size the stored copy was rendered for */
 	gboolean   stored_capped;	/* and it was cut down to fit that size */
-	gboolean   failed;		/* the store says this could not be drawn */
+	gboolean   failed;		/* the store says this couldn't be drawn */
 	time_t     shared_mtime;	/* stamp on a freedesktop cache thumbnail */
 } NemoThumbnailLoaded;
 
 /* Queues a render at `size` pixels, rounded up to a step. A file already
- * queued keeps its place and takes the larger of the two sizes. One that a
+ * queued keeps its place and takes the larger of the 2 sizes. One that a
  * folder queued ahead has placed goes in that place. */
 void       nemo_create_thumbnail                (NemoFile *file, int size);
 
 /* Places every file in `files` in that order, and renders the ones not yet
- * on screen into the store, first to last. Scrolling cannot move one up. The
+ * on screen into the store, first to last. Scrolling can't move one up. The
  * picture is only held for a file that came into view meanwhile. */
 void       nemo_thumbnail_render_ahead          (GList *files, int size);
 /* Reads back pictures already made for files near the view, to hold them.
@@ -72,7 +72,7 @@ void       nemo_thumbnail_load                  (const char          *uri,
 void       nemo_thumbnail_file_id               (NemoFile *file, NemoFileId *id);
 
 /* JPEG at quality 90, or PNG when the picture has see-through parts, which JPEG
- * cannot carry. NULL if it could not be encoded. */
+ * can't store. NULL if it couldn't be encoded. */
 GBytes    *nemo_thumbnail_encode                (GdkPixbuf           *pixbuf,
                                                  NemoThumbnailFormat *format);
 

@@ -30,7 +30,7 @@ fi
 ## Only the bare flag counts, not a -Werror=<warning> one. On Windows meson
 ## double-quotes every argument in build.ninja.
 if ! grep -q -E -- '(^|[[:space:]])(-Werror|"-Werror")([[:space:]]|$)' "${build}/build.ninja"; then
-	echo "check-werror: ${build} does not build with -Werror. Run its meson setup again with -Dwerror=true" >&2
+	echo "check-werror: ${build} doesn't build with -Werror. Run its meson setup again with -Dwerror=true" >&2
 	exit 1
 fi
 

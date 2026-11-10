@@ -31,7 +31,7 @@
    proportion to its fit width - a wide column moves the most, since it has the
    most to give or the most to show. `limits` is where each stops (max going
    up, min going down). Repeats, because a column that reaches its limit part
-   way through leaves its share for the others. Returns what could not be
+   way through leaves its share for the others. Returns what couldn't be
    moved. */
 static int
 move_proportionally (const NemoColumnLayoutItem *items,
@@ -116,8 +116,8 @@ nemo_column_layout_distribute (const NemoColumnLayoutItem *items,
 	for (i = 0; i < n_items; i++) {
 		int min = MAX (1, items[i].min_width);
 
-		/* The three have to be in order; where they are not, the larger
-		   wins, since a column cannot be asked to show less than its
+		/* The 3 have to be in order; where they aren't, the larger
+		   wins, since a column can't be asked to show less than its
 		   minimum. */
 		widths[i] = MAX (min, items[i].fit_width);
 		sum_fit += widths[i];
@@ -150,7 +150,7 @@ nemo_column_layout_distribute (const NemoColumnLayoutItem *items,
 			limits[i] = MIN (widths[i], MAX (1, items[i].min_width));
 		}
 
-		/* Whatever cannot be given back is the overflow, and the view
+		/* Whatever can't be given back is the overflow, and the view
 		   scrolls sideways for it. */
 		move_proportionally (items, widths, limits, n_items, -1,
 				     sum_fit - available);
@@ -188,8 +188,8 @@ nemo_column_layout_fit (const int *values,
 	memcpy (sorted, values, n_values * sizeof (int));
 	qsort (sorted, n_values, sizeof (int), compare_ints);
 
-	/* Rounded down, but never to no values at all: 90 percent of three
-	   values is two. */
+	/* Rounded down, but never to no values at all: 90 percent of 3
+	   values is 2. */
 	rank = MAX (1, (n_values * percent) / 100);
 
 	fit = sorted[rank - 1];
@@ -264,7 +264,7 @@ nemo_column_tally_mode_for (NemoColumnKind kind,
 			    gboolean       is_name,
 			    gboolean       in_search)
 {
-	/* A folder can't hold one name twice. Find results can, and a name
+	/* A folder can't have one name twice. Find results can, and a name
 	   counted once per folder it turns up in pulls the share its way. */
 	if (is_name && !in_search) {
 		return NEMO_COLUMN_TALLY_EACH_ROW;
@@ -384,7 +384,7 @@ nemo_column_tally_clear (NemoColumnTally *tally)
 }
 
 /* Worked out on demand and kept until a value changes, so a window being
-   resized does not sort a folder per frame. */
+   resized doesn't sort a folder per frame. */
 void
 nemo_column_tally_measure (NemoColumnTally *tally,
 			   int              percent,

@@ -28,7 +28,7 @@
  * $NEMO_EXPAND_OUT, a "FAIL" line for one that never filled in, and "done" at
  * the end.
  *
- * Every answer of a listing after its first is held back, so the batches come
+ * Every batch of a listing after its first is held back, so the batches come
  * in the same order on any box: TRICKLE_MS for a folder named "folder ...",
  * and HOLD_MS for one named "slow ...". */
 
@@ -309,7 +309,7 @@ tick (G_GNUC_UNUSED gpointer data)
 	}
 
 	if (opening != NULL) {
-		/* Ten seconds is a hang, not a slow box, held answers and all. */
+		/* Ten seconds is a hang rather than a slow box, held batches and all. */
 		if (++step_ticks > 200) {
 			fprintf (out, "FAIL a folder never showed all its rows\n");
 			finish ();

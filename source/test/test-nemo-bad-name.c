@@ -1,5 +1,5 @@
 /* A typed name with a character a file name can't have: "/" on POSIX, and on
- * Windows "\/:*?"<>|" and control characters too. GLib on Windows answers most
+ * Windows "\/:*?"<>|" and control characters too. GLib on Windows fails most
  * of those with a plain I/O error, and ":" names a stream, so the name is
  * checked before it goes to disk and the refusal says which character it was.
  * On Windows a device name like "CON" or "nul.txt", and a name ending in a dot
@@ -201,7 +201,7 @@ rename_done (G_GNUC_UNUSED NemoFile *file, G_GNUC_UNUSED GFile *result, GError *
 	rename_finished = TRUE;
 }
 
-/* A refusal answers before nemo_file_rename returns, a real rename later. */
+/* A refusal comes back before nemo_file_rename returns, a real rename later. */
 static void
 rename_and_wait (const char *path, const char *new_name)
 {

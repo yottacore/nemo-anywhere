@@ -5,16 +5,16 @@
 ##	  be run on the host. The FreeBSD lane runs it on that box too (bsd/lane.bash).
 ##	- Builds first, since the gate has no build stage of its own. What gets built
 ##	  is the working tree, not the commit being pushed, so an unfinished edit
-##	  sitting there stops the gate here. Building the pushed sha in a detached
-##	  worktree instead would be correct and would also be a cold build every time,
-##	  which is why it is not done.
+##	  in it stops the gate here. Building the pushed sha in a detached worktree
+##	  instead would be correct, but it'd be a cold build every time, so it isn't
+##	  done.
 ##	- NEMO_TEST_JOBS caps both the build and the number of tests at once, so a run
 ##	  leaves the box usable. BUILD_DIR overrides the build directory, and
 ##	  SETUP_ARGS adds words to its meson setup. Arguments go to meson test.
 ##	- Warnings are errors here, as in every pipeline build, and not in a plain
 ##	  meson setup of the tree. Someone building from source with a newer compiler
 ##	  gets a warning, not a failed build.
-##	- The source is the tree this script sits in. Where there is no xvfb-run, as
+##	- The source is the tree this script is in. Where there is no xvfb-run, as
 ##	  on FreeBSD, the run starts an X server of its own for both steps.
 ##	- Each test runs in a cell of its own through jail.bash: on Linux a
 ##	  bubblewrap jail where only a fresh HOME and temp dir can be written. A
@@ -38,7 +38,7 @@ build="${BUILD_DIR:-${CICD_BUILD_ROOT:-}/build}"
 jobs="${NEMO_TEST_JOBS:-2}"
 
 ## Arithmetic comparison here would evaluate whatever it was handed, and 0 means
-## "no limit" to both tools below - the opposite of the point.
+## "no limit" to both tools below, which is the opposite of the point.
 case "${jobs}" in
 	''|*[!0-9]*|0*) jobs=2 ;;
 esac
@@ -54,7 +54,7 @@ if ! ninja -C "${build}" -j "${jobs}"; then
 fi
 
 ## One clear line now, rather than every test failing on the same missing piece,
-## then proof the jail holds.
+## then proof that the jail works.
 bash "${here}/jail.bash" --check || exit 1
 # shellcheck source=../utility/include/result-line.bash
 source "${here}/../utility/include/result-line.bash"
@@ -62,11 +62,11 @@ fTest bash "${here}/test-jail.bash" "${build}"
 
 ## About a third of the suite fails on "cannot open display" with no server, and
 ## several of those read like real assertion failures. The bus is disabled so a
-## test that sends --quit cannot reach a copy someone is actually using.
+## test that sends --quit can't talk to a copy someone is using.
 export DBUS_SESSION_BUS_ADDRESS='disabled:'
 ## A test run under its own session bus starts the accessibility bus, which
 ## leaves its address on the shared display's root window. A GTK test started
-## after that one is gone warns that it can't reach it.
+## after that one is gone warns that it can't connect to it.
 export NO_AT_BRIDGE=1
 
 ## The run gets a temp dir of its own, so anything a test leaves behind is named
@@ -111,6 +111,6 @@ if [[ -n "${leftover}" ]]; then
 	exit 1
 fi
 
-## The suite covers the program's insides; this covers the argument that has to
-## answer before any of them are reached.
+## The suite covers the program's insides, and this checks the argument that has
+## to work before any of them run.
 fUnderX "${build}/src/nemo-anywhere" --version

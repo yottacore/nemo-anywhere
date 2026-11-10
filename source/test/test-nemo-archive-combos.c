@@ -1,7 +1,7 @@
 /* Compress with the options crossed, for every format this box can write.
  * Every option a format offers is paired with every other at least once.
  * The ones that decide whether the originals may be deleted - delete itself,
- * one archive or one per item, splitting, the password and hidden names - are
+ * one archive or one per item, splitting, the password, and hidden names - are
  * crossed in full on top of that.
  *
  * Each run is read back: what went in and in what form, that a password
@@ -106,7 +106,7 @@ static gboolean with_junctions;
 static char *mount_scratch;
 static char *mount_linked;
 static char *mount_sub;
-static GHashTable *contents;	/* archive path -> GBytes, what each file holds */
+static GHashTable *contents;	/* archive path -> GBytes, what's in each file */
 
 static void
 archive_done (G_GNUC_UNUSED GFile *result, gboolean success, G_GNUC_UNUSED gpointer data)
@@ -123,7 +123,7 @@ give_up (G_GNUC_UNUSED gpointer data)
 	return G_SOURCE_REMOVE;
 }
 
-/* How many values each option takes for this format. One means it is not
+/* How many values each option takes for this format. One means it isn't
    offered, and it stays off. */
 static void
 value_counts (NemoArchiveFormat format, int counts[N_PARAMS])
@@ -515,7 +515,7 @@ item_whole (const Rules *rules, const char *item, gboolean each)
 }
 
 /* Every file and link a reader should find, and whether each is a link.
-   Folders are left out, since some writers store them and some do not, and
+   Folders are left out, since some writers store them and some don't, and
    libarchive reads a junction rar kept as an empty folder. */
 static GHashTable *
 expected_entries (const Rules *rules, const char *only)
@@ -566,7 +566,7 @@ typedef enum {
 	READ_NO_DATA		/* the list, but not what is in the files */
 } ReadResult;
 
-/* Reads the archive back with no password. Entries that are not folders go
+/* Reads the archive back with no password. Entries that aren't folders go
    into found, as link or not. */
 static ReadResult
 read_back (const char *path, GHashTable *found)
@@ -585,8 +585,8 @@ read_back (const char *path, GHashTable *found)
 		return READ_NO_NAMES;
 	}
 
-	/* libarchive 3.8 cannot decrypt a 7z, and answers FAILED for the header
-	   after an entry whose data it could not read. The rest is still there
+	/* libarchive 3.8 can't decrypt a 7z, and returns FAILED for the header
+	   after an entry whose data it couldn't read. The rest is still there
 	   to list, so only FATAL ends the walk early. */
 	while ((status = archive_read_next_header (a, &entry)) != ARCHIVE_EOF &&
 	       status != ARCHIVE_FATAL) {
@@ -601,7 +601,7 @@ read_back (const char *path, GHashTable *found)
 		}
 
 		/* The plain name is in the locale's code page, which on Windows
-		   is not UTF-8. */
+		   isn't UTF-8. */
 		name = g_strdup (archive_entry_pathname_utf8 (entry) != NULL
 				 ? archive_entry_pathname_utf8 (entry)
 				 : archive_entry_pathname (entry));
@@ -617,8 +617,8 @@ read_back (const char *path, GHashTable *found)
 				     GINT_TO_POINTER (archive_entry_filetype (entry) == AE_IFLNK));
 
 		/* A stored entry under a password comes back from some readers
-		   as its scrambled bytes with no error, so every file is held to
-		   what it really holds. */
+		   as its scrambled bytes with no error, so every file is checked
+		   against what's in it. */
 		if (archive_entry_filetype (entry) == AE_IFREG && archive_entry_size (entry) > 0 &&
 		    archive_entry_hardlink (entry) == NULL) {
 			GBytes *known = g_hash_table_lookup (contents, name);
@@ -754,7 +754,7 @@ answer_questions (G_GNUC_UNUSED gpointer data)
 
 /* Runs the main loop until every job has said it finished, so a delete
    started from the archive job is over before anything is looked at.
-   Answers how many times the trash asked. */
+   Returns how many times the trash asked. */
 static int
 wait_for_jobs (NemoProgressInfoManager *manager)
 {
@@ -824,7 +824,7 @@ exists (const char *dir, const char *name)
 }
 
 /* What rar itself finds in an archive the library listed short, so a miss
-   says which of the two is wrong (2026101913111713). */
+   says which of the 2 is wrong (2026101913111713). */
 static void
 rar_lists (const char *archive_path, const char *password)
 {
@@ -1085,7 +1085,7 @@ run_row (const char *tmp, const char *outside, int number,
 }
 
 /* One compress of sources into dest, for the rows below the crossed ones.
-   Answers whether the job said it succeeded. */
+   Returns whether the job said it succeeded. */
 static gboolean
 run_single (GList *sources, const char *dest_path, const NemoArchiveOptions *options,
 	    GtkWidget *window, NemoProgressInfoManager *manager,
@@ -1130,7 +1130,7 @@ options_for (NemoArchiveFormat format, NemoArchiveOptions *options)
 /* Whether a link that leads nowhere goes in as a link under Follow, beside
    links followed. The library writes one in every format it has. 7z and rar
    keep links only all or none, so theirs go in by a run of their own, which
-   a split set cannot be added to. There 7-Zip will not go through a linked
+   a split set can't be added to. There 7-Zip won't go through a linked
    folder, and rar has no way to take * or ? in a name literally. Ignore
    leaves it out everywhere, see check_link_choice. */
 static gboolean
@@ -1152,9 +1152,9 @@ dangling_kept (NemoArchiveFormat format, NemoArchiveBackend backend,
 
 /* A link that leads nowhere goes in as a link wherever the writer can, under
    Follow or a store, and under Follow the good link beside it is followed.
-   Where it cannot, it is passed over with a warning that names it, and the
+   Where it can't, it is passed over with a warning that names it, and the
    rest of the archive stands. 7z and rar end such a run with a warning
-   status, which is not a failed archive. library picks the library's 7z
+   status, which isn't a failed archive. library picks the library's 7z
    writer, with 7-Zip hidden. */
 static void
 check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gboolean delete_sources,
@@ -1181,7 +1181,7 @@ check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gbool
 	write_bytes (held, "a.txt", "alpha", 5);
 	write_bytes (root, "target.txt", "target", 6);
 	check (nemo_link_create ("nowhere", gone, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
-	/* Windows does not follow a link spelled with / at all. */
+	/* Windows doesn't follow a link spelled with / at all. */
 	check (nemo_link_create (".." G_DIR_SEPARATOR_S "target.txt", good, NULL, NEMO_LINK_FILE_SYMLINK, NULL));
 	{
 		/* On Windows a folder link reads as a folder, wherever it leads. */
@@ -1302,7 +1302,7 @@ check_dangling (const char *tmp, NemoArchiveFormat format, gboolean store, gbool
    names, and the 2 that lead nowhere as links where the writer can keep one.
    Store puts all 4 in as links, and falls back to Ignore where the writer
    can't. A delete takes the selection, never what a followed link led to.
-   alone picks just a link that leads nowhere, which under Ignore leaves
+   alone picks only a link that leads nowhere, which under Ignore leaves
    nothing to write. */
 static void
 check_link_choice (const char *tmp, NemoArchiveFormat format, ArcLinkChoice choice,
@@ -1433,7 +1433,7 @@ check_link_choice (const char *tmp, NemoArchiveFormat format, ArcLinkChoice choi
 }
 
 /* The whole selection is one link that leads nowhere. Where it can go in as a
-   link that is the archive; where it cannot there is nothing to write. */
+   link that is the archive; where it can't there is nothing to write. */
 static void
 check_dangling_alone (const char *tmp, NemoArchiveFormat format,
 		      GtkWidget *window, NemoProgressInfoManager *manager)
@@ -1675,7 +1675,7 @@ check_long_target (const char *tmp, gboolean junction, GtkWidget *window,
 }
 
 /* A link that leads nowhere inside a linked folder that is followed. 7-Zip
-   will not keep a link on a path through a linked folder, so under 7z it is
+   won't keep a link on a path through a linked folder, so under 7z it is
    left out and named, and the link beside the folder still goes in. */
 static void
 check_dangling_deep (const char *tmp, NemoArchiveFormat format,
@@ -1838,8 +1838,8 @@ check_at_names (const char *tmp, const char *outside, NemoArchiveFormat format,
 }
 
 /* What is beside the selection or below it plays no part: a file picked by
-   name does not bring the same name from a folder below, and a link that
-   leads nowhere, not picked, is not looked at. */
+   name doesn't bring the same name from a folder below, and a link that
+   leads nowhere, not picked, isn't looked at. */
 static void
 check_beside (const char *tmp, NemoArchiveFormat format,
 	      GtkWidget *window, NemoProgressInfoManager *manager)
@@ -2204,7 +2204,7 @@ purge_recycled (const char *home)
 
 /* Every row for one format, then the rows for links. again is a second go
    at a format with 7-Zip hidden, which takes only what the library does
-   differently: the crossed rows and each link choice. Answers the next case
+   differently: the crossed rows and each link choice. Returns the next case
    number. */
 static int
 run_format (const char *tmp, const char *outside, NemoArchiveFormat format, gboolean again,

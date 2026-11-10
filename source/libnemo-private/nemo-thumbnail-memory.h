@@ -38,7 +38,7 @@
 #include "nemo-directory.h"
 #include "nemo-file.h"
 
-/* The file now holds pixbuf, or holds nothing. Only nemo-file.c calls these. */
+/* The file now has pixbuf, or nothing. Only nemo-file.c calls these. */
 void     nemo_thumbnail_memory_held          (NemoFile *file, GdkPixbuf *pixbuf);
 void     nemo_thumbnail_memory_released      (NemoFile *file);
 

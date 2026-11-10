@@ -5,7 +5,7 @@
 ##	  again, and neither shows up in a build or a test run. Also that the
 ##	  launcher and man page use the program's own name.
 ##	- Scope is the code: source/, cicd/ and utility/. project/backlog.md is
-##	  prose written by hand and is not this check's business.
+##	  prose written by hand and isn't this check's business.
 ##	- Syntax: lint-identity.bash
 
 ##	Copyright (c) 2026 Bubbles
@@ -23,7 +23,7 @@ fEcho(){ echo "[ $* ]"; }
 ## being looked for, so it matches itself on every run.
 mapfile -t files < <(git ls-files source cicd utility ':!:cicd/utility/lint-identity.bash')
 
-## The account names these boxes actually use. A placeholder such as somebody
+## The account names these boxes use. A placeholder such as somebody
 ## or someone is what a fixture is supposed to say instead.
 bad="$(printf '%s\n' "${files[@]}" | xargs -d '\n' grep -niE 'collierjr|jimcollier|/home/jim\b|/home/jim/' 2>/dev/null || true)"
 if [[ -n "$bad" ]]; then
@@ -33,7 +33,7 @@ if [[ -n "$bad" ]]; then
 fi
 
 ## The Bubbles marker belongs to the shared helper scripts, which move between
-## two accounts. Anything under source/ is this project's own.
+## 2 accounts. Anything under source/ is this project's own.
 bad="$(printf '%s\n' "${files[@]}" | grep '^source/' | xargs -d '\n' grep -ln 'Bubbles' 2>/dev/null || true)"
 if [[ -n "$bad" ]]; then
 	fEcho "FAIL: the shared-helper copyright marker is on an application source"
@@ -41,7 +41,7 @@ if [[ -n "$bad" ]]; then
 	exit 2
 fi
 
-## Retired markers. Anything still carrying one was copied from an old file.
+## Retired markers. Anything that still has one was copied from an old file.
 bad="$(printf '%s\n' "${files[@]}" | xargs -d '\n' grep -nE '\(ID: |\(CryptogID: [A-Za-z0-9+/=]+\)' 2>/dev/null || true)"
 if [[ -n "$bad" ]]; then
 	fEcho "FAIL: a retired copyright marker is still in the tree"

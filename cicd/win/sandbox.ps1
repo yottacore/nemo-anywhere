@@ -1,15 +1,15 @@
 ##	Purpose:
 ##		- Drive a throwaway Windows Sandbox for GUI testing and demo work,
 ##		  without touching the live desktop session. The sandbox is built from
-##		  the host's own Windows image (no second license), keeps no state,
-##		  and every -Start is a fresh machine.
-##		- Stages a shared folder (cicd/artifacts/sandbox/share) with the app,
+##		  the host's own Windows image, so it needs no second license. It keeps
+##		  no state, and every -Start is a fresh machine.
+##		- Stages a shared folder, cicd/artifacts/sandbox/share, with the app,
 ##		  the in-sandbox agent and the gui.ps1 driver, generates the .wsb
 ##		  beside it, launches WindowsSandbox.exe, and hands job scripts across
 ##		  through jobs\ -> done\ with logs in out\.
 ##		- The app is either the packed single exe (-Exe) or a whole flattened
 ##		  build directory (-Dir, e.g. cicd/artifacts/win-flat). The directory
-##		  form is the one to use while working - it skips the pack, so a
+##		  form is the one to use while working. It skips the pack, so a
 ##		  rebuild can be looked at straight away.
 ##		- Verbs:
 ##		   -Start        stage + launch, wait for the agent heartbeat
@@ -101,7 +101,7 @@ function fQueueJob {
 }
 
 if ($Start) {
-	if (-not (Get-Command WindowsSandbox.exe -ErrorAction SilentlyContinue)) { fDie "Windows Sandbox is not available (feature off, or reboot pending)" }
+	if (-not (Get-Command WindowsSandbox.exe -ErrorAction SilentlyContinue)) { fDie "Windows Sandbox isn't available (feature off, or reboot pending)" }
 	if ($Dir -and $Exe) { fDie "-Exe and -Dir are alternatives; pass one" }
 	if ($Dir) {
 		if (-not (Test-Path -LiteralPath (Join-Path $Dir "nemo-anywhere.exe"))) { fDie "no nemo-anywhere.exe in $Dir (stage the build first)" }
@@ -117,7 +117,7 @@ if ($Start) {
 	}
 	Remove-Item -Path (Join-Path $Share "jobs\*"), (Join-Path $Share "done\*") -Force -ErrorAction SilentlyContinue
 	if (Test-Path -LiteralPath $Beat) { Remove-Item -LiteralPath $Beat -Force }
-	## Only one of the two forms is left staged, so the agent cannot pick up a
+	## Only one of the 2 forms is left staged, so the agent can't pick up a
 	## leftover from the previous run.
 	$AppTree = Join-Path $Share "app"
 	$AppOne  = Join-Path $Share "nemo-anywhere.exe"
@@ -133,11 +133,11 @@ if ($Start) {
 	Copy-Item -LiteralPath (Join-Path $PSScriptRoot "sandbox-agent.ps1") -Destination (Join-Path $Share "agent.ps1") -Force
 	Copy-Item -LiteralPath (Join-Path $PSScriptRoot "gui.ps1") -Destination (Join-Path $Share "gui.ps1") -Force
 
-	## Cut the machine off the network, for testing what nemo says when there is
-	## none. The mapped folder still works - it is not a network share.
+	## Cut the machine off the network, for testing what the app says when there
+	## is none. The mapped folder still works, since it isn't a network share.
 	$net = if ($NoNetwork) { "`n`t<Networking>Disable</Networking>" } else { "" }
 
-	## The logon command waits for the mapped folder - it has raced the agent before.
+	## The logon command waits for the mapped folder, which has raced the agent before.
 	$wsb = @"
 <Configuration>
 	<MemoryInMB>4096</MemoryInMB>$net
@@ -213,7 +213,7 @@ if ($Status) {
 }
 
 if ($Stop) {
-	## Only one sandbox can exist at a time, so killing by name cannot hit anyone else's.
+	## Only one sandbox can exist at a time, so killing by name can't hit anyone else's.
 	if (Test-Path -LiteralPath $PidPath) {
 		$sbPid = [int](Get-Content -LiteralPath $PidPath)
 		Stop-Process -Id $sbPid -Force -ErrorAction SilentlyContinue
@@ -224,4 +224,4 @@ if ($Stop) {
 	exit 0
 }
 
-fDie "nothing to do - use -Start, -Run <ps1>, -Smoke, -Status or -Stop (see -Help)"
+fDie "nothing to do - use -Start, -Run <ps1>, -Smoke, -Status, or -Stop (see -Help)"

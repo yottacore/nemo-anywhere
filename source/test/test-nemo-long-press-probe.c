@@ -22,7 +22,7 @@
 */
 
 /* Preloaded into the real program by test-nemo-long-press. Once the window
- * shows $NEMO_HOLD_FOLDER, it presses, holds and lets go in the folder view
+ * shows $NEMO_HOLD_FOLDER, it presses, holds, and lets go in the folder view
  * named by $NEMO_HOLD_VIEW, then in the side pane: Places beside the list
  * view, the folder tree beside the others. The button goes through the X
  * server, since the long press asks it whether the button is still down,
@@ -152,7 +152,7 @@ button (gboolean down)
 	held = down;
 }
 
-/* GDK keeps a closed menu's grab on record until the X server has answered
+/* GDK keeps a closed menu's grab on record until the X server has processed
    the ungrab, and until then GTK sends each click to the menu's window, not
    the view (#2026102509541191). A held button's own grab lasts from one step
    to the next and sends nothing elsewhere, so it is left alone. */
@@ -405,7 +405,7 @@ static const int sixth[] = { 5, -1 };
 
 /* The steps share one script, so the views can't drift apart. Each returns
    FALSE to be called again on the next tick, and the tick that has waited
-   ten seconds fails it. No two presses in a row hit one item quickly enough
+   10 seconds fails it. No 2 presses in a row hit one item quickly enough
    to be a double click. */
 static gboolean
 run_step (void)

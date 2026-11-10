@@ -5,7 +5,7 @@
 ##		- -Start clones the bundle beside it and starts -Run outside the ssh
 ##		  session, through Win32_Process Create, so a dropped connection doesn't
 ##		  stop the gate. Prints "pid=<n>" and writes it to run.pid.
-##		- -Run runs cicd-win.ps1 in the clone, with TEMP, TMP and HOST_TEMP in
+##		- -Run runs cicd-win.ps1 in the clone, with TEMP, TMP, and HOST_TEMP in
 ##		  the run folder, to gate.log, then writes "rc=<n> secs=<n>" to run.rc.
 ##		  -GateArgs names its switches with commas and no dashes, such as
 ##		  BacklogRunQuick,Yes,NoSync, since a quoted value that starts with a dash reads
@@ -117,7 +117,7 @@ function Stop-Run([string]$Path) {
 
 function Remove-RunFolder([string]$Path) {
 	if (-not (Test-RunFolder $Path)) { throw "not a run folder of this project: $Path" }
-	if (-not (Remove-SafeTree -LiteralPath $Path -Under $projectRoot)) { throw "could not remove $Path" }
+	if (-not (Remove-SafeTree -LiteralPath $Path -Under $projectRoot)) { throw "couldn't remove $Path" }
 }
 
 $Dir = $Dir.TrimEnd('\')
@@ -125,12 +125,12 @@ $Dir = $Dir.TrimEnd('\')
 if ($Start) {
 	if (-not (Test-RunFolder $Dir)) { throw "not a run folder of this project: $Dir" }
 	Set-Location -LiteralPath $Dir
-	## The bundle holds only HEAD, so it's fetched rather than cloned.
+	## The bundle has only HEAD, so it's fetched rather than cloned.
 	$cloneLog = Join-Path $Dir 'clone.log'
 	& $gitExe init -q repo *>&1 | Out-File -LiteralPath $cloneLog -Encoding utf8
 	if ($LASTEXITCODE -eq 0) { & $gitExe -C repo fetch -q ..\round.bundle HEAD *>&1 | Out-File -LiteralPath $cloneLog -Append -Encoding utf8 }
 	if ($LASTEXITCODE -eq 0) { & $gitExe -C repo checkout -q -B gate FETCH_HEAD *>&1 | Out-File -LiteralPath $cloneLog -Append -Encoding utf8 }
-	if ($LASTEXITCODE -ne 0) { throw "the bundle did not check out, see $cloneLog" }
+	if ($LASTEXITCODE -ne 0) { throw "the bundle didn't check out, see $cloneLog" }
 	$self = Join-Path $Dir 'lane-box.ps1'
 	$cl = "`"$pwshExe`" -NoProfile -ExecutionPolicy Bypass -File `"$self`" -Run -Dir `"$Dir`" -GateArgs `"$GateArgs`""
 	$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $cl; CurrentDirectory = $Dir }
@@ -166,16 +166,16 @@ if ($Desktop) {
 	## reads as locked too.
 	if ((Test-SessionLocked ([int]($session[0] -replace "^.\S*\s+\S+\s+(\d+).*", '$1')))) { 'locked'; exit 0 }
 	& icacls.exe $Dir /grant "${TestUser}:(OI)(CI)M" /Q *> $null
-	if ($LASTEXITCODE -ne 0) { throw "could not give $TestUser Modify on $Dir" }
+	if ($LASTEXITCODE -ne 0) { throw "couldn't give $TestUser Modify on $Dir" }
 	$self = Join-Path $Dir 'lane-box.ps1'
 	$cmdFile = Join-Path $Dir 'desktop.cmd'
 	## schtasks /tr takes a whole command line badly, so it points at a file.
 	"@`"$pwshExe`" -NoProfile -ExecutionPolicy Bypass -File `"$self`" -DesktopRun -Dir `"$Dir`"`r`n" | Out-File -LiteralPath $cmdFile -Encoding ascii -NoNewline
 	$task = Get-TaskName $Dir
 	& schtasks.exe /create /f /tn $task /tr $cmdFile /sc once /st 23:59 /it /ru $TestUser *> $null
-	if ($LASTEXITCODE -ne 0) { throw "could not make the task $task for $TestUser" }
+	if ($LASTEXITCODE -ne 0) { throw "couldn't make the task $task for $TestUser" }
 	& schtasks.exe /run /tn $task *> $null
-	if ($LASTEXITCODE -ne 0) { throw "could not start the task $task" }
+	if ($LASTEXITCODE -ne 0) { throw "couldn't start the task $task" }
 	"task=$task"
 	exit 0
 }
@@ -230,7 +230,7 @@ if ($Remove) {
 	exit 0
 }
 
-throw 'need -Start, -Run, -Desktop, -DesktopRun, -Stop or -Remove'
+throw 'need -Start, -Run, -Desktop, -DesktopRun, -Stop, or -Remove'
 
 
 ##	History:
@@ -240,7 +240,7 @@ throw 'need -Start, -Run, -Desktop, -DesktopRun, -Stop or -Remove'
 ##		  beside it.
 ##		- 2026-11-02: -Desktop says "locked" for a locked session.
 ##		- 2026-11-02: Run folders are under %ProgramData%, where the test user
-##		  can reach them.
+##		  can get to them.
 ##		- 2026-10-31: -Desktop and -DesktopRun, for the tests the gate skipped
 ##		  with no desktop.
 ##		- 2026-10-31: Created.

@@ -90,7 +90,7 @@ typedef struct NemoThumbnailInfo {
     guint load_only : 1;        /* already made; read it back to hold near the view */
     guint running : 1;          /* a worker has it, so nothing above changes now */
     struct NemoThumbnailInfo *follow;   /* a bigger ask that came in meanwhile, started when this one ends */
-    GCancellable *stop;         /* set while running; cancelled once nothing wants it */
+    GCancellable *stop;         /* set while running; canceled once nothing wants it */
 } NemoThumbnailInfo;
 
 /* How it works:
@@ -152,7 +152,7 @@ get_max_threads (void) {
 
     gint pref = nemo_config_get_int (nemo_preferences, NEMO_PREFERENCES_MAX_THUMBNAIL_THREADS);
 
-    /* Half, so a folder of pictures cannot take the whole machine. */
+    /* Half, so a folder of pictures can't take the whole machine. */
     if (pref == -1) {
         max_threads = num_processors / 2;
     } else {
@@ -362,7 +362,7 @@ thumbnail_ahead_already_stored (gpointer image_uri)
     return G_SOURCE_REMOVE;
 }
 
-/* Read back to be held near the view, and it was not there after all. */
+/* Read back to be held near the view, and it wasn't there after all. */
 static gboolean
 thumbnail_not_loaded (gpointer image_uri)
 {
@@ -417,7 +417,7 @@ thumbnail_render_done (gpointer data)
 
             nemo_file_take_thumbnail (file, &done->loaded);
 
-            /* One never on screen is drawn from what it holds when it gets
+            /* One never on screen is drawn from what it has when it gets
                there, so there is nothing to redraw now. */
             if (seen || done->near_view) {
                 nemo_file_changed (file);
@@ -544,7 +544,7 @@ stat_unchanged (const char *uri, const NemoFileId *id)
 }
 
 /* Checksums the file when making the thumbnail reads all of it anyway, which
- * costs a second pass over bytes the page cache still holds. One worked out
+ * costs a second pass over bytes still in the page cache. One worked out
  * on an earlier visit is read back instead: a folder queued ahead asks about
  * every file in it, and on a second visit most are stored already.
  *
@@ -573,7 +573,7 @@ learn_digest (NemoCacheDb *db, NemoThumbnailInfo *info)
 }
 
 /* Last, once the store has it and the draw is on its way: an attribute write is
- * slow. A file already carrying this checksum is left alone, so a folder shown
+ * slow. A file that already has this checksum is left alone, so a folder shown
  * again costs a read rather than a write. */
 static void
 save_digest_on_file (NemoThumbnailInfo *info)
@@ -692,7 +692,7 @@ thumbnail_thread (gpointer data,
         return;
     }
 
-    /* Deferred from nemo_create_thumbnail, which cannot afford to block. */
+    /* Deferred from nemo_create_thumbnail, which can't afford to block. */
     if (info->original_file_mtime == INVALID_MTIME) {
         get_file_mtime (info->image_uri, &info->original_file_mtime, &info->id);
     }
@@ -1109,7 +1109,7 @@ queue_render (NemoFile *file, int size, gboolean ahead, gboolean load_only, gint
 }
 
 /* A file that a folder queued ahead has placed keeps that place, so asking
- * again because it scrolled into view, grew or changed cannot move it up.
+ * again because it scrolled into view, grew or changed can't move it up.
  * Anything else is first come first served, ahead of every folder. */
 static gint64 asked = 0;
 
@@ -1163,7 +1163,7 @@ nemo_thumbnail_render_ahead (GList *files, int size)
 }
 
 /* Counted on the main loop, from the file's thumbnailing flag, so a job
- * folded into one already queued is not counted twice. A batch runs from the
+ * folded into one already queued isn't counted twice. A batch runs from the
  * queue leaving empty to its going empty again. */
 static guint jobs_waiting = 0;
 static guint jobs_done = 0;
@@ -1372,8 +1372,8 @@ decode_at_most (const guint8 *data, gsize len, int max_size, gboolean *capped)
 }
 
 /* A thumbnail someone else made. The shared cache stamps the time of the file
- * it was made from, and one that does not match is out of date. The option
- * does not survive a scaled decode, so it is read at full size, which is at
+ * it was made from, and one that doesn't match is out of date. The option
+ * doesn't survive a scaled decode, so it is read at full size, which is at
  * most 1024 there. */
 static GdkPixbuf *
 load_shared (const char *path, int max_size, gboolean *capped, time_t *mtime)
@@ -1445,7 +1445,7 @@ nemo_thumbnail_load (const char          *uri,
         out->from_store = FALSE;
     }
 
-    /* How big the shared copy was made is not known, so a bigger draw
+    /* How big the shared copy was made isn't known, so a bigger draw
        always asks for one of our own. */
     if (shared_path != NULL) {
         out->pixbuf = load_shared (shared_path, max_size, &out->capped, &out->shared_mtime);
@@ -1459,7 +1459,7 @@ nemo_thumbnail_frame_image (GdkPixbuf **pixbuf)
 {
     GdkPixbuf *pixbuf_with_frame, *frame;
 
-    /* The pixbuf isn't already framed (i.e., it was not made by
+    /* The pixbuf isn't already framed (i.e., it wasn't made by
      * an old Nemo), so we must embed it in a frame.
      */
 

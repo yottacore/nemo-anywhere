@@ -1,5 +1,5 @@
 /* What the Ext column shows for a given name. The interesting part is what does
- * NOT count as an extension - a dot is often just part of a name - so most of
+ * NOT count as an extension. A dot is often part of a name, so most of
  * these are refusals. */
 
 #include <config.h>
@@ -32,7 +32,7 @@ int
 main (void)
 {
 	/* The ordinary cases, compound names included: only the last dot counts, and
-	   the dot itself is not part of the answer. */
+	   the dot itself isn't part of the result. */
 	check_is ("report.txt", "txt");
 	check_is ("archive.tar.gz", "gz");
 	check_is ("song.mp3", "mp3");
@@ -46,7 +46,7 @@ main (void)
 	check_is ("", NULL);
 	check_is (NULL, NULL);
 
-	/* A hidden file's leading dot is not an extension - but a hidden file
+	/* A hidden file's leading dot isn't an extension - but a hidden file
 	   can still have one of its own. */
 	check_is (".bashrc", NULL);
 	check_is (".config.bak", "bak");

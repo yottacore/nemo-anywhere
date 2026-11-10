@@ -4,7 +4,7 @@
  * folder symlink, a junction where there are junctions, a shortcut, and a
  * plain folder with a file symlink inside it.
  *
- * Checked every time: a row's answer reaches both the link that was picked
+ * Checked every time: a row's answer applies to both the link that was picked
  * and the one inside the plain folder; a folder whose contents are copied
  * keeps the links inside it as links; a shortcut is only ever the shortcut
  * file; and a shortcut on its own brings up no question at all. A move stays
@@ -405,7 +405,7 @@ main (int argc, char *argv[])
 
 	/* The queue starts the next job when the last one's progress says it
 	   finished, and says so from an idle. The app's manager keeps each
-	   progress alive until then; with nobody holding one, it is freed first
+	   progress alive until then; without anybody keeping one, it is freed first
 	   and the next job never starts. */
 	manager = nemo_progress_info_manager_new ();
 
@@ -439,7 +439,7 @@ main (int argc, char *argv[])
 						     junction_as == NEMO_LINK_NONE)) {
 						continue;
 					}
-					/* Nothing to answer with where the kind cannot
+					/* Nothing to answer with where the kind can't
 					   be made, and no junction row without one. */
 					if ((dir_as != NEMO_LINK_NONE && !(supported & dir_as)) ||
 					    (junction_as != NEMO_LINK_NONE && !(supported & junction_as))) {

@@ -122,7 +122,7 @@ nemo_proportional_paned_class_init (NemoProportionalPanedClass *klass)
 	GTK_WIDGET_CLASS (klass)->size_allocate = nemo_proportional_paned_size_allocate;
 
 	/* The divider was moved at the same width, by a drag or a set_position.
-	   A resize that only scales it does not count, so a width saved from here
+	   A resize that only scales it doesn't count, so a width saved from here
 	   is the one that was chosen, not whatever the last window size left. */
 	signals[PLACED] = g_signal_new ("placed",
 					G_TYPE_FROM_CLASS (klass),

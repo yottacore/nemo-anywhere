@@ -125,7 +125,7 @@ void nemo_file_operations_nest_unmake     (GList                     *made,
 
 /* Only for a trash or delete that follows from something done in a window,
    such as undo or a drop. These always ask. Nothing outside a window may start
-   one, and lint-c.bash holds the list of callers. */
+   one, and lint-c.bash has the list of callers. */
 void nemo_file_operations_delete          (GList                  *files,
 					       GtkWindow              *parent_window,
 					       NemoDeleteCallback  done_callback,
@@ -135,7 +135,7 @@ void nemo_file_operations_trash_or_delete (GList                  *files,
 					       NemoDeleteCallback  done_callback,
 					       gpointer                done_callback_data);
 
-/* The same two, for a trash or delete a person asked for with a command in a
+/* The same 2, for a trash or delete a person asked for with a command in a
    window. Only these may skip the question when the preferences say so. */
 void nemo_file_operations_delete_by_user          (GList                  *files,
 						   GtkWindow              *parent_window,

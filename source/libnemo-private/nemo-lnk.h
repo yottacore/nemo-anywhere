@@ -29,7 +29,7 @@ G_BEGIN_DECLS
 
 /* What a shortcut file says, in UTF-8 and Windows spelling. Any string may be
    NULL. Windows reads these through the shell, and comes here only for one the
-   shell cannot place, such as one made off Windows. */
+   shell can't place, such as one made off Windows. */
 typedef struct {
 	guint32   attributes;     /* the target's, as they were when the link was made */
 	char     *local_path;     /* C:\dir\file */
@@ -37,7 +37,7 @@ typedef struct {
 	guint32   drive_serial;   /* of the volume local_path is on */
 	char     *net_share;      /* \\server\share */
 	char     *net_path;       /* the rest, under net_share */
-	char     *relative_path;  /* from the folder the .lnk sits in */
+	char     *relative_path;  /* from the folder the .lnk is in */
 	char     *env_path;       /* %USERPROFILE%\dir\file, as written */
 	char     *working_dir;
 	char     *arguments;
@@ -65,8 +65,8 @@ char    *nemo_lnk_display_target (const NemoLnk *lnk);
    caller to say. */
 gboolean nemo_lnk_points_at_share (const NemoLnk *lnk);
 
-/* A path with Windows %NAME% variables in it, as this machine spells it, or
-   NULL when a variable is not set. Off Windows the backslashes around them
+/* A path with Windows %NAME% variables in it, as this machine writes it, or
+   NULL when a variable isn't set. Off Windows the backslashes around them
    become slashes, and %USERPROFILE% is the home folder unless it is set. */
 char    *nemo_lnk_expand (const char *windows_path);
 
@@ -104,11 +104,11 @@ gboolean nemo_lnk_set_paths (const char  *lnk_path,
 
 /* Where the target is on this machine, as a URI, or NULL. A candidate counts
    only once it is found to exist; the one exception is the smb:// fallback,
-   which cannot be checked without going to the network. Never guesses: a drive
+   which can't be checked without going to the network. Never guesses: a drive
    is matched by its volume serial and a share by its server and name. */
 char    *nemo_lnk_resolve (const char *lnk_path, const NemoLnk *lnk);
 
-/* The same for another Windows path the shortcut carries, such as its Start in
+/* The same for another Windows path the shortcut has, such as its Start in
    folder. Local folders only. Caller frees. */
 char    *nemo_lnk_resolve_dir (const NemoLnk *lnk, const char *windows_path);
 
@@ -118,8 +118,8 @@ char    *nemo_lnk_resolve_dir (const NemoLnk *lnk, const char *windows_path);
 char    *nemo_lnk_follow (const char *lnk_path, NemoLnk *lnk_out);
 
 /* The icon a shortcut shows, from what the .lnk records and never from the
-   target, which may be on a share that is not answering. mtime keys a cache.
-   NULL when the file is not a readable shortcut. */
+   target, which may be on a share that isn't answering. mtime keys a cache.
+   NULL when the file isn't a readable shortcut. */
 GIcon   *nemo_lnk_icon_for_path (const char *lnk_path, gint64 mtime);
 
 /* Whether a readable shortcut records a folder as its target, from the same

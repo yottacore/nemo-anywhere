@@ -1,7 +1,7 @@
 # nemo-winbuild: cross-compile the Windows target from Linux.
 #   - mingw-w64 toolchain + meson/ninja
-#   - native glib codegen tools (run on the build host during the cross build)
-#   - wine (smoke-test the .exe as an exe_wrapper / by hand)
+#   - native glib codegen tools, run on the build host during the cross build
+#   - wine, to smoke-test the .exe as an exe_wrapper or by hand
 #   - Xvfb + x11 utils to run the GUI headless under wine and grab a screenshot
 #   - a baked-in MSYS2 GTK3 sysroot at /opt/win-sysroot (see fetch-sysroot.bash)
 #   - make, which nothing here builds with: gcc's lto-wrapper shells out to it

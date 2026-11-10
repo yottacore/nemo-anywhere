@@ -1,7 +1,7 @@
 /* An extension has to find the whole API in whatever loads it. With
  * extension_library=static that is the executable itself, which only works if
  * every member of the archive went in and its symbols were exported. This
- * program links the API the same way the exe does, so it answers for both. */
+ * program links the API the same way the exe does, so it checks both. */
 
 #include <config.h>
 

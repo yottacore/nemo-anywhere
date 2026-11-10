@@ -36,7 +36,7 @@
 
 #include "nemo-file-conflict-dialog.h"
 
-/* entry_mtime is unix seconds, or 0 when the archive did not record one. */
+/* entry_mtime is unix seconds, or 0 when the archive didn't record one. */
 GtkWidget *nemo_extract_conflict_dialog_new (GtkWindow  *parent,
 					     const char *archive_name,
 					     const char *entry_name,

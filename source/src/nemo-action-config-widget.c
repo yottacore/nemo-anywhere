@@ -379,7 +379,7 @@ on_layout_editor_clicked (G_GNUC_UNUSED GtkWidget *button, G_GNUC_UNUSED NemoAct
     gchar *editor;
 
     /* The binary installs under the app slug; spawning the upstream name was a
-     * missed rename and the button simply did nothing. */
+     * missed rename and the button did nothing. */
     if (*nemo_get_bin_dir () != '\0') {
         editor = g_build_filename (nemo_get_bin_dir (),
                                    NEMO_APP_SLUG "-action-layout-editor", NULL);
@@ -502,7 +502,7 @@ nemo_action_config_widget_init (NemoActionConfigWidget *self)
     g_signal_connect (widget, "clicked", G_CALLBACK (on_open_folder_clicked), self);
 
 #ifndef G_OS_WIN32
-    /* The editor is a PyGObject script behind a /bin/sh launcher, so it is not
+    /* The editor is a PyGObject script behind a /bin/sh launcher, so it isn't
      * part of the Windows build and there would be nothing to start. */
     widget = gtk_button_new_with_label (_("Edit layout"));
 

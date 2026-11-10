@@ -78,7 +78,7 @@ same_char (char a, char b)
 #endif
 }
 
-/* At or below root, on a whole name: /mnt/nas2 is not under /mnt/nas. */
+/* At or below root, on a whole name: /mnt/nas2 isn't under /mnt/nas. */
 static gboolean
 is_under (const char *path, const char *root)
 {

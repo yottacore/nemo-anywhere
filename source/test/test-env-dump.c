@@ -27,7 +27,7 @@
  *
  *   test-env-dump <file>              writes <file>
  *   test-env-dump --uri <scheme:hex>  writes env-dump.txt in the folder the hex
- *                                     spells, as UTF-8 bytes
+ *                                     encodes, as UTF-8 bytes
  *
  * Lines are parent=<pid>, parent_name=<its exe>, arg=<each argument>, then
  * NAME=VALUE for every variable, in UTF-8. Written aside and renamed, so a reader never sees half. */

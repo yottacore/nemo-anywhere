@@ -96,7 +96,7 @@ main (void)
 	check (ok, "copy file", error);
 	error = NULL;
 
-	/* copy onto existing without overwrite -> EXISTS (conflict dialog path) */
+	/* copy onto existing without overwrite -> EXISTS, for the conflict dialog */
 	ok = g_file_copy (src, dst, G_FILE_COPY_NOFOLLOW_SYMLINKS, NULL, NULL, NULL, &error);
 	check (!ok && g_error_matches (error, G_IO_ERROR, G_IO_ERROR_EXISTS),
 	       "copy-no-overwrite raises EXISTS", NULL);
@@ -109,7 +109,7 @@ main (void)
 	check (ok, "copy overwrite", error);
 	error = NULL;
 
-	/* dir copy -> WOULD_RECURSE (file-operations recurses itself on this) */
+	/* dir copy -> WOULD_RECURSE, and file-operations recurses itself on this */
 	dir = child (base, "dir");
 	sub = child (dir, "sub");
 	check (g_file_make_directory (dir, NULL, NULL), "mkdir", NULL);
@@ -141,7 +141,7 @@ main (void)
 	dir = f;
 	f = NULL;
 
-	/* rename via set_display_name (the nemo-file rename path) */
+	/* rename via set_display_name, as nemo-file renames */
 	f = child (base, "moved.txt");
 	{
 		GFile *renamed = g_file_set_display_name (f, "renamed.txt", NULL, &error);
@@ -216,14 +216,14 @@ main (void)
 	probe (ok, "set unix::mode 0600", error);
 	error = NULL;
 
-	/* filesystem free space (status bar, copy-space preflight) */
+	/* filesystem free space, for the status bar and the copy-space preflight */
 	info = g_file_query_filesystem_info (base, G_FILE_ATTRIBUTE_FILESYSTEM_FREE, NULL, &error);
 	check (info != NULL && g_file_info_has_attribute (info, G_FILE_ATTRIBUTE_FILESYSTEM_FREE),
 	       "filesystem::free", error);
 	error = NULL;
 	g_clear_object (&info);
 
-	/* filesystem id (nemo compares these to pick move-vs-copy on dnd) */
+	/* filesystem id, which nemo compares to pick move or copy on dnd */
 	info = g_file_query_info (base, G_FILE_ATTRIBUTE_ID_FILESYSTEM, G_FILE_QUERY_INFO_NONE, NULL, &error);
 	if (info != NULL && g_file_info_has_attribute (info, G_FILE_ATTRIBUTE_ID_FILESYSTEM)) {
 		g_print ("ok       id::filesystem = %s\n",
@@ -235,7 +235,7 @@ main (void)
 	error = NULL;
 	g_clear_object (&info);
 
-	/* delete: non-empty dir must raise NOT_EMPTY (recursive-delete driver) */
+	/* delete: non-empty dir must raise NOT_EMPTY, for the recursive delete */
 	ok = g_file_delete (dir, NULL, &error);
 	check (!ok && g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_EMPTY),
 	       "delete non-empty dir raises NOT_EMPTY", NULL);
@@ -261,7 +261,7 @@ main (void)
 		g_object_unref (f);
 	}
 
-	/* directory monitoring (the directory-async change pipeline) */
+	/* directory monitoring, for directory-async's change handling */
 	{
 		GFileMonitor *monitor = g_file_monitor_directory (base, G_FILE_MONITOR_NONE, NULL, &error);
 		check (monitor != NULL, "monitor_directory create", error);

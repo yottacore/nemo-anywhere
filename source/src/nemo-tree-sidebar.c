@@ -1119,7 +1119,7 @@ paste_into_clipboard_received_callback (G_GNUC_UNUSED GtkClipboard     *clipboar
 }
 
 /* Takes the folder's uri now, since popup_file can be cleared in idle before
-   the clipboard answers. */
+   the clipboard replies. */
 static void
 paste_into (FMTreeView *view, NemoFile *folder)
 {

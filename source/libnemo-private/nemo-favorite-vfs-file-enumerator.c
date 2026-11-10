@@ -82,7 +82,7 @@ next_file (GFileEnumerator *enumerator,
 
         if (info == NULL)
         {
-            /* error carries the reason, if the caller asked for one. */
+            /* error has the reason, if the caller asked for one. */
             break;
         }
     }

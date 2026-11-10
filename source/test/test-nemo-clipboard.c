@@ -25,7 +25,7 @@
  * dragged list against itself, so every drag cleared the clipboard. It has to
  * look at what is on the clipboard. Needs a display and skips without one.
  * POSIX only: on Windows the files go on the clipboard through the system's
- * own calls, which this does not drive. On macOS GTK can't read back what it
+ * own calls, which this doesn't drive. On macOS GTK can't read back what it
  * offered, so the reads go through nemo's own. */
 
 #include <config.h>

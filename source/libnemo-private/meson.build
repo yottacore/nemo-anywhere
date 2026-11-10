@@ -157,7 +157,7 @@ nemo_private = declare_dependency(
   dependencies: nemo_private_deps,
 )
 
-# Settings live in a plain SHCL file at runtime; the schema below is shipped
+# Settings are in a plain SHCL file at runtime; the schema below is installed
 # only so `shcl check --schema` can validate a hand-edited config.
 install_data('../data/nemo-anywhere.schema.shcl',
     install_dir: join_paths(get_option('datadir'), appSlug)

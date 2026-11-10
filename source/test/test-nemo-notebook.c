@@ -21,11 +21,11 @@
 */
 
 /* A real NemoNotebook with plain widgets for pages. One tab hides the strip
- * unless always-show-tabs says otherwise, and that has to hold after closing
+ * unless always-show-tabs says otherwise, and that has to stay true after closing
  * down to one tab too, which once went by the tab count alone. Each tab is as
- * wide as its title, held between the two percentages of the strip, except
+ * wide as its title, kept between the 2 percentages of the strip, except
  * the one in front, which may go past the upper one. The strip is sized from
- * the middle title, so the fixture holds at any font size, and it runs again at
+ * the middle title, so the fixture works at any font size, and it runs again at
  * a small one. */
 
 #include <config.h>
@@ -42,7 +42,7 @@
 #include "test-scratch.h"
 #include "test-check.h"
 
-/* The notebook reaches these only through tabs made from real slots, and the
+/* The notebook calls these only through tabs made from real slots, and the
    window's type check; neither comes up with plain pages. */
 GType
 nemo_window_get_type (void)
@@ -120,7 +120,7 @@ test_visibility (void)
 	first = add_page (notebook, "one", NULL);
 	check (!gtk_notebook_get_show_tabs (notebook));
 
-	/* The setting reaches a notebook already showing. */
+	/* The setting applies to a notebook already showing. */
 	set_always_show (TRUE);
 	check (gtk_notebook_get_show_tabs (notebook));
 	set_always_show (FALSE);
@@ -234,7 +234,7 @@ test_widths (const char *font)
 	check (requested (long_back) > max_px);
 	check (requested (long_front) == max_px);
 
-	/* A new upper limit reaches the tabs without a resize. */
+	/* A new upper limit applies to the tabs without a resize. */
 	nemo_config_set_int (nemo_preferences, NEMO_PREFERENCES_TAB_WIDTH_MAX_PERCENT, 30);
 	settle ();
 	check (requested (long_front) == allocation.width * 30 / 100);

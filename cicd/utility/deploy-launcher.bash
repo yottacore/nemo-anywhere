@@ -2,8 +2,8 @@
 
 ##	Purpose:
 ##		- Copies the launcher and its wrappers out of utility/ into the synced util
-##		  dirs people actually run them from. The repo holds the masters; this keeps
-##		  the copies from drifting.
+##		  dirs people run them from. The repo has the masters, and this stops the
+##		  copies from drifting.
 ##		- Run from cicd.bash stage 7 (DOGFOOD_HOOK) and standalone. Only writes a
 ##		  destination whose parent dir already exists, so a box with a different
 ##		  layout is skipped rather than given a new tree it never asked for.
@@ -20,16 +20,16 @@ repoRoot="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 readonly repoRoot
 readonly srcDir="${repoRoot}/utility"
 
-## Roots the synced 0-0 tree may sit under. Both spell the same directory here; a
+## Roots the synced 0-0 tree may sit under. Both name the same directory here; a
 ## box with only one of them still resolves.
 readonly syncedRoots=(
 	"${HOME}/synced/0-0"
 	"${HOME}/.synced/Dropbox/0-0"
 )
 
-## master|destination relative to a synced root. The bash wrapper goes to three homes;
+## master|destination relative to a synced root. The bash wrapper goes to 3 homes;
 ## the .ps1 is the one file all of them and the .cmd hand off to. The wsl copy was
-## drifting because nothing kept it in step - it is the same file as the linux one.
+## drifting because nothing kept it in step. It's the same file as the linux one.
 readonly deployments=(
 	"n8runfm.ps1|common/exec/util/0_crossplatform/n8runfm.ps1"
 	"runfm|common/exec/util/linux/bash/runfm"

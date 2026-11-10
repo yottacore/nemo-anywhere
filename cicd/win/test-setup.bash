@@ -51,8 +51,8 @@ shortcut="${users}/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/${appNa
 winPrefix="C:\\users\\$(whoami)\\AppData\\Local\\Programs\\${appName}"
 arp='HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\nemo-anywhere'
 
-## "<type> <value>" of a value, or nothing when it is not there. reg prints
-## four spaces between name, type and value.
+## "<type> <value>" of a value, or nothing when it isn't there. reg prints
+## 4 spaces between name, type, and value.
 fRegGet(){
 	local key="$1" name="$2" line
 	line="$(wine reg query "$key" /v "$name" 2>/dev/null | tr -d '\r' | grep -F "    ${name}    " || true)"
@@ -105,7 +105,7 @@ fRound(){
 		fRun "$setup" || { fFail "${label} ${pass}: setup exited non-zero"; return 0; }
 		[[ -f "${prefix}/${exeName}.exe" ]] || fFail "${label} ${pass}: no ${exeName}.exe"
 		[[ -f "${prefix}/uninstall.exe" ]] || fFail "${label} ${pass}: no uninstall.exe"
-		[[ ! -e "${prefix}/stray.txt" ]] || fFail "${label} ${pass}: the old folder was not replaced"
+		[[ ! -e "${prefix}/stray.txt" ]] || fFail "${label} ${pass}: the old folder wasn't replaced"
 		[[ -f "$shortcut" ]] || fFail "${label} ${pass}: no Start menu shortcut"
 		[[ "$(fRegGet 'HKCU\Environment' Path)" == "REG_EXPAND_SZ ${after}" ]] \
 			|| fFail "${label} ${pass}: PATH is '$(fRegGet 'HKCU\Environment' Path)', expected '${after}'"
@@ -145,7 +145,7 @@ fRound "mixed PATH" "$mixed" "${mixed%;};${winPrefix};"
 ## takes it out as install.ps1 would.
 fRound "already listed" "C:\\a;${winPrefix}\\;C:\\b" "C:\\a;${winPrefix}\\;C:\\b" "C:\\a;C:\\b"
 
-## NSIS strings hold 1023 characters. One that only just fits with the folder
+## NSIS strings take up to 1023 characters. One that only just fits with the folder
 ## added must come back whole; one that doesn't must not be touched.
 ## Ends on a letter: a trailing '\' would escape reg's closing quote.
 fLongPath(){

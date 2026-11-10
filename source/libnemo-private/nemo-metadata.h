@@ -45,8 +45,8 @@
 #define NEMO_METADATA_KEY_LOCATION_BACKGROUND_IMAGE 	"folder-background-image"
 
 #define NEMO_METADATA_KEY_ICON_VIEW_ZOOM_LEVEL       	NEMO_APP_SLUG "-icon-view-zoom-level"
-/* A folder keeps two icon sizes: one for when it is mostly pictures and one
- * for when it is not. Which applies is decided per folder, so a child that
+/* A folder keeps 2 icon sizes: one for when it is mostly pictures and one
+ * for when it isn't. Which applies is decided per folder, so a child that
  * inherits both takes whichever matches what is in it. */
 #define NEMO_METADATA_KEY_ICON_VIEW_IMAGE_ZOOM_LEVEL	NEMO_APP_SLUG "-icon-view-image-zoom-level"
 #define NEMO_METADATA_KEY_ICON_VIEW_AUTO_LAYOUT      	NEMO_APP_SLUG "-icon-view-auto-layout"

@@ -1,8 +1,8 @@
 /* The parts of archive creation that can be decided without writing anything:
- * which program would be reached for given a format and a set of options, what
+ * which program would be used for a format and a set of options, what
  * switches it would be handed, how the name and the extension move together,
  * and how a volume size is read. The writing itself needs real files and a real
- * job queue, so it is not covered here. */
+ * job queue, so it isn't covered here. */
 
 #include <config.h>
 
@@ -37,17 +37,17 @@ check_extensions (void)
 	check (g_strcmp0 (text, "photos.tar.xz") == 0);
 	g_free (text);
 
-	/* A dot in the name that is not an archive suffix stays put. */
+	/* A dot in the name that isn't an archive suffix stays put. */
 	text = nemo_archive_apply_extension ("report.v2", NEMO_ARCHIVE_FORMAT_7Z);
 	check (g_strcmp0 (text, "report.v2.7z") == 0);
 	g_free (text);
 
-	/* A file actually called ".zip" has no base to strip. */
+	/* A file called only ".zip" has no base to strip. */
 	text = nemo_archive_strip_extension (".zip");
 	check (g_strcmp0 (text, ".zip") == 0);
 	g_free (text);
 
-	/* Case does not matter on the way in, but the suffix we write is ours. */
+	/* Case doesn't matter on the way in, but the suffix we write is ours. */
 	text = nemo_archive_apply_extension ("Notes.ZIP", NEMO_ARCHIVE_FORMAT_ZIP);
 	check (g_strcmp0 (text, "Notes.zip") == 0);
 	g_free (text);
@@ -90,7 +90,7 @@ check_names (void)
 	g_list_free_full (files, g_object_unref);
 
 	/* A single folder is named after itself, and the two-part suffix is
-	   carried whole. */
+	   kept whole. */
 	files = files_for_uris (one_folder);
 	text = nemo_archive_suggest_name (files, FALSE, NEMO_ARCHIVE_FORMAT_TAR_GZ);
 	check (g_strcmp0 (text, "photos.tar.gz") == 0);
@@ -117,7 +117,7 @@ check_names (void)
 	g_free (text);
 	g_list_free_full (files, g_object_unref);
 
-	/* Nothing selected cannot be compressed, so there is nothing to call it. */
+	/* Nothing selected can't be compressed, so there is nothing to call it. */
 	text = nemo_archive_suggest_name (NULL, TRUE, NEMO_ARCHIVE_FORMAT_ZIP);
 	check (text == NULL);
 	g_free (text);
@@ -387,7 +387,7 @@ check_volume_names (void)
 }
 
 /* The bug this covers: a split that fits in one volume still came out numbered,
-   so an archive nothing was really split into arrived as "name.7z.001". */
+   so an archive that wasn't split at all came out as "name.7z.001". */
 static void
 check_volume_collapse (const char *scratch)
 {
@@ -431,7 +431,7 @@ check_volume_collapse (const char *scratch)
 			check (g_file_query_exists (destination, NULL));
 			check (!g_file_query_exists (first, NULL));
 		} else {
-			/* A real split keeps its numbering, and the answer is the
+			/* A real split keeps its numbering, and the name is the
 			   volume unpacking has to start from. */
 			check (g_strcmp0 (name, cases[i].first) == 0);
 			check (!g_file_query_exists (destination, NULL));
@@ -516,7 +516,7 @@ check_backends (void)
 	check (nemo_archive_pick_backend (NEMO_ARCHIVE_FORMAT_ZIP, &options) ==
 	       NEMO_ARCHIVE_BACKEND_LIBARCHIVE);
 
-	/* An encrypted 7z is not: libarchive has no write-side encryption for
+	/* An encrypted 7z isn't: libarchive has no write-side encryption for
 	   it at all, so an encrypted one has to go to 7z or come back as
 	   nothing. Stated against the capability rather than against the
 	   choice, because on a box that has 7z the choice would come out right
@@ -528,7 +528,7 @@ check_backends (void)
 	       NEMO_ARCHIVE_BACKEND_LIBARCHIVE);
 	nemo_archive_options_clear (&options);
 
-	/* Same for splitting, which libarchive cannot write in any format. */
+	/* Same for splitting, which libarchive can't write in any format. */
 	nemo_archive_options_init (&options);
 	options.split_size = 700ULL * 1024 * 1024;
 	check ((nemo_archive_backend_caps (NEMO_ARCHIVE_FORMAT_ZIP,
@@ -546,7 +546,7 @@ check_backends (void)
 					  NEMO_ARCHIVE_BACKEND_LIBARCHIVE) == 0);
 
 	/* Storing links, a solid archive and a recovery record are preferences,
-	   not requirements: a plain tar still gets written even with all three
+	   not requirements: a plain tar still gets written even with all 3
 	   asked for, and by libarchive, which can honor none of them. */
 	options.links.symlinks = ARC_LINK_STORE_SYMLINK;
 	options.solid = TRUE;
@@ -560,7 +560,7 @@ check_backends (void)
 	nemo_archive_options_clear (&options);
 
 	/* A link 7z keeps on Windows comes back as junk anywhere but 7-Zip
-	   there, so it does not offer to keep them. */
+	   there, so it doesn't offer to keep them. */
 #ifdef G_OS_WIN32
 	check ((nemo_archive_backend_caps (NEMO_ARCHIVE_FORMAT_7Z, NEMO_ARCHIVE_BACKEND_7Z) &
 		NEMO_ARCHIVE_CAP_STORE_LINKS) == 0);
@@ -694,7 +694,7 @@ check_commands (void)
 	names = g_list_append (names, (gpointer) "one.txt");
 	names = g_list_append (names, (gpointer) "a folder");
 
-	/* rar: every option the user asked for has to reach the command line,
+	/* rar: every option the user asked for has to be on the command line,
 	   or it is silently not honored. */
 	nemo_archive_options_init (&options);
 	options.format = NEMO_ARCHIVE_FORMAT_RAR;
@@ -755,7 +755,7 @@ check_commands (void)
 
 	/* Links: -ol keeps them. Not keeping them means following, which is what
 	   rar does with no switch; -ola and -ol- would keep or drop them. A linked
-	   folder that is not followed is named as left out. */
+	   folder that isn't followed is named as left out. */
 	{
 		GList *skip = g_list_append (NULL, (gpointer) "a folder/linked");
 
@@ -794,7 +794,7 @@ check_commands (void)
 		check (!has_arg (argv, "-snl"));
 		g_strfreev (argv);
 
-		/* Kept only where 7z claims it can keep them, which it does not
+		/* Kept only where 7z claims it can keep them, which it doesn't
 		   on Windows. */
 		options.links.symlinks = ARC_LINK_STORE_SYMLINK;
 		argv = nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_7Z, options.format, &options,
@@ -845,7 +845,7 @@ check_commands (void)
 	g_strfreev (argv);
 	nemo_archive_options_clear (&options);
 
-	/* A zip written by 7z is -tzip; the format is not read off the name. */
+	/* A zip written by 7z is -tzip; the format isn't read off the name. */
 	nemo_archive_options_init (&options);
 	options.format = NEMO_ARCHIVE_FORMAT_ZIP;
 	options.split_size = 1024;
@@ -858,7 +858,7 @@ check_commands (void)
 	g_strfreev (argv);
 	nemo_archive_options_clear (&options);
 
-	/* libarchive is not a command, so there is no command line to build. */
+	/* libarchive isn't a command, so there is no command line to build. */
 	nemo_archive_options_init (&options);
 	check (nemo_archive_build_command (NEMO_ARCHIVE_BACKEND_LIBARCHIVE, options.format,
 					   &options, "x", "/tmp/out.zip", names, NULL) == NULL);
@@ -945,7 +945,7 @@ check_run_switches (void)
 	check (nemo_archive_add_run_switches (NULL, TRUE) == NULL);
 }
 
-/* The same through the four lines in the settings, edited the way that once
+/* The same through the 4 lines in the settings, edited the way that once
    let a wildcard or a recursion through. The saved lines stay as typed. */
 static void
 check_edited_lines (void)
@@ -1046,7 +1046,7 @@ check_edited_lines (void)
 	g_list_free (names);
 }
 
-/* What the two tools print when they pass over a link that leads nowhere,
+/* What the 2 tools print when they pass over a link that leads nowhere,
    taken from 7-Zip 25.01 and RAR 7.20. Only that, and only for links the
    scan found, is a warning to live with; anything else fails the archive. */
 static void
@@ -1063,7 +1063,7 @@ check_skipped_links (void)
 		"sel/dang : errno=2 : No such file or directory\n"
 		"sel/sub/dang2 : errno=2 : No such file or directory\n"
 		"----------------\nScan WARNINGS: 2\n";
-	/* A folder it could not list and a file it could not read, beside the
+	/* A folder it couldn't list and a file it couldn't read, beside the
 	   dangling link. */
 	static const char seven_more[] =
 		"Scanning the drive:\n"
@@ -1101,7 +1101,7 @@ check_skipped_links (void)
 	check (nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_7Z, 1, seven_dangling, both));
 	check (nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6, rar_dangling, both));
 
-	/* A warning about a link the scan did not find is not ours to excuse. */
+	/* A warning about a link the scan didn't find isn't ours to excuse. */
 	check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_7Z, 1, seven_dangling, one));
 	check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6, rar_dangling, one));
 	check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_7Z, 1, seven_dangling, NULL));
@@ -1173,7 +1173,7 @@ check_skipped_links (void)
 
 		check (nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_7Z, 1, seven_counted, one));
 		check (nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6, rar_counted, both));
-		/* One it could not open went unnamed. */
+		/* One it couldn't open went unnamed. */
 		check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6, rar_short, both));
 		check (!nemo_archive_only_skipped_links (NEMO_ARCHIVE_BACKEND_RAR, 6, rar_counted, one));
 		/* A count is only a count. */
@@ -1199,7 +1199,7 @@ check_skipped_links (void)
 }
 
 /* The share of the machine any compression is allowed. Nothing has read the
- * settings file here, so this is the shipped 50% - and the point of the check
+ * settings file here, so this is the default 50% - and the point of the check
  * is the arithmetic around it: never zero on a single-core box, never more
  * cores than the machine has, and rounded up rather than down. */
 static void

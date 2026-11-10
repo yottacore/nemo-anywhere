@@ -40,7 +40,7 @@
 #include "test-scratch.h"
 #include "test-check.h"
 
-/* Only reached through a window to follow, and the dialog here has none. */
+/* Only called through a window to follow, and the dialog here has none. */
 GType
 nemo_window_get_type (void)
 {

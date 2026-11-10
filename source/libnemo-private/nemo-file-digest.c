@@ -102,7 +102,7 @@ nemo_file_digest_to_text (const guint8 *digest, char *text)
 
 	b64 = g_base64_encode (digest, NEMO_CACHE_DIGEST_LEN);
 
-	/* base64url, which is plain base64 with two characters swapped. 32 bytes
+	/* base64url, which is plain base64 with 2 characters swapped. Here 32 bytes
 	 * come out as 44 with one '=' on the end, and the padding goes. */
 	for (p = b64; *p != '\0'; p++) {
 		if (*p == '+')
@@ -141,7 +141,7 @@ nemo_file_digest_from_text (const char *text, guint8 *digest)
 		else if (c == '_')
 			c = '/';
 		else if (!g_ascii_isalnum (c))
-			return FALSE;	/* anything else is not a checksum */
+			return FALSE;	/* anything else isn't a checksum */
 
 		padded[i] = c;
 	}
@@ -157,7 +157,7 @@ nemo_file_digest_from_text (const char *text, guint8 *digest)
 	return TRUE;
 }
 
-/* The three names the backlog settled on. `user.` is prepended on Linux and
+/* The 3 names picked in the backlog. `user.` is prepended on Linux and
  * the BSDs; on Windows these are stream names as they stand. */
 #define ATTR_DIGEST "blake3.b64u"
 #define ATTR_BYTES  "blake3.bytes"

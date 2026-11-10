@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: Check which box the Windows dogfood refresh takes, with no box.
-##	  A copy of win-dogfood.bash runs in a scratch repo, with an ssh, scp and VM
+##	  A copy of win-dogfood.bash runs in a scratch repo, with an ssh, scp, and VM
 ##	  state helper on PATH that only log what they're asked.
 ##	  - b29w goes first, by that name.
 ##	  - With b29w gone, vm925w is taken through the VM state helper when it's a
@@ -45,7 +45,7 @@ git -C "$repo" -c user.name=test -c user.email=test@example.invalid init -q
 git -C "$repo" add -A
 git -C "$repo" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m base
 
-## FAKE_GONE: the hosts that never answer. FAKE_BOOTING: the first N
+## FAKE_GONE: the hosts that never reply. FAKE_BOOTING: the first N
 ## connections time out, as on a VM still booting.
 cat > "${scratch}/bin/ssh" <<-EOF
 	#!/usr/bin/env bash
@@ -69,7 +69,7 @@ cat > "${scratch}/x_vm-state.bash" <<-EOF
 		state=-; [[ " \${FAKE_VMS:-} " == *" \$2 "* ]] && state=off
 		printf 'host guest state note\n%s %s %s\n' "\$2" "\$2" "\$state"; exit 0
 	fi
-	## Nobody holds anything.
+	## Nobody has a lock.
 	[[ "\${1:-}" != check ]] || exit 1
 	echo "lock \$*" >> "${log}"
 	while ((\$#)) && [[ "\$1" != -- ]]; do shift; done
@@ -89,8 +89,8 @@ fDogfood(){
 }
 
 if fDogfood "${scratch}/x_vm-state.bash" FAKE_VMS=vm925w; then
-	grep -q '^lock wrap b29w ' "$log" || fFail "b29w was not taken first: $(cat "$log")"
-	grep -q '^ssh b29w .*pwsh .*cicd-win.ps1' "$log" || fFail "the build did not run on b29w"
+	grep -q '^lock wrap b29w ' "$log" || fFail "b29w wasn't taken first: $(cat "$log")"
+	grep -q '^ssh b29w .*pwsh .*cicd-win.ps1' "$log" || fFail "the build didn't run on b29w"
 	! grep -q 'b29w-wif' "$log" "${scratch}/out.log" || fFail "b29w went by another name"
 	! grep -q 'vm925w' "$log" || fFail "vm925w was touched while b29w was there"
 	fEcho "OK: b29w goes first, by that name"
@@ -99,8 +99,8 @@ else
 fi
 
 if fDogfood "${scratch}/x_vm-state.bash" FAKE_VMS=vm925w FAKE_GONE=b29w; then
-	grep -q '^lock wrap vm925w ' "$log" || fFail "vm925w, off, was not taken through the VM state helper: $(cat "$log")"
-	grep -q '^ssh vm925w .*pwsh .*cicd-win.ps1' "$log" || fFail "the build did not run on vm925w"
+	grep -q '^lock wrap vm925w ' "$log" || fFail "vm925w, off, wasn't taken through the VM state helper: $(cat "$log")"
+	grep -q '^ssh vm925w .*pwsh .*cicd-win.ps1' "$log" || fFail "the build didn't run on vm925w"
 	! grep -q '^lock wrap b29w' "$log" || fFail "b29w was taken while gone"
 	fEcho "OK: vm925w is started through the VM state helper"
 else
@@ -110,7 +110,7 @@ fi
 ## The helper's own wait is for another user, so the refresh waits for its login.
 if fDogfood "${scratch}/x_vm-state.bash" FAKE_VMS="b29w vm925w" FAKE_BOOTING=2; then
 	grep -q 'answered after' "${scratch}/out.log" || fFail "no line saying the box was waited for"
-	grep -q '^ssh b29w .*pwsh' "$log" || fFail "the build did not run once the box answered"
+	grep -q '^ssh b29w .*pwsh' "$log" || fFail "the build didn't run once the box answered"
 	fEcho "OK: a VM still booting is waited for"
 else
 	fFail "the refresh failed on a VM that came up on the third try: $(tail -3 "${scratch}/out.log")"

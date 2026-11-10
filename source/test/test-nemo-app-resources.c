@@ -1,6 +1,6 @@
 /* Art and documents that used to be installed as files now ride inside the
  * binary, and nothing else looks for them on disk any more. A name dropped from
- * the manifest would just stop appearing, so check the ones with no file left to
+ * the manifest would quietly stop appearing, so check the ones with no file left to
  * fall back on. */
 
 #include <config.h>
@@ -30,12 +30,12 @@ carries (const char *path)
 int
 main (void)
 {
-	/* The note emblem, which a file carrying a note is drawn with. */
+	/* The note emblem, which a file with a note is drawn with. */
 	carries ("/org/nemo/appicons/16x16/emblems/emblem-note.png");
 	carries ("/org/nemo/appicons/24x24/emblems/emblem-note.png");
 	carries ("/org/nemo/appicons/48x48/emblems/emblem-note.png");
 
-	/* The shortcut and symlink emblems, which no theme carries. */
+	/* The shortcut and symlink emblems, which no theme has. */
 	carries ("/org/nemo/appicons/scalable/emblems/nemo-emblem-shortcut.svg");
 	carries ("/org/nemo/appicons/scalable/emblems/nemo-emblem-symlink.svg");
 

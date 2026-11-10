@@ -1,5 +1,5 @@
-/* Listing a plain folder should not log anything at critical or warning level.
- * A file's name is not filled in until late in the same update that first
+/* Listing a plain folder shouldn't log anything at critical or warning level.
+ * A file's name isn't filled in until late in the same update that first
  * applies its info, so anything reading the name earlier - the drive-root
  * naming did - builds a location out of NULL and gets a critical per file. */
 
@@ -117,8 +117,8 @@ main (int argc, char **argv)
 	g_free (uri);
 
 #ifdef G_OS_WIN32
-	/* A drive root holds entries Windows will not stat - the page and swap
-	   files - and their info comes back with no type on it at all. */
+	/* A drive root has entries Windows won't stat, such as the page and swap
+	   files, and their info comes back with no type on it at all. */
 	{
 		char *root = g_strndup (tmp, 3);   /* "C:/" */
 

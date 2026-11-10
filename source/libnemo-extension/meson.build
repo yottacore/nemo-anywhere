@@ -41,8 +41,8 @@ nemo_extension_deps = [ glib, gtk ]
 
 # On Windows nemo loads no external plugins (see nemo-module.c), so the exe is the
 # only consumer of these symbols - fold them straight in as a static lib. Linux
-# ships the shared API that third-party extensions link against, unless
-# extension_library=static, where the exe carries the whole API and exports it.
+# installs the shared API that third-party extensions link against, unless
+# extension_library=static, where the exe contains the whole API and exports it.
 extensionShared = not is_windows and get_option('extension_library') == 'shared'
 extensionExported = not is_windows and not extensionShared
 
@@ -57,7 +57,7 @@ if extensionShared
     # gets the sanitizer runtimes, so this library is left with __asan_* and
     # __sancov_* unresolved. Nothing loads it there - the fuzz targets link the
     # static libnemo-private and never touch it - so the check comes off for
-    # that build flavor rather than the shipped one.
+    # that build flavor rather than the released one.
     # ld64 has no -no-undefined, and errors on an undefined symbol anyway.
     link_args: (get_option('fuzzing') or is_macos) ? [] : [ '-Wl,-no-undefined' ],
   )
@@ -106,7 +106,7 @@ else
   )
 endif
 
-# GObject-introspection is Linux-only here: the mingw sysroot ships no g-ir-scanner
+# GObject-introspection is Linux-only here: the mingw sysroot has no g-ir-scanner
 # and cross introspection isn't worth it. Skip GIR/typelib generation on Windows.
 if extensionShared
   typelibdir = go_intr.get_variable(pkgconfig: 'typelibdir',

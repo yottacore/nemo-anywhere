@@ -3,7 +3,7 @@
  * when each gets its own, how a name that is already taken is stepped along,
  * what a hostile entry path is reduced to, and what switches a command backend
  * is handed. The unpacking itself needs real archives and a real job queue, so
- * it is not covered here. */
+ * it isn't covered here. */
 
 #include <config.h>
 
@@ -25,7 +25,7 @@ check_recognition (void)
 	check (nemo_extract_is_archive_name ("photos.rar"));
 	check (nemo_extract_is_archive_name ("notes.txt.gz"));
 
-	/* Case is not part of the answer - archives arrive from every kind of
+	/* Case doesn't matter, since archives arrive from every kind of
 	   system, and Windows names them however it likes. */
 	check (nemo_extract_is_archive_name ("PHOTOS.ZIP"));
 	check (nemo_extract_is_archive_name ("Photos.Tar.Gz"));
@@ -66,7 +66,7 @@ check_folder_names (void)
 	check (g_strcmp0 (text, "photos") == 0);
 	g_free (text);
 
-	/* A two-part suffix comes off whole, so it is not left as "photos.tar". */
+	/* A two-part suffix comes off whole, so it isn't left as "photos.tar". */
 	text = nemo_extract_folder_name ("photos.tar.gz");
 	check (g_strcmp0 (text, "photos") == 0);
 	g_free (text);
@@ -255,8 +255,8 @@ check_commands (void)
 	check (has_arg (argv, "-o/tmp/out"));
 	/* An archive named "a?.7z" is that one archive, not a pattern. */
 	check (has_arg (argv, "-spd"));
-	/* Answered rather than asked, or an encrypted archive stops for a
-	   password on a console that is not there. */
+	/* Given rather than asked for, or an encrypted archive stops for a
+	   password on a console that isn't there. */
 	check (has_arg (argv, "-p"));
 	check (has_arg (argv, "--"));
 	check (has_arg (argv, "/tmp/photos.7z"));
@@ -284,7 +284,7 @@ check_commands (void)
 	check (!has_arg (argv, "-p-"));
 	g_strfreev (argv);
 
-	/* libarchive is not a command, so there is no command line to build. */
+	/* libarchive isn't a command, so there is no command line to build. */
 	check (nemo_extract_build_command (NEMO_EXTRACT_BACKEND_LIBARCHIVE, "x",
 					   "/tmp/photos.zip", "/tmp/out", NULL) == NULL);
 	check (nemo_extract_build_command (NEMO_EXTRACT_BACKEND_NONE, "x",

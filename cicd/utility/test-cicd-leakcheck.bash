@@ -3,7 +3,7 @@
 ##	- Purpose: Check cicd.bash --leakcheck and --no-leakcheck. A plain run has
 ##	  the leak checks on and --quick has them off. --leakcheck turns them on and
 ##	  --no-leakcheck off, under --quick or not, with -q too, and the last of the
-##	  two on the command line wins. Both are in --help. The cross-file analyzer
+##	  2 on the command line wins. Both are in --help. The cross-file analyzer
 ##	  runs only with the leak checks on and --long or --leakcheck named, so not
 ##	  in a plain run. A copy of cicd.bash runs with a debug build that fails, so
 ##	  the run stops right after its plan.
@@ -29,7 +29,7 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 help="$(bash "$cicd" --help)"
 for flag in --leakcheck --no-leakcheck; do
-	grep -q -E "^ +${flag} " <<< "$help" || fFail "${flag} is not in --help"
+	grep -q -E "^ +${flag} " <<< "$help" || fFail "${flag} isn't in --help"
 done
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/cicd-leakcheck-check.XXXXXX")"

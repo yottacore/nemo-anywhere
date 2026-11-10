@@ -34,7 +34,7 @@
 /* The archive core writes it, on the job's thread. What stays here is the
    queueing, the progress window and the callback. */
 typedef struct {
-	NemoArchiveHostJob  on;		/* what the host's calls reach */
+	NemoArchiveHostJob  on;		/* what the host's calls act on */
 	ArcCompress        *work;
 	GCancellable       *cancellable;
 	NemoArchiveCallback done_callback;

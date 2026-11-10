@@ -32,7 +32,7 @@ main (void)
 
 	page = sysconf (_SC_PAGESIZE);
 
-	/* two pages: [readable][guard]. */
+	/* 2 pages: [readable][guard]. */
 	guard_base = mmap (NULL, page * 2, PROT_READ | PROT_WRITE,
 			   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	g_assert (guard_base != MAP_FAILED);

@@ -2,12 +2,12 @@
 ##
 ## One "<context> <name>" per line. A name ending in -symbolic goes in
 ## symbolic/<context>, everything else in scalable/<context>. Anything a theme
-## does not have falls through to Adwaita and then hicolor via Inherits, so a
+## doesn't have falls through to Adwaita and then hicolor via Inherits, so a
 ## gap here costs a mismatched glyph, never a missing one.
 ##
-## This is deliberately the file-manager surface only. Themes carry thousands of
-## per-application icons that nemo never asks for; keeping the list explicit is
-## what holds each bundled theme to a few hundred KB.
+## The list covers only what the file manager shows. Themes have thousands of
+## per-application icons that nemo never asks for, and an explicit list is what
+## limits each bundled theme to a few hundred KB.
 ##
 ## Read by cicd/utility/vendor-themes.bash.
 

@@ -151,7 +151,7 @@ main (int argc, char *argv[])
 	make_file (local);
 	make_file (mixed);
 
-	/* The temp folder sits in the profile, whose entries every new file
+	/* The temp folder is in the profile, whose entries every new file
 	   takes on. */
 	check (nemo_security_win32_permissions_source (plain) == NEMO_WIN32_PERM_SOURCE_INHERITED);
 	text = column_text (plain);

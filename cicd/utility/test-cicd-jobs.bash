@@ -63,7 +63,7 @@ done <<-'EOF'
 	4||4 0.00 0
 EOF
 # shellcheck disable=SC2154  ## jobsProbe is set in jobs.bash.
-[[ "$(bash -c "$jobsProbe" 2>/dev/null | wc -l)" == 2 ]] || fFail "jobsProbe did not print two lines here"
+[[ "$(bash -c "$jobsProbe" 2>/dev/null | wc -l)" == 2 ]] || fFail "jobsProbe didn't print two lines here"
 
 ## fJobs reads the box, and a pin wins over it.
 unset CICD_MAX_JOBS CICD_JOBS_PIN
@@ -96,7 +96,7 @@ done < <(grep -n -E '(^|[^\\])\$\{?CICD_MAX_JOBS' "${root}/cicd/config.bash" | g
 ## docker-run.bash hands the count across and runs the command under nice.
 lastExec="$(sed -n '/^exec docker run/,/[^\\]$/p' "${root}/cicd/utility/docker-run.bash")"
 # shellcheck disable=SC2016  ## matches the literal text.
-[[ "$lastExec" == *'-e "CICD_MAX_JOBS=${CICD_MAX_JOBS}"'* ]] || fFail "docker-run.bash does not pass CICD_MAX_JOBS into the container"
+[[ "$lastExec" == *'-e "CICD_MAX_JOBS=${CICD_MAX_JOBS}"'* ]] || fFail "docker-run.bash doesn't pass CICD_MAX_JOBS into the container"
 [[ "$lastExec" == *'nice -n 19'* ]] || fFail "docker-run.bash does not run the command under nice"
 
 if ((failures)); then

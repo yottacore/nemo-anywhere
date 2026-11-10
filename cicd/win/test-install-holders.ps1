@@ -5,7 +5,7 @@
 ##		  folder it runs from is named as held while it runs and free once it
 ##		  exits, a sibling folder whose name only starts the same is never
 ##		  named, a start through the folder's 8.3 name is still seen, and an
-##		  empty answer reads as a count of zero rather than throwing.
+##		  empty result reads as a count of 0 rather than throwing.
 ##		- The functions are lifted out of install.ps1 through the parser, so the
 ##		  installer itself never runs. The program is a copy of Windows
 ##		  PowerShell, told to sleep.
@@ -30,7 +30,7 @@ $installer = Join-Path $PSScriptRoot "../../install.ps1"
 $tokens = $null
 $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($installer, [ref]$tokens, [ref]$parseErrors)
-if ($parseErrors) { Write-Host "[ FAILED: install.ps1 does not parse: $($parseErrors[0].Message) ]"; exit 1 }
+if ($parseErrors) { Write-Host "[ FAILED: install.ps1 doesn't parse: $($parseErrors[0].Message) ]"; exit 1 }
 
 foreach ($name in @("fHoldersOf", "fWaitUntilFree")) {
 	$def = $ast.Find({
@@ -41,7 +41,7 @@ foreach ($name in @("fHoldersOf", "fWaitUntilFree")) {
 	. ([scriptblock]::Create($def.Extent.Text))
 }
 
-## fWaitUntilFree says what it is waiting on.
+## fWaitUntilFree says what it's waiting on.
 function fEcho_Clean {
 	param([string]$Msg)
 	Write-Host "  $Msg"
@@ -83,7 +83,7 @@ try {
 	$procs += fStart (Join-Path $sibling "other.exe")
 	$procs += fStart (Join-Path $held "holder.exe")
 
-	if (-not (fHeldWithin $held "holder.exe")) { fFail "a program running from the folder is not named" }
+	if (-not (fHeldWithin $held "holder.exe")) { fFail "a program running from the folder isn't named" }
 	$names = @(fHoldersOf $held)
 	if ($names -contains "other.exe") { fFail "a program in '${sibling}' was named for '${held}'" }
 	$waited = @(fWaitUntilFree $held 1)
@@ -110,7 +110,7 @@ try {
 			if (-not $reported) { Start-Sleep -Milliseconds 250 }
 		}
 		Write-Host "  started as ${short}\holder.exe, reported as ${reported}"
-		if (-not (fHeldWithin $held "holder.exe")) { fFail "a program started through the 8.3 name is not named" }
+		if (-not (fHeldWithin $held "holder.exe")) { fFail "a program started through the 8.3 name isn't named" }
 	}
 } finally {
 	foreach ($p in $procs) { if (-not $p.HasExited) { $p | Stop-Process -Force; $p.WaitForExit() } }

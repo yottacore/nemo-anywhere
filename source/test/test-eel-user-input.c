@@ -32,7 +32,7 @@ test_expansion (const char *tmpdir)
 	g_setenv ("NEMO_TEST_DIR", tmpdir, TRUE);
 	g_unsetenv ("NEMO_TEST_UNSET");
 
-	/* Both spellings work everywhere, so a path can be carried between boxes. */
+	/* Both spellings work everywhere, so a path can be copied between boxes. */
 	expected = g_strconcat (tmpdir, "/sub", NULL);
 	check_expansion ("%NEMO_TEST_DIR%/sub", expected);
 	check_expansion ("$NEMO_TEST_DIR/sub", expected);
@@ -81,7 +81,7 @@ main (void)
 	g_object_unref (location);
 	g_free (typed);
 
-	/* a variable standing in for the folder reaches the same file */
+	/* a variable standing in for the folder gives the same file */
 	typed = g_strdup ("%NEMO_TEST_DIR%/plain.txt");
 	location = eel_g_file_new_for_user_input (typed);
 	resolved = g_file_get_path (location);

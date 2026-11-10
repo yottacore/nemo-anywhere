@@ -1,7 +1,7 @@
 /* The Windows Search engine. The statement it builds is checked word for word;
- * the index itself is then asked whether it holds the home folder, and a search
+ * the index itself is then asked whether it has the home folder, and a search
  * is run through the engine end to end - through the index where the folder is
- * covered, through the walk where it is not - and has to finish either way. */
+ * covered, through the walk where it isn't - and has to finish either way. */
 
 #include <config.h>
 
@@ -85,7 +85,7 @@ test_live (void)
 	NemoSearchEngine *engine;
 	NemoQuery *query;
 	/* Documents is read off the profile, not the environment, so pointing HOME
-	 * at the scratch dir above does not move it. Indexed on a stock Windows. */
+	 * at the scratch dir above doesn't move it. Indexed on a stock Windows. */
 	const char *home = g_get_user_special_dir (G_USER_DIRECTORY_DOCUMENTS);
 	char *uri;
 	gboolean indexed;

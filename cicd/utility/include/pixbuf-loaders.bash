@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-##	- Purpose: One check on the gdk-pixbuf loaders.cache a Windows bundle
-##	  carries. Missing or empty, gdk-pixbuf finds no loaders at all, so every
+##	- Purpose: One check on the gdk-pixbuf loaders.cache in a Windows
+##	  bundle. Missing or empty, gdk-pixbuf finds no loaders at all, so every
 ##	  SVG, and with it every symbolic icon, fails to draw. The packing scripts
 ##	  used to pass that with a warning, or with nothing said.
 ##	- fCheckLoadersCache <file> -> prints why and returns 1 when the cache is

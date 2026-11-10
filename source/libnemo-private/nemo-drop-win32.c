@@ -23,7 +23,7 @@
 /* The toolkit's drop target only finds files in the shell's id list, which
  * Explorer puts in its drags and most other programs don't. A program that
  * offers CF_HDROP alone, which is all Windows asks of a file drag, gets the
- * no-drop pointer, or a drop taht does nothing. It also answers move or copy
+ * no-drop pointer, or a drop taht does nothing. It also returns move or copy
  * by its own lights, never by what the program allows, so a drag that only
  * allows copy is refused wherever we'd pick move.
  *

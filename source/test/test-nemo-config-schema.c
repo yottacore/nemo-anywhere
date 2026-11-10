@@ -1,7 +1,7 @@
-/* The key table in the code and the schema shipped for `shcl check` are two
+/* The key table in the code and the schema installed for `shcl check` are 2
  * hand-kept copies of the same list. Miss the second and a hand-edited config
  * validates against a schema that has never heard of the key. This walks both
- * and fails on any name, type, allowed set or default that does not line up.
+ * and fails on any name, type, allowed set, or default that doesn't line up.
  *
  * Takes the schema path as its one argument. The same walk then runs on a
  * CRLF copy of it, since that is what a Windows checkout reads and a Linux run
@@ -258,8 +258,8 @@ check_schema (const char *path)
 			      field->desc != NULL ? field->desc : "");
 		}
 
-		/* The two list-view column defaults differ by platform and the schema
-		   carries the POSIX spelling, so a Windows run only checks the rest. */
+		/* The 2 list-view column defaults differ by platform and the schema
+		   has the POSIX spelling, so a Windows run only checks the rest. */
 #ifndef G_OS_WIN32
 		{
 			char *expected = key->def_list != NULL

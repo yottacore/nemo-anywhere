@@ -38,7 +38,7 @@ fake_program (const char *dir, const char *name)
 }
 
 /* A fake terminal on an otherwise empty PATH. Windows finds programs by
-   extension, so a script there would not count. */
+   extension, so a script there wouldn't count. */
 static void
 test_fallback_scan (void)
 {

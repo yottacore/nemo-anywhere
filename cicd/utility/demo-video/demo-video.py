@@ -5,25 +5,25 @@
 ##		a private Xvfb (never :0) inside a decorated window, works a synthetic home
 ##		with the mouse and keyboard, lays down click and key foley synced to the
 ##		actual input timestamps, overlays per-segment narration, and encodes the
-##		deliverables. Two recordings from one script:
+##		deliverables. There are 2 recordings from one script:
 ##		  video: 1920x1080@60 h265, GDK_SCALE=2, with audio
 ##		  gif:   960x540@50, GDK_SCALE=1, optimized palette, silent
-##		Both render the SAME layout - the video is the gif at twice the scale - so
-##		every scene coordinate is written once, in gif pixels, and multiplied by
+##		Both render the same layout, since the video is the gif at twice the scale,
+##		so every scene coordinate is written once, in gif pixels, and multiplied by
 ##		the profile's scale. That is also why the client area is a fixed logical
 ##		size rather than whatever is left after the window decoration: the black
 ##		border absorbs the decoration instead of the layout doing it.
 ##		There is no GPU path here. GTK3 draws through cairo, and a file manager
 ##		moves far less of the screen per frame than a terminal does, so llvmpipe
 ##		keeps up with both capture rates.
-##		Narration lives in a black band above the window (BAND px of bare root,
-##		the window sits below it) - plain yellow text, no box, so nothing ever
-##		covers the app. The band is static, which costs a gif almost nothing.
-##		The window decoration is generated at record time (a square-cornered dark
-##		theme recolored slate blue-gray) so it reads as chrome rather than as part
-##		of the app.
+##		Narration goes in a black band of BAND px of bare root above the window,
+##		as plain yellow text with no box, so nothing ever covers the app. The band
+##		is static, which costs a gif almost nothing.
+##		The window decoration is generated at record time as a square-cornered
+##		dark theme recolored slate blue-gray, so it reads as chrome rather than as
+##		part of the app.
 ##		Settings changed mid-run are written straight into the settings file,
-##		which the app live-reloads - the same thing a hand edit does, and the
+##		which the app live-reloads. That's the same thing a hand edit does, and the
 ##		reason no settings dialog has to be driven on camera.
 ##		Everything on screen is synthetic: a throwaway HOME under a neutral path,
 ##		generated files, and no column that would print a real account name.
@@ -82,8 +82,8 @@ BANNER_FG  = "0xFFD866"                       # warm yellow, on the black band a
 LEAD_S     = 0.8                              # quiet lead-in kept before the first segment
 TAIL_HOLD_S  = 2.0                            # freeze the final frame this long at the end...
 # ...then black. The gif cuts to it, since a fade is a fresh frame every step and
-# bloats a gif; three seconds makes the loop point plain. The video fades in, and
-# fades the held frame out to black instead.
+# bloats a gif; 3 seconds makes the loop point plain. The video fades in, and
+# fades the frozen frame out to black instead.
 GIF_TAIL_BLACK_S   = 3.0
 VIDEO_FADE_IN_S    = 0.5
 VIDEO_TAIL_BLACK_S = 0.5
@@ -91,16 +91,16 @@ TAIL_EXTRA = {"gif": TAIL_HOLD_S + GIF_TAIL_BLACK_S, "video": TAIL_HOLD_S + VIDE
 FOLEY_LAG  = 0.03                             # foley sits this far after the input event
 
 # Logical geometry, in gif pixels. The video profile multiplies all of it by 2
-# (GDK_SCALE=2), so one set of scene coordinates serves both. The client is a
-# fixed size and the black border takes up the slack from the decoration, which
-# does NOT scale with GDK_SCALE - otherwise the two profiles would lay out
+# with GDK_SCALE=2, so one set of scene coordinates works for both. The client is
+# a fixed size and the black border takes up the slack from the decoration, which
+# doesn't scale with GDK_SCALE. Otherwise the 2 profiles would lay out
 # differently and no coordinate could be shared.
 VIEW_W, VIEW_H = 960, 540
 BAND     = 52                                 # narration strip above the window
 BORDER   = 6                                  # nominal black margin around the window
 # The client is small enough that the decoration fits in either profile with room
 # to spare; place_window centers what is left, so the real margin is whatever the
-# titlebar did not use.
+# titlebar didn't use.
 CLIENT_W, CLIENT_H = 940, 440
 FRAME_L, FRAME_R, FRAME_T, FRAME_B = 2, 2, 32, 2   # fallback until the WM sets the hint
 
@@ -114,7 +114,7 @@ DECO_BG_OFF   = "#2e3547"                     # inactive
 DECO_GLYPH    = "#dde5f2"                     # button glyphs
 DECO_TEXT     = "#e9eefa"                     # title text
 
-# The app's own look. Adwaita ships with GTK itself, so a recording does not
+# The app's own look. Adwaita comes with GTK itself, so a recording doesn't
 # depend on whatever themes a box happens to have installed.
 GTK_THEME  = "Adwaita"
 ICON_THEME = "Adwaita"
@@ -137,7 +137,7 @@ DISPLAY_TRIES   = 6         # how far down from the default to look
 # comes out generic. Nothing in this needs root.
 DEMO_HOME = "/home/juno"
 # the app's own prefix, mounted somewhere fixed inside that namespace - the build
-# it was recorded from usually sits under the real home, which the fake one hides
+# it was recorded from is usually under the real home, which the fake one hides
 DEMO_PREFIX = "/opt/nemo-anywhere"
 
 # run as its own process by reserve_band; the window lives as long as it does
@@ -234,8 +234,8 @@ class Rec:
         self.prefix   = app_prefix()
         self.bin      = f"{DEMO_PREFIX}/bin/nemo-anywhere"
         self.work     = Path(tempfile.mkdtemp(prefix="nemo-demo-"))
-        # two names for one directory: where this script writes it, and where the
-        # app sees it through the bind mount (see DEMO_HOME)
+        # 2 names for one directory: where this script writes it, and where the
+        # app sees it through the bind mount, per DEMO_HOME
         self.home     = self.work / "home" / "juno"
         self.wmhome   = self.work / "wmhome"    # the WM's HOME: theme + its own xfconf
         self.keep     = args.keep_work
@@ -255,7 +255,7 @@ class Rec:
     def env(self):
         e = dict(os.environ)
         e.update(DISPLAY=self.display, XAUTHORITY=self.auth)
-        # setting DISPLAY is not enough on a Wayland session - a GTK app prefers
+        # setting DISPLAY isn't enough on a Wayland session. A GTK app prefers
         # Wayland whenever WAYLAND_DISPLAY is set, and the window would open on the
         # real desktop where nothing here could find it
         for k in ("WAYLAND_DISPLAY", "XDG_SESSION_TYPE"):
@@ -276,10 +276,10 @@ class Rec:
         """A point in the dialog that has focus, in gif pixels from its client
         area's top-left, or from its bottom edge when ly is negative.
 
-        A dialog cannot share the main window's coordinates. The titlebar does
-        not scale with GDK_SCALE, so a dialog centered on the window sits at a
+        A dialog can't share the main window's coordinates. The titlebar doesn't
+        scale with GDK_SCALE, so a dialog centered on the window is at a
         different logical height in each profile, and one sized to the work
-        area (Compress with its options open) is taller in the video too. So
+        area, such as Compress with its options open, is taller in the video too. So
         the dialog is found and measured each time. A popup it opens, such as
         a dropdown list, is placed from the dialog, so it follows along.
         """
@@ -355,17 +355,17 @@ class Rec:
         subprocess.run(["xsetroot", "-solid", "#000000"], env=self.env(), check=False)
 
     def reserve_band(self):
-        # A dialog that sizes itself to the work area (Compress with its options
-        # open) would otherwise grow up into the band and sit under the captions.
-        # xfwm4's margin_top does not change _NET_WORKAREA; a strut does. One
-        # pixel of dock window is enough to carry it, and keeps the sync flash
+        # A dialog that sizes itself to the work area, such as Compress with its
+        # options open, would otherwise grow up into the band, under the captions.
+        # xfwm4's margin_top doesn't change _NET_WORKAREA; a strut does. One
+        # pixel of dock window is enough to set it, and keeps the sync flash
         # nearly all white.
         self.strut = subprocess.Popen([sys.executable, "-c", BAND_STRUT,
             str(self.size[0]), str(self.band)], env=self.env(),
             stdout=subprocess.DEVNULL, stderr=open(self.work / "strut.log", "w", encoding="utf-8"))
         time.sleep(0.6)
         if self.strut.poll() is not None:
-            log("WARNING: could not reserve the caption band (see strut.log)")
+            log("WARNING: couldn't reserve the caption band (see strut.log)")
 
     def wm_env(self):
         # xfconfd keeps its channels under XDG_CONFIG_HOME, not HOME, so with the
@@ -441,7 +441,7 @@ class Rec:
             "-pix_fmt", "yuv444p", str(self.raw)],
             env=self.env(), stdin=subprocess.DEVNULL,
             stderr=open(self.work / "ffmpeg.log", "w", encoding="utf-8"))
-        # flash only once frames are actually flowing - a slow-opening ffmpeg would
+        # flash only once frames are flowing. A slow-opening ffmpeg would
         # otherwise miss the sync flash and break the whole AV anchor
         prog = self.work / "ffprogress.txt"
         deadline = time.time() + 30
@@ -472,9 +472,9 @@ class Rec:
         """System data the app may see: everything but the installed applications.
 
 		A misplaced double-click otherwise opens whatever the box has registered
-		for that file type, on this display, in the middle of a take - and the
-		stray window carries the real working paths with it. With no applications
-		directory in reach there is no handler to find, so the worst case is a
+		for that file type, on this display, in the middle of a take, and the
+		stray window shows the real working paths. With no applications
+		directory in sight there's no handler to find, so the worst case is a
 		dialog saying so.
 		"""
         d = self.work / "datadirs"
@@ -488,7 +488,7 @@ class Rec:
 
     def sandbox(self):
         """Run the app with the synthetic home mounted where it looks ordinary."""
-        # the two tmpfs lines are what make the mount points: the namespace has no
+        # the 2 tmpfs lines are what make the mount points: the namespace has no
         # more right to mkdir in the real / than this account does
         return ["bwrap", "--dev-bind", "/", "/", "--tmpfs", "/home", "--tmpfs", "/opt",
             "--ro-bind", str(self.prefix), DEMO_PREFIX,
@@ -536,7 +536,7 @@ class Rec:
         self.mouse_rest()
 
     def wait_for_window(self):
-        # `search --class` also answers with hidden utility windows, so walk the
+        # `search --class` also returns hidden utility windows, so walk the
         # named ones and take a real top-level with a title
         deadline = time.time() + 60
         while time.time() < deadline:
@@ -633,7 +633,7 @@ class Typist:
 
     def _emit(self, ch):
         # timestamp AFTER the send, so the xdotool spawn latency never skews the
-        # foley; the event epoch is the moment X actually got the key
+        # foley; the event epoch is the moment X got the key
         if ch == " ":
             self.rec.xdo("key", "--clearmodifiers", "space")
             self.rec.ev("key:SPACE")
@@ -738,7 +738,7 @@ class Mouse:
         time.sleep(settle)
 
     def drag(self, lx1, ly1, lx2, ly2, dur=1.1):
-        # the pause before the release matters: without it the drop target has not
+        # the pause before the release matters: without it the drop target hasn't
         # settled and the drag icon is left stranded on screen
         self.move(lx1, ly1, 0.5)
         time.sleep(0.2)
@@ -764,8 +764,8 @@ class Mouse:
 ##	Banner bookkeeping
 
 class Banner:
-    # every caption sits in the band above the window, so there is no position to
-    # choose - only the text and the span it covers
+    # every caption goes in the band above the window, so there's no position to
+    # choose, only the text and the span it covers
     def __init__(self, rec, text):
         self.rec, self.text = rec, text
 
@@ -780,8 +780,8 @@ class Banner:
 ##•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 ##	The synthetic home
 
-# Names are generic on purpose. Nothing here may carry a real account name, a
-# real path or anything that identifies the box the recording was made on.
+# Names are generic on purpose. Nothing here may include a real account name, a
+# real path, or anything that identifies the box the recording was made on.
 TREE = {
     "Documents": {
         "Reports": ["annual-report.odt", "q1-report.odt", "q2-report.odt",
@@ -825,7 +825,7 @@ REPORT_TEXT = ("Quarterly summary\n\nThe report covers the period to date. "
 
 # Real photos for the icon view, so its thumbnails look like something. All are
 # public domain or CC0 on Wikimedia Commons, so nothing needs crediting on
-# screen. Fetched once at 800px into a cache beside the repo, not shipped.
+# screen. Fetched once at 800px into a cache beside the repo, not committed.
 PHOTO_CACHE = OUT_DIR / "photo-cache"
 PHOTOS = {
     "f-22-over-clouds.jpg": ("F-22 Raptor - 080608-F-0154C-103.jpg", "Public domain, US Air Force"),
@@ -957,7 +957,7 @@ START_SETTINGS = {
     "preferences.date-format": "informal",
     "preferences.default-folder-viewer": "list-view",
     "preferences.show-image-thumbnails": "true",
-    # a folder of pictures opens at 5x by default, two thumbnails to a window
+    # a folder of pictures opens at 5x by default, 2 thumbnails to a window
     # this size. At 1.5x all of Photos fits.
     "icon-view.default-image-icon-size": "150",
     "preferences.show-hidden-files": "false",
@@ -966,13 +966,13 @@ START_SETTINGS = {
     # off until the stripes scene turns it on
     "list-view.row-shading": "false",
     "search.group-by-folder": "false",
-    # the delete test guard is on by default for now, and its dialog is not a feature
+    # the delete test guard is on by default for now, and its dialog isn't a feature
     "debug.testguard-all-deletes": "false",
 }
 
 def render_settings(values):
-    # the file is groups of `key: value`, one tab of indent per level - the same
-    # shape the app writes, and the same thing a hand edit produces
+    # the file is groups of `key: value`, one tab of indent per level. That's
+    # the layout the app writes, and the same thing a hand edit produces
     tree = {}
     for dotted, value in values.items():
         parts = dotted.split(".")
@@ -1010,11 +1010,11 @@ def prep_content(rec, rng):
 
 
 ##•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-##	Segments (each takes the recorder, typist, mouse)
+##	Segments. Each takes the recorder, typist, and mouse.
 ##	Every coordinate is in gif pixels, measured from the client area's top-left.
 
 # Landmarks, measured off a --shot with the starting settings. The sidebar widths
-# are pinned in START_SETTINGS, so these hold as long as those do.
+# are pinned in START_SETTINGS, so these stay right as long as those do.
 LIST_X     = 430         # in the Name column of the file list
 TOOL_Y     = 48
 ROW_Y, ROW_DY   = 109, 26        # first file row, and the row pitch
@@ -1028,7 +1028,7 @@ PHOTOS_ICON  = (220, 133)
 ICONS_EMPTY  = (720, 330)    # right of the last thumbnail in Photos
 SEARCH_GROUP = (879, 96)     # the group-by-folder toggle in the search bar
 # A context menu that would run off the bottom of the screen is pushed up to
-# fit, so for a row this far down each item sits at the same height wherever
+# fit, so for a row this far down each item is at the same height wherever
 # the right-click was. Folder and file menus differ.
 COMPRESS_ITEM  = (496, 356)
 MAKE_LINK_ITEM = (494, 280)      # folder menu
@@ -1051,8 +1051,8 @@ COPY_GO         = (287, -17)
 # way, so the scrollbar comes up
 SQUEEZE_W = 420
 
-# Best first. Compress and the shortcut happen in Documents, and the next two
-# in Reports. Both stay in list view, so row() holds throughout.
+# Best first. Compress and the shortcut happen in Documents, and the next 2
+# in Reports. Both stay in list view, so row() is right throughout.
 
 def seg_compress(r, t, m):
     # quicker than the other scenes: the dialog is plain to read, and Options
@@ -1113,7 +1113,7 @@ def seg_copylink(r, t, m):
 
 def seg_columns(r, t, m):
     # The window corner is dragged in until Name has given up all it can and a
-    # scrollbar comes up, then back out. The decoration does not scale with
+    # scrollbar comes up, then back out. The decoration doesn't scale with
     # GDK_SCALE, so the corner is found in screen pixels, not through pt().
     # Every later scene needs the window back at its exact size, so that is
     # asked for again at the end rather than trusted to the drag.
@@ -1157,7 +1157,7 @@ def seg_pictures(r, t, m):
         time.sleep(1.3)
 
 def seg_search(r, t, m):
-    # From Home the matches come from four folders, so the grouped result has
+    # From Home the matches come from 4 folders, so the grouped result has
     # groups to show. A flat list says nothing about where the matches came
     # from, so it gets a beat to read before the grouped one replaces it.
     m.at(*CRUMB_HOME, dur=0.7, settle=0.9)
@@ -1417,7 +1417,7 @@ def gif_pass(rec, work, out_gif, trim, dur, colors=GIF_COLORS, tail=False):
 
 def gif_optimize(gif):
     # gifsicle -O3 re-cuts every frame to the smallest changed rectangle, so the
-    # static band above the window and the held tail frames cost near nothing
+    # static band above the window and the frozen tail frames cost near nothing
     if not shutil.which("gifsicle"):
         log("WARNING: gifsicle not found - gif left unoptimized")
         return gif
@@ -1441,7 +1441,7 @@ def encode_gif(rec, work, out_gif, video_end_e):
 ##•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 ##	Output placement + rotation
 
-# The README carries the gif, and GitHub stops animating one much past this.
+# The README shows the gif, and GitHub stops animating one much past this.
 GIF_ASSET_MAX_MB = 10
 # The backlog asked for under a minute; the links scene and the archive options
 # took it past that, so the cap moved. Scene holds drift a little run to run, so
@@ -1481,7 +1481,7 @@ def place_gif(gif, out_dir, no_rotate, no_asset=False):
     secs = gif_seconds(dst)                   # before the rotate renames it
     rotate(out_dir, "nemo-anywhere-demo", "gif", no_rotate)
     log(f"gif: {dst} ({mb:.1f} MiB, {secs:.1f}s)")
-    # The fixed tail is not a scene, and a longer black end should not read as one
+    # The fixed tail isn't a scene, and a longer black end shouldn't read as one
     # running long.
     scenes = secs - TAIL_EXTRA["gif"]
     if scenes > GIF_MAX_SECONDS:
@@ -1647,7 +1647,7 @@ def main():
     ap.add_argument("--keep-work", action="store_true")
     ap.add_argument("--no-rotate", action="store_true")
     ap.add_argument("--no-asset", action="store_true",
-        help="do not overwrite assets/demo.gif (for partial/tuning runs)")
+        help="don't overwrite assets/demo.gif (for partial/tuning runs)")
     ap.add_argument("--out-dir", default=str(OUT_DIR))
     ap.add_argument("--shot", default="",
         help="write one screenshot of the launched app and stop")
@@ -1682,6 +1682,6 @@ if __name__ == "__main__":
 ##		- 20260925: Links scene, and Compress shows its options. The caption band
 ##		  is reserved with a strut, so no dialog grows up under it.
 ##		- 20260925: The video fades in and fades out to black; the gif ends on
-##		  three seconds of black. The length warning leaves the tail out.
+##		  3 seconds of black. The length warning leaves the tail out.
 ##		- 20261005: Best features first. New relative link, link copy, column
 ##		  and striped row scenes; F3, the tree and the drag scene left out.

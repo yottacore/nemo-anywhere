@@ -1,5 +1,5 @@
 /* The delete guard on Windows: home, the folders above it and a drive root are
- * never removed, however the path is spelled, and one job cannot take most of
+ * never removed, however the path is spelled, and one job can't take most of
  * home. Case, slashes, a short 8.3 name and a junction on the way all count. */
 
 #include <config.h>
@@ -174,7 +174,7 @@ main (void)
 	check (exists (notes));
 	check (exists (docs));
 
-	/* Eight entries in home: Documents, notes.txt and six items. */
+	/* Eight entries in home: Documents, notes.txt and 6 items. */
 	make_files (home, "item", 0, 6);
 	check (sweeps (home, "item", 5));
 	check (!sweeps (home, "item", 3));
@@ -195,7 +195,7 @@ main (void)
 	make_files (outside, "item", 0, 5);
 	check (!sweeps (outside, "item", 5));
 
-	/* Five of twenty is not most of it. */
+	/* Five of 20 isn't most of it. */
 	make_files (home, "item", 6, 18);
 	check (!sweeps (home, "item", 5));
 

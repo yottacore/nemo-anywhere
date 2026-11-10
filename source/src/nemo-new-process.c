@@ -25,7 +25,7 @@
 
 /* The command line another copy needs to show what this one was asked for.
  * A selection is passed as --select when the location is its folder; when it
- * is not, the location alone is what can be said on a command line.
+ * isn't, the location alone is what can be said on a command line.
  * Returns: (transfer full): free with g_strfreev */
 char **
 nemo_new_process_argv (GFile *location,
@@ -94,7 +94,7 @@ child_exited (GPid     pid,
 }
 
 /* Its own session, so a hangup or an interrupt aimed at the window that
- * started it does not reach it. */
+ * started it doesn't reach it. */
 static void
 detach_from_terminal (G_GNUC_UNUSED gpointer user_data)
 {

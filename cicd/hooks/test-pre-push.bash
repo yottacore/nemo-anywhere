@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: Check the pre-push hook's version guard for main. A release push
-##	  must carry a strictly higher version, with a prerelease below its own
-##	  release - which plain sort -V gets backwards, so a beta to final push was
+##	  must have a strictly higher version, with a prerelease below its own
+##	  release. Plain sort -V gets that backwards, so a beta to final push was
 ##	  once refused. First the compare on its own, then the whole hook run
 ##	  against a throwaway repo, with a stand-in for the gate it calls. The
 ##	  version and badge come from the commit pushed, never the working tree,
-##	  and the gate is refused when the tree is not that commit. The gate is
+##	  and the gate is refused when the tree isn't that commit. The gate is
 ##	  cicd.bash --merge-gate, and a push that changes only paths in
 ##	  gate-skip-paths.txt skips the gate and both guards.
 ##	- Runs in the lint stage.
@@ -80,7 +80,7 @@ calls="${scratch}/gate-calls"
 printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "%s"\n' "$calls" > "${repo}/cicd/cicd.bash"
 chmod +x "${repo}/cicd/cicd.bash"
 printf 'exit 0\n' > "${repo}/cicd/cicd-win.ps1"
-## The lint stage runs under MSYS2 on Windows, where pwsh is not on PATH. The
+## The lint stage runs under MSYS2 on Windows, where pwsh isn't on PATH. The
 ## gate is a stand-in anyway, so pwsh can be one too.
 mkdir -p "${scratch}/bin"
 printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "%s"\n' "$calls" > "${scratch}/bin/pwsh"
@@ -125,7 +125,7 @@ for entry in "${hookCases[@]}"; do
 	fi
 done
 
-## Anything but main is not guarded, whatever the versions.
+## Anything but main isn't guarded, whatever the versions.
 rc=0
 out="$(cd "$repo" && printf 'refs/heads/dev %s refs/heads/dev %s\n' "$newsha" "$oldsha" \
 	| bash "$hook" origin example.invalid 2>&1)" || rc=$?
@@ -155,13 +155,13 @@ git -C "$repo" checkout -q -- source/meson.build
 ## A real bump pushed while another branch, still on the old version, is checked out.
 newsha="$(fCommitVersion 2.0.1)"
 git -C "$repo" checkout -q "$oldsha"
-fPushMain "other commit checked out" 1 "not the commit pushed"
+fPushMain "other commit checked out" 1 "isn't the commit pushed"
 git -C "$repo" checkout -q "$newsha"
 fPushMain "the pushed commit checked out" 0 ""
 
-## Uncommitted edits are refused too; untracked files are not.
+## Uncommitted edits are refused too, but untracked files aren't.
 echo y >> "${repo}/notes"
-fPushMain "uncommitted edit" 1 "not the commit pushed"
+fPushMain "uncommitted edit" 1 "isn't the commit pushed"
 git -C "$repo" checkout -q -- notes
 echo z > "${repo}/untracked"
 fPushMain "untracked file" 0 ""
@@ -218,7 +218,7 @@ newsha="$(fCommitFiles first guide.md)"
 rm -f "$calls"
 fPushMain "first push, docs only" 0 ""
 # shellcheck disable=SC2053  ## gateWant is a glob on purpose.
-[[ "$(cat "$calls" 2>/dev/null)" == $gateWant ]] || fFail "hook, first push: the gate did not run"
+[[ "$(cat "$calls" 2>/dev/null)" == $gateWant ]] || fFail "hook, first push: the gate didn't run"
 
 if ((failures)); then
 	fEcho "FAILED: pre-push version guard, ${failures} problem(s)"

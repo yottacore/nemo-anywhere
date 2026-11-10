@@ -2,7 +2,7 @@
 
 ##	- Purpose: The heap growth soak, under --leakcheck. The debug build runs on a
 ##	  headless display under heaptrack, with a probe preloaded that opens and
-##	  closes tabs, folders and thumbnails in a loop
+##	  closes tabs, folders, and thumbnails in a loop
 ##	  (source/test/test-nemo-heap-soak-probe.c). It fails when the heap after
 ##	  round 2N is more than SOAK_MARGIN bytes above the heap after round N.
 ##	- First the same run with a planted loop that keeps SOAK_PLANT bytes a

@@ -102,7 +102,7 @@ fill (const char *folder, const char *name, const void *head, gsize head_size, g
 static void
 run (const char *exe, const char *probe, gboolean remember)
 {
-	/* Size order is not name order or type order, so each sort shows. */
+	/* Size order isn't name order or type order, so each sort shows. */
 	static const struct { const char *name; gsize size; } files[] = {
 		{ "apple.txt", 30 }, { "banana.dat", 3000 }, { "cherry.md", 300 },
 	};
@@ -168,7 +168,7 @@ run (const char *exe, const char *probe, gboolean remember)
 		goto out;
 	}
 
-	/* The probe gives each step ten seconds, and there are six. */
+	/* The probe gives each step 10 seconds, and there are 6. */
 	for (i = 0; i < 700 && alive (pid) && !done; i++) {
 		g_usleep (100 * 1000);
 		g_free (text);

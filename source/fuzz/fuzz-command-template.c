@@ -21,10 +21,10 @@
 */
 
 /* The template comes out of the settings file, so it is whatever somebody
- * typed. What matters is that no input turns one argument into two: the split
+ * typed. What matters is that no input turns one argument into 2: the split
  * happens before any token is replaced, and the expander must not undo that.
  *
- * The tokens below cover the three cases the code treats differently - one
+ * The tokens below cover the 3 cases the code treats differently - one
  * value, several, and none - because which branch runs depends on the token,
  * not on the text. */
 
@@ -57,7 +57,7 @@ LLVMFuzzerTestOneInput (const uint8_t *data, size_t size)
 	char **missing;
 	char *text;
 
-	/* The real caller holds a C string, so an embedded NUL ends it here too. */
+	/* The real caller passes a C string, so an embedded NUL ends it here too. */
 	text = g_strndup ((const char *) data, size);
 
 	argv = nemo_command_template_expand (text, tokens, &error);

@@ -13,7 +13,7 @@
 ##	- fBoxWrap_WaitReady <target> <sec> <probe> [ssh opt]... -> 0 once <probe>
 ##	  exits 0 there, 3 at once when it exits 3 (the wrong box), 1 when <sec> runs
 ##	  out or the name doesn't resolve. The helper's own wait is for ssh as the
-##	  person running it, which can answer while the lane's user can't log in
+##	  person running it, which can log in while the lane's user can't log in
 ##	  yet, or before what the lane needs there, such as docker, is up.
 ##	  BOX_READY_POLL is the seconds between tries (default 5).
 ##	- fBoxWrap_ClockReady <target> [ssh opt]... -> 0 once the box's clock is
@@ -24,7 +24,7 @@
 ##	  newer than the sources. The VM state helper sets the clock as it wakes a
 ##	  guest; this catches the cases it can't, or the bare host lock.
 ##	- fBoxWrap_IsThere <name> <target> <tool> [ssh opt]... -> 1 when the box
-##	  isn't there: ssh gets no answer at all, and it's neither a paused or off
+##	  isn't there: ssh gets no reply at all, and it's neither a paused or off
 ##	  VM the VM state helper <tool> can wake, nor held by another session in
 ##	  the host lock. So a VM that's running but has no network is a skip in
 ##	  seconds, not a 10 min wait. A login or command that fails still counts as
@@ -32,12 +32,12 @@
 ##	- fBoxWrap_Jobs <pin> <target> [ssh opt]... -> sets boxJobs, the build and
 ##	  test jobs for that box, from its own CPU count and load by the rules in
 ##	  jobs.bash, or <pin> when that's set, and prints the count the way
-##	  cicd.bash does for a step. 1 when the box won't say.
+##	  cicd.bash does for a step. Returns 1 when the box won't say.
 ##	- fBoxWrap_RunDir <project> <target> [ssh opt]... -> makes the run's
 ##	  folder on the box, <temp>/<project>/<YYYYmmDD-HHMMSS>_<NNN>/ with a
 ##	  run.pid, and sweeps the project's stale ones there, the way a run here
 ##	  does (run-temp.bash). <temp> is the box's HOST_TEMP, then TMPDIR, then
-##	  /tmp. Sets boxRunDir, and prints it. 1 when the box won't make one.
+##	  /tmp. Sets boxRunDir, and prints it. Returns 1 when the box won't make one.
 ##	- fBoxWrap_RunDirDone <target> [ssh opt]... -> for the EXIT trap: removes
 ##	  boxRunDir there through the guard, or with CICD_KEEP_TEMP=1 keeps it and
 ##	  says where it is. Run once; a second call does nothing.
@@ -86,7 +86,7 @@ fBoxWrap_IsThere(){
 	shift 3
 	if [[ "$tool" == *vm-state.bash && -f "$tool" ]]; then
 		st="$(bash "$tool" status "$name" 2> /dev/null | awk -v h="$name" '$1 == h {print $3}')" || true
-		## Paused or off gets woken by the helper. Running has to answer now.
+		## Paused or off gets woken by the helper. Running has to reply now.
 		[[ -z "$st" || "$st" == - || "$st" == running ]] || return 0
 	fi
 	fBoxWrap_HeldElsewhere "$name" "$tool" && return 0
@@ -218,7 +218,7 @@ fBoxWrap_RunCmd(){
 ##		  after a boot. fBoxWrap_IsThere, so a box that isn't there is a skip.
 ##		  fBoxWrap_ClockReady, since a resumed guest keeps its old clock.
 ##		- 2026-10-28: fBoxWrap_Jobs, so a lane works out its box's jobs there.
-##		- 2026-10-31: A running VM that doesn't answer, and that nobody else
+##		- 2026-10-31: A running VM that doesn't reply, and that nobody else
 ##		  holds, isn't there. vmFreeBSD cost 2 10-minute waits that way.
 ##		- 2026-11-04: fBoxWrap_RunDir, fBoxWrap_RunDirDone and fBoxWrap_RunCmd,
 ##		  so a lane works in a run folder under the box's temp root.

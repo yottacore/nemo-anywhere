@@ -26,7 +26,7 @@
 G_BEGIN_DECLS
 
 /* Install once, as early in main as possible. Also says whether an earlier run
-   left a report behind, and drops the oldest so the folder cannot grow forever.
+   left a report behind, and drops the oldest so the folder can't grow forever.
 
    NEMO_NO_CRASH_HANDLER installs nothing at all. NEMO_NO_CRASH_DIALOG keeps the
    report but drops the message box a windowed build puts up, for anything

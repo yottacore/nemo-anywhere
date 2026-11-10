@@ -68,7 +68,7 @@ else
 	while IFS= read -r line; do
 		[[ "$line" =~ snapshot\.ubuntu\.com/ubuntu/[0-9]{8}T[0-9]{6}Z/ ]] || fFail "source not on a dated snapshot: ${line}"
 	done <<<"$rewritten"
-	if [[ "$(grep -c . <<<"$snaps")" != 1 ]]; then fFail "sources do not share one snapshot: $(tr '\n' ' ' <<<"$snaps")"; fi
+	if [[ "$(grep -c . <<<"$snaps")" != 1 ]]; then fFail "sources don't share one snapshot: $(tr '\n' ' ' <<<"$snaps")"; fi
 
 	## apt must not read the live archive first.
 	before="${joined%%sources.list*}"

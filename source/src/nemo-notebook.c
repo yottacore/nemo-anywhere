@@ -265,7 +265,7 @@ sync_tab_visibility (GtkNotebook *gnotebook)
 							     NEMO_PREFERENCES_ALWAYS_SHOW_TABS));
 }
 
-/* Size every tab to its own title, between the two percentages of the strip's
+/* Size every tab to its own title, between the 2 percentages of the strip's
  * width. GtkNotebook hands a tab its MINIMUM width, which is why upstream had
  * them all expand to fill instead - so the title's own width has to become the
  * minimum. Measured with a layout rather than converted from an average
@@ -274,7 +274,7 @@ sync_tab_visibility (GtkNotebook *gnotebook)
 /* What a tab costs beyond its title: padding, the close button and the gap to
  * the next tab. Read off neighbors that are on screen, since the theme decides
  * most of it, and the smallest reading wins so a tab still showing its spinner
- * does not count. With fewer than two tabs showing, the last reading stands.
+ * doesn't count. With fewer than 2 tabs showing, the last reading stands.
  */
 static int
 tab_chrome_px (GtkNotebook *gnotebook)
@@ -387,7 +387,7 @@ clamp_tab_widths (GtkNotebook *gnotebook, GtkAllocation *allocation, int active)
 			changed = TRUE;
 		}
 
-		/* The tab in front keeps whatever its path needs; anything it does not
+		/* The tab in front keeps whatever its path needs; anything it doesn't
 		   take is no use to the others, which are already at the cap. */
 		want = (i == active) ? MAX (widths[i][chosen[i]], min_px)
 				     : CLAMP (widths[i][chosen[i]], min_px, max_px);
@@ -448,9 +448,9 @@ notebook_size_allocate_cb (GtkWidget *widget, GtkAllocation *allocation, G_GNUC_
 	}
 }
 
-/* The tab moving to the front is the one allowed to spell out its path, so the
+/* The tab moving to the front is the one allowed to show its whole path, so the
    row has to be laid out again. page_num is used rather than asking, since the
-   notebook has not finished switching yet. */
+   notebook hasn't finished switching yet. */
 static void
 notebook_switch_page_cb (GtkNotebook *gnotebook, G_GNUC_UNUSED GtkWidget *page, guint page_num,
 			 G_GNUC_UNUSED gpointer user_data)

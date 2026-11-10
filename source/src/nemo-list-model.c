@@ -347,7 +347,7 @@ nemo_list_model_get_value (GtkTreeModel *tree_model, GtkTreeIter *iter, int colu
 
             /* Drag-accept and cut-highlight render live; everything else is a
              * stable function of (column, scale, thumb-shown) until the file
-             * changes, so serve a cached surface across redraws. */
+             * changes, so reuse a cached surface across redraws. */
             cacheable = model->details->drag_view == NULL &&
                         model->details->highlight_files == NULL;
 
@@ -1326,7 +1326,7 @@ nemo_list_model_get_length (NemoListModel *model)
 		}
 
 		/* A group row is a heading rather than a result, so what counts is
-		   the matches under it - less the placeholder a fresh one carries. */
+		   the matches under it - less the placeholder a fresh one has. */
 		children = g_sequence_get_length (file_entry->files);
 		if (children == 1 &&
 		    ((FileEntry *) g_sequence_get (g_sequence_get_begin_iter (file_entry->files)))->file == NULL) {

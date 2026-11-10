@@ -2,16 +2,16 @@
  *
  * Its own folders are the cell the runner named in NEMO_TEST_SCRATCH (the
  * temp dir when a test is run by hand), plus every directory test_scratch_dir
- * made. On POSIX this file takes over unlink, rmdir, remove, rename and their
- * at forms for the whole process, so GLib, GIO, SQLite, libarchive and the
+ * made. On POSIX this file takes over unlink, rmdir, remove, rename, and their
+ * at forms for the whole process, so GLib, GIO, SQLite, libarchive, and the
  * app's own code all go through it. On macOS that takes a dylib, see
  * FENCED below. On Windows it puts itself in front of the same calls in every
  * loaded module's import table. A refused call ends the test, since an error
  * that comes back is too easy to swallow.
  *
- * On Linux the bubblewrap jail (cicd/linux/jail.bash) stands behind this. On
+ * On Linux the bubblewrap jail in cicd/linux/jail.bash backs this up. On
  * the other boxes it's the only wall. A program the test starts, such as the
- * app itself, is not fenced unless it is a test binary too.
+ * app itself, isn't fenced unless it is a test binary too.
  *
  * Two things outside go through all the same. A delete of something that
  * isn't there harms nothing, and fontconfig tries one on every font folder it
@@ -82,7 +82,7 @@ static const char *const kind_name[] = {
    calls, and GLib's would go straight to libSystem. There, this file is a
    dylib the test links, and dyld puts each FENCED call in front of the real
    one for every other image, through the __interpose section at the end.
-   Calls made from inside this dylib still reach the real ones, so those are
+   Calls made from inside this dylib still go to the real ones, so those are
    called by name. */
 #ifdef __APPLE__
 #define FENCE_FN static
@@ -268,7 +268,7 @@ dir_of_fd (int dirfd, char out[PATH_MAX])
 #endif
 }
 
-/* Where a delete of path ends up: the folder it sits in with every link
+/* Where a delete of path ends up: the folder it's in with every link
    resolved, plus its last name as it stands, since a delete takes the link and
    not what it points at. 1 when found. 0 when the folder isn't there to
    resolve, so the real call fails on its own. -1 when the folder of an open
@@ -570,7 +570,7 @@ add_root_w (const wchar_t *dir)
 	while (len > 0 && (use[len - 1] == L'\\' || use[len - 1] == L'/')) {
 		len--;
 	}
-	/* A drive root is not a scratch folder. */
+	/* A drive root isn't a scratch folder. */
 	if (len <= 2) {
 		return;
 	}
@@ -618,7 +618,7 @@ resolve_w (const wchar_t *path, wchar_t out[FENCE_PATH])
 	}
 	name = cut + 1;
 	/* C: alone is the current folder on C:, not its root, so the parent of
-	   C:\x keeps its backslash. out holds it until the answer goes there. */
+	   C:\x keeps its backslash. out has it until the result goes there. */
 	len = (size_t) (cut - full) + (cut > full && cut[-1] == L':' ? 1 : 0);
 	memcpy (out, full, len * sizeof (wchar_t));
 	out[len] = L'\0';
@@ -704,7 +704,7 @@ is_gone_w (const wchar_t *path)
 }
 
 /* X:\$Recycle.Bin\<this user's sid>\$R<name>, not there yet. The shell
-   recycles that way, and its $I twin holds where the item came from. Both are
+   recycles that way, and its $I twin records where the item came from. Both are
    the test's own from then on. The source of the move was checked first. */
 static int
 recycled_w (const wchar_t *canon)
@@ -770,7 +770,7 @@ fence_a (FenceKind kind, const char *path)
 }
 
 /* Each hooked call, with the address it had in kernelbase and in kernel32. An
-   import table may hold either, depending on whether the module asked for
+   import table may have either, depending on whether the module asked for
    kernel32 by name or for an API set. The real call is kernelbase's where it
    has one: kernel32's is often a stub that goes through kernel32's own import
    table, and a hook called from there would call itself. */

@@ -227,7 +227,7 @@ plain_new (UINT cf, gconstpointer bytes, gsize len)
 	return &self->iface;
 }
 
-/* CF_HDROP for one path: the header, the path in wide chars, two nuls. */
+/* CF_HDROP for one path: the header, the path in wide chars, 2 nuls. */
 static IDataObject *
 hdrop_only (const char *path)
 {
@@ -341,7 +341,7 @@ spin (int ms)
 }
 
 /* One whole drag, in over the window and dropped. The effects are what the
- * target answered at the way in and at the drop. */
+ * target returned at the way in and at the drop. */
 static void
 drag (IDropTarget *target, IDataObject *data, DWORD allowed, POINTL pt,
       DWORD *entered, DWORD *done)

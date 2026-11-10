@@ -7,7 +7,7 @@
 ##	  set up without link-time optimization kept it off for every release built in
 ##	  it, and none of them matched a clean rebuild of its commit.
 ##	- Reads back what meson recorded and fails on anything but what was asked.
-##	- SOURCE_DATE_EPOCH has to be set by the caller: the build number is worked
+##	- SOURCE_DATE_EPOCH has to be set by the caller, since the build number is worked
 ##	  out here, at setup time.
 ##	- Syntax: release-setup.bash <build-dir> <source-dir> <prefix>
 
@@ -29,7 +29,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../utility/include/run-tem
 ## someone else.
 if [[ -e "$build" ]]; then
 	[[ "$build" == /* && "$build" != / ]] || fDie "build dir must be an absolute path: ${build}"
-	[[ -d "${build}/meson-private" ]] || fDie "${build} is not a meson build dir; not clearing it"
+	[[ -d "${build}/meson-private" ]] || fDie "${build} isn't a meson build dir; not clearing it"
 	## Emptied rather than removed, since a top-level dir has no parent the
 	## guard would take, and meson sets up an empty dir the same as a new one.
 	shopt -s dotglob nullglob

@@ -54,8 +54,8 @@ wait_for_count (NemoFile *file, guint want)
 	return FALSE;
 }
 
-/* The model is fed from a loaded directory, and a NemoFile knows nothing about
- * itself - not even that it is a folder - until that load has reached it. */
+/* The model is fed from a loaded directory, and a NemoFile doesn't know anything
+ * about itself, even that it's a folder, until that load has gotten to it. */
 static gboolean
 wait_for_directory (NemoDirectory *directory)
 {
@@ -153,7 +153,7 @@ main (int argc, char *argv[])
 	nemo_list_model_file_changed (model, empty, directory);
 	check (row_has_expander (model, empty, directory));
 
-	/* And away again when it is emptied, so the two halves stay symmetric. */
+	/* And away again when it is emptied, so the 2 halves stay symmetric. */
 	child = g_build_filename (tmp, "empty", "arrived", NULL);
 	g_rmdir (child);
 	g_free (child);

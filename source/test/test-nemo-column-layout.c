@@ -75,7 +75,7 @@ check_wide (void)
 }
 
 /* Between showing most and showing all, Name and Type grow together, Name the
-   faster for being the wider; the fixed columns do not move. */
+   faster for being the wider; the fixed columns don't move. */
 static void
 check_grows_in_proportion (void)
 {
@@ -93,8 +93,8 @@ check_grows_in_proportion (void)
 	check (total (widths, N_COLS) == SUM_FIT + 140);
 }
 
-/* A column that reaches the width showing everything stops, and the others
-   carry on with its share. */
+/* A column that gets to the width showing everything stops, and the others
+   go on with its share. */
 static void
 check_stops_at_max (void)
 {
@@ -187,7 +187,7 @@ check_single_column (void)
 	check (width == 100);
 }
 
-/* The three widths out of order: the larger wins, and nothing breaks. */
+/* The 3 widths out of order: the larger wins, and nothing breaks. */
 static void
 check_widths_out_of_order (void)
 {
@@ -247,7 +247,7 @@ check_primaries_share_the_surplus (void)
 	check (widths[P_LOC] == 240);
 	check (widths[P_SIZE] == 80);
 
-	/* Location alone takes it all when Name does not grow. */
+	/* Location alone takes it all when Name doesn't grow. */
 	items[P_NAME].grows = FALSE;
 	nemo_column_layout_distribute (items, N_PAIR, 1400, widths);
 	check (widths[P_NAME] == 500);
@@ -262,14 +262,14 @@ check_fit (void)
 	int three[3] = { 30, 10, 20 };
 	int one[1] = { 42 };
 
-	/* The nine that are not the outlier fit at 90; the outlier needs 900. */
+	/* The 9 that aren't the outlier fit at 90; the outlier needs 900. */
 	check (nemo_column_layout_fit (ten, 10, 90) == 90);
 	check (nemo_column_layout_fit (ten, 10, 100) == 900);
 	check (nemo_column_layout_fit (ten, 10, 50) == 50);
 	check (nemo_column_layout_fit (ten, 10, 1) == 10);
 
 	/* The share is rounded down, to no fewer than one value: 90 percent of
-	   three values is two, and 99 percent of ten is nine. */
+	   3 values is 2, and 99 percent of 10 is 9. */
 	check (nemo_column_layout_fit (three, 3, 90) == 20);
 	check (nemo_column_layout_fit (three, 3, 34) == 10);
 	check (nemo_column_layout_fit (ten, 10, 99) == 90);
@@ -286,7 +286,7 @@ check_fit (void)
 	check (ten[0] == 50 && ten[9] == 900);
 }
 
-/* One column's three widths from what was measured, by class, as design.md's
+/* One column's 3 widths from what was measured, by class, as design.md's
    "List view column widths" sets them. Air 8, ellipsis 12, and a minor column
    of 30 or less goes without an ellipsis. */
 #define PAD 8
@@ -360,7 +360,7 @@ check_classes (void)
 }
 
 /* Feeds a long name repeated down `repeats` rows, each a row of its own, then
-   ten short names, and returns the 90 percent fit. */
+   10 short names, and returns the 90 percent fit. */
 static int
 fit_of_repeated_name (NemoColumnTally *tally, int repeats)
 {
@@ -382,7 +382,7 @@ fit_of_repeated_name (NemoColumnTally *tally, int repeats)
 	return fit;
 }
 
-/* Which values count, and how many times. A folder can't hold one name twice,
+/* Which values count, and how many times. A folder can't have one name twice,
    so there Name counts per row. Find results can, once per folder it turns up
    in, and then each distinct name counts once, like Location. */
 static void
@@ -399,7 +399,7 @@ check_tally_modes (void)
 
 	/* 100 rows of one long name and 10 short ones. Counted per row, the long
 	   name is most of what was seen and Name stays at 400. Counted once, it
-	   is 1 value in 11, and the share stops at the 9th, 180. */
+	   is 1 value in 11, and the share stops at the ninth, 180. */
 	tally = nemo_column_tally_new (nemo_column_tally_mode_for (NEMO_COLUMN_KIND_PRIMARY, TRUE, TRUE));
 	check (fit_of_repeated_name (tally, 100) == 180);
 	nemo_column_tally_free (tally);
@@ -430,7 +430,7 @@ check_tally_rows_and_texts (void)
 	check (fit == 0 && widest == 0);
 	nemo_column_tally_free (tally);
 
-	/* A text counts at the widest it was seen at, such as one name at two
+	/* A text counts at the widest it was seen at, such as one name at 2
 	   depths of a tree, and a row going doesn't take a shared text with it. */
 	tally = nemo_column_tally_new (NEMO_COLUMN_TALLY_EACH_TEXT);
 	check (nemo_column_tally_note (tally, GINT_TO_POINTER (1), "same", 120));

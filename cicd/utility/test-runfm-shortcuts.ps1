@@ -32,7 +32,7 @@ $launcher = Join-Path $PSScriptRoot "../../utility/n8runfm.ps1"
 $tokens = $null
 $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($launcher, [ref]$tokens, [ref]$parseErrors)
-if ($parseErrors) { Write-Host "[ FAILED: n8runfm.ps1 does not parse: $($parseErrors[0].Message) ]"; exit 1 }
+if ($parseErrors) { Write-Host "[ FAILED: n8runfm.ps1 doesn't parse: $($parseErrors[0].Message) ]"; exit 1 }
 
 $def = $ast.Find({
 	param($node)

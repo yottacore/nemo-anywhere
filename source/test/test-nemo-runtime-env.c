@@ -131,7 +131,7 @@ main (int argc, char *argv[])
 	g_mkdir_with_parents (bin, 0755);
 	g_mkdir_with_parents (share, 0755);
 
-	/* What an install relocated to tmp carries. */
+	/* What an install relocated to tmp has. */
 	data_dir = g_build_filename (share, NEMO_APP_SLUG, NULL);
 	locale_dir = g_build_filename (share, "locale", NULL);
 	g_mkdir_with_parents (data_dir, 0755);
@@ -152,7 +152,7 @@ main (int argc, char *argv[])
 
 #ifdef TEST_EXTENSION_LIB_DIR
 	/* The build rpath is $ORIGIN relative, so from the copy it points at
-	 * nothing. Newer meson test runs set this anyway; 0.61 does not. */
+	 * nothing. Newer meson test runs set this anyway; 0.61 doesn't. */
 	{
 		const char *old = g_getenv ("LD_LIBRARY_PATH");
 		char *lib_path = old != NULL && *old != '\0'

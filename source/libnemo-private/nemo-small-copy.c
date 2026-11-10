@@ -33,7 +33,7 @@ nemo_small_copy_limit (void)
 #endif
 }
 
-/* The whole file is read before the target is made, so a source that cannot be
+/* The whole file is read before the target is made, so a source that can't be
    read, or has grown past the limit since it was sized, leaves nothing behind. */
 static guint8 *
 read_small (GFile *src, goffset limit, GCancellable *cancellable, gsize *len)

@@ -324,7 +324,7 @@ nemo_user_text_set_string (GKeyFile    *key_file,
 	gchar *back;
 	gboolean same;
 
-	/* A line break or a leading blank cannot go in as written. Rare enough
+	/* A line break or a leading blank can't go in as written. Rare enough
 	   in a path or a name to leave to GKeyFile's escapes. */
 	if (strpbrk (value, "\r\n") != NULL || value[0] == ' ' || value[0] == '\t') {
 		g_key_file_set_string (key_file, group, key, value);

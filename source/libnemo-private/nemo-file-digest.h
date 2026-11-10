@@ -42,7 +42,7 @@
 G_BEGIN_DECLS
 
 /* Text form of a checksum, base64url with no padding, as it goes into an
- * extended attribute. 43 characters plus the terminator. */
+ * extended attribute, 43 characters plus the terminator. */
 #define NEMO_FILE_DIGEST_TEXT_LEN 44
 
 /* Checksums a buffer already in memory. `digest` is NEMO_CACHE_DIGEST_LEN
@@ -50,7 +50,7 @@ G_BEGIN_DECLS
 void nemo_file_digest_bytes (gconstpointer data, gsize len, guint8 *digest);
 
 /* Reads the file and checksums it. False on any read error, or if the read was
- * cancelled - which the thumbnail queue does on a folder change, so a partial
+ * canceled - which the thumbnail queue does on a folder change, so a partial
  * answer must never be mistaken for a real one. */
 gboolean nemo_file_digest_file (GFile        *file,
 				guint8       *digest,
@@ -58,14 +58,14 @@ gboolean nemo_file_digest_file (GFile        *file,
 				GError      **error);
 
 /* Between the binary form and the text form. `text` is at least
- * NEMO_FILE_DIGEST_TEXT_LEN bytes; from_text refuses anything that is not
+ * NEMO_FILE_DIGEST_TEXT_LEN bytes; from_text refuses anything that isn't
  * exactly one checksum. */
 void     nemo_file_digest_to_text   (const guint8 *digest, char *text);
 gboolean nemo_file_digest_from_text (const char *text, guint8 *digest);
 
-/* The checksum a previous run left on the file itself, in three extended
+/* The checksum a previous run left on the file itself, in 3 extended
  * attributes: the checksum, and the size and time it was taken at. False
- * unless all three are there and the other two still describe the file, since
+ * unless all 3 are there and the other 2 still describe the file, since
  * an attribute that survived an edit describes something that is gone.
  *
  * The point of keeping it on the file is that it travels with the file. A copy

@@ -10,7 +10,7 @@
  *
  * SHCL_OLD_STAMPED adds the info block the app wrote from 20260925, for the
  * dev header that stamped format 3 but wrote lists bare. That header isn't
- * kept here; shcl-dev-writer.c holds what this wrote with it.
+ * kept here; shcl-dev-writer.c has what this wrote with it.
  *
  * plain is only what the app's own setters wrote. hand adds lines spelled the
  * way a person might have written them under the old rules. nobackslash is

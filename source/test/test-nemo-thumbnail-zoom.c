@@ -212,7 +212,7 @@ main (int argc, char **argv)
 	check (gdk_pixbuf_save (pixbuf, path, "png", NULL, NULL));
 	g_object_unref (pixbuf);
 
-	/* Or it is left alone for being changed in the last two seconds. */
+	/* Or it is left alone for being changed in the last 2 seconds. */
 	location = g_file_new_for_path (path);
 	check (g_file_set_attribute_uint64 (location, G_FILE_ATTRIBUTE_TIME_MODIFIED,
 					    (guint64) (g_get_real_time () / G_USEC_PER_SEC) - 3600,

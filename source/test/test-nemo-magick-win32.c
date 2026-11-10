@@ -22,7 +22,7 @@
 
 /* Each thumbnail used to open a console window, since the app has no console
  * and the program it started was given one of its own. A stand-in for magick,
- * found first on PATH, says whether it got a window, what reached its stdin,
+ * found first on PATH, says whether it got a window, what came in on its stdin,
  * and which arguments it was handed. A failed run and a stopped one come back
  * empty, and a stopped one ends the program. */
 

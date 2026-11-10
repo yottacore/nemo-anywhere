@@ -2,12 +2,12 @@
 
 ##	- Purpose: Cut a release locally from main. No hosted CI: the tag, the
 ##	  artifacts, and the optional GitHub Release upload all happen on this box.
-##	- Flow (run AFTER merging dev into main --no-ff):
+##	- Flow, run after merging dev into main --no-ff:
 ##	   1. verify: on main, clean tree, version bumped, README badge matches
 ##	   2. artifacts exist, match their sums file, and were built from HEAD itself,
 ##	      not from dev before the merge
 ##	   3. tag the merge: v<version>, where <version> comes from source/meson.build
-##	      alone (the build stamps from it too, so they can never disagree)
+##	      alone. The build stamps from it too, so they can't disagree.
 ##	   4. --push: push main + the tag
 ##	   5. --publish: wait for the hosted builds the tag started
 ##	      (RELEASE_WORKFLOWS), download their files, and make the GitHub Release
@@ -48,7 +48,7 @@ esac; done
 die(){ echo "FAILED: $*" >&2; exit 1; }
 
 ## 1. Preconditions: releases only cut from a clean main, with the version
-## already bumped on dev (so nothing is ever committed directly on main here).
+## already bumped on dev, so nothing is ever committed directly on main here.
 branch="$(git rev-parse --abbrev-ref HEAD)"
 [[ "$branch" == "main" ]] || die "not on main (on ${branch}); merge dev --no-ff into main first"
 if ! git diff --quiet || ! git diff --cached --quiet; then die "working tree not clean"; fi
@@ -73,7 +73,7 @@ fi
 ## A badge that reads the release off GitHub keeps itself in step, so it is skipped.
 if grep -q 'shields.io/badge/Release-' README.md; then
 	badge_ver="${ver//-/--}"
-	grep -q "Release-${badge_ver}-" README.md || die "README release badge does not say ${ver} - update it on dev before the release merge"
+	grep -q "Release-${badge_ver}-" README.md || die "README release badge doesn't say ${ver} - update it on dev before the release merge"
 fi
 
 ## gh makes the release as whoever it is signed in as, which on a box with more
@@ -86,9 +86,9 @@ if ((do_publish)) && [[ -n "${RELEASE_GH_LOGIN:-}" ]]; then
 		|| die "gh is signed in as '${gh_login:-nobody}', not ${RELEASE_GH_LOGIN}; switch first (gh auth switch -u ${RELEASE_GH_LOGIN}, or GH_TOKEN for this run) and rerun"
 fi
 
-## 2. Release artifacts must exist and carry this version (full cicd run makes them).
+## 2. Release artifacts must exist and have this version. A full cicd run makes them.
 ## Gated on a configured RELEASE_ARTIFACT_DIR; without one a release is tag and
-## push only. The Windows exe is not among them: the hosted workflow builds it on
+## push only. The Windows exe isn't among them: the hosted workflow builds it on
 ## the tag, and --publish fetches it from there.
 have_artifacts=0
 art_dir="${RELEASE_ARTIFACT_DIR:-}"
@@ -106,7 +106,7 @@ if [[ -n "$art_dir" ]]; then
 	head_ct="$(git log -1 --format=%ct)"
 	if ! stamps="$(python3 "${here}/release-stamps.py" --expect "${head_ct}" --exe "${EXE_NAME}.exe" "${arts[@]}")"; then
 		printf '%s\n' "$stamps" >&2
-		die "artifacts are not stamped ${head_ct}, HEAD's commit date - rebuild them here with cicd/cicd.bash --no-publish (not --quick) first"
+		die "artifacts aren't stamped ${head_ct}, HEAD's commit date - rebuild them here with cicd/cicd.bash --no-publish (not --quick) first"
 	fi
 fi
 
@@ -174,7 +174,7 @@ if ((do_publish)); then
 		done
 		[[ "$state" == "completed success" ]] || die "${wf} run ${run} ended '${state:-still running}'; once it passes (gh run rerun ${run}), rerun: cicd/utility/release.bash --publish"
 		got_dir="${pub_dir}/from-${wf%.*}"
-		gh run download "${run}" --name release-files --dir "${got_dir}" || die "could not download release-files from ${wf} run ${run}"
+		gh run download "${run}" --name release-files --dir "${got_dir}" || die "couldn't download release-files from ${wf} run ${run}"
 		shopt -s nullglob
 		got=("${got_dir}"/*)
 		shopt -u nullglob

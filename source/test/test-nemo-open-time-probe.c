@@ -21,7 +21,7 @@
 */
 
 /* Preloaded into the real program by test-nemo-open-time. The list view starts
- * on a folder holding the folders named in $NEMO_OPEN_STEPS, split on "|".
+ * on a folder containing the folders named in $NEMO_OPEN_STEPS, split on "|".
  * Once the view has gone quiet, and the next one's row shows its item count,
  * the probe goes into it the way a double click does, and times how long until
  * its first row is in and until all $NEMO_OPEN_FILES of them are. Then it reads
@@ -32,7 +32,7 @@
  * row it reads, one "opened <name>|<first ms>|<all ms>" line per folder, a
  * "FAIL" line for one that never filled in, and "done" at the end.
  *
- * Every answer of the listing of the folder being gone into after its first is
+ * Every batch of the listing of the folder being gone into after its first is
  * held back, so the batches come in the same order on any box: HOLD_MS for a
  * folder whose name starts "slow", and TRICKLE_MS for the others. */
 
@@ -327,8 +327,8 @@ tick (G_GNUC_UNUSED gpointer data)
 		return G_SOURCE_CONTINUE;
 	}
 
-	/* Ten seconds for a folder's rows is a hang, not a slow box, held
-	 * answers and all. Twenty for anything else. */
+	/* Ten seconds for a folder's rows is a hang rather than a slow box, held
+	 * batches and all. Twenty for anything else. */
 	if (++step_ticks > (stage == OPENING ? 200 : 400)) {
 		fprintf (out, "FAIL %s stuck at stage %d\n", steps[step] != NULL ? steps[step] : "the end",
 			 (int) stage);

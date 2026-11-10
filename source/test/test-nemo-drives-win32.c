@@ -24,8 +24,8 @@
  * way a mapped drive's entry reads. The list of mounts the side pane builds
  * from, and the trash state, must not wait on it. Set NEMO_PROBE_DEAD_SHARE
  * to \\<unused address on the local subnet>\share to time it against one that
- * really does not answer; without it an address in TEST-NET-1 is used, which
- * fails fast, so the timing proves little and the rest still holds.
+ * doesn't respond; without it an address in TEST-NET-1 is used, which
+ * fails fast, so the timing proves little and the rest still applies.
  *
  * Run with "glib" to put GLib's own mount list through the same checks. With a
  * dead share that is the one that waits.

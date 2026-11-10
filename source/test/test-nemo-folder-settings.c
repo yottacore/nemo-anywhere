@@ -125,7 +125,7 @@ main (int argc, char *argv[])
 	check (!nemo_folder_settings_has_own (other));
 	check (view_is (other, "default"));
 
-	/* Writing back what a folder already uses is not a change. Views do that
+	/* Writing back what a folder already uses isn't a change. Views do that
 	 * as a folder loads, and it used to give every folder opened a set. */
 	{
 		GList *columns = NULL;
@@ -247,8 +247,8 @@ main (int argc, char *argv[])
 		g_free (child_path);
 	}
 
-	/* The icon view keeps two sizes per folder, one for when the folder is
-	 * mostly pictures and one for when it is not, and both inherit. A child
+	/* The icon view keeps 2 sizes per folder, one for when the folder is
+	 * mostly pictures and one for when it isn't, and both inherit. A child
 	 * that is full of pictures takes the parent's picture size while its
 	 * plain sibling takes the parent's other one. */
 	{

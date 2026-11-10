@@ -20,8 +20,8 @@
 
 #include "test-heap.h"
 
-/* A freed block that sits in a thread's cache still counts as in use, and a
-   thread with its own arena is not counted at all. With both off, in use
+/* A freed block in a thread's cache still counts as in use, and a
+   thread with its own arena isn't counted at all. With both off, in use
    means in use. */
 #define HEAP_TUNABLES "glibc.malloc.tcache_count=0:glibc.malloc.arena_max=1"
 
@@ -39,7 +39,7 @@
    after the thread started, so growth has to show twice.
    On Windows, GIO's start-up scan of the installed apps leaves Windows' own
    file explorer code in the process, and from then on COM calls come and go
-   in it from outside, a 4 KB buffer at a time. They can grow two readings in
+   in it from outside, a 4 KB buffer at a time. They can grow 2 readings in
    a row and then give it all back, which a leak never does, so there growth
    has to show 4 times (2026101913541101). */
 #ifdef G_OS_WIN32
@@ -85,7 +85,7 @@ test_heap_init (int argc, char **argv)
 }
 
 #ifdef G_OS_WIN32
-/* GLib and the other mingw DLLs take from msvcrt's heap, which is not the
+/* GLib and the other mingw DLLs take from msvcrt's heap, which isn't the
    process heap. Rust code such as librsvg and Windows' own DLLs take from the
    process heap. So every heap is read, and a block's overhead counts, as
    glibc's chunk sizes do. */
@@ -143,7 +143,7 @@ test_heap_in_use (void)
 #define PROBE_BIG (64 * 1024)
 #define PROBE_SMALL 24
 
-/* A sanitizer answers mallinfo2 with numbers that do not move. Wine's heap
+/* Under a sanitizer mallinfo2 returns numbers that don't move. Wine's heap
    walk can see a big block and miss a small one. */
 static gboolean
 heap_readable (void)
@@ -193,7 +193,7 @@ compare_ids (gconstpointer a, gconstpointer b)
 }
 
 #ifdef G_OS_WIN32
-/* FALSE where it has ended, or cannot be looked at. */
+/* FALSE where it has ended, or can't be looked at. */
 static gboolean
 thread_running (DWORD id, gint64 *started)
 {
@@ -215,7 +215,7 @@ thread_running (DWORD id, gint64 *started)
 	return running;
 }
 
-/* NULL where the threads cannot be listed. */
+/* NULL where the threads can't be listed. */
 static GArray *
 thread_ids (void)
 {
@@ -257,7 +257,7 @@ thread_ids (void)
 #define THREAD_EXITING 0x4
 
 /* The thread's stat line, read past the name, which is in brackets and can
-   hold anything. Field 3 is its state, and field 9 its flags. NULL where the
+   contain anything. Field 3 is its state, and field 9 its flags. NULL where the
    thread is gone. */
 static char *
 thread_stat (const char *id, const char **after_name)
@@ -300,7 +300,7 @@ thread_exiting (const char *id)
 	return exiting;
 }
 
-/* NULL where the threads cannot be listed. A thread id is not given out again
+/* NULL where the threads can't be listed. A thread id isn't given out again
    for a long while, so the same list twice means no thread started or ended
    in between, apart from one that did both and so came out even. */
 static GArray *
@@ -345,7 +345,7 @@ same_threads (GArray *before, GArray *after)
 /* For a second or so after start, Windows and GTK take and give back memory
    in threads that were already there, so no thread list shows it. And GTK
    keeps what it used to ask the clipboard for until a 1 second timer goes off,
-   since the answer comes from outside the process there. So the heap has to
+   since the reply comes from outside the process there. So the heap has to
    sit still for longer than that, with the main loop running. */
 #define QUIET_POLLS 25
 #define QUIET_POLL_MS 50
@@ -485,8 +485,8 @@ settled_reading (void (*op) (gpointer data), gpointer data, guint rounds,
    that moment. A job connects a few dozen and lets them go, and with only
    the few dozen a bare test has, a rebuild left the table at 64 or 128
    slots, 768 bytes apart, by when it came (2026102518200000). With this many
-   more held for the readings, every rebuild comes out the same size. 384 put
-   the drag case, which keeps a few objects a round, near the next size up. */
+   more connected for the readings, every rebuild comes out the same size. At
+   384 the drag case, which keeps a few objects a round, was near the next size up. */
 #define HELD_HANDLERS 1024
 
 static void

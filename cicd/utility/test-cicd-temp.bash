@@ -30,7 +30,7 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 # shellcheck source=include/run-temp.bash
 source "${here}/include/run-temp.bash"
 HOST_TEMP="${TMPDIR:-/tmp}"
-fRunTemp_Make cicd-temp-check "$(date +%Y%m%d-%H%M%S)" || { fEcho "FAILED: could not make a scratch folder"; exit 1; }
+fRunTemp_Make cicd-temp-check "$(date +%Y%m%d-%H%M%S)" || { fEcho "FAILED: couldn't make a scratch folder"; exit 1; }
 scratch="${runTempDir}"
 trap 'fRunTemp_Done; rmdir "${HOST_TEMP}/cicd-temp-check" 2> /dev/null || true' EXIT
 lastDir=""; lastOut=""
@@ -80,7 +80,7 @@ fRun(){
 	lastOut="$out"
 	[[ "$rc" == "$want" ]] || fFail "[${what:-ok} $*]: exit ${rc}, not ${want}: $(tail -3 <<< "$out")"
 	if [[ ! -s "$seen" ]]; then
-		fFail "[${what:-ok} $*]: the step did not run"
+		fFail "[${what:-ok} $*]: the step didn't run"
 		return 0
 	fi
 	mapfile -t got < "$seen"
@@ -101,7 +101,7 @@ fRun term 143
 [[ ! -e "$lastDir" ]] || fFail "[term]: the run folder is still there"
 fRun ""   0 --keep-temp
 if [[ -f "${lastDir}/left/deeper/file" ]]; then
-	[[ "$lastOut" == *"[ kept the run folder: ${lastDir} ]"* ]] || fFail "[--keep-temp]: does not say where the run folder is"
+	[[ "$lastOut" == *"[ kept the run folder: ${lastDir} ]"* ]] || fFail "[--keep-temp]: doesn't say where the run folder is"
 	HOST_TEMP="$hostTemp" projectName=app fSafeRm "$lastDir" > /dev/null
 else
 	fFail "[--keep-temp]: the run folder is gone"
@@ -131,7 +131,7 @@ fi
 [[ ! -e "${app}/${old}_005" ]]   || fFail "sweep: kept an old folder whose run.pid holds no pid"
 [[ ! -e "${scratch}/pwned" ]]    || fFail "sweep: ran what run.pid held"
 
-## Two runs in one second each get their own folder. With no HOST_TEMP, TMPDIR.
+## Each of 2 runs in one second gets its own folder. With no HOST_TEMP, TMPDIR.
 mk="${scratch}/mk"
 mkdir -p "${mk}" "${scratch}/real-temp"
 made="$(HOST_TEMP="$mk"; for _ in 1 2; do fRunTemp_Make unit 20200202-020202 && echo "${runTempDir} $(cat "${runTempDir}/run.pid") ${TMPDIR}"; done)"

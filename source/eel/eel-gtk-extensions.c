@@ -310,7 +310,7 @@ create_popup_rect (GdkWindow *window, GdkRectangle *rect)
 }
 
 /* The menu key and Ctrl+F10 have no pointer behind them, and the pointer can be
-   anywhere - another window, another monitor - so a menu placed there reads as
+   in another window or on another monitor, so a menu placed there reads as
    the key having done nothing. Put it against whatever holds the focus. */
 static void
 create_keyboard_popup_rect (GtkWidget *widget, GdkRectangle *rect)
@@ -331,7 +331,7 @@ create_keyboard_popup_rect (GtkWidget *widget, GdkRectangle *rect)
     gtk_widget_get_allocation (anchor, &allocation);
     gtk_widget_translate_coordinates (anchor, toplevel, 0, 0, &x, &y);
 
-    /* A little way in, so the menu does not sit flush against the pane edge. */
+    /* A little way in, so the menu doesn't sit flush against the pane edge. */
     rect->x = x + MIN (16, allocation.width / 2);
     rect->y = y + MIN (16, allocation.height / 2);
     rect->width = 2;
@@ -570,7 +570,7 @@ eel_gtk_get_treeview_row_text_at_pos (GtkTreeView *tree_view,
         return FALSE;
     }
 
-    // It also answers no when the position is past the last row, and hands back no path
+    // It also returns FALSE when the position is past the last row, and hands back no path
     // at all - freeing the uninitialized one crashed a drag over the empty space below
     // a list. Nothing there to be over.
     if (path == NULL) {
@@ -579,19 +579,19 @@ eel_gtk_get_treeview_row_text_at_pos (GtkTreeView *tree_view,
 
     // If not, there's an additional check to do, as the small gap (1px?) between rows
     // can cause is_blank_at_pos to incorrectly return FALSE when that's not actually the case.
-    // Make sure the position is actually inside the cell's bounds, and ignore edge events.
+    // Make sure the position is inside the cell's bounds, and ignore edge events.
     gtk_tree_view_get_cell_area (tree_view, path, column, &area);
     inside = (x > area.x && x < area.x + area.width &&
               y > area.y && y < area.y + area.height);
 
-    // This runs on every drag-motion event, so the path cannot be leaked.
+    // This runs on every drag-motion event, so the path can't be leaked.
     gtk_tree_path_free (path);
 
     return inside;
 }
 
 /* Where a row's cell in column sits, in the tree view's own coordinates, cut
-   to the part scrolled into view. FALSE when none of it is, or the row is not
+   to the part scrolled into view. FALSE when none of it is, or the row isn't
    shown at all, such as one inside a collapsed folder. */
 gboolean
 eel_gtk_tree_view_get_row_rect (GtkTreeView       *tree_view,
@@ -606,7 +606,7 @@ eel_gtk_tree_view_get_row_rect (GtkTreeView       *tree_view,
     if (row.height <= 0) {
         return FALSE;
     }
-    /* The whole row height, so the menu clears the row and not just its text. */
+    /* The whole row height, so the menu clears the whole row rather than its text. */
     cell.y = row.y;
     cell.height = row.height;
 
@@ -710,7 +710,7 @@ refuse_focus_cb (GtkWidget  *widget,
 }
 
 // GTK turns a column header's can-focus back on whenever the column's title or
-// sort arrow changes, so turning it off once does not stick.
+// sort arrow changes, so turning it off once doesn't stick.
 void
 eel_gtk_widget_refuse_focus (GtkWidget *widget)
 {
@@ -764,7 +764,7 @@ notebook_grab_focus_cb (GtkWidget *notebook,
 }
 
 // Keyboard focus passes through to the page, and a click on a tab puts it there
-// too. Action widgets are not handled, since nothing here uses them.
+// too. Action widgets aren't handled, since nothing here uses them.
 void
 eel_gtk_notebook_keep_focus_off_tabs (GtkNotebook *notebook)
 {
@@ -785,7 +785,7 @@ list_box_focus_cb (GtkWidget        *box,
                    G_GNUC_UNUSED GtkDirectionType  direction,
                    G_GNUC_UNUSED gpointer          user_data)
 {
-    // The list's own handler answers TRUE for a row that refused, which stops Tab here.
+    // The list's own handler returns TRUE for a row that refused, which stops Tab here.
     g_signal_stop_emission_by_name (box, "focus");
 
     return FALSE;
@@ -1026,7 +1026,7 @@ eel_gtk_tabs_keep_focus_off_within (GtkWidget *container)
     gtk_container_forall (GTK_CONTAINER (container), tabs_within_cb, NULL);
 }
 
-// Whether the toplevel's focus sits on this widget or inside it.
+// Whether the toplevel's focus is on this widget or inside it.
 gboolean
 eel_gtk_focus_is_within (GtkWidget *container)
 {

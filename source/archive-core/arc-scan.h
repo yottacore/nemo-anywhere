@@ -136,7 +136,7 @@ typedef void (*ArcScanVisited) (gpointer data, guint files, guint64 bytes);
    goes in as a link when its choice is Follow or a store, and is left out
    under Ignore. Links onto a share are followed, since OK was the person's
    action. visited, which may be NULL, is called now and then as it goes.
-   NULL when cancellable was cancelled.
+   NULL when cancellable was canceled.
    Returns: (transfer full): free with arc_scan_list_free */
 ArcScanList *arc_scan_list      (const ArcHost        *host,
 				 const char           *base,

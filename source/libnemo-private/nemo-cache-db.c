@@ -43,7 +43,7 @@
 
 /* How long a statement waits for another process to finish writing. Long enough
  * that a busy window wins rather than dropping its work, short enough that a
- * stuck one does not hold up a draw. */
+ * stuck one doesn't hold up a draw. */
 #define BUSY_TIMEOUT_MS 3000
 
 /* How often a connection waiting on a busy file tries again. sqlite's own wait
@@ -52,7 +52,7 @@
 #define BUSY_RETRY_MS 5
 
 /* Draw counts are batched rather than written one at a time - see note_render.
- * A write that failed is not tried again for the same wait. */
+ * A write that failed isn't tried again for the same wait. */
 #define RENDER_FLUSH_SECS 30
 #define RENDER_FLUSH_MAX  256
 
@@ -74,15 +74,15 @@
 
 /* The least the prune rests after each write, so a waiter trying every
  * BUSY_RETRY_MS gets a try in the gap. On Windows a short sleep runs on to the
- * next clock tick, about 16 ms, so this allows for two of those. */
+ * next clock tick, about 16 ms, so this allows for 2 of those. */
 #define PRUNE_REST_MIN_MS 40
 
 /* A thumbnail's age, for both prune rules. Indexed, so picking a batch walks
  * the index rather than sorting the whole table under the write lock. The
- * queries have to spell it the same way for sqlite to use the index. */
+ * queries have to write it the same way for sqlite to use the index. */
 #define THUMBNAIL_AGE "MAX (rendered, stored)"
 
-/* The two ways the prune picks thumbnails, shared with the test hook so it
+/* The 2 ways the prune picks thumbnails, shared with the test hook so it
  * asks sqlite about the very queries the prune runs. */
 #define OLDEST_SQL \
 	"SELECT file_id, LENGTH (image) FROM thumbnails" \
@@ -110,7 +110,7 @@ struct _NemoCacheDb {
 	/* Set when sqlite reports the file is damaged. Everything after that is a
 	 * no-op, and a marker beside the file tells the next launch to start
 	 * over, which is safer than deleting a file other processes still have
-	 * open. A damaged page deep in the file does not stop it opening, so
+	 * open. A damaged page deep in the file doesn't stop it opening, so
 	 * without the marker nothing would ever notice. */
 	gboolean     broken;
 
@@ -184,8 +184,8 @@ static const char SCHEMA[] =
 	"  image     BLOB NOT NULL);"
 	"CREATE INDEX IF NOT EXISTS thumbnails_age ON thumbnails (" THUMBNAIL_AGE ");"
 	/* The prune's own bookkeeping. Claiming a pass is a write transaction,
-	 * and sqlite already makes those take turns across processes, so two
-	 * copies cannot both think they won. */
+	 * and sqlite already makes those take turns across processes, so 2
+	 * copies can't both think they won. */
 	"CREATE TABLE IF NOT EXISTS prune ("
 	"  id           INTEGER PRIMARY KEY CHECK (id = 1),"
 	"  started      INTEGER NOT NULL DEFAULT 0,"
@@ -265,7 +265,7 @@ db_ok (NemoCacheDb *db, int rc, const char *what)
 	return FALSE;
 }
 
-/* Prepares a statement, or answers NULL having noted why. */
+/* Prepares a statement, or returns NULL having noted why. */
 static sqlite3_stmt *
 prep (NemoCacheDb *db, const char *sql, const char *what)
 {
@@ -402,7 +402,7 @@ busy_wait (void *data, int tries)
  * on the -shm file before Windows unmaps the file from it. The next copy to
  * open then finds no lock, takes itself for the first, and empties the file,
  * which Windows refuses while a view of it is left (ERROR_USER_MAPPED_FILE).
- * sqlite let that pass before 3.50 and now answers SQLITE_IOERR_TRUNCATE. The
+ * sqlite let that pass before 3.50 and now returns SQLITE_IOERR_TRUNCATE. The
  * view goes once the old copy is fully gone, so it is a wait like a busy one. */
 static gboolean
 setup_worth_retry (sqlite3 *handle, int rc)
@@ -419,7 +419,7 @@ setup_worth_retry (sqlite3 *handle, int rc)
 }
 
 /* The switch to WAL reads the file and only then takes the write lock, and
- * sqlite will not wait on that second step, since two readers each waiting on
+ * sqlite won't wait on that second step, since 2 readers each waiting on
  * the other would wait for good. So a copy that meets another one setting up
  * the same new file is told it is locked at once, and tries again here for as
  * long as it would wait on any other busy file. */
@@ -441,7 +441,7 @@ exec_setup (sqlite3 *handle, const char *sql, char **err)
 }
 
 /* Opens the file and puts the schema in it. Answers NULL and leaves nothing
- * behind if it could not, so the caller can wipe and try once more. */
+ * behind if it couldn't, so the caller can wipe and try once more. */
 static sqlite3 *
 open_at (const char *path, gboolean *out_rebuild)
 {
@@ -472,7 +472,7 @@ open_at (const char *path, gboolean *out_rebuild)
 	 * yet, which is every file this version opens, since an older one is
 	 * wiped.
 	 *
-	 * WAL so a reading window is not blocked by a writing one, and NORMAL
+	 * WAL so a reading window isn't blocked by a writing one, and NORMAL
 	 * because losing the last few rows to a power cut costs a re-read and
 	 * nothing else. The size limit trims the journal back after a prune has
 	 * grown it.
@@ -495,7 +495,7 @@ open_at (const char *path, gboolean *out_rebuild)
 		return NULL;
 	}
 
-	/* Other copies may have the file open, so one that only could not be
+	/* Other copies may have the file open, so one that only couldn't be
 	 * read is left alone, and this copy runs without it. */
 	rc = read_user_version (handle, &version);
 	if (rc != SQLITE_OK) {
@@ -529,7 +529,7 @@ open_at (const char *path, gboolean *out_rebuild)
 	return handle;
 }
 
-/* WAL keeps two files beside the database, and a wipe that leaves them behind
+/* WAL keeps 2 files beside the database, and a wipe that leaves them behind
  * hands the new file someone else's journal. */
 static void
 remove_db_files (const char *path)
@@ -568,7 +568,7 @@ db_open (void)
 		g_message ("starting the damaged file cache at %s over", path);
 		remove_db_files (path);
 
-		/* On Windows a file another copy still has open cannot be
+		/* On Windows a file another copy still has open can't be
 		 * removed, so the marker stays for the next launch to try. */
 		if (!g_file_test (path, G_FILE_TEST_EXISTS))
 			g_unlink (marker);
@@ -600,7 +600,7 @@ nemo_cache_db_get (void)
 
 	g_mutex_lock (&the_db_lock);
 
-	/* One attempt per open store. A database that could not be opened stays
+	/* One attempt per open store. A database that couldn't be opened stays
 	 * shut rather than being retried on every draw. */
 	if (!the_db_tried) {
 		the_db = db_open ();
@@ -614,7 +614,7 @@ nemo_cache_db_get (void)
 	return db;
 }
 
-/* The only one of the three that is really about the contents. The checksum
+/* The only one of the three that's about the contents. The checksum
  * alone, the same as the unique index: a record that paired it with another
  * size would otherwise never be found, and nothing could be added beside it. */
 static gint64
@@ -635,8 +635,8 @@ file_by_digest (NemoCacheDb *db, const NemoFileId *id)
 	return step_id (stmt);
 }
 
-/* What this uri held last time, as long as the file under it has not changed.
- * A row carrying a checksum that contradicts the one in hand is not it either,
+/* What this uri held last time, as long as the file under it hasn't changed.
+ * A row with a checksum that contradicts the one in hand isn't it either,
  * whatever the size and time say. */
 static gint64
 file_by_uri (NemoCacheDb *db, const char *uri, const NemoFileId *id)
@@ -702,8 +702,8 @@ file_add (NemoCacheDb *db, const NemoFileId *id)
 	return ok ? sqlite3_last_insert_rowid (db->handle) : 0;
 }
 
-/* Fills in a checksum nobody had computed yet. Never replaces one, since two
- * different checksums mean two different files. */
+/* Fills in a checksum nobody had computed yet. Never replaces one, since 2
+ * different checksums mean 2 different files. */
 static gboolean
 file_learn_digest (NemoCacheDb *db, gint64 file_id, const NemoFileId *id)
 {
@@ -796,7 +796,7 @@ link_path (NemoCacheDb *db, const char *uri, gint64 file_id, gint64 mtime)
 	return ok;
 }
 
-/* Two records turned out to be one file. Everything hanging off `from` moves to
+/* A pair of records turned out to be one file. Everything hanging off `from` moves to
  * `to`, and `from` goes. The survivor keeps its own thumbnail if it has one. */
 static gboolean
 fold_file (NemoCacheDb *db, gint64 from, gint64 to)
@@ -1103,7 +1103,7 @@ steal_locked (GHashTable **table)
 /* Writes what the window has queued: refreshes, and draw counts too when
  * `with_draws`. Called with the store's lock held, which is what keeps a
  * refresh in order with the reads: whoever holds it either finds the refresh
- * still queued or already done. What could not be written goes back in the
+ * still queued or already done. What couldn't be written goes back in the
  * queue for later, unless the file is damaged. */
 static void
 write_queued (NemoCacheDb *db, gboolean with_draws)
@@ -1378,7 +1378,7 @@ nemo_cache_db_thumbnail_lookup (NemoCacheDb         *db,
 	g_mutex_lock (&db->lock);
 
 	/* A refresh asked for and not written yet still counts, even if it
-	 * could not be written now. */
+	 * couldn't be written now. */
 	write_queued (db, FALSE);
 	if (forget_queued (uri))
 		goto out;
@@ -1438,7 +1438,7 @@ nemo_cache_db_thumbnail_store (NemoCacheDb               *db,
 	if (db == NULL || db->broken)
 		return FALSE;
 
-	/* No image is a render that failed, kept so the next run does not try
+	/* No image is a render that failed, kept so the next run doesn't try
 	 * again. An empty blob rather than NULL, since the column is NOT NULL. */
 	if (image != NULL) {
 		data = g_bytes_get_data (image, &len);
@@ -1831,8 +1831,8 @@ make_way (NemoCacheDb *db, GCancellable *cancellable)
 }
 
 /* Called inside each batch's transaction. Stamps the claim so nobody takes it
- * for a dead one, and answers false if somebody already has - a pass that
- * stalled past the stale limit must not carry on beside the one that took
+ * for a dead one, and returns false if somebody already has - a pass that
+ * stalled past the stale limit mustn't go on beside the one that took
  * over. */
 static gboolean
 still_ours (NemoCacheDb *db)
@@ -1926,7 +1926,7 @@ typedef enum {
 
 /* True for a local file that is gone from a folder that is still there. A file
  * whose whole folder is missing is left alone, since that is more often a drive
- * that is not plugged in than a folder that was deleted. `folders` remembers
+ * that isn't plugged in than a folder that was deleted. `folders` remembers
  * each folder's answer for the rest of the pass. */
 static gboolean
 local_file_is_gone (const char *uri, GHashTable *folders)
@@ -1939,7 +1939,7 @@ local_file_is_gone (const char *uri, GHashTable *folders)
 	if (path == NULL)
 		return FALSE;
 
-	/* A share can take twenty seconds to say no, once per question, and a
+	/* A share can take 20 seconds to say no, once per question, and a
 	   hard network mount can hold the pass for good. */
 	if (nemo_path_is_on_a_share (path))
 		return FALSE;
@@ -2207,7 +2207,7 @@ end_batch (NemoCacheDb *db, gboolean ok, const Batch *batch, GCancellable *cance
 
 /* A file record nothing points at any more goes, and its thumbnail with it.
  * The thumbnails are deleted by hand rather than left to the cascade, because
- * sqlite does not count what a cascade removes. */
+ * sqlite doesn't count what a cascade removes. */
 static gboolean
 drop_orphans (NemoCacheDb *db, GCancellable *cancellable, gint64 *removed)
 {
@@ -2273,7 +2273,7 @@ pragma_int (NemoCacheDb *db, const char *sql)
 	return stmt != NULL ? step_id (stmt) : -1;
 }
 
-/* What the file really takes, not counting pages it has already freed. */
+/* What the file takes, not counting pages it has already freed. */
 static gint64
 used_bytes (NemoCacheDb *db)
 {
@@ -2407,7 +2407,7 @@ nemo_cache_db_prune (const NemoCachePruneRules *rules,
 
 	/* A connection of its own, so a long pass never holds the lock the draw
 	 * path waits on. The two take turns at the file through sqlite's own
-	 * locking, the same as two processes do. */
+	 * locking, the same as 2 processes do. */
 	pruner.handle = open_at (path, &rebuild);
 	if (pruner.handle == NULL) {
 		if (rebuild)
@@ -2417,7 +2417,7 @@ nemo_cache_db_prune (const NemoCachePruneRules *rules,
 
 	switch (claim_pass (&pruner, rules, &due)) {
 	case CLAIM_WON:
-		/* Only now, so a quit cannot leave the claim half taken. */
+		/* Only now, so a quit can't leave the claim half taken. */
 		sqlite3_progress_handler (pruner.handle, 1000, prune_interrupted, cancellable);
 		break;
 	case CLAIM_NOT_DUE:

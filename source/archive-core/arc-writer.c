@@ -38,7 +38,7 @@ typedef struct {
 
 /* What each writer can do, established against libarchive 3.8 and the switch
    lists of 7-Zip and rar. libarchive writes no rar at all, and has no write
-   support for volumes, solid blocks, duplicate-as-reference or 7z encryption,
+   support for volumes, solid blocks, duplicate-as-reference, or 7z encryption,
    which is the whole reason the commands are still worth reaching for. */
 static const FormatInfo formats[ARC_N_FORMATS] = {
 	{ "zip", N_("ZIP"), ".zip",
@@ -76,7 +76,7 @@ static const FormatInfo formats[ARC_N_FORMATS] = {
 		 ARC_CAP_STORE_LINKS | ARC_CAP_RECOVERY | ARC_CAP_LOCK },
 };
 
-/* Every suffix we recognize as ours, longest first so ".tar.gz" is not read as
+/* Every suffix we recognize as ours, longest first so ".tar.gz" isn't read as
    ".gz". Used to swap the extension when the format changes. */
 static const char * const known_extensions[] = {
 	".tar.gz", ".tar.xz", ".tar.bz2", ".tgz", ".txz", ".tbz2",
@@ -137,7 +137,7 @@ arc_format_from_id (const char *id,
 	return FALSE;
 }
 
-/* PATH does not change under a running app, so one probe per backend is enough.
+/* PATH doesn't change under a running app, so one probe per backend is enough.
    Both the dialog on the main thread and the job on its own can ask, hence the
    lock. */
 static GMutex   probe_lock;
@@ -454,11 +454,11 @@ arc_format_link_stores (ArcFormat format)
 	return stores;
 }
 
-/* Two kinds of option. Encryption and splitting change whether the archive is
-   what was asked for at all, so a backend that cannot do them is not a
+/* There are 2 kinds of option. Encryption and splitting change whether the archive is
+   what was asked for at all, so a backend that can't do them isn't a
    candidate - writing a readable archive when one was asked to be locked is the
    worst possible outcome. The rest is tuning: preferred where it can be had,
-   dropped where it cannot, rather than failing the whole job. */
+   dropped where it can't, rather than failing the whole job. */
 static ArcCaps
 required_caps (const ArcOptions *options)
 {
@@ -548,7 +548,7 @@ arc_pick_backend (ArcFormat         format,
 
 	/* A preference nothing can honor for this format is dropped before
 	   matching, so an option left on by default - a recovery record, which
-	   only rar has - does not steer a tar away from the writer that suits
+	   only rar has - doesn't steer a tar away from the writer that suits
 	   the preferences that ARE available. */
 	preferred = preferred_caps (options) & arc_format_caps (format);
 
@@ -749,7 +749,7 @@ arc_suggest_name (GList    *files,
 
 /* Compressing a selection separately names each archive after the item it came
    from, extension and all: "notes.rar" becomes "notes.rar.zip". The name field
-   strips a suffix it recognizes, which cannot be done here - re-zipping a zip
+   strips a suffix it recognizes, which can't be done here - re-zipping a zip
    would then write the archive over the file being read.
    Returns: (transfer full): free with g_free */
 char *

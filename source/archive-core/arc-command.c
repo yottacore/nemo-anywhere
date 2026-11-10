@@ -63,7 +63,7 @@ arc_rar_name (const char *prefix, const char *name)
 }
 
 #ifdef G_OS_WIN32
-/* A copy of the app's PATHEXT test, which the core can't reach. */
+/* A copy of the app's PATHEXT test, which the core can't call. */
 static gboolean
 on_pathext (const char *name,
 	    const char *pathext)
@@ -285,7 +285,7 @@ arc_build_tool_command (const ArcSettings  *settings,
 			GError            **why)
 {
 	/* One slot per switch a token stands for, plus the terminator. Only the
-	   password ever needs two, and only for 7-Zip. */
+	   password ever needs 2, and only for 7-Zip. */
 	char *program_v[2]  = { NULL, NULL };
 	char *format_v[2]   = { NULL, NULL };
 	char *level_v[2]    = { NULL, NULL };
@@ -331,7 +331,7 @@ arc_build_tool_command (const ArcSettings  *settings,
 			/* A password on a command line is readable in the process
 			   list; there is no other way to hand it to either tool.
 			   It is a value rather than part of the line, so it never
-			   reaches the config file. */
+			   ends up in the config file. */
 			password_v[0] = g_strconcat ("-p", options->password, NULL);
 
 			if (format == ARC_FORMAT_ZIP) {
@@ -369,7 +369,7 @@ arc_build_tool_command (const ArcSettings  *settings,
 		if (options->dedupe) {
 			dedupe_v[0] = g_strdup ("-oi");
 		}
-		/* Both for the real run. A locked archive cannot be added to. */
+		/* Both for the real run. A locked archive can't be added to. */
 		if (options->recovery_record && !links_only) {
 			recovery_v[0] = g_strdup ("-rr3p");
 		}
@@ -549,7 +549,7 @@ arc_build_extract_command (const ArcSettings *settings,
 		line = ARC_LINE_EXTRACT_7Z;
 
 		/* Always answered, never asked: with no password switch at all
-		   an encrypted archive stops for one on a console we do not
+		   an encrypted archive stops for one on a console we don't
 		   have, and the job would hang instead of failing. */
 		password_v[0] = has_password ? g_strconcat ("-p", password, NULL)
 					    : g_strdup ("-p");
@@ -588,7 +588,7 @@ arc_build_extract_command (const ArcSettings *settings,
 		} else {
 			/* Dropping {{PASSWORD}} is the one that bites: with no
 			   switch at all an encrypted archive waits for a console
-			   that is not there, and the job hangs. */
+			   that isn't there, and the job hangs. */
 			arc_command_warn_unused (host, line, text, tokens);
 			argv = arc_add_run_switches (argv, FALSE);
 		}
@@ -621,7 +621,7 @@ names_skipped (const char *path,
 	return FALSE;
 }
 
-/* "WARNING: Cannot open 2 files", which both end on under Windows. It names
+/* "WARNING: Can't open 2 files", which both end on under Windows. It names
    nothing, so it says only how many names have to be there. */
 static gboolean
 open_count (const char *line,
@@ -667,7 +667,7 @@ arc_only_skipped_links (ArcBackend  backend,
 	if (output == NULL || skipped == NULL) {
 		return FALSE;
 	}
-	/* 7-Zip's 1 is any warning at all; rar's 6 is a file it could not open. */
+	/* 7-Zip's 1 is any warning at all; rar's 6 is a file it couldn't open. */
 	if (!(backend == ARC_BACKEND_7Z && exit_status == 1) &&
 	    !(backend == ARC_BACKEND_RAR && exit_status == 6)) {
 		return FALSE;
@@ -692,7 +692,7 @@ arc_only_skipped_links (ArcBackend  backend,
 		}
 
 		if (backend == ARC_BACKEND_RAR) {
-			/* "Cannot open <name>", then the reason on a line of its own. */
+			/* "Can't open <name>", then the reason on a line of its own. */
 			if (g_str_has_prefix (line, "Cannot open ")) {
 				const char *name = line + strlen ("Cannot open ");
 
@@ -712,7 +712,7 @@ arc_only_skipped_links (ArcBackend  backend,
 		}
 
 		/* 7-Zip lists them again at the end, "<name> : <reason>", under
-		   one heading for the scan and another for files it could not
+		   one heading for the scan and another for files it couldn't
 		   read while writing. Every one has to be a link we know of. */
 		if (g_str_has_suffix (line, "WARNINGS for files and folders:") ||
 		    g_str_has_suffix (line, "WARNINGS for files:")) {
@@ -721,7 +721,7 @@ arc_only_skipped_links (ArcBackend  backend,
 			if (g_str_has_prefix (line, "----")) {
 				in_list = FALSE;
 			} else if (line[0] != '\0') {
-				/* A name can hold " : " itself, so try each one. */
+				/* A name can contain " : " itself, so try each one. */
 				const char *separator = strstr (line, " : ");
 
 				while (separator != NULL &&

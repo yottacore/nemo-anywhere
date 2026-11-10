@@ -15,7 +15,7 @@ listing = subprocess.run([nm, "-g", "--defined-only", "-P", archive],
 names = set()
 for line in listing.splitlines():
     fields = line.split()
-    # Archive member headers end in ':' and carry no type field.
+    # Archive member headers end in ':' and have no type field.
     if len(fields) >= 2 and fields[1] in kinds:
         names.add(fields[0])
 if not names:

@@ -1,12 +1,12 @@
 /* Content search over a temp dir. On win32 GIO calls the extension the content
- * type (".txt"), so the old is_a("text/plain") test answered no for every file
+ * type (".txt"), so the old is_a("text/plain") test said no for every file
  * and "Containing:" never found anything at all. Text with an extension GIO does
  * not know, and text with no extension, have to be found by their bytes.
  *
- * Off Windows, two binary types also get a pair of search helpers each. The
+ * Off Windows, 2 binary types also get a pair of search helpers each. The
  * helper with the higher Priority runs first, and the next is only tried when
- * that one cannot run at all: a helper that runs and finds nothing is the
- * answer. */
+ * that one can't run at all: a helper that runs and finds nothing is the
+ * result. */
 
 #include <config.h>
 
@@ -53,7 +53,7 @@ write_file (const char *dir, const char *name, const char *contents, gssize len)
 	g_free (path);
 }
 
-/* Binary literals carry NULs, so the length comes from the literal itself. */
+/* Binary literals have NULs, so the length comes from the literal itself. */
 #define WRITE_LITERAL(dir, name, lit) write_file ((dir), (name), (lit), sizeof (lit) - 1)
 
 #ifndef G_OS_WIN32
@@ -71,7 +71,7 @@ write_helper (const char *dir, const char *name, const char *mime,
 	g_free (text);
 }
 
-/* The GIF's helper that ranks first names a program that is not there; the
+/* The GIF's helper that ranks first names a program that isn't there; the
    BMP's runs, and finds nothing. */
 static void
 write_helpers (const char *data_home)
@@ -116,7 +116,7 @@ main (int argc, char *argv[])
 #ifndef G_OS_WIN32
 	char *data_home = g_build_filename (scratch, "data", NULL);
 
-	/* Read before anything asks GLib for it, which caches the answer. */
+	/* Read before anything asks GLib for it, which caches the path. */
 	g_setenv ("XDG_DATA_HOME", data_home, TRUE);
 	write_helpers (data_home);
 	g_free (data_home);
@@ -134,7 +134,7 @@ main (int argc, char *argv[])
 	/* A PNG header, then the word - binary, so it must not be read as text. */
 	WRITE_LITERAL (dir, "image.png", "\x89PNG\r\n\x1a\n\x00\x00\x00\x0dneedle");
 #ifndef G_OS_WIN32
-	/* Neither holds the word; only a helper's output can. */
+	/* Neither has the word; only a helper's output can. */
 	WRITE_LITERAL (dir, "picture.gif", "GIF89a\x01\x00\x01\x00\x00\x00\x00;");
 	WRITE_LITERAL (dir, "picture.bmp", "BM\x3a\x00\x00\x00\x00\x00\x00\x00\x36\x00\x00\x00");
 #endif

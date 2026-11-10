@@ -64,7 +64,7 @@ main (int argc, char **argv)
 	file = nemo_file_get_by_uri (uri);
 	nemo_file_monitor_add (file, &status, NEMO_FILE_ATTRIBUTE_INFO | NEMO_FILE_ATTRIBUTE_DEEP_COUNTS);
 
-	/* Until its info is in, the file is not known to be a folder and reports
+	/* Until its info is in, the file isn't known to be a folder and reports
 	   zero counts as done. */
 	for (spins = 0; spins < 5000 && !nemo_file_is_directory (file); spins++) {
 		g_main_context_iteration (NULL, FALSE);

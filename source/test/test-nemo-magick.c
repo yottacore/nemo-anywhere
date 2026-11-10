@@ -63,7 +63,7 @@ test_coder (void)
 	check (!nemo_magick_type_ok (NULL));
 }
 
-/* The file's name must never reach the command. */
+/* The file's name must never end up in the command. */
 static void
 test_argv (void)
 {

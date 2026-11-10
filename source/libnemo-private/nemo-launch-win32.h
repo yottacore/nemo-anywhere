@@ -1,4 +1,4 @@
-/* nemo-launch-win32.h - starting a program that is not ours
+/* nemo-launch-win32.h - starting a program that isn't ours
  *
  * Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
  *
@@ -48,8 +48,8 @@ gboolean nemo_launch_win32_open_uri    (const gchar  *uri,
 void     nemo_launch_win32_user_environ_enter (void);
 void     nemo_launch_win32_user_environ_leave (void);
 
-/* The two brokers on their own. Exposed so a probe can tell which of them the
- * box actually allows, rather than watching one cover for the other. */
+/* The 2 brokers on their own. Exposed so a probe can tell which of them the
+ * box allows, rather than watching one cover for the other. */
 gboolean nemo_launch_win32_via_shell   (const gchar *exe,
 					const gchar *args,
 					const gchar *workdir);
@@ -60,8 +60,8 @@ gboolean nemo_launch_win32_via_service (const gchar *command_line,
  * or NUL when that is NULL, and hands back what it wrote to stdout, or drops it
  * when @output is NULL. A bare program name is looked up beside our exe, then on
  * PATH. Ends it after @timeout_seconds, setting *@timed_out, or once
- * @cancellable is cancelled, or when the app ends. FALSE if it could not start,
- * was ended or did not exit 0.
+ * @cancellable is canceled, or when the app ends. FALSE if it couldn't start,
+ * was ended or didn't exit 0.
  * @output: (out) (optional) (transfer full): unref with g_bytes_unref */
 gboolean nemo_launch_win32_pipe        (const gchar * const  *argv,
 					const gchar          *input_path,
@@ -78,7 +78,7 @@ gboolean nemo_launch_win32_spawn       (const gchar * const  *argv,
 					gboolean              in_console,
 					GError              **error);
 
-/* Told once per program that a helper could not be started. May be called
+/* Told once per program that a helper couldn't be started. May be called
  * from any thread. */
 typedef void (*NemoLaunchWin32FailedFunc) (const gchar *program,
 					   const gchar *message);

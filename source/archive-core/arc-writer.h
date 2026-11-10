@@ -18,11 +18,11 @@
    along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
-/* Two ways to write an archive, picked per request. libarchive is linked in and
- * handles the tar, zip and 7z families; it cannot write rar at all, and has no
- * write support for split volumes, solid blocks, duplicate-as-reference or 7z
+/* There are 2 ways to write an archive, picked per request. libarchive is linked in and
+ * handles the tar, zip and 7z families; it can't write rar at all, and has no
+ * write support for split volumes, solid blocks, duplicate-as-reference, or 7z
  * encryption. Those go out to a 7z or rar command when the box has one. What a
- * given format can offer is therefore the union over the backends actually
+ * given format can offer is therefore the union over the backends
  * present, which is why the dialog asks rather than assuming.
  */
 
@@ -97,13 +97,13 @@ const char *arc_format_extension (ArcFormat   format);
 gboolean    arc_format_from_id   (const char *id,
 				  ArcFormat  *format);
 
-/* What this box can actually do: the union over the backends installed. */
+/* What this box can do: the union over the backends installed. */
 gboolean    arc_format_available (ArcFormat format);
 ArcCaps     arc_format_caps      (ArcFormat format);
 
 /* Looks a command up on PATH, and on win32 also under Program Files, since
  * neither archiver's installer puts itself on PATH. Shared with the unpacking
- * side, which goes looking for the same two programs under other names. */
+ * side, which goes looking for the same 2 programs under other names. */
 char       *arc_find_command (const char * const *names,
 			      const char         *win_subdir);
 
@@ -141,7 +141,7 @@ gboolean    arc_stores_symlinks     (const ArcOptions *options,
 				     ArcFormat         format,
 				     ArcBackend        backend);
 
-/* For tests: answer as if the program were not installed, so the library's
+/* For tests: answer as if the program weren't installed, so the library's
    own 7z writer can still be reached on a box that has 7-Zip. Unpacking
    goes by it too. */
 void        arc_hide_backend        (ArcBackend backend,

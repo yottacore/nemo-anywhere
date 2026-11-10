@@ -23,7 +23,7 @@
 /* The queue refuses the same job while it still waits to run: the check used to
  * compare the job's data against its function, so it never matched and a job
  * queued twice ran twice. And the progress shown for several operations at once
- * is their plain mean; with three or more, the running form it replaced
+ * is their plain mean; with 3 or more, the running form it replaced
  * weighted the earlier ones down to almost nothing. */
 
 #include <config.h>
@@ -96,7 +96,7 @@ release (Job *job)
 	g_mutex_unlock (&job->lock);
 }
 
-/* Turns the main loop until the condition holds, or for the time given. */
+/* Turns the main loop until the condition is true, or for the time given. */
 static gboolean
 spin_until (Job *job, int runs, gboolean finished, int ms)
 {

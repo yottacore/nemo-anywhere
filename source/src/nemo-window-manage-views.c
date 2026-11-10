@@ -1678,7 +1678,7 @@ nemo_window_report_load_complete (NemoWindow *window,
 
 	/* Only handle this if we're expecting it.
 	 * Don't handle it if its from an old view we've switched from.
-	 * Nor while another location is on its way in: that change has not
+	 * Nor while another location is on its way in: that change hasn't
 	 * reported underway yet, and ending it here loses it (2026100611482306). */
 	if (view == slot->content_view && slot->pending_location == NULL) {
 		if (slot->pending_scroll_to != NULL) {
@@ -1840,10 +1840,10 @@ display_view_selection_failure (G_GNUC_UNUSED NemoWindow *window, NemoFile *file
 			error_message = g_strdup_printf (_("Couldn't display \"%s\"."),
 							 uri_for_display);
 			if (scheme_string != NULL) {
-				detail_message = g_strdup_printf (_("Nemo can't handle \"%s\" locations."),
+				detail_message = g_strdup_printf (_("Nemo Anywhere can't handle \"%s\" locations."),
 								  scheme_string);
 			} else {
-				detail_message = g_strdup (_("Nemo can't handle this kind of location."));
+				detail_message = g_strdup (_("Nemo Anywhere can't handle this kind of location."));
 			}
 			g_free (scheme_string);
 			break;
@@ -1973,7 +1973,7 @@ switch_content_view (NemoWindowSlot *slot,
     } else if (save) {
         gchar *default_id;
 
-        /* Picking the view that is already the default is not a per-folder choice,
+        /* Picking the view that is already the default isn't a per-folder choice,
          * so pass it as the default and let it go unstored. For a folder of
          * images the default is icon view, so going back to list view there
          * is stored and sticks.
@@ -2005,7 +2005,7 @@ nemo_window_slot_set_content_view (NemoWindowSlot *slot,
 	switch_content_view (slot, id, TRUE, TRUE);
 }
 
-/* A new default view reaches folders that have none of their own saved,
+/* A new default view applies to folders that have none of their own saved,
  * without saving anything into them. */
 void
 nemo_window_slot_follow_default_view (NemoWindowSlot *slot,
@@ -2038,7 +2038,7 @@ nemo_window_slot_follow_default_view (NemoWindowSlot *slot,
 	g_free (saved_id);
 }
 
-/* Once per visit, so a switch back to list view by hand is not undone by the
+/* Once per visit, so a switch back to list view by hand isn't undone by the
  * reload that switch itself causes. Nothing is stored and the window keeps its
  * own view, so the next folder opens as it would have. */
 void

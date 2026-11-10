@@ -21,8 +21,8 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* Preloaded into the program, which opens a folder holding sub/ (with a file
-   in it, so it stays expanded), a.txt, b.txt and c.txt. Deleting b.txt for good must leave a.txt, the one before it,
+/* Preloaded into the program, which opens a folder containing sub/, a.txt,
+   b.txt, and c.txt. sub/ has a file in it, so it stays expanded. Deleting b.txt for good must leave a.txt, the one before it,
    selected, in the list view and in the icon view (NEMO_EDITKEYS_VIEW). In
    the list view it then copies c.txt, selects sub and expands it, and checks
    that Ctrl+V goes into sub while Ctrl+Shift+V goes into the viewed folder.
@@ -304,7 +304,7 @@ tick (G_GNUC_UNUSED gpointer data)
 		}
 		break;
 	case 1:
-		/* The window's own first second, and the four items listed. */
+		/* The window's own first second, and the 4 items listed. */
 		if (waited - step_at < 20 || !find_pane () || item_count () < 4) {
 			if (waited - step_at > 200) {
 				report (FALSE, "the folder listed its 4 items");

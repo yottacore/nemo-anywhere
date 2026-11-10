@@ -1,7 +1,7 @@
-/* Where our config directory lives. GLib answers XDG on every platform, which
+/* Where our config directory goes. GLib returns XDG on every platform, which
  * is right on Linux and BSD but puts Windows settings in the local, machine-
  * bound AppData and macOS settings in a hidden dotfile dir. This covers the
- * platform answer and the one-time move of a directory an older build left
+ * platform's own path and the one-time move of a directory an older build left
  * behind. Env is set before the first call because both GLib and we cache. */
 
 #include <config.h>
@@ -56,9 +56,9 @@ main (void)
 	xdg     = g_build_filename (sandbox, "xdg", NULL);
 	roaming = g_build_filename (sandbox, "roaming", NULL);
 
-	/* Before the first call: GLib caches its XDG answer, and so do we. HOME
+	/* Before the first call: GLib caches its XDG path, and so do we. HOME
 	 * too, since the macOS root is under it, and the move below must not
-	 * reach a real config folder. */
+	 * touch a real config folder. */
 	g_setenv ("XDG_CONFIG_HOME", xdg, TRUE);
 	g_setenv ("APPDATA", roaming, TRUE);
 	g_setenv ("HOME", sandbox, TRUE);
@@ -79,7 +79,7 @@ main (void)
 		g_free (support);
 	}
 #else
-	/* Linux and BSD: XDG is the native answer, so nothing changes there. */
+	/* Linux and BSD: XDG is the native path, so nothing changes there. */
 	check (g_strcmp0 (root, g_get_user_config_dir ()) == 0);
 	check (g_strcmp0 (root, xdg) == 0);
 #endif
@@ -88,7 +88,7 @@ main (void)
 	expected = g_build_filename (root, NEMO_APP_SLUG, NULL);
 
 	/* The XDG location is also the user data dir on Windows, where actions and
-	 * scripts live. A directory there with no settings file is not an old
+	 * scripts live. A directory there with no settings file isn't an old
 	 * config and must stay where it is. */
 	if (g_strcmp0 (root, g_get_user_config_dir ()) != 0) {
 		char *actions = g_build_filename (legacy, "actions", NULL);
@@ -118,7 +118,7 @@ main (void)
 	check (g_file_test (user_dir, G_FILE_TEST_IS_DIR));
 	check (has_marker (user_dir, "settings.shcl"));
 
-	/* On a platform where the two are the same place, "moving" it must be a
+	/* On a platform where the 2 are the same place, "moving" it must be a
 	 * no-op and not lose the directory it was handed. */
 	if (g_strcmp0 (root, g_get_user_config_dir ()) == 0) {
 		check (g_strcmp0 (user_dir, legacy) == 0);

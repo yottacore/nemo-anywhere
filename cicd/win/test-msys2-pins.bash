@@ -119,13 +119,13 @@ m perl-xml-parser-1-1-x86_64.pkg.tar.zst ${z}"
 [[ "${got}" == "${want}" ]] || fFail "closure leaving out the base: ${got}"
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-#	Install, with stand-ins for uname, curl and pacman
+#	Install, with stand-ins for uname, curl, and pacman
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
 shims="${scratch}/bin"
 mkdir "${shims}"
 printf '#!/usr/bin/env bash\necho Msys\n' > "${shims}/uname"
-## Each fetched file holds its own name, so its sha256 is known up front.
+## Each fetched file contains its own name, so its sha256 is known up front.
 cat > "${shims}/curl" <<'END'
 #!/usr/bin/env bash
 cfg=""; while [[ $# -gt 0 ]]; do [[ "$1" == -K ]] && cfg="$2"; shift; done

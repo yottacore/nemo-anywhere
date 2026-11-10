@@ -322,7 +322,7 @@ file_get_drive_root_name (G_GNUC_UNUSED NemoFile *file, G_GNUC_UNUSED GFileInfo 
 	if (nemo_file_is_self_owned (file)) {
 		location = g_object_ref (file->details->directory->details->location);
 	} else {
-		/* details->name is not filled in until later in this same update, so
+		/* details->name isn't filled in until later in this same update, so
 		   a file being seen for the first time has to be named from the info. */
 		base = file->details->name != NULL ? file->details->name
 		                                   : (info != NULL ? g_file_info_get_name (info) : NULL);
@@ -629,7 +629,7 @@ nemo_file_set_metadata_internal (NemoFile *file,
 	}
 }
 
-/* Every picture a file holds is counted, so the memory for them has a limit. */
+/* Every picture a file has is counted, so the memory for them has a limit. */
 static void
 set_held_thumbnail (NemoFile *file, GdkPixbuf *pixbuf)
 {
@@ -1001,7 +1001,7 @@ finalize (GObject *object)
 		uri = nemo_file_get_uri (file);
 		nemo_thumbnail_remove_from_queue (uri);
 		g_free (uri);
-		/* A job cancelled here never comes back to clear the flag. */
+		/* A job canceled here never comes back to clear the flag. */
 		nemo_thumbnail_note_job (FALSE);
 	}
 
@@ -2293,7 +2293,7 @@ nemo_file_rename (NemoFile *file,
 		return;
 	}
 
-	/* GLib on Windows answers these with a plain I/O error, and ":" can name
+	/* GLib on Windows returns a plain I/O error for these, and ":" can name
 	   a stream instead of failing at all. After the unchanged case, since
 	   Windows 11 lets a file be called "CON". */
 	error = NULL;
@@ -2549,9 +2549,9 @@ file_on_share (NemoFile *file, guint generation)
  *
  * A share is native as far as gio is concerned, so nothing gated on "local"
  * holds it back and a folder of junctions pays a network timeout per entry -
- * twenty to fifty seconds each, one at a time, while the listing waits. This
+ * 20 to 50 seconds each, one at a time, while the listing waits. This
  * covers a file in a folder on a share (nemo-share.h), a link from anywhere
- * onto a share other than the one it sits on, and the mount point of a share.
+ * onto a share other than the one it's on, and the mount point of a share.
  * The share holding home counts as local.
  *
  * Returns: %TRUE if reading @file may have to go over the network.
@@ -2744,7 +2744,7 @@ win32_themed_icon_for_mime_type (const char *mime_type)
 	return icon;
 }
 
-/* A link to a folder has no content type of its own when the listing does not
+/* A link to a folder has no content type of its own when the listing doesn't
  * follow it, so GIO hands back the generic file icon for it. Borrowed ref. */
 static GIcon *
 win32_folder_icon (void)
@@ -2922,7 +2922,7 @@ update_info_internal (NemoFile *file,
 
 	drive_root_name = file_get_drive_root_name (file, info);
 	if (drive_root_name != NULL) {
-		/* A drive root cannot be renamed, so it edits as it displays. */
+		/* A drive root can't be renamed, so it edits as it displays. */
 		changed |= nemo_file_set_display_name (file,
 							  drive_root_name,
 							  drive_root_name,
@@ -3178,7 +3178,7 @@ update_info_internal (NemoFile *file,
 		changed = TRUE;
 	}
 
-	/* Different contents, so nothing known about the old thumbnail holds. */
+	/* Different contents, so nothing known about the old thumbnail still applies. */
 	if (file->details->mtime != mtime || file->details->mtime_usec != mtime_usec) {
 		file->details->thumbnail_asked_size = 0;
 		file->details->thumbnail_stored_size = 0;
@@ -3205,7 +3205,7 @@ update_info_internal (NemoFile *file,
 	   refresh. Judge the change on where the icon ends up instead. */
 	old_icon = file->details->icon != NULL ? g_object_ref (file->details->icon) : NULL;
 
-	/* Synthesized info (the win32 unstattable-directory fallback) carries no
+	/* Synthesized info (the win32 unstattable-directory fallback) has no
 	   standard::icon, and g_object_ref(NULL) warns. */
 	icon = g_file_info_get_icon (info);
 	if (!g_icon_equal (icon, file->details->icon)) {
@@ -3232,7 +3232,7 @@ update_info_internal (NemoFile *file,
 	}
 
 	/* A failure the store recorded outranks the freedesktop cache saying it
-	   did not fail. */
+	   didn't fail. */
 	thumbnailing_failed = !file->details->thumbnail_ignore_shared &&
 		g_file_info_get_attribute_boolean (info, G_FILE_ATTRIBUTE_THUMBNAILING_FAILED);
 	thumbnailing_failed |= file->details->thumbnail_from_store && file->details->thumbnailing_failed;
@@ -3786,7 +3786,7 @@ file_has_note (NemoFile *file)
 }
 
 /* A shortcut file: a Windows .lnk or a .desktop launcher. Neither is a link the
-   file system follows, so each wears its own emblem rather than the symlink one. */
+   file system follows, so each has its own emblem rather than the symlink one. */
 static gboolean
 file_is_shortcut (NemoFile *file)
 {
@@ -3953,8 +3953,8 @@ compare_by_search_result_count (NemoFile *file_1,
 
 /* A shortcut to a folder goes with the folders, when its target is one. That
    is read from the shortcut, as its folder icon is, and not from the target,
-   which may be on a share that is not answering. So a shortcut whose folder
-   is gone still sorts as one, the same as it still wears the icon. */
+   which may be on a share that isn't answering. So a shortcut whose folder
+   is gone still sorts as one, the same as it still shows the icon. */
 static gboolean
 sorts_as_folder (NemoFile *file)
 {
@@ -4325,7 +4325,7 @@ show_dot_files_changed_callback (G_GNUC_UNUSED gpointer callback_data)
  * @name: a file's base name.
  *
  * Windows has a hidden attribute of its own and no notion of dot-files, so the
- * two are separate switches there and this answers only for the dot. Elsewhere
+ * two are separate switches there and this only checks the dot. Elsewhere
  * GIO already folds dot-files into the hidden attribute, so this is always
  * %FALSE and the one switch still covers both.
  *
@@ -4879,7 +4879,7 @@ nemo_file_get_display_name (NemoFile *file)
 }
 
 /* How the status bar names a selected file. A search hit can be anywhere, so
-   its name on its own does not say which file was found.
+   its name on its own doesn't say which file was found.
    Returns: (transfer full): free with g_free */
 char *
 nemo_file_get_status_name (NemoFile *file, gboolean in_search)
@@ -5208,7 +5208,7 @@ nemo_file_should_show_thumbnail (NemoFile *file)
     
     /* The size limit is about making one. A thumbnail that already exists is
      * shown whatever size the file is, and until the store has been asked
-     * nobody knows whether it holds one. */
+     * nobody knows whether it has one. */
 	if (file->details->thumbnail == NULL &&
 	    file->details->thumbnail_path == NULL &&
 	    file->details->thumbnail_is_up_to_date &&
@@ -5293,13 +5293,13 @@ nemo_file_should_show_thumbnail (NemoFile *file)
         /* file system says we should treat file as if it's local */
         return TRUE;
     }
-    /* local files is the only left to check, and a share is not local */
+    /* local files is the only left to check, and a share isn't local */
     return nemo_file_is_local (file) && !nemo_file_is_on_a_share (file);
 }
 
 /* A refresh. The file cache forgets its copy and the freedesktop one stops
  * being read for this file, so the next draw makes a new one. The freedesktop
- * cache itself is left as it is, since it is not ours to write. The forget is
+ * cache itself is left as it is, since it isn't ours to write. The forget is
  * queued, since the file can be held by another copy for seconds. */
 void
 nemo_file_delete_thumbnail (NemoFile *file)
@@ -5429,7 +5429,7 @@ nemo_file_forget_held_thumbnail (NemoFile *file)
 }
 
 /* Every picture counts toward the total, made or not. One held or already in
- * the store is done, unless a bigger copy is on its way. One that could not
+ * the store is done, unless a bigger copy is on its way. One that couldn't
  * be made is neither, or the count could never reach the total. */
 void
 nemo_file_count_thumbnail (NemoFile *file, guint *shown, guint *wanted)
@@ -5913,7 +5913,7 @@ nemo_file_get_icon (NemoFile *file,
 	}
 
 #ifdef G_OS_WIN32
-	/* A shortcut wears its target's icon, which only the shell can find. The
+	/* A shortcut shows its target's icon, which only the shell can find. The
 	   exception is a folder: the shell hands back its own art, which looks
 	   nothing like the folders around it, so the theme's is used instead.
 	   The shell is asked off the window's thread, and the plain icon stands
@@ -5947,8 +5947,8 @@ nemo_file_get_icon (NemoFile *file,
 		}
 	}
 #else
-	/* A Windows shortcut wears the icon of what it points at, worked out
-	   from the shortcut alone: the target may be on a share that is not
+	/* A Windows shortcut shows the icon of what it points at, worked out
+	   from the shortcut alone: the target may be on a share that isn't
 	   answering. */
 	if (lnk_is_cheap_to_read (file)) {
 		char *path = nemo_file_get_path (file);
@@ -6276,7 +6276,7 @@ show_directory_item_count_changed_callback (G_GNUC_UNUSED gpointer callback_data
 }
 
 /* Whether the file is worth spending an unbounded amount of time on. Not the
-   same question as nemo_file_is_local, which answers for the folder it sits in
+   same question as nemo_file_is_local, which checks the folder it's in
    and so says yes to a link that leads off the machine. */
 static gboolean
 file_is_cheap_to_read (NemoFile *file)
@@ -7440,7 +7440,7 @@ nemo_file_get_permissions_as_string (NemoFile *file)
 				 	: (sticky ? 'T' : '-'));
 }
 
-/* The Ext column's value. The parsing itself lives in nemo-file-utilities.c so
+/* The Ext column's value. The parsing itself is in nemo-file-utilities.c so
  * it can be checked without a NemoFile; folders never show one, the way
  * Explorer's own column behaves. */
 static char *
@@ -8393,7 +8393,7 @@ nemo_file_get_emblem_icons (NemoFile *file,
 	for (l = keywords; l != NULL; l = l->next) {
 		keyword = l->data;
 
-		/* Our own emblems already carry their whole icon name; anything from a
+		/* Our own emblems already have their whole icon name; anything from a
 		   theme or from metadata gets the emblem- prefix tried first. */
 		if (g_str_has_prefix (keyword, "nemo-")) {
 			icon = g_themed_icon_new (keyword);
@@ -8563,7 +8563,7 @@ nemo_file_is_broken_symbolic_link (NemoFile *file)
 
 	g_return_val_if_fail (NEMO_IS_FILE (file), FALSE);
 
-	/* Nobody has looked where it goes, so it is not known to be broken. */
+	/* Nobody has looked where it goes, so it isn't known to be broken. */
 	if (file->details->link_unfollowed) {
 		return FALSE;
 	}
@@ -10045,7 +10045,7 @@ nemo_file_list_call_when_ready (GList *file_list,
 		file = NEMO_FILE (l->data);
 		/* Need to do this here, as the list can be modified by this call */
 		l = l->next;
-		EEL_ANALYZER_SKIP ("use-after-free") // remaining_files holds the files still ahead, so data isn't freed yet
+		EEL_ANALYZER_SKIP ("use-after-free") // remaining_files has the files still ahead, so data isn't freed yet
 		nemo_file_call_when_ready (file,
 					       attributes,
 					       file_list_file_ready_callback,

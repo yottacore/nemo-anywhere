@@ -17,12 +17,12 @@
 #include "test-check.h"
 #include "nemo-build-number.h"
 
-/* Crockford base32, lower case: no i, l, o or u. */
+/* Crockford base32, lower case: no i, l, o, or u. */
 static const char build_digits[] = "0123456789abcdefghjkmnpqrstvwxyz";
 
 #define EPOCH_2000 946684800
 
-/* Minutes since 2000 the build number stands for, or -1 when it is not one. */
+/* Minutes since 2000 the build number stands for, or -1 when it isn't one. */
 static gint64
 decode_build (const char *text)
 {
@@ -45,7 +45,7 @@ decode_build (const char *text)
 }
 
 /* The first line is "nemo-anywhere v<version> build <number> (<date>)". The number
-   moves with every commit, so only its shape and the time it names are checked. */
+   moves with every commit, so only its format and the time it names are checked. */
 /* tz is the TZ the program ran under, NULL for this process's own. */
 static void
 check_version_line (const char *out, const char *version, const char *tz)
@@ -185,7 +185,7 @@ check_prints (const char *program, const char *flag, const char *version, const 
 	g_strfreev (envp);
 }
 
-/* An option that takes a value is read with it, and one that is not known
+/* An option that takes a value is read with it, and one that isn't known
    stops the run. --version keeps the display closed in both. */
 static void
 check_parse (const char *program, const char *flag, gboolean want_ok)
@@ -247,7 +247,7 @@ main (int argc, char *argv[])
 	check_build_number (argv[4], argv[3], "--epoch", 1787788800 - 15, "dbsv0 1787788800");
 	check_build_number (argv[4], argv[3], "--epoch", 1787788800 - 31, "dbstz 1787788740");
 
-	/* 26 hours apart, so the two always fall on different days. POSIX TZ rules,
+	/* 26 hours apart, so the 2 always fall on different days. POSIX TZ rules,
 	   which need no zone files, and this part runs on POSIX only. */
 	check_prints (argv[1], "--version", argv[2], "AAA-14");
 	check_prints (argv[1], "--version", argv[2], "BBB+12");

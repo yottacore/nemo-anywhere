@@ -364,7 +364,7 @@ nemo_mime_get_default_application_for_file (NemoFile *file)
 #ifdef G_OS_WIN32
         /* The override map, then what the shell would open it with - or
          * nothing, as the shell would have nothing. GIO's own answer can be a
-         * print verb, so it is not asked for a local file. */
+         * print verb, so it isn't asked for a local file. */
         if (file_has_local_path (file)) {
             app = nemo_associations_win32_default_for_type (mime_type);
         } else {
@@ -1592,7 +1592,7 @@ launch_application (GAppInfo *application,
     gboolean accepts_uri_list;
 
     /* A GAppInfo built from anything other than a desktop file has no command
-       line at all, and g_strstr_len does not take NULL. */
+       line at all, and g_strstr_len doesn't take NULL. */
     const char *commandline = g_app_info_get_commandline (application);
 
     accepts_uri_list = commandline != NULL &&
@@ -2336,9 +2336,9 @@ activation_start_mountables (ActivateParameters *parameters)
  * one case handled here rather than there, so it opens in the current tab
  * instead of a new Explorer window; everything else is handed straight to the
  * shell, which is the only thing that knows about the arguments, working
- * directory and window state the shortcut carries - none of which survive being
+ * directory and window state the shortcut has - none of which survive being
  * reduced to a target path. A shortcut made off Windows is the other exception:
- * the shell cannot read it, so its target is opened here too.
+ * the shell can't read it, so its target is opened here too.
  *
  * Returns the list to activate normally with folder shortcuts swapped for their
  * targets, or NULL when nothing is left. *handled says whether any shortcut was
@@ -2410,7 +2410,7 @@ static void activate_files_in (GtkWindow *parent_window,
  * the shortcut, as on Windows. Anything else opens as if it had been
  * double-clicked where it is, started in the shortcut's Start in folder when
  * that can be found here, or else in the target's own folder. The arguments a
- * shortcut carries are for a Windows program and are left out.
+ * shortcut has are for a Windows program and are left out.
  *
  * Returns what is left to activate normally, with folder shortcuts swapped for
  * their targets. *handled says whether any shortcut was dealt with. */
@@ -2543,7 +2543,7 @@ activate_files_in (GtkWindow *parent_window,
 	{
 		/* Redispatch on what is left after the shortcuts are dealt with.
 		 * resolve_win32_shortcuts walks every chain to its end, so nothing it
-		 * hands back is a shortcut and this cannot recurse. */
+		 * hands back is a shortcut and this can't recurse. */
 		gboolean handled = FALSE;
 		GList *resolved = resolve_win32_shortcuts (files, &handled);
 
@@ -2560,7 +2560,7 @@ activate_files_in (GtkWindow *parent_window,
 #else
 	{
 		/* Nothing handed back is a shortcut that can be read, so this
-		   cannot recurse more than once. */
+		   can't recurse more than once. */
 		gboolean handled = FALSE;
 		GList *resolved = resolve_lnk_shortcuts (parent_window, slot, files, flags,
 							 user_confirmation, &handled);

@@ -2,11 +2,11 @@
 
 # Test IDs.
 #
-# Every CI test carries an ID: the time it was written, as whole minutes since
+# Every CI test has an ID: the time it was written, as whole minutes since
 # 2000-01-01 00:00 UTC, in lower-case Crockford base 32, zero-padded to 5
 # digits, as in decp8. When 2 tests fall in one minute, the newer one takes the
 # next free minute. A meson test has it at the front of its name, so a failure
-# in the log already names it. A lint-c check and a test script carry it on a
+# in the log already names it. A lint-c check and a test script have it on a
 # "Test ID:" comment line, and read it back from there to print it when they
 # run. So does a tool's self-test that the lint stage runs, on a line in the
 # tool. A fuzz target has it at the front of its entry in fuzz.bash.
@@ -16,7 +16,7 @@
 # --check fails on a test with no ID, a malformed one, or one used twice.
 #
 # --list [root] reads steps on stdin, one "<name><TAB><command>" a line, and
-# prints each with the test IDs its command reaches, for cicd.bash --list and
+# prints each with the test IDs its command can run, for cicd.bash --list and
 # cicd-win.ps1 -List.
 #
 # Syntax: test-id.py [--at TIME | --check [root] | --list [root]]
@@ -95,7 +95,7 @@ def found_ids(root):
         yield (m.group(1) if m else None), script.relative_to(root).as_posix()
 
     # A tool's own self-test, found where the lint stage runs it, so a new one
-    # cannot go in unseen. Its ID is in the tool, on a "Test ID:" line. This
+    # can't go in unseen. Its ID is in the tool, on a "Test ID:" line. This
     # script's --check is the gate itself, not a test.
     tools = {}
     for driver in ('cicd/utility/lint.bash', 'cicd/utility/lint-c.bash'):
@@ -202,9 +202,9 @@ def resolve(ref, index, near):
 def listing(root, steps):
     # Steps on stdin, as "<name><TAB><command>". A step runs the tests its
     # command names, those the scripts it names run, and so on 5 levels down,
-    # along with the IDs those scripts hold, such as the lint checks and the
+    # along with the IDs those scripts contain, such as the lint checks and the
     # fuzz targets. A test script is a leaf, unless the step runs it itself,
-    # such as the sanitizer suite. A step that reaches a meson test run gets
+    # such as the sanitizer suite. A step that leads to a meson test run gets
     # the meson tests. A script with modes, such as the FreeBSD lane's tests
     # and release, gives every mode's tests to each step that runs it.
     index = script_index(root)

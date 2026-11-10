@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: Install the tracked git hooks into this clone's .git/hooks. Run once
-##	  per clone (hooks live outside version control). Idempotent.
+##	  per clone, since hooks are outside version control. Idempotent.
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
 ##	Licensed under the GNU General Public License, version 2 only.

@@ -66,7 +66,7 @@ make_hidden_dir (const char *relative)
 }
 
 /* Walks the rows by name. Looking a file up by uri instead would make a
- * NemoFile the folder has not listed yet, which is not what the tree sees. */
+ * NemoFile the folder hasn't listed yet, which isn't what the tree sees. */
 static gboolean
 iter_for (const char *relative, GtkTreeIter *iter)
 {
@@ -311,7 +311,7 @@ main (int argc, char *argv[])
 	check (wait_for (parent_loaded));
 
 	/* A folder that gained a sub-folder after it was read as empty. The tree
-	 * asks for this before expanding to reach a location. */
+	 * asks for this before expanding to get to a location. */
 	make_dir ("empty/late");
 	{
 		GtkTreeIter iter;

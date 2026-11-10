@@ -26,7 +26,7 @@
  * folder was all in, and pictures waited for their thumbnails first
  * (2026101417352261). The built program opens a folder of sub-folders in the
  * list view, and test-nemo-list-expand-time-probe, preloaded, opens each by
- * its expander and times its rows. The probe holds back each answer of a
+ * its expander and times its rows. The probe holds back each batch of a
  * listing after the first, so the batches come in the same order on any box:
  *
  * - FOLDERS folders listed a little slower than a local disk does: the best
@@ -36,7 +36,7 @@
  * - SLOW folders listed a second per batch, like a share might be: the best
  *   time to the first row has to be under the bar, so they show what they have.
  *
- * A sanitizer build checks all but the time bars (TEST_TIME_BARS_HOLD).
+ * A sanitizer build checks all but the time bars, through TEST_TIME_BARS_HOLD.
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Linux
  * and FreeBSD only, since it works by LD_PRELOAD. */
@@ -62,7 +62,7 @@
    the first. */
 #define FILES   120
 
-/* What the probe holds each later answer of a slow listing for. */
+/* What the probe holds each later batch of a slow listing for. */
 #define HOLD_MS 1000.0
 
 /* The old wait was a 200 ms timer started when the first rows came in, so it
@@ -111,7 +111,7 @@ static const guint8 pixel_png[] = {
 	0x44, 0xae, 0x42, 0x60, 0x82,
 };
 
-/* Names, sizes and dates that differ, so no two rows measure or sort alike.
+/* Names, sizes and dates that differ, so no 2 rows measure or sort alike.
    A few are pictures, which wait for a thumbnail in a folder's first load. */
 static void
 make_folder (const char *root, const char *kind, int number)

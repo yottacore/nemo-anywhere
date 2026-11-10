@@ -4,11 +4,11 @@
 ##	  unlike the C check: every script here was written for this project, so
 ##	  there is no inherited noise to drown in.
 ##	- Anything shellcheck reports fails the stage, notes included. A script that
-##	  needs a rule off carries a `shellcheck disable=` line at the site that
+##	  needs a rule off has a `shellcheck disable=` line at the site that
 ##	  needs it, with its reason. Note the directive has to start with a single
 ##	  '#': a '##' comment reads as prose and is quietly ignored.
-##	- Settings (severity, sourced-file handling) are in .shellcheckrc at the
-##	  repo root, so an editor and this stage see the same rules.
+##	- Settings such as severity and sourced-file handling are in .shellcheckrc
+##	  at the repo root, so an editor and this stage see the same rules.
 ##	- A missing shellcheck skips with a warning, so an unprovisioned box can't
 ##	  hard-block a push; SHELLCHECK_STRICT=1 turns that miss into a failure.
 ##	- Syntax: lint-bash.bash
@@ -35,17 +35,17 @@ if ! command -v shellcheck >/dev/null 2>&1; then
 fi
 
 ## Everything under source/ is upstream's, and n8git_backup-and-publish is a
-## shared copy that lives outside this project, so neither is ours to restyle.
-## The two extensionless ones are named by what runs them - git wants the hook
-## called pre-push, and runfm is a command name - so they can't be found by the
+## shared copy from outside this project, so neither is ours to restyle.
+## The 2 extensionless ones are named by what runs them. Git wants the hook
+## called pre-push, and runfm is a command name, so they can't be found by the
 ## .bash suffix the rest of the tree uses.
 mapfile -t files < <(git ls-files '*.bash' ':!:cicd/utility/n8git_backup-and-publish')
 files+=(cicd/hooks/pre-push utility/runfm)
 
 ## A disable= above a script's first command covers the whole file, however
-## few lines it was meant for. Four scripts carried a block of them from a
-## shared template; eleven of the thirteen rules hid nothing and one hid two
-## dead variables. config.bash keeps its one: every name in it is read by
+## few lines it was meant for. There were 4 scripts with a block of them from a
+## shared template. Of the 13 rules, 11 hid nothing and one hid 2 dead
+## variables. config.bash keeps its one: every name in it is read by
 ## cicd.bash, so the whole file reads as write-only.
 fileWide="$(for f in "${files[@]}"; do
 	[[ "$f" == 'cicd/config.bash' ]] && continue

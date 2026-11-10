@@ -1,24 +1,25 @@
 ##	Purpose:
-##		- Pack the staged native Windows runtime bundle (cicd/artifacts/win-run)
-##		  into ONE self-contained exe via Enigma Virtual Box: every dll, schema,
-##		  icon, and theme rides inside the exe in an in-memory virtual file
-##		  system - no library folder, no launcher, nothing extracted at run time.
-##		- Two steps:
+##		- Pack the staged native Windows runtime bundle, cicd/artifacts/win-run,
+##		  into one self-contained exe through Enigma Virtual Box. Every dll,
+##		  schema, icon, and theme is inside the exe in an in-memory virtual file
+##		  system, so there's no library folder or launcher, and nothing is
+##		  extracted at run time.
+##		- It runs in 2 steps:
 ##		   1. Flatten the app/ + mingw64/ bundle into a GTK prefix layout under
 ##		      win-flat/: exe + dlls at the root, lib/ share/ etc/ beside them.
 ##		      GLib/GTK/gdk-pixbuf/fontconfig on Windows resolve their data dirs
-##		      relative to their own dll, so this layout needs no env wiring at
-##		      all - the flat tree double-click-runs as-is, and is also the layout
+##		      relative to their own dll, so this layout needs no env settings.
+##		      The flat tree runs as is on a double-click, and is also the layout
 ##		      the release .zip contract in project/design.md expects.
 ##		   2. Refuse any program in that tree but the app, then generate an .evb
 ##		      project over it and run enigmavbconsole.
 ##		- Output: <out-dir>\nemo-anywhere.exe, then a --version smoke with a
-##		  bare System32-only PATH proves it truly self-contained.
+##		  bare System32-only PATH proves it self-contained.
 ##		- -FlattenOnly stops after step 1, which is what the sandbox wants: it
 ##		  runs the flat tree directly, so the pack is a few minutes wasted.
 ##		- -ProjectFrom <flat dir> only writes and checks the .evb project for a
 ##		  tree that is already flat, into -OutDir. No packer needed, so the
-##		  lint stage runs it on any box (test-evb-project.ps1).
+##		  lint stage runs it on any box, in test-evb-project.ps1.
 ##		- Syntax:
 ##		  pwsh cicd/win/pack-portable.ps1 [-StageDir <dir>] [-OutDir <dir>] [-FlattenOnly | -ProjectFrom <dir>]
 ##	History:
@@ -72,7 +73,7 @@ if ($Help) {
 	exit 0
 }
 
-## Locate the EVB console packer (standard install dirs, then PATH).
+## The standard install dirs first, then PATH.
 function fFindEvb {
 	$cands = @(
 		"C:\Program Files (x86)\Enigma Virtual Box\enigmavbconsole.exe",
@@ -91,7 +92,7 @@ function fFlatten {
 		fDie "no staged bundle at $StageDir (run the stage step first)"
 	}
 	fEcho "Flattening bundle -> $FlatDir"
-	if (-not (Remove-SafeTree -LiteralPath $FlatDir -Under (Split-Path -Parent $FlatDir))) { fDie "could not clear $FlatDir" }
+	if (-not (Remove-SafeTree -LiteralPath $FlatDir -Under (Split-Path -Parent $FlatDir))) { fDie "couldn't clear $FlatDir" }
 	New-Item -ItemType Directory -Path $FlatDir | Out-Null
 	## -Recurse: without it any subfolder is created empty and its contents are
 	## silently dropped out of the packed exe.
@@ -220,12 +221,12 @@ function fMain {
 
 	fEcho "Packing (this can take a few minutes)..."
 	## enigmavbconsole writes the output exe at the very end, but on some headless
-	## runners it then never returns - a plain `& $evb` blocks forever after the
-	## pack already succeeded. So wait on the OUTPUT, not the process: once the exe
-	## appears, give it a short grace to finish flushing, then reap a console that
-	## didn't self-exit. A hard cap still bounds a genuinely stuck pack.
+	## runners it then never returns, and a plain `& $evb` blocks forever after the
+	## pack already succeeded. So wait on the output rather than the process. Once
+	## the exe appears, give it a short grace to finish flushing, then kill a
+	## console that didn't exit on its own. A hard cap still stops a stuck pack.
 	## Quoted: Start-Process joins ArgumentList on spaces, so a project path under
-	## a spaced folder would arrive as two arguments.
+	## a spaced folder would come through as 2 arguments.
 	$proc     = Start-Process -FilePath $evb -ArgumentList @("`"$projEvb`"") -PassThru -NoNewWindow
 	$capSec   = 900
 	$waited   = 0
@@ -234,9 +235,9 @@ function fMain {
 	while (-not $proc.HasExited) {
 		Start-Sleep -Seconds 3; $waited += 3
 
-		## Reap on a size that has stopped moving, not on a fixed grace: the exe
-		## appears as soon as EVB opens it and a fixed wait can cut a large pack
-		## off mid-write.
+		## Kill on a size that has stopped moving rather than after a fixed grace.
+		## The exe appears as soon as EVB opens it, so a fixed wait can cut a large
+		## pack off mid-write.
 		## Not there yet is the normal case for the first few passes.
 		$item = Get-Item -LiteralPath $outExe -ErrorAction SilentlyContinue
 		$size = if ($item) { $item.Length } else { -1 }

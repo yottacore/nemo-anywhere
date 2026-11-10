@@ -1,9 +1,9 @@
 /* Compressing for real: a folder of items is handed to the job both ways -
- * everything into one archive, and one archive per item - and what reaches
- * disk is read back with libarchive. What goes in each archive is the point,
- * so the entry names are checked rather than just the file being there.
+ * everything into one archive, and one archive per item - and what's written
+ * to disk is read back with libarchive. What goes in each archive is the point,
+ * so the entry names are checked rather than only that the file is there.
  *
- * Also a run cancelled partway, and one that fails on a source it cannot read:
+ * Also a run canceled partway, and one that fails on a source it can't read:
  * neither may leave a half-written archive, or a volume of one, behind. */
 
 #include "test.h"
@@ -87,7 +87,7 @@ write_file (const char *dir,
 }
 
 /* Every entry in the archive, '/'-separated, in the order libarchive hands
-   them over. NULL when the file could not be opened as an archive at all. */
+   them over. NULL when the file couldn't be opened as an archive at all. */
 static char **
 archive_entries (const char *path)
 {
@@ -147,7 +147,7 @@ sources_in (const char *dir,
 	return sources;
 }
 
-/* One archive holding the whole selection, which is what the dialog does with
+/* One archive containing the whole selection, which is what the dialog does with
    the box unticked. */
 static void
 check_one_archive (const char         *source_dir,
@@ -184,7 +184,7 @@ check_one_archive (const char         *source_dir,
 }
 
 /* The same selection with the box ticked: an archive apiece, each named after
-   its item and each holding only that item. */
+   its item and each containing only that item. */
 static void
 check_each_archive (const char         *source_dir,
 		    const char         *out_dir,
@@ -233,7 +233,7 @@ check_each_archive (const char         *source_dir,
 	g_free (path);
 
 	/* Nothing was written under the name the whole selection would have
-	   used, so the two ways cannot be confused for each other. */
+	   used, so the 2 ways can't be confused for each other. */
 	path = g_build_filename (out_dir, "everything.zip", NULL);
 	check (!g_file_test (path, G_FILE_TEST_EXISTS));
 	g_free (path);
@@ -286,9 +286,9 @@ check_archive_of_archive (const char *out_dir,
 }
 
 /* Whether the originals may go is decided by reading the archive back, so that
-   decision is checked from both sides: an archive that really does hold the
+   decision is checked from both sides: an archive that does contain the
    lot, and each way one can come up short. Between them the happy path is
-   checked again, or a later refusal could just be damage left behind. */
+   checked again, or a later refusal could be damage left behind. */
 /* What the Compress dialog asks before it offers to delete the originals. */
 static void
 check_predicate (void)
@@ -422,7 +422,7 @@ check_verify (const char *tmp,
 	check (reason == NULL);
 
 	/* With the folder entries dropped, "deep" is still in there because
-	   b.txt is, and "empty" cannot be. */
+	   b.txt is, and "empty" can't be. */
 	{
 		static const char * const kept[] = { "a.txt", "deep", NULL };
 		char  *flat_path = g_build_filename (out, "flat.zip", NULL);
@@ -472,7 +472,7 @@ check_verify (const char *tmp,
 	check (nemo_archive_verify (archive, sources, &options,
 				    NEMO_ARCHIVE_BACKEND_LIBARCHIVE, NULL, NULL));
 
-	/* One volume of a set is not an archive on its own, so there is nothing
+	/* One volume of a set isn't an archive on its own, so there is nothing
 	   to check and the answer is no whatever is on disk. */
 	options.split_size = 1024;
 	check (!nemo_archive_verify (archive, sources, &options,
@@ -482,7 +482,7 @@ check_verify (const char *tmp,
 	reason = NULL;
 	options.split_size = 0;
 
-	/* With the names encrypted the reader will not open the archive at all,
+	/* With the names encrypted the reader won't open the archive at all,
 	   password or no password, so the answer is no before anything is read.
 	   The archive here is the plain one that has just checked out, so a no
 	   can only have come from the options. */
@@ -500,12 +500,12 @@ check_verify (const char *tmp,
 				    NEMO_ARCHIVE_BACKEND_LIBARCHIVE, NULL, NULL));
 	options.encrypt_names = FALSE;
 
-	/* The same four answers straight from the predicate. The Compress dialog
+	/* The same 4 results straight from the predicate. The Compress dialog
 	   grays its delete box on this, so the rule is checked once here rather
 	   than through a window. */
 	check_predicate ();
 
-	/* Something that will not open as an archive at all. */
+	/* Something that won't open as an archive at all. */
 	write_file (out, "notes.txt", "this is not an archive");
 	g_free (path);
 	path = g_build_filename (out, "notes.txt", NULL);
@@ -521,7 +521,7 @@ check_verify (const char *tmp,
 	/* Anything the walk had to pass over means the archive was never offered
 	   all of it, whether or not what did go in reads back cleanly. A link
 	   that leads nowhere is one of those under Ignore, and where the writer
-	   cannot keep it as a link. */
+	   can't keep it as a link. */
 	{
 		char *link_path = g_build_filename (deep, "dangling", NULL);
 		GFile *link_file = g_file_new_for_path (link_path);
@@ -555,8 +555,8 @@ check_verify (const char *tmp,
 		g_free (reason);
 		reason = NULL;
 
-		/* Still a miss for a writer that could not take it as a link, as
-		   7z on Windows cannot. rar writes no zip, so it keeps no links
+		/* Still a miss for a writer that couldn't take it as a link, as
+		   7z on Windows can't. rar writes no zip, so it keeps no links
 		   here and stands in for that. */
 		check (!nemo_archive_verify (link_destination, sources, &options,
 					     NEMO_ARCHIVE_BACKEND_RAR, NULL, &reason));
@@ -657,7 +657,7 @@ check_refused (GFile                    *archive,
 	g_free (reason);
 }
 
-/* With links followed, the delete check holds the archive to what they led
+/* With links followed, the delete check compares the archive to what they led
    to as well, under the links' own names: a followed file that changed, one
    that's missing from the archive, and one added since all refuse. A link
    back into the selection adds nothing, and is no miss. Ignore refuses the
@@ -866,7 +866,7 @@ cancel_once_written (gpointer data)
 	return watch->cancelled ? G_SOURCE_REMOVE : G_SOURCE_CONTINUE;
 }
 
-/* Bytes that do not compress, so writing them takes long enough to stop. */
+/* Bytes that don't compress, so writing them takes long enough to stop. */
 static void
 write_noise (const char *dir,
 	     const char *name,
@@ -1056,7 +1056,7 @@ check_edited_line (const char *tmp,
 }
 
 #ifndef G_OS_WIN32
-/* A source that cannot be read fails the job, and the failure takes what was
+/* A source that can't be read fails the job, and the failure takes what was
    written so far with it. */
 static void
 check_unreadable (const char *label,
@@ -1492,8 +1492,8 @@ main (int argc, char *argv[])
 	char *config_home;
 	guint handler;
 
-	/* Before anything reads the config root, which GLib keeps from its first
-	   answer. Made later, it was the real one that got written. */
+	/* Before anything reads the config root, which GLib caches on first
+	   read. Made later, it was the real one that got written. */
 	config_home = test_scratch_config_home ("nemo-archive-test-config-XXXXXX");
 	test_init (&argc, &argv);
 	/* Before the first job, since the job queue watches nemo_preferences

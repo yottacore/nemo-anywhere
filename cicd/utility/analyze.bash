@@ -17,7 +17,7 @@
 ##	  itself fails.
 ##	- The last run's logs are in cicd/artifacts/analyze/last/. Each run also keeps
 ##	  counts_<stamp>.txt and findings_<stamp>.tgz there, GFS-rotated.
-##	- Both images carry both analyzers, so one missing from its container fails
+##	- Both images have both analyzers, so one missing from its container fails
 ##	  the stage, and shows as "not run" in the counts. The Linux lane's
 ##	  container is "step", run through docker-run.bash, and the Windows lane's
 ##	  "winstep", through win/win-run.bash.

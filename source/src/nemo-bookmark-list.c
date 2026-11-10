@@ -177,7 +177,7 @@ static GFile *
 nemo_bookmark_list_get_file (void)
 {
 #ifdef G_OS_WIN32
-    /* Beside the settings, in the roaming profile. The toolkit's file sits in
+    /* Beside the settings, in the roaming profile. The toolkit's file is in
      * the local one and stays behind on a machine change, so it is copied
      * across the first time this one is found missing. */
     char *user_directory = nemo_get_user_directory ();
@@ -1259,9 +1259,9 @@ windows_default_bookmarks (void)
     return g_string_free (out, FALSE);
 }
 
-/* Drop anything that cannot be a path here, and seed the defaults if that
+/* Drop anything that can't be a path here, and seed the defaults if that
  * leaves nothing. Keeping a set someone already curated matters more than the
- * defaults, so an upgrade from a build without the marker is not wiped. */
+ * defaults, so an upgrade from a build without the marker isn't wiped. */
 static void
 first_run_setup_win32 (void)
 {

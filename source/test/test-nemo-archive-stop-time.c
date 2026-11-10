@@ -36,7 +36,7 @@
  * a write fails.
  *
  * The built-in 7z writer pads the same way, but into a temporary file of its
- * own, so how the job treats the output does not reach it. A 2 GB file took
+ * own, so how the job treats the output doesn't change it. A 2 GB file took
  * 24 s. Link storing is off here, since with it on a 7z goes to the 7-Zip
  * program where it is installed. */
 
@@ -121,7 +121,7 @@ give_up (gpointer data)
 	return G_SOURCE_REMOVE;
 }
 
-/* Seconds from the stop to the end, or -1 where the job did not stop. */
+/* Seconds from the stop to the end, or -1 where the job didn't stop. */
 static double
 time_stop (NemoProgressInfoManager *manager,
 	   GtkWidget               *window,

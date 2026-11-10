@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 
-##	- Purpose: Stage a self-contained Windows runtime bundle for the NATIVE
-##	  (MSYS2/MinGW-w64) build of nemo-anywhere, so it runs on a box that has no
-##	  MSYS2 - and can ride the dogfood sync. The native analog of the cross
-##	  stager in utility/run-windows-build-via-wine.bash, but sourced from the
-##	  host's /mingw64 tree instead of the container sysroot.
-##	- Native /mingw64/bin holds EVERY installed package's DLLs, so a blind
-##	  bin/*.dll copy would be enormous. We copy only the dependency closure:
-##	  ldd is recursive on PE, so one pass per binary yields its full static
-##	  import set; we union the closures of the app exes and the pixbuf loaders
-##	  (dlopen'd, so not in the app's own ldd).
-##	- Layout produced under DEST (matches the win-run snapshot n8runfm reads):
+##	- Purpose: Stage a self-contained Windows runtime bundle for the native
+##	  MSYS2/MinGW-w64 build of nemo-anywhere, so it runs on a box that has no
+##	  MSYS2 and can go out with the dogfood sync. It's the native version of the
+##	  cross stager in utility/run-windows-build-via-wine.bash, but copies from
+##	  the host's /mingw64 tree instead of the container sysroot.
+##	- Native /mingw64/bin has every installed package's DLLs, so a blind
+##	  bin/*.dll copy would be huge. Only the dependency closure is copied. ldd
+##	  is recursive on PE, so one pass per binary gives its full static import
+##	  set. The closures of the app exes and the pixbuf loaders are joined, since
+##	  the loaders are dlopen'd and not in the app's own ldd.
+##	- Layout produced under DEST, the same as the win-run snapshot n8runfm reads:
 ##	    app/       nemo-anywhere.exe (single exe on Windows; extension lib is folded in)
 ##	    mingw64/bin, lib/gdk-pixbuf-2.0, share/{glib-2.0/schemas,icons,themes,thumbnailers}, etc
 ##	- Run under the mingw64 environment: MSYSTEM=MINGW64 bash cicd/win/stage-native.bash <build-dir> <dest-dir>
@@ -30,9 +30,9 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"	# .../repo, for vendo
 fEcho(){ echo "[ $* ]"; }
 
 ## The strip below rewrites the PE Time/Date field, and left to itself it writes
-## the clock, so two builds of one tag would differ. The workflow exports this in
-## the build step only, and that is a different shell, so compute it here - which
-## covers the local cicd-win.ps1 path too.
+## the clock, so 2 builds of one tag would differ. The workflow exports this in
+## the build step only, and that is a different shell, so compute it here. That
+## takes care of the local cicd-win.ps1 path too.
 # shellcheck source=../utility/include/source-date.bash
 source "${REPO}/cicd/utility/include/source-date.bash"
 # shellcheck source=../utility/include/pixbuf-loaders.bash
@@ -67,8 +67,9 @@ cp "${REPO}/source/search-helpers/third-party/"*.nemo_search_helper \
 ## app reads office files itself, and no gdbus.exe, since the copies use named
 ## pipes. pack-portable.ps1 refuses a flat tree with any other exe.
 
-## gdk-pixbuf loaders (dlopen'd at runtime - not in the app's ldd), then rebuild the
-## cache so it points at these staged loaders rather than the host's absolute paths.
+## gdk-pixbuf loaders, which are dlopen'd at runtime and not in the app's ldd. Then
+## rebuild the cache so it points at these staged loaders rather than the host's
+## absolute paths.
 cp -r "${MINGW}/lib/gdk-pixbuf-2.0" "${DEST}/mingw64/lib/"
 
 ## Dependency closure. ldd is recursive on PE; keep only /mingw64 paths (System32 and
@@ -94,7 +95,7 @@ if [[ -x "${MINGW}/bin/gdk-pixbuf-query-loaders.exe" ]]; then
 		"${MINGW}/bin/gdk-pixbuf-query-loaders.exe" > "lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" ) || true
 fi
 fCheckLoadersCache "${DEST}/mingw64/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" \
-	|| { fEcho "FAILED: the bundle cannot load images without its gdk-pixbuf loaders.cache"; exit 1; }
+	|| { fEcho "FAILED: the bundle can't load images without its gdk-pixbuf loaders.cache"; exit 1; }
 
 ## Schemas: nemo's own merged with the GTK ones, compiled (the app hard-aborts on a
 ## missing schema). glib-compile-schemas output is arch-independent.
@@ -109,16 +110,15 @@ fStageThumbnailers "${MINGW}/share/thumbnailers" "${DEST}/mingw64/share/thumbnai
 	|| { fEcho "FAILED: thumbnailer descriptors"; exit 1; }
 
 ## Icons: hicolor only. The sysroot's Adwaita and AdwaitaLegacy are 2693 files
-## (including 33 X11 cursors that do nothing on Windows) to answer the ~180
-## names we ask of them, and the packed exe pays for every file it carries at
-## every launch. Our own trimmed Adwaita is in vendor/icons with the rest.
+## for the ~180 names we ask of them, and 33 are X11 cursors that do nothing on
+## Windows. The packed exe pays for every file in it at every launch. Our own trimmed Adwaita is in vendor/icons with the rest.
 mkdir -p "${DEST}/mingw64/share/icons"
 [[ -d "${MINGW}/share/icons/hicolor" ]] && cp -r "${MINGW}/share/icons/hicolor" "${DEST}/mingw64/share/icons/"
 
-## The bundled theme set is NOT staged here - it is compiled into the exe as a
+## The bundled theme set isn't staged here - it is compiled into the exe as a
 ## resource (source/gresources/nemo-themes.gresource.xml). It used to be a
 ## couple of thousand loose files under share/, and the packed exe charges
-## about 2.8 ms of launch time for every file it carries.
+## about 2.8 ms of launch time for every file in it.
 
 ## etc: fontconfig + gtk settings the runtime reads relative to the prefix.
 for d in fonts gtk-3.0; do
@@ -151,8 +151,8 @@ launcher="${DEST}/nemo-anywhere.vbs"
 } > "$launcher"
 
 ## meson's -Dstrip=true only runs on install, and neither Windows lane installs -
-## both copy out of the build directory, which is here. So the shipped exes are
-## stripped here instead. Until 20260919 they went out with full DWARF.
+## both copy out of the build directory, which is here. So the exes that go out
+## are stripped here instead. Until 20260919 they went out with full DWARF.
 strip_cmd=""
 for candidate in strip x86_64-w64-mingw32-strip llvm-strip; do
 	command -v "$candidate" >/dev/null 2>&1 && { strip_cmd="$candidate"; break; }
@@ -161,26 +161,26 @@ if [[ -n "$strip_cmd" ]]; then
 	nstripped=0
 	## Not an && list: a failed strip on the right of one is skipped, the count
 	## stays where it was, and the stage goes on to report how many it stripped.
-	## That is how an unstripped exe used to ship.
+	## That's how an unstripped exe used to go out.
 	for binary in "${DEST}/app/"*.exe; do
 		[[ -f "$binary" ]] || continue
 		if strip_err="$("$strip_cmd" --strip-debug "$binary" 2>&1)"; then
 			nstripped=$(( nstripped + 1 ))
 		else
-			fEcho "FAILED: could not strip ${binary}: ${strip_err:-no error text}"
+			fEcho "FAILED: couldn't strip ${binary}: ${strip_err:-no error text}"
 			exit 1
 		fi
 	done
 	(( nstripped > 0 )) || { fEcho "FAILED: no app exe to strip in ${DEST}/app"; exit 1; }
 	fEcho "stripped ${nstripped} app exe(s) with ${strip_cmd}"
 	## The strip is the last thing to write the exe, so this is the stamp that
-	## ships. A miss here means the bundle is not reproducible from its tag.
+	## goes out. A miss here means the bundle isn't reproducible from its tag.
 	pe="$(fPeTimestamp "${DEST}/app/nemo-anywhere.exe")"
 	[[ "$pe" == "${SOURCE_DATE_EPOCH}" ]] \
 		|| { fEcho "FAILED: the staged exe is stamped ${pe:-nothing}, not ${SOURCE_DATE_EPOCH} - the strip is ignoring SOURCE_DATE_EPOCH"; exit 1; }
 	fEcho "staged exe stamped ${pe}"
 	bash "${REPO}/cicd/utility/check-win-build-flags.bash" --shipped "${DEST}/app/nemo-anywhere.exe" \
-		|| { fEcho "FAILED: the staged exe is not a stripped release build"; exit 1; }
+		|| { fEcho "FAILED: the staged exe isn't a stripped release build"; exit 1; }
 else
 	fEcho "WARNING: no strip found, so the staged exes keep their debug sections"
 fi

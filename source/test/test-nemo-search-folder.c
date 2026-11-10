@@ -80,7 +80,7 @@ write_file (const char *dir, const char *name)
 	g_free (path);
 }
 
-/* A forced reload on its own does not start the search again. The window drops
+/* A forced reload on its own doesn't start the search again. The window drops
    its monitor and adds it back straight after, and that is what does. */
 static void
 reload (NemoDirectory *directory, gpointer client)

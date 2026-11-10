@@ -34,7 +34,7 @@
 #include "nemo-file-utilities.h"
 
 /* The widgets a caller reads back afterwards. Kept on the dialog rather than in
-   a subclass: this is one dialog with two accessors, and a GObject type for it
+   a subclass: this is one dialog with 2 accessors, and a GObject type for it
    would be all boilerplate. */
 #define KEY_ENTRY	"nemo-extract-conflict-entry"
 #define KEY_CHECKBOX	"nemo-extract-conflict-checkbox"
@@ -62,7 +62,7 @@ entry_text_changed_cb (GtkEditable *editable,
 	gboolean name_ok = nemo_name_hint_update (g_object_get_data (G_OBJECT (dialog), KEY_HINT), text);
 
 	/* A name of its own is a rename; the original name back is a replace.
-	   One of those can be applied to every conflict, the other cannot. */
+	   One of those can be applied to every conflict, the other can't. */
 	renaming = text[0] != '\0' && g_strcmp0 (text, conflict_name (dialog)) != 0;
 
 	gtk_widget_set_visible (rename_button, renaming);
@@ -321,8 +321,8 @@ nemo_extract_conflict_dialog_new (GtkWindow  *parent,
 	g_free (size_text);
 	g_free (date_text);
 
-	/* What the archive holds. Which archive it came from matters here in a
-	   way it does not when copying, since several can be unpacked at once. */
+	/* What's in the archive. Which archive it came from matters here in a
+	   way it doesn't when copying, since several can be unpacked at once. */
 	box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
 	gtk_box_pack_start (GTK_BOX (vbox2), box, FALSE, FALSE, 0);
 
@@ -393,7 +393,7 @@ nemo_extract_conflict_dialog_new (GtkWindow  *parent,
 
 	gtk_widget_show_all (content);
 
-	/* Rename and Replace share a slot; the entry still holds the original
+	/* Rename and Replace share a slot; the entry still has the original
 	   name, so the question being asked is Replace. */
 	gtk_widget_set_visible (rename_button, FALSE);
 	eel_dialog_set_default (GTK_DIALOG (dialog), CONFLICT_RESPONSE_REPLACE);

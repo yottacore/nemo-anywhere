@@ -224,7 +224,7 @@ race_loads (void)
 }
 #endif
 
-/* The child's half. Exits 0 when the call came back, whatever it answered;
+/* The child's half. Exits 0 when the call came back, whatever it returned;
    the fence is the only thing here that may end it early. */
 static int
 child (const char *what, const char *a, const char *b)
@@ -367,7 +367,7 @@ check_refusals (void)
 
 #ifndef G_OS_WIN32
 /* A link inside the child's folder that leads out. The link itself is the
-   child's to delete; what is behind it is not. */
+   child's to delete; what is behind it isn't. */
 static void
 check_links (void)
 {
@@ -529,7 +529,7 @@ main (int argc, char **argv)
 	check (g_mkdir (outside, 0700) == 0);
 
 	/* This process's own view: its scratch dir is in, the root of the file
-	   system is not. */
+	   system isn't. */
 	check (test_fence_allows (allowed));
 	check (!test_fence_allows (G_DIR_SEPARATOR_S));
 	check_from_inside ();

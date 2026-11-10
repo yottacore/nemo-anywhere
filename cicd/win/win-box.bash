@@ -3,8 +3,8 @@
 ##	- Purpose: The Windows cross build's step container: one of its own for each
 ##	  step, from the cross-build image, with the repo at /src and the cross
 ##	  build dir at /build-win in the cache volume <prefix>-build-win, where
-##	  fStepBox_VolPrefix gives the prefix. Named, labeled and removed the way
-##	  docker-run.bash's are (utility/include/step-box.bash).
+##	  fStepBox_VolPrefix gives the prefix. Named, labeled, and removed the way
+##	  docker-run.bash's are, through utility/include/step-box.bash.
 ##	- fWinBox_Tag -> nemo-winbuild:<hash>, the hash over the pinned recipe,
 ##	  cicd/win/Dockerfile, and the files it copies in.
 ##	- fWinBox_Image -> the image a step would run, or 1 when there's none yet.

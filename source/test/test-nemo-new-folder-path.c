@@ -193,7 +193,7 @@ renamed (G_GNUC_UNUSED NemoFile *file, G_GNUC_UNUSED GFile *result, GError *erro
 	g_clear_error (&job_error);
 	job_error = error != NULL ? g_error_copy (error) : NULL;
 	job_finished = TRUE;
-	/* A refusal answers before the rename starts. */
+	/* A refusal comes back before the rename starts. */
 	if (gtk_main_level () > 0) {
 		gtk_main_quit ();
 	}
@@ -418,7 +418,7 @@ main (int argc, char *argv[])
 	nemo_global_preferences_init ();
 	test_init (&argc, &argv);
 
-	/* More than one job in the run, so the queue needs this held. */
+	/* More than one job in the run, so the queue needs this kept. */
 	manager = nemo_progress_info_manager_new ();
 
 	root = test_scratch_dir ("nemo-new-folder-path-XXXXXX", NULL);

@@ -76,7 +76,7 @@ def private_dir(entry):
 
 # (file, entry, tag) once per file and set of flags, since a file built into 2
 # targets can see different headers (2026102408163141). Meson gives each target
-# its own -I<target>.p, which holds only objects, so that one doesn't count.
+# its own -I<target>.p, which has only objects, so that one doesn't count.
 # The tag names the target when a file has more than one run.
 def load_db(path):
     with open(path, encoding="utf-8") as f:
@@ -124,7 +124,7 @@ def run_one(full, entry, tool, clang, tag="", extra=(), cap=None):
     # Added last, so a listed -O<n> wins over the build's.
     argv = analyzer_argv(entry, tool, clang) + list(extra)
     cap = max(cap or 0, TU_TIMEOUT)
-    # Its own group, so a timeout takes cc1 down too, not just the driver.
+    # Its own group, so a timeout takes cc1 down along with the driver.
     p = subprocess.Popen(argv, cwd=entry["directory"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True)
     try:
@@ -471,7 +471,7 @@ def cmd_count(args):
     root, paths = args[0], args[1:]
     base = subprocess.run(["git", "-C", root, "rev-list", "--max-parents=0", "HEAD"], check=True,
                           capture_output=True, text=True).stdout.split()[-1]
-    # The baseline commit holds upstream 6.6.4 under original/, moved to source/ right after.
+    # The baseline commit has upstream 6.6.4 under original/, moved to source/ right after.
     inherited = {re.sub(r"^original/", "source/", f) for f in subprocess.run(
         ["git", "-C", root, "ls-tree", "-r", "--name-only", base], check=True, capture_output=True, text=True).stdout.split()}
     supp_file = supp_file or os.path.join(root, SUPP_FILE)
@@ -601,7 +601,7 @@ def self_test():
               ("/src/source/test/w.c", "test/w-1.p"), ("/src/source/test/w.c", "test/w-2.p")]
     if got != want_r:
         bad.append("runs %r, want %r" % (got, want_r))
-    # A finding both runs reach counts once, and a run that didn't compile is named by its target.
+    # A finding both runs report counts once, and a run that didn't compile is named by its target.
     log = "\n".join([
         "### source/test/w.c [test/w-1.p] rc=0",
         "vendor/old/1/h.h:5:3: warning: leak of 'p' [CWE-401] [-Wanalyzer-malloc-leak]",

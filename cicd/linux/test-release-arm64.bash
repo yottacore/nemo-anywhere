@@ -5,15 +5,16 @@
 ##	  runs in a scratch repo with stand-in ssh, scp and host lock on PATH. The
 ##	  "box" is a scratch dir, and its release.bash only writes a tarball naming
 ##	  the stamp, job count and arch it was handed.
-##	- Checks: the lock is taken by the box's name, the tree goes to a new run
-##	  folder under the box's temp root, where the build runs with run.pid
-##	  naming it and TMPDIR on that folder, and the folder is gone at the end,
-##	  a failure included, along with a stale one, ignored files stay here, the stamp and job count reach the
-##	  build, the tarball comes back beside the x86_64 one with both in the sums
-##	  file, the .deb's dependency line is read on the box by package.bash and
-##	  kept here against the tarball's sha256 before the build container is
-##	  stopped, a failed read only warns and leaves no list, and a box that is
-##	  not arm64 is refused before anything is sent. A VM whose ssh or docker
+##	- Checks: the lock is taken by the box's name, and the tree goes to a new
+##	  run folder under the box's temp root, where the build runs with run.pid
+##	  naming it and TMPDIR on that folder. The folder is gone at the end, a
+##	  failure included, along with a stale one. Ignored files stay here, and
+##	  the stamp and job count are passed to the build. The tarball comes back
+##	  beside the x86_64 one with both in the sums file. The .deb's dependency
+##	  line is read on the box by package.bash and kept here against the
+##	  tarball's sha256 before the build container is stopped. A failed read
+##	  only warns and leaves no list, and a box that isn't arm64 is refused
+##	  before anything is sent. A VM whose ssh or docker
 ##	  is still coming up is waited for, and one that never gets there fails
 ##	  before the send. A box that isn't there, and isn't a VM here, exits 77
 ##	  before the lock. A box whose clock is hours behind, as a VM resumed from
@@ -118,7 +119,7 @@ cat > "${scratch}/boxbin/sysctl" <<-'EOF'
 	[[ "$*" == "-n vm.loadavg" ]] && { echo "${FAKE_LOAD:-1.00} 0.50 0.40 2/345 6789"; exit 0; }
 	exit 1
 EOF
-## The box's release container: answers the dependency read with its own
+## The box's release container: replies to the dependency read with its own
 ## arch, unless told to fail. FAKE_DOCKER_DOWN=N: the first N calls of
 ## docker info fail, as before the daemon is up.
 cat > "${scratch}/boxbin/docker" <<-EOF
@@ -190,26 +191,26 @@ else
 	if [[ ! -f "$got" ]]; then
 		fFail "no ${armName} brought back"
 	elif [[ "$(cat "$got")" != "1791244781 3 aarch64" ]]; then
-		fFail "the build got '$(cat "$got")', not the stamp, job count and arch it was meant to"
+		fFail "the build got '$(cat "$got")', not the stamp, job count, and arch it was meant to"
 	fi
 	sums="${repo}/cicd/artifacts/release/${sumsName}"
 	for name in "$armName" "$x86Name"; do
-		grep -q "  ${name}\$" "$sums" 2>/dev/null || fFail "${name} is not in the sums file"
+		grep -q "  ${name}\$" "$sums" 2>/dev/null || fFail "${name} isn't in the sums file"
 	done
-	( cd "${repo}/cicd/artifacts/release" && sha256sum -c --quiet "$sumsName" >/dev/null 2>&1 ) || fFail "the sums file does not verify"
+	( cd "${repo}/cicd/artifacts/release" && sha256sum -c --quiet "$sumsName" >/dev/null 2>&1 ) || fFail "the sums file doesn't verify"
 	runDir="$(sed -n 's/^work folder tester@armbox://p' <<< "$out" | tail -1)"
 	[[ "$runDir" =~ ^${boxTemp}/[0-9]{8}-[0-9]{6}_001$ ]] || fFail "run folder '${runDir}', not a new one under the box's temp root"
 	[[ "$(cat "${scratch}/where.log" 2>/dev/null || true)" == "pwd=${runDir}/src tmp=${runDir},${runDir},${runDir} pid=ok" ]] \
 		|| fFail "the build ran with '$(cat "${scratch}/where.log" 2>/dev/null || true)'"
 	[[ "$out" == *"removed stale tester@armbox:${boxTemp}/20200101-000000_001"* ]] || fFail "no line for the stale run folder swept"
 	fNoneLeft "after a pass"
-	grep -q -x -F './source/meson.build' "${scratch}/sent.txt" || fFail "a tracked file was not sent"
-	grep -q -x -F './cicd/linux/release-arm64.bash' "${scratch}/sent.txt" || fFail "an untracked file was not sent"
+	grep -q -x -F './source/meson.build' "${scratch}/sent.txt" || fFail "a tracked file wasn't sent"
+	grep -q -x -F './cicd/linux/release-arm64.bash' "${scratch}/sent.txt" || fFail "an untracked file wasn't sent"
 	! grep -q -x -F './ignored.txt' "${scratch}/sent.txt" || fFail "an ignored file was sent"
 	! grep -q -x -F "./cicd/artifacts/release/${x86Name}" "${scratch}/sent.txt" || fFail "this side's artifacts were sent"
-	grep -q '^lock wrap armbox ' "$log" || fFail "the box was not locked by its name"
-	grep -q '^ssh tester@armbox$' "$log" || fFail "ssh did not go to NEMO_ARM_HOST"
-	grep -q '^docker stop -t 2 nemo-anywhere-' "$log" || fFail "the build container was not stopped"
+	grep -q '^lock wrap armbox ' "$log" || fFail "the box wasn't locked by its name"
+	grep -q '^ssh tester@armbox$' "$log" || fFail "ssh didn't go to NEMO_ARM_HOST"
+	grep -q '^docker stop -t 2 nemo-anywhere-' "$log" || fFail "the build container wasn't stopped"
 	deps="${repo}/cicd/artifacts/deb-depends/${armName%.tar.gz}.txt"
 	if [[ ! -f "$deps" ]]; then
 		fFail "no dependency list for the arm64 tarball"
@@ -219,12 +220,12 @@ else
 	fi
 	readAt="$(grep -n 'exec -i nemo-anywhere-' "$log" | head -1 | cut -d: -f1)"
 	stopAt="$(grep -n '^docker stop -t 2 nemo-anywhere-' "$log" | head -1 | cut -d: -f1)"
-	[[ -n "$readAt" && -n "$stopAt" && "$readAt" -lt "$stopAt" ]] || fFail "the dependencies were not read in the box's container before it was stopped"
+	[[ -n "$readAt" && -n "$stopAt" && "$readAt" -lt "$stopAt" ]] || fFail "the dependencies weren't read in the box's container before it was stopped"
 	grep -q -F 'SOURCE_DATE_EPOCH=1791244781 CICD_MAX_JOBS=3 ionice -c 3 nice -n 19 bash cicd/linux/release.bash' "$log" \
-		|| fFail "the build did not run under nice and ionice with its jobs: $(grep -F release.bash "$log" || true)"
+		|| fFail "the build didn't run under nice and ionice with its jobs: $(grep -F release.bash "$log" || true)"
 	grep -q -F "TMP=${runDir} CICD_MAX_JOBS=3 ionice -c 3 nice -n 19 bash cicd/linux/package.bash --depends-only" "$log" \
-		|| fFail "the dependency read did not run under nice and ionice with its jobs: $(grep -F package.bash "$log" || true)"
-	grep -q -E '^docker run .*--cpus 3 --cpu-shares 256 ' "$log" || fFail "the box's container did not get the count as its cap: $(grep '^docker run' "$log" || true)"
+		|| fFail "the dependency read didn't run under nice and ionice with its jobs: $(grep -F package.bash "$log" || true)"
+	grep -q -E '^docker run .*--cpus 3 --cpu-shares 256 ' "$log" || fFail "the box's container didn't get the count as its cap: $(grep '^docker run' "$log" || true)"
 	[[ "$out" == *"jobs 3 (pinned, load 1.00 on 8 cpus on tester@armbox)"* ]] || fFail "no jobs line for the box"
 fi
 
@@ -264,7 +265,7 @@ else
 	[[ -f "${repo}/cicd/artifacts/release/${armName}" ]] || fFail "no tarball when the dependency read failed"
 	[[ ! -e "${repo}/cicd/artifacts/deb-depends/${armName%.tar.gz}.txt" ]] || fFail "a dependency list was left when the read failed"
 	[[ "$out" == *"WARNING: could not read the arm64 dependencies"* ]] || fFail "no warning when the dependency read failed"
-	grep -q '^docker stop -t 2 nemo-anywhere-' "$log" || fFail "the build container was not stopped after a failed read"
+	grep -q '^docker stop -t 2 nemo-anywhere-' "$log" || fFail "the build container wasn't stopped after a failed read"
 fi
 
 ## The build fails there: its step closes as FAIL, and the run folder still goes.
@@ -283,7 +284,7 @@ else
 fi
 [[ -n "$runDir" && -d "$runDir" ]] && fSafeRm "$runDir" > /dev/null
 
-## A box that answers but is not arm64.
+## A box that responds but isn't arm64.
 rm -f "${repo}/cicd/artifacts/release/${armName}" "$log"
 rc=0; out="$(FAKE_ARCH=x86_64 fRunLane)" || rc=$?
 [[ "$rc" != 0 ]] || fFail "an x86_64 box was taken as arm64"

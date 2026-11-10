@@ -181,7 +181,7 @@ main (int argc, char *argv[])
 
 	/* Only so the icon theme nemo-file hooks on startup has a screen to hang
 	 * off. Nothing here needs a window, and a box with no display still runs
-	 * the checks - it just grumbles on the way in. */
+	 * the checks and only warns on the way in. */
 	gtk_init_check (&argc, &argv);
 
 	dir = test_scratch_dir ("nemo-churn-XXXXXX", NULL);

@@ -23,7 +23,7 @@
 
 jobsCpus=0; jobsLoad="0.00"; jobsBusy=0
 
-## True when load (as in /proc/loadavg, such as 12.34) is over half of cpus.
+## True when load is over half of cpus. load is as in /proc/loadavg, such as 12.34.
 ## Compared as load * 100 against cpus * 50, so no floating point.
 fJobs_IsBusy(){
 	local cpus="${1:-2}" load="${2:-0}" whole frac

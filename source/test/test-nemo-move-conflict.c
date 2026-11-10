@@ -230,7 +230,7 @@ count_entries (const char *dir)
 	return n;
 }
 
-/* The one entry in dir other than skip, which holds want. */
+/* The one entry in dir other than skip, which contains want. */
 static gboolean
 other_holds (const char *dir, const char *skip, const char *want)
 {
@@ -634,7 +634,7 @@ main (int argc, char *argv[])
 	test_init (&argc, &argv);
 	nemo_global_preferences_init ();
 
-	/* Holds each job's progress until the queue has started the next one.
+	/* Keeps each job's progress until the queue has started the next one.
 	   test-nemo-link-copy-job.c says why. */
 	manager = nemo_progress_info_manager_new ();
 

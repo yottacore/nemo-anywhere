@@ -206,8 +206,8 @@ GList *            nemo_directory_get_file_list            (NemoDirectory       
 GList *            nemo_directory_match_pattern            (NemoDirectory         *directory,
 							        const char *glob);
 
-/* At least two images, and at least as many images as everything else put
- * together. Folders are not counted. Only meaningful once the directory has
+/* At least 2 images, and at least as many images as everything else put
+ * together. Folders aren't counted. Only meaningful once the directory has
  * been read, so ask after a load rather than during one. */
 gboolean           nemo_directory_is_mostly_images         (NemoDirectory         *directory);
 

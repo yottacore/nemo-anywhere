@@ -30,7 +30,7 @@ gboolean nemo_clipboard_win32_set_text (GtkWidget  *widget,
 					const char *text);
 
 /* Put a cut or copy of @uris on the clipboard in the formats Windows expects,
- * written out up front. FALSE means it could not be done and the toolkit should
+ * written out up front. FALSE means it couldn't be done and the toolkit should
  * be used instead - a place only nemo understands has no path to offer. */
 gboolean nemo_clipboard_win32_set_files (GtkWidget *widget,
 					 GList     *uris,
@@ -40,7 +40,7 @@ gboolean nemo_clipboard_win32_set_files (GtkWidget *widget,
  * it was a cut rather than a copy. NULL when there are none. */
 GList *nemo_clipboard_win32_get_files (gboolean *cut);
 
-/* Whether the clipboard holds files at all. */
+/* Whether the clipboard has files at all. */
 gboolean nemo_clipboard_win32_has_files (void);
 
 /* Make every entry and text view write its cut or copied text out the same

@@ -24,9 +24,9 @@
  * used to ask about a file there with no one going to it: the per-file
  * questions behind a link onto it, a bookmark's existence check, an action's
  * folder test on the selection, a custom icon read for a draw, and the folder
- * listing following a link onto it. The share paths named here mostly do not
- * exist, so a check that does go and look answers differently from one that
- * does not. A folder on the share counts as a share too, so counts and
+ * listing following a link onto it. The share paths named here mostly don't
+ * exist, so a check that does go and look comes out differently from one that
+ * doesn't. A folder on the share counts as a share too, so counts and
  * thumbnails are off there by default. The prune's case is in
  * test-nemo-cache-prune.c. */
 
@@ -118,7 +118,7 @@ check_paths (void)
 	check (!nemo_path_is_on_a_share (local));
 	check (!nemo_path_is_on_a_share (NULL));
 
-	/* The share holding home is local: the whole scratch folder is home. */
+	/* The share with home in it is local: the whole scratch folder is home. */
 	use_share (scratch);
 	check (!nemo_path_is_on_a_share (deep));
 	use_share (nas);
@@ -138,11 +138,11 @@ check_links (void)
 	check (!link_on_share (local, "climbs-out", "../nas/../local/x"));
 
 	/* Already on that share, by going there: not another visit, so the
-	   listing follows these two. */
+	   listing follows these 2. */
 	/* Commented out 20261005: a folder on a share now counts as a share
-	   (decision 20261005 on 2026093010493450), so a file there is on it
+	   per 20261005 on 2026093010493450, so a file there is on it
 	   whatever it points at. What these meant is now the listing's question,
-	   checked just below and in check_listing.
+	   checked below and in check_listing.
 	check (!link_on_share (nas, "within", beside));
 	check (!link_on_share (nas, "back-home", near));
 	*/
@@ -157,7 +157,7 @@ check_links (void)
 	nemo_file_unref (file);
 	*/
 
-	/* An answer kept on the file is asked again once the shares change. */
+	/* A result kept on the file is asked again once the shares change. */
 	file = listed (local, "kept", G_FILE_TYPE_DIRECTORY, far);
 	check (nemo_file_is_on_a_share (file));
 	use_share (NULL);
@@ -409,7 +409,7 @@ shown_for (NemoAction *action, NemoFile *file, NemoFile *parent)
 }
 
 /* Neither link is on disk. One onto a share goes by the type the listing
-   gave; a local one is still looked at, and is not a folder. */
+   gave; a local one is still looked at, and isn't a folder. */
 static void
 check_action (void)
 {
