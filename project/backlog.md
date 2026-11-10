@@ -699,6 +699,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- v1 already has the plain drag rule and the Ctrl, Shift and right bands from a row (ddy5f). What's new is the band from the checkmark column, and where a band leaves the focus and the anchor.
 	- Progress log:
 		- 20261024: opened.
+		- 20261110: a plain drag from the checkmark column bands now, done in 2026110919315994 (dec8v). Still left: where a band leaves the focus and the anchor.
 	- Test case: none yet.
 
 - Nemo Anywhere: the tree view rules, less the affirmative parts.
