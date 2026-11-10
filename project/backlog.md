@@ -766,7 +766,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A test that the mark follows the selection after a click and a key move, and that the column is there only under Nemo Anywhere.
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view".
 	- Progress log:
-		- 20261110: under Nemo Anywhere the tree's first column holds a dim checkmark on the selected row, inside its highlight. The expanders and the indent stay with the names. The column follows the setting live, and the other models don't have it.
+		- 20261110: under Nemo Anywhere the tree's first column holds a dim checkmark on the selected row, inside its highlight. The expanders and the indent stay with the names. The column follows the setting live, and also the other models don't have it.
 	- Decisions:
 		- The same glyph and dim look as the list view column, in the row's selected text color.
 		- The column is left of the indent, so a deep folder's mark sits at the pane's left edge, away from its name. When the tree scrolls sideways for a deep folder, the marks scroll out with the rest of the left side. For a top row the scroll leaves the mark showing, as it left the row's start before.
@@ -824,7 +824,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Before the next cut.
 		- Only under Nemo Anywhere, and single-select, per the parent.
-		- No focus outline, except while a Ctrl+Up or Ctrl+Down has put the focus on a row that isn't selected.
+		- No focus outline, except while a Ctrl+Up or Ctrl+Down has put the the focus on a row that isn't selected.
 		- Ctrl+Up and Ctrl+Down move the focus alone, opening nothing. Ctrl+Space selects the focused row, which opens it. After a Ctrl move, Up and Down count from the focus.
 		- Ctrl+Home and Ctrl+End are the same as the key alone.
 		- Escape drops a Ctrl move's focus. What else it clears needs a Decisions row, since the tree's selected row is the viewed folder.
