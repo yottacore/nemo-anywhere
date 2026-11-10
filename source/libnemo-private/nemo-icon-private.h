@@ -39,6 +39,7 @@ typedef struct {
 
 	EelCanvasItem *selection_rectangle;
 	EelDRect prev_rect;
+	double end_x, end_y;		/* the pointer's corner, in world */
 	guint timer_id;
 
 	guint prev_x, prev_y;

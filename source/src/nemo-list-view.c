@@ -1234,6 +1234,8 @@ band_motion (NemoListView *view, GdkEventMotion *event)
 	}
 }
 
+static gboolean band_end_takes_focus (void);
+
 /* TRUE when it was dragging, so the release was no click. */
 static gboolean
 band_stop (NemoListView *view)
@@ -1251,10 +1253,15 @@ band_stop (NemoListView *view)
 		GtkTreePath *end = NULL;
 		int height = gdk_window_get_height (gtk_tree_view_get_bin_window (details->tree_view));
 
-		/* The keyboard carries on from where the band ended, as GTK's does. */
+		/* The keyboard carries on from where the band ended, as GTK's does.
+		   Nemo Anywhere counts the pointer below the rows too, as
+		   band_select does, so the end is always the last row touched. */
 		gtk_tree_view_get_path_at_pos (details->tree_view, 0,
 					       CLAMP (details->band.y, 0, MAX (height - 1, 0)),
 					       &end, NULL, NULL, NULL);
+		if (end == NULL && details->band.from != NULL && band_end_takes_focus ()) {
+			end = last_shown_row (details->tree_view);
+		}
 		if (end != NULL && gtk_tree_selection_path_is_selected (selection, end)) {
 			GList *rows = gtk_tree_selection_get_selected_rows (selection, NULL);
 			GList *l;
@@ -1262,6 +1269,11 @@ band_stop (NemoListView *view)
 			gtk_tree_view_set_cursor (details->tree_view, end, NULL, FALSE);
 			for (l = rows; l != NULL; l = l->next) {
 				gtk_tree_selection_select_path (selection, l->data);
+			}
+			if (band_end_takes_focus ()) {
+				/* GTK moved its Shift anchor to each row put back. */
+				gtk_tree_selection_unselect_path (selection, end);
+				gtk_tree_selection_select_path (selection, end);
 			}
 			g_list_free_full (rows, (GDestroyNotify) gtk_tree_path_free);
 		}
@@ -4929,6 +4941,9 @@ typedef struct {
 	gboolean (*key_press) (GtkWidget *widget, GdkEventKey *event, gpointer callback_data);
 	gboolean (*focus_in) (GtkWidget *widget, GdkEventFocus *event, gpointer user_data);
 	gboolean gtk_bands;
+	/* Our band leaves the focus and the anchor on the last row it touched,
+	   wherever the pointer ends. */
+	gboolean band_end_takes_focus;
 } ListViewRules;
 
 static const ListViewRules rules_anywhere_v1 = {
@@ -4949,8 +4964,8 @@ static const ListViewRules rules_classic = {
 	.gtk_bands = TRUE,
 };
 
-/* Nemo Anywhere starts from v1's set, with its own keys. The drag rule changes
-   it next (2026102407515573). */
+/* Nemo Anywhere starts from v1's set, with its own keys and press, and its
+   band ends on the last row it touched. */
 static const ListViewRules rules_anywhere = {
 	.button_press = anywhere_button_press_callback,
 	.button_release = button_release_callback,
@@ -4958,6 +4973,7 @@ static const ListViewRules rules_anywhere = {
 	.key_press = anywhere_key_press_callback,
 	.focus_in = focus_in_event_callback,
 	.gtk_bands = FALSE,
+	.band_end_takes_focus = TRUE,
 };
 
 static const ListViewRules *
@@ -4972,6 +4988,12 @@ list_view_rules (void)
 		return &rules_anywhere;
 	}
 	g_return_val_if_reached (&rules_anywhere_v1);
+}
+
+static gboolean
+band_end_takes_focus (void)
+{
+	return list_view_rules ()->band_end_takes_focus;
 }
 
 static gboolean

@@ -33,6 +33,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- List view: after a Ctrl+click, a Shift+click runs from another row than the one clicked.
+	- ID: 2026111012335173
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261110-123351
+	- Opened by: t00mietum
+	- Related IDs: 2026102407515573
+	- Target OS: All
+	- Steps to reproduce: list view, Nemo Anywhere or v1. Click row 6, Ctrl+click row 2, then Shift+click row 4.
+	- Incorrect behavior: the run likely goes from row 6, the last row put back, and not from row 2. Ctrl+Shift with an arrow key may move the anchor the same way.
+	- Expected behavior: a Ctrl+click moves the anchor to the row clicked, per the design doc's "Mouse".
+	- Reproduced: no. From a reading of the Ctrl+click and Ctrl+Shift+arrow code, which set the cursor and then select each kept row again. The band did the same, shown by dec8v before 2026102407515573's fix.
+	- Possible cause: in a multiple selection, `gtk_tree_selection_select_path` moves GTK's Shift anchor to each row it selects.
+	- Test case: none yet. dec8w would get a Ctrl+click then a Shift+click.
+
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
 	- Type: Enhancement
@@ -644,8 +660,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere: the mouse and drag rules, the list view drag rule among them.
 	- ID: 2026102407515573
 	- Type: Enhancement
-	- Status: Queued
-	- Needs local test suite run?: Yes
+	- Status: Done
+	- Needs local test suite run?: no. The Linux suite passed in the quick gate, 242 OK and 1 skipped.
 	- Priority|Severity: High
 	- Opened: 20261024-075155
 	- Opened by: t00mietum
@@ -665,7 +681,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261024: opened.
 		- 20261110: every drag from the checkmark column bands now, on a selected row too, done in 2026110919315994 (dec8v). Still left: where a band leaves the focus and the anchor.
-	- Test case: none yet.
+		- 20261110: under Nemo Anywhere a band leaves the focus and the anchor on the last object it touched, in all 3 views. The rest of the mouse rules were already v1's, and dec8v runs ddy5f's checks under Nemo Anywhere.
+	- Decisions:
+		- The last object a band touched is the one at the pointer's end of it. In the list view that's the row under the pointer, or the last row when the pointer ends below the rows. In the icon views it's the icon in the band nearest the pointer. For a band dragged out and back, that's where it ends, not the farthest it reached.
+		- A band that holds nothing leaves the focus and the anchor where they were.
+		- In the icon views the focus is the one a Ctrl+arrow moves. It draws no outline there, since the icon is selected, and plain arrows still count from the range ends.
+		- v1 and Classic keep theirs. v1's list view band puts the focus on the row under the pointer only, and its anchor on the last row put back. Its icon band moves the anchor only when it picked one icon.
+	- Swept: every way a band ends, in the list view and in the icon container (the release, a grab change, a press whose release never came). The keyboard band in the icon views isn't a mouse band, so it stays. The list view's Ctrl+click and Ctrl+Shift with an arrow put rows back the same way the band did, which moves GTK's anchor; filed as 2026111012335173.
+	- Branch: round1110b
+	- Test case: dec8v, Drag select test, Nemo Anywhere. In the list view: a band from the checkmark column down past the rows, and a Ctrl band up from a row not selected, each followed by the focus and a Shift+click from the anchor. In the icon and compact views: a band from the background over 2 or more icons, then a Shift+click. ddy5f and de8ec keep their counts.
+		- 20261110: dec8v's list view count under Nemo Anywhere went from 40 to 46, and the icon and compact views from 15 to 17.
+	- Verified: 20261110, dec8v fails on the old code (5 checks: the list view focus, both Shift+clicks there, and the Shift+click in the icon and compact views) and passes with the fix. ddy5f, de8ec, de8bd, de8dm and dec8w pass. The quick gate passed (lints, and 242 OK, 1 skipped). Both analyzers report nothing on the changed files.
+	- Not covered by a test yet: the focus in the icon views, since only the anchor is checked there, and a band that scrolls. dec8v isn't built for Windows.
+	- Acceptance signoff: Self-closed: dec8v.
+	- Closed: 20261110-123842
 
 - Nemo Anywhere: the tree view rules, less the affirmative parts.
 	- ID: 2026102407515574
