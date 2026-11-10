@@ -4,7 +4,7 @@
 ##	  stages. Every one is a fork, and the lookup runs for about 3,600 icons a
 ##	  run, so this is where its speed goes. The count comes from a PID
 ##	  namespace of its own, where nothing else takes a pid, so it is exact and
-##	  a busy box cannot move it.
+##	  a busy box can't move it.
 ##	- The bar is 2.5 per icon. The lookup as it stands starts about 2: a copy
 ##	  and a mkdir for each icon staged, and a readlink for a symlinked alias.
 ##	  It started 4 while the context pattern came through a substitution, one
@@ -30,7 +30,7 @@ halvesPerIcon=5
 fEcho(){ echo "[ $* ]"; }
 
 if ! unshare -Urpf true >/dev/null 2>&1; then
-	fEcho "SKIPPED: vendor-themes fork count: this box will not make a PID namespace"
+	fEcho "SKIPPED: vendor-themes fork count: this box won't make a PID namespace"
 	exit 77
 fi
 

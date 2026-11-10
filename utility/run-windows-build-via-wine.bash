@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: Run the cross-built Windows nemo-anywhere.exe as a GUI app on the
-##	  host's live X display via host wine (not the container's - that one is headless).
-##	  Stages a runtime snapshot (GTK DLLs, pixbuf loaders, icons, schemas, the exe -
-##	  extension lib folded in) from a cross-build step container (cicd/win/win-box.bash)
-##	  into cicd/artifacts/win-run,
-##	  then launches wine against it. The mingw64/ layout is preserved so GTK's
-##	  relative lookups (loaders, schemas, icons) resolve without extra env.
-##	- The staged copy is a snapshot: the exe is re-copied on every
-##	  run when docker is up, so a fresh cross build is picked up automatically.
-##	  Pass --restage to rebuild the whole snapshot (after a sysroot change).
+##	  host's live X display through the host's wine, since the container's is headless.
+##	  Stages a runtime snapshot of the GTK DLLs, pixbuf loaders, icons, schemas, and
+##	  the exe, with the extension lib folded in, from a cross-build step container
+##	  (cicd/win/win-box.bash) into cicd/artifacts/win-run,
+##	  then launches wine against it. The mingw64/ layout is kept so GTK's
+##	  relative lookups for loaders, schemas, and icons work without extra env.
+##	- The staged copy is a snapshot: the exe is copied again on every
+##	  run when docker is up, so a fresh cross build is picked up.
+##	  Pass --restage to rebuild the whole snapshot after a sysroot change.
 ##	- Each run replaces the last: a previous instance of this staged build is killed
-##	  first (matched by path, so a nemo launched elsewhere and wineserver are safe).
-##	- Zombie note: the build containers now run with --init (a reaping PID 1), so wine
-##	  service processes no longer pile up as zombies - no docker restart needed here.
+##	  first. It's matched by path, so a nemo launched elsewhere and wineserver are safe.
+##	- The build containers run with --init, a PID 1 that reaps, so wine service
+##	  processes don't pile up as zombies, and no docker restart is needed here.
 ##	- Syntax: run-windows-build-via-wine.bash [--restage] [URI]
 
 ##	Copyright (c) 2026 Bubbles
@@ -24,7 +24,7 @@
 set -euo pipefail
 
 ## No crash dumps: wine runs with its cwd inside the repo and core_pattern is a bare
-## relative name, so a crash would litter the tree (and abort the next rar backup).
+## relative name, so a crash would litter the tree and abort the next rar backup.
 ulimit -c 0
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -44,10 +44,10 @@ for arg in "$@"; do
 	esac
 done
 
-# Each run replaces the last: kill a previous instance of THIS staged build before
-# restaging/launching. Matched by our exact path so a nemo the user launched from
-# elsewhere is left alone; wineserver is shared with any other wine app, so it is
-# never touched. (pkill returns 1 when nothing matched - fine under set -e.)
+# Each run replaces the last: kill a previous instance of this staged build before
+# restaging or launching. Matched by our exact path so a nemo the user launched from
+# elsewhere is left alone. wineserver is shared with any other wine app, so it's
+# never touched. pkill returns 1 when nothing matched, hence the || true.
 pkill -f "${DEST}/app/nemo-anywhere.exe" 2>/dev/null || true
 
 ## Gone before wine starts, since the app outlives this script.
@@ -101,8 +101,8 @@ GSETTINGS_SCHEMA_DIR="$(to_win "${DEST}/mingw64/share/glib-2.0/schemas")"
 export WINEPATH GSETTINGS_SCHEMA_DIR
 export DISPLAY="${DISPLAY:-:0.0}"
 
-# No explicit target -> open a location that actually exists under wine, so
-# nemo doesn't start in an invalid dir. Z: maps to the unix root, so probe the
+# No explicit target -> open a location that exists under wine, so the app
+# doesn't start in an invalid dir. Z: maps to the unix root, so probe the
 # host path behind the candidate. %USERNAME% under wine defaults to the unix
 # login name, so Z:\home\<user> == /home/<user>.
 if [[ -z "$uri" ]]; then

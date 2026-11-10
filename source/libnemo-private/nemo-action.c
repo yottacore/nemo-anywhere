@@ -1781,8 +1781,8 @@ check_exec_condition (NemoAction  *action,
         gchar **argv;
         gboolean timed_out = FALSE;
 
-        /* No console window each time the menu is built. Anything that did not
-           start, ran too long or did not exit 0 is a no. */
+        /* No console window each time the menu is built. Anything that didn't
+           start, ran too long or didn't exit 0 is a no. */
         if (!nemo_user_text_split_command (exec->str, NULL, &argv, &error)) {
             DEBUG ("Couldn't parse exec condition: %s", error->message);
             g_clear_error (&error);
@@ -1808,7 +1808,7 @@ check_exec_condition (NemoAction  *action,
                    error->message);
             g_error_free (error);
             /* spawn never ran, so return_code is meaningless - the condition
-             * is simply not satisfied. */
+             * isn't satisfied. */
             g_string_free (exec, TRUE);
             return FALSE;
         }

@@ -127,7 +127,7 @@ sink_write (struct archive *a,
 	GError *error = NULL;
 	gsize written = 0;
 
-	/* A stop is not a failed write. libarchive takes a failed write as fatal
+	/* A stop isn't a failed write. libarchive takes a failed write as fatal
 	   and then never finishes the entry, which is where the zip writer frees
 	   its compressor. The job sees the stop itself and removes the archive,
 	   so these bytes can go nowhere. A tar's last writes are the exception,
@@ -236,7 +236,7 @@ configure_writer (struct archive *a,
 #ifdef G_OS_WIN32
 		{
 			/* Otherwise names go in in a local code page, which
-			   drops any letter it does not have. */
+			   drops any letter it doesn't have. */
 			char *with_names = g_strconcat (opts, ",zip:hdrcharset=UTF-8", NULL);
 
 			g_free (opts);
@@ -276,7 +276,7 @@ configure_writer (struct archive *a,
 	}
 
 	if (opts != NULL) {
-		/* Tuning only - an option a build of libarchive does not know about
+		/* Tuning only - an option a build of libarchive doesn't know about
 		   costs compression, not correctness. */
 		if (archive_write_set_options (a, opts) != ARCHIVE_OK) {
 			g_warning ("archive: %s not accepted: %s", opts, archive_error_string (a));
@@ -285,7 +285,7 @@ configure_writer (struct archive *a,
 	}
 
 	if (has_password) {
-		/* Encryption is not tuning: silently writing a readable archive
+		/* Encryption isn't tuning: silently writing a readable archive
 		   when one was asked to be locked would be the worst outcome. */
 		if (options->format != ARC_FORMAT_ZIP ||
 		    archive_write_set_options (a, "zip:encryption=aes256") != ARCHIVE_OK ||
@@ -844,7 +844,7 @@ arc_tool_stderr_finish (GThread *reader)
 
 /* Starts a tool line in the base folder and reads what it prints until it
    ends, moving the progress bar as it goes. The caller waits on what comes
-   back. NULL if it could not be started. */
+   back. NULL if it couldn't be started. */
 static ArcRun *
 start_tool (ArcCompress *job,
 	    char       **argv,
@@ -1078,7 +1078,7 @@ plan_runs (ArcCompress *job,
 	}
 	plan->keep = any_link && can_keep && !followed;
 
-	/* Top-level names are the selection, and one left out just isn't
+	/* Top-level names are the selection, and one left out isn't
 	   handed over. */
 	for (i = 0; i < list->items->len; i++) {
 		const ArcItem *item = g_ptr_array_index (list->items, i);
@@ -1110,7 +1110,7 @@ plan_runs (ArcCompress *job,
 			continue;
 		}
 		/* rar would read * or ? in it as a pattern. One that leads
-		   nowhere it just can't open, so it's passed over, as the
+		   nowhere it can't open, so it's passed over, as the
 		   library writer passes over one under Ignore. */
 		odd = job->backend == ARC_BACKEND_RAR && item->nowhere &&
 		      strpbrk (item->name, "*?") != NULL;
@@ -1427,7 +1427,7 @@ arc_compress_finish (ArcCompress *job)
 
 	/* The box was ticked in the Compress dialog, so this is a delete a person
 	   asked for, and it goes through the ordinary trash-or-delete with its own
-	   confirmation rather than anything quieter here. A cancelled job removes
+	   confirmation rather than anything quieter here. A canceled job removes
 	   nothing, even where an earlier archive of it did check out. */
 	if (job->options.delete_sources) {
 		if (job->verified != NULL && !job_aborted (job)) {
@@ -1565,7 +1565,7 @@ arc_compress_run (ArcCompress *job)
 			verify_unit (job);
 		}
 
-		/* One archive failing does not take the rest of them with it -
+		/* One archive failing doesn't take the rest of them with it -
 		   the first thing that went wrong is what gets reported. */
 		job->success = job->success && ok;
 

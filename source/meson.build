@@ -115,7 +115,7 @@ glib_version = '>=2.45.7'
 is_windows = host_machine.system() == 'windows'
 is_macos = host_machine.system() == 'darwin'
 
-# Targets unlikely to have a GTK theme installed carry their own set; Linux and
+# Targets unlikely to have a GTK theme installed bundle their own set; Linux and
 # the BSDs use whatever the desktop already provides.
 bundledThemes = get_option('bundled_themes')
 if bundledThemes == 'auto'
@@ -138,17 +138,17 @@ archive = dependency('libarchive',                  version: '>=3.2.0')
 
 # Thumbnail cache. Asked for static so there is one fewer library to ship beside
 # the Windows exe. It has to come through pkg-config rather than find_library:
-# the cross sysroot is not on the compiler's own search path, and only the .pc
+# the cross sysroot isn't on the compiler's own search path, and only the .pc
 # file says where it is.
 sqlite  = dependency('sqlite3',                     version: '>=3.20', static: true)
 
 # blake3, vendored under ../vendor. Checksums have to be cheap enough to compute
 # while a folder is being listed, and this is the only option that both hits a
-# few GB/s and fits in 100 KB of source - see vendor/README.md for the other two
+# few GB/s and fits in 100 KB of source - see vendor/README.md for the other 2
 # that were measured.
 #
 # Each instruction set is its own library, because each needs its own flag on
-# the command line. Which of them actually runs is decided at run time by cpuid,
+# the command line. Which of them runs is decided at run time by cpuid,
 # so the flags never reach anything else. AVX-512 is left out: it is another
 # 100 KB of code for a case nobody here hits, and on a good many parts it clocks
 # the core down while it runs.
@@ -168,7 +168,7 @@ if host_machine.cpu_family() in [ 'x86', 'x86_64' ]
 else
   # No hand-written path for this machine, so ask for the plain C one. Without
   # the NEON line blake3 turns it on by itself on arm64 and then wants a source
-  # file that is not vendored.
+  # file that isn't vendored.
   blake3Defines += [ '-DBLAKE3_NO_SSE2', '-DBLAKE3_NO_SSE41', '-DBLAKE3_NO_AVX2',
                      '-DBLAKE3_USE_NEON=0' ]
   # Only the x86 paths call the dispatcher's cpuid probe.
@@ -249,7 +249,7 @@ conf.set_quoted('GETTEXT_PACKAGE', appSlug)
 conf.set_quoted('LOCALE_DIR',  join_paths(get_option('prefix'), get_option('localedir')))
 conf.set_quoted('LOCALEDIR',   join_paths(get_option('prefix'), get_option('localedir')))
 # glib's own flags, since libintl.h is outside the compiler's default path on
-# the BSDs, and glib/gi18n.h reaches it that way anyhow.
+# the BSDs, and glib/gi18n.h includes it that way anyhow.
 conf.set('ENABLE_NLS', cc.has_header('libintl.h', dependencies: glib))
 conf.set('HAVE_GETTEXT', true)
 conf.set('HAVE_LOCALE_H', cc.has_header('locale.h'))
@@ -275,8 +275,8 @@ nemoDataPath      = join_paths(get_option('prefix'), get_option('datadir'), appS
 nemoExtensionPath = join_paths(get_option('prefix'), get_option('libdir'), appSlug, 'extensions-3.0')
 
 # The installed program has no wrapper script in front of it, so it has to find
-# the extension library relative to itself. libdir carries the multiarch triplet
-# on Debian and friends, which is why this is not a fixed '../lib'.
+# the extension library relative to itself. libdir has the multiarch triplet
+# on Debian and friends, which is why this isn't a fixed '../lib'.
 nemoRpath = join_paths('$ORIGIN', '..', get_option('libdir'))
 
 nemo_definitions =  [
@@ -311,7 +311,7 @@ add_test_setup('nobus',
 subdir('test')
 subdir('fuzz')
 subdir('docs')
-# A /bin/sh launcher and a PyGObject script; neither ships on Windows.
+# A /bin/sh launcher and a PyGObject script; neither is installed on Windows.
 if not is_windows
   subdir('action-layout-editor')
 endif

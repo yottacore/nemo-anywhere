@@ -132,18 +132,18 @@ main (void)
 	/* Only the last dot counts, so a dotted name keeps its inner dots. */
 	check_region ("a.b.c", 3);
 
-	/* A compressed tarball's two parts are one extension. */
+	/* A compressed tarball's 2 parts are one extension. */
 	check_region ("archive.tar.gz", 7);
 	check_region ("backup.tar.xz", 6);
 
-	/* A leading dot hides a file; it does not start an extension. */
+	/* A leading dot hides a file; it doesn't start an extension. */
 	check_region (".bashrc", 7);
 	check_region (".config.bak", 7);
 
 	/* A trailing dot has nothing after it to keep. */
 	check_region ("odd.", 4);
 
-	/* Characters, not bytes: u-umlaut and the CJK are two and three bytes. */
+	/* Characters, not bytes: u-umlaut and the CJK are 2 and 3 bytes. */
 	check_region ("B\xc3\xbc" "cher.pdf", 6);
 	check_region ("\xe5\x86\x99\xe7\x9c\x9f.jpeg", 2);
 	check_region ("caf\xc3\xa9.tar.gz", 4);

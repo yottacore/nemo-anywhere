@@ -126,7 +126,7 @@ typedef struct {
 	/* Windows only, where a link can be either a .lnk shortcut or a real
 	   symlink and the menu offers both. Elsewhere there is one kind. */
 	gboolean want_symlink;
-	/* What to make at the far end for each kind of link the source holds.
+	/* What to make at the far end for each kind of link the source has.
 	   Only meaningful once link_choice_set is TRUE. */
 	NemoLinkChoice link_choice;
 	gboolean link_choice_set;
@@ -419,7 +419,7 @@ get_link_name (const char *name,
 
 	for (;;) {
 		/* Translators: the original name, then what kind of link this
-		   is: symlink, hardlink, junction or shortcut. */
+		   is: symlink, hardlink, junction, or shortcut. */
 		char *named = kind != NULL ? g_strdup_printf (_("%s - %s"), base, kind)
 					   : g_strdup (base);
 		char *shorter;
@@ -617,7 +617,7 @@ parse_previous_duplicate_name (const char *name,
 			}
 			*name_base = extract_string_until (name, tag);
 			/* localizers: opening parentheses of the "th copy)" string */
-			/* ' is the glibc digit grouping flag, which clang's format check does not know */
+			/* ' is the glibc digit grouping flag, which clang's format check doesn't know */
 #if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-invalid-specifier"
@@ -1471,7 +1471,7 @@ force_link_choice (NemoLinkChoice *choice,
 }
 
 /* Asked once, before anything is copied: what should each kind of link the
-   source holds become at the far end. FALSE means the operation was called
+   source has become at the far end. FALSE means the operation was called
    off. */
 static gboolean
 ask_about_links (CopyMoveJob          *copy_job,
@@ -1491,7 +1491,7 @@ ask_about_links (CopyMoveJob          *copy_job,
 		return TRUE;
 	}
 
-	/* Asked whenever the source holds a link, even where the destination can
+	/* Asked whenever the source has a link, even where the destination can
 	   take none of them - then every row but the copy is grayed out, and the
 	   answer is at least visible rather than decided quietly. */
 	dest_path = g_file_peek_path (dest);
@@ -1732,7 +1732,7 @@ static char *
 unattended_note (CommonJob *job, const char *secondary)
 {
 	if (((DeleteJob *) job)->unattended) {
-		return f (_("This didn't come from a trash or delete command. It came from undo, a drop or another command in a window. %s"), secondary);
+		return f (_("This didn't come from a trash or delete command. It came from undo, a drop, or another command in a window. %s"), secondary);
 	}
 
 	return f ("%s", secondary);
@@ -1839,7 +1839,7 @@ should_confirm_trash (void)
 	return confirm_trash;
 }
 
-/* Emptying the trash cannot be taken back, so only the command in a window may
+/* Emptying the trash can't be taken back, so only the command in a window may
    skip the question when the preference says to. That command is the only way
    in now, since nothing outside a window may start one. */
 gboolean
@@ -1848,7 +1848,7 @@ nemo_file_operations_empty_trash_asks (gboolean by_user)
 	return should_confirm_trash () || nemo_delete_guard_must_ask (by_user, 0, 0);
 }
 
-/* A permanent delete out of the trash cannot be taken back either, so it asks on
+/* A permanent delete out of the trash can't be taken back either, so it asks on
    the same terms as a direct delete: the preference covers the person's own
    deletes and nothing else. One that came from somewhere other than a delete
    command, or one big enough for the many-items setting, still asks. */
@@ -2096,7 +2096,7 @@ delete_dir (CommonJob *job, GFile *dir,
 
 	local_skipped_file = FALSE;
 
-	/* A link that would not go on its own gets one more try below and is
+	/* A link that wouldn't go on its own gets one more try below and is
 	   reported if that fails too. What it points at is never walked. */
 	if (!nemo_delete_guard_is_real_folder (dir, NULL, job->cancellable)) {
 		goto remove;
@@ -3263,7 +3263,7 @@ count_file (GFileInfo *info,
 	}
 }
 
-/* Records what kind of link this is, and answers whether it is one at all -
+/* Records what kind of link this is, and returns whether it is one at all -
    which is what tells the scan to stop rather than walk into it. */
 static gboolean
 note_link_kind (GFile      *file,
@@ -3352,8 +3352,8 @@ scan_dir (GFile *dir,
 			subdir = g_file_get_child (dir, g_file_info_get_name (info));
 
 			if (note_link_kind (subdir, info, source_info)) {
-				/* A link counts as one item and is not walked into.
-				   POSIX gets that from the file type; Windows spells a
+				/* A link counts as one item and isn't walked into.
+				   POSIX gets that from the file type; Windows writes a
 				   folder link as a folder, so it is asked for here. */
 			} else if (g_file_info_get_file_type (info) == G_FILE_TYPE_DIRECTORY) {
 				/* Push to head, since we want depth-first */
@@ -3998,7 +3998,7 @@ get_target_file_for_link (GFile      *src,
 	}
 
 	if (dest == NULL) {
-		/* A name that is not UTF-8 is kept byte for byte, and not
+		/* A name that isn't UTF-8 is kept byte for byte, and not
 		   shortened, since cutting it could split a character. */
 		basename = g_file_get_basename (src);
 		new_name = get_link_name (basename, kind, whole_name, count, 0);
@@ -4877,7 +4877,7 @@ get_target_file_for_display_name (GFile *dir,
 /* Debuting files is non-NULL only for toplevel items */
 /* Whether this source is a link, and if it is, what should stand in for it at
    the far end. *target is filled in only where the link has to be built by
-   hand - a plain copy that does not follow already leaves a symlink, so on
+   hand - a plain copy that doesn't follow already leaves a symlink, so on
    POSIX there is usually nothing to do. */
 static NemoLinkKind
 plan_link_copy (CopyMoveJob  *copy_job,
@@ -4909,7 +4909,7 @@ plan_link_copy (CopyMoveJob  *copy_job,
 	}
 
 #ifndef G_OS_WIN32
-	/* A copy that does not follow the link already leaves one behind, and a
+	/* A copy that doesn't follow the link already leaves one behind, and a
 	   symlink is the only kind there is. */
 	(void) parent;
 	return found;
@@ -4974,7 +4974,7 @@ make_link_copy (GFile         *src,
 /* An overwrite destroys the target inside g_file_copy or g_file_move, where
    there is nothing of ours to hook, so the ask goes in front of the flag.
    Sits at the retry label rather than at each place that sets overwrite, so a
-   new path that sets it cannot slip past. `asked` keeps a file that retries
+   new path that sets it can't slip past. `asked` keeps a file that retries
    for some other reason from asking twice, and the job's list one whose move
    went on as a copy (2026101512522482). */
 static gboolean
@@ -6473,7 +6473,7 @@ get_abs_path_for_symlink (GFile *file)
 }
 
 
-/* A .lnk shortcut. Rewrite *dest to carry the required .lnk extension, then
+/* A .lnk shortcut. Rewrite *dest to have the required .lnk extension, then
  * save the shortcut pointing at target_path, with the absolute and relative
  * paths, and the portable one too if asked. On success *dest owns the .lnk
  * GFile. */
@@ -6524,7 +6524,7 @@ create_lnk (GFile **dest, const char *target_path, gboolean with_portable, GErro
 }
 
 #ifdef G_OS_WIN32
-/* The other kind of link Windows has. The name is left alone - a symlink is not
+/* The other kind of link Windows has. The name is left alone - a symlink isn't
  * a document and gains nothing from an extension. */
 static gboolean
 win_create_symlink (GFile *dest, const char *target_path, GError **error)
@@ -7863,7 +7863,7 @@ nest_job_done (gpointer user_data)
 	return FALSE;
 }
 
-/* The fresh folder becomes the first folder of the path that is not there yet,
+/* The fresh folder becomes the first folder of the path that isn't there yet,
    so nothing is removed on the way and the folder it was keeps its place in the
    list. Folders already there are gone through, and only the last one being
    there is an error. */

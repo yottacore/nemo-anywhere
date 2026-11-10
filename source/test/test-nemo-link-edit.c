@@ -96,7 +96,7 @@ check_file_links (const char *dir)
 	g_clear_error (&error);
 	check (reads_as (link, "1") && reads_as (one, "1"));
 
-	/* A target that is not there yet is allowed, as it is for any symlink. */
+	/* A target that isn't there yet is allowed, as it is for any symlink. */
 	check (nemo_link_edit_symlink (link, "link", "later.txt", NULL));
 	target = target_of (link);
 	check (g_strcmp0 (target, "later.txt") == 0);
@@ -269,7 +269,7 @@ fold (const char *name)
 
 /* The entries in dir spelled like name, ignoring case and normalization, and
    the first one's name. Read from the listing, since on some file systems a
-   lookup of the other spelling answers from a stale cache. */
+   lookup of the other spelling returns a stale cache entry. */
 static int
 entries_like (const char *dir, const char *name, char **found)
 {
@@ -297,7 +297,7 @@ entries_like (const char *dir, const char *name, char **found)
 	return count;
 }
 
-/* Where two spellings name one entry, a case-insensitive or a normalizing
+/* Where 2 spellings name one entry, a case-insensitive or a normalizing
    file system, a new target under the other spelling still leaves a link. */
 static void
 check_other_spelling (const char *dir)
@@ -314,7 +314,7 @@ check_other_spelling (const char *dir)
 	guint i;
 
 	/* Probed under other names, since a lookup can leave a cached entry
-	   behind for the spelling that was not made. */
+	   behind for the spelling that wasn't made. */
 	for (i = 0; i < G_N_ELEMENTS (spellings) && second_name == NULL; i++) {
 		char *probe_name = g_strconcat ("probe-", spellings[i][0], NULL);
 		char *other_name = g_strconcat ("probe-", spellings[i][1], NULL);

@@ -2,7 +2,7 @@
 
 # Keyboard accelerators in the action tables.
 #
-# One key, one action. When two actions in the window claim the same key, GTK
+# One key, one action. When 2 actions in the window claim the same key, GTK
 # gives it to whichever was merged first, so the key quietly does the other
 # thing. Ctrl+Shift+T is the case that bit: the view's "Open in new tab" and
 # the window's new-tab key both had it, and which one ran depended on merge
@@ -10,14 +10,14 @@
 #
 # Menu keys are spelled <Primary>, which is Cmd on macOS and Control
 # everywhere else. A few stay on Control because macOS already uses Cmd with
-# that key (Cmd+H hides the app, Cmd+M minimizes, Cmd+F1 is the system's), or
-# because tab switching is Control on every platform. Those are the only
+# that key, or because tab switching is Control on every platform. Cmd+H hides
+# the app, Cmd+M minimizes, and Cmd+F1 is the system's. Those are the only
 # Control spellings allowed, in the tables and in the shortcuts window.
 #
 # Both sides of every #if are read, so a key claimed on one platform only
 # still counts.
 #
-# Syntax: lint-accels.py [root]   (default: the repo's source/)
+# Syntax: lint-accels.py [root]   root defaults to the repo's source/
 
 # Copyright (c) 2026 Bubbles
 # Licensed under The MIT License (MIT). Full text at:
@@ -34,7 +34,7 @@ UI_SUFFIXES = (".ui", ".xml", ".glade")
 
 # Actions that share a key because only one of them is ever shown at a time.
 SHARED = {
-    frozenset({"NEMO_ACTION_PIN_FILE", "NEMO_ACTION_UNPIN_FILE"}),  # one toggle, two labels
+    frozenset({"NEMO_ACTION_PIN_FILE", "NEMO_ACTION_UNPIN_FILE"}),  # one toggle, 2 labels
 }
 
 # Keys left on Control, as canonical accelerators.
@@ -229,7 +229,7 @@ def check(root):
                 owners.setdefault(name, set()).add(key)
                 claimed[config].setdefault(key, []).append((rel, line, name))
 
-    # One name in two tables is one action: the clipboard group stands in for
+    # One name in 2 tables is one action: the clipboard group stands in for
     # the view's while a text field has the focus.
     reported = set()
     for config in claimed:
@@ -247,7 +247,7 @@ def check(root):
         ui_path = root / ui
         listed = re.compile(rf'<(?:accelerator|menuitem)\b[^>]*\baction="{re.escape(name)}"')
         if ui_path.is_file() and not listed.search(ui_path.read_text(encoding="utf-8", errors="replace")):
-            problems.append((ui_path.relative_to(root.parent), 0, f"{name} is not listed, so its key does nothing"))
+            problems.append((ui_path.relative_to(root.parent), 0, f"{name} isn't listed, so its key does nothing"))
 
     for path in sorted(p for p in root.rglob("*") if p.suffix in UI_SUFFIXES):
         rel = path.relative_to(root.parent)
@@ -266,7 +266,7 @@ def check(root):
 def main():
     root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[2] / "source"
     if not root.is_dir():
-        print(f"[ FAILED: {root} is not a directory ]")
+        print(f"[ FAILED: {root} isn't a directory ]")
         return 1
 
     problems = check(root)

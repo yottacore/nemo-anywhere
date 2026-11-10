@@ -98,7 +98,7 @@ check_budget_evicts_oldest (void)
 	check (!items[2].drop && !items[3].drop);
 }
 
-/* The two limits are separate: a cache well inside its size still loses what
+/* The 2 limits are separate: a cache well inside its size still loses what
    nobody has looked at in months. */
 static void
 check_age_applies_under_budget (void)
@@ -141,7 +141,7 @@ put_be32 (GByteArray *out, guint32 value)
 }
 
 /* A PNG header with the text chunks a thumbnailer writes. The chunk CRCs are
-   left as zeroes - the reader does not check them and never decodes. */
+   left as zeroes - the reader doesn't check them and never decodes. */
 static GByteArray *
 fake_png_header (const char *key, const char *value, gboolean before_idat)
 {
@@ -252,7 +252,7 @@ check_sweep_over_a_real_cache (void)
 	g_mkdir_with_parents (normal, 0700);
 	g_mkdir_with_parents (fail_dir, 0700);
 
-	/* A file two of the thumbnails claim to be of. */
+	/* A file 2 of the thumbnails claim to be of. */
 	source = g_build_filename (root, "picture.png", NULL);
 	check (g_file_set_contents (source, "x", 1, NULL));
 

@@ -26,7 +26,7 @@ read_file (void)
 	char *text = NULL;
 
 	/* A read that fails leaves text NULL, which every caller already reads
-	 * as "the file said nothing" - the point is not to pretend otherwise. */
+	 * as "the file said nothing" - the point isn't to pretend otherwise. */
 	if (!g_file_get_contents (path, &text, NULL, NULL)) {
 		text = NULL;
 	}
@@ -35,7 +35,7 @@ read_file (void)
 	return text ? text : g_strdup ("");
 }
 
-/* The file also carries a commented list of everything not set, which names
+/* The file also has a commented list of everything not set, which names
    every key there is - so a check for what was stored has to read the settings
    alone. */
 static char *
@@ -66,7 +66,7 @@ on_changed (G_GNUC_UNUSED NemoConfigGroup *group, const char *key, G_GNUC_UNUSED
 
 /* bind target */
 
-/* Iterate the main context until @count moves past @from, or about two
+/* Iterate the main context until @count moves past @from, or about 2
    seconds pass. The file monitor is async. */
 static void
 wait_for_change (int *count, int from)
@@ -118,10 +118,10 @@ test_defaults (NemoConfigGroup *prefs, NemoConfigGroup *list_view)
 /* Defaults chosen on purpose rather than inherited, so a change to the key
  * table that quietly puts one back is caught. Media handling all starts off;
  * a new install opens in list view with ISO dates, asks before a move to the
- * trash, and shows owner, group and permissions where the platform has them.
- * Location stays out of the list, Ext sits between Size and Type, folders
+ * trash, and shows owner, group, and permissions where the platform has them.
+ * Location stays out of the list, Ext is between Size and Type, folders
  * expand in place, sizes count in 1024s, thumbnails follow the parent folder,
- * and a folder of images gets 320 pixel icons (500 per cent of 64).
+ * and a folder of images gets 320 pixel icons, 500 percent of 64.
  * Reads the effective value on a root with nothing stored. */
 static void
 test_product_defaults (void)
@@ -212,7 +212,7 @@ test_strv (NemoConfigGroup *list_view)
 }
 
 /* A value equal to the default is dropped, so a later change to that
- * default still reaches the user (and the file stays small). */
+ * default still applies for the user, and the file stays small. */
 static void
 test_default_not_stored (NemoConfigGroup *prefs)
 {
@@ -250,7 +250,7 @@ test_changed_signal (NemoConfigGroup *prefs)
 	check (changed_count == 1);
 	check (g_strcmp0 (changed_key, "show-hidden-files") == 0);
 
-	/* A different key must not reach a detailed handler. */
+	/* A different key must not call a detailed handler. */
 	nemo_config_set_boolean (prefs, "sort-directories-first", FALSE);
 	check (changed_count == 1);
 
@@ -362,7 +362,7 @@ test_persistence (void)
 	nemo_config_flush ();
 
 	text = read_settings ();
-	/* Written as SHCL, grouped, with the summary carried across as a comment. */
+	/* Written as SHCL, grouped, with the summary kept as a comment. */
 	check (strstr (text, "preferences:") != NULL);
 	check (strstr (text, "show-hidden-files: true") != NULL);
 	check (strstr (text, "# Ask before a drop moves files") != NULL);
@@ -396,7 +396,7 @@ test_external_edit (NemoConfigGroup *prefs)
 	check (nemo_config_get_boolean (prefs, "show-hidden-files") == TRUE);
 
 	/* A key that was already in the file, edited to a different value. The
-	 * diff has to compare the values, not just notice a key appear or go. */
+	 * diff has to compare the values, rather than only notice a key appear or go. */
 	changed_count = 0;
 	spins = 0;
 	check (g_file_set_contents (path,
@@ -413,7 +413,7 @@ test_external_edit (NemoConfigGroup *prefs)
 	g_free (path);
 }
 
-/* A file that exists but cannot be read (share lock, or the delete half of a
+/* A file that exists but can't be read (share lock, or the delete half of a
  * non-atomic external save) must not swap defaults into memory - a queued
  * save would then wipe the real file. Simulated by putting a directory at
  * the config path, which fails the read on any platform and any uid. */
@@ -589,7 +589,7 @@ test_bad_utf8_refused (NemoConfigGroup *prefs)
 
 /* A change is saved a couple of seconds after it is made. An external edit
  * arriving inside that window used to reload the file over it, so the change
- * was lost. It is carried across the reload and saved with the rest. */
+ * was lost. It's kept across the reload and saved with the rest. */
 static void
 test_pending_change_survives_reload (NemoConfigGroup *prefs, NemoConfigGroup *window_state)
 {
@@ -770,7 +770,7 @@ test_changed_on_main_thread (NemoConfigGroup *prefs)
 	nemo_config_flush ();
 }
 
-/* Windows paths hold backslashes and spaces. Before SHCL 3 a backslash in bare
+/* Windows paths have backslashes and spaces. Before SHCL 3 a backslash in bare
  * text was an escape, so a UNC path read back doubled; each has to come back
  * byte for byte after a save and a reload from the file. */
 static void
@@ -826,7 +826,7 @@ long_value (int n)
 /* SHCL 2 handed every read out of an arena only a full reparse gave back, so
  * the store rebuilt itself past 256 KB. SHCL 3 lets each read go once it is
  * copied out. So reloads well past that size still read and still announce,
- * and a long run of reads does not grow the heap by what it read. A hundred
+ * and a long run of reads doesn't grow the heap by what it read. There are 100
  * rewrites of 3 KB, since each one waits on the file monitor. */
 static void
 test_many_reloads (NemoConfigGroup *window_state)
@@ -884,7 +884,7 @@ test_many_reloads (NemoConfigGroup *window_state)
 	nemo_config_flush ();
 }
 
-/* SHCL spells a float with a dot whatever the locale. Under a comma-decimal
+/* SHCL writes a float with a dot whatever the locale. Under a comma-decimal
  * locale every float read used to fail back to its default, and the file got
  * the comma. Needs such a locale installed; without one this case is skipped
  * and the rest of the test still runs. */
@@ -931,7 +931,7 @@ test_float_under_comma_locale (void)
 	nemo_config_flush ();
 }
 
-/* The accessors take an interned "group.key" held in key-table order rather
+/* The accessors take an interned "group.key" stored in key-table order rather
    than building the string per read, so a key added or moved out of step with
    that table would quietly read and write a neighbor's value. Give every key
    a value of its own, then read the lot back. Runs last: it leaves the whole
@@ -1047,7 +1047,7 @@ main (int argc, char *argv[])
 	}
 
 	/* Several checks below assert that a misuse is refused. Without this a
-	   critical is just printed and the test carries on reporting a pass. */
+	   critical is only printed and the test goes on to report a pass. */
 	g_log_set_always_fatal (G_LOG_LEVEL_CRITICAL);
 
 	nemo_config_init ();

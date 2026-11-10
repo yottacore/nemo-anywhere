@@ -426,7 +426,7 @@ normal_archive_path (const char *raw)
 	return out;
 }
 
-/* Every folder an entry sits under. Collected while the listing is read, so
+/* Every folder an entry is under. Collected while the listing is read, so
    that asking whether a folder is in there is a lookup rather than another
    walk of every entry. */
 static void
@@ -446,7 +446,7 @@ typedef struct {
 	gboolean is_dir;
 } Listed;
 
-/* Every entry the archive holds, by path. NULL when the file will not open
+/* Every entry in the archive, by path. NULL when the file won't open
    as an archive. @folders_out gets the ancestor set, owned by the caller. */
 static GHashTable *
 archive_listing (const char *path,
@@ -474,12 +474,12 @@ archive_listing (const char *path,
 
 	while (archive_read_next_header (a, &entry) == ARCHIVE_OK) {
 		/* The plain name is in the locale's code page, which on Windows
-		   is not UTF-8, so a name past ASCII would match nothing. */
+		   isn't UTF-8, so a name past ASCII would match nothing. */
 		const char *raw = archive_entry_pathname_utf8 (entry);
 		char *name = normal_archive_path (raw != NULL ? raw : archive_entry_pathname (entry));
 		Listed *listed = g_new (Listed, 1);
 
-		/* No size is not a wrong size: rar keeps a second copy of a file
+		/* No size isn't a wrong size: rar keeps a second copy of a file
 		   as a reference to the first, which is read back with none. */
 		listed->size = archive_entry_size_is_set (entry) ?
 			(gint64) archive_entry_size (entry) : -1;
@@ -506,7 +506,7 @@ listing_holds_folder (GHashTable *listing,
 }
 
 /* Why an archive written this way can't be read back at all, or NULL. One
-   volume of a split set is not an archive on its own, and libarchive will not
+   volume of a split set isn't an archive on its own, and libarchive won't
    open a -hp rar or a -mhe 7z whatever password it is handed. */
 static const char *
 cannot_read_back (const ArcOptions *options)
@@ -533,7 +533,7 @@ links_locked (const ArcOptions *options)
    on the writer's word alone, so this is also the answer to whether the
    Compress dialog may offer to delete the originals. A 7z with a password
    that keeps links can't be: the dialog hands over the Store choice only for
-   a selection that can hold a link. */
+   a selection that can have a link. */
 gboolean
 arc_can_verify (const ArcOptions *options)
 {

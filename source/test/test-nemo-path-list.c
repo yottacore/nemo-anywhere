@@ -88,7 +88,7 @@ main (void)
 		g_free (text);
 	}
 
-	/* Nothing selected is not an empty line on the clipboard - it is
+	/* Nothing selected isn't an empty line on the clipboard - it is
 	 * nothing at all, so the caller leaves the clipboard alone. */
 	{
 		const char * const uris[] = { NULL };
@@ -99,7 +99,7 @@ main (void)
 	}
 
 #ifdef G_OS_WIN32
-	/* The second clipboard item asks for the other separator. A uri is not
+	/* The second clipboard item asks for the other separator. A uri isn't
 	 * touched by it - its slashes were never separators. */
 	{
 		const char * const uris[] = { LOCAL_URI_A, REMOTE_URI, NULL };

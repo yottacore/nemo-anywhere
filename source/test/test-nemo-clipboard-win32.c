@@ -1,12 +1,12 @@
 /* Copying a path put nothing on the Windows clipboard that anyone else could
  * read straight away: the toolkit only advertises the text and hands it over
  * when asked, and in a remote desktop session the redirector asks, gets no
- * answer in time, and puts the client's own clipboard back - so the copy read
+ * reply in time, and puts the client's own clipboard back - so the copy read
  * as having done nothing at all. A file cut or copy went the same way, and took
  * nemo's own paste with it.
  *
  * The checks read the clipboard the way another program would, with no message
- * loop running, which is exactly what the advertise-and-wait path cannot serve.
+ * loop running, which is what the advertise-and-wait path can't handle.
  */
 
 #include <config.h>
@@ -44,7 +44,7 @@ open_clipboard (void)
 	return FALSE;
 }
 
-/* Whatever CF_UNICODETEXT holds right now, as utf-8, or NULL. */
+/* Whatever is in CF_UNICODETEXT right now, as utf-8, or NULL. */
 static char *
 clipboard_text (void)
 {
@@ -69,7 +69,7 @@ clipboard_text (void)
 	return ret;
 }
 
-/* The paths CF_HDROP holds, read with the same call any other program uses. */
+/* The paths in CF_HDROP, read with the same call any other program uses. */
 static GPtrArray *
 clipboard_drop_paths (void)
 {
@@ -133,7 +133,7 @@ clipboard_has_format (const wchar_t *name)
 	return IsClipboardFormatAvailable (RegisterClipboardFormatW (name));
 }
 
-/* A cut or a copy of two files, checked from the outside and then read back. */
+/* A cut or a copy of 2 files, checked from the outside and then read back. */
 static void
 check_files (GtkWidget *window, const char *dir, gboolean cut)
 {

@@ -179,7 +179,7 @@ arc_entry_read (const char  *path,
 
 
 /* A copy of the app's own check of where a link leads, which the core can't
-   reach. */
+   call. */
 gboolean
 arc_entry_leads_somewhere (const char *path)
 {
@@ -203,8 +203,8 @@ arc_entry_leads_somewhere (const char *path)
 		return TRUE;
 	}
 
-	/* Something there that will not open, such as a file in use or one
-	   that is not ours to read, is still somewhere. A target spelled with /
+	/* Something there that won't open, such as a file in use or one
+	   that isn't ours to read, is still somewhere. A target spelled with /
 	   is the invalid name. */
 	switch (win_error) {
 	case ERROR_FILE_NOT_FOUND:

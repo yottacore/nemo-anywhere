@@ -137,7 +137,7 @@ build_paths (void)
 	stamp = g_date_time_format (now, "%Y%m%d-%H%M%S");
 	g_date_time_unref (now);
 
-	/* The name carries when the run STARTED, because a signal handler cannot
+	/* The name has the time the run STARTED, because a signal handler can't
 	   safely work out what time it is. The file's own timestamp is the crash. */
 	name = g_strdup_printf ("crash-%s-%u.txt", stamp, pid);
 	path = g_build_filename (dir, name, NULL);
@@ -188,7 +188,7 @@ report_free (gpointer data)
 	g_free (report);
 }
 
-/* By when it was written, not by the name: the name carries when the run
+/* By when it was written, not by the name: the name has the time the run
    started, and a window open for a week can crash after one opened an hour ago. */
 static int
 compare_written (gconstpointer a, gconstpointer b)
@@ -204,8 +204,8 @@ compare_written (gconstpointer a, gconstpointer b)
 	return g_strcmp0 (ra->name, rb->name);
 }
 
-/* Two jobs at startup: say that an earlier run left a report, since that run
-   had no chance to, and drop the oldest so the folder cannot grow forever. */
+/* At startup, say that an earlier run left a report, since that run
+   had no chance to, and drop the oldest so the folder can't grow forever. */
 static void
 sweep_old_reports (void)
 {
@@ -270,7 +270,7 @@ sweep_old_reports (void)
 /* Past here the program is already broken. Nothing below allocates, and on
    POSIX nothing below is outside what a signal handler may call. */
 
-/* Two runs that start in the same second can be handed the same process id.
+/* Runs that start in the same second can be handed the same process id.
    The second one's report goes under "-2" and so on, rather than being lost. */
 static void
 number_written_path (gsize stem, char n)
@@ -282,7 +282,7 @@ number_written_path (gsize stem, char n)
 
 #ifndef G_OS_WIN32
 
-/* mkdir makes one level, and the config root is not always there: a fresh
+/* mkdir makes one level, and the config root isn't always there: a fresh
    HOME has no Library/Application Support on macOS, and a new account need
    not have ~/.config yet. Only string work and mkdir, so it is safe in a
    signal handler. */
@@ -386,15 +386,15 @@ signal_name (int sig)
 }
 
 /* A fault the kernel raised, as opposed to the same signal sent by something.
-   Only the first has an address in si_addr; a sent one carries whoever sent
-   it there, which reads as a plausible code address and is not one. */
+   Only the first has an address in si_addr; a sent one has whoever sent
+   it there, which reads as a plausible code address and isn't one. */
 static gboolean
 is_real_fault (int sig, const siginfo_t *info)
 {
 	if (info == NULL || info->si_code <= 0)
 		return FALSE;
 
-	/* Linux numbers every sent code at or below zero. The BSDs do not. */
+	/* Linux numbers every sent code at or below zero. The BSDs don't. */
 	if (info->si_code == SI_USER || info->si_code == SI_QUEUE)
 		return FALSE;
 #ifdef SI_LWP
@@ -430,7 +430,7 @@ write_header (int fd, int sig, const siginfo_t *info)
 #ifdef CRASH_STEP_BAD_JUMP
 
 /* A call through a null or freed pointer faults on arrival, at an address with
-   no unwind data, so the unwinder stops there after two frames. The caller's
+   no unwind data, so the unwinder stops there after 2 frames. The caller's
    return address is still on top of the stack, or in the link register on
    arm64, and the unwinder reads the interrupted registers back out of this
    very context. Pointing them at the caller for the length of the walk
@@ -567,7 +567,7 @@ install_posix (void)
 
 #if HAVE_BACKTRACE
 	{
-		/* The first backtrace loads the unwinder, which is not something to
+		/* The first backtrace loads the unwinder, which isn't something to
 		   do from inside a handler. */
 		void *warmup[4];
 
@@ -621,7 +621,7 @@ create_report (void)
 	}
 }
 
-/* The report is built once and written twice, so the unwind is not paid for
+/* The report is built once and written twice, so the unwind isn't paid for
    again on the way to stderr. */
 static char report_text[16 * 1024];
 static gsize report_len = 0;
@@ -722,7 +722,7 @@ readable (const void *p, gsize len)
 
 /* Where the module wanted to be loaded. Frames are reported at that address
    rather than the one they ran at, so the number in the report is the one
-   addr2line takes. A mingw build carries no PDB, so this is all a frame can
+   addr2line takes. A mingw build has no PDB, so this is all a frame can
    be made to mean on another machine. */
 static DWORD64
 preferred_base (DWORD64 loaded_base)
@@ -949,7 +949,7 @@ emit_stack (const CONTEXT *context, HANDLE file)
 
 		if (function == NULL) {
 			/* A leaf, or a jump to an address with no code behind it at
-			   all - the commonest shape of a call through a freed object.
+			   all - the most common form of a call through a freed object.
 			   Either way the return address is on top of the stack. */
 			if (!stack_readable (walk.Rsp, 8)) {
 				emit_str ("  (the stack can't be read past here)\n");

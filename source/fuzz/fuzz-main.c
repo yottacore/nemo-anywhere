@@ -23,7 +23,7 @@
 /* libFuzzer supplies its own main, so this file is only compiled into the
  * ordinary build. Without it the targets would compile and never run, and the
  * seed corpus would drift out of meaning with nothing to say so. Replaying the
- * seeds on every suite run keeps both honest, and costs milliseconds.
+ * seeds on every suite run checks both, and costs milliseconds.
  *
  * Plain stdio on purpose: the shcl target links nothing else, and there is no
  * reason for the driver to be the thing that drags glib into it. */
@@ -63,7 +63,7 @@ run_file (const char *path)
 	}
 
 	/* An empty seed is a fair thing to hand a parser, and malloc(0) may
-	   answer NULL, which is not the failure it looks like. */
+	   return NULL, which isn't the failure it looks like. */
 	body = malloc ((size_t) len + 1);
 
 	if (body == NULL) {
@@ -92,7 +92,7 @@ main (int argc, char **argv)
 {
 	int i;
 
-	/* No corpus is a test that could not run rather than one that passed. */
+	/* No corpus is a test that couldn't run rather than one that passed. */
 	if (argc < 2) {
 		fprintf (stderr, "no corpus files given\n");
 		return 77;

@@ -1,6 +1,6 @@
 /* The delete guard's floor, checked with no display: home, the folders above it
  * and a mount are never removed, a tree removal never walks through a link, and
- * one job cannot take most of home. */
+ * one job can't take most of home. */
 
 #include <config.h>
 
@@ -114,7 +114,7 @@ main (void)
 	check (exists (notes));
 	check (exists (docs));
 
-	/* Eight shown entries in home and two hidden ones. */
+	/* Eight shown entries in home and 2 hidden ones. */
 	make_files (home, "item", 0, 6);
 	g_free (make_file (home, ".hidden1"));
 	g_free (make_file (home, ".hidden2"));
@@ -136,7 +136,7 @@ main (void)
 	check (!nemo_delete_guard_sweeps_home (list));
 	g_list_free_full (list, g_object_unref);
 
-	/* Five of twenty is not most of it. */
+	/* Five of 20 isn't most of it. */
 	make_files (home, "item", 6, 18);
 	list = files_in (home, "item", 5);
 	check (!nemo_delete_guard_sweeps_home (list));

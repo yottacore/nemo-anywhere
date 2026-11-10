@@ -40,7 +40,7 @@ gboolean arc_should_confirm_password (const ArcOptions *options);
    it went well. Answers TRUE only when every file that should have gone in is
    in there under the same relative path and the same size, and nothing was
    left out along the way. On FALSE, reason is set to a sentence naming what
-   did not line up; the caller frees it. The walk is deliberately its own,
+   didn't line up; the caller frees it. The walk is deliberately its own,
    rather than the one the job wrote from - checking with the same code that
    did the work proves very little. */
 gboolean arc_verify (const ArcHost    *host,

@@ -142,14 +142,14 @@ struct NemoListViewDetails {
 	gboolean cursor_forgotten;
 
 	/* Nemo Anywhere: Ctrl+Up or Ctrl+Down moved the cursor on its own. While
-	   it sits on a row not selected, it has an outline and the plain keys
+	   it's on a row that isn't selected, it has an outline and the plain keys
 	   count from it. */
 	gboolean focus_adrift;
 
 	GHashTable *columns;
 	GtkWidget *column_editor;
 
-	/* Column auto-sizing. samples holds, per column id, what has been seen in
+	/* Column auto-sizing. samples has, per column id, what has been seen in
 	 * it - grown a row at a time as the model fills in, walked whole only in
 	 * the case under resample_rows_cb, and thrown away when the folder
 	 * changes. laid_out_width is the width the current widths were worked
@@ -164,14 +164,14 @@ struct NemoListViewDetails {
 	gint column_ellipsis;
 
 	/* Theme sizes the measuring needs. Read once and dropped on a style
-	   change, since a style_get is not cheap and this runs per row. */
+	   change, since a style_get isn't cheap and this runs per row. */
 	gboolean style_metrics_valid;
 	gint column_separator_px;
 	gint name_indent_base;
 	gint name_indent_step;
 
 	/* Everything above plus the font, as one string. A style change that
-	   leaves this alone cannot have changed any width we measured. */
+	   leaves this alone can't have changed any width we measured. */
 	char *measure_style_id;
 
 	/* The columns, kept rather than copied again for every row measured.
@@ -184,8 +184,8 @@ struct NemoListViewDetails {
 
 	/* Hand-dragged widths. applying_layout marks our own set_fixed_width
 	 * calls so the notify handler can tell a drag from a relayout;
-	 * pending_user_widths holds what the drag left behind, per column,
-	 * until it settles. user_widths holds the settled ones for the folder
+	 * pending_user_widths has what the drag left behind, per column,
+	 * until it settles. user_widths has the settled ones for the folder
 	 * in view, and is emptied when the folder changes. */
 	gboolean applying_layout;
 	guint user_width_settle_id;
@@ -241,7 +241,7 @@ struct SelectionForeachData {
  */
 #define LIST_VIEW_MINIMUM_ROW_HEIGHT	28
 
-/* Air between the window edge and the first and last columns, so a name does not
+/* Air between the window edge and the first and last columns, so a name doesn't
    start hard against the frame. Device-independent pixels: GTK multiplies these
    by the display scale, so the gap looks the same at any resolution. */
 #define LIST_VIEW_EDGE_PADDING 8
@@ -409,8 +409,8 @@ expand_search_group (NemoListView *view, NemoFile *dir_file)
 	gtk_tree_path_free (path);
 }
 
-/* The group row @file belongs under, made if it is not there yet. Returns a ref,
-   or NULL when results are not being grouped. */
+/* The group row @file belongs under, made if it isn't there yet. Returns a ref,
+   or NULL when results aren't being grouped. */
 static NemoDirectory *
 search_group_for_file (NemoListView *view, NemoFile *file, gboolean create)
 {
@@ -1264,7 +1264,7 @@ band_stop (NemoListView *view)
 		GtkTreePath *end = NULL;
 		int height = gdk_window_get_height (gtk_tree_view_get_bin_window (details->tree_view));
 
-		/* The keyboard carries on from where the band ended, as GTK's does.
+		/* The keyboard goes on from where the band ended, as GTK's does.
 		   Nemo Anywhere counts the pointer below the rows too, as
 		   band_select does, so the end is always the last row touched. */
 		gtk_tree_view_get_path_at_pos (details->tree_view, 0,
@@ -1588,7 +1588,7 @@ do_popup_menu (GtkWidget *widget, NemoListView *view, GdkEventButton *event)
 }
 
 /* A left press held still. Its release goes to the menu, so the press is
-   dropped here: no drag, band, rename or click to come. */
+   dropped here: no drag, band, rename, or click to come. */
 static void
 long_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callback_data)
 {
@@ -1935,7 +1935,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
     				      "expander-size", &expander_size,
     				      "horizontal-separator", &horizontal_separator,
     				      NULL);
-    		/* TODO we should not hardcode this extra padding. It is
+    		/* TODO we shouldn't hardcode this extra padding. It is
     		 * EXPANDER_EXTRA_PADDING from GtkTreeView.
     		 */
     		expander_size += 4;
@@ -1958,7 +1958,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 		}
 
 		if (handle_icon_double_click (view, path, event, on_expander)) {
-			/* Double clicking does not trigger a D&D action. */
+			/* Double clicking doesn't trigger a D&D action. */
 			view->details->drag_button = 0;
 
 		} else {
@@ -2513,7 +2513,7 @@ sort_column_changed_callback (GtkTreeSortable *sortable,
 	default_sort_attr = nemo_list_model_get_attribute_from_sort_column_id (view->details->model, default_sort_column_id);
 
         /* Find results keep their sort whatever remember-folder-settings says,
-           and never in the window, which holds the folders' when that is off.
+           and never in the window, which keeps the folders' when that is off.
            Theirs is saved below, with the direction. */
         if (!nemo_file_is_in_search (file)) {
             if (!nemo_global_preferences_get_remember_folder_settings ()) {
@@ -2856,7 +2856,7 @@ column_header_menu_toggled (GtkCheckMenuItem *menu_item,
 		visible_columns[i] = l->data;
     }
 
-	/* set view values ourselves, as new metadata could not have been
+	/* set view values ourselves, as new metadata couldn't have been
 	 * updated yet.
 	 */
     apply_columns_settings (list_view, visible_columns, visible_columns);
@@ -2897,7 +2897,7 @@ column_header_menu_use_default (G_GNUC_UNUSED GtkMenuItem *menu_item,
 
     default_order = get_default_column_order (list_view);
 
-	/* set view values ourselves, as new metadata could not have been
+	/* set view values ourselves, as new metadata couldn't have been
 	 * updated yet.
 	 */
 	apply_columns_settings (list_view, default_order, default_columns);
@@ -3117,7 +3117,7 @@ apply_columns_settings (NemoListView *list_view,
 
 	view_columns = g_list_reverse (view_columns);
 
-	/* hide columns that are not present in the configuration */
+	/* hide columns that aren't present in the configuration */
 	old_view_columns = gtk_tree_view_get_columns (list_view->details->tree_view);
 	for (l = old_view_columns; l != NULL; l = l->next) {
 		if (l->data != list_view->details->checkmark_column &&
@@ -3382,7 +3382,7 @@ row_shading_changed_callback (NemoListView *view)
 }
 
 /* What a measured width depends on: the font the cells lay text out in, and
-   the two theme sizes measure_row adds around it. */
+   the 2 theme sizes measure_row adds around it. */
 static char *
 measure_style_id (NemoListView *view)
 {
@@ -3616,7 +3616,7 @@ on_treeview_realized (G_GNUC_UNUSED GtkWidget *widget,
                       view);
 }
 
-/* About three characters of the view's own font, one character (the air every
+/* About 3 characters of the view's own font, one character (the air every
    column gets on its right), and the ellipsis a cut value ends in. Measured
    once and kept, since they only change with the font, which takes the whole
    view down with it. */
@@ -3754,14 +3754,14 @@ samples_for (NemoListView      *view,
 
 		samples = g_new0 (ColumnSamples, 1);
 		/* Samples go on a folder change, so whether this is find results
-		   holds for as long as they do. */
+		   stays true for as long as they do. */
 		samples->tally = nemo_column_tally_new (
 			nemo_column_tally_mode_for (column_class (view, column), is_name,
 						    showing_search (view)));
 
 		/* Every column but Name shows one run of text per row, so a value
 		   seen before lays out to the same width. Name is left out: in a
-		   folder no two files share a name, so nothing would ever repeat.
+		   folder no 2 files share a name, so nothing would ever repeat.
 		   NEMO_MEASURE_NOCACHE turns it off, which is how the widths it
 		   hands back are checked against measuring every row. */
 		if (!is_name && g_getenv ("NEMO_MEASURE_NOCACHE") == NULL) {
@@ -3814,7 +3814,7 @@ forget_samples (NemoListView *view)
 	}
 	view->details->samples_stale = FALSE;
 
-	/* So the next allocation is not mistaken for one that changed nothing. */
+	/* So the next allocation isn't mistaken for one that changed nothing. */
 	view->details->laid_out_width = -1;
 }
 
@@ -3988,7 +3988,7 @@ column_fixed_width_notify (GObject    *object,
 
 	/* Every width set here arrives under applying_layout - but GTK itself
 	   also rewrites the expanding column's width while allocating, so ours
-	   being absent is not enough. A drag has the button held; anything with
+	   being absent isn't enough. A drag has the button held; anything with
 	   no button down is machinery, not the user. */
 	if (view->details->applying_layout ||
 	    view->details->tree_view == NULL ||
@@ -4049,7 +4049,7 @@ name_indent_for (NemoListView *view,
 /* What this column would want to be to show this row whole - and, when asked,
  * the text it shows there, for the columns that count each distinct value once.
  *
- * Deliberately NOT gtk_tree_view_column_cell_get_size, which answers with the
+ * Deliberately NOT gtk_tree_view_column_cell_get_size, which returns the
  * cell's MINIMUM width - and a cell that may ellipsize has almost none, so
  * every column measured that way collapses to a few pixels. The renderers are
  * asked for their natural widths instead, which is the full text either way. */
@@ -4081,7 +4081,7 @@ row_width_for_column (NemoListView      *view,
 			continue;
 		}
 
-		/* Name asks for neither, so it does not pay for the copy. */
+		/* Name asks for neither, so it doesn't pay for the copy. */
 		if (GTK_IS_CELL_RENDERER_TEXT (c->data) &&
 		    (measured != NULL || (text != NULL && *text == NULL))) {
 			gint weight = NORMAL_TEXT_WEIGHT;
@@ -4236,8 +4236,8 @@ measure_row_foreach (GtkTreeModel *model,
 }
 
 /* Every row again, from nothing. The incremental measure covers rows as they
-   arrive, which is not enough when what a row measures has changed under it -
-   a zoom, or a column that was not on screen the first time round. */
+   arrive, which isn't enough when what a row measures has changed under it -
+   a zoom, or a column that wasn't on screen the first time round. */
 static void
 remeasure_rows (NemoListView *view)
 {
@@ -4256,8 +4256,8 @@ remeasure_rows (NemoListView *view)
    put a scrollbar on a folder that no longer needs one, emptied or not. So
    when the minimums overflow and files have left since the last full count,
    what is left is sampled again. Only then: it is a walk of the folder, about
-   a third of a second at five thousand rows. The width worked out for each
-   text stays, since the text itself has not changed. */
+   a third of a second at 5000 rows. The width worked out for each
+   text stays, since the text itself hasn't changed. */
 static gboolean
 resample_rows_cb (gpointer user_data)
 {
@@ -4300,7 +4300,7 @@ resample_rows_soon (NemoListView *view)
 
 /* Hand every visible column a width for a view `available` wide. Between them
    they come to exactly that wherever the minimums allow it, and to more where
-   they do not, in which case the view scrolls sideways. The rule itself is in
+   they don't, in which case the view scrolls sideways. The rule itself is in
    nemo-column-layout.c; this is the measuring that feeds it. */
 static void
 layout_columns (NemoListView *view,
@@ -4343,7 +4343,7 @@ layout_columns (NemoListView *view,
 	pad = column_pad_width (view);
 	ellipsis = column_ellipsis_width (view);
 
-	/* A minor column whose values are all about four characters or less, like
+	/* A minor column whose values are all about 4 characters or less, like
 	   Ext, is too narrow for an ellipsis to leave anything readable. */
 	narrow = column_floor_width (view) + pad;
 
@@ -4526,7 +4526,7 @@ on_size_allocation_changed (G_GNUC_UNUSED GtkWidget    *widget,
     }
 }
 
-/* Nemo Classic's press, release, motion and keys, from upstream 6.6.4. There
+/* Nemo Classic's press, release, motion, and keys, from upstream 6.6.4. There
    the menu opens on the press, a right-click on the blank part of a row not
    selected clears the selection, a click below the rows clears it even with
    Ctrl, GtkTreeView bands, and Escape leaves the selection alone. */
@@ -4613,7 +4613,7 @@ classic_button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointe
 		}
 
 		if (handle_icon_double_click (view, path, event, on_expander)) {
-			/* Double clicking does not trigger a D&D action. */
+			/* Double clicking doesn't trigger a D&D action. */
 			view->details->drag_button = 0;
 		} else {
 			/* The rename waits for the release, so a single item can still drag. */
@@ -4786,7 +4786,7 @@ classic_motion_notify_callback (GtkWidget *widget,
 		}
 	}
 
-	/* A band under way is GtkTreeView's to carry on. */
+	/* A band under way is GtkTreeView's to finish. */
 	if (view->details->drag_button == 0 || view->details->gtk_banding) {
 		return GDK_EVENT_PROPAGATE;
 	}
@@ -5691,7 +5691,7 @@ list_view_changed_foreach (GtkTreeModel *model,
 }
 
 /* The list view is held to the steps rather than taking any size, because a
-   row's icon comes out of one of the model's size columns. The backlog carries
+   row's icon comes out of one of the model's size columns. The backlog has
    what it would take to lift that. */
 static gint
 snap_to_step (gint size)
@@ -5826,7 +5826,7 @@ nemo_list_view_clear (NemoView *view)
 	}
 
 	/* The names in the last folder say nothing about this one, and a width
-	   dragged there does not carry over. */
+	   dragged there isn't kept. */
 	forget_samples (list_view);
 	g_hash_table_remove_all (list_view->details->user_widths);
 	remember_cursor (list_view);
@@ -5990,7 +5990,7 @@ nemo_list_view_get_backing_uri (NemoView *view)
 	 *     "(Empty)" label), we return the uri of the parent.
 	 * (b) if the selection consists of exactly one _expanded_ directory, we
 	 *     return its URI.
-	 * (c) if the selection consists of either exactly one item which is not
+	 * (c) if the selection consists of either exactly one item which isn't
 	 *     an expanded directory) or multiple items in the same directory,
 	 *     we return the URI of the common parent.
 	 */
@@ -6029,7 +6029,7 @@ nemo_list_view_get_backing_uri (NemoView *view)
 		gboolean is_common, is_root;
 
 		/* Check that all the selected items belong to the same
-		 * directory and that directory is not the root directory (which
+		 * directory and that directory isn't the root directory (which
 		 * is handled by NemoView::get_backing_directory.) */
 
 		tree_selection_has_common_parent (selection, &is_common, &is_root);

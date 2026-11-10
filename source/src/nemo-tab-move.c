@@ -12,10 +12,10 @@
  * GNU General Public License for more details.
  */
 
-/* A page cannot move into another process, so what moves is its folder, its
+/* A page can't move into another process, so what moves is its folder, its
  * view and its selection, and the tab here is closed once the other side has
  * taken them. Windows in this process get the same treatment rather than a
- * reparented page, so there is one way it can go wrong, not two. */
+ * reparented page, so there is only one way it can go wrong. */
 
 #include <config.h>
 #include "nemo-tab-move.h"
@@ -37,7 +37,7 @@
 #define TABS_INTERFACE "org.NemoAnywhere.Tabs"
 
 /* Long enough for a copy that is busy, short enough that one that has hung
-   does not hold the menu up for long. */
+   doesn't hold the menu up for long. */
 #define LIST_TIMEOUT_MS 500
 #define TAKE_TIMEOUT_MS 3000
 
@@ -85,7 +85,7 @@ slot_can_move (NemoWindowSlot *slot)
 	char *uri = nemo_window_slot_get_location_uri (slot);
 	gboolean movable;
 
-	/* A search lives in this process only; elsewhere it is an empty folder. */
+	/* A search exists in this process only; elsewhere it is an empty folder. */
 	movable = uri != NULL && !eel_uri_is_search (uri);
 	g_free (uri);
 
@@ -274,7 +274,7 @@ target_free (gpointer data)
 }
 
 /* Every window a tab from here could go to, this process's other windows
-   first. A copy that does not answer in time is left out. */
+   first. A copy that doesn't answer in time is left out. */
 static GPtrArray *
 list_targets (NemoWindow *here)
 {
@@ -466,7 +466,7 @@ nemo_tab_move_menu_item_new (NemoWindowSlot *slot)
 	for (i = 0; i < targets->len; i++) {
 		Target *target = g_ptr_array_index (targets, i);
 
-		/* Titles are folder names, which can hold an underscore. */
+		/* Titles are folder names, which can have an underscore. */
 		child = gtk_menu_item_new_with_label (target->title);
 		g_object_set_data_full (G_OBJECT (child), "slot", g_object_ref (slot), g_object_unref);
 		g_object_set_data_full (G_OBJECT (child), "target", target, target_free);
@@ -486,7 +486,7 @@ nemo_tab_move_menu_item_new (NemoWindowSlot *slot)
 	g_signal_connect (child, "activate", G_CALLBACK (menu_move_to_new_window_cb), NULL);
 	gtk_menu_shell_append (GTK_MENU_SHELL (submenu), child);
 
-	/* The only tab going to a window of its own would just be this window
+	/* The only tab going to a window of its own would be this window
 	   again, somewhere else. */
 	gtk_widget_set_sensitive (child, !nemo_tab_move_is_only_tab (slot));
 

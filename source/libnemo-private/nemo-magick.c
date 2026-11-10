@@ -33,12 +33,12 @@
 
 #define TIMEOUT_SECONDS 30
 
-/* ImageMagick holds all of its input in memory before decoding it, so past
+/* ImageMagick reads all of its input into memory before decoding it, so past
  * this the file is left alone. */
 #define MAX_FILE_BYTES (256 * 1024 * 1024)
 
 /* Raster formats only. Whether the installed copy can read one depends on how
- * it was built, and one it cannot read just fails like any bad file. */
+ * it was built, and one it can't read fails like any bad file. */
 static const struct {
 	const char *extension;
 	const char *coder;
@@ -74,7 +74,7 @@ static const struct {
 	{ "jng",  "JNG" },
 	{ "miff", "MIFF" },
 	{ "pfm",  "PFM" },
-	/* Raw files the reader of our own does not know. */
+	/* Raw files the reader of our own doesn't know. */
 	{ "crw",  "CRW" },
 	{ "mrw",  "MRW" },
 	{ "x3f",  "X3F" },
@@ -268,7 +268,7 @@ run_timed_out (gpointer data)
 	return G_SOURCE_REMOVE;
 }
 
-/* Nothing wants the picture any more. A cancelled communicate would leave
+/* Nothing wants the picture any more. A canceled communicate would leave
  * the program running, so it is ended instead, the same way as a timeout. */
 static void
 run_cancelled (G_GNUC_UNUSED GCancellable *cancellable, gpointer data)
@@ -347,7 +347,7 @@ run_magick (char **argv, const char *path, GCancellable *cancellable)
 	GdkPixbuf *pixbuf = NULL;
 	Run run = { 0 };
 
-	/* Mapped rather than read, so the file is not copied on its way down the
+	/* Mapped rather than read, so the file isn't copied on its way down the
 	 * pipe. A stdin that is the file itself would be cheaper still, but GLib
 	 * only offers that on Unix. */
 	mapped = g_mapped_file_new (path, FALSE, NULL);

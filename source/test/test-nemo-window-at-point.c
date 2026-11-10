@@ -137,7 +137,7 @@ main (int argc, char **argv)
 	expect (xdisplay, 150, 120, candidates, 3, 0, "the low window raised");
 
 	/* A window manager's list, bottom first, is believed over the server's
-	   own order, which it cannot see past frames and overlays in. */
+	   own order, which it can't see past frames and overlays in. */
 	stacking = XInternAtom (xdisplay, "_NET_CLIENT_LIST_STACKING", False);
 	order[0] = (Window) candidates[0];
 	order[1] = (Window) candidates[1];

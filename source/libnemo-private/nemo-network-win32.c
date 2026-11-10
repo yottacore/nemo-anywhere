@@ -65,7 +65,7 @@ net_item_free (gpointer data)
 
 /* enumerate one container; item->unc NULL means the whole net root.
  * @open_rc, when given, receives the WNetOpenEnumW result so the caller can
- * tell "no network" or "access denied" from a genuinely empty neighborhood. */
+ * tell "no network" or "access denied" from an empty neighborhood. */
 static GList *
 enum_container (NETRESOURCEW *container, gboolean shares, int depth, DWORD *open_rc)
 {
@@ -186,11 +186,11 @@ enum_shares (const char *server_name, DWORD *open_rc)
 
 /* is there a network at all */
 
-/* WNetOpenEnum answers NO_ERROR with an empty list on a machine that has no
- * network - measured on a box with no adapters up - so "the neighborhood is
- * empty" and "there is no neighborhood" are otherwise the same answer, and the
- * unreachable-network branch below never fires. Windows will say which it is if
- * asked directly. Anything short of a clear "not connected" counts as available:
+/* WNetOpenEnum returns NO_ERROR with an empty list on a machine that has no
+ * network, so "the neighborhood is empty" and "there is no neighborhood" are
+ * otherwise the same answer, and the unreachable-network branch below never
+ * fires. Windows will say which it is if asked directly. Anything short of a
+ * clear "not connected" counts as available:
  * a COM call that fails must not turn into a claim that the network is down. */
 gboolean
 nemo_network_win32_is_available (void)
@@ -500,7 +500,7 @@ network_file_resolve_relative_path (GFile *file, const char *relative_path)
 	}
 
 	/* The separator matters: without it a share under network:///FILESRV came
-	   out as network:///FILESRVpublic, get_parent then answered the root, and
+	   out as network:///FILESRVpublic, get_parent then returned the root, and
 	   SRV+Ashare collided with SRVA+share. */
 	if (uri_is_root (self->uri)) {
 		uri = g_strconcat (ROOT_URI, relative_path, NULL);
@@ -547,7 +547,7 @@ network_file_query_info (GFile *file, G_GNUC_UNUSED const char *attributes,
 		icon = g_themed_icon_new_with_default_fallbacks ("network-workgroup");
 	} else {
 		/* Anything typed used to come back as a perfectly good empty folder.
-		   Confirm the name can actually be reached first. */
+		   Confirm the name can be reached first. */
 		DWORD open_rc = NO_ERROR;
 		GList *shares = enum_shares (server, &open_rc);
 
@@ -677,7 +677,7 @@ network_file_enumerate_children (GFile *file, G_GNUC_UNUSED const char *attribut
 	}
 
 	/* The neighborhood came back empty and succeeded, which is also what a
-	   machine with no network answers. Say which one it was. */
+	   machine with no network returns. Say which one it was. */
 	if (enumerator->items == NULL && server == NULL &&
 	    !nemo_network_win32_is_available ()) {
 		nemo_network_win32_set_error (error, ERROR_NO_NETWORK, NULL);
@@ -798,7 +798,7 @@ network_vfs_lookup (G_GNUC_UNUSED GVfs *vfs, const char *identifier, G_GNUC_UNUS
 	return NULL;
 }
 
-/* Returns: (transfer full) (nullable): NULL when s holds a bad escape */
+/* Returns: (transfer full) (nullable): NULL when s has a bad escape */
 static char *
 smb_unescape (const char *s)
 {
@@ -886,7 +886,7 @@ nemo_network_win32_file_for_smb_uri (const char *uri)
 		return network_file_new_for_uri (ROOT_URI);
 	}
 
-	/* A typed address may hold a bare space or a stray %, so an escape that
+	/* A typed address may have a bare space or a stray %, so an escape that
 	   doesn't decode is taken as it was written. */
 	path = smb_unescape (slash != NULL ? slash : "");
 	if (path == NULL) {

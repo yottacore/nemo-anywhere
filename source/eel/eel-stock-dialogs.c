@@ -190,7 +190,7 @@ show_focus_on_map (GtkWidget *dialog, G_GNUC_UNUSED gpointer data)
 }
 
 /* GTK hides the focus ring at map unless the parent showed one, so a dialog
-   opened by mouse would not show which button Enter takes. */
+   opened by mouse wouldn't show which button Enter takes. */
 void
 eel_dialog_set_default (GtkDialog *dialog, int response_id)
 {

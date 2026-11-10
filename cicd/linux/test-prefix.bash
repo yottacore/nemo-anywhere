@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: Checks on the Linux release tarball that need no display.
-##	  Every file it installs carries the app's name somewhere in its path, so
-##	  nothing can end up where upstream Nemo installs; the .deb and .rpm are held
-##	  to the same rule when dpkg-deb and rpm are on the box. And the action
+##	  Every file it installs has the app's name somewhere in its path, so
+##	  nothing can end up where upstream Nemo installs. The .deb and .rpm get the
+##	  same check when dpkg-deb and rpm are on the box. And the action
 ##	  layout editor's launcher, copied into a prefix somewhere else, runs the
 ##	  editor beside it rather than the one it was configured with, under the
 ##	  name the program spawns it by. And none of the tarball, .deb and .rpm has
-##	  the office programs and libgsf the app no longer ships, through
+##	  the office programs and libgsf the app no longer includes, through
 ##	  cicd/utility/test-bundle-left-out.bash.
 ##	- A missing tarball skips with exit 77.
 ##	- Syntax: cicd/linux/test-prefix.bash [tarball | --arch ARCH]
@@ -67,7 +67,7 @@ fCheckNames(){
 				"${slug}"*|"lib${slug}"*|org.NemoAnywhere*) named=1; break ;;
 			esac
 		done
-		((named)) || fFail "${label}: ${path} does not carry the name ${slug}"
+		((named)) || fFail "${label}: ${path} doesn't have the name ${slug}"
 	done
 	((count > 0)) || fFail "${label}: no files listed"
 	fEcho_Clean "${label}: ${count} file(s) looked at"
@@ -98,7 +98,7 @@ else
 	fEcho_Clean "no .rpm or no rpm; the .rpm not checked"
 fi
 
-## The office programs the app no longer ships, and libgsf (2026100909260549).
+## The office programs the app no longer includes, and libgsf (2026100909260549).
 kind="${tarball##*/}"; kind="${kind%.tar.gz}"; kind="linux-${kind##*-linux-}"
 rc=0
 bash "${root}/cicd/utility/test-bundle-left-out.bash" --dir "$(dirname "$tarball")" "$kind" || rc=$?
@@ -107,7 +107,7 @@ bash "${root}/cicd/utility/test-bundle-left-out.bash" --dir "$(dirname "$tarball
 ## The program spawns the editor by this name out of its own bin folder, so
 ## the name has to be in the program and on the file.
 [[ -x "${prefix}/bin/${editor}" ]] || fFail "no bin/${editor}"
-LC_ALL=C grep -q -a -F -- "$editor" "${prefix}/bin/${slug}" || fFail "bin/${slug} does not name ${editor}"
+LC_ALL=C grep -q -a -F -- "$editor" "${prefix}/bin/${slug}" || fFail "bin/${slug} doesn't name ${editor}"
 
 ## A prefix somewhere it was never configured for, with a space in the path,
 ## and the editor swapped for a stub that says where it is.
@@ -123,11 +123,11 @@ STUB
 chmod +x "$stub"
 want="$(realpath "$stub")"
 
-## No display, in case a wrong turn reaches a real editor installed on the box.
+## No display, in case a wrong turn starts a real editor installed on the box.
 ran="$(env -u DISPLAY -u WAYLAND_DISPLAY "${moved}/bin/${editor}" 2>&1 || true)"
 [[ "$(realpath -m "$ran")" == "$want" ]] || fFail "the moved launcher ran ${ran:-nothing}, not ${want}"
 
-## Reached through a link, as it is from a folder on PATH.
+## Run through a link, as it is from a folder on PATH.
 ln -s "${moved}/bin/${editor}" "${scratch}/${editor}"
 ran="$(env -u DISPLAY -u WAYLAND_DISPLAY "${scratch}/${editor}" 2>&1 || true)"
 [[ "$(realpath -m "$ran")" == "$want" ]] || fFail "the launcher through a link ran ${ran:-nothing}, not ${want}"

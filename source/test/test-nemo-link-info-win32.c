@@ -1,9 +1,9 @@
-/* Windows tells us nothing about the type of a link the listing did not follow:
+/* Windows tells us nothing about the type of a link the listing didn't follow:
  * a junction to a folder and a symlink to a picture both come back with no
  * content type at all, and the toolkit then hands out its plain file icon. A
  * folder link was drawn as a document because of it. These checks pin that
- * toolkit behavior - the reason the swap has to exist - and hold a link to a
- * folder to the folder icon.
+ * toolkit behavior, which is why the swap has to exist, and check that a link
+ * to a folder gets the folder icon.
  */
 
 #include <config.h>
@@ -58,7 +58,7 @@ icon_names_include (GIcon *icon, const char *name)
 	return FALSE;
 }
 
-/* A NemoFile carrying the same info the file list would have applied. */
+/* A NemoFile with the same info the file list would have applied. */
 static NemoFile *
 loaded_file (const char *path)
 {
@@ -77,7 +77,7 @@ loaded_file (const char *path)
 }
 
 /* The premise: without a swap there is nothing to work from. If a future
- * toolkit starts answering here, the swap becomes dead weight rather than a
+ * toolkit starts returning a type here, the swap becomes dead weight rather than a
  * fix, and this is where that shows up. */
 static void
 test_toolkit_reports_nothing (const char *dir_link,
@@ -124,7 +124,7 @@ test_link_to_folder_is_a_folder (const char *dir_link)
 }
 
 /* A link to a picture reads as a picture, from its name - the extension is all
- * there is to go on once the link is not followed. */
+ * there is to go on once the link isn't followed. */
 static void
 test_link_to_file_keeps_its_type (const char *file_link)
 {

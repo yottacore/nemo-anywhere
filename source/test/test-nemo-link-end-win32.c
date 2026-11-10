@@ -1,9 +1,9 @@
 /* Where a link leads, on Windows.
  *
  * GIO gives a link that leads nowhere the type the link has itself, a file or
- * a folder, so a broken link never read as broken there. The answer now comes
+ * a folder, so a broken link never read as broken there. The type now comes
  * from the links themselves, read without opening anything through one, so a
- * link to a share is never looked into. And Windows will not follow a
+ * link to a share is never looked into. And Windows won't follow a
  * relative symlink spelled with /, so the app writes \ in the ones it makes.
  */
 
@@ -27,7 +27,7 @@
 
 #define WANTED "standard::*,unix::*,time::*,id::filesystem"
 
-/* TEST-NET-1, which nothing answers for. Opening through a link to it fails,
+/* TEST-NET-1, where nothing responds. Opening through a link to it fails,
    so a check that went there would call the link broken. */
 #define SHARE_TARGET "\\\\192.0.2.1\\share\\file.txt"
 
@@ -126,7 +126,7 @@ read_through (const char *name)
 	char *path = at (name);
 	char *contents = NULL;
 
-	/* NULL when it is not there. */
+	/* NULL when it isn't there. */
 	(void) g_file_get_contents (path, &contents, NULL, NULL);
 	g_free (path);
 
@@ -272,7 +272,7 @@ check_junctions (void)
 	g_free (real);
 }
 
-/* The answer is kept, since the type column asks on every draw, and asked
+/* The result is kept, since the type column asks on every draw, and asked
    again once fresh info comes in. */
 static void
 check_kept_until_reload (void)

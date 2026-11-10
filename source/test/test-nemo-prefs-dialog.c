@@ -21,11 +21,11 @@
 */
 
 /* Opens the real dialog. No scrollbar in it hides until hovered, so a page cut
- * short by a small screen does not look complete. Close sits in a bar outside
+ * short by a small screen doesn't look complete. Close is in a bar outside
  * the scrolling and is the default, and Escape closes. The window is never
- * more than nine tenths of the work area, and its floor grows with the text
+ * more than 9 tenths of the work area, and its floor grows with the text
  * scale, which is how Windows passes a fractional display scale. No tab, in
- * the list on the left, ever holds the keyboard, and Ctrl+Page Up and Down,
+ * the list on the left, ever keeps the keyboard, and Ctrl+Page Up and Down,
  * Ctrl+Tab and Ctrl+Shift+Tab step through the list, sub-tabs included.
  * Sub-tabs are indented rows, and the parent and its showing sub-tab are both
  * lit. List columns has a sub-tab for each list. No page needs a scrollbar at
@@ -172,8 +172,8 @@ test_widgets (GtkWidget *dialog)
 	check (close_bar != NULL && gtk_widget_is_ancestor (close_button, close_bar));
 }
 
-/* With another window holding the keyboard, GTK reports focus moves that did
- * not happen, so the Tab walk below asks for it first and waits. */
+/* With the keyboard in another window, GTK reports focus moves that didn't
+ * happen, so the Tab walk below asks for it first and waits. */
 static gboolean
 take_keyboard (GtkWidget *window)
 {
@@ -243,7 +243,7 @@ send_key (GtkWidget *dialog, guint keyval, GdkModifierType state)
 	return coded;
 }
 
-/* Views draws a line under its two per-folder boxes, above the Default and
+/* Views draws a line under its 2 per-folder boxes, above the Default and
    Current sub-tabs (2026101816495205). */
 static void
 test_per_folder_line (GtkWidget *dialog)
@@ -549,7 +549,7 @@ test_sub_tabs (GtkWidget *dialog)
 	settle ();
 	check (gtk_widget_get_visible (row_titled (sidebar, "Preview")));
 
-	/* Every page fits at the opening size, unless the screen held the
+	/* Every page fits at the opening size, unless the screen kept the
 	   window back. */
 	gtk_window_get_size (GTK_WINDOW (dialog), &width, &height);
 	nemo_desktop_utils_get_monitor_work_rect (nemo_desktop_utils_get_primary_monitor (), &work);
@@ -882,7 +882,7 @@ main (int argc, char *argv[])
 	}
 
 	/* 100%, 115%, where the floor still fits a 1280 wide screen, and 200%,
-	   where only the cap holds it. */
+	   where only the cap keeps it on screen. */
 	test_size (96 * 1024);
 	test_size (110 * 1024);
 	test_size (192 * 1024);

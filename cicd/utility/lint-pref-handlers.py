@@ -2,39 +2,39 @@
 
 # Connect and disconnect a settings handler on the same preference group.
 #
-# There are several groups - nemo_preferences, nemo_windows_preferences,
-# nemo_desktop_preferences and the rest - and they are separate objects. A
+# There are several groups, such as nemo_preferences, nemo_windows_preferences,
+# and nemo_desktop_preferences, and they're separate objects. A
 # disconnect aimed at the wrong one removes nothing and reports nothing, so the
 # handler outlives whatever it was connected for and is called with a pointer to
 # freed memory the next time the setting changes. Live settings reload makes
 # that reachable in normal use.
 #
-# Two spellings are checked. Disconnect by function pairs a callback name with
-# the groups it was connected to. Disconnect by id pairs the variable holding
-# the id with the group the connect that filled it used.
+# Both spellings are checked. Disconnect by function pairs a callback name with
+# the groups it was connected to. Disconnect by id pairs the variable that
+# stores the id with the group the connect that filled it used.
 #
 # A plain connect on a group also has to fit a row of the table in design.md,
 # "Handlers on settings groups". Its data is NULL, a file static, a local whose
 # handler goes before its function returns, or a struct whose handlers go in
 # the function that frees it. Anything else is an object, and a disconnect in
-# finalize is too late for a view that is still held, so that is reported and
+# finalize is too late for a view that's still alive, so that's reported and
 # g_signal_connect_object is the fix. A handler whose data is NULL or a file
 # static is connected once for the process, so a disconnect of one is reported
 # too: the first owner to go would take it from every other.
 #
 # Each key is checked against the group the settings table puts it in, for a
 # "changed::" handler and for a read or write through nemo_config_*. A handler
-# on a group that does not have its key is never called, and nothing says so.
+# on a group that doesn't have its key is never called, and nothing says so.
 #
 # And every key in the table has to be named somewhere outside it and the
 # tests, or it's a setting that does nothing.
 #
 # --self-test runs the checks over made-up files, wrong and right, so a change
 # that blinds them to a group or a spelling shows up here rather than as a
-# clean run over a tree that is not clean.
+# clean run over a tree that isn't clean.
 # Test ID: dd5bf
 #
-# Syntax: lint-pref-handlers.py [root]   (default: the repo's source/)
+# Syntax: lint-pref-handlers.py [root]   root defaults to the repo's source/
 #         lint-pref-handlers.py --self-test
 
 # Copyright (c) 2026 Bubbles
@@ -48,8 +48,8 @@ import tempfile
 from pathlib import Path
 
 # The group names come from the header that declares them, so a new group is
-# covered the day it is added. Matching a pattern instead missed nemo_window_state,
-# whose name does not end in "preferences".
+# covered the day it's added. Matching a pattern instead missed nemo_window_state,
+# whose name doesn't end in "preferences".
 GROUPS_HEADER = "libnemo-private/nemo-global-preferences.h"
 DECLARED = re.compile(r"^extern\s+NemoConfigGroup\s*\*\s*(\w+)\s*;", re.MULTILINE)
 
@@ -76,7 +76,7 @@ STRING_DEFINE = re.compile(
 def string_defines(text):
     found = {}
     for name, value in STRING_DEFINE.findall(text):
-        # Two values for one name cannot be told apart here, so neither is used.
+        # A pair of values for one name can't be told apart here, so neither is used.
         found[name] = value if found.get(name, value) == value else None
     return found
 
@@ -103,7 +103,7 @@ def key_context(root):
 
 
 # A key no code names does nothing, yet it's in the schema and the starter
-# list, so a user can set it. Twelve desktop keys sat like that after the
+# list, so a user can set it. There were 12 desktop keys like that after the
 # desktop shell went. Tests don't count as readers. A key in a comment or an
 # unrelated string still counts, so this misses some but never cries wolf.
 COMMENT_OR_STRING = re.compile(r'/\*.*?\*/|//[^\n]*|"(?:\\.|[^"\\\n])*"', re.DOTALL)
@@ -163,7 +163,7 @@ def line_of(text, pos):
 
 # Comments, string and char literals and preprocessor lines blanked to spaces,
 # newlines kept, so offsets and line numbers still match the file. A comma or a
-# brace inside one of them then cannot throw off the argument split or the
+# brace inside one of them then can't throw off the argument split or the
 # function bounds.
 MASKED = re.compile(
     r'/\*.*?\*/|//[^\n]*|"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'|^[ \t]*#(?:\\\n|[^\n])*',
@@ -179,7 +179,7 @@ def masked(text):
     return MASKED.sub(blank, text)
 
 
-# Offsets of each top-level brace block. Every connect sits in a function body,
+# Offsets of each top-level brace block. Every connect is in a function body,
 # so the block around one is its function.
 def functions(code):
     spans, depth, start = [], 0, 0
@@ -325,9 +325,9 @@ KEYED_CALL = re.compile(r"\b(g_signal_connect\w*|nemo_config_(?:get|set|reset|bi
 KEY_PIECES = re.compile(r'\s*(?:"((?:\\.|[^"\\])*)"|(\w+))')
 
 
-# The key's text, with its macros put in. None when it is not known until run
-# time, such as a variable. A name in capitals that cannot be found is reported
-# rather than skipped, so a moved header cannot blind the check.
+# The key's text, with its macros put in. None when it isn't known until run
+# time, such as a variable. A name in capitals that can't be found is reported
+# rather than skipped, so a moved header can't blind the check.
 def key_text(expr, macros):
     found, pos = [], 0
     for piece in KEY_PIECES.finditer(expr):
@@ -457,7 +457,7 @@ nemo_global_preferences_init (void)
 }
 """
 
-# nemo_window_state is the group whose name does not end in "preferences".
+# nemo_window_state is the group whose name doesn't end in "preferences".
 SELF_TEST_WRONG = """\
 static void
 thing_init (Thing *self)
@@ -481,7 +481,7 @@ SELF_TEST_RIGHT = SELF_TEST_WRONG.replace("disconnect_by_func (nemo_preferences"
 SELF_TEST_RIGHT = SELF_TEST_RIGHT.replace("handler_disconnect (nemo_preferences",
                                           "handler_disconnect (nemo_window_state")
 
-# Item 22: the group is right, but finalize is too late for a view still held.
+# Item 22: the group is right, but finalize is too late for a view still alive.
 SELF_TEST_HELD_VIEW = """\
 static void
 thing_init (Thing *view)
@@ -690,7 +690,7 @@ SELF_TEST_CASES = [
 ]
 
 
-# Read by a literal, read through a macro, and three that only look read.
+# Read by a literal, read through a macro, and 3 that only look read.
 SELF_TEST_UNREAD = {
     KEYS_TABLE: """\
 static const NemoConfigKey nemo_config_keys[] = {
@@ -770,7 +770,7 @@ def main():
 
     root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[2] / "source"
     if not root.is_dir():
-        print(f"[ FAILED: {root} is not a directory ]")
+        print(f"[ FAILED: {root} isn't a directory ]")
         return 1
 
     groups = groups_pattern(root)
@@ -783,7 +783,7 @@ def main():
             print(f"[ FAIL: {rel}:{line}: {message} ]")
             failures += 1
     for line, group, key in unread_keys(root):
-        print(f"[ FAIL: source/{KEYS_TABLE}:{line}: {group}.{key} is read by nothing - wire it up or take it out ]")
+        print(f"[ FAIL: source/{KEYS_TABLE}:{line}: {group}.{key} is read by nothing - use it or take it out ]")
         failures += 1
 
     if failures:

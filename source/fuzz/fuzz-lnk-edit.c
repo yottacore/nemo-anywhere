@@ -24,11 +24,11 @@
  * to copy what it keeps. nemo_lnk_set_paths only takes a path, so the bytes
  * go to a file first.
  *
- * Not crashing is not enough here, since a writer that slips by a few bytes
+ * Not crashing isn't enough here, since a writer that slips by a few bytes
  * leaves a shortcut that reads as something else. So every edit that works
  * has to read back with the new paths and the old strings, and every one
  * that fails has to leave the file as it was. The item ID list going is by
- * design and is not checked. */
+ * design and isn't checked. */
 
 #include <config.h>
 

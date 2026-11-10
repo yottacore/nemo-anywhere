@@ -223,7 +223,7 @@ main (int argc, char *argv[])
 	GdkDevice *pointer;
 	int x = 0, y = 0, want_x, want_y;
 
-	/* The pointer is moved, and a menu open in another test holds it. */
+	/* The pointer is moved, and a menu open in another test grabs it. */
 	test_own_display (argc, argv, NULL);
 
 	if (!gtk_init_check (&argc, &argv)) {
@@ -243,7 +243,7 @@ main (int argc, char *argv[])
 	fixed = gtk_fixed_new ();
 	gtk_container_add (GTK_CONTAINER (window), fixed);
 
-	/* The view the menu belongs to, and a widget far from it holding the focus. */
+	/* The view the menu belongs to, and a widget far from it with the focus. */
 	view = gtk_button_new_with_label ("view");
 	gtk_widget_set_size_request (view, 200, 100);
 	gtk_fixed_put (GTK_FIXED (fixed), view, 20, 20);

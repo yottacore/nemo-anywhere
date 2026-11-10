@@ -98,7 +98,7 @@ check_embedded (void)
 	}
 	g_clear_error (&error);
 
-	/* A switch with nothing to point at is not an argument at all. */
+	/* A switch with nothing to point at isn't an argument at all. */
 	tokens[0].values = no_values;
 	argv = nemo_command_template_expand ("x -o{{TARGET_FOLDER}} --", tokens, &error);
 	check (argv != NULL);
@@ -152,7 +152,7 @@ check_refusals (void)
 	GError *error = NULL;
 	char **argv;
 
-	/* Two switches cannot be glued to one argument without silently losing
+	/* Two switches can't be glued to one argument without silently losing
 	   the second, so it is refused rather than half-honored. */
 	argv = nemo_command_template_expand ("7z a -x{{PASSWORD}}", tokens, &error);
 	check (argv == NULL);
@@ -267,7 +267,7 @@ check_unused (void)
 	};
 	char **missing;
 
-	/* A line that mentions everything carrying a value has nothing to say. */
+	/* A line that mentions everything with a value has nothing to say. */
 	check (nemo_command_template_unused ("{{PROGRAM}} a {{SPLIT}} {{SOLID}}", tokens) == NULL);
 
 	/* Leaving out a token that stands for nothing is the normal case. */
@@ -304,7 +304,7 @@ has_arg (char       **argv,
 }
 
 /* The point of keeping the line in the config rather than in the source: an
-   edit has to reach the program, and the dialog has to keep working around it.
+   edit has to change what the program runs, and the dialog has to keep working around it.
    Runs against a throwaway config root. */
 static void
 check_from_config (void)
@@ -316,7 +316,7 @@ check_from_config (void)
 	char *text;
 
 	/* Untouched, the store hands back the same line the builder falls back
-	   to when there is no store at all - one default, not two. */
+	   to when there is no store at all - one default, not 2. */
 	text = nemo_command_template_from_config (NEMO_ARCHIVE_COMMANDS_GROUP,
 						  NEMO_ARCHIVE_COMMAND_KEY_7Z,
 						  NEMO_ARCHIVE_COMMAND_7Z_DEFAULT);
@@ -349,7 +349,7 @@ check_from_config (void)
 		g_strfreev (argv);
 	}
 
-	/* Emptying the key puts the shipped line back rather than running
+	/* Emptying the key puts the default line back rather than running
 	   nothing, which is what clearing a field is meant to mean. */
 	nemo_config_set_string (archive, NEMO_ARCHIVE_COMMAND_KEY_7Z, "");
 
@@ -363,7 +363,7 @@ check_from_config (void)
 		g_strfreev (argv);
 	}
 
-	/* A line that cannot be split at all is refused outright, rather than
+	/* A line that can't be split at all is refused outright, rather than
 	   half-run: better no archive than a wrong one. */
 	nemo_config_set_string (archive, NEMO_ARCHIVE_COMMAND_KEY_7Z, "7z a \"unbalanced");
 

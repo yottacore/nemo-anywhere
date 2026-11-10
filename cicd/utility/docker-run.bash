@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 
-## Run a command in a build container of its own. Flow: ensure docker is
-## reachable (best-effort NON-sudo nudge), find the image, then run the given
-## shell command in a fresh container named <project>-<run folder>-<step>, which
+## Run a command in a build container of its own. Flow: make sure docker is
+## up, with a best-effort nudge that never uses sudo, find the image, then run
+## the given shell command in a fresh container named <project>-<run folder>-<step>, which
 ## goes when the command ends, unless --keep-temp (CICD_KEEP_TEMP=1). The build
-## dirs that carry over between steps are cache volumes, held under 2 GB by
+## dirs that stay between steps are cache volumes, kept under 2 GB by
 ## linux/cache-cap.bash. With docker absent, the daemon down, or no image to be
 ## had, it says so in one line and runs the command on the host, if the host has
 ## the build stack. If not, as on the main dev box, which never gets the GTK dev
 ## stack, it stops with one line and exit 1: a skip would read as a pass.
-## CICD_NO_CONTAINER=1 (cicd.bash --no-container) stops at once. A genuine
-## command failure propagates its exit code. Backlog 2026102617145688 and
+## CICD_NO_CONTAINER=1 (cicd.bash --no-container) stops at once. A real
+## command failure passes its exit code back. Backlog 2026102617145688 and
 ## 2026102617253209.
 ##
 ## Usage: docker-run.bash <label> <sh-command>
@@ -23,7 +23,7 @@
 ##                       clone that owns the real ones.
 ##   The command finds the tree at ${CICD_SRC} and builds under ${CICD_BUILD_ROOT}:
 ##   /src and empty in the container, the clone and its build/host on the host.
-##   stdin reaches the command when it isn't a terminal.
+##   stdin is passed to the command when it isn't a terminal.
 ##
 ## Why not auto-start the daemon: here it's a rootful system service, so starting
 ## it needs `sudo systemctl start docker` - which an unattended hook must not run.
@@ -46,7 +46,7 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fEcho(){ echo "[ $* ]"; }
 
 ## Reproducible-build stamp. cicd.bash normally exports it before we are called;
-## computing it here too keeps a standalone run honest.
+## it's computed here too, so a standalone run gets the same stamp.
 # shellcheck source=include/source-date.bash
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/include/source-date.bash"
 fSetSourceDate "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -127,7 +127,7 @@ stdin=(); [[ -t 0 ]] || stdin=(-i)
 ## job count, and for nice: the container doesn't inherit ours.
 ## --init reaps orphans; --ulimit core=0 keeps crash dumps out of the mounted tree.
 ## The memory cap is in step-box.bash. A step killed at it exits 137.
-## The two --security-opt let bubblewrap make the namespaces each test's jail
+## The 2 --security-opt let bubblewrap make the namespaces each test's jail
 ## needs (linux/jail.bash); docker's default profiles refuse them even to root.
 exec docker run "${keep[@]}" "${stdin[@]}" --init --ulimit core=0 --shm-size=2g --cpus "${CICD_MAX_JOBS}" --cpu-shares 256 "${stepBoxMem[@]}" --name "$name" \
 	--label "dev.project=${project}" --label "dev.run=${run}" \

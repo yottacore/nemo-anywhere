@@ -162,7 +162,7 @@ join (const char *address)
 	return connection;
 }
 
-/* GLib's bus answers ListQueuedOwners wrong, so the owner is asked instead. */
+/* GLib's bus gets ListQueuedOwners wrong, so the owner is asked instead. */
 static char *
 owner (GDBusConnection *connection)
 {

@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
 """Draw the first-party Windows-look icon sets into assets/icons.
 
-Four eras, one per Windows generation worth offering: Luna (XP), Aero (7),
-Metro (10) and Mica (11). There is no cleanly-licensed SVG set of any of them -
-what circulates is Microsoft's own shell art extracted and repackaged, which we
-will not ship - so these are ours, drawn here from a shared vocabulary of shapes
-(folder, page, disc, drive, monitor) and glyphs, recolored per theme. Original
-work, GPL-2.0-only like the rest of the tree, and about a kilobyte an icon.
+There are 4 eras, one per Windows generation worth offering: Luna for XP, Aero
+for 7, Metro for 10, and Mica for 11. There's no cleanly-licensed SVG set of any
+of them. What circulates is Microsoft's own shell art extracted and repackaged,
+which we won't bundle. So these are ours, drawn here from a shared set of base
+drawings and glyphs, recolored per theme. The base drawings are folder, page,
+disc, drive, and monitor. Original work, GPL-2.0-only like the rest of the
+tree, and about a kilobyte an icon.
 
-Folders are yellow in all four, because that is what Windows does and because a
+Folders are yellow in all 4, because that's what Windows does and because a
 yellow folder is the one color that reads on a light background and a dark one
-alike. The folder drawing itself differs per era - a chunky outlined one for XP
-and 7, a flat rectangle for 10, a rounded tapered panel for 11 - since the
-folder is the icon people recognize a Windows generation by.
+alike. The folder drawing itself differs per era, since the folder is the icon
+people recognize a Windows generation by. XP and 7 get a chunky outlined one,
+10 a flat rectangle, and 11 a rounded tapered panel.
 
-Coverage is the visually defining part of the file-manager surface - folders,
-file types, drives. Everything else falls through Inherits to Adwaita, which is
+Coverage is the part of the file manager that defines its look: folders,
+file types, and drives. Everything else falls through Inherits to Adwaita, which is
 what the freedesktop fallback chain is for; a toolbar arrow looks the same in
 every theme anyway.
 
 Output is committed, so no build step depends on this script. Re-run it after
-changing a shape or a palette.
+changing a drawing or a palette.
 
 Syntax: gen-icon-theme.py [<repo-root>]
 """
@@ -35,9 +36,9 @@ CANVAS = 48
 #
 # Luna is the warm amber-and-cream of Windows XP: saturated fills, a firm
 # outline, everything a little chunky. Aero is Windows 7 - glassier and softly
-# lit, its cool blues kept for glass, screens and discs while the folder stays
+# lit, its cool blues kept for glass, screens, and discs while the folder stays
 # the amber Windows has always used. Metro is Windows 10: flat, no gradient at
-# all past a two-tone split, square corners. Mica is Windows 11 - rounded, the
+# all past a 2-tone split, square corners. Mica is Windows 11: rounded, the
 # front panel tapering away from the viewer, no outline anywhere.
 #
 # folderShape picks the folder drawing: "classic" (XP/7), "metro", "mica".
@@ -148,10 +149,10 @@ def grad(gid, top, bottom, x1=0, y1=0, x2=0, y2=1):
 def base_folder(t, open_lid=False):
     """The folder, drawn the way the theme's era drew it.
 
-	This is the icon a Windows generation is recognized by, so it is the one
-	shape that is not shared: XP and 7 get the chunky outlined folder, 10 the
-	flat rectangle, 11 the rounded panel tapering away from the viewer. The
-	body is 44 wide by 35 tall in every era - shallower than that and it stops
+	This is the icon a Windows generation is recognized by, so it's the one
+	drawing that isn't shared. XP and 7 get the chunky outlined folder, 10 the
+	flat rectangle, and 11 the rounded panel tapering away from the viewer. The
+	body is 44 wide by 35 tall in every era. Any shallower and it stops
 	reading as a folder and starts reading as an envelope.
 	"""
     shape = t.get("folderShape", "classic")
@@ -185,7 +186,7 @@ def folder_classic(t, open_lid):
 
 
 def folder_metro(t, open_lid):
-    """10: square corners, two flat tones, no outline and no highlight."""
+    """10: square corners, 2 flat tones, no outline, and no highlight."""
     defs = ""
     back = '<path d="M2 7h15.6l3.4 4H46v31H2z" fill="%s"/>' % t["folderBack"][0]
     if open_lid:
@@ -294,8 +295,8 @@ def base_box(t):
 
 def base_bin(t, full=False):
     defs = grad("gg", *t["glass"])
-    ## Full is the same bin with paper standing above the rim, so the two read
-    ## apart at 16px - a tint difference alone does not.
+    ## Full is the same bin with paper standing above the rim, so the 2 read
+    ## apart at 16px. A tint difference alone doesn't.
     spill = (
         '<path d="M11 13l3.5-8 4.5 4 4-7 4.5 6.5 4.5-3.5 2.5 8z"'
         ' fill="%s" stroke="%s" stroke-width="1.2"/>'
@@ -445,7 +446,7 @@ def band(color):
 # ---------------------------------------------------------------------------
 # The set. name -> (context, base, glyph, glyph color key, placement)
 #
-# placement: "front" sits on a folder's front panel, "badge" is the lower-right
+# placement: "front" is on a folder's front panel, "badge" is the lower-right
 # corner of a page, "band" pairs with a colored office band, "none" is the bare
 # shape.
 
@@ -524,7 +525,7 @@ OFFICE = {
 }
 
 # Same drawing, second name. Cheaper than a second file only if the theme spec
-# allowed aliases, and it does not - GTK wants a real file per name.
+# allowed aliases, and it doesn't. GTK wants a real file per name.
 ALIASES = {
     "user-trash-full": "user-trash",
     "start-here": "user-home",

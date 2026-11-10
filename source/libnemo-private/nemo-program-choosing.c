@@ -63,9 +63,9 @@ user_launch_context (GdkDisplay *display)
 }
 
 #if HAVE_DESKTOP_APP_INFO
-/* Our own desktop file names the program bare, and the user's PATH need not
+/* Our own desktop file names the program bare, and the user's PATH might not
  * reach a relocated bin dir. So it starts this exe by its full path instead,
- * as a new window does. NULL when the file is not ours. */
+ * as a new window does. NULL when the file isn't ours. */
 static GDesktopAppInfo *
 own_app_by_full_path (GDesktopAppInfo *app)
 {

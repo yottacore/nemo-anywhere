@@ -168,9 +168,9 @@ test_command_for_app (void)
 	}
 }
 
-/* Windows will not let a program set the per-user default, so "Set as
+/* Windows won't let a program set the per-user default, so "Set as
  * default" keeps its own in the settings file. The choice has to read back as
- * the default for that type, carrying the command it was made from. */
+ * the default for that type, with the command it was made from. */
 static void
 test_set_default (void)
 {
@@ -201,7 +201,7 @@ test_set_default (void)
 	}
 	g_object_unref (app);
 
-	/* No placeholder in what GIO holds: the file still has to be handed over. */
+	/* No placeholder in what GIO has: the file still has to be handed over. */
 	app = g_app_info_create_from_commandline ("\"C:\\Windows\\write.exe\"",
 						  NULL, G_APP_INFO_CREATE_NONE, NULL);
 	if (app != NULL) {

@@ -8,13 +8,13 @@
 ##	- Any report fails the test that made it: undefined behavior halts as a memory
 ##	  error does. Leaks in the libraries under GTK are listed in sanitizers.supp
 ##	  by the function that leaks; a leak of ours is never put there. Those names
-##	  need fontconfig's and GTK's debug symbols, so the lane stops first when
-##	  they're missing (Dockerfile.dev installs them).
+##	  need fontconfig's and GTK's debug symbols, which Dockerfile.dev installs, so
+##	  the lane stops first when they're missing.
 ##	- Stacks are short, since a full one on every allocation slows the GUI tests
 ##	  past their own time limits. For the whole stack of a leak, rerun the test
 ##	  with ASAN_OPTIONS=fast_unwind_on_malloc=0, which is added to the lane's own.
 ##	- The leak tests read the heap through glibc, which the sanitizer's allocator
-##	  hides. They see that themselves and answer 77, so here they show as skips.
+##	  hides. They see that themselves and exit 77, so here they show as skips.
 ##	- NEMO_TEST_JOBS caps the build and the tests at once. BUILD_DIR overrides the
 ##	  build directory. Arguments go to meson test, such as test names.
 ##	- Syntax: cicd/linux/test-sanitizers.bash [meson test arguments]
@@ -59,7 +59,7 @@ for lib in libfontconfig.so.1 libgtk-3.so.0; do
 done
 
 ## lundef off, since the extension library is a shared object and only the
-## executables carry the sanitizer runtime.
+## executables have the sanitizer runtime linked in.
 export BUILD_DIR="${build}"
 export SETUP_ARGS="-Db_sanitize=address,undefined -Db_lundef=false"
 
@@ -78,7 +78,7 @@ export ASAN_OPTIONS="detect_leaks=1:verify_asan_link_order=0${ASAN_OPTIONS:+:${A
 export LSAN_OPTIONS="suppressions=${here}/sanitizers.supp:print_suppressions=0"
 export UBSAN_OPTIONS="halt_on_error=1:print_stacktrace=1"
 
-## Everything runs two to four times slower. Not exec, so the suite's own
+## Everything runs 2 to 4 times slower. Not exec, so the suite's own
 ## line can follow the lines of the tests in it.
 rc=0
 bash "${here}/run-tests.bash" --timeout-multiplier 4 "$@" || rc=$?

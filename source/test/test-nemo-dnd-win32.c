@@ -1,7 +1,7 @@
 /* A drag out of nemo put nothing in it that another program could read: the
  * toolkit offers its own target names and no file format, and there is no way
- * to add one from outside it. The drag is ours now, and what matters is what
- * the object it hands over holds.
+ * to add one from outside it. The drag is ours now, and what matters is what's
+ * in the object it hands over.
  *
  * The checks read that object the way a drop target does - enumerate the
  * formats, ask for one, parse it back - with no drag running and no second
@@ -63,7 +63,7 @@ offers (IDataObject *data, UINT format)
 	return found;
 }
 
-/* The paths CF_HDROP holds, read with the same calls any other program uses. */
+/* The paths in CF_HDROP, read with the same calls any other program uses. */
 static char **
 hdrop_paths (IDataObject *data)
 {
@@ -96,7 +96,7 @@ hdrop_paths (IDataObject *data)
 	return (char **) g_ptr_array_free (paths, FALSE);
 }
 
-/* Whatever an hglobal format holds, as bytes plus its length. */
+/* Whatever is in an hglobal format, as bytes plus its length. */
 static char *
 raw_format (IDataObject *data, UINT format, gsize *len)
 {
@@ -157,7 +157,7 @@ main (void)
 		check (offers (data, RegisterClipboardFormatW (L"text/uri-list")));
 		check (offers (data, RegisterClipboardFormatW (L"x-special/gnome-icon-list")));
 
-		/* The one every program reads, holding both names, spaces and all. */
+		/* The one every program reads, with both names, spaces and all. */
 		paths = hdrop_paths (data);
 		check (paths != NULL);
 		if (paths != NULL) {
@@ -179,13 +179,13 @@ main (void)
 		 * drag onto another folder on the same drive into a copy. */
 		check (!offers (data, RegisterClipboardFormatW (L"Preferred DropEffect")));
 
-		/* Asking twice has to answer twice: a target may well do that, and
+		/* Asking twice has to work twice: a target may well do that, and
 		 * a block handed away once is gone. */
 		paths = hdrop_paths (data);
 		check (paths != NULL && g_strv_length (paths) == 2);
 		g_strfreev (paths);
 
-		/* A format nobody put in is refused rather than answered empty. */
+		/* A format nobody put in is refused rather than returned empty. */
 		check (!offers (data, CF_WAVE));
 
 		IDataObject_Release (data);
@@ -194,14 +194,14 @@ main (void)
 	data = nemo_dnd_win32_data_object (uri_list, NULL, GDK_ACTION_MOVE);
 	check (data != NULL);
 	if (data != NULL) {
-		/* Nothing was passed for it, so it is not offered at all. */
+		/* Nothing was passed for it, so it isn't offered at all. */
 		check (!offers (data, RegisterClipboardFormatW (L"x-special/gnome-icon-list")));
 		check (offers (data, CF_HDROP));
 
 		IDataObject_Release (data);
 	}
 
-	/* A place with no local path cannot go to another program, and saying so is
+	/* A place with no local path can't go to another program, and saying so is
 	 * what sends the caller back to the toolkit's own drag. */
 	check (nemo_dnd_win32_data_object ("trash:///\r\n", NULL, GDK_ACTION_COPY) == NULL);
 	check (nemo_dnd_win32_data_object ("", NULL, GDK_ACTION_COPY) == NULL);

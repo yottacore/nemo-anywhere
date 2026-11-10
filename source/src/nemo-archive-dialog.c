@@ -23,7 +23,7 @@
 /* Name, format and folder are the whole dialog until the options expander is
  * opened. What is inside it depends on the format: an option no installed
  * program can honor for that format is shown grayed rather than hidden, so a
- * format that gains an option once 7z or rar is installed does not look like a
+ * format that gains an option once 7z or rar is installed doesn't look like a
  * different dialog.
  */
 
@@ -387,7 +387,7 @@ format_changed (GtkComboBox *combo,
 	update_for_format (user_data);
 }
 
-/* Only a click is a choice. Making the controls match a format is not. Each
+/* Only a click is a choice. Making the controls match a format isn't. Each
    box has the choice it stands for. */
 static void
 choice_toggled (GtkToggleButton *button,
@@ -500,7 +500,7 @@ name_changed (GtkEditable *editable,
 	update_validity (self);
 }
 
-/* One labelled row in the options grid. */
+/* One labeled row in the options grid. */
 static GtkWidget *
 add_row (GtkWidget  *grid,
 	 int         row,
@@ -565,7 +565,7 @@ typedef struct {
 	const char   *name;
 } LinkButton;
 
-/* A labelled radio group, shown only when the selection has a link or a
+/* A labeled radio group, shown only when the selection has a link or a
    folder for it to apply to. */
 static void
 add_link_group (ArchiveDialog    *self,
@@ -638,7 +638,7 @@ decoration_size (GtkWidget *widget, int *width, int *height)
 }
 
 /* Out of the size-allocate that asked for it, since moving a toplevel from
-   inside one is a request the window manager may simply lose. */
+   inside one is a request the window manager may lose. */
 static gboolean
 recenter_dialog (gpointer data)
 {
@@ -659,7 +659,7 @@ recenter_dialog (gpointer data)
 	x = self->center_x - width / 2;
 	y = self->center_y - height / 2;
 
-	/* The work area, so a taller dialog does not end up under a panel or
+	/* The work area, so a taller dialog doesn't end up under a panel or
 	   with its buttons off the bottom of the screen. */
 	if (gdk_window != NULL) {
 		GdkDisplay *display = gtk_widget_get_display (self->dialog);
@@ -684,7 +684,7 @@ recenter_dialog (gpointer data)
 
 /* The size the expander asked for arrives here, one or more allocations after
    it was toggled. Waiting for it rather than reading the window back is the
-   point: gtk_window_get_size still answers with the old one at that stage. */
+   point: gtk_window_get_size still returns the old one at that stage. */
 static void
 dialog_size_allocated (G_GNUC_UNUSED GtkWidget     *widget,
 		       GdkRectangle  *allocation,
@@ -1044,7 +1044,7 @@ restore_remembered (ArchiveDialog *self)
 	nemo_archive_choices_load (&self->chosen);
 	show_level_and_size (self);
 
-	/* Ticking a box nothing can act on would just be confusing, so the one
+	/* Ticking a box nothing can act on would be confusing, so the one
 	   that depends on the selection is only put back where it applies. */
 	if (gtk_widget_get_sensitive (self->each_check)) {
 		set_check (self->each_check, group, NEMO_ARCHIVE_STATE_KEY_EACH);
@@ -1559,7 +1559,7 @@ nemo_archive_dialog_show (GtkWindow *parent_window,
 	g_signal_connect (self->name_entry, "changed", G_CALLBACK (name_changed), self);
 
 	if (!any_format) {
-		/* Cannot happen with libarchive linked in, but a combo with no
+		/* Can't happen with libarchive linked in, but a combo with no
 		   rows would silently make the button do nothing. */
 		gtk_widget_set_sensitive (compress_button, FALSE);
 	} else {

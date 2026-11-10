@@ -193,7 +193,7 @@ static void
 check_key_files (void)
 {
 	/* GKeyFile drops a translation for C as it loads, so under C the plain
-	   value is the answer. */
+	   value is the result. */
 	const char *lang = g_get_language_names ()[0];
 	gboolean translated = g_strcmp0 (lang, "C") != 0;
 	g_autofree char *text = g_strdup_printf ("[G]\nA=C:\\Tools\\new\nB=C:\\\\Tools\\\\new\n"

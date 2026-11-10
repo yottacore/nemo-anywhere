@@ -1,5 +1,5 @@
 /* While the delete test guard waits on an answer, the job that asked has its
- * progress paused. Otherwise the job's "Preparing" window comes up two seconds
+ * progress paused. Otherwise the job's "Preparing" window comes up 2 seconds
  * in, beside the guard dialog, the way it did before 20260924.
  *
  * Runs a real job through the job queue, finds the guard dialog when it comes

@@ -19,7 +19,7 @@
 ##	  system libraries are left out, since those come with the OS.
 ##	- Native build with the base clang, no container, so the versions are what
 ##	  pkg had here at the time.
-##	- SOURCE_DATE_EPOCH must be set; there is no git history here to read it
+##	- SOURCE_DATE_EPOCH must be set, since there's no git history here to read it
 ##	  from. CICD_MAX_JOBS caps the build, as lane.bash works it out for this
 ##	  box; run alone, it's worked out here the same way (include/jobs.bash).
 ##	  NEMO_BSD_BUILD is the build dir (default: build-release beside the
@@ -57,11 +57,11 @@ case "${1:-}" in
 esac
 
 [[ "$(uname -s)" == "FreeBSD" ]] || fDie "this runs on FreeBSD; lane.bash sends it there"
-[[ "${SOURCE_DATE_EPOCH:-}" =~ ^[0-9]+$ ]] || fDie "SOURCE_DATE_EPOCH is not set"
+[[ "${SOURCE_DATE_EPOCH:-}" =~ ^[0-9]+$ ]] || fDie "SOURCE_DATE_EPOCH isn't set"
 export SOURCE_DATE_EPOCH
 fJobs_Default
 jobs="${CICD_MAX_JOBS}"
-[[ "$jobs" =~ ^[1-9][0-9]*$ ]] || fDie "CICD_MAX_JOBS is not a count: ${jobs}"
+[[ "$jobs" =~ ^[1-9][0-9]*$ ]] || fDie "CICD_MAX_JOBS isn't a count: ${jobs}"
 
 ## No grep -P here.
 ver="$(sed -n "s/^project(.*[[:space:]]version[[:space:]]*:[[:space:]]*'\([^']*\)'.*/\1/p" "${ROOT}/source/meson.build" | head -1)"
@@ -88,7 +88,7 @@ fEcho "Building ${SLUG} ${ver} (${os}-${arch}) on $(uname -r), $(cc --version | 
 ## Only ever clear a meson build dir.
 if [[ -e "$BUILD" ]]; then
 	[[ "$BUILD" == /*/* ]] || fDie "build dir must be an absolute path below /: ${BUILD}"
-	[[ -d "${BUILD}/meson-private" ]] || fDie "${BUILD} is not a meson build dir; not clearing it"
+	[[ -d "${BUILD}/meson-private" ]] || fDie "${BUILD} isn't a meson build dir; not clearing it"
 	fSafeRm_Under "${BUILD%/*}" "$BUILD"
 fi
 meson setup --buildtype=release -Dstrip=true -Db_lto=true -Dextension_library=static -Dwerror=true -Drelease=true \
@@ -156,7 +156,7 @@ fLinkedPackages(){
 		links="$(ldd "$elf")"
 		while IFS= read -r lib; do
 			path="$(LIB="$lib" awk '$1 == ENVIRON["LIB"] && $2 == "=>" && !done { print $3; done = 1 }' <<<"$links")"
-			[[ -n "$path" && "$path" != "not" ]] || fDie "$(basename "$elf") needs ${lib}, which is not on this box"
+			[[ -n "$path" && "$path" != "not" ]] || fDie "$(basename "$elf") needs ${lib}, which isn't on this box"
 			## Base libraries belong to the OS, or to FreeBSD-* packages under pkgbase.
 			[[ "$path" == "${PKG_PREFIX}"/* ]] || continue
 			owner="$(pkg which -q "$path" || true)"
@@ -168,7 +168,7 @@ fLinkedPackages(){
 deps="$(fLinkedPackages | LC_ALL=C sort -u)"
 ## Loaded by gdk-pixbuf at run time, so no binary links it.
 extra="$(pkg query '%n|%o|%v' gdk-pixbuf-extra || true)"
-[[ -n "$extra" ]] || fDie "gdk-pixbuf-extra is not installed here, and the package depends on it"
+[[ -n "$extra" ]] || fDie "gdk-pixbuf-extra isn't installed here, and the package depends on it"
 deps="$(printf '%s\n%s\n' "$deps" "$extra" | LC_ALL=C sort -u | sed '/^$/d')"
 grep -q '^gtk3|' <<<"$deps" || fDie "no gtk3 among the dependencies read off the binaries"
 

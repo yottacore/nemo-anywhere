@@ -2,13 +2,13 @@
 
 ##	Purpose:
 ##		- Check that a Windows install takes its permissions from the folder it
-##		  is installed into, not from the temp folder it was unpacked in. The
+##		  is installed into, not from the temp folder it was extracted in. The
 ##		  install folder's parent grants Users read and run to everything below
-##		  it, the temp folder does not, and every file and folder installed has
+##		  it, but the temp folder doesn't. Every file and folder installed has
 ##		  to come out with that grant.
 ##		- This is what lets other accounts start a system install. The system
 ##		  target is never run here: the user target goes through the same
-##		  staging, with LOCALAPPDATA, APPDATA and TEMP pointed into a scratch
+##		  staging, with LOCALAPPDATA, APPDATA, and TEMP pointed into a scratch
 ##		  folder. install.ps1's own functions are lifted out through the parser
 ##		  and its main body run from an archive made here. Only the registry
 ##		  PATH read and write are swapped for a variable.
@@ -39,7 +39,7 @@ $installer = Join-Path $PSScriptRoot "../../install.ps1"
 $tokens = $null
 $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($installer, [ref]$tokens, [ref]$parseErrors)
-if ($parseErrors) { Write-Host "[ FAILED: install.ps1 does not parse: $($parseErrors[0].Message) ]"; exit 1 }
+if ($parseErrors) { Write-Host "[ FAILED: install.ps1 doesn't parse: $($parseErrors[0].Message) ]"; exit 1 }
 
 ## Every function and the settings fMain reads, but not the entry block, which
 ## would run the installer with this script's arguments.
@@ -145,14 +145,14 @@ try {
 	$env:TEMP         = $temp
 	$env:TMP          = $temp
 
-	## The installer unpacks under GetTempPath. Without the grant missing there,
+	## The installer extracts under GetTempPath. Without the grant missing there,
 	## a moved tree would look right, and the check would prove nothing.
 	$tempNow = [System.IO.Path]::GetTempPath()
 	if (-not $tempNow.StartsWith($temp, [StringComparison]::OrdinalIgnoreCase)) {
-		Write-Host "[ install.ps1 ACL check skipped: the temp folder could not be redirected (${tempNow}) ]"; exit 77
+		Write-Host "[ install.ps1 ACL check skipped: the temp folder couldn't be redirected (${tempNow}) ]"; exit 77
 	}
 	if (fUsersCanRun $temp) { Write-Host "[ FAILED: the scratch temp folder already lets Users in ]"; exit 1 }
-	if (-not (fUsersCanRun $programs)) { Write-Host "[ FAILED: the scratch Programs folder does not let Users in ]"; exit 1 }
+	if (-not (fUsersCanRun $programs)) { Write-Host "[ FAILED: the scratch Programs folder doesn't let Users in ]"; exit 1 }
 
 	try {
 		fMain
@@ -168,7 +168,7 @@ try {
 	} else {
 		$items = @(Get-Item -LiteralPath $prefix -Force) + @(Get-ChildItem -LiteralPath $prefix -Recurse -Force)
 		$missing = @($items | Where-Object { -not (fUsersCanRun $_.FullName) })
-		foreach ($item in $missing) { fProblem "Users cannot read and run $($item.FullName.Substring($prefix.Length).TrimStart('\'))" }
+		foreach ($item in $missing) { fProblem "Users can't read and run $($item.FullName.Substring($prefix.Length).TrimStart('\'))" }
 		Write-Host "  $($items.Count - $missing.Count) of $($items.Count) installed items let Users read and run"
 		## install.ps1 puts in place what the zip has and no program of its own.
 		& pwsh -NoProfile -File (Join-Path $PSScriptRoot "..\utility\test-bundle-exes.ps1") -Path $prefix
@@ -176,7 +176,7 @@ try {
 		& pwsh -NoProfile -File (Join-Path $PSScriptRoot "..\utility\test-bundle-settings.ps1") -Path $prefix
 		if ($LASTEXITCODE -ne 0) { fProblem "the install is missing the GTK settings or font config" }
 	}
-	if (-not $script:fakePath.Contains($prefix)) { fProblem "the install folder did not go on PATH" }
+	if (-not $script:fakePath.Contains($prefix)) { fProblem "the install folder didn't go on PATH" }
 } finally {
 	foreach ($name in $saved.Keys) { Set-Item -LiteralPath "env:${name}" -Value $saved[$name] }
 	Remove-SafeTree -LiteralPath $root | Out-Null

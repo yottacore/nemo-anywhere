@@ -62,7 +62,7 @@ main (int argc, char *argv[])
 	gtk_widget_destroy (window);
 
 #ifdef __APPLE__
-	/* Command, as a click's event state carries it. */
+	/* Command, as a click's event state has it. */
 	expect_mask (eel_gtk_primary_mask (NULL), GDK_MOD2_MASK, "the mask is Command here");
 #else
 	expect_mask (eel_gtk_primary_mask (NULL), GDK_CONTROL_MASK, "the mask is Control here");

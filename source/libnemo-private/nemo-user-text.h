@@ -23,7 +23,7 @@
 /* Key files a user writes (actions, search helpers, thumbnailers, links) and
  * command lines kept in the settings. On Windows a backslash there is a path
  * character, never an escape: see "Paths and desktop settings" in design.md.
- * Elsewhere the usual rules hold, the desktop entry spec's escapes and POSIX
+ * Elsewhere the usual rules apply, the desktop entry spec's escapes and POSIX
  * shell quoting, so Linux reads these files as it always has. */
 
 #ifndef NEMO_USER_TEXT_H
@@ -34,7 +34,7 @@
 G_BEGIN_DECLS
 
 /* A key file value as the user wrote it. NULL with @error set when the key is
- * not there or the text is not UTF-8.
+ * not there or the text isn't UTF-8.
  * Returns: (transfer full): free with g_free */
 gchar   *nemo_user_text_get_string        (GKeyFile     *key_file,
 					   const gchar  *group,

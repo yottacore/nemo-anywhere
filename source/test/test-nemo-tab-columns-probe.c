@@ -190,7 +190,7 @@ send_button (GdkEventType type, guint button, int x, int y)
 
 	gdk_window_get_origin (bin, &origin_x, &origin_y);
 	event->button.window = g_object_ref (bin);
-	/* Every click gets its own time, so two of them never read as a double. */
+	/* Every click gets its own time, so 2 of them never read as a double. */
 	event->button.time = (guint32) (g_get_monotonic_time () / 1000);
 	event->button.x = x;
 	event->button.y = y;
@@ -205,7 +205,7 @@ send_button (GdkEventType type, guint button, int x, int y)
 	gdk_event_free (event);
 }
 
-/* FALSE when the place is not listed. */
+/* FALSE when the place isn't listed. */
 static gboolean
 click_place (guint button)
 {
@@ -228,7 +228,7 @@ click_place (guint button)
 	return TRUE;
 }
 
-/* Each step waits for what the one before set going. Up to ten seconds each,
+/* Each step waits for what the one before set going. Up to 10 seconds each,
  * and a few ticks more once it is there, so the widths have settled. */
 static gboolean
 tick (G_GNUC_UNUSED gpointer data)

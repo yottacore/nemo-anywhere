@@ -1,5 +1,5 @@
 /* First-run setup on Windows: the bookmark list is seeded with the platform
- * defaults, anything carried over from a POSIX machine is dropped, and --reset
+ * defaults, anything copied over from a POSIX machine is dropped, and --reset
  * puts it all back. Runs against a throwaway config root. */
 
 #include <config.h>
@@ -64,7 +64,7 @@ write_bookmarks (const char *text)
 
 /* The expected entry for a real folder on this machine. Reading it back from
  * the system rather than spelling it out keeps the test off boxes where the
- * drive is not C: or the profile folders are named in another language. */
+ * drive isn't C: or the profile folders are named in another language. */
 static char *
 uri_for (const char *path)
 {
@@ -141,8 +141,8 @@ test_second_run_is_a_no_op (void)
 	g_free (text);
 }
 
-/* A config carried from a POSIX box: the paths that cannot exist here go, and
- * a set someone actually curated on Windows is left alone rather than replaced
+/* A config copied from a POSIX box: the paths that can't exist here go, and
+ * a set someone curated on Windows is left alone rather than replaced
  * with the defaults. */
 static void
 test_foreign_bookmarks_dropped (void)
@@ -191,8 +191,8 @@ test_all_foreign_falls_back_to_defaults (void)
 }
 
 /* A list an older build kept in the toolkit's own file, in the local profile,
- * is carried across to the roaming one the first time ours is missing, and a
- * reset takes both away so it cannot come back. */
+ * is moved across to the roaming one the first time ours is missing, and a
+ * reset takes both away so it can't come back. */
 static void
 test_toolkit_list_copied_across (void)
 {
@@ -248,7 +248,7 @@ test_foreign_settings_dropped (void)
 	nemo_config_reset (search, "search-skip-folders");
 }
 
-/* A Windows value that happens to start with a letter drive is not foreign, and
+/* A Windows value that happens to start with a letter drive isn't foreign, and
  * neither is a UNC path. */
 static void
 test_windows_settings_kept (void)
@@ -279,7 +279,7 @@ test_reset_files (void)
 	g_free (path);
 }
 
-/* Every stored key goes, so the next start reads the shipped defaults and the
+/* Every stored key goes, so the next start reads the built-in defaults and the
  * first-run marker is gone with them. */
 static void
 test_reset_all (void)

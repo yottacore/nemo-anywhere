@@ -70,7 +70,7 @@ mkdir -p "${BUILD_DIR:?}" && printf ' ARGS = -Wextra -Werror\n' > "${BUILD_DIR}/
 EOF
 
 ## Each target becomes one of the programs above. The hang is second in line,
-## so the targets after it show whether the stage carried on.
+## so the targets after it show whether the stage went on.
 cat >"${stubs}/ninja" <<'EOF'
 #!/usr/bin/env bash
 build=""
@@ -113,11 +113,11 @@ fExpect(){
 	local line
 	line="$(grep -E "^(PASS|FAIL|SKIP) [a-z0-9]+ +$1 " <<<"${out}" || true)"
 	if [[ -z "${line}" ]]; then
-		fFail "$1 did not run"
+		fFail "$1 didn't run"
 	elif [[ "${line}" != "$2 "* ]]; then
 		fFail "$1 not $2: ${line}"
 	elif [[ -n "${3:-}" ]] && [[ "${line}" != *"/$1-$3-"* ]]; then
-		fFail "$1 did not name its $3 input: ${line}"
+		fFail "$1 didn't name its $3 input: ${line}"
 	elif [[ -n "${3:-}" ]] && ! compgen -G "${build}/findings/$1-$3-*" >/dev/null; then
 		fFail "$1 left no $3 input under findings"
 	fi
@@ -138,7 +138,7 @@ fExpect fuzz-lnk-edit PASS
 
 order="$(sed -n -E 's/^(PASS|FAIL) [a-z0-9]+ +(fuzz-[a-z0-9-]+) .*/\2/p' <<<"${out}" | tr '\n' ' ')"
 [[ "${order}" == "fuzz-shcl fuzz-dnd fuzz-command-template fuzz-xls fuzz-ppt fuzz-doc fuzz-psd fuzz-raw fuzz-office fuzz-ole2 fuzz-lnk fuzz-lnk-edit " ]] \
-	|| fFail "the targets' lines are not in the order of the list: ${order}"
+	|| fFail "the targets' lines aren't in the order of the list: ${order}"
 
 ## One at a time, the 12 targets take at least 12 budgets of 2 s, and the
 ## hang 3 s more. Side by side, about the slowest one.

@@ -47,7 +47,7 @@ char    *nemo_metadata_store_get_string  (const char *uri,
 char   **nemo_metadata_store_get_stringv (const char *uri,
 					  const char *key);
 
-/* TRUE when the uri holds at least one of the NULL-terminated keys */
+/* TRUE when the uri has at least one of the NULL-terminated keys */
 gboolean nemo_metadata_store_has_any     (const char         *uri,
 					  const char * const *keys);
 

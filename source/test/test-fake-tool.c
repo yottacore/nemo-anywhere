@@ -23,9 +23,9 @@
 */
 
 /* Reads stdin to the end, unless it is a console, then writes <name>.report in
- * NEMO_FAKE_TOOL_DIR, or beside itself when that is not set, named after the
+ * NEMO_FAKE_TOOL_DIR, or beside itself when that isn't set, named after the
  * program it was started as: whether it was given a console window, how many
- * bytes reached its stdin, its folder, the program that started it and its
+ * bytes came in on its stdin, its folder, the program that started it, and its
  * arguments.
  *
  * Then, as rar or unrar ("a" or "x" first): creates the archive it was asked for, says

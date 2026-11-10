@@ -336,7 +336,7 @@ finish (void)
 	fflush (out);
 }
 
-/* Each step waits for what the one before set going. Up to ten seconds each. */
+/* Each step waits for what the one before set going. Up to 10 seconds each. */
 static gboolean
 tick (G_GNUC_UNUSED gpointer data)
 {

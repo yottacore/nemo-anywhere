@@ -280,7 +280,7 @@ nemo_progress_info_get_progress (NemoProgressInfo *info)
 }
 
 /* A plain mean. The running form this replaced divided by the count on every
-   step, so with three or more operations the earlier ones were weighted down to
+   step, so with 3 or more operations the earlier ones were weighted down to
    almost nothing and the bar under-reported. */
 double
 nemo_progress_info_mean_progress (GList *infos)

@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 """Render one sheet showing every bundled icon set, for the README.
 
-theme-sheet.py answers "is this set drawn correctly" - one sheet per set, as
-many icons as you ask for. This answers a different question: "which of these
-do I want", which needs them all on one page and only enough icons each to tell
-them apart. Four does it - a folder, an open folder, a document and the trash -
-because the folder is what a set is recognized by and the other three show how
-it handles a mimetype, a state and a device-ish object.
+theme-sheet.py checks "is this set drawn correctly", with one sheet per set and
+as many icons as you ask for. This sheet is for a different question: "which of
+these do I want", which needs them all on one page and only enough icons each
+to tell them apart. That takes 4: a folder, an open folder, a document, and the
+trash. The folder is what a set is recognized by, and the other 3 show how it
+handles a mimetype, a state, and a device-ish object.
 
 Each set is drawn against both backgrounds, side by side, since half of them are
 drawn for a dark desktop and wash out on white.
 
-Every icon is rasterised on its own before being placed, rather than having its
+Every icon is rasterized on its own before being placed, rather than having its
 markup pasted into one big document. Several sets color themselves through a
-stylesheet keyed on a class name they all spell the same way (.ColorScheme-Text)
-and reach through currentColor, so pasted together they either all take the last
+stylesheet keyed on the same class name, .ColorScheme-Text, applied through
+currentColor, so pasted together they either all take the last
 set's color or, once the classes are renamed apart, match no rule at all and
 come out black. Rendering each file as its own document is how the application
 draws them anyway, so what the sheet shows is what the picker will show.
 
-Output is assets/icon-gallery.png, which is committed - the README points at it.
+Output is assets/icon-gallery.png, which is committed, since the README points at it.
 
 Syntax: icon-gallery.py [<repo-root>]
 """
@@ -35,7 +35,7 @@ import subprocess
 import sys
 import tempfile
 
-# The four that tell two sets apart, in the order they read best.
+# The 4 that tell 2 sets apart, in the order they read best.
 NAMES = ("folder", "folder-open", "text-x-generic", "user-trash")
 
 ICON = 48                  # drawn size of one icon
@@ -49,7 +49,7 @@ COLS = 2  # sets per row of the sheet
 LIGHT = "#f4f4f4"
 DARK = "#242424"
 
-# The shim carrying the couple of dozen names Adwaita dropped. Nobody picks it.
+# The shim with the couple of dozen names Adwaita dropped. Nobody picks it.
 SKIP = {"AdwaitaLegacy"}
 
 
@@ -72,7 +72,7 @@ def style_of(theme_dir):
 
 
 def rasterise(src, size, scratch):
-    """@src as a data: png of @size square, or None if it will not render."""
+    """@src as a data: png of @size square, or None if it won't render."""
     out = os.path.join(scratch, "cell.png")
     try:
         subprocess.check_call(["rsvg-convert", "-w", str(size), "-h", str(size),
@@ -95,7 +95,7 @@ def collect(root):
             if os.path.isdir(path) and name not in SKIP:
                 found.append(path)
 
-    # The two halves of a light/dark pair are one entry: the picker offers them
+    # The 2 halves of a light/dark pair are one entry: the picker offers them
     # as a single choice and swaps between them with the mode.
     paired = {}
     for path in found:
@@ -137,8 +137,8 @@ def build(root, out_svg, scratch):
                          % (slice_x + GAP + n * (ICON + GAP), y0 + GAP,
                         ICON, ICON, data))
 
-        # One label per set, centered across the seam, so the two halves read as
-        # the same set seen twice rather than as two different sets.
+        # One label per set, centered across the seam, so the 2 halves read as
+        # the same set seen twice rather than as 2 different sets.
         parts.append('<rect x="%d" y="%d" width="1" height="%d" fill="#0000002c"/>'
                  % (x0 + HALF, y0, ROW_H))
         parts.append('<rect x="%d" y="%d" width="%d" height="%d" fill="#7f7f7f28"/>'

@@ -75,9 +75,9 @@ notify_one (void (*notify) (GList *), const char *path)
 	g_list_free_full (list, g_object_unref);
 }
 
-/* Through GIO, since g_utime on Windows goes to msvcrt, which cannot open a
+/* Through GIO, since g_utime on Windows goes to msvcrt, which can't open a
    folder to set its time. On Linux and FreeBSD the monitor on the parent
-   reports the new time. Windows does not, and neither does GLib's kqueue
+   reports the new time. Windows doesn't, and neither does GLib's kqueue
    monitor on macOS, which only sees names come and go. So there the change is
    announced the way a job would. Only there: on Linux the monitor's own refresh
    can then come after the change under test and pass it for the wrong reason. */

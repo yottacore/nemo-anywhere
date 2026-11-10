@@ -33,7 +33,7 @@
 #include <lm.h>
 #include <sddl.h>
 
-/* Which way the DACL's entries point: all carried down from a parent folder,
+/* Which way the DACL's entries point: all inherited from a parent folder,
    all set on the file itself, or a mix of the two. That is the whole answer
    the Permissions source column shows, so nothing else is fetched. */
 NemoWin32PermSource

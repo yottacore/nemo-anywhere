@@ -6,7 +6,7 @@
  *
  * Upstream disabled some functions with an early return and left the body
  * compiling. Those bodies are commented out here instead, so the dead code
- * cannot drift or be read as live. They stay in the file because they are the
+ * can't drift or be read as live. They stay in the file because they are the
  * reference if the feature is ever turned back on; the reason each one is off
  * is the comment above its return.
  */
@@ -120,7 +120,7 @@ static void finish_add_favorite (NemoFavorites *favorites,
  * type can never contain a colon, so the first "::" is always the separator;
  * the other way round, a file named "notes::draft.txt" silently repointed its
  * favorite at "file:///home/u/notes". Entries written in the old order are
- * still read - their first half carries the uri scheme's colon, which tells
+ * still read - their first half has the uri scheme's colon, which tells
  * them apart - and get rewritten the next time the list is stored. */
 static gboolean
 parse_favorite_entry (const gchar  *entry,
@@ -238,7 +238,7 @@ queue_changed (NemoFavorites *favorites)
 //         {
 //             if (error->code != G_IO_ERROR_NOT_FOUND)
 //             {
-//                 g_warning ("Could not update file metadata for favorite file '%s': %s", g_file_get_uri (file), error->message);
+//                 g_warning ("Couldn't update file metadata for favorite file '%s': %s", g_file_get_uri (file), error->message);
 //             }
 
 //             g_error_free (error);
@@ -961,7 +961,7 @@ nemo_favorites_class_init (NemoFavoritesClass *klass)
  *
  * Returns the #NemoFavorites instance.
  *
- * Returns: (transfer none): the NemoFavorites instance for the process. Do not free.
+ * Returns: (transfer none): the NemoFavorites instance for the process. Don't free.
  *
  * Since: 2.0
  */
@@ -1013,7 +1013,7 @@ match_mimetypes (G_GNUC_UNUSED gpointer key,
  * @favorites: The #NemoFavorites
  * @mimetypes: (nullable) (array zero-terminated=1): The mimetypes to filter by for results
  *
- * Gets a list of all favorites.  If mimetype is not %NULL, the list will
+ * Gets a list of all favorites.  If mimetype isn't %NULL, the list will
  * contain only favorites with that mimetype.
  *
  * Returns: (element-type NemoFavoriteInfo) (transfer full): a list of #NemoFavoriteInfos.
@@ -1095,8 +1095,8 @@ lookup_display_name (G_GNUC_UNUSED gpointer key,
  *
  * Looks for an NemoFavoriteInfo that corresponds to @display_name.
  *
- * Returns: (transfer none): an NemoFavoriteInfo or NULL if one was not found. This is owned
- *          by the favorites manager and should not be freed. Only safe to hold on
+ * Returns: (transfer none): an NemoFavoriteInfo or NULL if one wasn't found. This is owned
+ *          by the favorites manager and shouldn't be freed. Only safe to hold on
  *          the main thread - use _nemo_favorites_dup_by_display_name off it.
  *
  * Since: 2.0
@@ -1176,8 +1176,8 @@ _nemo_favorites_dup_by_display_name (NemoFavorites *favorites,
  *
  * Looks for an NemoFavoriteInfo that corresponds to @uri.
  *
- * Returns: (transfer none): an NemoFavoriteInfo or NULL if one was not found. This is owned
- *          by the favorites manager and should not be freed.
+ * Returns: (transfer none): an NemoFavoriteInfo or NULL if one wasn't found. This is owned
+ *          by the favorites manager and shouldn't be freed.
  *
  * Since: 2.0
  */
@@ -1260,7 +1260,7 @@ nemo_favorites_rename (NemoFavorites *favorites,
 
 
 /* Used by nemo_favorite_vfs_file. The names are copies - the caller reads them
- * on a worker thread, where the table itself is not its to hold.
+ * on a worker thread, where the table itself isn't its to hold.
  * Returns: (transfer full): free with g_list_free_full (list, g_free) */
 GList *
 _nemo_favorites_get_display_names (NemoFavorites *favorites)

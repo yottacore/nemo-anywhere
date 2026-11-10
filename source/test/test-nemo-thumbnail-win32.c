@@ -1,9 +1,9 @@
 /* An image nemo can decode itself must be recognized as one on Windows.
  *
  * The internal-thumbnail check asks whether gdk-pixbuf can load the file's mime
- * type. On win32 nemo's stored "mime type" is really the extension (".png"), so
- * the question was being asked about a string that is not a mime type at all and
- * the answer was always no. Losing that path is not a missing thumbnail - the
+ * type. On win32 nemo's stored "mime type" is the extension (".png"), so
+ * the question was being asked about a string that isn't a mime type at all and
+ * the answer was always no. Losing that path isn't a missing thumbnail - the
  * external thumbnailer still draws one - it is a thumbnail frozen at the small
  * cached size, which is why images went blurry as the zoom went up.
  *
@@ -24,7 +24,7 @@
 #include "test-scratch.h"
 #include "test-check.h"
 
-/* A NemoFile that has actually been told what it is - the answer depends on the
+/* A NemoFile that has been told what it is. The result depends on the
  * stored type, so a file whose info never arrived would prove nothing. */
 static NemoFile *
 seen_file (const char *path)
@@ -48,7 +48,7 @@ seen_file (const char *path)
 }
 
 /* Write a real image of @format - a decodable file, not a renamed blob, so the
- * check is answering about something gdk-pixbuf could genuinely open. */
+ * check is asked about something gdk-pixbuf can open. */
 static gboolean
 write_image (const char *path, const char *format)
 {
@@ -73,8 +73,8 @@ main (int argc, char *argv[])
 	dir = test_scratch_dir ("nemo-thumb-XXXXXX", NULL);
 	g_assert (dir != NULL);
 
-	/* png and jpeg: the two formats gdk-pixbuf always has built in, so this
-	 * cannot fail for want of a loader module on the box running it. */
+	/* png and jpeg: the 2 formats gdk-pixbuf always has built in, so this
+	 * can't fail for want of a loader module on the box running it. */
 	path = g_build_filename (dir, "picture.png", NULL);
 	if (write_image (path, "png")) {
 		file = seen_file (path);
@@ -82,7 +82,7 @@ main (int argc, char *argv[])
 		if (file != NULL) {
 			g_autofree char *stored = nemo_file_get_mime_type (file);
 
-			/* State the premise out loud: on win32 this really is
+			/* State the premise out loud: on win32 this is
 			 * the extension, which is why the conversion is needed. */
 			if (g_strcmp0 (stored, "image/png") != 0) {
 				g_print ("  note: stored type for a .png is [%s]\n", stored);
@@ -111,7 +111,7 @@ main (int argc, char *argv[])
 	g_unlink (path);
 	g_free (path);
 
-	/* The other side of the answer. Without these a check that simply said
+	/* The other side of the check. Without these a check that said
 	 * yes to everything would pass, and nemo would try to decode text. */
 	path = g_build_filename (dir, "notes.txt", NULL);
 	check (g_file_set_contents (path, "not an image", -1, NULL));

@@ -5,7 +5,7 @@
  *
  * Upstream disabled some functions with an early return and left the body
  * compiling. Those bodies are commented out here instead, so the dead code
- * cannot drift or be read as live. They stay in the file because they are the
+ * can't drift or be read as live. They stay in the file because they are the
  * reference if the feature is ever turned back on; the reason each one is off
  * is the comment above its return.
  */

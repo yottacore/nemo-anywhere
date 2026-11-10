@@ -48,7 +48,7 @@ static const char schema_xml[] =
 	"  </schema>\n"
 	"</schemalist>\n";
 
-/* FALSE when the compiler is not there to make the stand-in. */
+/* FALSE when the compiler isn't there to make the stand-in. */
 static gboolean
 compile_schema (const char *dir)
 {
@@ -102,7 +102,7 @@ main (void)
 		return 77;
 	}
 
-	/* Before anything opens GSettings: the stand-in schema only, held in
+	/* Before anything opens GSettings: the stand-in schema only, kept in
 	   memory. */
 	g_setenv ("GSETTINGS_SCHEMA_DIR", schemas, TRUE);
 	g_setenv ("XDG_DATA_DIRS", schemas, TRUE);
@@ -115,7 +115,7 @@ main (void)
 	/* Ours empty: the desktop's choice, and its argument with it. */
 	check_exec ("desktop-term", "-x");
 
-	/* Ours set: ours, with our own argument, not a mix of the two. */
+	/* Ours set: ours, with our own argument, not a mix of the 2. */
 	nemo_config_set_string (own, "exec", "my-term");
 	nemo_config_set_string (own, "exec-arg", "--run");
 	check_exec ("my-term", "--run");

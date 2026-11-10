@@ -1,6 +1,6 @@
 # Unused
 
-Code nothing builds, kept for reference. Each file sits at the path it had under `source/`. The C lint and the static analyzers skip this folder, and the analyzer stage fails if a build ever compiles a file from it.
+Code nothing builds, kept for reference. Each file's path here is the one it had under `source/`. The C lint and the static analyzers skip this folder, and the analyzer stage fails if a build ever compiles a file from it.
 
 - `libnemo-private/nemo-search-engine-tracker.c`: upstream's search through the Tracker indexer, once the `-Dtracker` option. Search uses the built-in engine, or the Windows Search index on Windows.
 

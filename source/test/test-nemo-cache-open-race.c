@@ -20,17 +20,17 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* Every launch is its own process, so two windows started together can both
+/* Every launch is its own process, so 2 windows started together can both
  * find no cache file and set one up at the same moment. Turning a new file
  * over to its journal reads the file and then takes the write lock, and sqlite
- * does not wait on that second step. So a copy that got there while another
+ * doesn't wait on that second step. So a copy that got there while another
  * held the lock was told the file was locked, and ran with no cache.
  *
  * First, one connection holds the write lock on a new file for a moment while
  * the store opens it, which always hit that step. Then each round starts a few
- * copies of this program on a cache that is not there yet, all timed to open
+ * copies of this program on a cache that isn't there yet, all timed to open
  * it in the same instant, and every one of them has to get a store. That one
- * only hit it about one round in a hundred.
+ * only hit it about 1 round in 100.
  *
  * The copies quit without closing the store, as the app does. On Windows one
  * that is still going away can leave the next unable to set up, so a view of
@@ -166,7 +166,7 @@ release_later (gpointer user_data)
 }
 
 /* The state the other copy is in halfway through its own setup: the file has
- * a first page, is not in WAL yet, and the write lock is taken. */
+ * a first page, isn't in WAL yet, and the write lock is taken. */
 static void
 check_waits_for_lock (const char *path)
 {
@@ -224,7 +224,7 @@ unmap_later (gpointer user_data)
 }
 
 /* A copy that quit lets go of its locks before Windows unmaps the -shm file
- * from it. Windows will not empty a file while a view of it is left, so the
+ * from it. Windows won't empty a file while a view of it is left, so the
  * store has to wait for that view to go, as it would for a lock. */
 static void
 check_waits_for_old_view (const char *path)

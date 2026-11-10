@@ -40,7 +40,7 @@
 
 ## Summary
 
-Some settings only count when another setting lets them. An "Automatic" switch can decide a group of values by itself, and while it's on, the values under it are ignored. Most programs disable those. To change one, a person first has to find which switch is in the way and turn it off. Then every value under that switch comes back at once, when maybe only one was wanted.
+Some settings only count when another setting lets them. An "Automatic" switch can set a group of values by itself, and while it's on, the values under it are ignored. Most programs disable those. To change one, a person first has to find which switch is in the way and turn it off. Then every value under that switch comes back at once, when maybe only one was wanted.
 
 Here a setting that doesn't count right now is grayed out, but it still takes input. Changing it un-grays that one setting, and turns its master off by itself. The rest of the group stays gray and keeps following the master.
 
@@ -54,13 +54,13 @@ Every group like this works the same way, through one table and one function.
 	- A dropdown with presets and a "Custom" entry. A preset is automatic, and Custom is manual.
 
 - A setting under a master that is moot right now:
-	- Is grayed out, but not disabled. It can still be clicked, focused and changed.
+	- Is grayed out, but not disabled. It can still be clicked, focused, and changed.
 		- As long as that makes sense. There could be situations where truly disabling controls is the only thing that makes sense.
-	- Shows and uses its automatic value, not its own stored value.
+	- Shows and uses its automatic value rather than its own stored value.
 
 - Changing a grayed setting:
 	- Un-grays it at once, with the new value.
-	- Turns the master to manual by itself: the switch goes off, or the dropdown goes to Custom.
+	- Turns the master to manual by itself, so the switch goes off or the dropdown goes to Custom.
 	- Leaves every other setting in the group as it was. The ones still gray stay gray, and keep using their automatic values.
 
 - Changing the master by hand moves the whole group:
@@ -76,7 +76,7 @@ Every group like this works the same way, through one table and one function.
 	- The setting's description, if it has one.
 	- A blank line, when anything follows it.
 	- For a grayed child, a line naming its master and what a change does to it, such as `Follows Automatic layout. Changing this turns it off.` or `Follows Layout. Changing this sets it to Custom.`
-	- The values in play, as `Current value: ...`, `Stored value: ...` and `Default value: ...`. These lines show only when the 3 values aren't all the same.
+	- The values in play, as `Current value: ...`, `Stored value: ...`, and `Default value: ...`. These lines show only when the 3 values aren't all the same.
 
 ## Goals
 
@@ -106,7 +106,7 @@ Every group like this works the same way, through one table and one function.
 | Child           | A setting in the group under a master.
 | Automatic value | What a child acts as having while it's moot. It can come from a preset, from a rule worked out at run time, or be a plain "off".
 | Own value       | The value a person gave the child. It is kept even while the child is gray, so it can come back.
-| Mode            | Which children use their own value right now. One of `overridesAll`, `overridesNone` or `overridesSome`.
+| Mode            | Which children use their own value right now. One of `overridesAll`, `overridesNone`, or `overridesSome`.
 | Override flag   | A yes or no on each child. It only counts while the mode is `overridesSome`.
 
 ### What is stored
@@ -131,11 +131,11 @@ One table lists every master. Each row has:
 
 - How to get each child's automatic value. For a preset dropdown, the preset's value. Otherwise a function, since some automatic values are worked out at run time.
 
-The table sits with the types and defaults of every other setting, so there is one place to look.
+The table is kept with the types and defaults of every other setting, so there is one place to look.
 
 ### Reading a setting
 
-One function answers 2 questions for a child: which value it uses, and whether it is grayed.
+One function works out which value a child uses and whether it's grayed.
 
 ~~~text
 uses_own_value(child):
@@ -169,7 +169,7 @@ Nothing reads a child's own value directly, outside this function. A check in th
 
 ### Why a hand change clears the flags
 
-Without it, old flags come back. Say a group goes to Some with child A flagged. Then the master is turned on by hand, so the mode is None and A goes gray. Later child B is changed, so the mode is Some again. If A's old flag were still set, A would un-gray too, though nobody touched it this time.
+Without clearing them, old flags come back. Say a group goes to Some with child A flagged. Then the master is turned on by hand, so the mode is None and A goes gray. Later child B is changed, so the mode is Some again. If A's old flag were still set, A would un-gray too, though nobody touched it this time.
 
 Clearing every flag on a hand change of the master stops that. It's the only time the children are touched as a group.
 
@@ -189,7 +189,7 @@ Clearing every flag on a hand change of the master stops that. It's the only tim
 
 ### The settings dialog
 
-- A grayed child is drawn in the theme's disabled text color, but it still takes clicks, keys and focus. A screen reader is told it follows its master.
+- A grayed child is drawn in the theme's disabled text color, but it still takes clicks, keys, and focus. A screen reader is told it follows its master.
 
 - When a change moves the master or the mode, every child in the group redraws from the function at once.
 
@@ -204,7 +204,7 @@ Clearing every flag on a hand change of the master stops that. It's the only tim
 
 ### Tests
 
-- The function, for every mode, flag and kind of master, including an inverted switch and a preset dropdown.
+- The function, for every mode, flag, and kind of master, including an inverted switch and a preset dropdown.
 
 - Every row of the table under [Changing a setting](#changing-a-setting).
 
@@ -246,7 +246,7 @@ Clearing every flag on a hand change of the master stops that. It's the only tim
 
 ## Roadmap
 
-- Build the table, the function and the dialog drawing.
+- Build the table, the function, and the dialog drawing.
 
 - Move every existing master and its settings onto it in one go, so there is never a mix of old and new.
 

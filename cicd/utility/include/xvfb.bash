@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: Start a private Xvfb on a display number proven to be ours.
-##	  Xvfb on a number another server holds quits at once, and xdpyinfo then
-##	  answers from that other server. So a number counts as ours only when
-##	  nothing answered on it first, the X lock names the server started here,
-##	  and that server answers while it is still alive.
+##	  Xvfb on a number another server has quits at once, and xdpyinfo then
+##	  gets its reply from that other server. So a number counts as ours only
+##	  when nothing replied on it first, the X lock names the server started
+##	  here, and that server replies while it is still alive.
 ##	- fXvfbStart <first> <screen> <log> [Xvfb args...] -> tries <first> (":N" or
 ##	  "N") and the 19 numbers after it. Sets XVFB_DISPLAY to ":N" and XVFB_PID,
 ##	  or returns 1 when none of them was free. XVFB_PID is set while a server is

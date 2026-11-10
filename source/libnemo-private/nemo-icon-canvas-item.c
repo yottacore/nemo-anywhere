@@ -2167,7 +2167,7 @@ nemo_icon_canvas_item_get_max_text_width (NemoIconCanvasItem *item)
         } else {
             /* A name runs as wide as the icon above it, with a floor. There
                used to be a table of widths of its own, which had Large
-               narrower than Standard and could not answer for a size that was
+               narrower than Standard and couldn't answer for a size that was
                not one of the levels. */
             return MAX (nemo_icon_container_get_icon_size (container),
                         NEMO_ICON_LABEL_WIDTH_MIN);

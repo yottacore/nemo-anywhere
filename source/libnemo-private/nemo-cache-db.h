@@ -21,15 +21,15 @@
 */
 
 /* One SQLite file under the user's cache dir. Thumbnails are the first thing it
- * holds, but not the only kind, so the tables are about files rather than about
+ * stores, but not the only kind, so the tables are about files rather than about
  * pictures.
  *
- * Three tables of data:
+ * There are 3 tables of data:
  *
  *   files       one row per distinct set of file contents - the size, and the
  *               checksum once anything has bothered to compute one. No image
  *               here, whether the file is a picture or not
- *   paths       one row per uri, pointing at the files row it holds, with its
+ *   paths       one row per uri, pointing at the files row for its contents, with its
  *               own mtime. Several paths on one files row means copies, or a
  *               file that moved
  *   thumbnails  at most one per files row, holding the encoded image
@@ -40,7 +40,7 @@
  * of one, find a thumbnail that is already there instead of rendering it again.
  * It is also the part a future duplicate finder needs: every file it has seen is
  * a files row, and the copies of one are the paths hanging off it. A file with
- * no thumbnail - a text file, an archive - has no thumbnails entry.
+ * no thumbnail, such as a text file or an archive, has no thumbnails entry.
  *
  * Everything in the file is rebuildable from the disk, so nothing is migrated.
  * A schema from another version, or a damaged file, is thrown away and made
@@ -49,7 +49,7 @@
  * Every launch is its own process and several can be open at once, so the file
  * is in WAL mode with a busy timeout. Writes are small and the whole thing is a
  * cache, so synchronous is NORMAL rather than FULL - a power cut can cost the
- * last few rows, which is not worth an fsync apiece.
+ * last few rows, which isn't worth an fsync apiece.
  */
 
 #ifndef NEMO_CACHE_DB_H
@@ -85,19 +85,19 @@ typedef enum {
  * failed, with no image behind it. */
 typedef struct {
 	int                 size;	/* icon size it was rendered for, in pixels */
-	int                 width;	/* what the stored image actually is */
+	int                 width;	/* what the stored image is */
 	int                 height;
 	NemoThumbnailFormat format;
 	gint64              stored;	/* when it was rendered, epoch seconds */
 } NemoThumbnailRecord;
 
 /* The process-wide store, opened on the first ask. NULL if the cache dir or the
- * database could not be opened at all, which is not fatal - the caller carries
+ * database couldn't be opened at all, which isn't fatal - the caller goes
  * on as if every lookup had missed. One attempt is made per open store, so a
- * failure is not retried on every draw.
+ * failure isn't retried on every draw.
  *
  * Closing writes out what is pending and folds the journal back in. A later
- * get() opens the store again rather than answering NULL for good. */
+ * get() opens the store again rather than returning NULL for good. */
 NemoCacheDb *nemo_cache_db_get   (void);
 void         nemo_cache_db_close (void);
 
@@ -111,14 +111,14 @@ void         nemo_cache_db_quit  (void);
 /* Where the database file is, whether or not it opened. Freed by the caller. */
 char *nemo_cache_db_path (void);
 
-/* Records what `uri` holds, with no thumbnail. This is how a file nothing can
+/* Records what's at `uri`, with no thumbnail. This is how a file nothing can
  * draw gets into the store at all. Calling it again with a different size or
  * time replaces what was known. */
 gboolean nemo_cache_db_note_file (NemoCacheDb      *db,
 				  const char       *uri,
 				  const NemoFileId *id);
 
-/* Reads back a checksum computed earlier, so a file does not have to be read
+/* Reads back a checksum computed earlier, so a file doesn't have to be read
  * again to know what it is. False unless a checksum is stored for this uri at
  * exactly this size and time. */
 gboolean nemo_cache_db_lookup_digest (NemoCacheDb *db,
@@ -127,14 +127,14 @@ gboolean nemo_cache_db_lookup_digest (NemoCacheDb *db,
 				      gint64       mtime,
 				      guint8      *digest);
 
-/* Attaches a checksum to what `uri` holds. If some other record already carries
+/* Attaches a checksum to what's at `uri`. If some other record already has
  * the same checksum then the two are the same file and are folded into one,
  * which is what makes a moved file keep everything known about it. */
 gboolean nemo_cache_db_set_digest (NemoCacheDb      *db,
 				   const char       *uri,
 				   const NemoFileId *id);
 
-/* Looks for a thumbnail of what `uri` currently holds.
+/* Looks for a thumbnail of what's at `uri` now.
  *
  * On a hit `record` is filled in and `image` gets the encoded bytes, which the
  * caller owns. Pass NULL for `image` to ask only whether one is there and at
@@ -154,7 +154,7 @@ gboolean nemo_cache_db_thumbnail_lookup (NemoCacheDb         *db,
  * leaving its draw history alone. Safe to call from a worker thread. Returns
  * false if nothing was written.
  *
- * A NULL `image` records that the render failed, so it is not tried again
+ * A NULL `image` records that the render failed, so it isn't tried again
  * until the file changes. */
 gboolean nemo_cache_db_thumbnail_store (NemoCacheDb               *db,
 					const char                *uri,
@@ -181,7 +181,7 @@ void nemo_cache_db_thumbnail_forget_later (const char *uri);
 void nemo_cache_db_note_render (NemoCacheDb *db, const char *uri);
 
 /* Writes out the draw counts and refreshes held in memory, on the calling
- * thread. Anything about to read them - a prune, or the settings page - calls
+ * thread. Anything about to read them, such as a prune or the settings page, calls
  * this first. */
 void nemo_cache_db_flush (NemoCacheDb *db);
 
@@ -191,14 +191,14 @@ void nemo_cache_db_set_draw_wait (gint ms);
 
 /* Draws counted against `uri` and when it was last drawn, epoch seconds. False
  * if there is no thumbnail behind that uri. Either out parameter may be NULL.
- * Counts still held in memory are not included, so flush first if that
+ * Counts still held in memory aren't included, so flush first if that
  * matters. */
 gboolean nemo_cache_db_thumbnail_stats (NemoCacheDb *db,
 					const char  *uri,
 					gint64      *renders,
 					gint64      *rendered);
 
-/* Throws away everything. Returns false if the store could not be emptied. */
+/* Throws away everything. Returns false if the store couldn't be emptied. */
 gboolean nemo_cache_db_empty (NemoCacheDb *db);
 
 /* Thumbnails held and the bytes they take, for the settings page. Either may be
@@ -215,10 +215,10 @@ typedef struct {
 	gint64   max_age_secs;	/* a thumbnail not drawn for this long goes; 0 to keep.
 				 * Also how long a name with no thumbnail is kept,
 				 * 180 days when 0 */
-	gboolean drop_missing;	/* forget local files gone from a folder that is not */
+	gboolean drop_missing;	/* forget local files gone from a folder that isn't */
 	gint64   gap_min_secs;	/* the next pass is due somewhere in this range */
 	gint64   gap_max_secs;
-	gboolean force;		/* run even if the next pass is not due yet */
+	gboolean force;		/* run even if the next pass isn't due yet */
 	gint64   now;		/* epoch seconds */
 } NemoCachePruneRules;
 
@@ -236,21 +236,21 @@ typedef enum {
  * drops old thumbnails and then the least recently drawn until the file is small
  * enough, and hands the freed space back to the disk.
  *
- * Only one process runs a pass at a time. The claim lives in the file itself,
- * with a heartbeat, so a process that dies part way through does not hold it
+ * Only one process runs a pass at a time. The claim is in the file itself,
+ * with a heartbeat, so a process that dies part way through doesn't hold it
  * for good. Whoever finishes a pass picks when the next one is due, at random
  * within the gap, so every copy running agrees on it.
  *
  * `removed` is the thumbnails thrown away. `due` is when the next pass is due,
  * epoch seconds, or 0 when there is nothing to say. Either may be NULL. Draw
- * counts held in memory are not seen, so flush the process-wide store first. */
+ * counts held in memory aren't seen, so flush the process-wide store first. */
 NemoCachePruneResult nemo_cache_db_prune (const NemoCachePruneRules *rules,
 					  GCancellable              *cancellable,
 					  gint64                    *removed,
 					  gint64                    *due);
 
 /* For the tests. Runs the queries the prune picks thumbnails with against the
- * store as it is, and answers the rows they stepped through without an index
+ * store as it is, and returns the rows they stepped through without an index
  * to narrow them, and how many sorts they needed. Both have to stay small
  * however big the table gets, since the prune runs them holding the write
  * lock. */

@@ -1,4 +1,4 @@
-/* Exercises Windows .lnk shortcut creation (nemo_shortcut_win32_create): make a
+/* Exercises Windows .lnk shortcut creation through nemo_shortcut_win32_create: make a
  * shortcut to a real file, then load it back through the shell IShellLinkW to
  * confirm the stored target round-trips. Windows-only. */
 
@@ -22,8 +22,8 @@
 #include "test-check.h"
 #include "test-wine.h"
 
-/* Which kind of reparse point a path is, or 0 if it is not one. The find data
- * carries the tag in dwReserved0 whenever the reparse attribute is set. */
+/* Which kind of reparse point a path is, or 0 if it isn't one. The find data
+ * has the tag in dwReserved0 whenever the reparse attribute is set. */
 static DWORD
 reparse_tag_of (const char *path)
 {
@@ -49,8 +49,8 @@ reparse_tag_of (const char *path)
 }
 
 /* The shell always reports canonical long paths, while TEMP on a stock Windows
- * box is often still the 8.3 short form (C:\Users\COLLIE~1\...) - which is what
- * g_dir_make_tmp builds on. Compare both sides on the long form or a perfectly
+ * box is often still the 8.3 short form, such as C:\Users\COLLIE~1\..., which is what
+ * g_dir_make_tmp builds on. Compare both sides on the long form or a
  * good shortcut reads as a mismatch. Falls back to the input unchanged, so a
  * path the API won't expand still gets compared rather than dropped. */
 static char *
@@ -87,8 +87,8 @@ long_path (const char *path)
 	return ret;
 }
 
-/* Read the target a .lnk points at, via the shell - proves it is a genuine,
- * loadable shortcut and not just an arbitrary file we wrote. */
+/* Read the target a .lnk points at, via the shell. That proves it's a loadable
+ * shortcut rather than an arbitrary file we wrote. */
 static char *
 resolve_target (const char *lnk_path)
 {
@@ -145,8 +145,8 @@ same_path (const char *a, const char *b)
 	return same;
 }
 
-/* Every field a shortcut carries reads back as written, and an edit of the
- * target and the arguments reaches the file while the rest stays. */
+/* Every field in a shortcut reads back as written, and an edit of the
+ * target and the arguments is written to the file while the rest stays. */
 static void
 test_info_round_trip (const char *dir, const char *target)
 {
@@ -228,8 +228,8 @@ write_foreign_lnk (const char *lnk_path, const char *relative, gboolean is_dir)
 	g_free (wide);
 }
 
-/* The shell cannot place one of those, so the target comes from the relative
-   path, and callers are told the shell could not. */
+/* The shell can't place one of those, so the target comes from the relative
+   path, and callers are told the shell couldn't. */
 static void
 test_foreign (const char *dir)
 {
@@ -327,7 +327,7 @@ test_parts (const char *dir)
 
 	/* A shortcut with only the portable path, which was the only way a
 	   plain path went in that block, can no longer be asked for since the
-	   path choice went (backlog 2026092813381440).
+	   path choice went, per backlog 2026092813381440.
 
 	check (nemo_shortcut_win32_create_parts (doc, lnk, NEMO_LNK_PORTABLE, NULL));
 	check (nemo_lnk_read (lnk, &info));
@@ -350,7 +350,7 @@ test_parts (const char *dir)
 	check_parts (doc, lnk, FALSE);
 	check_parts (doc, lnk, TRUE);
 	/* Shortcuts without the absolute or the relative path went with the
-	   path choice (backlog 2026092813381440).
+	   path choice, per backlog 2026092813381440.
 	check_parts (doc, lnk, NEMO_LNK_ABSOLUTE, TRUE);
 	check_parts (doc, lnk, NEMO_LNK_PORTABLE, TRUE);
 	check_parts (doc, lnk, NEMO_LNK_PORTABLE | NEMO_LNK_RELATIVE, TRUE);
@@ -445,7 +445,7 @@ test_open_action (const char *dir)
 	check (open_action (chain_lnk, &target) == NEMO_SHORTCUT_OPEN_HERE);
 	check (target != NULL && same_path (target, folder));
 
-	/* Made off Windows: the shell cannot place it, so it opens here. Wine's
+	/* Made off Windows: the shell can't place it, so it opens here. Wine's
 	   shell follows the relative path, so there it goes to the shell. */
 	if (test_under_wine ()) {
 		check (open_action (foreign_lnk, &target) == NEMO_SHORTCUT_OPEN_BY_SHELL);
@@ -559,10 +559,10 @@ main (void)
 	}
 
 	/* A target past MAX_PATH has to be refused, and refused with an error. The
-	 * shell will not store one - SetPath rejects it - so a create that ignores
+	 * shell won't store one, since SetPath rejects it, so a create that ignores
 	 * that result writes a .lnk pointing at nothing and reports success, which
 	 * is a dead shortcut the user was never told about. Long paths are enabled
-	 * on plenty of boxes, so the target itself is perfectly ordinary. */
+	 * on plenty of boxes, so the target itself is ordinary. */
 	{
 		GString *deep = g_string_new (dir);
 		char *long_target, *long_lnk;
@@ -642,9 +642,9 @@ main (void)
 		g_free (run_lnk);
 	}
 
-	/* Opening a shortcut that is not there must fail with something to show,
+	/* Opening a shortcut that isn't there must fail with something to show,
 	 * not report success into a void. Nothing is launched: the shell has
-	 * nothing to open and answers before it starts anything. */
+	 * nothing to open and returns before it starts anything. */
 	{
 		char *missing = g_build_filename (dir, "not-here.lnk", NULL);
 		GError *lerr = NULL;
@@ -672,8 +672,8 @@ main (void)
 			GFile *f = g_file_new_for_path (sym);
 			GFileInfo *info;
 
-			/* Not g_file_test: its symlink question always answers no on
-			 * Windows. GIO reads the reparse point and does not. */
+			/* Not g_file_test: its symlink test always returns FALSE on
+			 * Windows. GIO reads the reparse point and doesn't. */
 			info = g_file_query_info (f, G_FILE_ATTRIBUTE_STANDARD_IS_SYMLINK,
 						  G_FILE_QUERY_INFO_NOFOLLOW_SYMLINKS, NULL, NULL);
 			check (info != NULL && g_file_info_get_is_symlink (info));
@@ -685,7 +685,7 @@ main (void)
 			g_free (back);
 
 			/* A name already taken has to read as a clash, or the caller
-			 * cannot uniquify it and just gives up. */
+			 * can't uniquify it and gives up. */
 			g_clear_error (&serr);
 			check (!nemo_win32_link_create_default (target, sym, &serr));
 			check (serr != NULL && g_error_matches (serr, G_IO_ERROR, G_IO_ERROR_EXISTS));

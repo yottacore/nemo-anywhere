@@ -21,7 +21,7 @@
 */
 
 /* Raw files come off cards and out of downloads, and a thumbnail is made of each
- * one, so this reads the TIFF, RAF and CR3 walks on whatever turns up. The first
+ * one, so this runs the TIFF, RAF, and CR3 walks on whatever turns up. The first
  * byte picks the size asked for, since that decides which preview is tried
  * first; the rest is the file. */
 

@@ -211,7 +211,7 @@ main (void)
 	check (strstr (text, "##    Format   ") != NULL);
 	g_free (text);
 
-	/* Newer than this build: read, and a change made here is not saved. */
+	/* Newer than this build: read, and a change made here isn't saved. */
 	{
 		static const char newer[] =
 			"preferences.show-hidden-files: false\n"

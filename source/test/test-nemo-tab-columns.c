@@ -178,7 +178,7 @@ main (int argc, char *argv[])
 		goto out;
 	}
 
-	/* The probe gives each step ten seconds, and there are five. */
+	/* The probe gives each step 10 seconds, and there are 5. */
 	for (i = 0; i < 750 && alive (pid) && !done; i++) {
 		g_usleep (100 * 1000);
 		g_free (text);

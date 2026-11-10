@@ -13,7 +13,7 @@
 ##	- What goes over is the files git knows about, tracked and untracked but not
 ##	  ignored, as they are in the working tree: the same files the x86_64 build
 ##	  container sees. The stamp is this side's SOURCE_DATE_EPOCH, so both arches
-##	  carry the same date.
+##	  have the same date.
 ##	- They go to a run folder of this run's own on the box,
 ##	  <temp>/nemo-anywhere/<YYYYmmDD-HHMMSS>_<NNN>/src, removed at the end, a
 ##	  failure included, along with the project's stale ones there
@@ -25,12 +25,12 @@
 ##	  The lane then waits for its own user to log in and for docker there,
 ##	  since both can lag well behind ssh on an emulated boot, and for its clock
 ##	  to agree with this one, since a VM resumed from paused keeps the time it
-##	  stopped at. A box that does not answer in time, or whose clock stays off,
+##	  stopped at. A box that doesn't respond in time, or whose clock stays off,
 ##	  is an error. One that isn't there at all, and isn't a VM here, exits 77,
 ##	  a skip.
 ##	- What runs there runs under nice 19 and idle I/O, with jobs worked out
 ##	  from that box's own CPU count and load, the same way as for a step here
-##	  (include/jobs.bash), just before the build. Its containers get that count
+##	  (include/jobs.bash), right before the build. Its containers get that count
 ##	  as their CPU cap, with a low share, as here.
 ##	- Its steps print the way cicd.bash's do, as "arm64 N of M", since the
 ##	  lane is itself one step of that run.
@@ -111,18 +111,18 @@ fRun(){
 	fBoxWrap_ClockReady "$armHost" "${sshOpts[@]}" || fDie "${armHost} has the wrong time, and the build would stop on it"
 
 	fLaneStep "Send"
-	fBoxWrap_RunDir "$SLUG" "$armHost" "${sshOpts[@]}" || fDie "could not make a run folder on ${armHost}"
+	fBoxWrap_RunDir "$SLUG" "$armHost" "${sshOpts[@]}" || fDie "couldn't make a run folder on ${armHost}"
 	remoteDir="${boxRunDir}/src"
 	ssh "${sshOpts[@]}" "$armHost" "mkdir ${remoteDir}"
 	## --ignore-failed-read: a file deleted in the tree but not yet in git is
-	## still listed, and the x86_64 build would not see it either.
+	## still listed, and the x86_64 build wouldn't see it either.
 	( cd "$ROOT" && git ls-files -z --cached --others --exclude-standard \
 		| tar --null -T - --ignore-failed-read -cf - ) \
 		| ssh "${sshOpts[@]}" "$armHost" "tar -xf - -C ${remoteDir}"
 	fEcho_Clean "sent $(cd "$ROOT" && git ls-files --cached --others --exclude-standard | wc -l) files to ${armHost}:${remoteDir}"
 
 	fLaneStep "Release build"
-	fBoxWrap_Jobs "$jobsPin" "$armHost" "${sshOpts[@]}" || fDie "could not read the CPU count and load on ${armHost}"
+	fBoxWrap_Jobs "$jobsPin" "$armHost" "${sshOpts[@]}" || fDie "couldn't read the CPU count and load on ${armHost}"
 	started="$(date +%s)"
 	ssh "${sshOpts[@]}" "$armHost" "$(fBoxWrap_RunCmd) SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH} CICD_MAX_JOBS=${boxJobs} ${remoteNice} bash cicd/linux/release.bash"
 	secs=$(( $(date +%s) - started ))

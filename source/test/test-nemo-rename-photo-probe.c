@@ -177,7 +177,7 @@ press (guint key, GdkModifierType mods)
 	return gtk_accel_groups_activate (G_OBJECT (window), key, mods);
 }
 
-/* Up to forty seconds in all. */
+/* Up to 40 seconds in all. */
 static gboolean
 tick (G_GNUC_UNUSED gpointer data)
 {

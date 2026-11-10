@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: The names and the sums file the release lanes share, so the
-##	  Linux x86_64 and arm64 lanes and the FreeBSD one cannot drift apart from
+##	  Linux x86_64 and arm64 lanes and the FreeBSD one can't drift apart from
 ##	  each other or from what the installers ask for (design.md, Delivery).
 ##	- fReleaseArch <uname -m> -> the arch part of an asset name: x86_64 or
 ##	  arm64. Returns 1 for anything else. The installers map the same way.
@@ -46,7 +46,7 @@ fWriteReleaseSums(){
 	rm -f "${dir:?}/${sums}"
 	## -0/-r: without them an empty dir still runs sha256sum, which then reads stdin
 	## and writes a bogus "-" line into the file the installers verify against, and a
-	## name with a space would be split into two arguments.
+	## name with a space would be split into 2 arguments.
 	( cd "$dir" && find . -maxdepth 1 -type f -name "${slug}-${ver}-*" -printf '%P\0' | sort -z | xargs -0 -r sha256sum ) > "$tmpsums"
 	mv "$tmpsums" "${dir}/${sums}"
 	chmod 644 "${dir}/${sums}"	# mktemp makes it 0600

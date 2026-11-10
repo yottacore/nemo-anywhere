@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: Check that no bundle has libgsf, the gsf-office thumbnailer,
-##	  the old search converters or their helper definitions, and that no
+##	  the old search converters, or their helper definitions, and that no
 ##	  package depends on libgsf. The app reads office files itself
 ##	  (2026100909260549). catdoc's mso-doc definition is allowed, since it
 ##	  names a program on the system.
@@ -11,7 +11,7 @@
 ##	  - Only this version's files in cicd/artifacts/release are read. A kind
 ##	    with none is skipped; with none at all it exits 77.
 ##	  - The single exe is packed on Windows from the same staged folder as
-##	    the zip's, so it is not read here.
+##	    the zip's, so it isn't read here.
 ##	- --self-test makes small bundles with and without those files and checks
 ##	  that it finds each. Runs in the lint stage; exit 77 with no python3.
 ##	- Runs in the packages stage.

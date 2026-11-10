@@ -63,7 +63,7 @@ char  **arc_build_tool_command (const ArcSettings  *settings,
 				GError            **why);
 
 /* The command line a 7z or rar backend would be run with, in the base folder
-   holding the selection, with the names on the line. leave_out holds paths
+   holding the selection, with the names on the line. leave_out has paths
    relative to that folder, to be left out. The job hands its names in list
    files instead. Exposed so the switches can be checked without spawning
    anything. */
@@ -111,7 +111,7 @@ char  **arc_add_run_switches    (char     **argv,
    but names in skipped: what it was told to leave out, and links that lead
    nowhere, which have nothing to put in.
    output is what the tool printed, with its backspaces already applied;
-   skipped holds paths relative to the base folder. */
+   skipped has paths relative to the base folder. */
 gboolean arc_only_skipped_links (ArcBackend  backend,
 				 int         exit_status,
 				 const char *output,

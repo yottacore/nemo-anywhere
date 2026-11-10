@@ -130,15 +130,15 @@ nemo_dpi_win32_font_dpi (guint monitor_dpi_value,
 
 	/* The toolkit multiplies what it draws by the scale factor already, so
 	   dividing it back out of the DPI leaves exactly the fraction the whole
-	   steps could not carry. At 100% and at 200% that comes to 96 and the
-	   setting does not move; at 150% it comes to 144 and the type grows
-	   while the widgets around it do not. */
+	   steps couldn't carry. At 100% and at 200% that comes to 96 and the
+	   setting doesn't move; at 150% it comes to 144 and the type grows
+	   while the widgets around it don't. */
 	return (gint) (((guint64) monitor_dpi_value * 1024 + scale_factor / 2) / (guint) scale_factor);
 }
 
 /* The window to take the DPI from: whichever toplevel is on screen. With more
    than one, the first mapped one wins - gtk-xft-dpi is one value for the whole
-   application, so monitors of different DPI cannot each have their own. */
+   application, so monitors of different DPI can't each have their own. */
 static GdkWindow *
 pick_window (void)
 {
@@ -191,8 +191,8 @@ apply_now (void)
 	wanted = nemo_dpi_win32_font_dpi (monitor_dpi (hwnd), scale);
 
 	/* Setting it marks it as the application's choice, which outranks what
-	   the backend reports - so this is not a fight that repeats. Only write
-	   it when it has actually moved: every write reflows every label. */
+	   the backend reports - so this isn't a fight that repeats. Only write
+	   it when it has moved: every write reflows every label. */
 	g_object_get (settings, "gtk-xft-dpi", &current, NULL);
 	if (current != wanted) {
 		g_object_set (settings, "gtk-xft-dpi", wanted, NULL);
@@ -253,7 +253,7 @@ nemo_dpi_win32_init (void)
 
 	gdk_window_add_filter (NULL, message_filter, NULL);
 
-	/* Icons take the fraction the font DPI carries over the whole step. */
+	/* Icons take the fraction the font DPI has over the whole step. */
 	nemo_ui_scale_install ();
 
 	screen = gdk_screen_get_default ();

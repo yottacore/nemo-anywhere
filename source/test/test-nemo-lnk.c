@@ -147,7 +147,7 @@ build (const Spec *spec)
 	put32 (out, flags);
 	put32 (out, spec->attributes);
 	for (i = 0; i < 6; i++) {
-		put32 (out, 0);            /* three FILETIMEs */
+		put32 (out, 0);            /* 3 FILETIMEs */
 	}
 	put32 (out, 0);                    /* size */
 	put32 (out, 0);                    /* icon index */
@@ -460,7 +460,7 @@ machine_apply (Machine *machine)
 }
 
 /* A drive: a stand-in device file, its volume id link, and a mount line. The
-   mount table spells a space as \040. */
+   mount table writes a space as \040. */
 static char *
 machine_add_drive (Machine *machine, const char *uuid, const char *fstype)
 {
@@ -538,7 +538,7 @@ test_resolve_volume (void)
 	g_free (uri);
 	g_free (want);
 
-	/* No drive with that serial: no answer, even though the path would fit. */
+	/* No drive with that serial: no result, even though the path would fit. */
 	spec.local_base = "C:\\Data\\Report.txt";
 	spec.serial = 0x12345678;
 	uri = resolve (&spec, lnk_path);
@@ -546,7 +546,7 @@ test_resolve_volume (void)
 	g_free (uri);
 
 	/* Two names that differ only in case, and neither spelled as asked. A
-	   volume that ignores case keeps only one, which is the answer, spelled
+	   volume that ignores case keeps only one, which is the result, spelled
 	   as on disk. */
 	spec.serial = 0x89abcdef;
 	spec.local_base = "C:\\Twin\\PAIR.txt";
@@ -661,7 +661,7 @@ test_resolve_share (void)
 	g_free (want);
 
 	/* Mounted nowhere: an smb:// address when gvfs can open one, and
-	   nothing when it cannot. Not checked for, since that would mean going
+	   nothing when it can't. Not checked for, since that would mean going
 	   to the network. */
 	schemes = g_vfs_get_supported_uri_schemes (g_vfs_get_default ());
 	smb = schemes != NULL && g_strv_contains (schemes, "smb");
@@ -704,7 +704,7 @@ test_resolve_dir (void)
 	g_free (dir);
 	g_free (want);
 
-	/* Another drive, a variable, a file and a missing folder. */
+	/* Another drive, a variable, a file, and a missing folder. */
 	dir = nemo_lnk_resolve_dir (&lnk, "D:\\Work");
 	check (dir == NULL);
 	g_free (dir);
@@ -758,7 +758,7 @@ test_follow (void)
 	nemo_lnk_clear (&last);
 	g_free (b);
 
-	/* A file named like a shortcut that is not one ends the chain. */
+	/* A file named like a shortcut that isn't one ends the chain. */
 	b = write_lnk (machine.root, "b.lnk", &to_fake);
 	touch (machine.root, "fake.lnk");
 	uri = nemo_lnk_follow (a, &last);
@@ -833,7 +833,7 @@ test_write (void)
 	GError *error = NULL;
 
 	machine_init (&machine);
-	/* The writer takes the target as it really is, so the mount table has to
+	/* The writer takes the target with links resolved, so the mount table has to
 	   name the real folders too. */
 	root = realpath (machine.root, NULL);
 	cifs = g_build_filename (root, "cifs", NULL);
@@ -881,7 +881,7 @@ test_write (void)
 	nemo_lnk_clear (&lnk);
 
 	/* Outside home and off any share, no variable covers it. Portable alone
-	   has nothing to hold, and says so rather than write an empty link. */
+	   has nothing to store, and says so rather than write an empty link. */
 	lnk_path = g_build_filename (root, "port.lnk", NULL);
 	check (!nemo_lnk_write (lnk_path, target, NEMO_LNK_PORTABLE, &error));
 	check (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT));
@@ -933,12 +933,12 @@ test_write (void)
 	write_and_read (root, "cifs/dir/a.txt", "a.lnk", &lnk);
 	check (g_strcmp0 (lnk.net_share, "\\\\SRV\\share") == 0);
 	check (g_strcmp0 (lnk.net_path, "dir\\a.txt") == 0);
-	/* The share path is the absolute one; the mount point here is not. */
+	/* The share path is the absolute one; the mount point here isn't. */
 	check (lnk.local_path == NULL);
 	nemo_lnk_clear (&lnk);
 
 	/* Portable on a share is the share path too, where Windows reads it. The
-	   other paths are always there now (backlog 2026092813381440).
+	   other paths are always there now, per backlog 2026092813381440.
 	   check (lnk.net_share == NULL && lnk.local_path == NULL && lnk.relative_path == NULL); */
 	write_parts (root, "cifs/dir/a.txt", "pa.lnk", TRUE, &lnk);
 	check (g_strcmp0 (lnk.env_path, "\\\\SRV\\share\\dir\\a.txt") == 0);
@@ -1005,7 +1005,7 @@ test_portable (void)
 	outside = realpath (machine.root, NULL);
 
 	/* Under home: the variable Windows has for it. "And nothing else" went
-	   with the path choice (backlog 2026092813381440).
+	   with the path choice, per backlog 2026092813381440.
 	   check (lnk.local_path == NULL && lnk.relative_path == NULL); */
 	touch (home, "Documents/p.txt");
 	target = g_build_filename (home, "Documents", "p.txt", NULL);
@@ -1019,7 +1019,7 @@ test_portable (void)
 	g_free (uri);
 	nemo_lnk_clear (&lnk);
 
-	/* All three: the variable is tried first, so a link copied to where the
+	/* All 3: the variable is tried first, so a link copied to where the
 	   absolute path is wrong still finds it. */
 	g_free (lnk_path);
 	lnk_path = g_build_filename (outside, "all.lnk", NULL);
@@ -1058,7 +1058,7 @@ test_portable (void)
 	g_free (target);
 
 	/* Too long for the block: left out. "With nothing else, refused" went
-	   with the path choice (backlog 2026092813381440). */
+	   with the path choice, per backlog 2026092813381440. */
 	target = g_build_filename (home, "long", NULL);
 	g_mkdir (target, 0700);
 	{
@@ -1094,7 +1094,7 @@ test_expand (void)
 	text = nemo_lnk_expand ("%USERPROFILE%\\a\\b.txt");
 	check (g_strcmp0 (text, want) == 0);
 	g_free (text);
-	/* Windows names are not case sensitive. */
+	/* Windows names aren't case sensitive. */
 	text = nemo_lnk_expand ("%UserProfile%\\a\\b.txt");
 	check (g_strcmp0 (text, want) == 0);
 	g_free (text);
@@ -1109,7 +1109,7 @@ test_expand (void)
 	check (g_strcmp0 (text, "$NEMO_LNK_TEST/q") == 0);
 	g_free (text);
 
-	/* One it does not have: nothing, rather than a guess. */
+	/* One it doesn't have: nothing, rather than a guess. */
 	check (nemo_lnk_expand ("%NEMO_LNK_NOT_SET%\\q") == NULL);
 
 	/* A lone percent sign is text. */
@@ -1182,7 +1182,7 @@ test_parse_env (void)
 	g_free (want);
 	nemo_lnk_clear (&lnk);
 
-	/* Dropping the relative path went with the path choice (backlog 2026092813381440).
+	/* Dropping the relative path went with the path choice, per backlog 2026092813381440.
 	check (nemo_lnk_drop_relative (lnk_path, NULL));
 	check (nemo_lnk_read (lnk_path, &lnk));
 	check (lnk.relative_path == NULL);
@@ -1222,7 +1222,7 @@ test_icon (void)
 	check (icon_has_name (icon, "folder"));
 	g_clear_object (&icon);
 
-	/* Rewritten with the same mtime: the cached answer stands. */
+	/* Rewritten with the same mtime: the cached icon stands. */
 	g_free (write_lnk (machine.root, "m.lnk", &pdf));
 	icon = nemo_lnk_icon_for_path (path, 100);
 	check (icon_has_name (icon, "folder"));
@@ -1329,7 +1329,7 @@ fifo_timed_out (int sig)
 }
 
 /* A FIFO with nobody writing blocks the open and the read for good. Listing
-   the folder it sits in asks for its icon and sort place, so only a regular
+   the folder it's in asks for its icon and sort place, so only a regular
    file may be read. */
 static void
 test_fifo (void)
@@ -1476,7 +1476,7 @@ main (void)
 	g_autofree char *scratch = test_scratch_dir ("nemo-lnk-home-XXXXXX", NULL);
 	char *real;
 
-	/* Real, since the writer reads the target as it really is. */
+	/* Real, since the writer reads the target with links resolved. */
 	real = realpath (scratch, NULL);
 	home = g_build_filename (real, "home", NULL);
 	free (real);

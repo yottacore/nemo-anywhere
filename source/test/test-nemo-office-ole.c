@@ -26,7 +26,7 @@
  * through the thumbnail factory. A thumbnailer and a search helper for these
  * types are installed, both this program run with --ran, which leaves a
  * mark. Nothing may leave one. Then damaged and lying files, which must
- * answer quickly and never crash. Same layout as test-nemo-office.c. */
+ * return quickly and never crash. Same layout as test-nemo-office.c. */
 
 #include <config.h>
 
@@ -107,7 +107,7 @@ zeros (GByteArray *a, gsize n)
 	}
 }
 
-/* Where FAT entry @sector sits in the written file. */
+/* Where FAT entry @sector is in the written file. */
 static gsize
 fat_entry_at (const OleLayout *lay, guint32 sector)
 {
@@ -755,7 +755,7 @@ test_damaged (const char *file)
 	}
 }
 
-/* Lengths and links that lie: each has to answer at once, with no more
+/* Lengths and links that lie: each has to return at once, with no more
    text than asked for. */
 static void
 test_lies (void)

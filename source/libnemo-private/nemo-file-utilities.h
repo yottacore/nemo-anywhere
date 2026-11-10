@@ -36,20 +36,20 @@
 #define DEFAULT_NEMO_DIRECTORY_MODE (0755)
 #define DEFAULT_DESKTOP_DIRECTORY_MODE (0755)
 
-/* The per-user dir our config dir sits in - roaming AppData on Windows,
+/* The per-user dir our config dir is in - roaming AppData on Windows,
  * Application Support on macOS, XDG elsewhere. Not freed by the caller. */
 const char *nemo_get_user_config_root            (void);
 
-/* The per-user dir our cache dir sits in - local AppData on Windows,
+/* The per-user dir our cache dir is in - local AppData on Windows,
  * ~/Library/Caches on macOS, XDG elsewhere. Not freed by the caller. */
 const char *nemo_get_user_cache_root             (void);
 
-/* <cache root>/nemo-anywhere, created if it is not there. Freed by the caller,
- * and NULL if the dir could not be made. */
+/* <cache root>/nemo-anywhere, created if it isn't there. Freed by the caller,
+ * and NULL if the dir couldn't be made. */
 char *   nemo_get_user_cache_directory           (void);
 
 /* These functions all return something something that needs to be
- * freed with g_free, is not NULL, and is guaranteed to exist.
+ * freed with g_free, isn't NULL, and is guaranteed to exist.
  */
 char *   nemo_get_xdg_dir                        (const char *type);
 char *   nemo_get_user_directory                 (void);
@@ -65,8 +65,8 @@ gboolean nemo_is_home_directory                  (GFile *dir);
 gboolean nemo_is_home_directory_file             (GFile *dir,
 						      const char *filename);
 gboolean nemo_is_in_system_dir                   (GFile *location);
-/* TRUE when uri is root itself or lies under it. A bare prefix is not enough:
-   ".../ab" is not under ".../a". A root that already ends in '/' (file:///)
+/* TRUE when uri is root itself or lies under it. A bare prefix isn't enough:
+   ".../ab" isn't under ".../a". A root that already ends in '/' (file:///)
    matches by prefix alone. */
 gboolean nemo_uri_is_at_or_under                 (const char *uri,
 						      const char *root);
@@ -86,7 +86,7 @@ void     nemo_note_process_start                 (void);
 gint64   nemo_get_uptime_seconds                 (void);
 char *   nemo_format_uptime                      (gint64 seconds);
 /* This function returns something that needs to be freed with g_free,
- * is not NULL, but is not garaunteed to exist */
+ * isn't NULL, but isn't garaunteed to exist */
 char *   nemo_get_desktop_directory_uri_no_create (void);
 
 /* Locate a file in either the uers directory or the datadir. */
@@ -173,7 +173,7 @@ gchar *nemo_get_mount_icon_name (GMount *mount);
 
 /* g_volume_monitor_get_mounts, except on Windows, where GLib's list asks the
    shell about every drive letter and so waits on any mapped to a share that
-   is not answering (nemo-drives-win32.h). Every list of mounts goes through
+   isn't answering (nemo-drives-win32.h). Every list of mounts goes through
    here.
    Returns: (transfer full): free with g_list_free_full and g_object_unref */
 GList *nemo_get_mounts (GVolumeMonitor *monitor);
@@ -191,7 +191,7 @@ GMount *nemo_get_mount_for_location_safe (GFile *location);
 gboolean nemo_location_is_network_safe (GFile *location);
 gboolean nemo_path_is_network_safe (const gchar *path);
 
-/* A drive root such as "C:\". Every surface that names a location asks here, so
+/* A drive root such as "C:\". Every part of the UI that names a location asks here, so
    the sidebar, the breadcrumb and the title agree. Always FALSE/NULL off win32. */
 gboolean nemo_location_is_drive_root (GFile *location);
 gchar *nemo_get_drive_root_name (GFile *location);
@@ -211,12 +211,12 @@ const gchar *nemo_path_display_home (void);
 guint nemo_path_form_for_width (const gint *widths, guint count, gint avail);
 
 /* Which of each tab's forms to show so the row fits in avail pixels. widths[i]
-   holds the pixel width of each of tab i's forms, longest first. Tab active is
-   the one in front and is not capped at max_px. */
+   has the pixel width of each of tab i's forms, longest first. Tab active is
+   the one in front and isn't capped at max_px. */
 void nemo_path_forms_fit (guint count, const gint *const *widths, const guint *form_counts,
                           guint active, gint min_px, gint max_px, gint avail, guint *chosen);
 
-/* The path a tab spells out when the full-path preference is on, or NULL when
+/* The path a tab shows when the full-path preference is on, or NULL when
    it is off or the location has no local path. */
 gchar *nemo_compute_title_path_for_location (GFile *location);
 
@@ -253,19 +253,19 @@ gsize        nemo_file_name_windows_device (const gchar *name);
    Returns: (transfer full): free with g_free */
 gchar       *nemo_file_name_make_valid (const gchar *name);
 /* A copy's name after the drive it goes to refused it, by the filesystem type
-   GIO gave for the drive. On FAT, exFAT, NTFS and a fuse mount, each character
+   GIO gave for the drive. On FAT, exFAT, NTFS, and a fuse mount, each character
    Windows refuses becomes "_" and trailing spaces go. TRUE if it changed. */
 gboolean     nemo_file_name_make_valid_for_fs (char *filename, const char *dest_fs_type);
 
 /* A line to put under a name entry, saying why the name won't do. Hidden while
-   it will. update answers whether the name is good. */
+   it will. update returns whether the name is good. */
 GtkWidget *nemo_name_hint_new (void);
 gboolean   nemo_name_hint_update (GtkWidget *hint, const gchar *name);
 
 /* A new folder named with separators in it makes each folder of the path,
    nested. "/" counts everywhere and "\\" on Windows too, since neither can be
    in a name there. On Windows "/" counts only while typed locations take it.
-   With that off, has_separator answers FALSE for a name with "/" in it, so the
+   With that off, has_separator returns FALSE for a name with "/" in it, so the
    plain rename refuses it. The split drops trailing separators and refuses a
    leading one, an empty part, a "/" that isn't a separator, any other character
    a name can't have, "." and "..". NULL with error set on a refusal.
@@ -310,7 +310,7 @@ gboolean nemo_content_type_is_a (const char *content_type, const char *mime_type
 gboolean nemo_content_type_equals (const char *content_type, const char *mime_type);
 
 /* The MIME type of a content type, which on Windows is a file extension and
-   on macOS a UTI. The formats a search converter or a thumbnailer ships for
+   on macOS a UTI. The formats a search converter or a thumbnailer is installed for
    are known there even when nothing installed has registered them.
    Safe from any thread.
    Returns: (transfer full): free with g_free */

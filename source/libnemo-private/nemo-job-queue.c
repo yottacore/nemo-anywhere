@@ -55,7 +55,7 @@ nemo_job_queue_finalize (GObject *obj)
 	NemoJobQueue *self = NEMO_JOB_QUEUE (obj);
 
 	/* Jobs are plain g_new0 structs, not GObjects - g_object_unref on one is
-	   undefined. Latent today (the queue is never finalized), wrong regardless. */
+	   undefined. The queue is never finalized today, but it's still wrong. */
 	if (self->priv->queued_jobs != NULL) {
 		g_list_free_full (self->priv->queued_jobs, g_free);
 		self->priv->queued_jobs = NULL;

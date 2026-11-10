@@ -1,7 +1,7 @@
 /* The archive:// address Mount archive opens. gvfs takes the archive's own URI
  * as the host part, escaped twice, and a name with a space or a percent sign in
  * it is where a single escape goes wrong. Mounting itself needs a running gvfs
- * and is not covered here. */
+ * and isn't covered here. */
 
 #include <config.h>
 

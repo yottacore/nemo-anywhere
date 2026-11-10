@@ -1,7 +1,7 @@
 /* A permanent delete out of the trash asks on the same terms as a direct delete.
  * It used to stop at the trash preference alone, so with that off, a delete over
  * a trash address that came from anything but a delete command went through with
- * no dialog. Its two siblings had always checked both. */
+ * no dialog. Its 2 siblings had always checked both. */
 
 #include <config.h>
 
@@ -40,7 +40,7 @@ main (void)
 	check (nemo_file_operations_delete_from_trash_asks (TRUE, 99));
 	check (!nemo_file_operations_delete_from_trash_asks (TRUE, 9));
 
-	/* Nothing to count against means the count cannot make it ask. */
+	/* Nothing to count against means the count can't make it ask. */
 	nemo_config_set_int (nemo_preferences, NEMO_PREFERENCES_CONFIRM_MANY_ITEMS, 0);
 	check (!nemo_file_operations_delete_from_trash_asks (TRUE, 99));
 	check (nemo_file_operations_delete_from_trash_asks (FALSE, 99));

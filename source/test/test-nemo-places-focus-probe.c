@@ -56,7 +56,7 @@ static gboolean    idles_open;
 static GList      *held;
 static GList      *held_idles;
 
-/* An answer from GIO, kept back until its gate opens. */
+/* A result from GIO, kept back until its gate opens. */
 typedef struct {
 	GAsyncReadyCallback callback;
 	gpointer            user_data;
@@ -342,7 +342,7 @@ send_button (GdkEventType type, guint button, int x, int y)
 
 	gdk_window_get_origin (bin, &origin_x, &origin_y);
 	event->button.window = g_object_ref (bin);
-	/* Every click gets its own time, so two of them never read as a double. */
+	/* Every click gets its own time, so 2 of them never read as a double. */
 	event->button.time = (guint32) (g_get_monotonic_time () / 1000);
 	event->button.x = x;
 	event->button.y = y;
@@ -357,7 +357,7 @@ send_button (GdkEventType type, guint button, int x, int y)
 	gdk_event_free (event);
 }
 
-/* FALSE when the place is not listed. */
+/* FALSE when the place isn't listed. */
 static gboolean
 click_place (guint button)
 {
@@ -417,7 +417,7 @@ find_item (GtkWidget *menu, const char *label)
 	return search.found;
 }
 
-/* The menu of "Places" is the one with a plain "Remove" on it. It is not asked
+/* The menu of "Places" is the one with a plain "Remove" on it. It isn't asked
  * to be on screen: with other programs on the display the menu can lose the
  * race for the pointer and stay down, and its items work all the same. */
 static GtkWidget *
@@ -459,7 +459,7 @@ settle (void)
 	}
 }
 
-/* Each step waits for what the one before set going. Up to ten seconds each. */
+/* Each step waits for what the one before set going. Up to 10 seconds each. */
 static gboolean
 tick (G_GNUC_UNUSED gpointer data)
 {
@@ -511,7 +511,7 @@ tick (G_GNUC_UNUSED gpointer data)
 		if (waited > 30) {
 			open_idles ();
 		}
-		/* The driver puts three files in each folder. */
+		/* The driver puts 3 files in each folder. */
 		if (!title_starts (second_name) || rows_in_view () < 3) {
 			return G_SOURCE_CONTINUE;
 		}

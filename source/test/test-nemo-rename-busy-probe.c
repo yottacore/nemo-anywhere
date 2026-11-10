@@ -226,7 +226,7 @@ send_escape (void)
 	gdk_event_free (event);
 }
 
-/* Up to forty seconds in all. */
+/* Up to 40 seconds in all. */
 static gboolean
 tick (G_GNUC_UNUSED gpointer data)
 {

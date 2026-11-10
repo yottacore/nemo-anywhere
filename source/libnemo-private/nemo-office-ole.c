@@ -259,7 +259,7 @@ word_text (Out *out, const guint8 *doc, gsize doc_len, const guint8 *table, gsiz
 	}
 
 	if (!have_text) {
-		/* Word 6/95, or a piece table that could not be read: the text sits in
+		/* Word 6/95, or a piece table that couldn't be read: the text is in
 		 * one run between fcMin and fcMac. */
 		gsize fc_min = rd32 (doc + FIB_FC_MIN);
 		gsize fc_mac = rd32 (doc + FIB_FC_MAC);
@@ -281,7 +281,7 @@ nemo_office_word_text (const guint8 *doc, gsize doc_len, const guint8 *table, gs
 }
 
 /* Excel, BIFF5 through BIFF8. Shared strings, plain labels, formula results,
- * numbers and sheet names are taken; layout and formatting are not. */
+ * numbers and sheet names are taken; layout and formatting aren't. */
 
 typedef struct {
 	const guint8 *data;
@@ -415,7 +415,7 @@ biff_chars (Biff *b, gsize cch, gboolean wide)
 	g_string_append_c (b->out->s, ' ');
 }
 
-/* XLUnicodeRichExtendedString: the shape of every BIFF8 string, with optional
+/* XLUnicodeRichExtendedString: the layout of every BIFF8 string, with optional
  * formatting runs and Asian phonetic data hanging off the end. */
 static void
 biff_string8 (Biff *b)
@@ -521,10 +521,10 @@ parse_biff (const guint8 *data, gsize len, Out *out)
 				unique = biff_u32 (&b);
 
 				/* The count comes off the file, so it can claim far more
-				   strings than the record holds. biff_string8 leaves pos
+				   strings than the record has. biff_string8 leaves pos
 				   alone when the record has run out and no CONTINUE
 				   follows it, so without the progress test a truncated
-				   workbook spins here once per claimed string, up to four
+				   workbook spins here once per claimed string, up to 4
 				   billion times. */
 				while (unique-- > 0 && b.pos < b.len && !out_full (out)) {
 					gsize before = b.pos;
@@ -588,7 +588,7 @@ parse_biff (const guint8 *data, gsize len, Out *out)
 			break;
 
 		case REC_FORMULA:
-			/* A string result is carried by the STRING record that follows. */
+			/* A string result is in the STRING record that follows. */
 			if (biff_need (&b, 14) && rd16 (data + b.pos + 12) != 0xFFFF) {
 				append_number (out, rd_double (data + b.pos + 6));
 			}

@@ -145,7 +145,7 @@ typedef struct {
 	guint    depth_bytes;
 	guint    factor;	/* each cell averages factor x factor pixels */
 	guint    cells_w, cells_h;
-	gboolean nearest;	/* palette indexes cannot be averaged */
+	gboolean nearest;	/* palette indexes can't be averaged */
 	guint32 *sums;
 } Shrink;
 
@@ -375,7 +375,7 @@ load (Reader *r, int size)
 	if (compression == 1) {
 		gsize entries = (gsize) used * height;
 		/* PackBits gets at most 128 bytes out of 2. A row shorter than that
-		 * cannot be whole, and padding it out would let a small file cost
+		 * can't be whole, and padding it out would let a small file cost
 		 * as much work as its declared size. */
 		gsize packed_min = (row_bytes + 127) / 128 * 2;
 		gsize i;

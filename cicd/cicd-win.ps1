@@ -1,11 +1,11 @@
 ##	Purpose:
 ##		- Windows-native CI/CD pipeline for Nemo Anywhere. A PowerShell companion to
-##		  the Linux cicd.bash - it does the same shape of work, but builds the app
-##		  NATIVELY on Windows with MSYS2/MinGW-w64 (meson + ninja) rather than in a
-##		  Linux container. The step containers (cicd/win/win-box.bash) are the Linux
-##		  host's cross story; on real Windows there's a native GTK3 toolchain, so no
-##		  Docker or wine is involved here. Does NOT touch cicd.bash or config.bash.
-##		- Steps (fail-fast; any error aborts before the next step):
+##		  the Linux cicd.bash. It does the same kind of work, but builds the app
+##		  natively on Windows with MSYS2/MinGW-w64, meson, and ninja, rather than in
+##		  a Linux container. The step containers in cicd/win/win-box.bash are how
+##		  the Linux host cross-builds. Real Windows has a native GTK3 toolchain, so
+##		  no Docker or wine is involved here. Doesn't touch cicd.bash or config.bash.
+##		- Steps, where any error aborts before the next step:
 ##		   Remote sync     (fetch; fast-forward if safely behind; abort if diverged)
 ##		   Lints           (check-only: every checker in cicd/utility/lint.bash)
 ##		   Build (debug)   (meson setup -Dxmp=false + ninja, MSYS2 mingw64)
@@ -25,40 +25,42 @@
 ##		  counts are half the CPUs, a quarter when CPU use is over 50%, checked
 ##		  before each step. CICD_JOBS_PIN or CICD_MAX_JOBS set beforehand pins it.
 ##		- The build needs MSYS2 with the mingw64 GTK toolchain (gtk3, meson, ninja,
-##		  json-glib, libexif, libarchive). A missing toolchain warn-skips the build/stage
-##		  (so sync + publish still run) unless -BuildStrict makes it a hard failure.
-##		- The staged bundle is a whole folder (nemo is a GTK prefix): the single exe
-##		  (extension lib folded in) in app\, and the mingw64 DLL dependency CLOSURE +
-##		  pixbuf loaders + schemas + icons under mingw64\. It is the INPUT to the
-##		  packer - the shipped/dogfood artifact is the single self-contained exe the
-##		  packer produces, dropped as one file (nemo-anywhere.exe) beside the other
-##		  by-self win64 apps. n8runfm.ps1 keeps its own stamped pool of that exe.
-##		- Code signing is optional and OFF unless configured via env: set
-##		  NEMO_SIGN_THUMBPRINT (an installed cert, incl. a hardware token) or
-##		  NEMO_SIGN_PFX (+ NEMO_SIGN_PFX_PASSWORD) to Authenticode-sign the packed
-##		  exe; unconfigured, the sign step is a no-op so the unsigned dev flow is
+##		  json-glib, libexif, libarchive). A missing toolchain warn-skips the build and
+##		  stage steps, so sync and publish still run, unless -BuildStrict makes it a
+##		  hard failure.
+##		- The staged bundle is a whole folder, since the app is a GTK prefix. It has
+##		  the single exe, with the extension lib folded in, in app\, and the mingw64
+##		  DLL dependency closure, pixbuf loaders, schemas, and icons under mingw64\.
+##		  It's the input to the packer. The released and dogfood artifact is the
+##		  single self-contained exe the packer makes, dropped as one file,
+##		  nemo-anywhere.exe, beside the other by-self win64 apps. n8runfm.ps1 keeps
+##		  its own stamped pool of that exe.
+##		- Code signing is optional and off unless set up through env. Set
+##		  NEMO_SIGN_THUMBPRINT, for an installed cert or a hardware token, or
+##		  NEMO_SIGN_PFX plus NEMO_SIGN_PFX_PASSWORD to Authenticode-sign the packed
+##		  exe. Without either, the sign step is a no-op so the unsigned dev flow is
 ##		  never blocked. Timestamp URL via NEMO_SIGN_TS_URL, signtool via NEMO_SIGNTOOL.
-##		- What Windows can't do (dropped vs cicd.bash): the profiler (Unix sampler),
-##		  the headless X harness / screenshots / demo (Xvfb), .deb/.rpm packages, and
-##		  the rar version-archive step of publish (Linux publisher only).
+##		- What cicd.bash does and Windows can't: the Unix sampling profiler, the
+##		  headless X harness, screenshots and demo under Xvfb, .deb and .rpm
+##		  packages, and the rar version-archive step of the Linux publisher.
 ##		- Syntax:
 ##		  pwsh cicd/cicd-win.ps1 [options]
 ##		  The options are cicd.bash's, in PowerShell's form: -BacklogRunQuick
 ##		  for --backlog-run-quick, and so on.
 ##		  Options:
-##		   -Yes, -y        run unattended (no confirm / message prompt)
+##		   -Yes, -y        run unattended, with no confirm or message prompt
 ##		   -Quiet, -q      quiet + unattended (implies -Yes); publish runs quiet too
 ##		   -Quick          skip the slow steps and any that need another box
 ##		                   (reserved: none run here yet, so the build, tests,
 ##		                   pack and dogfood all still run)
 ##		   -BacklogRunQuick [<area>...]
-##		                   lints, build, tests and smokes, then exit. Name areas
+##		                   lints, build, tests, and smokes, then exit. Name areas
 ##		                   to run only those. Areas: format (none here; the
 ##		                   format check runs on Linux), lint, tests
 ##		   -BacklogRunFull every check of a plain run: lints, build, tests,
 ##		                   smokes, the runtime bundle and the pack
 ##		   -MergeGate      the same checks, before a merge to main. Not one of
-##		                   these 3 syncs, dogfoods, publishes or prompts, and
+##		                   these 3 syncs, dogfoods, publishes, or prompts, and
 ##		                   naming 2 of them is refused
 ##		   -Gate           same as -BacklogRunQuick
 ##		   -Ci             same as -MergeGate
@@ -76,7 +78,7 @@
 ##		                   tests the first box left for a desktop session
 ##		   -NoDogfood      skip installing the staged bundle into the dogfood folder
 ##		   -NoPack         skip the portable single-exe pack stage
-##		   -NoSign         skip Authenticode signing (also auto-skips if unconfigured)
+##		   -NoSign         skip Authenticode signing, which skips itself when not set up
 ##		   -NoPublish      skip the git publish stage
 ##		   -BuildStrict    a missing MSYS2 toolchain aborts instead of warn-skip
 ##		   -Message MSG    publish hands-off with this commit message (no editor)
@@ -161,7 +163,7 @@ if (-not $IsWindows) {
 }
 
 ## The run mode, as cicd.bash names it. PowerShell doesn't keep the order the
-## switches came in, so cicd.bash's "the last one named wins" can't hold here,
+## switches came in, so cicd.bash's "the last one named wins" can't apply here,
 ## and 2 modes are refused instead.
 $RunMode = ''
 $modes = @()
@@ -180,8 +182,8 @@ foreach ($a in $Area) {
 ## An area not named is turned off; none named is all of them.
 function fAreaOff { param([string]$Name); return ($Area.Count -gt 0 -and $Name -notin $Area) }
 
-## -Quiet implies unattended; both suppress the preflight prompt. So does a
-## run of checks only, since nobody is there to answer.
+## -Quiet implies unattended, and both turn off the preflight prompt. So does a
+## run of checks only, since nobody is there to answer it.
 $Unattended = ($Yes -or $Quiet -or $ChecksOnly)
 
 ## Piped output goes out in the console's code page, where a code page with
@@ -200,7 +202,7 @@ if ($Gate) { Write-Host "[ -Gate is another name for -BacklogRunQuick ]" }
 if ($Ci) { Write-Host "[ -Ci is another name for -MergeGate ]" }
 
 ## Low priority before anything starts. Windows hands BelowNormal and Idle down
-## to child processes, so MSYS2, ninja, gcc and the tests run there too. A run
+## to child processes, so MSYS2, ninja, gcc, and the tests run there too. A run
 ## started lower than that stays where it was.
 $script:PriorityRank = @{ Idle = 0; BelowNormal = 1; Normal = 2; AboveNormal = 3; High = 4; RealTime = 5 }
 $script:PriorityStart = [string](Get-Process -Id $PID).PriorityClass
@@ -211,13 +213,13 @@ function fPriority {
 	$self = Get-Process -Id $PID
 	if ([string]$self.PriorityClass -eq $want) { return }
 	try { $self.PriorityClass = $want }
-	catch { Write-Warning "could not set priority ${want}: $($_.Exception.Message)" }
+	catch { Write-Warning "couldn't set priority ${want}: $($_.Exception.Message)" }
 }
 fPriority 'BelowNormal'
 
 
 #------------------------------------------------------------------------------
-# Configuration (Windows-native; config.bash stays the Linux source of truth).
+# Configuration, Windows-native. config.bash stays the Linux source of truth.
 
 ## Repo root = the parent of this script's cicd/ dir. Git and bash run here.
 $Root    = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -232,18 +234,18 @@ $MsysRoot = "C:\msys64"
 $MsysBash = Join-Path $MsysRoot "usr\bin\bash.exe"
 $MingwBin = Join-Path $MsysRoot "mingw64\bin"
 
-## Build + staged-bundle dirs (both under the gitignored cicd/artifacts/). Relative
+## Build and staged-bundle dirs, both under the gitignored cicd/artifacts/. Relative
 ## forms are what the mingw64 bash gets, so paths stay POSIX inside the shell.
 $BuildRel = "cicd/artifacts/build-win"
 $StageRel = "cicd/artifacts/win-run"
 $BuildDir = Join-Path $Root "cicd\artifacts\build-win"
 $StageDir = Join-Path $Root "cicd\artifacts\win-run"
 
-## Dogfood: the single self-contained exe dropped straight into the SYNCED app dir
-## for Windows (rides Dropbox, any box can grab it), one file per app alongside the
-## others - no app subfolder, no dll tree. n8runfm.ps1 reads this dir and keeps its
-## own GFS-rotated pool locally, so nothing dated is written here.
-## First one whose parent exists wins. Both spell the same directory where the
+## Dogfood: the single self-contained exe dropped straight into the synced app dir
+## for Windows, which Dropbox syncs to every box. It's one file per app beside the
+## others, with no app subfolder or dll tree. n8runfm.ps1 reads this dir and keeps
+## its own GFS-rotated pool locally, so nothing dated is written here.
+## First one whose parent exists wins. Both name the same directory where the
 ## junction is present, but a box may have only the Dropbox name.
 $DogfoodRoots = @(
 	(Join-Path $HOME "synced\0-0\common\exec\app\mswin")
@@ -253,14 +255,15 @@ $DogfoodRoot = $DogfoodRoots | Where-Object { Test-Path -LiteralPath (Split-Path
 if (-not $DogfoodRoot) { $DogfoodRoot = $DogfoodRoots[0] }
 $DogfoodExe  = Join-Path $DogfoodRoot "$ExeName.exe"
 
-## The packer's output - the single self-contained exe (cicd/win/pack-portable.ps1).
+## The packer's output, the single self-contained exe from cicd/win/pack-portable.ps1.
 $PortableExe = Join-Path $Root "cicd\artifacts\win-portable\$ExeName.exe"
 
-## The single version source. meson.build carries `version : '6.6.4'` (colon form).
+## The single version source. meson.build has `version : '6.6.4'`, in colon form.
 $VersionManifest = Join-Path $Root "source\meson.build"
 
-## Code signing (optional; all from env so nothing secret is written into the repo). Signing
-## is a no-op unless a cert is configured, so the unsigned dev flow is never blocked.
+## Code signing is optional, and set up only from env so nothing secret is written into
+## the repo. Signing is a no-op unless a cert is set up, so the unsigned dev flow is never
+## blocked.
 ##   NEMO_SIGN_THUMBPRINT  SHA1 thumbprint of an installed cert (store or token) - preferred
 ##   NEMO_SIGN_PFX (+ _PASSWORD)  a .pfx on disk (testing / self-signed)
 ##   NEMO_SIGN_TS_URL      RFC-3161 timestamp URL (default below)
@@ -270,12 +273,12 @@ $SignPfx        = $env:NEMO_SIGN_PFX
 $SignPfxPass    = $env:NEMO_SIGN_PFX_PASSWORD
 $SignTsUrl      = if ($env:NEMO_SIGN_TS_URL) { $env:NEMO_SIGN_TS_URL } else { "http://timestamp.digicert.com" }
 
-## Full-run transcript (gitignored; a Windows-side sibling of the Linux lint logs).
+## Full-run transcript, gitignored, the Windows-side sibling of the Linux lint logs.
 $LogDir = Join-Path $Root "cicd\artifacts\lint-win"
 
 
 #------------------------------------------------------------------------------
-# Output helpers (mirror cicd.bash: fEcho / fEcho_Clean / fSection)
+# Output helpers, as in cicd.bash: fEcho, fEcho_Clean, and fSection
 
 $script:WasLastEchoBlank = $false
 $script:Letterbox = ([string][char]0x2022) * 79
@@ -386,13 +389,13 @@ function fToMsysPath {
 }
 
 ## Run a command in the MSYS2 mingw64 login shell, from the repo root. The command's
-## own stdout streams to the console; its exit code goes to $script:MingwRc (NOT the
-## return value - a function's return is its whole pipeline, so returning the code
-## would fold the native stdout into it). MSYSTEM=MINGW64 + a login shell give the
-## mingw64 PATH and codegen tools; CHERE_INVOKING keeps our cd instead of $HOME.
-## The job count goes in by name, as SOURCE_DATE_EPOCH does in fBuild, rather
-## than trusting the login shell to pass our environment on. -Quiet swallows
-## output (for probes). The login shell's PATH has no pwsh, which lint's
+## own stdout streams to the console; its exit code goes to $script:MingwRc rather
+## than the return value. A function's return is its whole pipeline, so returning
+## the code would fold the native stdout into it. MSYSTEM=MINGW64 and a login shell
+## give the mingw64 PATH and codegen tools; CHERE_INVOKING keeps our cd instead of
+## $HOME. The job count goes in by name, as SOURCE_DATE_EPOCH does in fBuild, rather
+## than trusting the login shell to pass our environment on. -Quiet drops the
+## output, for probes. The login shell's PATH has no pwsh, which lint's
 ## script tests and PowerShell lint need, so this one goes on the end.
 $script:MingwRc = 0
 function fMingw {
@@ -408,7 +411,7 @@ function fMingw {
 }
 
 ## True when the mingw64 GTK build toolchain is present. Returns a reason string
-## when something's missing (for a clear warn-skip), or $null when it's good to go.
+## when something's missing, for a clear warn-skip, or $null when it's good to go.
 function fToolchainMissing {
 	if (-not (Test-Path -LiteralPath $MsysBash)) { return "MSYS2 not found at $MsysRoot" }
 	fMingw "command -v gcc meson ninja pkg-config >/dev/null 2>&1 && pkg-config --exists gtk+-3.0 json-glib-1.0 libexif" -Quiet
@@ -416,24 +419,24 @@ function fToolchainMissing {
 	return $null
 }
 
-## First `version : '...'` from meson.build (the project() line). Display only.
+## First `version : '...'` from meson.build, the project() line. Display only.
 function fVersion {
 	$m = Select-String -LiteralPath $VersionManifest -Pattern "version\s*:\s*'([^']+)'" | Select-Object -First 1
 	if (-not $m) { return "?" }
 	return $m.Matches[0].Groups[1].Value
 }
 
-## Native build: meson setup (first time with -Dxmp=false, else --reconfigure) then
-## ninja, in the mingw64 shell. Aborts on a real build error. Warnings are errors,
-## as in the Linux lanes (cicd/linux/run-tests.bash says why).
+## Native build: meson setup, with -Dxmp=false the first time and --reconfigure
+## after, then ninja, in the mingw64 shell. Aborts on a real build error. Warnings
+## are errors, as in the Linux lanes. cicd/linux/run-tests.bash says why.
 function fBuild {
 	## The linker stamps the PE header with the clock unless told otherwise, which
-	## makes two builds of the same commit differ. Set inside the snippet rather
-	## than as $env: - the mingw shell does not reliably carry ours across.
+	## makes 2 builds of the same commit differ. Set inside the snippet rather
+	## than as $env:, since the mingw shell doesn't reliably pass ours on.
 	## meson removes a static archive before rebuilding it everywhere but here, so
 	## a thin archive still naming the object of a deleted source fails to update,
 	## and ar blames the archive itself ("No such file or directory"). One ar
-	## cannot read is dropped; thin archives cost nothing to write again.
+	## can't read is dropped; thin archives cost nothing to write again.
 	## gcc runs the link-time optimization jobs through make, and with none on
 	## PATH it does them one at a time with only a warning.
 	$sh = @"
@@ -452,7 +455,7 @@ ninja -C $BuildRel -j $($script:Jobs)
 	fEcho "OK: native build: $exe ($size)"
 }
 
-## Every check-only lint, through the shared bash helper (cicd/utility/lint.bash).
+## Every check-only lint, through the shared bash helper cicd/utility/lint.bash.
 ## Each checker warn-skips when its tool isn't installed; findings abort. Runs
 ## in the mingw64 shell where they live.
 function fLint {
@@ -550,7 +553,7 @@ function fTests {
 	$rc = $LASTEXITCODE
 	fTestLine $test $rc
 	if ($rc -ne 0) { fDie "install.ps1 ACL check failed (exit $rc)" }
-	## Needs Windows file locking, and lint does not run it here.
+	## Needs Windows file locking, and lint doesn't run it here.
 	$test = Join-Path $Root "cicd\utility\test-install-staging.ps1"
 	& pwsh -NoProfile -File $test
 	$rc = $LASTEXITCODE
@@ -564,9 +567,9 @@ function fPrepInPlaceSmoke {
 	return (Join-Path $BuildDir "src\$ExeName.exe")
 }
 
-## Stage the self-contained runtime bundle via the shared bash helper (it needs ldd
-## and the mingw64 tree), then re-smoke it using ONLY the bundle's own runtime, so a
-## missing dll shows up here rather than on another box.
+## Stage the self-contained runtime bundle through the shared bash helper, which
+## needs ldd and the mingw64 tree, then smoke it again using only the bundle's own
+## runtime, so a missing dll shows up here rather than on another box.
 function fStage {
 	fMingw "bash cicd/win/stage-native.bash $BuildRel $StageRel"
 	if ($script:MingwRc -ne 0) { fDie "staging failed (exit $($script:MingwRc))" }
@@ -578,12 +581,12 @@ function fStage {
 
 ## Dogfood: drop the single packed exe into the synced app dir as one file. Needs
 ## the packer's output, so it runs after stage 5. Also retires what earlier layouts
-## left in the by-self folder this drop used to live in.
+## left in the by-self folder this drop used to go in.
 function fDogfood {
 	if (-not (Test-Path -LiteralPath $PortableExe)) { fWarn "no portable exe to dogfood (pack skipped or failed); skipping"; return }
 	New-Item -ItemType Directory -Path $DogfoodRoot -Force | Out-Null
 	## The launcher runs its own local copy, but someone may have started this one
-	## directly, and Windows will not overwrite a running exe anyway.
+	## directly, and Windows won't overwrite a running exe anyway.
 	$running = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path -ieq $DogfoodExe }
 	if ($running) { fWarn "$DogfoodExe is running; left as is"; return }
 	Copy-Item -LiteralPath $PortableExe -Destination $DogfoodExe -Force
@@ -626,13 +629,13 @@ function fFindSigntool {
 }
 
 ## Authenticode-sign one file with a SHA-256 digest and an RFC-3161 timestamp, then
-## verify the chain. No-op (a note) when signing isn't configured, so an unsigned
-## build still ships. A missing signtool warns and leaves the exe unsigned; a real
-## signing error aborts (a half-signed release should not go out).
+## verify the chain. Prints a note and does nothing when signing isn't set up, so
+## an unsigned build still goes out. A missing signtool warns and leaves the exe
+## unsigned. A real signing error aborts, since a half-signed release mustn't go out.
 function fSignFile {
 	## The password arrives as plaintext from the environment either way. This
 	## turns it into a SecureString to import the cert, which is the safer of
-	## the two ways to hand it to signtool - see the note further down.
+	## the 2 ways to hand it to signtool. See the note further down.
 	[Diagnostics.CodeAnalysis.SuppressMessageAttribute(
 		'PSAvoidUsingConvertToSecureStringWithPlainText', '')]
 	param([Parameter(Mandatory)][string]$Path)
@@ -667,16 +670,17 @@ function fSignFile {
 		}
 	}
 	if ($LASTEXITCODE -ne 0) { fDie "signing failed (exit $LASTEXITCODE): $Path" }
-	## /pa = default authenticode policy; a self-signed/test cert verifies only if it
-	## is trusted on this box, so treat a verify miss as a warning, not a hard fail.
+	## /pa = default authenticode policy; a self-signed/test cert verifies only if it's
+	## trusted on this box, so treat a verify miss as a warning, not a hard fail.
 	& $signtool @("verify", "/pa", "/v", $Path) | Out-Null
 	if ($LASTEXITCODE -ne 0) { fWarn "signed, but chain verify failed (untrusted/self-signed cert?): $Path" }
 	fEcho "OK: signed $Path"
 }
 
-## Pack: the staged bundle -> one self-contained exe (cicd/win/pack-portable.ps1,
-## Enigma Virtual Box), then sign it (no-op unless a cert is configured). Without
-## EVB the plan turns the step off - the dogfood/single exe is the release artifact.
+## Pack: the staged bundle -> one self-contained exe, through
+## cicd/win/pack-portable.ps1 and Enigma Virtual Box, then sign it, which does
+## nothing unless a cert is set up. Without EVB the plan turns the step off, since
+## the single exe is the release and dogfood artifact.
 function fEvbFound {
 	return (Test-Path -LiteralPath "C:\Program Files (x86)\Enigma Virtual Box\enigmavbconsole.exe") -or
 		(Test-Path -LiteralPath "C:\Program Files\Enigma Virtual Box\enigmavbconsole.exe") -or
@@ -689,10 +693,10 @@ function fPack {
 	else { fSignFile -Path $PortableExe }
 }
 
-## Stage 0: remote sync (see cicd-win history / fRemoteSync in the Linux gate). Make
-## sure the local branch can be safely refreshed BEFORE spending the build - what
-## publish pushes should be what got built and tested. Behind-only fast-forwards
-## (stash-wrapped); diverged aborts now; offline warns.
+## Stage 0: remote sync, as fRemoteSync in the Linux gate does. Make sure the local
+## branch can be safely refreshed before spending the build, so what publish pushes
+## is what got built and tested. Behind-only fast-forwards inside a stash, diverged
+## aborts now, and offline warns.
 function fRemoteSync {
 	& git rev-parse --abbrev-ref '@{u}' 2>$null | Out-Null
 	if ($LASTEXITCODE -ne 0) {
@@ -725,7 +729,7 @@ function fRemoteSync {
 	fRun "git pull" $script:GitExe ($script:GitPre + @("pull", "--ff-only"))
 	if ($didStash) {
 		fEcho_Clean "git stash pop ..."
-		## A conflicting pop leaves the stash held and the tree half-merged.
+		## A conflicting pop leaves the stash in place and the tree half-merged.
 		## Abort saying where the work is: a rerun with sync off would otherwise
 		## build and commit a tree missing it, conflict markers and all.
 		& git stash pop
@@ -749,23 +753,23 @@ function fAutoMessage {
 	return "Updated"
 }
 
-## Git that talks to the remote goes through gitsby where it is installed, so the
-## fetch, pull and push use the key and account this repo belongs to.
+## Git that talks to the remote goes through gitsby where it's installed, so the
+## fetch, pull, and push use the key and account this repo belongs to.
 $script:GitExe = "git"
 $script:GitPre = @()
 if (Get-Command gitsby -ErrorAction SilentlyContinue) { $script:GitExe = "gitsby"; $script:GitPre = @("raw", "git") }
 
-## Run a native command from the repo root; abort (fail-fast) on a non-zero exit.
+## Run a native command from the repo root, and abort on a non-zero exit.
 function fRun {
 	param([Parameter(Mandatory)][string]$What, [Parameter(Mandatory)][string]$File, [string[]]$CmdArgs = @())
 	& $File @CmdArgs
 	if ($LASTEXITCODE -ne 0) { fDie "$What failed (exit $LASTEXITCODE): $File $($CmdArgs -join ' ')" }
 }
 
-## Publish: the host-side half of the Linux backup+publish, MINUS the rar version
-## archive (that lives in the Linux-only n8git_backup-and-publish). stash (if dirty)
-## -> pull --ff-only (if upstream) -> pop -> add -> commit -> push. $Msg empty means
-## "let git open its editor".
+## Publish: the host-side half of the Linux backup and publish, without the rar
+## version archive, which only the Linux n8git_backup-and-publish makes. stash if
+## dirty -> pull --ff-only if there's an upstream -> pop -> add -> commit -> push.
+## $Msg empty means "let git open its editor".
 function fPublish {
 	param([Parameter(Mandatory)][AllowEmptyString()][string]$Msg)
 	$branch = (& git rev-parse --abbrev-ref HEAD).Trim()
@@ -793,7 +797,7 @@ function fPublish {
 	}
 	if ($didStash) {
 		fEcho_Clean "git stash pop ..."
-		## A conflicting pop leaves the stash held and the tree half-merged.
+		## A conflicting pop leaves the stash in place and the tree half-merged.
 		## Abort saying where the work is: a rerun with sync off would otherwise
 		## build and commit a tree missing it, conflict markers and all.
 		& git stash pop
@@ -899,7 +903,7 @@ function fList {
 		$steps | & $py (Join-Path $Root 'cicd/utility/test-id.py') --list
 		$rc = $LASTEXITCODE
 	} finally { $env:PYTHONUTF8 = $savedUtf8 }
-	if ($rc -ne 0) { fDie "could not list the steps' test IDs" }
+	if ($rc -ne 0) { fDie "couldn't list the steps' test IDs" }
 	$script:WasLastEchoBlank = $false
 	fEcho_Clean
 }
@@ -916,7 +920,7 @@ function fMain {
 	if (-not $List) {
 		## The last finally block removes it, whatever the outcome.
 		try { $script:RunTempDir = New-RunTemp -Project $ExeName -Stamp $stamp }
-		catch { fDie "could not make a run folder: $($_.Exception.Message)" }
+		catch { fDie "couldn't make a run folder: $($_.Exception.Message)" }
 		Remove-StaleRunTemp -Project $ExeName -Keep $script:RunTempDir
 		fJobs
 		$toolMiss = fToolchainMissing
@@ -988,7 +992,7 @@ function fMain {
 	## The steps this run takes, in order, and the ones turned off with why. A
 	## missing toolchain turns off everything that needs it, so sync and publish
 	## still run, unless -BuildStrict makes the build step fail on it. A run of
-	## checks only changes nothing, so sync, dogfood and publish are off.
+	## checks only changes nothing, so sync, dogfood, and publish are off.
 	$syncWhy  = if ($ChecksOnly) { $RunMode } elseif ($NoSync) { '-NoSync' } else { '' }
 	$lintWhy  = if ($NoFmt) { '-NoFmt' } elseif ($toolMiss) { 'toolchain missing' } else { '' }
 	$buildWhy = if ($NoBuild) { '-NoBuild' } elseif ($toolMiss -and -not $BuildStrict) { 'toolchain missing' } else { '' }
@@ -1044,7 +1048,7 @@ function fMain {
 	## saying out loud, since the log is where a failure gets read afterwards.
 	New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
 	## Same GFS rotation as the Linux logs, done before this run's file is open,
-	## since Windows cannot rename a file in use.
+	## since Windows can't rename a file in use.
 	if (Test-Path -LiteralPath $MsysBash) {
 		fMingw -Quiet "source cicd/utility/include/gfs-rotate.bash && gfs_rotate cicd/artifacts/lint-win run log"
 		if ($script:MingwRc -ne 0) { fWarn "log rotation failed (exit $($script:MingwRc)); old logs kept" }

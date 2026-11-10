@@ -2,7 +2,7 @@
 
 ##	- Purpose: Check the Linux side of the FreeBSD lane, with no FreeBSD box.
 ##	  A copy of lane.bash runs in a scratch repo, with an ssh and scp on PATH
-##	  that run the box's side in a scratch home here, and stand-ins for the two
+##	  that run the box's side in a scratch home here, and stand-ins for the 2
 ##	  scripts the box would run.
 ##	  - What is sent is the tracked and untracked files, not the ignored ones,
 ##	    to a new run folder under the box's temp root, with the build dir
@@ -18,14 +18,14 @@
 ##	  - The lane prints its steps as "FreeBSD N of M" under the 79-dot rule,
 ##	    with the time to the hundredth, and a step that fails closes as FAIL.
 ##	  - --release brings the pkg back and packs the prefix as the -bsd- tarball
-##	    with the commit's stamp on every entry, so two runs give the same bytes
+##	    with the commit's stamp on every entry, so 2 runs give the same bytes
 ##	    whatever times the box left on the files. The sums file covers both.
 ##	  - The run goes through the host lock's wrap, for vmFreeBSD, and through
 ##	    the VM state helper's when that is on the box too.
-##	  - A VM still booting is waited for. One that never answers, or a box that
+##	  - A VM still booting is waited for. One that never responds, or a box that
 ##	    isn't FreeBSD, fails before anything is sent, the second without the
 ##	    wait. A box that isn't there, and isn't a VM here, exits 77 before the
-##	    lock is taken. So does a VM that's running but doesn't answer, in
+##	    lock is taken. So does a VM that's running but doesn't respond, in
 ##	    seconds, unless another session holds it.
 ##	  - A box whose clock is hours behind, as a VM resumed from paused is,
 ##	    fails before anything is sent, and so does one that is ahead. One whose
@@ -78,7 +78,7 @@ GIT_AUTHOR_DATE="@${commitDate}" GIT_COMMITTER_DATE="@${commitDate}" fGit commit
 printf 'untracked\n' > "${repo}/untracked.txt"
 printf 'ignored\n' > "${repo}/ignored.txt"
 
-## The box's side: a home here, a uname that says FreeBSD, and the two scripts
+## The box's side: a home here, a uname that says FreeBSD, and the 2 scripts
 ## the lane runs there swapped for stand-ins.
 box="${scratch}/box"
 shim="${scratch}/shim"
@@ -207,7 +207,7 @@ if [[ "$runDir" =~ ^${boxTemp}/[0-9]{8}-[0-9]{6}_001$ ]]; then fEcho "OK: the la
 [[ ! -e "$runDir" ]] || fFail "the run folder was left after a pass"
 [[ "$(cat "${box}/run-tests-where.log" 2>/dev/null || true)" == "pwd=${runDir}/src tmp=${runDir},${runDir},${runDir} pid=ok" ]] \
 	|| fFail "the suite ran with '$(cat "${box}/run-tests-where.log" 2>/dev/null || true)'"
-[[ ! -e "${boxTemp}/20200101-000000_001" ]] || fFail "an old run folder whose run is gone was not swept"
+[[ ! -e "${boxTemp}/20200101-000000_001" ]] || fFail "an old run folder whose run is gone wasn't swept"
 [[ -e "${boxTemp}/20200101-000000_002" ]] || fFail "an old folder with no run.pid was swept"
 compgen -G "${boxTemp}/*_009" > /dev/null || fFail "a young run folder was swept"
 grep -q -F "removed stale bsdtest@vmFreeBSD:${boxTemp}/20200101-000000_001" "${scratch}/lane.log" || fFail "no line for the stale folder swept"
@@ -219,7 +219,7 @@ else
 	fFail "run-tests.bash got '$(cat "${box}/run-tests.log" 2>/dev/null || true)'"
 fi
 grep -q -F 'NEMO_TEST_JOBS=6 nice -n 19 bash cicd/linux/run-tests.bash' "${scratch}/ssh-cmds.log" \
-	|| fFail "the suite did not run under nice 19 there: $(grep -F run-tests "${scratch}/ssh-cmds.log" || true)"
+	|| fFail "the suite didn't run under nice 19 there: $(grep -F run-tests "${scratch}/ssh-cmds.log" || true)"
 grep -q -F 'jobs 6 (load 1.00 on 12 cpus on bsdtest@vmFreeBSD)' "${scratch}/lane.log" || fFail "no jobs line for the box"
 
 ## The step lines: each step opens under the rule and closes, with the time.
@@ -251,7 +251,7 @@ else
 fi
 if NEMO_BSD_JOBS=many fLane --tests; then fFail "--tests passed with NEMO_BSD_JOBS=many"; else fEcho "OK: a pin that isn't a count fails"; fi
 grep -q -E -- '^wrap vmFreeBSD .*-- bash .*lane\.bash --tests --locked$' "${scratch}/lock.log" \
-	|| fFail "--tests did not go through the lock's wrap for vmFreeBSD: $(cat "${scratch}/lock.log")"
+	|| fFail "--tests didn't go through the lock's wrap for vmFreeBSD: $(cat "${scratch}/lock.log")"
 
 ## With both tools on the box and neither named, the VM state helper is the one
 ## used, since only it starts a VM that is off.
@@ -264,7 +264,7 @@ if (cd "$repo" && env -u SOURCE_DATE_EPOCH -u WINDOWS_HOST_LOCK -u BOX_WRAP_TOOL
 	if grep -q -E -- '^wrap vmFreeBSD ' "${scratch}/vm-state.log" 2>/dev/null && [[ ! -e "${scratch}/host-lock.log" ]]; then
 		fEcho "OK: the VM state helper is picked over the bare host lock"
 	else
-		fFail "the VM state helper was not the one used"
+		fFail "the VM state helper wasn't the one used"
 	fi
 else
 	fFail "--tests through the VM state helper failed: $(tail -3 "${scratch}/lane.log")"
@@ -279,7 +279,7 @@ else
 	fFail "--tests failed on a box that came up on the third try: $(tail -3 "${scratch}/lane.log")"
 fi
 
-## Never answers, or isn't FreeBSD: both fail before the send.
+## Never responds, or isn't FreeBSD: both fail before the send.
 rm -f "${scratch}/ssh-tries"
 if BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=off FAKE_SSH_DOWN=99 BOX_READY_POLL=1 NEMO_BSD_READY_WAIT=1 fLane --tests; then fFail "--tests passed on a box that never answered"
 elif ! grep -q 'did not answer' "${scratch}/lane.log"; then fFail "no reason for a box that never answered: $(tail -3 "${scratch}/lane.log")"
@@ -311,11 +311,11 @@ rm -f "${scratch}/clock-reads" "${box}/run-tests.log"
 : > "${scratch}/vm-state.log"
 if BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=paused FAKE_CLOCK_BEHIND=60941 FAKE_CLOCK_READS=2 BOX_READY_POLL=0 fLane --tests; then
 	if ! grep -q 'clock is right after' "${scratch}/lane.log"; then fFail "no line saying the clock was waited for"
-	elif ! grep -q -E -- '^wrap vmFreeBSD ' "${scratch}/vm-state.log" || [[ ! -f "${box}/run-tests.log" ]]; then fFail "the suite did not run inside the VM state helper's wrap"
+	elif ! grep -q -E -- '^wrap vmFreeBSD ' "${scratch}/vm-state.log" || [[ ! -f "${box}/run-tests.log" ]]; then fFail "the suite didn't run inside the VM state helper's wrap"
 	else fEcho "OK: a clock set after the resume is waited for"
 	fi
 else
-	fFail "--tests failed on a box whose clock was set after two reads: $(tail -3 "${scratch}/lane.log")"
+	fFail "--tests failed on a box whose clock was set after 2 reads: $(tail -3 "${scratch}/lane.log")"
 fi
 
 ## Not there, and not a VM here: a skip, before the lock.
@@ -329,7 +329,7 @@ else fEcho "OK: a box that isn't there is a skip"
 fi
 fNoneLeft "a run folder on a box that isn't there"
 
-## A VM that's running but never answers, and nobody else holds: a skip in
+## A VM that's running but never responds, and nobody else has it: a skip in
 ## seconds, rather than the helper's boot wait.
 rm -f "${scratch}/ssh-tries"
 : > "${scratch}/vm-state.log"
@@ -370,7 +370,7 @@ for run in 1 2; do
 	sums+=("$(sha256sum "${art}/${name}.tar.gz" | cut -d' ' -f1)")
 done
 grep -q -F 'CICD_MAX_JOBS=6 nice -n 19 bash cicd/bsd/release.bash' "${scratch}/ssh-cmds.log" \
-	|| fFail "the release build did not get the box's jobs under nice 19: $(grep -F release.bash "${scratch}/ssh-cmds.log" || true)"
+	|| fFail "the release build didn't get the box's jobs under nice 19: $(grep -F release.bash "${scratch}/ssh-cmds.log" || true)"
 fSteps "FreeBSD 1 of 4; Starting Box ready|FreeBSD 1 of 4; PASS Box ready|FreeBSD 2 of 4; Starting Send|FreeBSD 2 of 4; PASS Send|FreeBSD 3 of 4; Starting Release build|FreeBSD 3 of 4; PASS Release build|FreeBSD 4 of 4; Starting Bring back|FreeBSD 4 of 4; PASS Bring back" \
 	"${scratch}/lane.log" && fEcho "OK: --release prints its steps"
 fNoneLeft "after --release" && fEcho "OK: --release leaves no run folder"
@@ -404,7 +404,7 @@ sumsFile="${art}/nemo-anywhere-9.9.9-rc1-sha256sums.txt"
 for f in "${name}.tar.gz" "${name}.pkg"; do
 	grep -q -F "  ${f}" "$sumsFile" 2>/dev/null || fFail "no sums line for ${f}"
 done
-if (cd "$art" && sha256sum -c --quiet "${sumsFile##*/}"); then fEcho "OK: sums file verifies"; else fFail "sums file does not verify"; fi
+if (cd "$art" && sha256sum -c --quiet "${sumsFile##*/}"); then fEcho "OK: sums file verifies"; else fFail "sums file doesn't verify"; fi
 
 if ((failures)); then fEcho "${failures} FreeBSD lane check(s) failed"; exit 1; fi
 fEcho "FreeBSD lane checks passed"

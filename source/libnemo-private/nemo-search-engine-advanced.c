@@ -181,7 +181,7 @@ process_search_helper_file (const gchar *path)
     }
 
     /* Off Windows a bare backslash is a bad escape to GKeyFile, and the whole
-       list comes back NULL. Unchecked is not the same as found. */
+       list comes back NULL. Unchecked isn't the same as found. */
     try_exec_list = nemo_user_text_get_string_list (key_file, SEARCH_HELPER_GROUP, "TryExec", NULL, &error);
 
     if (try_exec_list == NULL) {
@@ -459,7 +459,7 @@ nemo_search_name_matcher_new (NemoQuery *query)
         gchar **words;
 
         /* A content-only search leaves the file pattern unset, and everything below
-         * walks off a NULL. Empty means "every name", which the fallback below spells. */
+         * walks off a NULL. Empty means "every name", which the fallback below writes out. */
         text = nemo_query_get_file_pattern (query);
         if (text == NULL) {
             text = g_strdup ("");
@@ -959,7 +959,7 @@ load_contents (SearchThreadData *data,
     return g_string_free (str, FALSE);
 }
 
-/* TRUE when the file could be read (hits or not), FALSE when it could not.
+/* TRUE when the file could be read (hits or not), FALSE when it couldn't.
  * in_app reads an office file here rather than through a helper. */
 static gboolean
 search_for_content_hits (SearchThreadData *data,
@@ -1103,8 +1103,8 @@ should_skip_child (SearchThreadData *data, G_GNUC_UNUSED GFileInfo *info, GFile 
     return TRUE;
 }
 
-/* Win32 calls the extension the content type (".txt"), and an extension it does not
- * know maps to application/x-ext-<ext>, so the plain is_a() check answers no for every
+/* Win32 calls the extension the content type (".txt"), and an extension it doesn't
+ * know maps to application/x-ext-<ext>, so the plain is_a() check returns FALSE for every
  * file. macOS gives a UTI, and public.data for a name with no extension. Convert first,
  * and when the answer is still nothing useful, read the head of the file and let GIO
  * decide from the bytes. */
@@ -1131,7 +1131,7 @@ content_type_is_text (const gchar  *content_type,
             return TRUE;
         }
 
-        /* A type we do know, and it is not text. */
+        /* A type we do know, and it isn't text. */
         if (!g_str_has_prefix (mime, "application/x-ext-") &&
             g_strcmp0 (mime, "application/octet-stream") != 0) {
             return FALSE;

@@ -301,7 +301,7 @@ drive_mount_can_nothing (G_GNUC_UNUSED GMount *mount)
 	return FALSE;
 }
 
-/* A drive letter is not ours to unmount or eject, as with GLib's own. */
+/* A drive letter isn't ours to unmount or eject, as with GLib's own. */
 static void
 drive_mount_refuse (GMount                           *mount,
 		    G_GNUC_UNUSED GMountUnmountFlags  flags,

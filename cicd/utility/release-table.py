@@ -2,9 +2,9 @@
 """Print the Downloads section of a release's notes: a table with the target OS
 in rows and the CPU in columns, each cell linking that build's files.
 
-Reads what GitHub says the release holds (gh release view <tag> --json assets),
-not what was built here. GitHub renames any character outside [A-Za-z0-9._-] in
-an asset name, so the names and links come from its side. A row or column only
+Reads what GitHub lists for the release, from gh release view <tag> --json
+assets, rather than what was built here. GitHub renames any character outside
+[A-Za-z0-9._-] in an asset name, so the names and links come from its side. A row or column only
 shows up when something was built for it; a combination not built is an empty
 cell. Checksums and files that name no OS and CPU go in a line under the table.
 

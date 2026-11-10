@@ -3,10 +3,10 @@
 ##	- Purpose: Checks on the FreeBSD pkg file and the -bsd- tarball beside it,
 ##	  read on this box with tar and python, so no FreeBSD is needed here.
 ##	  - The manifest names the app and this version as pkg writes a version,
-##	    says FreeBSD, and depends on gtk3, glib and gdk-pixbuf-extra, and on no
+##	    says FreeBSD, and depends on gtk3, glib, and gdk-pixbuf-extra, but not on any
 ##	    base system package.
 ##	  - Every file goes under /usr/local/nemo-anywhere, apart from the command
-##	    link, the menu entry and the app icons, and the link and the menu entry
+##	    link, the menu entry, and the app icons. The link and the menu entry
 ##	    point into that folder.
 ##	  - The tarball has the same files as that folder, so pkg add and
 ##	    install.bash install the same build. The pkg leaves out the folder's
@@ -96,13 +96,13 @@ if exe.lstrip("/") not in members:
     fail("no " + exe)
 link = members.get(command)
 if link is None or not link.issym() or link.linkname != exe:
-    fail("/%s is not a link to %s" % (command, exe))
+    fail("/%s isn't a link to %s" % (command, exe))
 if menu not in members:
     fail("no menu entry")
 else:
     text = pkg.extractfile(members[menu]).read().decode()
     if "\nExec=%s " % exe not in "\n" + text:
-        fail("the menu entry does not start " + exe)
+        fail("the menu entry doesn't start " + exe)
 
 tar = tarfile.open(tar_path, "r:gz")
 top = tar_path.rsplit("/", 1)[-1][: -len(".tar.gz")] + "/"

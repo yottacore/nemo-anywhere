@@ -197,7 +197,7 @@ main (int argc, char *argv[])
 
 	check_place (accessible, field);
 
-	/* An edit through the accessible object reaches the field, and the
+	/* An edit through the accessible object changes the field, and the
 	   text it then reports follows. */
 	atk_editable_text_set_text_contents (ATK_EDITABLE_TEXT (accessible), "other.png");
 	settle ();

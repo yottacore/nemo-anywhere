@@ -17,7 +17,7 @@
 static void
 check_keeps_its_share (void)
 {
-	/* A third of the width, at three different widths. */
+	/* A third of the width, at 3 different widths. */
 	check (nemo_pane_layout_scale_position (300, 900, 1800, FLOOR) == 600);
 	check (nemo_pane_layout_scale_position (300, 900, 450, FLOOR) == 150);
 	check (nemo_pane_layout_scale_position (600, 1800, 900, FLOOR) == 300);
@@ -29,7 +29,7 @@ check_keeps_its_share (void)
 	check (nemo_pane_layout_scale_position (240, 1278, 1000, FLOOR) == 188);
 }
 
-/* Nothing to do when the window did not actually change width. */
+/* Nothing to do when the window's width didn't change. */
 static void
 check_same_width_is_left_alone (void)
 {

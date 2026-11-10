@@ -472,7 +472,7 @@ file_query_info (GFile               *file,
         }
         else
         {
-            // This file is still in our favorites list but doesn't exist (currently).
+            // Still in our favorites list, but gone for now.
             g_clear_error (error);
             gchar *content_type;
 
@@ -493,7 +493,7 @@ file_query_info (GFile               *file,
             g_file_info_set_attribute_string (info, FAVORITE_AVAILABLE_METADATA_KEY, META_FALSE);
 
             /* An entry stored without its mimetype half still has to draw
-             * something - a NULL here used to cascade into four criticals. */
+             * something - a NULL here used to cascade into 4 criticals. */
             content_type = g_content_type_from_mime_type (mimetype_or_default (priv->info->cached_mimetype));
 
             if (content_type != NULL)
@@ -633,7 +633,7 @@ file_query_filesystem_info (GFile         *file,
                                              cancellable,
                                              error);
 
-        /* An unmounted or deleted target answers NULL, with the reason already
+        /* An unmounted or deleted target returns NULL, with the reason already
          * in *error - there is nothing here to decorate. */
         if (info != NULL &&
             g_file_attribute_matcher_matches (matcher, G_FILE_ATTRIBUTE_FILESYSTEM_READONLY))

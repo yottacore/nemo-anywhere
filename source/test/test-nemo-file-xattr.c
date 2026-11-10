@@ -1,5 +1,5 @@
-/* Checksums kept on the file itself. What is worth checking is not whether the
- * file system works but that a checksum is refused the moment the file stops
+/* Checksums kept on the file itself. The check is that a checksum is refused
+ * the moment the file stops
  * being what it was, whether that shows up as a different size, a different
  * time, or a write that only got half way.
  *
@@ -52,7 +52,7 @@ supported_here (const char *scratch)
 	return back != NULL && g_str_equal (back, "1");
 }
 
-/* A value written comes back, a name nobody wrote does not, and a second write
+/* A value written comes back, a name nobody wrote doesn't, and a second write
  * replaces rather than appends. */
 static void
 check_round_trip (const char *scratch)
@@ -132,11 +132,11 @@ check_write_keeps_file_time (const char *scratch)
 	check (after.st_mtime == 1600000000);
 }
 
-/* Each of the three attributes is written on its own, so a process that dies
- * between two of them leaves a state a later reader has to throw away rather
+/* Each of the 3 attributes is written on its own, so a process that dies
+ * between 2 of them leaves a state a later reader has to throw away rather
  * than believe. Which order they go in is what decides whether that is always
- * possible, and no test can hold that part - the unsafe state is one a read
- * cannot tell from a good one. `fCheckDigestAttrOrder` in lint-c.bash holds it
+ * possible, and no test can check that part, since a read can't tell the
+ * unsafe state from a good one. `fCheckDigestAttrOrder` in lint-c.bash checks it
  * instead. What is checked here is the half a read can see. */
 static void
 check_torn_write_is_refused (const char *scratch)
@@ -159,12 +159,12 @@ check_torn_write_is_refused (const char *scratch)
 	check (nemo_file_digest_write_attr (file, 3, mtime_one, first));
 
 	/* Now the file is edited and the write of the new checksum stops after
-	 * the first of its three attributes. */
+	 * the first of its 3 attributes. */
 	nemo_file_digest_to_text (second, text);
 	check (nemo_file_xattr_set (file, "blake3.b64u", text));
 
 	/* A reader always asks about the file as it is now, and the file is now
-	 * four bytes stamped later. The new checksum is sitting there next to a
+	 * 4 bytes stamped later. The new checksum is sitting there next to a
 	 * size and a time that predate it, so nothing comes back. */
 	check (!nemo_file_digest_read_attr (file, 4, mtime_two, back));
 
@@ -174,8 +174,8 @@ check_torn_write_is_refused (const char *scratch)
 	check (memcmp (back, second, sizeof (second)) == 0);
 }
 
-/* A checksum half written by something else, or an attribute that is not one at
- * all, is not a checksum. */
+/* A checksum half written by something else, or an attribute that isn't one at
+ * all, isn't a checksum. */
 static void
 check_junk_is_refused (const char *scratch)
 {
@@ -191,7 +191,7 @@ check_junk_is_refused (const char *scratch)
 	check (nemo_file_xattr_set (file, "blake3.b64u", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"));
 	check (!nemo_file_digest_read_attr (file, 2, mtime, back));
 
-	/* All three, but the checksum is somebody else's idea of a value. */
+	/* All 3, but the checksum is somebody else's idea of a value. */
 	check (nemo_file_xattr_set (file, "blake3.b64u", "not a checksum"));
 	check (nemo_file_xattr_set (file, "blake3.bytes", "2"));
 	check (nemo_file_xattr_set (file, "blake3.mtime", "1700000000000000"));

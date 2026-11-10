@@ -61,7 +61,7 @@ void nemo_show_start_error                  (GtkWindow                         *
 						  const GError                      *error);
 
 #ifdef G_OS_WIN32
-/* A helper that will not start, once per program. */
+/* A helper that won't start, once per program. */
 void nemo_show_helper_start_errors          (void);
 #endif
 

@@ -117,7 +117,7 @@ struct _NemoMainApplicationPriv {
 
 	gboolean instance_published;
 
-	/* A tab moved here from another copy, carried on the command line. */
+	/* A tab moved here from another copy, passed on the command line. */
 	gchar *tab_view;
 	gchar **tab_select;
 };
@@ -130,9 +130,9 @@ publish_instance (NemoMainApplication *self)
 }
 
 /* The activation file has to name a path, and a portable copy has no path until
- * it runs - the one that ships in a prefix names wherever it was built. So it is
+ * it runs - the one that comes in a prefix names wherever it was built. So it is
  * written here instead, into the user's own service directory, and only when it
- * does not already describe this copy. */
+ * doesn't already describe this copy. */
 static void
 refresh_dbus_service_file (G_GNUC_UNUSED NemoMainApplication *self)
 {
@@ -193,7 +193,7 @@ unpublish_instance (NemoMainApplication *self)
 	}
 }
 
-/* Every other running copy; NULL when they cannot be reached. */
+/* Every other running copy; NULL when they can't be reached. */
 static GStrv
 other_instances (G_GNUC_UNUSED GApplication *application)
 {
@@ -207,7 +207,7 @@ nemo_main_application_other_instances (void)
 	return other_instances (g_application_get_default ());
 }
 
-/* Asks every other copy to quit. FALSE only when they cannot be reached. */
+/* Asks every other copy to quit. FALSE only when they can't be reached. */
 static gboolean
 quit_other_instances (G_GNUC_UNUSED GApplication *application)
 {
@@ -297,7 +297,7 @@ nemo_main_application_close_all_windows (NemoApplication *self)
 	g_list_free (list_copy);
 }
 
-/* The splash stands in until the window is not merely up but finished - the
+/* The splash stands in until the window is finished - the
  * view in place and the folder listed to the end. */
 
 /* Whichever comes first: the folder listed to the end, or a second after the
@@ -311,7 +311,7 @@ nemo_main_application_close_all_windows (NemoApplication *self)
  * arrives at all because the location never answers. */
 #define SPLASH_MAX_SECONDS	25
 
-/* Weak, so a window closed while still loading cannot leave the watch holding
+/* Weak, so a window closed while still loading can't leave the watch holding
  * a freed pointer. */
 static NemoWindow *splash_watch_window;
 
@@ -339,7 +339,7 @@ splash_watch_stop (void)
 /* Polled rather than hung off the window's draw signal: nothing guarantees a
  * frame arrives at the moment loading flips false, since the last rows may
  * already have been painted, and a splash that outlives the load by a frame
- * that never comes is worse than one checked ten times a second. */
+ * that never comes is worse than one checked 10 times a second. */
 static gboolean
 splash_watch_cb (G_GNUC_UNUSED gpointer data)
 {
@@ -549,7 +549,7 @@ mount_removed_callback (G_GNUC_UNUSED GVolumeMonitor *monitor,
  * chrome. That is the difference between a launch that looks stalled and one
  * that looks busy.
  *
- * Called once the window has somewhere to be, and not before: realising the
+ * Called once the window has somewhere to be, and not before: realizing the
  * chrome makes it ask its slot where it is, and a slot with neither a location
  * nor a pending one has no answer. It also has to come after any --geometry has
  * been applied, which is only honored while the window is still hidden.
@@ -567,7 +567,7 @@ show_window_early (NemoWindow *window)
 	nemo_splash_note (_("Opening the window"));
 	gtk_widget_show (GTK_WIDGET (window));
 
-	/* Showing a window maps it but does not activate it, so it sits one
+	/* Showing a window maps it but doesn't activate it, so it sits one
 	 * place behind whatever the user was looking at - which, with a splash
 	 * covering the moment it appears, reads as nothing having opened at all
 	 * until the taskbar button is noticed. Present it, as launching an app
@@ -872,7 +872,7 @@ nemo_main_application_local_command_line (GApplication *application,
 		{ "version", '\0', 0, G_OPTION_ARG_NONE, &version,
 		  N_("Show the version of the program."), NULL },
 		{ "about", '\0', 0, G_OPTION_ARG_NONE, &about,
-		  N_("Show the version, copyright and license."), NULL },
+		  N_("Show the version, copyright, and license."), NULL },
 		{ "geometry", 'g', 0, G_OPTION_ARG_STRING, &self->priv->geometry,
 		  N_("Create the initial window with the given geometry. "
              "Examples: nemo --geometry=+100+100, nemo --geometry=600x400, nemo --geometry=600x400+100+100."), N_("GEOMETRY") },
@@ -897,7 +897,7 @@ nemo_main_application_local_command_line (GApplication *application,
 		{ "fix-cache", '\0', 0, G_OPTION_ARG_NONE, &fix_cache,
 		  N_("Repair the user thumbnail cache - this can be useful if you're having trouble with file thumbnails.  Must be run as root"), NULL },
 		{ "reset", '\0', 0, G_OPTION_ARG_NONE, &reset_config,
-		  N_("Clear the settings and bookmarks, putting everything back to defaults. Nemo must not be running."), NULL },
+		  N_("Clear the settings and bookmarks, putting everything back to defaults. Nemo Anywhere must not be running."), NULL },
         { "debug", 0, 0, G_OPTION_ARG_NONE, &debug,
           "Enable debugging code.  Example usage: 'NEMO_DEBUG=Actions,Window nemo --debug'.  Use NEMO_DEBUG=help for more topics.", NULL },
 		{ "quit", 'q', 0, G_OPTION_ARG_NONE, &kill_shell, 
@@ -1110,7 +1110,7 @@ nemo_main_application_local_command_line (GApplication *application,
 	}
 
 	for (idx = 0; idx < len; idx++) {
-		EEL_ANALYZER_SKIP ("null-dereference") // files holds len of them, from the array or the default above
+		EEL_ANALYZER_SKIP ("null-dereference") // files has len of them, from the array or the default above
 		g_object_unref (files[idx]);
 		EEL_ANALYZER_END
 	}

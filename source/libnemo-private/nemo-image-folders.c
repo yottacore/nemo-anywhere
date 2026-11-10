@@ -235,7 +235,7 @@ look_ahead_done (G_GNUC_UNUSED GObject *source, GAsyncResult *res, G_GNUC_UNUSED
 	LookAhead *job = g_task_get_task_data (task);
 	guint i;
 
-	/* A cancelled run still answers for the folders it finished. */
+	/* A canceled run still reports the folders it finished. */
 	for (i = 0; i < job->images->len; i++) {
 		guint images = g_array_index (job->images, guint, i);
 		guint others = g_array_index (job->others, guint, i);

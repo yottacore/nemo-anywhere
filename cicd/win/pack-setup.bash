@@ -42,7 +42,7 @@ while (($#)); do case "$1" in
 	*)         fDie "unknown option: $1 (try --help)" ;;
 esac; done
 
-command -v unzip >/dev/null 2>&1 || fDie "unzip is not installed"
+command -v unzip >/dev/null 2>&1 || fDie "unzip isn't installed"
 work=""
 trap 'fSafeRm_IfThere "${work}"; fStepBox_Stop' EXIT
 fWinBox_Start "windows setup" --no-build-win || exit 1

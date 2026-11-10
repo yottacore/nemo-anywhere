@@ -1,9 +1,9 @@
 ##	Purpose:
 ##		- Small GUI driver for the running app: screenshot, window rects,
 ##		  raise, click, key, type. Finds the app's window by enumerating the
-##		  pid's visible windows and taking the largest (MainWindowHandle often
-##		  answers a hidden 1x1 GTK toplevel).
-##		- Run under powershell.exe 5.1, not pwsh - Add-Type System.Drawing
+##		  pid's visible windows and taking the largest, since MainWindowHandle
+##		  often returns a hidden 1x1 GTK toplevel.
+##		- Run under powershell.exe 5.1, not pwsh. Add-Type System.Drawing
 ##		  needs a pile of assembly references on .NET Core.
 ##		- Syntax:
 ##		  powershell cicd/win/gui.ps1 shot <pid> <png> | shotwin <hwnd> <png> |
@@ -13,7 +13,7 @@
 ##		    click <x> <y> [right] | move <x> <y> |
 ##		    key <vk> [alt|ctrl|shift] | type <text>
 ##	History:
-##		- 2026-09-03: desk, for menus and other windows the app does not own; move,
+##		- 2026-09-03: desk, for menus and other windows the app doesn't own; move,
 ##		  for hover.
 ##		- 2026-08-30: Created (backlog: GUI testing without touching the live session).
 

@@ -26,7 +26,7 @@
  * clicks the parent in the tree, and looks at the list's selection. Then it
  * goes back and up with Alt+Up, which still selects the folder just left. Last
  * it presses Right and Left on the folder's tree row, and a second Left to
- * reach its parent, then copies that row with Ctrl+C while the list has
+ * go to its parent, then copies that row with Ctrl+C while the list has
  * everything selected. One "ok" or "FAIL" line per check goes to
  * $NEMO_TREE_KEYS_OUT, and "done" at the end. */
 
@@ -447,7 +447,7 @@ steps (void)
 	return TRUE;
 }
 
-/* Each step waits on what the one before set going, up to ten seconds. */
+/* Each step waits on what the one before set going, up to 10 seconds. */
 static gboolean
 tick (G_GNUC_UNUSED gpointer data)
 {

@@ -35,7 +35,7 @@
 #include <string.h>
 
 /* Names the stream, with the prefix that lifts the 260-character limit. A
- * relative path cannot take the prefix, so it goes without and takes the
+ * relative path can't take the prefix, so it goes without and takes the
  * limit. */
 static wchar_t *
 stream_path (const char *path, const char *name)
@@ -94,7 +94,7 @@ nemo_xattr_win32_get (const char *path, const char *name)
 
 	buffer[got] = '\0';
 
-	/* Anything with a NUL in it was not written by us. */
+	/* Anything with a NUL in it wasn't written by us. */
 	if (strlen (buffer) != got)
 		return NULL;
 
@@ -119,7 +119,7 @@ nemo_xattr_win32_set (const char *path, const char *name, const char *value)
 	if (wide == NULL)
 		return FALSE;
 
-	/* CREATE_ALWAYS truncates, so a shorter value does not leave the tail of
+	/* CREATE_ALWAYS truncates, so a shorter value doesn't leave the tail of
 	 * a longer one behind it. */
 	handle = CreateFileW (wide, GENERIC_WRITE, FILE_SHARE_READ,
 			      NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);

@@ -134,7 +134,7 @@ main (int argc, char **argv)
 	write_file (tmp, "late.txt");
 	check (wait_for_name ("late.txt"));
 
-	/* A forced reload has to finish, not just start. */
+	/* A forced reload has to finish rather than only start. */
 	nemo_directory_force_reload (directory);
 	check (wait_for_load (2));
 

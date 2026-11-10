@@ -1,9 +1,9 @@
 /* The file cache prune. Each rule is checked for what it takes and for what it
  * has to leave alone: a missing file goes but a file on a missing folder stays,
- * one on a share is not looked for, an old thumbnail goes but a recently drawn
+ * one on a share isn't looked for, an old thumbnail goes but a recently drawn
  * one stays, an old name with no thumbnail goes but a recent one stays, and the
  * size limit takes the least recently drawn first. The claim is checked from both sides, since
- * two processes pruning at once is what it exists to stop. */
+ * 2 processes pruning at once is what it exists to stop. */
 
 #include <config.h>
 
@@ -120,7 +120,7 @@ store (NemoCacheDb *db, const char *uri, gint64 file_bytes, gint64 stored, gsize
 }
 
 /* A pass that finishes says when the next is due, inside the gap, and the next
- * one is not due until then unless forced. */
+ * one isn't due until then unless forced. */
 static void
 check_due_and_gap (void)
 {
@@ -264,8 +264,8 @@ check_missing (NemoCacheDb *db)
 	check (has_thumbnail (db, remote));
 }
 
-/* A file on a share is never looked for, since a host that is not answering
- * would hold the pass. One that has gone stays until it is off the share. */
+/* A file on a share is never looked for, since a host that isn't responding
+ * would stall the pass. One that has gone stays until it is off the share. */
 static void
 check_missing_on_share (NemoCacheDb *db)
 {
@@ -358,7 +358,7 @@ files_of_size (gint64 file_bytes)
 	return query_int (sql);
 }
 
-/* A name whose thumbnail has gone holds only what the file gives again, so it
+/* A name whose thumbnail has gone has only what the file gives again, so it
  * goes once nothing has been stored under it for the age limit, or 180 days
  * with no limit, and its file record with it. A name that still has a
  * thumbnail is left to the thumbnail rules, and a copy's other name keeps the
@@ -471,7 +471,7 @@ check_size (NemoCacheDb *db)
 
 /* The prune picks each batch holding the write lock, and every other window's
  * store waits behind it. Picking by age used to sort the whole thumbnail
- * table, about a second a batch at 40 thousand, against a 3 second busy
+ * table, about a second a batch at 40,000, against a 3 second busy
  * timeout. What sqlite reports for the real queries has to stay within one
  * batch however many rows there are. */
 static void
@@ -525,7 +525,7 @@ check_batch_bytes (NemoCacheDb *db)
 
 	check (g_mkdir_with_parents (dir, 0700) == 0);
 
-	/* Gone from a folder that is still there, so what they held is left with
+	/* Gone from a folder that is still there, so what they had is left with
 	 * no name and goes as an orphan. */
 	for (i = 0; i < 24; i++) {
 		g_autofree char *name = g_strdup_printf ("gone-%02d.jpg", i);
@@ -678,7 +678,7 @@ check_waiting_writer (NemoCacheDb *db)
 	check (waiter.most_steps <= 2);
 }
 
-/* A damaged page deep in the file does not stop it opening, so the pass is what
+/* A damaged page deep in the file doesn't stop it opening, so the pass is what
  * finds it. It leaves a marker, and the next open starts over. */
 static void
 check_damage (void)

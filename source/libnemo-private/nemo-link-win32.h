@@ -1,5 +1,5 @@
 /* nemo-link-win32.h - real file-system links on Windows: symlinks and
- * junctions. A different thing from a .lnk shell shortcut, which lives in
+ * junctions. A different thing from a .lnk shell shortcut, which is in
  * nemo-shortcut-win32.h. Empty on non-Windows.
  *
  * Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -23,8 +23,8 @@ G_BEGIN_DECLS
    deduplication, store app aliases) and none of those are links to copy. */
 NemoLinkKind nemo_win32_link_kind (const char *path);
 
-/* Whether opening path through the link reaches anything. GLib cannot say:
-   for a link that leads nowhere it answers with the link's own type, a file
+/* Whether opening path through the link reaches anything. GLib can't say:
+   for a link that leads nowhere it returns the link's own type, a file
    or a folder, as if it had been followed. */
 gboolean nemo_win32_link_leads_somewhere (const char *path);
 
@@ -38,8 +38,8 @@ gboolean nemo_win32_link_leads_nowhere_here (const char *link_path);
    drive's entry in the object table, not the share. */
 gboolean nemo_win32_drive_is_remote (const char *path);
 
-/* What a link points at, spelled the way the link itself spells it - so a
-   relative symlink answers with its relative text. Caller frees. */
+/* What a link points at, spelled the way the link itself has it - so a
+   relative symlink returns its relative text. Caller frees. */
 gboolean nemo_win32_link_read_target (const char  *link_path,
                                       char       **target,
                                       GError     **error);

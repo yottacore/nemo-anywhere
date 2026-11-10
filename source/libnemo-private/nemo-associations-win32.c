@@ -1,8 +1,8 @@
 /* nemo-associations-win32.c - which program opens what, on Windows
  *
  * The registry says what the shell would open a file with, and it is read the
- * way the shell reads it - the same query Explorer makes - but never written:
- * Windows keeps the per-user choice under a hash a program is not meant to
+ * way the shell reads it, with the query Explorer makes, but never written.
+ * Windows keeps the per-user choice under a hash a program isn't meant to
  * set. A choice made here goes into the settings file instead, as a command
  * line with %1 standing for the file, and is consulted first.
  *
@@ -361,7 +361,7 @@ nemo_associations_win32_command_of (GAppInfo *app)
 	return app != NULL ? g_object_get_data (G_OBJECT (app), DATA_COMMAND) : NULL;
 }
 
-/* GIO's own entries answer with the same registry command line ours carry, so
+/* GIO's own entries answer with the same registry command line ours have, so
  * anything with one can be started the same way. A store app has none.
  * Returns: (transfer none): owned by @app */
 const gchar *
@@ -397,7 +397,7 @@ nemo_associations_win32_default_for_type (const gchar *content_type)
 	GAppInfo *app;
 	gchar *command, *name = NULL;
 
-	/* win32 calls the type its extension; anything else is not ours to answer */
+	/* win32 calls the type its extension; anything else isn't ours to answer */
 	if (content_type == NULL || content_type[0] != '.') {
 		return NULL;
 	}
@@ -422,7 +422,7 @@ nemo_associations_win32_default_for_type (const gchar *content_type)
 	return app;
 }
 
-/* The command a chosen app should be remembered as: what it carries, else
+/* The command a chosen app should be remembered as: what it has, else
  * what the registry gave GIO for it, else its program with the file appended. */
 gboolean
 nemo_associations_win32_set_default (GAppInfo    *app,

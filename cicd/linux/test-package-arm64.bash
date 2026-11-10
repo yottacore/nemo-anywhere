@@ -76,7 +76,7 @@ cat > "${scratch}/bin/uname" <<-EOF
 	#!/usr/bin/env bash
 	if [[ "\${1:-}" == -m ]]; then echo "\${FAKE_ARCH:-x86_64}"; else exec "${realUname}" "\$@"; fi
 EOF
-## The container answers with its own arch in the line, so a reading can be
+## The container replies with its own arch in the line, so a reading can be
 ## told from the arm64 box's.
 cat > "${scratch}/bin/docker" <<-EOF
 	#!/usr/bin/env bash
@@ -105,7 +105,7 @@ fResetOut
 if ! fPack "${scratch}/out" --no-rpm; then
 	fFail "the default run failed: $(cat "${scratch}/out")"
 elif [[ -e "$armDeb" || ! -f "$x86Deb" ]]; then
-	fFail "the default run did not package the x86_64 tarball alone"
+	fFail "the default run didn't package the x86_64 tarball alone"
 else
 	[[ "$(fDepends "$x86Deb")" == "libc6 (>= 2.35), from-container-x86_64" ]] || fFail "the x86_64 .deb depends on '$(fDepends "$x86Deb")', not the container's reading"
 fi
@@ -117,7 +117,7 @@ fResetOut
 if ! fPack "${scratch}/out" --arch arm64; then
 	fFail "--arch arm64 failed: $(cat "${scratch}/out")"
 elif [[ ! -f "$armDeb" || -e "$x86Deb" ]]; then
-	fFail "--arch arm64 did not package the arm64 tarball alone"
+	fFail "--arch arm64 didn't package the arm64 tarball alone"
 else
 	[[ "$(fDepends "$armDeb")" == "libc6 (>= 2.34), libgtk-3-0 (>= 3.24.33), from-arm64-box" ]] || fFail "the arm64 .deb depends on '$(fDepends "$armDeb")', not the arm64 box's line"
 	[[ "$(dpkg-deb -f "$armDeb" Architecture)" == arm64 ]] || fFail "the arm64 .deb is for $(dpkg-deb -f "$armDeb" Architecture)"

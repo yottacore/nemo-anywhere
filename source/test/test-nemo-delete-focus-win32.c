@@ -24,8 +24,9 @@
 /* The shell's property sheet runs on a thread of the program's own, outside
  * GTK. A plain window on another thread, owned by the GTK one, stands in for
  * it: once it closes, the delete key counts at once. A fresh window, and focus
- * back from another program (this one again, run with --other), still ignore
- * it for a second. Skips where the window can't get the focus. */
+ * back from another program, still ignore it for a second. The other program
+ * is this one again, run with --other. Skips where the window can't get the
+ * focus. */
 
 #include <config.h>
 

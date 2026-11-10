@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-##	- Purpose: Run both installers against the Linux release tarball just built:
+##	- Purpose: Run both installers against the Linux release tarball the run built:
 ##	  install, install again over it, then uninstall, each into a scratch home,
 ##	  and again with the prefix a link to a folder elsewhere.
 ##	  Offline, through --from, so it tests the install steps and not the network.
@@ -38,7 +38,7 @@ trap 'fSafeRm_IfThere "${scratch}"' EXIT
 failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
-## $1 label, rest the command. Everything the installer touches sits under a
+## $1 label, rest the command. Everything the installer touches is under a
 ## home of its own, which is emptied between installers.
 fRound(){
 	local label="$1"; shift
@@ -57,7 +57,7 @@ fRound(){
 		fi
 		[[ -x "${prefix}/bin/${exeName}" ]] || fFail "${label} ${pass}: no ${prefix}/bin/${exeName}"
 		[[ -f "$launcher" ]] || fFail "${label} ${pass}: no launcher"
-		[[ "$(readlink "$symlink" || true)" == "${prefix}/bin/${exeName}" ]] || fFail "${label} ${pass}: symlink does not point into the prefix"
+		[[ "$(readlink "$symlink" || true)" == "${prefix}/bin/${exeName}" ]] || fFail "${label} ${pass}: symlink doesn't point into the prefix"
 		leftovers="$(find "${home}/.local/share" -maxdepth 1 \( -name ".${exeName}-install.*" -o -name "${exeName}.old.*" -o -name "${exeName}.new.*" \) || true)"
 		[[ -z "$leftovers" ]] || fFail "${label} ${pass}: staging left behind: ${leftovers}"
 	done

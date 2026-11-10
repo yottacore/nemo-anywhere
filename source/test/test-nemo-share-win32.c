@@ -20,20 +20,20 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* Two ways a folder of links used to hold a listing up for minutes on Windows.
+/* Two ways a folder of links used to stall a listing for minutes on Windows.
  *
- * share: the share check has to answer from the name alone. It is asked for
+ * share: the share check has to decide from the name alone. It is asked for
  * every file on every pass of the async loop, so a lookup that went to the
  * host would cost the very timeout it exists to avoid. A file in a folder on a
  * mapped drive counts, like one on a UNC path. Set
  * NEMO_PROBE_DEAD_SHARE to an unused address on the local subnet to time it
- * against one that really does not answer.
+ * against one that doesn't respond.
  *
- * dangling: the listing does not follow links, so a junction whose folder is
+ * dangling: the listing doesn't follow links, so a junction whose folder is
  * gone is still listed, as a link, and the load finishes. With
- * NEMO_PROBE_DEAD_SHARE set and symlinks allowed, a link to that share sits in
+ * NEMO_PROBE_DEAD_SHARE set and symlinks allowed, a link to that share is in
  * the folder too, and the listing must not wait on it: following it costs
- * about twenty seconds. */
+ * about 20 seconds. */
 
 #include <config.h>
 
@@ -131,7 +131,7 @@ run_share (void)
 
 	/* An address in TEST-NET-1 when no dead one is given. That fails fast
 	   on its own, so without the variable the timing proves only that the
-	   answer is right. */
+	   result is right. */
 	far = g_build_filename (dead != NULL ? dead : "\\\\192.0.2.1\\share", "deep", "file.txt", NULL);
 	{
 		GFile *location = g_file_new_for_path (far);
@@ -165,8 +165,8 @@ run_share (void)
 		g_object_unref (local);
 	}
 	/* Commented out 20261005: a folder on a mapped drive now counts as a
-	   share (decision 20261005 on 2026093010493450), so this only held while
-	   Z: was not mapped on the box. The mapped case is the "nas" folder below.
+	   share, per 20261005 on 2026093010493450, so this was only true while
+	   Z: wasn't mapped on the box. The mapped case is the "nas" folder below.
 	check (!share_by_uri ("file:///Z:/mapped/file.txt"));
 	*/
 
@@ -188,7 +188,7 @@ run_share (void)
 
 	/* A folder standing in for a mapped drive. A link onto it from here is
 	   on a share, and so is anything inside it. A link from inside it to
-	   elsewhere on it still does not leave for a share. */
+	   elsewhere on it still doesn't leave for a share. */
 	{
 		char *nas = g_build_filename (dir, "nas", NULL);
 		char *inside = g_build_filename (nas, "inside", NULL);
@@ -203,7 +203,7 @@ run_share (void)
 		nemo_file_unref (link);
 
 		/* Commented out 20261005: a folder on a mapped drive now counts as a
-		   share (decision 20261005 on 2026093010493450), so a file there is
+		   share, per 20261005 on 2026093010493450, so a file there is
 		   on it whatever it points at.
 		link = link_with_target (inside, "within-nas", beside);
 		check (!nemo_file_is_on_a_share (link));

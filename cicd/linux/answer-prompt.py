@@ -2,11 +2,11 @@
 
 # Run a command on a terminal of its own and type one answer at its prompt.
 #
-# The installers only ask when stdin is a terminal, so a pipe cannot answer
-# them. script(1) gives them one, but nothing on it answers the cursor
+# The installers only ask when stdin is a terminal, so a pipe can't answer
+# them. script(1) gives them one, but nothing on it replies to the cursor
 # position queries .NET sends before reading a line, and each of those waits
-# out a timeout of its own - fourteen seconds a question for install.ps1.
-# Here every query is answered at once.
+# out a timeout of its own, 14 seconds a question for install.ps1.
+# Here every query gets a reply at once.
 #
 # The answer is typed once the prompt text has been seen and the output has
 # gone quiet. Everything the command prints is passed through; the exit code

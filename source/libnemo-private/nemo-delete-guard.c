@@ -177,7 +177,7 @@ nemo_delete_guard_is_protected (GFile *file)
 		return FALSE;
 	}
 
-	/* Only a real folder can be any of these. A link to one is just a link. */
+	/* Only a real folder can be any of these. A link to one is only a link. */
 	if (g_lstat (path, &st) != 0 || !S_ISDIR (st.st_mode)) {
 		g_free (path);
 		return FALSE;
@@ -217,7 +217,7 @@ dir_is_home (GFile *dir)
 
 #else /* G_OS_WIN32 */
 
-/* A volume mounted inside a folder is not caught. */
+/* A volume mounted inside a folder isn't caught. */
 gboolean
 nemo_delete_guard_is_protected (GFile *file)
 {
@@ -442,7 +442,7 @@ nemo_delete_guard_sweeps_home (GList *files)
 	return sweeps;
 }
 
-/* The two confirmation preferences are the person's to turn off. This is not:
+/* The two confirmation preferences are the person's to turn off. This isn't:
    a job no trash or delete command asked for, or one big enough that a slip
    takes a whole folder, asks regardless. */
 gboolean
@@ -589,7 +589,7 @@ nemo_delete_guard_log (const char *format, ...)
 	g_message ("%s", message);
 
 	/* stderr is usually a log under home, which goes with home. The journal
-	   does not. Skipped when stderr already is the journal. */
+	   doesn't. Skipped when stderr already is the journal. */
 	if (!g_log_writer_is_journald (fileno (stderr))) {
 		const GLogField fields[] = {
 			{ "MESSAGE", message, -1 },

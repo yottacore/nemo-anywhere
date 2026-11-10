@@ -1,4 +1,4 @@
-/* Thumbnails read from and written to the file cache. The rules worth holding:
+/* Thumbnails read from and written to the file cache. The rules checked:
  * a photo goes in as JPEG and a picture with see-through parts as PNG, a load
  * never decodes bigger than it was asked for and says when it cut one down,
  * and the store is read before the freedesktop cache. */
@@ -69,7 +69,7 @@ check_size_step (void)
 	check (nemo_thumbnail_size_step (NEMO_THUMBNAIL_SIZE_STEP + 1) == 2 * NEMO_THUMBNAIL_SIZE_STEP);
 }
 
-/* Stores a 400x200 picture rendered for 512, then reads it back at two sizes. */
+/* Stores a 400x200 picture rendered for 512, then reads it back at 2 sizes. */
 static void
 check_load_caps (NemoCacheDb *db)
 {

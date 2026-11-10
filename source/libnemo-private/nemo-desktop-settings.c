@@ -39,7 +39,7 @@ static NemoConfigGroup *own_interface;
 
 static gboolean ready;
 
-/* g_settings_new aborts on a schema that is not installed, so look first. */
+/* g_settings_new aborts on a schema that isn't installed, so look first. */
 static GSettings *
 open_if_installed (const char *schema_id)
 {

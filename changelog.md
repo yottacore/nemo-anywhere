@@ -14,57 +14,58 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Removed
 
 ### Other work
+
 -->
 
 ## vNEXT - unreleased
 
 ### Added
 
-- Every move to the trash and every delete is written to the log with how many items, which folder, and the key, click or drop that asked for it. One that nothing asked for - another program, another copy of the app, a timer - always asks first, and says so. So does one of twenty items or more (`confirm-many-items` in the settings file), even with confirmation turned off.
+- Every move to the trash and every delete is written to the log with how many items, which folder, and the key, click, or drop that started it. One that wasn't started that way, such as one from another program, another copy of the app, or a timer, always asks first and says so. So does one of 20 items or more, even with confirmation turned off. `confirm-many-items` in the settings file sets that number.
 
-- Each new window is its own process, so a crash in one leaves the others running, and two versions can be open side by side. A launch from the command line is always a fresh process too, never handed to a copy already running. `--quit` still takes every copy down. Off by a setting under Behavior, which puts new windows back inside one process.
+- Each new window is its own process, so a crash in one leaves the others running, and 2 versions can be open side by side. A launch from the command line is always a fresh process too, rather than handed to a copy that's already running. `--quit` still takes every copy down. A setting under Behavior turns it off, which puts new windows back inside one process.
 
 - `--select` opens the folder around each item given, with the item selected. Programs that ask for "show in folder" go through it.
 
-- Search results can be grouped under the folder that holds them instead of shown as one flat list, with a toggle next to the one for recursing into subfolders. Grouped results drop the Location column and switching either way happens without running the search again.
+- Search results can be grouped under the folder that contains them instead of shown as one flat list, with a toggle next to the one for recursing into subfolders. Grouped results drop the Location column, and switching either way doesn't run the search again.
 
-- A drop that moves files asks first, naming the files and the folder they are headed for. Two settings under Behavior: moves ask by default, copies don't. The Trash keeps its own separate question rather than asking twice.
+- A drop that moves files asks first, naming the files and the folder they're headed for. There are 2 settings under Behavior, and by default moves ask and copies don't. The Trash keeps its own separate question rather than asking twice.
 
-- Content search ("Containing:") reads Word, Excel and PowerPoint documents in both their old and new formats, OpenDocument files and EPUB books, on every platform. The converters are built in, so nothing else needs installing.
+- Content search ("Containing:") reads Word, Excel, and PowerPoint documents in both their old and new formats, OpenDocument files, and EPUB books, on every platform. The converters are built in, so nothing else needs installing.
 
 - Windows `.lnk` shortcuts work on Linux. One to a folder changes to that folder, and one to a file opens the file, started in the shortcut's "Start in" folder or else the file's own. Each shows its target's icon. The Windows path is matched to a drive by its volume serial, or to a share by server and name, whether the kernel or gvfs mounted it. A share that isn't mounted opens as `smb://` where gvfs can. When nothing matches, a message names the path instead of a guess.
 
-- On Windows, a shortcut is drawn with the icon the shell would give it, its target's, at every view size, and without Explorer having to be running.
+- On Windows, a shortcut is drawn at every view size with the icon the shell would give it, which is its target's. Explorer doesn't have to be running.
 
-- On Windows, Properties on a shortcut shows its target, arguments, start-in folder and comment, and each can be edited in place, the way a `.desktop` launcher can on Linux. A file dropped on the target or start-in field fills it in.
+- On Windows, Properties on a shortcut shows its target, arguments, start-in folder, and comment, and each can be edited in place, the way a `.desktop` launcher can on Linux. A file dropped on the target or start-in field fills it in.
 
-- On Windows, "Set as default" in Open With works. The choice is kept in the settings file, as a command line with `%1` for the file, and is used ahead of the registry; the registry itself is only ever read, the way Explorer reads it. Reset takes the choice away again.
+- On Windows, "Set as default" in Open With works. The choice is kept in the settings file, as a command line with `%1` for the file, and is used ahead of the registry. The registry itself is only ever read, the way Explorer reads it. Reset takes the choice away again.
 
-- On Windows, a switch in Settings answers searches from the Windows Search index for folders it covers. Off by default. Folders outside the index, and content searches by pattern or by case, are still searched directly.
+- On Windows, a switch in Settings makes searches use the Windows Search index for folders it covers. It's off by default. Folders outside the index, and content searches by pattern or by case, are still searched directly.
 
-- A `--reset` flag that clears the settings and the bookmarks and puts everything back to defaults. It won't run while the app is open.
+- A new `--reset` flag clears the settings and the bookmarks and puts everything back to defaults. It won't run while the app is open.
 
-- On Windows, a first start fills the bookmark list with the drive, Desktop, Documents, Downloads, Pictures, Videos and AppData. Anything left behind by a config copied from a Linux machine is dropped at the same time.
+- On Windows, a first start fills the bookmark list with the drive, Desktop, Documents, Downloads, Pictures, Videos, and AppData. Anything left behind by a config copied from a Linux machine is dropped at the same time.
 
-- Typed locations understand `~` for the home folder and environment variables, written either `%NAME%` or `$NAME`, on any platform. A folder whose name really contains one of those characters still opens as itself.
+- Typed locations understand `~` for the home folder and environment variables, written either `%NAME%` or `$NAME`, on any platform. A folder whose name contains one of those characters still opens as itself.
 
-- An Appearance page in Settings: Light, Dark, or follow the system, plus a style and an icon theme to draw with. Both lists only offer themes drawn for the mode you are in, and picking one half of a light/dark pair follows the pair when the mode changes.
+- Settings has an Appearance page for Light, Dark, or follow the system, plus a style and an icon theme to draw with. Both lists only offer themes drawn for the mode you're in, and picking one half of a light/dark pair follows the pair when the mode changes.
 
-- The Windows build carries a set of themes so the app looks like something out of the box: Windows 11, Windows 10, Windows 7, Windows XP and macOS window styles, and twenty-four icon sets, including Windows XP, 7, 10 and 11 sets drawn for this project. Linux keeps using whatever the desktop provides.
+- The Windows build includes a set of themes so the app looks like something out of the box. There are Windows 11, Windows 10, Windows 7, Windows XP, and macOS window styles, and 24 icon sets, including Windows XP, 7, 10, and 11 sets drawn for this project. Linux keeps using whatever the desktop has.
 
 - Themes can be dropped in on any platform. Put a GTK theme folder in `themes`, or an icon theme in `icons`, beside the settings file and it shows up in the lists.
 
-- A small panel while Windows starts the app, saying what it is doing, so a launch that takes a moment doesn't look like nothing happened. It goes away the instant the real window has drawn.
+- A small panel shows while Windows starts the app, saying what it's doing, so a launch that takes a moment doesn't look like nothing happened. It goes away the instant the real window has drawn.
 
-- Two more owner columns for the list view: Owner name, the owner's display name, and Owner - name, which shows both. On Windows the name is the local account's full name; a domain account has none.
+- The list view has 2 more owner columns. Owner name is the owner's display name, and Owner - name shows both. On Windows the name is the local account's full name. A domain account doesn't have one.
 
-- A checkbox under Behavior for whether a rename starts with the extension selected too. On by default, as before.
+- A new checkbox under Behavior sets whether a rename starts with the extension selected too. On by default, as before.
 
-- A checkbox under Behavior to keep the tab bar showing with only one tab open. Off by default.
+- A new checkbox under Behavior keeps the tab bar showing with only one tab open. It's off by default.
 
-- Every other row in the list view can be shaded, from the Display page. Off by default. The shade comes from the theme's `nemo_row_shading` color when it has one, or a faint tint of the text color, and `row-shading-color` in the settings file overrides both.
+- Every other row in the list view can be shaded, from the Display page. It's off by default. The shade comes from the theme's `nemo_row_shading` color when it has one, or a faint tint of the text color, and `row-shading-color` in the settings file overrides both.
 
-- "Edit link..." changes where a symlink or junction points, and its name. On a Windows shortcut it shows the absolute, relative and portable paths, any of which can be changed or left empty to drop it. The shortcut's arguments, Start in folder and icon are kept. Only shown when one link is selected.
+- "Edit link..." changes where a symlink or junction points, and its name. On a Windows shortcut it shows the absolute, relative, and portable paths, any of which can be changed or left empty to drop it. The shortcut's arguments, Start in folder, and icon are kept. It's only shown when one link is selected.
 
 - A new folder's first name can be a path, such as `photos/2026/june`, and each folder in it is made, nested. Folders already there along the way are used as they are. `/` works everywhere, and `\` on Windows too. On Windows `/` only counts while "Accept a forward slash as a separator in typed locations" is on. Undo takes away the folders it made, deepest first, as long as each is still empty.
 
@@ -72,9 +73,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - On Windows a folder lists faster. A file's owner and group are read only when a column, a caption or Properties shows them, since each name is a call to the local security service, and the Owner column is off by default there.
 
-- Keyboard shortcuts are saved in `accels` beside the settings file. They used to go to upstream Nemo's `~/.gnome2/accels/nemo`, and only where that folder was already there, so never on Windows. Custom shortcuts in that file are read once on the first start, and it is no longer written. `--reset` clears them too.
+- Keyboard shortcuts are saved in `accels` beside the settings file. They used to go to upstream Nemo's `~/.gnome2/accels/nemo`, and only where that folder was already there, so never on Windows. Custom shortcuts in that file are read once on the first start, and it's no longer written. `--reset` clears them too.
 
-- The row under the pointer, in the list and both sidebars, is tinted with a faint wash of the theme's selection color instead of gray, so it no longer looks like a shaded row. It is kept fainter than a shaded row and well short of a selected one, light or dark. A theme whose selection is gray gets a soft blue. `row-hover-color` in the settings file, or a `nemo_row_hover` color in the theme, overrides it; `transparent` turns it off.
+- The row under the pointer, in the list and both sidebars, is tinted with a faint wash of the theme's selection color instead of gray, so it no longer looks like a shaded row. It's kept fainter than a shaded row and well short of a selected one, light or dark. A theme whose selection is gray gets a soft blue. `row-hover-color` in the settings file, or a `nemo_row_hover` color in the theme, overrides it. `transparent` turns it off.
 
 - A Windows shortcut to a folder sorts with the folders when folders come first.
 
@@ -82,23 +83,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Ctrl+Shift+T opens a new tab when no folder is selected. With folders selected it opens them in new tabs, as before, and a selected file no longer opens in its program.
 
-- "Make symlink" is now "Make link...", and asks what to make. Folders get a junction or a symlink on Windows, files a symlink or a hardlink, and either can be a Windows `.lnk` shortcut, called a Shortcut there. A symlink's path can be relative or absolute. A hardlink asks once more first, saying what can go wrong with one. Every open starts from the defaults: a junction for folders on Windows, else a symlink, and an absolute path. On Windows without the symlink privilege the item stays on, since a junction, a hardlink and a shortcut need none. A shortcut can hold an absolute path, a relative one and a portable one with a Windows variable such as `%USERPROFILE%` in it, all three to start with, and is followed by the first that works. Windows follows a shortcut made on another platform through its portable path, and a target on a Windows share keeps its `\\server\share` path there. Nemo Anywhere follows any of them, on any platform. A drop that makes links opens the same dialog, in place of the drop question. A link made beside its original is named for its kind, such as "photo - symlink.jpg" or "photo.jpg - shortcut.lnk", and one made in another folder keeps the original's name.
+- "Make symlink" is now "Make link...", and asks what to make. Folders get a junction or a symlink on Windows, files a symlink or a hardlink, and either can be a Windows `.lnk` shortcut, called a Shortcut there. A symlink's path can be relative or absolute. A hardlink asks once more first, saying what can go wrong with one. Every open starts from the defaults: a junction for folders on Windows, else a symlink, and an absolute path. On Windows without the symlink privilege the item stays on, since a junction, a hardlink, and a shortcut don't need it. A shortcut can have an absolute path, a relative one, and a portable one with a Windows variable such as `%USERPROFILE%` in it. A new one starts with all 3, and is followed by the first that works. Windows follows a shortcut made on another platform through its portable path, and a target on a Windows share keeps its `\\server\share` path there. Nemo Anywhere follows any of them, on any platform. A drop that makes links opens the same dialog, in place of the drop question. A link made beside its original is named for its kind, such as "photo - symlink.jpg" or "photo.jpg - shortcut.lnk", and one made in another folder keeps the original's name.
 
 - When a copy finds links, the choices now say what happens to each: "Copy link as-is" or "Copy contents", or "Copy as a junction" and "Copy as a symlink" where one kind can become the other. A move says "Move" in place of "Copy".
 
-- The settings file is read with SHCL 3. A backslash in a value is now just a backslash, quoted or not, so a Windows path can be typed as it is. A tab or a newline is written as a name between two marks, such as `◉TAB◉`. A settings file from an earlier beta that holds a network path may read it wrong; delete it and start again. The file now ends with a short block naming its format, so a later version knows what it is reading.
+- The settings file is read with SHCL 3. A backslash in a value is now a plain backslash, quoted or not, so a Windows path can be typed as it is. A tab or a newline is written as a name between 2 marks, such as `◉TAB◉`. A settings file from an earlier beta that has a network path may read it wrong. Delete it and start again. The file now ends with a short block naming its format, so a later version knows what it is reading.
 
 - Lists in the settings file are written in brackets now, as in `default-visible-columns: [name, size, type]`. A file from v1.0.0-beta2, or written by hand for any SHCL release before 3, is converted on the first start, with the old one kept beside it.
 
-- The settings file now ends with a commented list of everything you haven't set, each line carrying the value used instead and, where the name isn't obvious, a short note. Uncomment a line to change it. Sizes, positions and other things the app remembers for itself are left off the list.
+- The settings file now ends with a commented list of everything you haven't set, each line with the value used instead and, where the name isn't obvious, a short note. Uncomment a line to change it. Sizes, positions, and other things the app remembers for itself are left off the list.
 
-- The thumbnail cache is cleaned up every few hours, at a quiet moment, rather than growing forever: a thumbnail whose file is gone goes first, then anything not drawn for longer than the age allowed, then the least recently drawn until the rest fit in the size allowed. Both limits are on the Preview page and either can be turned off. The shared freedesktop thumbnail folder is no longer touched.
+- The thumbnail cache is cleaned up every few hours, at a quiet moment, rather than growing forever. A thumbnail whose file is gone goes first, then anything not drawn for longer than the age allowed, then the least recently drawn until the rest fit in the size allowed. Both limits are on the Preview page and either can be turned off. The shared freedesktop thumbnail folder is no longer touched.
 
-- Camera raw files get thumbnails, from the preview the camera stores in each one: DNG, CR2, CR3, NEF, ARW, RAF, RW2, ORF, PEF, SRW and most others built on TIFF. Nothing else needs installing, and the sensor data itself is never read.
+- Camera raw files get thumbnails, from the preview the camera stores in each one: DNG, CR2, CR3, NEF, ARW, RAF, RW2, ORF, PEF, SRW, and most others built on TIFF. Nothing else needs installing, and the sensor data itself is never read.
 
-- With ImageMagick installed, JPEG 2000, HEIC, AVIF, EXR and other picture formats get thumbnails too. It is looked for, never required, and run only on a fixed list of picture formats.
+- With ImageMagick installed, JPEG 2000, HEIC, AVIF, EXR, and other picture formats get thumbnails too. It's looked for, never required, and run only on a fixed list of picture formats.
 
-- The list view no longer shrinks a column past what it shows. Name keeps the width that shows all but the widest tenth of the names in the folder (a setting under list-view), a type or owner column the width that shows most of its distinct values, and a date or a size is never cut at all. Type gives a little further, down to twice the Ext column, and past that the view scrolls sideways.
+- The list view no longer shrinks a column past what it shows. Name keeps the width that shows all but the widest tenth of the names in the folder, which is a setting under list-view. A type or owner column the width that shows most of its distinct values, and a date or a size is never cut at all. Type gives a little further, down to twice the Ext column, and past that the view scrolls sideways.
 
 - Search results give the Name and Location columns only the width their contents need, leaving the rest of the row empty. Where the two don't both fit they shrink in proportion to what each asked for, and neither ends more than twice the width of the other. Dragging either column still pins a split of the whole row.
 
@@ -108,13 +109,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - On Windows, bookmarks are kept beside the settings in the roaming profile, so they follow the settings between machines. A list from an earlier version is picked up from the old place on first start.
 
-- Search helpers: the `Priority` field is honored, and one helper runs per file rather than every helper that claims the type.
+- The search helpers' `Priority` field is honored, and one helper runs per file rather than every helper that claims the type.
 
-- The bundled icon themes are trimmed to the icons a file manager actually asks for. The Windows 11 set went from 1.8 MB to around 300 KB; anything not shipped falls back the way icon themes are meant to.
+- The bundled icon themes are trimmed to the icons a file manager asks for. The Windows 11 set went from 1.8 MB to around 300 KB. Anything not included falls back the way icon themes are meant to.
 
-- Settings now live where each platform expects them: `%APPDATA%\nemo-anywhere` on Windows, `~/Library/Application Support/nemo-anywhere` on macOS, `~/.config/nemo-anywhere` on Linux and BSD as before. An existing settings folder is moved to the new place on first run, so nothing is lost. Drop-in themes are unaffected.
+- Settings are now kept where each platform expects them: `%APPDATA%\nemo-anywhere` on Windows, `~/Library/Application Support/nemo-anywhere` on macOS, and `~/.config/nemo-anywhere` on Linux and BSD as before. An existing settings folder is moved to the new place on first run, so nothing is lost. Drop-in themes are unaffected.
 
-- The single-file Windows build starts far faster. Nearly all of its startup went on unpacking the couple of thousand loose theme and icon files it carried; those now live inside the executable itself. Nothing about how themes are chosen or dropped in changes.
+- The single-file Windows build starts far faster. Nearly all of its startup time went to extracting the couple of thousand loose theme and icon files it included. Those are now inside the executable itself. How themes are chosen or dropped in hasn't changed.
 
 - The window appears at the size and place you left it as soon as it exists, rather than waiting for the first folder to finish loading.
 
@@ -124,7 +125,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The window title puts the folder first and the program name after it, as `Documents - Nemo Anywhere`. A name or path with a space in it is put in double quotes.
 
-- Tabs never take the keyboard focus, in Settings, Properties, About or the keyboard shortcuts window. Tab goes past them, and Ctrl+Page Up and Ctrl+Page Down, or Ctrl+Tab and Ctrl+Shift+Tab, step through the pages from anywhere in the window.
+- Tabs never take the keyboard focus, in Settings, Properties, About, or the keyboard shortcuts window. Tab goes past them, and Ctrl+Page Up and Ctrl+Page Down, or Ctrl+Tab and Ctrl+Shift+Tab, step through the pages from anywhere in the window.
 
 ### Fixed
 
@@ -134,7 +135,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The bottom scrollbar flashed at every step of a resize, could stay after one when nothing needed it, and now and then strobed along with the vertical one.
 
-- On Windows, a first start with a fresh roaming profile carried the local data folder (actions, scripts) off into the settings folder, mistaking it for settings left by an older version. Only a folder that holds a settings file is moved now.
+- On Windows, a first start with a fresh roaming profile moved the local data folder, with its actions and scripts, into the settings folder, mistaking it for settings left by an older version. Only a folder that has a settings file is moved now.
 
 - On Windows the window opened behind whatever you were already looking at, so a launch could look like nothing had happened until you noticed the taskbar button. It comes to the front now.
 
@@ -146,7 +147,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Notes
 
-- Settings don't carry over from beta1. Configuration moved out of GSettings, and nothing can read the old store once its schema is gone, so the first run after upgrading starts from defaults.
+- Settings from beta1 aren't brought over. Configuration moved out of GSettings, and nothing can read the old store once its schema is gone, so the first run after upgrading starts from defaults.
 
 ### Added
 
@@ -156,7 +157,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
-- Settings live in one readable file - `~/.config/nemo-anywhere/settings.shcl`, or `%LOCALAPPDATA%\nemo-anywhere\settings.shcl` on Windows. Only the values you changed are written, each with a short comment saying what it is, and editing the file while the app is running applies straight away.
+- Settings are kept in one readable file. It's `~/.config/nemo-anywhere/settings.shcl`, or `%LOCALAPPDATA%\nemo-anywhere\settings.shcl` on Windows. Only the values you changed are written, each with a short comment saying what it is, and editing the file while the app is running applies straight away.
 
 ### Removed
 
@@ -170,4 +171,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Notes
 
-- First public beta. Windows shipped as a single self-contained executable; Linux was source-only at this point.
+- This was the first public beta. Windows was released as a single self-contained executable, and Linux was source-only at this point.

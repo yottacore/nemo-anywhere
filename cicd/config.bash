@@ -1,23 +1,23 @@
 #!/bin/bash
 
 ## Every setting below is read by cicd.bash, which sources this file, so
-## shellcheck sees the whole file as write-only. That is the one rule this file
-## can't have on; the rest of the template's header block is gone, since none of
+## shellcheck sees the whole file as write-only. That's the one rule this file
+## can't have on. The rest of the template's header block is gone, since none of
 ## it fired and a file-wide block hides real faults.
 # shellcheck disable=2034  ## 'variable appears unused' - see above.
 
 ##	Purpose:
-##		- Project-specific CI/CD settings for nemo-anywhere. cicd.bash stays generic;
-##		  this file wires each stage to a concrete command.
-##		- The stage sequence (format -> build -> test -> profile -> release -> package
-##		  -> dogfood -> publish) is the enduring shape carried over from the source
-##		  pipeline. What differs here is the toolchain: nemo-anywhere is C/GTK built
-##		  with meson/ninja inside the `nemo-build` container, not a Rust/cargo tree.
-##		- Stages nemo-anywhere can do TODAY are wired live: debug build, the test
-##		  suite and launch smoke, lints, release, packaging, dogfood and git
-##		  backup+publish. What is still DISABLED keeps the original cargo-era line
-##		  commented out verbatim plus a "NEEDS:" note on what a meson/C equivalent
-##		  would take; those stages self-skip.
+##		- Project-specific CI/CD settings for nemo-anywhere. cicd.bash stays generic,
+##		  and this file names the command for each stage.
+##		- The stage order, format -> build -> test -> profile -> release -> package
+##		  -> dogfood -> publish, came over unchanged from the source pipeline. The
+##		  toolchain is what differs. nemo-anywhere is C/GTK, built with meson/ninja
+##		  inside the `nemo-build` container rather than a Rust/cargo tree.
+##		- Stages nemo-anywhere can do today are live: debug build, the test suite
+##		  and launch smoke, lints, release, packaging, dogfood, and git backup and
+##		  publish. A stage that's still off has the original cargo-era line
+##		  commented out as it was, plus a "NEEDS:" note on what a meson/C
+##		  equivalent would take, and it skips itself.
 ##	History: At bottom of script.
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -39,8 +39,8 @@ EXE_NAME="nemo-anywhere"
 ## built from the pinned linux/Dockerfile.dev. Each mounts the repo root at /src
 ## and builds into /build, a cache volume. See design.md "Building".
 
-## Directory of this config, for locating sibling helper scripts (self-contained,
-## no reliance on cicd.bash internals).
+## Directory of this config, for finding sibling helper scripts without relying
+## on cicd.bash internals.
 _cfgdir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 ## Wrapper that runs a shell command in the step's own container. With docker down or
@@ -53,13 +53,13 @@ DOCKER_RUN="${_cfgdir}/utility/docker-run.bash"
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 ## Stage 1: format the source in place before anything is compiled or tested.
-## Decided: NO in-place formatter for the inherited tree (a full reformat would
-## bury real history in churn). The gate is the check-only lint below instead.
+## Decided: no in-place formatter for the inherited tree, since a full reformat
+## would bury real history in churn. The gate is the check-only lint below instead.
 FMT_CMD=()
 FMT_CHECK_CMD=()
 
 ## Pinned versions of the tools that run on the host, which the engine warns on
-## when they drift. The lints run there. meson, ninja, gcc and clang run in the
+## when they drift. The lints run there. meson, ninja, gcc, and clang run in the
 ## build containers, and the image pins those. The command runs under bash -c.
 TOOL_PINS=(
 	"cppcheck|2.17.1|cppcheck --version"
@@ -74,8 +74,8 @@ TOOL_PINS=(
 ## Stage 2: debug build - READY. Configure (or reconfigure) and build in-container.
 ## The wrapper starts the container, so a stopped box doesn't fail the stage. This is what the smoke runs
 ## against.
-## -j is not optional: left alone ninja takes cores+2, and the engine's whole
-## point in computing CICD_MAX_JOBS is that a pipeline run leaves the box usable.
+## -j isn't optional. Left alone, ninja takes cores+2, and the engine works out
+## CICD_MAX_JOBS so a pipeline run leaves the box usable.
 ## It's escaped so the container reads it when the step runs, since the count
 ## is checked again before each step.
 ## Warnings are errors in every pipeline build; linux/run-tests.bash says why.
@@ -87,10 +87,10 @@ DEBUG_BUILD_CMD=(bash "${DOCKER_RUN}" "debug build" "
 ## --version. Both run inside the container under its own Xvfb; see
 ## linux/run-tests.bash, which also does the build, since gate mode has no build
 ## stage of its own and would otherwise test whatever was last left in /build.
-## -j is passed through for the same reason it is above. Same wrapper.
+## -j is passed through for the same reason as above. Same wrapper.
 TEST_CMD=(bash "${DOCKER_RUN}" "tests" "NEMO_TEST_JOBS=\${CICD_MAX_JOBS:-2} bash \${CICD_SRC:-/src}/cicd/linux/run-tests.bash")
-## Long-lived boxes, held to CICD_MAX_JOBS cores each, with a low CPU share,
-## since the run's own CPU cap and nice cannot reach inside them. None now:
+## Long-lived boxes, limited to CICD_MAX_JOBS cores each, with a low CPU share,
+## since the run's own CPU cap and nice don't apply inside them. None now:
 ## every step has a container of its own, with the same flags, from
 ## utility/include/step-box.bash.
 CICD_CONTAINERS=()
@@ -100,11 +100,11 @@ CICD_CONTAINERS=()
 DOCKER_SWEEP=1
 
 ## Stage 3 (after tests): lints - READY. cicd/utility/lint.bash runs the C check
-## (the changed C files on a feature branch, the whole tree on dev and main) and
-## shellcheck over the project's own scripts. Nothing is rewritten. Each
-## checker warn-skips on a box that lacks its tool, so the probe only has to say
-## that a shell exists - the cppcheck probe that used to sit here took the whole
-## stage down with it, Bash check included.
+## and shellcheck over the project's own scripts. The C check takes the changed
+## C files on a feature branch, and the whole tree on dev and main. Nothing is
+## rewritten. Each checker warns and skips on a box without its tool, so the
+## probe only has to say that a shell exists. The cppcheck probe that used to be
+## here took the whole stage down with it, Bash check included.
 LINT_PROBE=(bash --version)
 LINT_CMD=(bash cicd/utility/lint.bash)
 
@@ -156,16 +156,16 @@ HEAP_SOAK_CMD=(bash cicd/utility/heap-soak.bash)
 ## Backlog 2026110920250275.
 ANALYZE_CTU_CMD=(env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-600}" bash cicd/utility/analyze.bash --ctu)
 
-## Stage 3 (after lints): dependency policy (licenses/advisories). NOT READY - unset.
-## NEEDS: a C-world equivalent if wanted (there is no Cargo.lock to police); likely
-## not applicable until there are vendored deps.
+## Stage 3 (after lints): dependency policy for licenses and advisories. NOT READY - unset.
+## NEEDS: a C-world equivalent if wanted, since there's no Cargo.lock to check.
+## Likely not applicable until there are vendored deps.
 #	Rust-era original (reference only):
 #	DENY_PROBE=(cargo deny --version)
 #	DENY_CMD=(cargo deny check)
 
 ## Stage 3 (last): a headless behavioral harness. NOT READY - unset.
-## NEEDS: an app-specific harness (the source project drove a terminal-scroll
-## regression); nemo-anywhere has none yet.
+## NEEDS: an app-specific harness. The source project drove a terminal-scroll
+## regression, and nemo-anywhere doesn't have one yet.
 #	Rust-era original (reference only):
 #	SCROLL_HARNESS=(cicd/tests/scroll/run.bash)
 #	SCROLL_HARNESS_WAYLAND=1
@@ -177,8 +177,8 @@ ANALYZE_CTU_CMD=(env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-600}" bash cicd/u
 ## stays at 2.35, stages the relocatable prefix, writes the versioned tarball and the
 ## sums file, and leaves the staged tree at cicd/artifacts/dogfood/ for stage 7 and
 ## the launcher. Every run builds from an empty dir, about a minute here.
-## RELEASE_NATIVE_BIN is the wrapper inside that tree - the engine only checks it
-## exists, and stage 7 installs the tree around it rather than the file itself.
+## RELEASE_NATIVE_BIN is the wrapper inside that tree. The engine only checks that
+## it exists, and stage 7 installs the tree around it rather than the file itself.
 RELEASE_ENABLE=1
 RELEASE_NATIVE_CMD=(bash cicd/linux/release.bash)
 RELEASE_NATIVE_BIN="cicd/artifacts/dogfood/${EXE_NAME}/bin/${EXE_NAME}"
@@ -190,7 +190,7 @@ RELEASE_NATIVE_OSARCH="linux-x86_64"
 ## own packed exe through cicd-win.ps1; this only keeps the zip current.
 ## build-cross.bash leaves the exe at the artifact path, since the engine checks
 ## for it on the host, and the cross build dir lives only in its cache volume.
-## Then the exe is opened under wine and its main window looked for, about twenty
+## Then the exe is opened under wine and its main window looked for, about 20
 ## seconds, since nothing else here ever starts the Windows build's GUI.
 ## Linux arm64 is built on an arm64 box over ssh, not cross-compiled, and takes
 ## about an hour on the emulated one. It runs on every full run and --quick
@@ -205,7 +205,7 @@ CROSS_TARGETS=(
 ## Cross targets that start alongside the local steps, from the debug build on,
 ## by label. The Windows one has a step container and cache volume of its own,
 ## and reads only the source, so its 4 minutes come off the run's length. Its
-## step, in the same place as before, waits for it and shows its log. arm64
+## step stays where it was, waits for it, and shows its log. arm64
 ## stays in line, since its box is emulated on this one.
 CROSS_ALONGSIDE=("Windows x86_64 (mingw)")
 #	Rust-era original (reference only - cargo/zig cross, not applicable to meson):
@@ -225,27 +225,27 @@ BSD_TEST_CMD=(bash cicd/bsd/lane.bash --tests)
 BSD_RELEASE_CMD=(bash cicd/bsd/lane.bash --release)
 
 ## The native Windows gate, cicd-win.ps1 -BacklogRunQuick from a bundle of the
-## commit, on every full run, left out by --quick, --no-win or --no-remote. b29w is
+## commit, on every full run, left out by --quick, --no-win, or --no-remote. b29w is
 ## another machine, so the side command runs alongside the local steps from the
 ## debug build on, and is waited for before the packages. When it finds no box
 ## (77), the other command runs then, in that step, since vm925w is a VM here
 ## and shares this box's CPUs. The same goes when b29w's gate passes and
 ## leaves its windowed tests (75), since b29w's screen is the laptop's own:
-## vm925w builds the same commit, with no lints, tests or smokes, then runs
+## vm925w builds the same commit, without lints, tests, or smokes, then runs
 ## only those tests in wintest's session there, which never locks. See
 ## win/lane.bash.
 WIN_GATE_SIDE_CMD=(bash cicd/win/lane.bash b29w)
 WIN_GATE_CMD=(bash cicd/win/lane.bash vm925w)
 
-## Stage 5 (after builds): collect versioned artifacts + sha256sums.
-## The artifacts themselves come from the per-platform release lanes, not from this
-## engine stage: cicd/linux/release.bash writes the Linux tarball + the sums file
-## here, and the Windows exe is built and signed by the release-win workflow. Setting
-## the dir is what lets utility/release.bash verify and attach them.
+## Stage 5 (after builds): collect versioned artifacts and sha256sums.
+## The artifacts themselves come from the per-platform release lanes rather than
+## this engine stage. cicd/linux/release.bash writes the Linux tarball and the sums
+## file here, and the Windows exe is built and signed by the release-win workflow.
+## Setting the dir lets utility/release.bash verify and attach them.
 ## The dir is still where the sums file is written and where utility/release.bash
-## reads from, but the engine must not COLLECT into it: its collector wipes the dir
-## and re-copies bare RELEASE_NATIVE_BIN binaries under a Cargo-shaped name, which
-## would throw away the tarball release.bash just wrote.
+## reads from, but the engine must not collect into it. Its collector wipes the dir
+## and copies bare RELEASE_NATIVE_BIN binaries back under Cargo-style names, which
+## would throw away the tarball release.bash wrote.
 RELEASE_ARTIFACT_DIR="cicd/artifacts/release"
 RELEASE_COLLECT=0
 ## Hosted builds started by the release tag. utility/release.bash --publish waits
@@ -274,26 +274,26 @@ VERSION_MANIFEST="source/meson.build"
 ##     package claims the same floor the binary was built against.
 ##   - The arm64 .deb and .rpm are made here the same way, from the tarball the
 ##     arm64 lane brought back, with the dependency line it read in the release
-##     container on the arm64 box. The engine runs that step and its prefix
-##     check only when the arm64 build ran (entries with arm64 in them), so
+##     container on the arm64 box. The engine runs the entries with arm64 in
+##     them, that step and its prefix check, only when the arm64 build ran, so
 ##     never on a stale one.
-##   - The Windows .zip is flattened out of the cross-build - exe at the folder
-##     root beside its DLLs, which is the layout install.ps1 expects.
+##   - The Windows .zip is flattened out of the cross-build, with the exe at the
+##     folder root beside its DLLs, which is the layout install.ps1 expects.
 ##   - The Windows setup exe is made from that zip with makensis, in the
 ##     cross-build container, so it installs exactly what install.ps1 does.
-##   - Both installers then install, reinstall and uninstall the Linux tarball in
+##   - Both installers then install, reinstall, and uninstall the Linux tarball in
 ##     a scratch home, offline.
-##   - Every file the tarball, .deb and .rpm install has to carry the app's name,
+##   - Every file the tarball, .deb, and .rpm install has to have the app's name,
 ##     and the action layout editor's launcher has to work from a moved prefix.
 ##   - The FreeBSD pkg, made on that box by the FreeBSD lane, is checked
 ##     against the tarball beside it when there is one for this version.
 ##   - The setup exe is run under wine in the cross-build container: install,
 ##     update, uninstall.
 ##   - The zip has the GTK settings and font config the single exe has.
-##   - No bundle has libgsf, the gsf-office thumbnailer or the old search
+##   - No bundle has libgsf, the gsf-office thumbnailer, or the old search
 ##     converters, and no package depends on libgsf. The prefix check runs
 ##     that on the Linux files of its arch.
-## Deferred: macOS .pkg, AppImage, Flatpak - no toolchain here yet.
+## Deferred: macOS .pkg, AppImage, and Flatpak, with no toolchain here yet.
 PACKAGE_ENABLE=1
 PACKAGE_CMDS=(
 	"Linux .deb + .rpm|bash cicd/linux/package.bash"
@@ -318,7 +318,7 @@ PACKAGE_CHECKS=(
 ## this path. Its runner takes --public <this repo>, waits for its own boxes, skips
 ## one that is off or busy, and exits 1 only when a job ran and failed. Its output
 ## stays in the private repo, apart from a dogfood drop for a platform this box
-## cannot build (PRIVATE_DOGFOOD). Empty, or --no-private, to skip.
+## can't build (PRIVATE_DOGFOOD). Empty, or --no-private, to skip.
 PRIVATE_RUNNER="${NEMO_PRIVATE_RUNNER-$(cd "${root}/../.." && pwd)/nemo-anywhere-private/repo/cicd/run.bash}"
 ## "<dir under the private repo>|<dogfood dests array>". The dir is the build to
 ## publish, with @VER@ for the version. It is used only when the runner made it
@@ -329,14 +329,14 @@ PRIVATE_DOGFOOD=(
 
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-## Stage 4: profiler (non-gating flamegraph artifact) - READY.
+## Stage 4: profiler, a flamegraph that doesn't fail the run - READY.
 ## profile-run.bash browses a generated folder tree on a private headless display
 ## while sampling every thread, and renders a flamegraph. It samples by attaching
 ## a debugger rather than with perf, because perf needs a privileged sysctl on this
-## box - the trade is wall-clock samples, so a blocked thread reads as waiting.
+## box. The cost is wall-clock samples, so a blocked thread shows as waiting.
 ## flame-report.py knows that and reports busy time separately.
-## It profiles the DEBUG build (stage 2): the release binaries are stripped, and a
-## flamegraph with no function names is worthless.
+## It profiles the stage 2 debug build, because the release binaries are stripped,
+## and a flamegraph without function names is useless.
 PROFILE_ENABLE=1
 PROFILE_SECS=15
 PROFILE_CMD=(bash cicd/utility/profile-run.bash)
@@ -354,29 +354,29 @@ PROFILE_WORKLOAD_ARGS=""
 ## NEEDS: a headless screenshot hook for the file-manager UI if wanted later.
 SHOTS_ENABLE=0
 
-## Demo video + README gif: READY, but off unless --demo is passed. Two recordings
-## take about six minutes and the result only changes when the interface or the
-## demo script does, so it is not worth a full run every time.
+## Demo video and README gif: READY, but off unless --demo is passed. The 2
+## recordings take about 6 minutes, and the result only changes when the interface
+## or the demo script does, so it isn't worth a full run every time.
 DEMO_ENABLE=0
 
-## Full-run output is tee'd here (gitignored) so warnings from any stage can be
+## Full-run output is tee'd to this gitignored dir so warnings from any stage can be
 ## reviewed after the fact. READY - kept.
 LINT_LOG_DIR="cicd/artifacts/lint"
 
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-## Stage 7: dogfood (publish the native release to the synced app dir) - READY.
+## Stage 7: dogfood, publishing the native release to the synced app dir - READY.
 ## The app is a relocatable prefix, not one binary, so DOGFOOD_PREFIX_SRC names the
 ## staged tree stage 5 left behind and the stage publishes that whole tree under the
 ## program's own name.
 ##
 ## One drop, nothing else. utility/n8runfm.ps1 reads this dir on every launch, keeps
 ## its own GFS-rotated pool of dated versions locally, and points a symlink at the
-## newest - so the pipeline has no business writing dated copies or names on PATH.
+## newest. So the pipeline has no reason to write dated copies or names on PATH.
 DOGFOOD_PREFIX_SRC="cicd/artifacts/dogfood/${EXE_NAME}"
 ## One list per platform, first existing and writable wins. Both spellings resolve to
 ## the same directory here, but a box usually has only one of them. A run only ever
-## writes its own platform's list - the other two are here so the layout is in one
+## writes its own platform's list. The other 2 are here so the layout is in one
 ## place, and because this engine runs on macOS too.
 DOGFOOD_DESTS_LINUX=(
 	"${HOME}/synced/0-0/common/exec/app/linux"
@@ -404,25 +404,25 @@ DOGFOOD_TAG=""
 ## A macOS build comes from the private runner, through PRIVATE_DOGFOOD.
 DOGFOOD_CROSS_DESTS=()
 ## Run after the installs. Keeps the launcher and its wrappers in step with the
-## synced copies people actually run.
+## synced copies people run.
 DOGFOOD_HOOK=(bash cicd/utility/deploy-launcher.bash)
-## The packed Windows exe, built on whichever Windows box answers, under the shared
+## The packed Windows exe, built on whichever Windows box is up, under the shared
 ## host lock. Off under --quick. Without it the mswin drop only moved when someone
 ## ran cicd-win.ps1 by hand, and it sat 18 days behind before anyone noticed.
 DOGFOOD_REMOTE=(bash cicd/utility/win-dogfood.bash)
 
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-## Stage 8: backup + publish to git (runs from repo root). READY.
+## Stage 8: backup and publish to git, run from the repo root. READY.
 GIT_PUBLISH=(cicd/utility/n8git_backup-and-publish)
 
-## Set non-empty to publish hands-off (suppresses the prompt and supplies the commit
-## message so `git commit` won't open an editor). Empty = interactive unless -m/-y.
+## Set non-empty to publish hands-off. It skips the prompt and gives the commit
+## message, so `git commit` won't open an editor. Empty = interactive unless -m/-y.
 PUBLISH_AUTO_MESSAGE=""
 
-## Extra rar excludes for the version backup live in cicd/rar-excludes.conf, not here:
-## the publisher reads that file itself, so the excludes hold when it is run standalone
-## too. GIT_BACKUP_AND_PUBLISH_RAR_EXCLUDES stays available for one-off additions.
+## Extra rar excludes for the version backup are in cicd/rar-excludes.conf rather than
+## here, because the publisher reads that file itself, so the excludes apply when it's
+## run standalone too. GIT_BACKUP_AND_PUBLISH_RAR_EXCLUDES stays available for one-off additions.
 
 
 ##	History:

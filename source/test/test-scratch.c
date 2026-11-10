@@ -1,10 +1,10 @@
 /* Scratch directories for the tests, removed when the test exits.
  *
  * Only a directory this process made through here is removed, and only while
- * it still sits directly under the temp dir (or the base it was made in) as a
+ * it's still directly under the temp dir or the base it was made in, as a
  * real directory. The walk never goes through a link, a junction or onto
  * another filesystem. Home has been lost twice on the dev box; a test helper
- * is not going to be the third. */
+ * isn't going to be the third. */
 
 #include <config.h>
 
@@ -89,7 +89,7 @@ remove_tree (GFile *dir, guint32 device)
 	g_file_delete (dir, NULL, NULL);
 }
 
-/* A virus scanner can hold a file a test just wrote for a moment, and Windows
+/* A virus scanner can hold open a new file for a moment, and Windows
    refuses the delete until it lets go. So there it is tried again for up to
    5 s. */
 static void
@@ -161,7 +161,7 @@ remove_made (const char *path, const char *base)
    thread. With no usable system font cache that thread writes one under
    XDG_CACHE_HOME, which is usually a scratch dir, and fontconfig makes the
    dir again if it is gone. So it has to be done before anything is removed.
-   A test that never made a font map is not given one here. */
+   A test that never made a font map isn't given one here. */
 static void
 wait_for_font_setup (void)
 {
@@ -192,7 +192,7 @@ inside_a_made_dir (const char *canon)
 	return FALSE;
 }
 
-/* Which made directory canon is, or sits in, or -1. */
+/* Which made directory canon is, or is inside, or -1. */
 static int
 made_dir_holding (const char *canon)
 {
@@ -408,7 +408,7 @@ test_scratch_point_tmp_at (const char *root)
 	char *dir = make_tmp_in (root);
 
 	if (dir != NULL) {
-		/* GLib keeps its first answer, so later scratch dirs still go in
+		/* GLib caches its first result, so later scratch dirs still go in
 		   the real temp dir. */
 		(void) g_get_tmp_dir ();
 		g_setenv ("TMPDIR", dir, TRUE);
@@ -473,7 +473,7 @@ test_slowness (void)
 		return slowness;
 	}
 
-	/* The median, so one hiccup on a fast box does not loosen every limit. */
+	/* The median, so one hiccup on a fast box doesn't loosen every limit. */
 	for (i = 0; i < G_N_ELEMENTS (runs); i++) {
 		gint64 start = g_get_monotonic_time ();
 

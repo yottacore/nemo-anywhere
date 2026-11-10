@@ -373,7 +373,7 @@ init_gtk_accels (void)
     if (g_file_test (accel_map_filename, G_FILE_TEST_EXISTS)) {
         gtk_accel_map_load (accel_map_filename);
     } else {
-        /* First start with a file of our own: carry over any custom
+        /* First start with a file of our own: bring over any custom
          * shortcuts from upstream's file, then write ours at once. That our
          * file exists is what says the old one has been read. */
         char *legacy = nemo_get_legacy_accel_map_file ();
@@ -436,7 +436,7 @@ nemo_application_check_required_directory (NemoApplication *application,
         const char *detail_string;
         GtkDialog *dialog;
 
-        error_string = g_strdup_printf (_("Nemo couldn't create the required folder \"%s\"."),
+        error_string = g_strdup_printf (_("Nemo Anywhere couldn't create the required folder \"%s\"."),
                                         path);
         detail_string = _("Before running Nemo, please create the following folder, or "
                           "set permissions such that Nemo can create it.");
@@ -497,7 +497,7 @@ location_for_other_window (GFile *location)
 /* Every "somewhere other than this window" goes through here. By default that
  * is another process, and NULL comes back; with the setting off the window is
  * made here, already on its way to the location, and returned. A process that
- * cannot be started falls back to a window here rather than to nothing.
+ * can't be started falls back to a window here rather than to nothing.
  * Returns: (transfer none): a toplevel owned by the application, or NULL */
 NemoWindow *
 nemo_application_open_in_new_window (NemoApplication *application,

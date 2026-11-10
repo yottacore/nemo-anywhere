@@ -29,7 +29,7 @@
  * notice has to be withdrawn.
  *
  * This test stands in for the notification server, on a session bus of its
- * own. Without a bus the notice is not checked. POSIX: the window is found and
+ * own. Without a bus the notice isn't checked. POSIX: the window is found and
  * closed through X.
  *
  * With "carry-over" as argv[3] it checks where the shortcut file is instead,
@@ -458,7 +458,7 @@ answer_has (char *text, const char *key)
 
 /* The shortcut file is the program's own, beside the settings. A change is
  * saved with no ~/.gnome2 at all. Upstream Nemo's file there is read on the
- * first start only, and never written. --reset empties ours, so it does not
+ * first start only, and never written. --reset empties ours, so it doesn't
  * send the next start back to upstream's. */
 static void
 carry_over (Display *display, const char *exe, const char *hooks)
@@ -506,7 +506,7 @@ carry_over (Display *display, const char *exe, const char *hooks)
 	check (g_file_get_contents (legacy, &text, NULL, NULL) && g_strcmp0 (text, upstream) == 0);
 	g_free (text);
 
-	/* Ours is there now, so a later change to upstream's is not read. */
+	/* Ours is there now, so a later change to upstream's isn't read. */
 	check (g_file_set_contents (legacy, "(gtk_accel_path \"<nemo-test>/Probe\" \"<Control>F10\")\n", -1, NULL));
 	check (answer_has (run_once (display, exe, folder, envp, out), "F11"));
 

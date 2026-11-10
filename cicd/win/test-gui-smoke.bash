@@ -2,7 +2,7 @@
 
 ##	- Purpose: Check that gui-smoke.bash finds the main window in a window list
 ##	  too long for one pipe write, and that it steps over a display another X
-##	  server already holds instead of drawing on it.
+##	  server already has instead of drawing on it.
 ##	- Runs a copy of gui-smoke.bash in a cross-build step container, with wine
 ##	  and xwininfo stood in for. Xvfb, xdpyinfo and import are the real ones.
 ##	- Needs docker and the cross-build image; exit 77 without them.
@@ -49,7 +49,7 @@ echo "${DISPLAY} $(tr -dc '0-9' 2>/dev/null <"/tmp/.X${num}-lock")" >"${STUB_SAW
 exec sleep 60
 EOF
 
-## The main window near the top, then far more than a pipe holds.
+## The main window near the top, then far more than a pipe buffer takes.
 cat >"${stubs}/xwininfo" <<'EOF'
 #!/usr/bin/env bash
 echo 'xwininfo: Window id: 0x3ff (the root window) (has no name)'

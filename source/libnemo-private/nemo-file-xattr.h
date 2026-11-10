@@ -20,10 +20,10 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* The same idea under two names. On Linux and the BSDs these are extended
+/* The same idea under 2 names. On Linux and the BSDs these are extended
  * attributes in the `user` namespace; on Windows they are alternate data
  * streams, which only NTFS and ReFS have. Plenty of file systems have neither -
- * FAT, exFAT, most network shares - and the answer there is simply no.
+ * FAT, exFAT, most network shares - and the answer there is no.
  *
  * Only short text belongs here. A value is read back in one go into a fixed
  * buffer, and anything longer than that reads as absent.
@@ -43,8 +43,8 @@ G_BEGIN_DECLS
  * system has nowhere to keep it. Freed by the caller. */
 char *nemo_file_xattr_get (GFile *file, const char *name);
 
-/* Writes one, replacing whatever was there. False when the file system cannot
- * hold it or the file cannot be written, neither of which is an error worth
+/* Writes one, replacing whatever was there. False when the file system can't
+ * hold it or the file can't be written, neither of which is an error worth
  * telling anybody about. */
 gboolean nemo_file_xattr_set (GFile *file, const char *name, const char *value);
 

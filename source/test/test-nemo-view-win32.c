@@ -1,4 +1,4 @@
-/* Argument quoting for the two Windows shell hand-offs, "Open as Administrator"
+/* Argument quoting for the 2 Windows shell hand-offs, "Open as Administrator"
  * and "Open in Terminal". Both build a command line that the target process
  * re-splits under MSVCRT rules, and neither can be driven unattended - one puts
  * up a UAC prompt, the other opens a console - so the quoting is checked here
@@ -65,8 +65,8 @@ main (void)
 
 	/* The terminal preference is one field, so the program and its arguments
 	 * have to be told apart afterwards. */
-	/* A bare name that is not on PATH: nothing to look up, nothing to split.
-	   Not a real terminal, or the answer depends on what the machine has
+	/* A bare name that isn't on PATH: nothing to look up, nothing to split.
+	   Not a real terminal, or the result depends on what the machine has
 	   installed - wt.exe here came back as its full WindowsApps path. */
 	check_split ("nemo-no-such-terminal.exe", "nemo-no-such-terminal.exe", NULL);
 	check_split ("nemo-no-such-terminal.exe -NoLogo", "nemo-no-such-terminal.exe", "-NoLogo");
@@ -84,7 +84,7 @@ main (void)
 		g_free (found);
 	}
 
-	/* "Open with Explorer" puts a window on the screen, so it is not something
+	/* "Open with Explorer" puts a window on the screen, so it isn't something
 	 * an unattended run can do. Set NEMO_PROBE_EXPLORER to a folder to watch it
 	 * open that folder and then pick a file out of it. */
 	{

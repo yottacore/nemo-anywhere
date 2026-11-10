@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
-##	Purpose: Summarize the newest profiler flamegraph - self-time hot spots,
-##		inclusive call buckets, and the caller chain of the top leaves - by
-##		parsing the pprof/inferno SVG (its fg:w attribute = raw sample counts).
-##		Runs two ways: plain (print the report, meant to run every cicd run) and
-##		--check (print only when the newest flamegraph is newer than the one last
-##		recorded in a local marker, then record it - meant for session startup so
-##		a look is a no-op until there is something new to read).
+##	Purpose: Summarize the newest profiler flamegraph: self-time hot spots,
+##		inclusive call buckets, and the caller chain of the top leaves. It parses
+##		the pprof/inferno SVG, whose fg:w attribute is the raw sample count.
+##		Plain prints the report, and is meant for every cicd run. --check prints
+##		only when the newest flamegraph is newer than the one last recorded in a
+##		local marker, then records it. That's meant for session startup, so a
+##		look is a no-op until there's something new to read.
 ##	History: At bottom of script.
 
 ##	Copyright (c) 2026 Bubbles
@@ -17,7 +17,7 @@
 
 import argparse, html, os, re, sys
 
-STEP      = 16             # flamegraph row height in the SVG, px (a child sits at parent_y - STEP)
+STEP      = 16             # flamegraph row height in the SVG, px; a child is at parent_y - STEP
 SELF_TOP  = 22             # self-time leaders to list
 INCL_TOP  = 14             # inclusive-time buckets to list
 CHAIN     = 4              # leaves whose caller chain we walk up to the root
@@ -32,16 +32,16 @@ SAMPLES_RE = re.compile(r"\s*\(\d[\d,]* samples.*$")
 
 
 def skip(msg):
-    ##	2 = environmental skip (no dir / unparseable) - non-fatal, matches the
-    ##	cicd profiler stage which treats such things as a warning, not a failure.
+    ##	2 = environmental skip, such as no dir or an unparseable file. Non-fatal,
+    ##	to match the cicd profiler stage, which treats these as a warning.
     sys.stderr.write(f"flame-report: {msg}\n")
     sys.exit(2)
 
 
 def newest_report(pdir):
-    ##	Sort on the timestamp, NOT the role suffix: GFS rotation retags the role
-    ##	(frequent -> latest -> hour/day/...) as time passes, but the timestamp in
-    ##	the name is stable.
+    ##	Sort on the timestamp rather than the role suffix. GFS rotation retags
+    ##	the role, frequent -> latest -> hour/day/..., as time passes, but the
+    ##	timestamp in the name is stable.
     best = None
     for name in os.listdir(pdir):
         m = NAME_RE.match(name)
@@ -64,7 +64,7 @@ def parse_flamegraph(path):
         name = SAMPLES_RE.sub("", html.unescape(fm.group(1)))
         frames.append((name, x, y, w))
     if not total or not frames:
-        skip(f"could not parse a flamegraph out of {path}")
+        skip(f"couldn't parse a flamegraph out of {path}")
     return total, frames
 
 
@@ -127,7 +127,7 @@ def report_busy_time(total, frames, top):
         return f"{v / total * 100:5.1f}%"
 
     ##	Samples are wall-clock, so a GUI app sitting in its main loop reads as
-    ##	almost entirely "waiting". The share of the time that is NOT waiting is
+    ##	almost entirely "waiting". The share of the time that isn't waiting is
     ##	the part worth looking at, so give both denominators.
     busy = total - buckets["waiting"]
 
@@ -146,7 +146,7 @@ def report_busy_time(total, frames, top):
     print("  thread counts as waiting, not as work.")
     print()
 
-    print("top self-time (where CPU actually burns):")
+    print("top self-time (where CPU burns):")
     for name, v in sorted(selfBy.items(), key=lambda kv: -kv[1])[:top]:
         if v < 1:
             break
@@ -181,7 +181,7 @@ def main():
     ap.add_argument("--check", action="store_true",
                     help="startup gate: print only if newer than the local marker, then record it")
     ap.add_argument("--force", action="store_true", help="with --check, report even if already seen")
-    ap.add_argument("--no-mark", action="store_true", help="with --check, do not update the marker")
+    ap.add_argument("--no-mark", action="store_true", help="with --check, don't update the marker")
     a = ap.parse_args()
 
     if a.file:
@@ -220,7 +220,7 @@ def main():
         try:
             open(marker, "w", encoding="utf-8").write(ts + "\n")
         except OSError as e:
-            sys.stderr.write(f"flame-report: could not write marker: {e}\n")
+            sys.stderr.write(f"flame-report: couldn't write marker: {e}\n")
 
 
 if __name__ == "__main__":

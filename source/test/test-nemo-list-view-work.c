@@ -25,12 +25,12 @@
  * paid per row or per cell across a whole folder. The built program opens a
  * folder of FILES files in the list view, once with shading off and once with
  * it on, with test-nemo-list-view-counts preloaded to count the calls behind
- * that work. Each count is held against the cells measured, so none depends
+ * that work. Each count is compared with the cells measured, so none depends
  * on how fast the box is or how many frames it drew:
  *
  * - "No background" goes to a renderer once, not once per cell.
  * - Where a row sits is asked once per row, not once per cell.
- * - The column list and the two theme sizes are kept, not asked per row.
+ * - The column list and the 2 theme sizes are kept, not asked per row.
  *
  * The bars and what the counts came to are at the checks below. Needs the built
  * program (argv[1]), the counting module (argv[2]) and a display. Linux and
@@ -250,7 +250,7 @@ main (int argc, char *argv[])
 
 	/* About 16,000 cells measured. Once per renderer, per column set and per
 	   theme came to 18, 6 and 2; once per cell or per row came to 18,588,
-	   2,005 and 18,002. The bar is one per twenty cells. */
+	   2,005 and 18,002. The bar is one per 20 cells. */
 	if (count_one_load (argv[1], argv[2], FALSE, &off)) {
 		print_counts ("shading off", &off);
 		check (off.plain * 20 <= off.cells);
@@ -261,7 +261,7 @@ main (int argc, char *argv[])
 	}
 
 	/* Once per row came to 2,036, and once per cell to 18,588, against the
-	   same 16,000 cells. The bar is one per two cells. */
+	   same 16,000 cells. The bar is one per 2 cells. */
 	if (count_one_load (argv[1], argv[2], TRUE, &on)) {
 		print_counts ("shading on", &on);
 		check (on.areas * 2 <= on.cells);

@@ -139,7 +139,7 @@ run (const char *exe, const char *probe)
 		goto out;
 	}
 
-	/* The probe gives each of its 13 steps ten seconds. */
+	/* The probe gives each of its 13 steps 10 seconds. */
 	for (i = 0; i < 1400 && alive (pid) && !done; i++) {
 		g_usleep (100 * 1000);
 		g_free (text);

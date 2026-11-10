@@ -875,7 +875,7 @@ action_new_tab_callback (G_GNUC_UNUSED GtkAction *action,
 
 /* Ctrl+Shift+T opens the selected folders in new tabs, as it always did, and
    a new tab for the folder in view when none are selected. A selected file
-   would open in its program, which is not what a tab key should do. The view's
+   would open in its program, which isn't what a tab key should do. The view's
    "Open in new tab" gives the key up to this, so only one of them has it. */
 static void
 action_new_tab_accel_callback (G_GNUC_UNUSED GtkAction *action,
@@ -1348,7 +1348,7 @@ static const GtkActionEntry main_entries[] = {
                                  G_CALLBACK (action_close_window_slot_callback) },
                                { "Preferences", "preferences-system-symbolic",
                                  N_("_Settings"),
-                                 "<Primary>comma", N_("Edit Nemo settings"),
+                                 "<Primary>comma", N_("Edit Nemo Anywhere settings"),
                                  G_CALLBACK (action_preferences_callback) },
 #ifdef TEXT_CHANGE_UNDO
   /* name, stock id, label */  { "Undo", NULL, N_("_Undo"),

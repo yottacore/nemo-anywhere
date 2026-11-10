@@ -45,7 +45,7 @@ char    *arc_extract_unique_name     (const char *name,
    NULL when nothing usable is left. */
 char    *arc_extract_sanitize_path   (const char *entry_path);
 
-/* Where unpacking a split archive has to start: any volume answers with its
+/* Where unpacking a split archive has to start: any volume returns its
    ".001" sibling. */
 GFile   *arc_extract_first_volume    (GFile      *archive);
 

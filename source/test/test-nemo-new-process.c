@@ -1,5 +1,5 @@
 /* The command line one copy hands another to show a location, and the
- * fallback when a selection cannot be said on one. Also the one for a tab
+ * fallback when a selection can't be said on one. Also the one for a tab
  * moved out to a window of its own. */
 
 #include <config.h>
@@ -43,7 +43,7 @@ main (void)
 	check (g_strcmp0 (args[1], "--select") == 0);
 	g_strfreev (args);
 
-	/* An item outside the folder cannot be said: the folder wins. */
+	/* An item outside the folder can't be said: the folder wins. */
 	args = nemo_new_process_argv (elsewhere, item);
 	check (g_strv_length (args) == 2);
 	check (g_strcmp0 (args[1], "file:///other/place") == 0);
@@ -71,7 +71,7 @@ main (void)
 		check (g_strcmp0 (args[7], "file:///some/folder") == 0);
 		g_strfreev (args);
 
-		/* With nothing to carry it is just the folder. */
+		/* With nothing selected it's only the folder. */
 		selected[0] = NULL;
 		args = nemo_new_process_argv_tab (folder, "", selected);
 		check (g_strv_length (args) == 2);

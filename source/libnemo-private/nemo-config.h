@@ -20,14 +20,14 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* Replaces GSettings: every setting lives in one hand-editable SHCL file
+/* Replaces GSettings: every setting is in one hand-editable SHCL file
  * under the app config dir, identically on every platform - no dconf, no
  * Windows registry, no compiled schema to install or ship.
  *
  * The API deliberately mirrors the slice of GSettings we used, down to the
  * detailed "changed::key" signal, so call sites read the same as before.
  * Types and defaults come from the table in nemo-config-keys.h, which is
- * also mirrored by the shipped .schema.shcl for `shcl check`.
+ * also mirrored by the installed .schema.shcl for `shcl check`.
  */
 
 #ifndef NEMO_CONFIG_H
@@ -60,7 +60,7 @@ typedef enum {
 } NemoConfigKeyFlags;
 
 /* One settable key. Defaults live here rather than at the call site, so a
- * key read from two places cannot disagree about what its default is. */
+ * key read from 2 places can't disagree about what its default is. */
 typedef struct {
 	const char                *group;      /* "preferences"; "" is the file root */
 	const char                *key;
@@ -151,7 +151,7 @@ void       nemo_config_drop_foreign_paths (void);
 /* Every key declared for this group, NULL-terminated. Free with g_strfreev. */
 char     **nemo_config_list_keys   (NemoConfigGroup *group);
 
-/* Changes made here, for the other running copies, so they need not wait for
+/* Changes made here, for the other running copies, so they don't have to wait for
  * the save and the file watch. Called on the main thread, a moment after the
  * change, with a NEMO_CONFIG_SHARED_TYPE value that is only valid during the
  * call. NULL stops it. Whatever was waiting goes to the old func first. */

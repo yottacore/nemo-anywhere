@@ -6,9 +6,9 @@
 ##	  release built in it differed from a clean rebuild.
 ##	- In a throwaway container from the release image, sets up a build dir with
 ##	  no link-time optimization, runs release-setup.bash over it, and reads the
-##	  options back. Also checks that the script will not clear a dir that is not
+##	  options back. Also checks that the script won't clear a dir that isn't
 ##	  a meson build dir.
-##	- Needs docker and the release image; exit 77 without them. It does not
+##	- Needs docker and the release image; exit 77 without them. It doesn't
 ##	  build the image.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/linux/test-release-setup.bash
@@ -51,7 +51,7 @@ print(" ".join(f"{n}={opts.get(n)}" for n in ("buildtype", "strip", "b_lto", "b_
 ## The dir as the old image and container had it.
 docker exec "$box" meson setup --buildtype=release "$build" /src/source >/dev/null
 seeded="$(fOptions)"
-[[ "$seeded" == *"b_lto=False"*"werror=False" ]] || fFail "could not set up a dir without link-time optimization and fatal warnings: ${seeded}"
+[[ "$seeded" == *"b_lto=False"*"werror=False" ]] || fFail "couldn't set up a dir without link-time optimization and fatal warnings: ${seeded}"
 
 rc=0
 out="$(docker exec -e SOURCE_DATE_EPOCH=946684800 "$box" bash /src/cicd/linux/release-setup.bash "$build" /src/source "$prefix" 2>&1)" || rc=$?
@@ -70,7 +70,7 @@ docker exec "$box" sh -c 'mkdir -p /tmp/not-a-build && touch /tmp/not-a-build/ke
 rc=0
 out="$(docker exec "$box" bash /src/cicd/linux/release-setup.bash /tmp/not-a-build /src/source "$prefix" 2>&1)" || rc=$?
 if [[ "$rc" == 0 ]] || ! docker exec "$box" test -f /tmp/not-a-build/keep; then
-	fFail "release-setup.bash cleared a dir that was not a build dir (exit ${rc}): ${out}"
+	fFail "release-setup.bash cleared a dir that wasn't a build dir (exit ${rc}): ${out}"
 else
 	fEcho "OK: a dir that is not a build dir is left alone"
 fi

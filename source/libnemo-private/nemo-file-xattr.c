@@ -31,7 +31,7 @@
 #endif
 
 #ifndef G_OS_WIN32
-/* GIO spells a `user` namespace attribute `xattr::name`, and puts the `user.`
+/* GIO names a `user` namespace attribute `xattr::name`, and puts the `user.`
  * back itself. */
 static char *
 gio_attribute (const char *name)

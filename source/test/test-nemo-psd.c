@@ -124,7 +124,7 @@ build (const Spec *spec)
 		put32 (out, 0);
 	}
 
-	/* One resource-shaped blob, to be skipped. */
+	/* One blob laid out like a resource, to be skipped. */
 	put32 (out, 6);
 	g_byte_array_append (out, (const guint8 *) "junk!!", 6);
 
@@ -230,7 +230,7 @@ pixel_is (GdkPixbuf *pixbuf, int x, int y, int r, int g, int b, int a)
 	return a < 0 ? n == 3 : (n == 4 && p[3] == a);
 }
 
-/* Two by two, RGB plus a fourth channel. */
+/* Two by 2, RGB plus a fourth channel. */
 static const guint8 rgb_planes[] = {
 	255, 0,   10,  20,	/* red */
 	0,   255, 30,  40,	/* green */
@@ -343,13 +343,13 @@ test_shrink (void)
 	check (small != NULL && gdk_pixbuf_get_width (small) == 10 && gdk_pixbuf_get_height (small) == 5);
 	check (pixel_is (small, 0, 0, 255, 0, 0, -1));
 	check (pixel_is (small, 9, 4, 0, 0, 255, -1));
-	/* x 16 to 19: two red columns and two blue ones. */
+	/* x 16 to 19: 2 red columns and 2 blue ones. */
 	check (pixel_is (small, 4, 2, 127, 0, 127, -1));
 }
 
-/* Every cut short of the whole file answers NULL, and none of them reads past
+/* Every cut short of the whole file returns NULL, and none of them reads past
  * what it was given. The corpus test under the sanitizer is what sees an
- * over-read; this sees a wrong answer. */
+ * over-read; this sees a wrong result. */
 static void
 test_truncated (void)
 {
@@ -408,7 +408,7 @@ build_rows (guint version, guint side, guint row_len, guint8 value)
 	return g_byte_array_free_to_bytes (out);
 }
 
-/* PackBits needs two bytes for every 128 of a row. A row shorter than that
+/* PackBits needs 2 bytes for every 128 of a row. A row shorter than that
  * was padded out, so a file of zero-length rows cost its declared size in
  * work: 180 KB took seconds. Rows at the least a whole row can take are read,
  * and one byte less is refused. */

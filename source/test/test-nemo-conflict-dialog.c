@@ -1,6 +1,6 @@
 /* Builds the conflict dialog for each kind of conflict it words differently:
  * file over file, folder over folder, and file over folder. The labels are
- * filled in once the three files are ready, and the names they use are freed
+ * filled in once the 3 files are ready, and the names they use are freed
  * right after. */
 
 #include <config.h>

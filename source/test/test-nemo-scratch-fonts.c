@@ -2,7 +2,7 @@
  * default pango font map in gtk_init, and pango runs FcInit for it in a
  * thread of its own. Where no system font cache is usable, that thread writes
  * one under XDG_CACHE_HOME, which a test points at its scratch dir. A short
- * test reached its exit cleanup with the thread still writing, and fontconfig
+ * test got to its exit cleanup with the thread still writing, and fontconfig
  * made the dir again for the next cache file. Seen on FreeBSD, where the
  * system cache was out of date.
  *
@@ -130,7 +130,7 @@ main (int argc, char *argv[])
 	tmp = g_build_filename (base, "tmp", NULL);
 	check (g_mkdir (tmp, 0700) == 0);
 
-	/* The first cachedir sits under a plain file, so nobody can write there,
+	/* The first cachedir is under a plain file, so nobody can write there,
 	   root included, and the user cache is the only one. */
 	conf = g_string_new ("<?xml version=\"1.0\"?>\n<fontconfig>\n");
 	for (i = 0; i < G_N_ELEMENTS (font_dirs); i++) {

@@ -1,7 +1,7 @@
-/* The file cache store. What is worth checking here is not that sqlite works
- * but that the rules layered on top of it do: a file that changed stops
+/* The file cache store. The checks are on the rules layered on top of
+ * sqlite: a file that changed stops
  * matching, a file that moved keeps what was known about it, storing twice
- * leaves one image behind, a checksum folds two records into one, and a file
+ * leaves one image behind, a checksum folds 2 records into one, and a file
  * nothing can draw is still a record. Also that the window's thread never
  * waits on another copy holding the file. */
 
@@ -111,7 +111,7 @@ check_stale_misses (NemoCacheDb *db)
 	check (!nemo_cache_db_thumbnail_lookup (db, "file:///edited.png", &bigger, &out, NULL));
 }
 
-/* A path nobody stored still hits when another path holds a thumbnail of the
+/* A path nobody stored still hits when another path has a thumbnail of the
  * same contents. This is the whole point of splitting paths from contents. */
 static void
 check_moved_file_keeps_thumbnail (NemoCacheDb *db)
@@ -128,16 +128,16 @@ check_moved_file_keeps_thumbnail (NemoCacheDb *db)
 	check (back != NULL && g_bytes_equal (back, image));
 	g_bytes_unref (back);
 
-	/* The new path is linked now, so it answers on its own without the
+	/* The new path is linked now, so it hits on its own without the
 	 * contents having to be searched for again. */
 	check (nemo_cache_db_thumbnail_lookup (db, "file:///after/pic.jpg", &id, &out, NULL));
 
-	/* And the old path still works - a copy has two live names. */
+	/* And the old path still works - a copy has 2 live names. */
 	check (nemo_cache_db_thumbnail_lookup (db, "file:///before/pic.jpg", &id, &out, NULL));
 }
 
 /* With a checksum, a file that moved AND was restamped is still recognized.
- * Size and mtime alone cannot do that. */
+ * Size and mtime alone can't do that. */
 static void
 check_digest_finds_restamped_file (NemoCacheDb *db)
 {
@@ -196,7 +196,7 @@ check_restore_replaces_and_keeps_paths (NemoCacheDb *db)
 	g_bytes_unref (back);
 	back = NULL;
 
-	/* The other name did not lose its row to the replacement. */
+	/* The other name didn't lose its row to the replacement. */
 	memset (&out, 0, sizeof (out));
 	check (nemo_cache_db_thumbnail_lookup (db, "file:///grow/two.jpg", &id, &out, &back));
 	check (out.size == 640);
@@ -204,7 +204,7 @@ check_restore_replaces_and_keeps_paths (NemoCacheDb *db)
 	g_bytes_unref (back);
 }
 
-/* What the replacement above really has to protect is the draw history. A
+/* What the replacement above has to protect is the draw history. A
  * lookup on its own recovers from a lost row, because the content search finds
  * the image again - so it looks fine until you ask how often the file has been
  * drawn and the count has gone back to zero. The pruning rules read exactly
@@ -282,10 +282,10 @@ check_plain_file_is_recorded (NemoCacheDb *db)
 					    99001, SOURCE_MTIME, back));
 }
 
-/* Two copies of one file that nothing has checksummed look like two unrelated
+/* Two copies of one file that nothing has checksummed look like 2 unrelated
  * files. Once both are checksummed they are one record, and everything hanging
- * off the record that goes - its image, and every other name for it - has to
- * come across to the one that stays. */
+ * off the record that goes has to come across to the one that stays. That's
+ * its image, and every other name for it. */
 static void
 check_digest_folds_records (NemoCacheDb *db)
 {
@@ -302,7 +302,7 @@ check_digest_folds_records (NemoCacheDb *db)
 	plain_d = id_for (99002, SOURCE_MTIME, digest);
 	drawn_d = id_for (99002, SOURCE_MTIME + 5 * G_USEC_PER_SEC, digest);
 
-	/* One copy with nothing but a record, one with an image and two names. */
+	/* One copy with nothing but a record, one with an image and 2 names. */
 	check (nemo_cache_db_note_file (db, "file:///dup/a.jpg", &plain));
 	check (nemo_cache_db_thumbnail_store (db, "file:///dup/b.jpg", &drawn, &in, image));
 	check (nemo_cache_db_thumbnail_lookup (db, "file:///dup/c.jpg", &drawn, &out, NULL));
@@ -316,7 +316,7 @@ check_digest_folds_records (NemoCacheDb *db)
 	check (nemo_cache_db_set_digest (db, "file:///dup/b.jpg", &drawn_d));
 
 	/* c.jpg was never named in either call, so its row only survives if the
-	 * fold carried it across. Reading the checksum back is the way to ask,
+	 * fold moved it across. Reading the checksum back is the way to ask,
 	 * since a thumbnail lookup would put a missing row back and hide it. */
 	{
 		guint8 back[NEMO_CACHE_DIGEST_LEN];
@@ -327,7 +327,7 @@ check_digest_folds_records (NemoCacheDb *db)
 	}
 
 	/* The record that stays is a.jpg's, the one that had no image. Both of
-	 * these go through the checksum, so they only answer if the image really
+	 * these go through the checksum, so they only hit if the image
 	 * moved onto it. */
 	memset (&out, 0, sizeof (out));
 	check (nemo_cache_db_thumbnail_lookup (db, "file:///dup/a.jpg", &plain_d, &out, NULL));
@@ -404,7 +404,7 @@ on_disk (void)
 	return total;
 }
 
-/* Emptying really empties, the disk space included, and the store still works
+/* Emptying empties all of it, the disk space included, and the store still works
  * afterwards. The space is the part somebody pressing the button can see: in
  * WAL mode a VACUUM writes the whole new file into the journal, so without a
  * checkpoint after it the total on disk went up. */
@@ -568,7 +568,7 @@ check_window_never_waits (NemoCacheDb *db)
 
 /* Draw counts go out on their own after the wait, with nothing running the
  * window's main loop. A slow box can let the wait run out between the notes,
- * which writes them in two goes, so this waits for the total. */
+ * which writes them in 2 goes, so this waits for the total. */
 static void
 check_draws_written_off_window (NemoCacheDb *db)
 {
@@ -596,7 +596,7 @@ check_draws_written_off_window (NemoCacheDb *db)
 }
 
 /* A refresh queued by the window is never read back past, even when the
- * writer has not got to it yet. */
+ * writer hasn't got to it yet. */
 static void
 check_forget_later_in_order (NemoCacheDb *db)
 {
@@ -646,7 +646,7 @@ check_corrupt_file_is_rebuilt (void)
 }
 
 /* A file some other version of the schema wrote is thrown away the same way,
- * since nothing in here cannot be worked out again. */
+ * since nothing in here can't be worked out again. */
 static void
 check_wrong_version_is_rebuilt (void)
 {
@@ -659,7 +659,7 @@ check_wrong_version_is_rebuilt (void)
 	g_autoptr (GBytes) image = fake_image ('n', 48);
 	gsize len = 0;
 	FILE *fp;
-	/* The schema version sits at offset 60 of the file header, four bytes
+	/* The schema version is at offset 60 of the file header, 4 bytes
 	 * big endian. SQLite's format has said so since 3.0. */
 	const unsigned char bogus[4] = { 0, 0, 0, 99 };
 
@@ -690,7 +690,7 @@ check_wrong_version_is_rebuilt (void)
 	check (nemo_cache_db_thumbnail_lookup (db, "file:///old-schema.png", &id, &out, NULL));
 }
 
-/* Two connections at once, which is what several windows really are. The
+/* Two connections at once, which is what several windows are. The
  * second one has to see what the first wrote and be able to write itself. */
 static void
 check_second_process_sees_writes (void)
@@ -737,7 +737,7 @@ check_second_process_sees_writes (void)
 }
 
 /* sqlite's own file layer with one change: while armed, a read of the schema
- * version is answered busy. sqlite hands every PRAGMA to the file layer first,
+ * version fails as busy. sqlite hands every PRAGMA to the file layer first,
  * and a failure there is what the read comes back with. */
 static sqlite3_vfs                busy_vfs;
 static sqlite3_vfs               *real_vfs;
@@ -778,7 +778,7 @@ busy_open (sqlite3_vfs *vfs, const char *name, sqlite3_file *file, int flags, in
 	return rc;
 }
 
-/* A version that could not be read is not a version from somewhere else. The
+/* A version that couldn't be read isn't a version from somewhere else. The
  * file has to stay as it is, since other copies may have it open, and this
  * copy runs with no cache. */
 static void
@@ -878,7 +878,7 @@ main (int argc, char *argv[])
 	(void) argc;
 	(void) argv;
 
-	/* Before anything reads a cache root, since that answer is cached. */
+	/* Before anything reads a cache root, since that path is cached. */
 	scratch = test_scratch_config_home ("nemo-cachedb-XXXXXX");
 	if (scratch == NULL) {
 		g_printerr ("could not make a scratch dir\n");

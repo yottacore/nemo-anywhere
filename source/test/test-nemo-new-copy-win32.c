@@ -121,7 +121,7 @@ report (const char *dir, int argc, char *argv[])
 }
 
 /* The folder a started copy writes into: the last argument's, or for --select
- * the folder of the item. NULL when this is not a started copy. */
+ * the folder of the item. NULL when this isn't a started copy. */
 static char *
 copy_folder (int argc, char *argv[])
 {

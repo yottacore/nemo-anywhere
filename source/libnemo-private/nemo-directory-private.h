@@ -56,7 +56,7 @@ typedef enum {
 	REQUEST_MOUNT,
 	REQUEST_FILESYSTEM_INFO,
     REQUEST_FAVORITE_CHECK,
-	REQUEST_OWNER, /* only where the owner is not part of the info */
+	REQUEST_OWNER, /* only where the owner isn't part of the info */
 	REQUEST_TYPE_LAST
 } RequestType;
 
@@ -149,7 +149,7 @@ struct NemoDirectoryDetails
     gint early_load_file_count;
 
 	/* Whether the folder is on a share, and the share generation that
-	   answer was read against; 0 is not read yet. */
+	   answer was read against; 0 isn't read yet. */
 	guint share_gen;
 	gboolean on_share;
 };

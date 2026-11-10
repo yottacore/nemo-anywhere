@@ -1,7 +1,7 @@
 /* The archive core on its own: no GTK, no display, nothing of the app. Each
- * call it makes on its host reaches the host with the host's data and comes
- * back with the host's answer, and a host that leaves a call out gets a
- * fallback that removes nothing, starts nothing and answers no question.
+ * call it makes on its host goes to the host with the host's data and comes
+ * back with the host's result, and a host that leaves a call out gets a
+ * fallback that removes nothing, starts nothing, and doesn't ask anything.
  * Then the size totals on made-up paths, nested or other filesystems from
  * made-up mount tables, and the link choices against what a writer stores. */
 
@@ -41,7 +41,7 @@ typedef struct {
 	double   total;
 	GFile   *last_file;
 	ArcLine  last_line;
-	char    *password;	/* what the password call answers */
+	char    *password;	/* what the password call returns */
 } Seen;
 
 static Seen seen;
@@ -432,7 +432,7 @@ check_forwarding (GFile *file)
 	seen.password = g_strdup ("");
 	check (arc_ask_password (host, "a.zip") == NULL);
 
-	/* Every call reached the host, in order, and each only once. */
+	/* Every call went to the host, in order, and each only once. */
 	check (g_strcmp0 (seen.calls,
 			  "status details fraction pulse file_added children leaves_for leaves_for "
 			  "start stdout stderr force_exit wait_check if_exited exit_status free "
@@ -461,7 +461,7 @@ check_settings (void)
 	check (copy.lines[ARC_LINE_CREATE_7Z] != src.lines[ARC_LINE_CREATE_7Z]);
 	check (copy.lines[ARC_LINE_CREATE_RAR] == NULL);
 
-	/* The job's copy is its own: a settings change after it started is not
+	/* The job's copy is its own: a settings change after it started isn't
 	   seen halfway through. */
 	arc_settings_clear (&src);
 	check (src.lines[ARC_LINE_CREATE_7Z] == NULL && src.threads == 0);
@@ -785,7 +785,7 @@ check_many_paths (guint n)
 	arc_path_list_free (list);
 }
 
-/* Resident KB, where there is a /proc to ask. 0 elsewhere. */
+/* Resident KB, where there is a /proc to ask, or 0. */
 static guint64
 resident_kb (void)
 {

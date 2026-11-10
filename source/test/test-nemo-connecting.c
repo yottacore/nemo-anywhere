@@ -25,7 +25,7 @@
 /* After an smb:// address was typed, nothing showed that the app was working
  * on it until a login prompt or the share turned up (2026100816170921). First
  * the host the sign names is checked for a set of addresses, then the built
- * program runs with test-nemo-connecting-probe preloaded, which holds the
+ * program runs with test-nemo-connecting-probe preloaded, which stalls the
  * mount and looks at the window while it waits.
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Linux
@@ -181,7 +181,7 @@ run_window (const char *exe, const char *probe)
 		goto out;
 	}
 
-	/* The probe gives each step ten seconds, and there are fifteen. */
+	/* The probe gives each step 10 seconds, and there are 15. */
 	for (i = 0; i < 1600 && alive (pid) && !done; i++) {
 		g_usleep (100 * 1000);
 		g_free (text);

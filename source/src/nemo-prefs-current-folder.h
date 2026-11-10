@@ -26,7 +26,7 @@
 #include <gtk/gtk.h>
 
 /* Wires the Current tab to the folder in the last focused window, starting
- * with @parent, and the buttons that copy between the two tabs. The Default
+ * with @parent, and the buttons that copy between the 2 tabs. The Default
  * tab's own widgets are bound to the preferences elsewhere. */
 void nemo_prefs_current_folder_setup (GtkBuilder *builder,
 				      GtkWidget  *dialog,

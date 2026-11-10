@@ -340,8 +340,8 @@ nemo_column_class_init (NemoColumnClass *class)
     /* Says the values in this column have no length anyone would call normal -
        a type name, a path, an owner. The list view stops such a column at a
        share of the Name column rather than letting one long value take the
-       window. Columns whose values are a shape - a size, a date - leave it
-       alone and simply grow to fit. */
+       window. Columns whose values have a fixed form, such as a size or a
+       date, leave it alone and grow to fit. */
     g_object_class_install_property (G_OBJECT_CLASS (class),
                      PROP_UNBOUNDED,
                      g_param_spec_boolean ("unbounded",

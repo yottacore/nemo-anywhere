@@ -287,7 +287,7 @@ empty_clicked (GtkButton *button, Page *page)
 	g_object_unref (task);
 }
 
-/* The day count is a whole number and a spin box holds a double. */
+/* The day count is a whole number and a spin box stores a double. */
 static gboolean
 days_get_mapping (GValue *value, const NemoConfigValue *config_value, gpointer user_data)
 {

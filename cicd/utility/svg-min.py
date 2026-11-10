@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """Shrink an SVG for bundling: drop editor bookkeeping, keep the drawing.
 
-Themes are drawn in Inkscape, and what ships is mostly not the drawing - it is
+Themes are drawn in Inkscape, and most of what's bundled isn't the drawing. It's
 sodipodi/inkscape namespaces, RDF metadata blocks, and the indentation between
-elements. Removing only those is safe for every renderer, and typically halves
+elements. Removing only those is safe for every renderer, and often halves
 the file. Nothing that affects rendering is touched: styles, classes, gradient
 ids and xlink references all survive verbatim, which is what keeps GTK's
 symbolic recoloring working.
 
 Past that comes a numeric pass, which is where the rest of the weight is. Icons
-are traced, and a traced path carries coordinates to eight decimal places in a
-box sixteen units wide - four or five digits per number that no renderer can
-act on. Numbers are rounded to a quantum finer than a two-thousandth of the
-viewBox, which is under a tenth of a pixel at any size an icon is ever drawn,
-and re-emitted without the separators SVG does not require. Colors fold to
+are traced, and a traced path has coordinates to 8 decimal places in a box 16
+units wide. That's 4 or 5 digits per number that no renderer can act on.
+Numbers are rounded to a quantum finer than 1/2000 of the viewBox, which is
+under a tenth of a pixel at any size an icon is ever drawn, and re-emitted
+without the separators SVG doesn't require. Colors fold to
 their short form and unreferenced ids go. Elements, attributes that paint,
 classes and every #id anything points at are left exactly as they were.
 
@@ -21,7 +21,7 @@ Syntax: svg-min.py <in.svg> <out.svg>
         svg-min.py --tree <in-dir> <out-dir>       (--tree in place is allowed)
         svg-min.py --self-test
 
---self-test minifies a made-up document that carries each of the traps above
+--self-test minifies a made-up document that has each of the traps above
 and checks what comes out, so a change that rounds a multiplier or loses an
 arc flag fails the lint stage rather than showing up as a misdrawn icon.
 
@@ -40,7 +40,7 @@ XLINK_NS = "http://www.w3.org/1999/xlink"
 
 # Editor bookkeeping. Everything under these namespaces is inert at render time.
 #
-# Matched as substrings, not exact URIs: themes carry several spellings of the
+# Matched as substrings, not exact URIs: themes use several spellings of the
 # same namespace, including a "sodipodi-0.dtd" that is missing a digit. An exact
 # list let that one through, which left <ns1:namedview> in the output - harmless
 # where the file keeps its own xmlns declaration, but it survives as dead weight
@@ -131,10 +131,10 @@ def _round(text, decimals):
 
 
 # How many parameters each path command takes, and where an elliptical arc
-# keeps its two flags. A flag is a single character and may be written with
-# nothing around it - "a.6.6 0 00-.418 1.029" carries flags 0 and 0 inside that
+# puts its 2 flags. A flag is a single character and may be written with
+# nothing around it. "a.6.6 0 00-.418 1.029" has flags 0 and 0 inside that
 # "00", and reading path data as a plain run of numbers swallows one of them and
-# silently reshapes the icon. Adwaita's terminal glyph is drawn exactly that way.
+# silently reshapes the icon. Adwaita's terminal glyph is drawn that way.
 PATH_ARGS = {"m": 2, "l": 2, "h": 1, "v": 1, "c": 6, "s": 4,
          "q": 4, "t": 2, "a": 7, "z": 0}
 ARC_FLAGS = (3, 4)
@@ -157,7 +157,7 @@ def _path_tokens(data):
             argument = 0
             position += 1
             yield True, char
-            # After a moveto the repeats are linetos, which take the same two.
+            # After a moveto the repeats are linetos, which take the same 2.
             continue
 
         lowered = command.lower()
@@ -184,8 +184,8 @@ def _shrink_path(data, decimals):
 
 	Only the space before a minus sign is dropped. A leading dot could be run
 	onto the previous number too, but not after an arc's flags, where the pair
-	is a single token - so the rule that is safe everywhere is the one used, and
-	the few bytes it leaves behind are not worth the risk.
+	is a single token. So the rule that's safe everywhere is the one used, and
+	the few bytes it leaves behind aren't worth the risk.
 	"""
     parts = []
     for is_command, token in _path_tokens(data):
@@ -201,7 +201,7 @@ def _shrink_path(data, decimals):
 
 
 def _transform_scale(value):
-    """How much @value magnifies lengths, as one number. 1.0 if it cannot tell."""
+    """How much @value magnifies lengths, as one number. 1.0 if it can't tell."""
     scale = 1.0
     for name, args in TRANSFORM.findall(value or ""):
         numbers = [float(n) for n in NUMBER.findall(args)] or [0.0]
@@ -216,7 +216,7 @@ def _transform_scale(value):
 
 
 def _base_decimals(root):
-    """Enough decimals that the quantum is under a 2000th of the viewBox."""
+    """Enough decimals that the quantum is under 1/2000 of the viewBox."""
     box = root.get("viewBox")
     width = 0.0
     if box:
@@ -242,7 +242,7 @@ def _base_decimals(root):
 
 
 def _referenced_ids(root):
-    """Every id something in the document points at, by any of the three ways."""
+    """Every id something in the document points at, by any of the 3 ways."""
     found = set()
     for element in root.iter():
         for key, value in element.attrib.items():
@@ -279,7 +279,7 @@ def _tighten(element, base, keep_ids, scale, is_root):
             continue
         # A stylesheet's id is how color-scheme tooling finds the block to
         # rewrite, and nothing in the document points at it, so the reference
-        # scan cannot see that anything needs it. Left alone.
+        # scan can't see that anything needs it. Left alone.
         if (local == "id" and not is_root
             and element.tag.split("}")[-1] != "style"
             and element.attrib[key] not in keep_ids):
@@ -303,7 +303,7 @@ def minify(src, dst):
     _tighten(root, _base_decimals(root), _referenced_ids(root), 1.0, True)
 
     out = ET.tostring(root, encoding="unicode")
-    # ET emits the default namespace on every child it cannot attribute; collapse
+    # ET emits the default namespace on every child it can't attribute; collapse
     # the redundant redeclarations it leaves behind.
     out = out.replace(' xmlns:ns0="%s"' % SVG_NS, "")
     out = re.sub(r"\s+", " ", out)
@@ -373,7 +373,7 @@ def self_test():
     for gone in ("sodipodi", "inkscape", "metadata", 'version="'):
         check(f"{gone} dropped", gone in text, False)
     # A path inside the 0.39 scale keeps the base 3 decimals; both arcs keep
-    # their seven parameters, flags included.
+    # their 7 parameters, flags included.
     check("arcs survive", paths[1].get("d") if len(paths) > 1 else None,
           "M1.235 2.346a5 5 0 0 1 5 5a.6 .6 0 0 0-.418 1.029")
     # Scaled up by 4, one digit finer, so the error on screen stays the same.
@@ -425,7 +425,7 @@ def main(argv):
                 try:
                     minify(src, dst)
                 except Exception:
-                    # An SVG we cannot parse still renders; ship it untouched.
+                    # An SVG we can't parse still renders; copy it untouched.
                     with open(src, "rb") as fh:
                         data = fh.read()
                     with open(dst, "wb") as fh:

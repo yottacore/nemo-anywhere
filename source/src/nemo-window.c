@@ -1317,7 +1317,7 @@ cancel_pending_geometry_save (NemoWindow *window)
 }
 
 /* Geometry used to be written only on a clean close, so anything that killed the
- * process - a crash, or a launcher replacing the running copy - lost it. Save on
+ * process, such as a crash or a launcher replacing the running copy, lost it. Save on
  * a settled move/resize instead, debounced so a drag writes once at the end.
  */
 static gboolean
@@ -1778,13 +1778,13 @@ nemo_window_sync_menu_bar (NemoWindow *window)
 }
 
 /* Room the title bar gives the text, guessed in line heights: a window icon at
-   one end, three buttons at the other, and padding around both. The bar belongs
+   one end, 3 buttons at the other, and padding around both. The bar belongs
    to the window manager, so nothing can be read off it - this only has to tell a
-   path that obviously fits from one that obviously does not. */
+   path that obviously fits from one that obviously doesn't. */
 #define TITLE_BAR_CHROME_LINES 7
 
 /* The whole path when the title bar looks wide enough for it, else the longest
-   spelling of it that does look to fit. Anything that is not a local path - a
+   spelling of it that does look to fit. Anything that isn't a local path - a
    name, a uri - is left to the old character cut. */
 static char *
 compute_title (NemoWindow *window, NemoWindowSlot *slot)
@@ -1839,7 +1839,7 @@ set_title (NemoWindow *window, NemoWindowSlot *slot)
 	g_free (title);
 }
 
-/* A wider window may have room to spell out more of the path, and a narrower one
+/* A wider window may have room to show more of the path, and a narrower one
    may not. The tabs are left alone here: the notebook fits those against its own
    allocation. */
 static void
@@ -2069,8 +2069,8 @@ nemo_window_connect_content_view (NemoWindow *window,
 	 * keeps it while it lasts; "Places" holds it at no other time. Only a
 	 * location that needs a different view type gets this far, so without the
 	 * check a folder with its own view type would take the focus from the tree
-	 * and one beside it would not. A pane that is not up reads as NULL, which
-	 * is not within. */
+	 * and one beside it wouldn't. A pane that isn't up reads as NULL, which
+	 * isn't within. */
 	if (!eel_gtk_focus_is_within (window->details->places_sidebar) &&
 	    !eel_gtk_focus_is_within (window->details->tree_sidebar)) {
 		nemo_view_grab_focus (view);
@@ -2849,7 +2849,7 @@ nemo_window_set_ignore_meta_icon_size (NemoWindow *window, gint size)
 }
 
 /* Kept apart from the plain size. A zoom in a folder of pictures must not
-   follow the window into the next folder that is not one. */
+   follow the window into the next folder that isn't one. */
 gint
 nemo_window_get_ignore_meta_image_icon_size (NemoWindow *window)
 {
@@ -2862,7 +2862,7 @@ nemo_window_set_ignore_meta_image_icon_size (NemoWindow *window, gint size)
     window->details->ignore_meta_image_icon_size = size;
 }
 
-/* List view has its own, since its sizes and default are not the icon view's.
+/* List view has its own, since its sizes and default aren't the icon view's.
    Sharing one let an icon view that opened a folder of pictures leave 64 behind
    for the next list. */
 gint

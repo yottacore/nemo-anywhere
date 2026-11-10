@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 ##	- Purpose: Docker cleanup at the end of a run. Everything the pipeline makes
-##	  carries dev.project and dev.run labels; this removes only what carries
-##	  this project's.
+##	  has dev.project and dev.run labels; this removes only what has this
+##	  project's.
 ##	- fDockerSweep [name...] -> removes this run's containers, except the named
-##	  ones (the long-lived build boxes), then the project's dangling images and
+##	  long-lived build boxes, then the project's dangling images and
 ##	  its tags past the newest 2 of each repository, then the project's cache
 ##	  volumes whose clone is gone, such as a removed worktree's. Prints one
 ##	  line with what went and about what it freed.
@@ -77,6 +77,6 @@ fDockerSweep(){
 
 ##	History:
 ##		- 2026-10-25: Created.
-##		- 2026-11-03: No build cache prune. It reached other projects' cache.
+##		- 2026-11-03: No build cache prune. It removed other projects' cache.
 ##		- 2026-11-03: Removes the cache volumes of a clone that's gone.
 ##		- 2026-11-06: Names the containers --keep-temp keeps.

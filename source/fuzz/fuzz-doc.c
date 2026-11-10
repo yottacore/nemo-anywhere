@@ -20,14 +20,14 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* The piece table sits in one stream and points into another, so the text a
- * .doc yields comes from two buffers that need not agree with each other. The
- * first two bytes of the input say where to cut, which lets the search move
+/* The piece table is in one stream and points into another, so the text a
+ * .doc yields comes from 2 buffers that don't have to agree. The
+ * first 2 bytes of the input say where to cut, which lets the search move
  * the boundary as well as the contents. The first part is the document
  * stream and the rest is the piece table. A Word 97 header is written over
  * the start of the document stream, pointing at the whole table, so every
- * input reaches the piece table rather than only the ones that happen to
- * carry a header. fuzz-ole2.c's Word case takes the streams as they come. */
+ * input gets to the piece table rather than only the ones that happen to
+ * have a header. fuzz-ole2.c's Word case takes the streams as they come. */
 
 #include <config.h>
 

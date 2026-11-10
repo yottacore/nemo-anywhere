@@ -2,7 +2,7 @@
 
 ##	Purpose:
 ##		- The commit message an unattended run commits under, in one place so the
-##		  pipeline and the publisher cannot disagree about it.
+##		  pipeline and the publisher can't disagree about it.
 ##		- As a GIT_EDITOR: git invokes it as `git-auto-msg.bash <msgfile>`. Fill an
 ##		  empty message; leave one git already pre-filled (e.g. a merge message).
 ##		  Either way, never block.
@@ -54,7 +54,7 @@ fKept(){ SC="$scissors" awk '$0 == ENVIRON["SC"] {exit} {print}' | git stripspac
 
 tmpl="$(git config --path commit.template 2>/dev/null || true)"
 existing="$(fKept <"$file")"
-## An untouched template is not a message; git refuses it as unedited.
+## An untouched template isn't a message; git refuses it as unedited.
 if [[ -n "$existing" && -n "$tmpl" && -r "$tmpl" && "$existing" == "$(fKept <"$tmpl")" ]]; then existing=""; fi
 [[ -n "$existing" ]] && exit 0
 

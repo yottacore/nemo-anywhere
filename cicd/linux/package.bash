@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 
-##	- Purpose: Turn a finished Linux release tarball into distro packages - a .deb
-##	  and a .rpm - alongside it in cicd/artifacts/release.
+##	- Purpose: Turn a finished Linux release tarball into a .deb and a .rpm,
+##	  alongside it in cicd/artifacts/release.
 ##	- Both packages install the same relocatable prefix the tarball contains, under
-##	  /opt/<slug>, plus the three things a system install owes the desktop: a name
+##	  /opt/<slug>, plus the 3 things a system install needs for the desktop: a name
 ##	  on PATH, a menu entry, and the app icon in the shared icon theme.
 ##	- Shared-library dependencies for the .deb are read off the built binaries with
-##	  dpkg-shlibdeps IN A RELEASE CONTAINER, not on this box: the package has to
-##	  claim the same floor the binary was built against, and this host is newer.
+##	  dpkg-shlibdeps in a release container rather than on this box, because the
+##	  package has to claim the same floor the binary was built against, and this
+##	  host is newer.
 ##	  rpmbuild works those out from the ELF itself, so the .rpm needs no help.
 ##	- A tarball for another arch can't be read here. Its list comes from the
 ##	  release container on a box of that arch: release-arm64.bash runs this
@@ -77,7 +78,7 @@ if [[ -z "$tarball" ]]; then
 	## Newest matching tarball. The glob is guarded so an empty dir says so
 	## rather than passing the literal pattern on to tar. One arch only, this
 	## box's unless asked: the arm64 one is usually the newest, and its
-	## dependencies are not read the same way.
+	## dependencies aren't read the same way.
 	wantArch="${wantArch:-$hostArch}"
 	[[ -n "$wantArch" ]] || fDie "no release name for a $(uname -m) box; pass --arch or --from"
 	shopt -s nullglob
@@ -95,8 +96,8 @@ fi
 base="$(basename "$tarball" .tar.gz)"
 ver="${base#"${SLUG}"-}"; ver="${ver%%-linux-*}"
 arch="${base##*-linux-}"
-[[ -n "$ver" && -n "$arch" ]] || fDie "cannot read version/arch out of $(basename "$tarball")"
-[[ -z "$wantArch" || "$arch" == "$wantArch" ]] || fDie "$(basename "$tarball") is not a ${wantArch} build"
+[[ -n "$ver" && -n "$arch" ]] || fDie "can't read version/arch out of $(basename "$tarball")"
+[[ -z "$wantArch" || "$arch" == "$wantArch" ]] || fDie "$(basename "$tarball") isn't a ${wantArch} build"
 
 ## Runtime dependencies, read off the real binaries at the glibc floor they were
 ## built against, in a container of its own from the release image. Prints
@@ -146,8 +147,8 @@ fDependsFromFile(){
 
 ## Falls back to a conservative list with a warning when the real one can't be
 ## had, so a package still gets built.
-## Only the dependency line reaches stdout - anything it says to the console goes
-## to stderr, or it would end up inside the control file's Depends field.
+## Only the dependency line goes to stdout. Anything else it prints goes to
+## stderr, or it would end up inside the control file's Depends field.
 deb_depends(){
 	local line=""
 
@@ -169,7 +170,7 @@ deb_depends(){
 if ((dependsOnly)); then
 	[[ "$arch" == "$hostArch" ]] || fDie "$(basename "$tarball") is ${arch}; read its dependencies on a ${arch} box"
 	line="$(fDependsFromContainer)"
-	[[ -n "$line" ]] || fDie "could not read dependencies in a container from ${IMAGE}"
+	[[ -n "$line" ]] || fDie "couldn't read dependencies in a container from ${IMAGE}"
 	printf '%s\n' "$line"
 	exit 0
 fi
@@ -185,7 +186,7 @@ case "$arch" in
 	*)      fDie "unknown architecture: ${arch}" ;;
 esac
 
-## RPM versions cannot contain '-'; it separates version from release.
+## RPM versions can't contain '-', since it separates version from release.
 rpm_ver="${ver//-/\~}"
 
 work="$(mktemp -d)"
@@ -202,8 +203,8 @@ prefix="${work}/${base}"
 # Shared install tree
 
 ## Both formats install the same thing, so build the tree once: the whole prefix
-## under /opt, then the launcher, menu entry and icons in the system locations.
-## The menu entry's Exec/Icon are rewritten to absolute paths - the tarball's copy
+## under /opt, then the launcher, menu entry, and icons in the system locations.
+## The menu entry's Exec/Icon are rewritten to absolute paths. The tarball's copy
 ## points at wherever the folder happened to end up, which a package knows for sure.
 build_tree(){
 	local root="$1" size src
@@ -275,7 +276,7 @@ if ((do_deb)); then
 			echo " Installs alongside an existing Nemo without conflicting with it."
 		} > "${debroot}/DEBIAN/control"
 
-		## Refresh the caches the desktop reads, and only those - nothing here
+		## Refresh the caches the desktop reads, and only those. Nothing here
 		## touches the user's own settings.
 		cat > "${debroot}/DEBIAN/postinst" <<-'EOF'
 			#!/bin/sh
@@ -319,7 +320,7 @@ if ((do_rpm)); then
 			echo "%global _build_id_links none"
 			echo "%global __os_install_post %{nil}"   ## the binaries are already stripped
 			## rpm reads SOURCE_DATE_EPOCH but ignores it unless told to. Without these
-			## the header carries the clock and every file gets a fresh mtime.
+			## the header records the clock and every file gets a fresh mtime.
 			echo "%global source_date_epoch_from_changelog 0"
 			echo "%global use_source_date_epoch_as_buildtime 1"
 			echo "%global clamp_mtime_to_source_date_epoch 1"
@@ -383,8 +384,8 @@ fEcho_Clean
 
 
 ##	History:
-##		- 2026-08-04: Created. Replaces the cargo-shaped package stage the engine
-##		  carried over, which never applied to a meson build.
+##		- 2026-08-04: Created. Replaces the cargo-style package stage that came
+##		  with the engine, which never applied to a meson build.
 ##		- 2026-10-05: Picks this box's arch by default, now an arm64 tarball can
 ##		  sit beside the x86_64 one.
 ##		- 2026-10-07: --arch, --depends-only, and the arm64 .deb's dependencies

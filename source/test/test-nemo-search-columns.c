@@ -1,6 +1,6 @@
 /* Find results keep their own columns, in the order they were dragged into,
- * whatever remember-folder-settings says, since they are not a folder. With
- * nothing saved they show Name, Ext, Size, Modified and Location, in that
+ * whatever remember-folder-settings says, since they aren't a folder. With
+ * nothing saved they show Name, Ext, Size, Modified, and Location, in that
  * order, with Type and the other dates hidden. Their sort column and
  * direction are kept the same way. */
 
@@ -129,7 +129,7 @@ main (int argc, char *argv[])
 		g_clear_pointer (&attr, g_free);
 
 		/* The default itself leaves nothing saved, so a changed default
-		 * still reaches find results. */
+		 * still applies to find results. */
 		nemo_search_sort_save ("name", FALSE, "name", FALSE);
 		check (!nemo_search_sort_get (&attr, &reversed));
 		check (!file_mentions ("search-sort-column"));

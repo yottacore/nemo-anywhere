@@ -8,7 +8,7 @@
 ##	  no run folder, so the pid keeps 2 apart. A kept container or a step run
 ##	  twice takes the next number.
 ##	- fStepBox_Volume <volume> [label] -> makes the cache volume for this clone, or
-##	  checks it's this clone's. 1 with one line when another clone has it, 2 when
+##	  checks it's this clone's. Returns 1 with one line when another clone has it, 2 when
 ##	  it can't be made.
 ##	- fStepBox_VolPrefix -> what the cache volume names start with:
 ##	  CICD_VOLUME_PREFIX when set, else the project, or for a linked worktree

@@ -118,11 +118,11 @@ These are the features that make Nemo worth porting:
 
 - **Linux isn't required**. Windows is a real native build, not a compatibility layer. (BSD coming soon.) You can install it from here, and Windows Store and Apple Store downloads are underway.
 
-- On Windows it is one executable. The whole runtime is packed inside it, so there is nothing to install and nothing to keep in step. Copy it where you like and run it.
+- On Windows it's one executable. The whole runtime is packed inside it, so there's nothing to install and nothing to keep in sync. Copy it where you like and run it.
 
 	- It's the same idea as an AppImage or a Flatpak, without the runtime or the sandbox.
 
-	- On Linux it stays a small folder that uses the GTK3 your distro already has, because that is what a Linux user expects and it keeps the download tiny.
+	- On Linux it stays a small folder that uses the GTK3 your distro already has, because that's what a Linux user expects, and it keeps the download tiny.
 
 - **Windows features**:
 
@@ -134,17 +134,17 @@ These are the features that make Nemo worth porting:
 
 	- `.lnk` shortcuts can be made, edited and opened the same way Explorer does. Shortcuts, symlinks and junctions each get their own overlay, so they are easy to tell apart. (You can make hardlinks too.)
 
-	- Each fixed drive sits in the sidebar with a usage bar.
+	- Each fixed drive shows in the sidebar with a usage bar.
 
 	- Dot files and files with the hidden attribute each have a switch. Ctrl+H flips both. (They can also be independently hidden.)
 
 	- Includes right-click options like "Open in Windows Terminal", "Open as Administrator", "Open with Explorer", and "Copy path" with either kind of slash.
 
-	- Light or dark follows the Windows setting. Four icon sets are drawn to match XP, 7, 10 and 11.
+	- Light or dark follows the Windows setting. There are 4 icon sets drawn to match XP, 7, 10, and 11.
 
 	- Per-monitor DPI-aware.
 
-	- File associations are read from the registry and never written to it. "Set as default" keeps its choice in the settings file.
+	- File associations are read from the registry and never written to it. "Set as default" saves its choice in the settings file.
 
 - Every instance gets its own process. (Optional, on by default.) Unlike with most file managers - e.g. Windows Explorer, macOS Finder, Nautilus, Gnome, etc. - if one instance crashes, the rest keep going.
 
@@ -154,9 +154,9 @@ These are the features that make Nemo worth porting:
 
 	- Create and extract zip, tar and 7z natively. Features like split volumes, 7z passwords, and all rar features are automatically enabled if the native 7z and/or rar CLI programs are installed.
 
-	- Right-click Extract reads most archive types, with real progress and a question when a file already exists. An archive can't write outside the folder it is unpacked into.
+	- Right-click Extract reads most archive types, with real progress and a question when a file already exists. Nothing in an archive can be written outside the folder it's extracted into.
 
-	- Compress can delete the original contents afterward (off by default). It reads the finished archive back first and checks every file and size; only then sends the originals to the trash.
+	- Compress can delete the original contents afterward (off by default). It reads the finished archive back first and checks every file and size, and only then sends the originals to the trash.
 
 - Comprehensive link creation options:
 
@@ -184,13 +184,13 @@ These are the features that make Nemo worth porting:
 
 	- Image thumbnails get their own (larger) thumbnail size, and folders with mostly images auto-switch to large thumbnail view (which can be disabled), while regular folders maintain their normal view.
 
-- List view columns sizing is no longer a mess. They intelligently size themselves by priority to what is in them, and the space given. A scrollbar appears before columns get squeezed too narrow to read.
+- List view column sizing is no longer a mess. They intelligently size themselves by priority to what is in them, and the space given. A scrollbar appears before columns get squeezed too narrow to read.
 
 - There's a handy new "extension" column, in addition to "file type".
 
 - Moves and deletes are safer:
 
-	- A drag that moves files, alerts you to what it's about to do first. (One of the easiest ways to lose track of a file in any graphical file manager is an accidental drag to some folder you didn't see it drop in. A copy goes through without a word unless you opt-in to that check also. A dropped link opens a "Make link" dialog, so you can pick what kind (or cancel).
+	- A drag that moves files alerts you to what it's about to do first. (One of the easiest ways to lose track of a file in any graphical file manager is an accidental drag to some folder you didn't see it drop in.) A copy goes through without a word unless you opt in to that check also. A dropped link opens a "Make link" dialog, so you can pick what kind (or cancel).
 
 	- A large delete, or one generated with no user input, prompts even with confirmation turned off.
 
@@ -208,7 +208,7 @@ These are the features that make Nemo worth porting:
 
 - Every folder follows one set of view defaults, unless per-folder settings are turned on.
 
-- Going to a network address, such as `smb://`, `sftp://` or a `\\server\share` path, shows a spinner and "Connecting to server..." in the path bar until the server answers or gives up. Meanwhile that window takes no other input, so nothing done in it is lost when the share opens, and it slowly fades between grayed out and normal so it's clear it is busy and not frozen. With animations turned off it stays grayed instead. Escape stops the attempt, and other windows stay usable.
+- Going to a network address, such as `smb://`, `sftp://`, or a `\\server\share` path, shows a spinner and "Connecting to server..." in the path bar until the server responds or the attempt times out. Meanwhile that window takes no other input, so nothing done in it is lost when the share opens, and it slowly fades between grayed out and normal so it's clear it's busy rather than frozen. With animations turned off it stays grayed instead. Escape stops the attempt, and other windows stay usable.
 
 - Window size and zoom are remembered for each monitor, by its resolution and DPI. A window dragged to another monitor takes the size and zoom last used there. (Coming soon.)
 
@@ -216,7 +216,7 @@ These are the features that make Nemo worth porting:
 
 	- Search results can be grouped under the folder they came from. A flat list of thirty files all called `notes.txt` tells you nothing; a row per folder with the matches under it tells you where to look. It's one toggle in the search bar, and the results are the same either way.
 
-	- Search results keep the columns you pick, the order you drag them into, and how they are sorted. By default they show Name, Ext, Size, Date modified and Location. They open in the list view, whatever view the folder is in, and switching views there leaves the folder's view alone.
+	- Search results keep the columns you pick, the order you drag them into, and how they are sorted. By default they show Name, Ext, Size, Date modified, and Location. They open in the list view, whatever view the folder is in, and switching views there leaves the folder's view alone.
 
 	- Content search reads Word, Excel, PowerPoint, OpenDocument, and EPUB files by itself. It needs no helper scripts and no office suite.
 
@@ -228,9 +228,9 @@ These are the features that make Nemo worth porting:
 
 - Settings live in one plain text file you can read and edit. There's no registry, no dconf and no compiled schema. Editing it by hand does the same thing as changing the setting in the dialog.
 
-- Copy, paste and drag work with the platform's own file manager, in both directions.
+- Copy, paste, and drag work with the platform's own file manager, in both directions.
 
-- Features that a platform can't do is either hidden or visually disabled.
+- Features that a platform can't do are either hidden or visually disabled.
 
 - Releases can be checked. Every download is published with checksums, and the Linux builds can be rebuilt from their commit to the same bytes. That starts with the release after 1.0.0-beta2.
 
@@ -266,9 +266,9 @@ Details are in these docs:
 
 ![Icon themes](assets/icon-gallery.png)
 
-Each set is shown twice, on a light background and a dark one, because half of them are drawn for a dark desktop. The four Windows looks - XP, 7, 10 and 11 - are drawn in-house: no cleanly-licensed set of any of them exists, and every set that circulates draws blue folders, which Windows has never had. The rest are trimmed to the roughly 180 names a file manager actually asks for, which is what holds a set to a few hundred kilobytes; anything not drawn falls through to Adwaita.
+Each set is shown twice, on a light background and a dark one, because half of them are drawn for a dark desktop. The 4 Windows looks for XP, 7, 10, and 11 are drawn in-house. There's no cleanly licensed set for any of them, and every set out there draws blue folders, which Windows has never had. The rest are trimmed to the roughly 180 names a file manager asks for, which limits a set to a few hundred kilobytes. Anything not drawn falls through to Adwaita.
 
-Provenance and license for every vendored set is in [vendor/README.md](vendor/README.md).
+Provenance and license for every vendored set are in [vendor/README.md](vendor/README.md).
 
 ### Add your own theme
 

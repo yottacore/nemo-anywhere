@@ -1563,8 +1563,8 @@ wait_for_band (NemoIconContainer *container,
 	details->band_press_y = (int) y;
 }
 
-/* The last icon a band touched: of those it holds, the one nearest the
-   pointer's corner. NULL when it holds none. */
+/* The last icon a band touched: of those inside it, the one nearest the
+   pointer's corner. NULL when there aren't any. */
 static NemoIcon *
 band_end_icon (NemoIconContainer *container)
 {
@@ -3212,7 +3212,7 @@ style_updated (GtkWidget *widget)
 }
 
 /* A left press held still. Its release goes to the menu, so the press is
-   dropped here: no drag, band, rename or click to come. */
+   dropped here: no drag, band, rename, or click to come. */
 static void
 long_press_menu (GtkWidget *widget,
 		 GdkEventButton *event,
@@ -5578,7 +5578,7 @@ classic_handle_icon_button_press (NemoIconContainer *container,
 	}
 
 	if (handle_icon_double_click (container, icon, event)) {
-		/* Double clicking does not trigger a D&D action. */
+		/* Double clicking doesn't trigger a D&D action. */
 		details->drag_button = 0;
 		details->drag_icon = NULL;
 		return TRUE;
@@ -6520,7 +6520,7 @@ start_showing_thumb (NemoIconContainer *container, NemoIcon *icon)
 		nemo_file_set_load_deferred_attrs (file, NEMO_FILE_LOAD_DEFERRED_ATTRS_YES);
 	}
 
-	/* A picture held already, made ahead of time, is not read from the
+	/* A picture held already, made ahead of time, isn't read from the
 	   store again. */
 	nemo_file_invalidate_attributes (file, nemo_file_has_loaded_thumbnail (file) ?
 					       NEMO_FILE_ATTRIBUTE_EXTENSION_INFO :

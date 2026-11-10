@@ -23,7 +23,7 @@
 /* The file layout is Microsoft's [MS-SHLLINK]. Only the parts that say where
  * the target is are read: the header, the LinkInfo block, the strings after it
  * and the environment variable block. The item id list is skipped. Shortcuts
- * to files and folders always carry LinkInfo as well, and the id list alone
+ * to files and folders always have LinkInfo as well, and the id list alone
  * mostly names things like Control Panel pages that mean nothing here. */
 
 #include <config.h>
@@ -108,8 +108,8 @@ get_u32 (const guint8 *p)
 	       ((guint32) p[2] << 16) | ((guint32) p[3] << 24);
 }
 
-/* Code page text. The file does not say which code page wrote it. 1252 is
-   right for most, and Latin-1 cannot fail, so there is always an answer. */
+/* Code page text. The file doesn't say which code page wrote it. 1252 is
+   right for most, and Latin-1 can't fail, so there is always an answer. */
 static char *
 ansi_to_utf8 (const guint8 *text, gsize length)
 {
@@ -529,7 +529,7 @@ nemo_lnk_points_at_share (const NemoLnk *lnk)
 	       expands_to_share (lnk->icon_location);
 }
 
-/* Casefolded, since Windows names do not keep case. */
+/* Casefolded, since Windows names don't keep case. */
 static gboolean
 same_name (const char *a, const char *b)
 {
@@ -571,7 +571,7 @@ split_share (const char *text, char **server, char **share, char **rest)
 }
 
 /* What is left of path once prefix is taken off the front, by whole names and
-   ignoring case, or NULL when path is not under prefix. */
+   ignoring case, or NULL when path isn't under prefix. */
 static char *
 strip_prefix (const char *path, const char *prefix)
 {
@@ -613,8 +613,8 @@ to_backslashes (const char *path)
 }
 
 #ifndef G_OS_WIN32
-/* What is left of path under dir, or NULL when it is not under it. By whole
-   names, so /mnt/share does not cover /mnt/shared. */
+/* What is left of path under dir, or NULL when it isn't under it. By whole
+   names, so /mnt/share doesn't cover /mnt/shared. */
 static const char *
 path_under (const char *path, const char *dir)
 {
@@ -854,8 +854,8 @@ open_dir (const char *dir)
 	return children;
 }
 
-/* The one entry in dir named name when case is ignored. Two of them on a file
-   system that keeps case is a question this cannot answer. */
+/* The one entry in dir named name when case is ignored. A pair of them on a file
+   system that keeps case is a question this can't answer. */
 static char *
 find_ignoring_case (const char *dir, const char *name)
 {
@@ -901,7 +901,7 @@ folds_case (const char *dir)
 }
 
 /* Walk a Windows path down from base, one name at a time, each one taken as
-   spelled or else by case. NULL as soon as a step is not there. */
+   spelled or else by case. NULL as soon as a step isn't there. */
 static char *
 walk_path (const char *base, const char *windows_rest)
 {
@@ -1308,7 +1308,7 @@ nemo_lnk_resolve_dir (const NemoLnk *lnk, const char *windows_path)
 	return found;
 }
 
-/* The \\server\share a local path sits on, and the rest of it under that, when
+/* The \\server\share a local path is on, and the rest of it under that, when
    it is on a share mounted by the kernel or by gvfs. The deepest mount wins. */
 static gboolean
 share_for_path (const char *path, GPtrArray *mounts, char **unc, char **suffix)
@@ -1594,7 +1594,7 @@ put_filetime (GByteArray *out, gint64 unix_seconds)
 	put_u32 (out, (guint32) (ticks >> 32));
 }
 
-/* The ANSI copy only has to stand in when the UTF-16 one is not read, so
+/* The ANSI copy only has to stand in when the UTF-16 one isn't read, so
    anything past ASCII is a question mark there rather than a guess at the
    code page. */
 static void
@@ -1796,7 +1796,7 @@ nemo_lnk_write (const char  *lnk_path,
 		char *server, *share, *rest;
 
 		/* split_share takes C:\dir as server C: and share dir, so only a
-		   path that starts with two slashes gets that far. */
+		   path that starts with 2 slashes gets that far. */
 		if ((target_path[0] == '\\' || target_path[0] == '/') &&
 		    (target_path[1] == '\\' || target_path[1] == '/') &&
 		    split_share (target_path, &server, &share, &rest)) {
@@ -1956,7 +1956,7 @@ block_names_target (guint32 signature)
 	case 0xA0000003:   /* distributed link tracking */
 	case 0xA0000005:   /* special folder */
 	case 0xA0000006:   /* installer id */
-	case 0xA0000009:   /* property store, which can hold the target's path */
+	case 0xA0000009:   /* property store, which can have the target's path */
 	case 0xA000000B:   /* known folder */
 	case 0xA000000C:   /* id list */
 		return TRUE;
@@ -2002,7 +2002,7 @@ skip_string (const guint8 *bytes, gsize length, gsize *pos, gboolean unicode, gs
 }
 
 /* A string kept from the old file. UTF-16 goes back byte for byte: Windows
-   does not check it, and one that will not convert still has to fill its
+   doesn't check it, and one that won't convert still has to fill its
    place, or every string after it reads one along. */
 static gboolean
 put_kept (GByteArray *out, const guint8 *bytes, gsize at, gboolean unicode)

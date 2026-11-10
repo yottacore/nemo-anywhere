@@ -2,13 +2,13 @@
 """Render a contact sheet per bundled icon theme, so the set can be judged by eye.
 
 Nothing about an icon theme is assertable. Whether a folder reads as a folder,
-whether two themes are actually distinguishable, whether a glyph came out as a
-barcode - all of it needs a person looking at a picture. This puts that picture
-one command away, and it has already caught three defects that read as fine in
+whether 2 themes can be told apart, whether a glyph came out as a barcode. All
+of it needs a person looking at a picture. This puts that picture one command
+away, and it has already caught 3 defects that read as fine in
 the SVG source: a film glyph drawn as a barcode, a photo frame filled solid, and
 a resolver that quietly preferred 24px line icons over the real artwork.
 
-Output goes to cicd/artifacts/themes, which is not version controlled.
+Output goes to cicd/artifacts/themes, which isn't version controlled.
 
 Syntax: theme-sheet.py [<repo-root>] [--names folder,user-trash,...]
 """

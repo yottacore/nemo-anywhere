@@ -39,7 +39,7 @@
 const char *nemo_magick_program (void);
 
 /* The ImageMagick format name for a file name or uri, by its extension, or
- * NULL when it is not on the list. A few formats are on it only while
+ * NULL when it isn't on the list. A few formats are on it only while
  * gdk-pixbuf has no loader for them. */
 const char *nemo_magick_coder   (const char *name);
 
@@ -53,7 +53,7 @@ gchar     **nemo_magick_argv    (const char *program,
 				 int         size);
 
 /* Runs it, giving up after half a minute, or ending it once @cancellable is
- * cancelled. NULL for any failure: no program, a format the installed copy
+ * canceled. NULL for any failure: no program, a format the installed copy
  * was built without, a damaged file. */
 GdkPixbuf  *nemo_magick_load_uri (const char   *uri,
 				  int           size,

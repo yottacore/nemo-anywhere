@@ -180,8 +180,8 @@ reset_clicked_cb (G_GNUC_UNUSED GtkButton *button,
 	g_signal_emit_by_name (nemo_signaller_get_current (), "mime_data_changed");
 }
 
-/* Say so when the choice cannot be made. Windows keeps the per-user default
-   under a hash it will not let a program write, so glib refuses outright - and
+/* Say so when the choice can't be made. Windows keeps the per-user default
+   under a hash it won't let a program write, so glib refuses outright - and
    the result was a button that changed nothing and said nothing either. */
 static void
 set_default_or_say_why (NemoMimeApplicationChooser *chooser,

@@ -23,7 +23,7 @@
 /* A .xls is whatever the file the search touched happens to contain, and the
  * record walk below it reads lengths and offsets straight out of that. It has
  * been wrong once already: the shared-string loop trusted a count read from
- * the file and tested the wrong end, so a truncated workbook spun for four
+ * the file and tested the wrong end, so a truncated workbook spun for 4
  * billion passes. The bytes go to the app's Excel parser as one bare record
  * stream, the way it gets the Workbook stream out of a compound file. */
 

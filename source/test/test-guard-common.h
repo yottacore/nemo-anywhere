@@ -1,6 +1,6 @@
-/* Shared by the two delete-guard tests, the POSIX one and the Windows one.
+/* Shared by the 2 delete-guard tests, the POSIX one and the Windows one.
  * They ask the same questions of the same guard; only the spellings of a path
- * that reaches it differ. Needs check(), so include test-check.h first. */
+ * given to it differ. Needs check(), so include test-check.h first. */
 
 #ifndef TEST_GUARD_COMMON_H
 #define TEST_GUARD_COMMON_H

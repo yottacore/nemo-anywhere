@@ -7,7 +7,7 @@
 ##	  step, and makes none when that build fails.
 ##	- Runs release-notes.bash over made-up asset lists, then a copy of
 ##	  release.bash --publish in a scratch repo against a stand-in gh. Nothing
-##	  reaches GitHub.
+##	  goes to GitHub.
 ##	- Needs git and python3; exit 77 without them. pandoc, when there, checks
 ##	  that the table renders as one.
 ##	- Runs in the lint stage.
@@ -124,7 +124,7 @@ if command -v pandoc >/dev/null 2>&1; then
 	html="$(pandoc -f gfm -t html <<< "$notes")"
 	tds="$(grep -o '<td' <<< "$html" | wc -l)"
 	if [[ "$(grep -c '<table>' <<< "$html")" == 1 && "$tds" == 6 && "$html" != *"| Linux"* ]]; then fEcho "OK: renders as a 3 by 2 table"
-	else fFail "pandoc does not read one 3 by 2 table: ${html}"
+	else fFail "pandoc doesn't read one 3 by 2 table: ${html}"
 	fi
 else
 	fEcho "render check skipped: no pandoc"
@@ -140,7 +140,7 @@ fWantCell "$notes" "arm64 for Linux only" Windows x86_64 "$(fLink zip "$winZip")
 if command -v pandoc >/dev/null 2>&1; then
 	html="$(pandoc -f gfm -t html <<< "$notes")"
 	if [[ "$(grep -o '<td' <<< "$html" | wc -l)" == 6 && "$(grep -c -E '^<td[^>]*></td>$' <<< "$html" || true)" == 1 ]]; then fEcho "OK: renders with the empty cell"
-	else fFail "pandoc does not read a 2 by 3 table with an empty cell: ${html}"
+	else fFail "pandoc doesn't read a 2 by 3 table with an empty cell: ${html}"
 	fi
 fi
 
@@ -177,7 +177,7 @@ notes="$(fNotes 9.9.7 2>/dev/null)"
 fWant "$notes" "no changelog section, placeholder" "See the changelog for details."
 
 ## A stand-in gh. It keeps the release's files in assets.json, their bytes in
-## file_<name>, its notes in body.md (and as made in body-at-create.md), and
+## file_<name>, its notes in body.md and as made in body-at-create.md, and
 ## its title and prerelease flag in title and prerelease. No assets.json means
 ## no release yet. after-view-N.json stands for a file showing up just after
 ## the Nth read. The hosted build is run_id, which run list hides for
@@ -327,7 +327,7 @@ EOF
 ( cd "$art" && sha256sum "${app}"-* > "$sums" )
 
 export RELEASE_POLL_SECS=0 RELEASE_RUN_LOOKS=3
-## $1 states the hosted build goes through, one per look. The run is not
+## $1 states the hosted build goes through, one per look. The run isn't
 ## listed the first time it is looked for, as just after a tag push.
 fHosted(){
 	fReset
@@ -444,7 +444,7 @@ if grep -q -F 'name: release-files' <<< "$upload"; then fEcho "OK: workflow hand
 else fFail "release-win.yml uploads no release-files artifact"
 fi
 if [[ " $(sed -n 's/^RELEASE_WORKFLOWS=(\(.*\))$/\1/p' "${root}/cicd/config.bash") " == *" release-win.yml "* ]]; then fEcho "OK: the cut waits for release-win.yml"
-else fFail "release-win.yml is not in RELEASE_WORKFLOWS"
+else fFail "release-win.yml isn't in RELEASE_WORKFLOWS"
 fi
 
 if ((failures)); then fEcho "${failures} release notes check(s) failed"; exit 1; fi

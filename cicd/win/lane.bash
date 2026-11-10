@@ -164,7 +164,7 @@ fSkippedTests(){
 		on && /^SKIP [0-9a-z]+ / && match($0, /  +[0-9.]+s( |$)/) { print substr($0, 6, RSTART - 6) }'
 }
 
-## Waits for the box's file $1 and sets waitRc to what it holds; fails when
+## Waits for the box's file $1 and sets waitRc to its contents; fails when
 ## task $2 stopped without writing it.
 waitRc=""
 fWaitRc(){
@@ -197,7 +197,7 @@ fDesktop(){
 	fi
 	if [[ -z "$names" ]]; then fEcho_Clean "the gate skipped no tests"; return 0; fi
 	if [[ "$elsewhere" == 1 ]]; then
-		if [[ -n "$list" ]]; then printf '%s\n' "$names" > "$list" || fDie "could not write the test list to ${list}"; fi
+		if [[ -n "$list" ]]; then printf '%s\n' "$names" > "$list" || fDie "couldn't write the test list to ${list}"; fi
 		fEcho_Clean "$(wc -l <<< "$names") skipped tests are left for the next box"
 		fLaneStep_Close SKIP
 		return 75
@@ -288,7 +288,7 @@ fMain(){
 	fi
 	for name in "${boxes[@]}"; do
 		if fBoxWrap_IsThere "$name" "$name" "$lockTool" "${sshOpts[@]}"; then
-			## exec, so a TERM to this pid reaches the wrap, which waits for the lane's cleanup.
+			## exec, so a TERM to this pid goes to the wrap, which waits for the lane's cleanup.
 			exec bash "$lockTool" wrap "$name" --wait "$lockWaitSec" -- bash "${BASH_SOURCE[0]}" --locked "$name"
 		fi
 		fEcho_Clean "${name} isn't there"
@@ -305,7 +305,7 @@ fMain "${@}"
 ##		  folder goes.
 ##		- 2026-11-06: The gate runs cicd-win.ps1 -BacklogRunQuick, -Gate's new name.
 ##		- 2026-11-04: NEMO_WIN_DESKTOP_LIST hands the windowed tests to the next
-##		  box, which then builds only and runs just those.
+##		  box, which then builds only and runs only those.
 ##		- 2026-11-03: Sends run-temp.ps1 beside lane-box.ps1, for its removals.
 ##		- 2026-11-03: NEMO_WIN_DESKTOP_ELSEWHERE, so cicd.bash can take the
 ##		  windowed tests to vm925w rather than b29w's own screen.

@@ -148,7 +148,7 @@ run_view (const char *exe, const char *probe, const char *model, const char *vie
 		goto out;
 	}
 
-	/* The probe gives each step ten seconds, and there are up to eighteen. */
+	/* The probe gives each step 10 seconds, and there are up to eighteen. */
 	for (i = 0; i < 1900 && alive (pid) && !done; i++) {
 		g_usleep (100 * 1000);
 		g_free (text);

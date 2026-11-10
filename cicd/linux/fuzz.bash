@@ -6,8 +6,8 @@
 ##	- Needs clang. Without it, or without the libFuzzer runtime, --probe fails and
 ##	  the stage skips with a warning instead of aborting the run. The ordinary gcc
 ##	  build still compiles the same targets and replays the seeds as tests.
-##	- A time budget running out is NOT a failure: libFuzzer stops and exits 0. A
-##	  real find, whether a crash, a hang, a leak or running out of memory, saves
+##	- A time budget running out isn't a failure, since libFuzzer stops and exits 0.
+##	  A real find, whether a crash, a hang, a leak, or running out of memory, saves
 ##	  its input under findings/, and the other targets still run. Those are told
 ##	  apart by the exit code and the saved input, never by the run having ended.
 ##	- FUZZ_SECS sets the per-target budget (default 60). FUZZ_TIMEOUT is how long
@@ -58,7 +58,7 @@ esac
 fProbe() {
 	command -v clang >/dev/null 2>&1 || { echo "clang not installed" >&2; return 1; }
 
-	## Having clang is not the same as having the libFuzzer runtime, which is a
+	## Having clang isn't the same as having the libFuzzer runtime, which is a
 	## separate package on some distros. Compile the smallest thing that needs it.
 	local probeDir
 	probeDir="$(mktemp -d)"
@@ -70,7 +70,7 @@ fProbe() {
 	fSafeRm_IfThere "${probeDir}"
 
 	if ((ok)); then
-		echo "clang is present but cannot link -fsanitize=fuzzer (libFuzzer runtime missing?)" >&2
+		echo "clang is present but can't link -fsanitize=fuzzer (libFuzzer runtime missing?)" >&2
 		return 1
 	fi
 
@@ -93,7 +93,7 @@ case "${hangSecs}" in
 esac
 
 ## A sanitized tree of its own, so the ordinary /build is left alone and the
-## next plain ninja does not have to rebuild the world. Coverage has to reach the
+## next plain ninja doesn't have to rebuild the world. Coverage has to include the
 ## code a target calls into, so fuzzer-no-link goes on the whole project and the
 ## targets add the linker half. It is passed here because meson warns about any
 ## -fsanitize set from meson.build.
@@ -120,7 +120,7 @@ logs="${build}/logs"
 mkdir -p "${findings}" "${logs}"
 
 ## The shortcut edit target writes a file per input, and GLib syncs the file it
-## replaces. On the container's disk that held it to about 90 runs a second,
+## replaces. On the container's disk that limited it to about 90 runs a second,
 ## against about 4000 on tmpfs.
 if [[ -d /dev/shm && -w /dev/shm ]]; then
 	export TMPDIR=/dev/shm
@@ -163,7 +163,7 @@ fFuzzOne(){
 	cp -- "${seeds}"/* "${work}/"
 
 	## Each kind of find has its own exit code. Without these a crash and a bad
-	## argument both come back as 1, and the stage cannot tell which happened:
+	## argument both come back as 1, and the stage can't tell which happened:
 	## -error_exitcode covers what libFuzzer reports itself, -timeout_exitcode a
 	## hang (70 otherwise), and ASan's exitcode a memory error (1 otherwise).
 	## Running out of memory is always 71 and has no setting, so a failed run

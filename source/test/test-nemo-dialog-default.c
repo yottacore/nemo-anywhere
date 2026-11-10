@@ -26,8 +26,8 @@
  * typing it keeps the focus, and Enter there still takes the default. The
  * test guard is the one dialog that starts on Cancel.
  *
- * These are the dialogs that can be made without the app. The rest are held
- * to a default by cicd/utility/test-dialog-defaults.bash. Needs a display and
+ * These are the dialogs that can be made without the app. The rest are checked
+ * for a default by cicd/utility/test-dialog-defaults.bash. Needs a display and
  * skips without one. */
 
 #include <config.h>

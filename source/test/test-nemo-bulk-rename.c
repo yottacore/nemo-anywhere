@@ -155,7 +155,7 @@ test_platform (const char *root)
 			"open -a \"" LAST "\"");
 	}
 
-	/* A file with the name is not an app. */
+	/* A file with the name isn't an app. */
 	make_app (apps, FIRST, FALSE);
 	if (!any_in_system_apps (3)) {
 		expect ("a file named like the first", nemo_bulk_rename_find_default (),

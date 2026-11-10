@@ -743,7 +743,7 @@ nested_folder_done (G_GNUC_UNUSED GFile *top, GError *error, gpointer callback_d
 	NemoPropertiesWindow *window = NEMO_PROPERTIES_WINDOW (callback_data);
 	NemoFile *file = get_original_file (window);
 
-	/* The field took the typed path as its name, so a focus change would not
+	/* The field took the typed path as its name, so a focus change wouldn't
 	   send it again. Put the real one back. */
 	if (error != NULL && window->details->name_field != NULL &&
 	    file != NULL && !nemo_file_is_gone (file)) {

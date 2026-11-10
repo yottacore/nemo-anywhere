@@ -43,7 +43,7 @@ test_switch_reveals_them (void)
 	check (nemo_file_name_is_hidden_dot_file (".bashrc"));
 }
 
-/* The two switches are independent: revealing attribute-hidden files must not
+/* The 2 switches are independent: revealing attribute-hidden files must not
  * also reveal dot-files. */
 static void
 test_independent_of_show_hidden (void)

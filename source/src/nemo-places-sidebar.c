@@ -635,7 +635,7 @@ typedef struct {
     gint percent;       /* -1 = unknown */
     gchar *freestr;     /* "Free space: X" or NULL */
     gint64 stamp;       /* g_get_monotonic_time of last successful fill */
-    gboolean pending;   /* a query is in flight - do not issue another */
+    gboolean pending;   /* a query is in flight - don't issue another */
 } DfCacheEntry;
 
 typedef struct {
@@ -781,7 +781,7 @@ get_disk_full (NemoPlacesSidebar *sidebar, GFile *file, gchar **tooltip_info)
 #ifdef G_OS_WIN32
 /* A bare fixed-disk root like "C:\" - shown as a first-class Computer root, so
    the Devices section skips it to avoid a duplicate. Removable/optical/network
-   drives are not fixed, so they still flow through the normal Devices path. */
+   drives aren't fixed, so they still flow through the normal Devices path. */
 static gboolean
 file_is_win_fixed_drive_root (GFile *file)
 {
@@ -1027,7 +1027,7 @@ update_places (NemoPlacesSidebar *sidebar)
             gchar letter = (gchar) ('A' + bit);
 
             /* Fixed disks are the "roots" here; removable/optical/network keep
-               their normal Devices/Network entry (which carries eject/unmount).
+               their normal Devices/Network entry (which has eject/unmount).
                A mapped drive is known without asking it. */
             if (nemo_drive_win32_kind (letter) != NEMO_DRIVE_WIN32_FIXED) {
                 continue;
@@ -1039,8 +1039,8 @@ update_places (NemoPlacesSidebar *sidebar)
             df_file = g_file_new_for_uri (drive_uri);
 
             /* Named the same here as in the breadcrumb and the title bar. The
-               volume label is worth showing but it is not the identity, so it
-               rides in the tooltip where it cannot be mistaken for the path. */
+               volume label is worth showing but it isn't the identity, so it
+               rides in the tooltip where it can't be mistaken for the path. */
             drive_name = nemo_get_drive_root_name (df_file);
 
             full = get_disk_full (sidebar, df_file, &tooltip_info);
@@ -1521,7 +1521,7 @@ update_places (NemoPlacesSidebar *sidebar)
 
 	g_list_free_full (network_mounts, g_object_unref);
 
-	/* network:// - only when a backend actually provides it */
+	/* network:// - only when a backend offers it */
 	if (eel_vfs_supports_uri_scheme ("network")) {
 		mount_uri = (char *)"network:///"; /* No need to strdup */
 		icon = NEMO_ICON_SYMBOLIC_NETWORK;
@@ -2738,7 +2738,7 @@ focus_folder_view (NemoPlacesSidebar *sidebar,
 		return;
 	}
 
-	/* Going to another folder starts with no selection. Staying put does not. */
+	/* Going to another folder starts with no selection. Staying put doesn't. */
 	if (same_folder) {
 		nemo_view_set_selection (slot->content_view, NULL);
 	}
@@ -3981,7 +3981,7 @@ clear_eject_hover (GtkTreeModel *model,
         size = EJECT_ICON_SIZE_NOT_HOVERED;
     }
 
-    /* Only touch rows that actually move: this runs for every row on every
+    /* Only touch rows that move: this runs for every row on every
        mouse-motion event, and each set emits row-changed. */
     if (size != current) {
         gtk_tree_store_set (hdata->sidebar->store, iter,

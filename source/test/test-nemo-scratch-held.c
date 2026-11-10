@@ -1,12 +1,12 @@
-/* The scratch cleanup removes a directory the test still holds: one that is
+/* The scratch cleanup removes a directory the test still has open: one that is
  * the current directory, and one with the file cache open in it. Windows
  * removes neither while it is held, and 7 tests left their scratch behind
  * there. A copy handed its parent's slowness makes no scratch of its own,
  * since one that is killed never removes it.
  *
- * On Windows also one with a file someone else holds for a moment, the way a
- * virus scanner holds a file just written. dcx3q left its scratch behind on
- * b29w that way, about one run in five. */
+ * On Windows also one with a file someone else holds open for a moment, the way a
+ * virus scanner holds a new file. dcx3q left its scratch behind on
+ * b29w that way, about one run in 5. */
 
 #include <config.h>
 

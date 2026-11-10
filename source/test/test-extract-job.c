@@ -1,14 +1,14 @@
 /* Unpacking for real: a zip is written with libarchive, handed to the job, and
- * the folder it unpacks into is inspected. Covers the two layouts, the paths an
+ * the folder it unpacks into is inspected. Covers the 2 layouts, the paths an
  * archive can name, and the guard that keeps a hostile one from writing outside
- * the folder that was picked. Collisions are not covered here - every answer to
+ * the folder that was picked. Collisions aren't covered here - every answer to
  * one comes from a dialog, and there is nobody to click it.
  *
- * Also a 7z split three ways, where the later volumes are what is selected: it
+ * Also a 7z split 3 ways, where the later volumes are what is selected: it
  * unpacks once, from the first volume. Needs a 7z command to write it.
  *
- * Also archives whose names hold * or ?, unpacked through the commands, which
- * must not read those names as patterns, with the 7-Zip line as shipped and
+ * Also archives whose names have * or ?, unpacked through the commands, which
+ * must not read those names as patterns, with the 7-Zip line as installed and
  * as edited. */
 
 #include "test.h"
@@ -190,7 +190,7 @@ check_here_layout (const char *tmp,
 	g_mkdir_with_parents (dest, 0700);
 	run_job (archive_path, dest, NEMO_EXTRACT_HERE, window);
 
-	/* The archive holds a folder, so unpacking here produces that folder
+	/* The archive has a folder, so unpacking here produces that folder
 	   rather than its contents loose. */
 	one = g_build_filename (dest, "photos", "one.txt", NULL);
 	two = g_build_filename (dest, "photos", "sub", "two.txt", NULL);
@@ -256,7 +256,7 @@ check_subfolder_layout (const char *tmp,
 	g_mkdir_with_parents (dest, 0700);
 	run_job (archive_path, dest, NEMO_EXTRACT_TO_SUBFOLDER, window);
 
-	/* A folder named after the archive, holding what the archive holds -
+	/* A folder named after the archive, containing what the archive does -
 	   here that is the archive's own "photos" folder, one level further in.
 	   The layout is literal on purpose: what it is for is an archive that
 	   would otherwise scatter, and guessing would make it unpredictable. */
@@ -282,7 +282,7 @@ find_seven_zip (void)
 	return found;
 }
 
-/* Bytes that do not compress, so the volumes come out the size asked for. */
+/* Bytes that don't compress, so the volumes come out the size asked for. */
 static char *
 noise (gsize len, guint32 seed)
 {
@@ -382,7 +382,7 @@ check_split_volumes (const char *tmp,
 			     &out, &err, &status, NULL));
 	check (g_spawn_check_wait_status (status, NULL));
 
-	/* Three volumes and no fourth, or the case is not the one meant. */
+	/* Three volumes and no fourth, or the case isn't the one meant. */
 	for (i = 1; i <= SPLIT_PARTS + 1; i++) {
 		char *name = g_strdup_printf ("split.7z.%03d", i);
 
@@ -400,7 +400,7 @@ check_split_volumes (const char *tmp,
 	g_source_remove (refuse_id);
 	check (asked == 0);
 
-	/* Once: one folder, named for the archive, holding every part whole. */
+	/* Once: one folder, named for the archive, with every part whole. */
 	check (count_entries (dest) == 1);
 	for (i = 0; i < SPLIT_PARTS; i++) {
 		char *name = g_strdup_printf ("part%d.bin", i);
@@ -427,7 +427,7 @@ check_split_volumes (const char *tmp,
 }
 
 #ifndef G_OS_WIN32
-/* Names with * or ? cannot be made on Windows. */
+/* Names with * or ? can't be made on Windows. */
 static char *
 find_rar (void)
 {
@@ -581,7 +581,7 @@ check_pattern_names (const char *tmp,
 	make_folder_with (work, "one");
 	make_folder_with (work, "two");
 
-	/* Encrypted names are something libarchive cannot read, so these go to
+	/* Encrypted names are something libarchive can't read, so these go to
 	   the commands, which then ask for the password. */
 	answer_id = g_timeout_add (100, answer_password, &other);
 	{
@@ -626,7 +626,7 @@ check_pattern_names (const char *tmp,
 
 	/* rar has no way to take a name as it is, so it is passed over. 7z reads
 	   rar too, where it was built with the rar codec, and does the job; where
-	   not, nothing does, and that is the answer. */
+	   not, nothing does, and that's the expected result. */
 	if (rar == NULL) {
 		g_printerr ("note: no rar command here, rar names with wildcards not checked\n");
 	} else {

@@ -24,8 +24,8 @@
 /* Preloaded into the real program by test-nemo-delete-after-dialog. Once the
  * window shows $NEMO_DELDLG_FOLDER it selects everything (one file), opens
  * Properties with Ctrl+I, closes it with Escape, and presses Shift+Delete as
- * soon as the window has the focus back. The key has to reach the delete
- * question at the first press. The question is then cancelled. One "ok" or
+ * soon as the window has the focus back. The key has to bring up the delete
+ * question at the first press. The question is then canceled. One "ok" or
  * "FAIL" line per check goes to $NEMO_DELDLG_OUT, and "done" at the end.
  *
  * Shift+Delete rather than Delete, since there may be no trash where this

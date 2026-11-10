@@ -10,7 +10,7 @@
 ##		  plan lists the ones turned off with why. -NoTests leaves the tests
 ##		  and smoke checks out, in the gate and the full run.
 ##		- cicd.bash's flags: -BacklogRunQuick with and without areas,
-##		  -BacklogRunFull, -MergeGate, -Gate and -Ci with their one line, the
+##		  -BacklogRunFull, -MergeGate, -Gate, and -Ci with their one line, the
 ##		  ones that change nothing, and the mixes refused. -List prints each
 ##		  step's test IDs from a small tree and runs nothing, with a plain run
 ##		  of the same copy as the control. Piped, the step rule is still 79
@@ -37,7 +37,7 @@ $script = Join-Path $PSScriptRoot "../cicd-win.ps1"
 $tokens = $null
 $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($script, [ref]$tokens, [ref]$parseErrors)
-if ($parseErrors) { Write-Host "[ FAILED: cicd-win.ps1 does not parse: $($parseErrors[0].Message) ]"; exit 1 }
+if ($parseErrors) { Write-Host "[ FAILED: cicd-win.ps1 doesn't parse: $($parseErrors[0].Message) ]"; exit 1 }
 
 $failures = 0
 function fFail {

@@ -1,8 +1,8 @@
 /* Exercises theme discovery and the light/dark filtering behind the Appearance
  * settings: which themes are offered for the mode in force, how a theme that
- * never declared a mode is judged, and which variant is actually applied.
+ * never declared a mode is judged, and which variant is applied.
  * Then what applying one does to GTK, and how the icon set follows a style.
- * Runs against a throwaway config root holding hand-built theme folders, with
+ * Runs against a throwaway config root containing hand-built theme folders, with
  * the system data dirs hidden so an icon can only come from what the app
  * itself puts on the search path. */
 
@@ -193,7 +193,7 @@ test_inferred_pairing (void)
 	/* The dark half of a pair has no business in the light list. */
 	check (find (themes, "ZzTestPair-dark") == NULL);
 
-	/* No suffix and no dark sibling means it serves both. */
+	/* No suffix and no dark sibling means it's for both. */
 	info = find (themes, "ZzTestLone");
 	check (info != NULL);
 	if (info != NULL) {
@@ -221,7 +221,7 @@ test_inferred_pairing (void)
 	g_list_free_full (themes, (GDestroyNotify) nemo_theme_info_free);
 }
 
-/* X-Nemo-Modes is the theme's own answer and outranks the name. */
+/* X-Nemo-Modes is the theme's own claim and outranks the name. */
 static void
 test_declared_modes (void)
 {
@@ -242,7 +242,7 @@ test_declared_modes (void)
 	g_list_free_full (themes, (GDestroyNotify) nemo_theme_info_free);
 }
 
-/* A widget theme carrying its own dark sheet needs no counterpart: GTK swaps
+/* A widget theme with its own dark sheet needs no counterpart: GTK swaps
  * between gtk.css and gtk-dark.css without the name changing. */
 static void
 test_widget_dark_sheet (void)
@@ -266,7 +266,7 @@ test_widget_dark_sheet (void)
 	g_list_free_full (themes, (GDestroyNotify) nemo_theme_info_free);
 }
 
-/* What actually gets handed to GTK: the chosen theme, or its other half when
+/* What gets handed to GTK: the chosen theme, or its other half when
  * the mode has moved away from it. */
 static void
 test_theme_for_mode (void)
@@ -284,7 +284,7 @@ test_theme_for_mode (void)
 	check (g_strcmp0 (resolved, "ZzTestPair-dark") == 0);
 	g_free (resolved);
 
-	/* Serves both, so no swap. */
+	/* For both, so no swap. */
 	resolved = nemo_appearance_theme_for_mode (NEMO_THEME_KIND_ICON, "ZzTestLone");
 	check (g_strcmp0 (resolved, "ZzTestLone") == 0);
 	g_free (resolved);
@@ -309,7 +309,7 @@ test_theme_for_mode (void)
 }
 
 /* The bundled set is compiled into the binary rather than installed as files.
- * Three things have to hold or it silently stops working: the catalog the
+ * Three things have to be true or it silently stops working: the catalog the
  * picker reads has to be there, the widget sheets have to be reachable by the
  * path the loader builds, and every icon has to sit under a directory name
  * hicolor defines - GTK reads a resource path as part of hicolor and knows
@@ -366,13 +366,13 @@ test_bundled_set (void)
 	}
 	g_strfreev (names);
 
-	/* The catalog reaches the picker, carrying what the picker needs. */
+	/* The picker gets the catalog, with what the picker needs. */
 	themes = nemo_appearance_list_themes (NEMO_THEME_KIND_ICON, NEMO_THEME_FITS_BOTH);
 	for (node = themes; node != NULL; node = node->next) {
 		NemoThemeInfo *info = node->data;
 
 		/* Adwaita is the sample deliberately: it is the tail of the fallback
-		 * chain, so it is the one icon set that cannot be dropped from the
+		 * chain, so it is the one icon set that can't be dropped from the
 		 * bundle by a change of mind about which themes to ship. This check
 		 * used to name Fluent, and went red the day that set was dropped. */
 		if (g_strcmp0 (info->name, "Adwaita") == 0) {
@@ -451,7 +451,7 @@ choose_icon_theme (const char *name)
 /* A drop-in or bundled theme goes on as a sheet of our own over a base GTK can
  * resolve. Pointing gtk-theme-name at the drop-in's name instead made GTK fall
  * back to its packaged sheet and drop the dark half, so in dark mode anything
- * our sheet did not paint itself, the breadcrumb and checked buttons among
+ * our sheet didn't paint itself, the breadcrumb and checked buttons among
  * them, stayed light. A name nobody has takes the last sheet off. */
 static void
 test_dropin_applied (void)
@@ -477,7 +477,7 @@ test_dropin_applied (void)
 	check (g_strcmp0 (name, "Adwaita") == 0);
 	g_free (name);
 
-	/* Warns that it is not found, which is expected here. */
+	/* Warns that it isn't found, which is expected here. */
 	choose_widget_theme ("ZzNotInstalled");
 	check (probe_red () != 1);
 
@@ -533,7 +533,7 @@ count_named (GList *themes, const char *name)
 	return n;
 }
 
-/* A light half that also carries a dark sheet of its own, with a separately
+/* A light half that also has a dark sheet of its own, with a separately
  * drawn dark half beside it. Both halves claimed dark, so the dark picker
  * listed the style twice, one of them the light theme. The pair it names wins
  * over the sheet. The macOS and Windows 10 themes come this way upstream. */
@@ -549,7 +549,7 @@ test_named_pair_listed_once (void)
 	check (count_named (themes, "ZzNamed") == 0);
 	check (count_named (themes, "ZzNamed-dark") == 1);
 
-	/* Every bundled style once at most, whatever its halves carry. */
+	/* Every bundled style once at most, whatever its halves have. */
 	for (node = themes; node != NULL; node = node->next) {
 		NemoThemeInfo *a = node->data;
 
@@ -665,7 +665,7 @@ icon_resolves (const char *name, int size)
 	return TRUE;
 }
 
-/* The app's own art is not a theme and is never picked, so it has to be on the
+/* The app's own art isn't a theme and is never picked, so it has to be on the
  * icon path whatever set is chosen. The sort menu and eject icons drew as
  * missing on Windows before it rode in the binary. */
 static void
@@ -675,8 +675,8 @@ test_app_icons_resolve (void)
 	check (icon_resolves ("menu-sort-up", 16));
 }
 
-/* Every bundled icon set, chosen, resolves the two names every folder view
- * draws: a folder, and the emblem a symlink wears. A trimmed set leans on the
+/* Every bundled icon set, chosen, resolves the 2 names every folder view
+ * draws: a folder, and the emblem a symlink gets. A trimmed set leans on the
  * Adwaita fallbacks for the second, and the resolver once lost it. */
 static void
 test_bundled_icons_resolve (void)
@@ -732,8 +732,8 @@ main (int argc, char *argv[])
 	tmp = test_scratch_config_home ("nemo-appearance-test-XXXXXX");
 
 	/* Nothing from the box: no installed icon or widget themes, only the
-	   hicolor index every GTK stack carries, which says what a resource path
-	   holds. */
+	   hicolor index every GTK stack has, which says what a resource path
+	   contains. */
 	{
 		char *data = g_build_filename (tmp, "system-data", NULL);
 		char *index = g_build_filename (data, "icons", "hicolor", "index.theme", NULL);
@@ -797,7 +797,7 @@ main (int argc, char *argv[])
 	test_named_pair_listed_once ();
 	test_icons_follow_style ();
 
-	/* From here on what is chosen reaches GTK. */
+	/* From here on what is chosen goes to GTK. */
 	nemo_appearance_init ();
 	test_platform_icons_come_back ();
 	test_app_icons_resolve ();

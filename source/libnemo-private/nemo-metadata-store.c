@@ -132,7 +132,7 @@ ensure_loaded (void)
 		    !g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT)) {
 			char *aside = g_strconcat (path, ".bad", NULL);
 
-			/* Every folder's view, zoom, sort and layout is in here. Say so,
+			/* Every folder's view, zoom, sort, and layout is in here. Say so,
 			 * and keep the damaged file: the next set() would otherwise write
 			 * an empty store straight over the only copy. */
 			g_warning ("nemo-metadata: can't read %s: %s - keeping it as %s",
@@ -394,7 +394,7 @@ nemo_metadata_store_set_stringv (const char *uri,
 	g_mutex_unlock (&store_mutex);
 }
 
-/* returns a copy, or NULL when the key is unset or holds a list
+/* returns a copy, or NULL when the key is unset or has a list
  * Returns: (transfer full): free with g_free */
 char *
 nemo_metadata_store_get_string (const char *uri,
@@ -531,7 +531,7 @@ nemo_metadata_store_rename (const char *old_uri,
 
 	/* This runs once per moved file. An empty store is the usual case and
 	 * leaves at once; past that the descendant scan below is one pass over
-	 * the store, which only ever holds folders given settings of their own. */
+	 * the store, which only ever has folders given settings of their own. */
 	if (g_hash_table_size (store) == 0) {
 		g_mutex_unlock (&store_mutex);
 		return;

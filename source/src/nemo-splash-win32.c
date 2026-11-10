@@ -72,7 +72,7 @@ static HFONT             font_title;
 static HFONT             font_body;
 static int               dpi = 96;
 
-/* Under the name, where a second "Starting" would just be the log line again. */
+/* Under the name, where a second "Starting" would be the log line again. */
 static wchar_t           version_text[64] = L"";
 
 static gboolean          dark;
@@ -178,7 +178,7 @@ push_line (const char *utf8)
 	}
 	log_lines[slot] = wide;
 
-	/* Fills from the top like a terminal, and only scrolls once the ten
+	/* Fills from the top like a terminal, and only scrolls once the 10
 	 * lines are used up. Nothing moves while there is still room. */
 	if (log_count > LOG_LINES) {
 		scroll_px = SCALE (LINE_H);
@@ -255,13 +255,13 @@ paint (HWND window, HDC target)
 	DrawTextW (dc, version_text, -1, &box,
 		   DT_SINGLELINE | DT_LEFT | DT_TOP | DT_NOPREFIX);
 
-	/* The log viewport: a fixed ten lines, clipped, never wrapped. */
+	/* The log viewport: a fixed 10 lines, clipped, never wrapped. */
 	log_top = box.bottom + SCALE (10);
 	log_bottom = log_top + SCALE (LINE_H) * LOG_LINES;
 
 	EnterCriticalSection (&splash_lock);
 	offset = scroll_px;
-	/* Once past ten, one extra is carried so the line leaving the top has
+	/* Once past 10, one extra is kept so the line leaving the top has
 	 * something to slide out as. */
 	full = log_count > LOG_LINES;
 	count = full ? LOG_LINES + 1 : log_count;
@@ -419,7 +419,7 @@ splash_main (G_GNUC_UNUSED LPVOID data)
 	y = work.top + (work.bottom - work.top - height) / 2;
 
 	/* A tool window so it never takes a taskbar button, and topmost so the
-	 * app's own window coming up does not bury it before it goes away. */
+	 * app's own window coming up doesn't bury it before it goes away. */
 	splash_window = CreateWindowExW (WS_EX_TOOLWINDOW | WS_EX_TOPMOST,
 					 SPLASH_CLASS, L"Nemo Anywhere",
 					 WS_POPUP,
@@ -508,7 +508,7 @@ nemo_splash_hide (void)
 	}
 
 	if (splash_thread != NULL) {
-		/* Bounded: a splash that will not go away must never be what
+		/* Bounded: a splash that won't go away must never be what
 		 * keeps the app from starting. */
 		WaitForSingleObject (splash_thread, 2000);
 		CloseHandle (splash_thread);

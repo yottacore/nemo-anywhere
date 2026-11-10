@@ -1,6 +1,6 @@
-/* Two launches are two processes that both stay up, a crash in one leaves the
+/* Two launches are 2 processes that both stay up, a crash in one leaves the
  * others running, and --quit takes every one of them down. Nothing on the bus
- * may copy, move, trash or delete, and an Open hint of any shape is taken
+ * may copy, move, trash, or delete, and an Open hint of any form is taken
  * without harm. --reset is refused while a copy runs, since that copy would
  * write its settings straight back, and once none does it takes the settings
  * file, bookmarks and their side file. Needs the built program (argv[1]) and a
@@ -36,7 +36,7 @@ launch (const char *exe, const char *arg)
 	return pid;
 }
 
-/* Runs to the end; the exit status, or -1 when it would not start. */
+/* Runs to the end; the exit status, or -1 when it wouldn't start. */
 static int
 run (const char *exe, const char *arg)
 {
@@ -101,7 +101,7 @@ owner_pid (GDBusConnection *bus, const char *unique)
 	return (GPid) pid;
 }
 
-/* Unique name holding org.NemoAnywhere, or NULL if nobody does. */
+/* Unique name owning org.NemoAnywhere, or NULL if nobody does. */
 static char *
 name_owner (GDBusConnection *bus)
 {
@@ -145,7 +145,7 @@ wait_owner_change (GDBusConnection *bus, const char *was, int seconds)
 
 /* meson sets DBUS_SESSION_BUS_ADDRESS=disabled: for every test, so the bus
  * halves used to skip on each run and still say OK. Start a real bus and come
- * back in, rather than report a pass on a test that mostly did not happen.
+ * back in, rather than report a pass on a test that mostly didn't happen.
  * The variable being set proves nothing, so this asks the bus instead. */
 static char *
 introspect (GDBusConnection *bus, const char *unique, const char *path)
@@ -287,7 +287,7 @@ main (int argc, char *argv[])
 		goto out;
 	}
 
-	/* Crash the copy holding the bus name. It is the one the others have
+	/* Crash the copy owning the bus name. It is the one the others have
 	 * something to inherit from, and the crash handler runs in it either way. */
 	held = name_owner (bus);
 	check (held != NULL);
@@ -297,7 +297,7 @@ main (int argc, char *argv[])
 
 	/* The file operations interface left over from the Nemo desktop let any
 	 * program copy, move or empty the trash. Only asked about, never called,
-	 * so a build that still has it cannot empty a trash here. */
+	 * so a build that still has it can't empty a trash here. */
 	{
 		const char *paths[] = { "/org/Nemo", "/org/NemoAnywhere", "/", NULL };
 		int i;
@@ -325,7 +325,7 @@ main (int argc, char *argv[])
 		check (alive (holder));
 	}
 
-	/* Refused, and says so, while a copy holds the settings in memory. */
+	/* Refused, and says so, while a copy has the settings in memory. */
 	write_config_file (settings, "hand.written: yes\n");
 	check (run (exe, "--reset") != 0);
 	check (g_file_test (settings, G_FILE_TEST_EXISTS));
@@ -346,12 +346,12 @@ main (int argc, char *argv[])
 	g_usleep (5 * G_USEC_PER_SEC);
 	check (alive (survivor));
 
-	/* And the survivor picks up the name the dead one was holding. */
+	/* And the survivor picks up the name the dead one owned. */
 	owner = wait_owner_change (bus, held, 20);
 	check (owner != NULL);
 	check (owner_pid (bus, owner) == survivor);
 
-	/* Back to two, so --quit still has more than one to take down. */
+	/* Back to 2, so --quit still has more than one to take down. */
 	third = launch (exe, tmp);
 	check (third > 0);
 	g_usleep (4 * G_USEC_PER_SEC);

@@ -3,11 +3,11 @@
 ##	Purpose:
 ##		- Check that an install.ps1 install that fails after its staging folder
 ##		  exists leaves nothing beside the install folder, and the old install
-##		  where it was. Three ways out: the copy into staging fails partway, the
-##		  old folder cannot be moved aside, and the final rename fails.
+##		  where it was. It can fail 3 ways: the copy into staging fails partway,
+##		  the old folder can't be moved aside, or the final rename fails.
 ##		- On Windows the copy fails on a source file held open, and the old
 ##		  folder on a file held open inside it, which must not split the old
-##		  install in two. The final rename, and on unix the move aside and the
+##		  install in 2. The final rename, and on unix the move aside and the
 ##		  rename, are refused by a stand-in for the call. On unix the copy
 ##		  fails on a source file nobody can read.
 ##		- install.ps1's own functions are lifted out through the parser and its
@@ -39,7 +39,7 @@ Write-Host "[ Test $((Select-String -LiteralPath $PSCommandPath -Pattern '^##\s+
 
 $onWindows = $IsWindows
 if (-not $onWindows -and "$(& id -u)" -eq "0") {
-	## root reads the unreadable file, so the copy would not fail.
+	## root reads the unreadable file, so the copy wouldn't fail.
 	Write-Host "[ install.ps1 staging check skipped: running as root ]"; exit 77
 }
 
@@ -47,7 +47,7 @@ $installer = Join-Path $PSScriptRoot "../../install.ps1"
 $tokens = $null
 $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($installer, [ref]$tokens, [ref]$parseErrors)
-if ($parseErrors) { Write-Host "[ FAILED: install.ps1 does not parse: $($parseErrors[0].Message) ]"; exit 1 }
+if ($parseErrors) { Write-Host "[ FAILED: install.ps1 doesn't parse: $($parseErrors[0].Message) ]"; exit 1 }
 
 ## Every function and the settings fMain reads, but not the entry block, which
 ## would run the installer with this script's arguments.
@@ -76,7 +76,7 @@ function fPathWrite {
 	$script:fakePath = $Value
 }
 
-## $HOME cannot be redirected, and the unix symlink goes under it. Every case
+## $HOME can't be redirected, and the unix symlink goes under it. Every case
 ## stops before then; this makes sure of it.
 function fInstallLauncher { fFail "the install went on past the swap" }
 
@@ -140,7 +140,7 @@ if ($onWindows) {
 } else {
 	$archive = "${pack}.tar.gz"
 	& tar -czf $archive -C (Split-Path -Parent $pack) (Split-Path -Leaf $pack)
-	if ($LASTEXITCODE -ne 0) { Write-Host "[ FAILED: could not make the test archive ]"; exit 1 }
+	if ($LASTEXITCODE -ne 0) { Write-Host "[ FAILED: couldn't make the test archive ]"; exit 1 }
 	$parent = Join-Path $root "data"
 	$prefix = Join-Path $parent "nemo-anywhere"
 }
@@ -160,7 +160,7 @@ try {
 
 	foreach ($way in @("copy", "aside", "swap")) {
 		## A fresh old install each time, and nothing else beside it.
-		if (-not (Remove-SafeTree -LiteralPath $parent)) { throw "could not clear $parent" }
+		if (-not (Remove-SafeTree -LiteralPath $parent)) { throw "couldn't clear $parent" }
 		$oldExe  = Join-Path $prefix $exeRel
 		$oldIcon = Join-Path $prefix "share/icons/icon.txt"
 		New-Item -ItemType Directory -Path (Split-Path -Parent $oldExe), (Split-Path -Parent $oldIcon) -Force | Out-Null
@@ -189,7 +189,7 @@ try {
 			}
 		}
 
-		if (-not $failedWith) { fProblem "${way}: the install did not fail"; continue }
+		if (-not $failedWith) { fProblem "${way}: the install didn't fail"; continue }
 		$left = @(Get-ChildItem -LiteralPath $parent -Force | Where-Object { $_.Name -ne (Split-Path -Leaf $prefix) })
 		foreach ($item in $left) { fProblem "${way}: left behind beside the install: $($item.Name)" }
 		$kept = $true
@@ -204,7 +204,7 @@ try {
 	## linked back: the swap is done where it points, and the link stays. On
 	## Windows, where the install runs to the end, -Uninstall then empties that
 	## folder and leaves it and the link.
-	if (-not (Remove-SafeTree -LiteralPath $parent)) { throw "could not clear $parent" }
+	if (-not (Remove-SafeTree -LiteralPath $parent)) { throw "couldn't clear $parent" }
 	$real = Join-Path $root "disk2/$(Split-Path -Leaf $prefix)"
 	New-Item -ItemType Directory -Path $parent, (Join-Path $real "share") -Force | Out-Null
 	Set-Content -LiteralPath (Join-Path $real "share/old.txt") -Value "old"

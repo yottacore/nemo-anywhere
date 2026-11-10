@@ -1,8 +1,8 @@
 #!/usr/bin/env pwsh
 
 ##	Purpose:
-##		- Check how the dogfood launcher (utility/n8runfm.ps1) keeps its pool of
-##		  builds: which version each hour, day, week, month and year keeps, the
+##		- Check how the dogfood launcher, utility/n8runfm.ps1, keeps its pool of
+##		  builds: which version each hour, day, week, month, and year keeps, the
 ##		  count and size budget on top of that, the very first build and the
 ##		  newest always kept, and a version something is running from never
 ##		  removed.
@@ -31,7 +31,7 @@ $launcher = Join-Path $PSScriptRoot "../../utility/n8runfm.ps1"
 $tokens = $null
 $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($launcher, [ref]$tokens, [ref]$parseErrors)
-if ($parseErrors) { Write-Host "[ FAILED: n8runfm.ps1 does not parse: $($parseErrors[0].Message) ]"; exit 1 }
+if ($parseErrors) { Write-Host "[ FAILED: n8runfm.ps1 doesn't parse: $($parseErrors[0].Message) ]"; exit 1 }
 
 foreach ($name in @("fRotate", "fGfsRoles", "fPeriodKeys", "fBudget", "fHeldCopies", "fParseStamp", "fIdFile", "fRemoveIfIdle", "fSafeRm_Under", "fSafeRm_BadPath", "fSafeRm_Tree", "fWarn")) {
 	$def = $ast.Find({
@@ -69,7 +69,7 @@ if ($got -ne $want) {
 	exit 1
 }
 
-## A prefix pool, as on Linux and macOS, on every platform: that is the shape
+## A prefix pool, as on Linux and macOS, on every platform. That's the layout
 ## whose in-use test looks inside the version.
 $script:ExeExt         = ""
 $script:PayloadIsFile  = $false
@@ -101,7 +101,7 @@ function fCopies {
 }
 
 ## Now is Wednesday 2026-06-17 12:30, ISO week 25. Each stamp is the last of a
-## completed period, except the two marked as held by nothing.
+## completed period, except the 2 named "nothing", which no role keeps.
 $stamps = [ordered]@{
 	first    = [datetime]::new(2024, 3, 1, 10, 0, 0)
 	nothing1 = [datetime]::new(2025, 2, 10, 10, 0, 0)
@@ -130,13 +130,13 @@ foreach ($copy in $copies) {
 }
 
 $one = fGfsRoles -Copies (fCopies @($stamps.latest))
-if ($one[(fStampName $stamps.latest)] -ne "first") { fFail "a lone version is not kept as first" }
+if ($one[(fStampName $stamps.latest)] -ne "first") { fFail "a lone version isn't kept as first" }
 $two = fGfsRoles -Copies (fCopies @($stamps.hour1, $stamps.latest))
 if ($two[(fStampName $stamps.hour1)] -ne "first" -or $two[(fStampName $stamps.latest)] -ne "latest") {
-	fFail "two versions are not first and latest"
+	fFail "2 versions aren't first and latest"
 }
 
-## Budget: fourteen versions a day apart, all with a role.
+## Budget: 14 versions a day apart, all with a role.
 $many = fCopies @(0..13 | ForEach-Object { [datetime]::new(2026, 5, 1, 12, 0, 0).AddDays($_) })
 $manyRoles = @{}
 foreach ($copy in $many) { $manyRoles[$copy.Name] = "frequent" }
@@ -183,7 +183,7 @@ if ($keep -isnot [System.Collections.Generic.HashSet[string]]) { fFail "a one-ve
 elseif ($keep.Contains($ProgramName)) { fFail "a one-version budget matched part of a name" }
 
 ## The whole rotation on a real folder, with a process running out of one of
-## the two versions nothing keeps.
+## the 2 versions nothing keeps.
 try {
 	foreach ($when in $stamps.Values) {
 		$bin = Join-Path (Join-Path $TargetDir (fStampName $when)) "bin"
@@ -198,7 +198,7 @@ try {
 	$left = @(Get-ChildItem -LiteralPath $TargetDir -Directory | ForEach-Object { $_.Name } | Sort-Object)
 	$wantLeft = @($expectRole.Keys | ForEach-Object { "${_}_$($expectRole[$_])" }) + @(fStampName $stamps.nothing2) | Sort-Object
 	if (($left -join " ") -ne ($wantLeft -join " ")) {
-		fFail "after rotation the pool holds [$($left -join ', ')], expected [$($wantLeft -join ', ')]"
+		fFail "after rotation the pool has [$($left -join ', ')], expected [$($wantLeft -join ', ')]"
 	}
 	if (-not (Test-Path -LiteralPath $busy)) { fFail "rotation removed a version something is running from" }
 	if (Test-Path -LiteralPath (Join-Path $TargetDir (fStampName $stamps.nothing1))) { fFail "rotation kept a version nothing needs" }

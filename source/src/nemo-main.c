@@ -68,7 +68,7 @@
 #include <exempi/xmp.h>
 #endif
 
-/* A flag that answers and exits rather than opening a window. Showing a splash
+/* A flag that prints its output and exits rather than opening a window. Showing a splash
  * for one would flash a panel on screen for no reason. */
 static gboolean
 prints_and_exits (int argc, char *argv[])
@@ -144,7 +144,7 @@ main (int argc, char *argv[])
 	 * Must be set before pango and freetype start; a user-set env still wins. */
 	nemo_setenv_own ("FREETYPE_PROPERTIES", "truetype:interpreter-version=35", FALSE);
 
-	/* Our drags speak the protocol that reaches other programs, so the toolkit
+	/* Our drags speak the protocol other programs understand, so the toolkit
 	 * has to be listening on the same one. Only read at startup. */
 	nemo_dnd_win32_prepare ();
 #endif

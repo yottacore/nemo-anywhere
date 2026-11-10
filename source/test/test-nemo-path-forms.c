@@ -1,6 +1,6 @@
 /* How a path in a tab gets shorter when the row runs out of room, and which tab
  * gives up room first. The root and the folder's own name have to survive every
- * step, or two tabs stop being told apart. */
+ * step, or 2 tabs stop being told apart. */
 
 #include <config.h>
 
@@ -94,7 +94,7 @@ main (void)
 		check_forms ("/home/somebody/.config/nemo-anywhere/x", '/', "/home/somebody", want);
 	}
 
-	/* A folder that only shares home's prefix is not under it. */
+	/* A folder that only shares home's prefix isn't under it. */
 	{
 		const char *want[] = { "/home/somebodyelse/a", "/home/.../a", "/.../a", NULL };
 		check_forms ("/home/somebodyelse/a", '/', "/home/somebody", want);
@@ -105,7 +105,7 @@ main (void)
 		check_forms ("/home/somebody", '/', "/home/somebody/", want);
 	}
 
-	/* Two folders cannot be beaten by an ellipsis. */
+	/* Two folders can't be beaten by an ellipsis. */
 	{
 		const char *want[] = { "C:\\a\\project", NULL };
 		check_forms ("C:\\a\\project", '\\', NULL, want);
@@ -163,7 +163,7 @@ main (void)
 		check_fit (2, widths, counts, 0, 50, 400, 1000, want, "behind and over the cap");
 	}
 
-	/* The tab in front is not capped: its whole path stands while the row has
+	/* The tab in front isn't capped: its whole path stands while the row has
 	   room for it. */
 	{
 		const gint a[] = { 500, 120, 60 }, b[] = { 200, 100, 50 };
@@ -173,8 +173,8 @@ main (void)
 		check_fit (2, widths, counts, 0, 50, 400, 1000, want, "in front and over the cap");
 	}
 
-	/* Crowded: the two behind shorten together, and stop as soon as the one in
-	   front can spell its path out. */
+	/* Crowded: the 2 behind shorten together, and stop as soon as the one in
+	   front can show its whole path. */
 	{
 		const gint a[] = { 600, 200, 80 }, b[] = { 300, 120, 60 }, c[] = { 350, 130, 70 };
 		const gint *const widths[] = { a, b, c };

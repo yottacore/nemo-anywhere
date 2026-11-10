@@ -83,7 +83,7 @@ find_places (void)
 	return found;
 }
 
-/* Any string column holding text exactly, over the rows the view shows. */
+/* Any string column that is exactly text, over the rows the view shows. */
 static gboolean
 row_has_text (GtkTreeModel *model, GtkTreeIter *iter, const char *text)
 {
@@ -141,7 +141,7 @@ finish (void)
 	fflush (out);
 }
 
-/* Up to fifteen seconds a step; the driver waits on the settings save. */
+/* Up to 15 seconds a step; the driver waits on the settings save. */
 static gboolean
 tick (G_GNUC_UNUSED gpointer data)
 {

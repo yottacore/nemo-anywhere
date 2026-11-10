@@ -53,7 +53,7 @@ enum {
 
 #define ALL_FIELDS ((1u << N_FIELDS) - 1)
 
-/* Default tab ids; the Current tab's copies carry "_current". The order
+/* Default tab ids; the Current tab's copies end in "_current". The order
  * matches the enum above. */
 static const char * const field_widgets[N_FIELDS] = {
 	"default_view_combobox",
@@ -179,9 +179,9 @@ field_key (int field)
 	}
 }
 
-/* the preference a field falls back to, as a spin box value, a combo row or a
+/* the preference a field falls back to, as a spin box value, a combo row, or a
    check state */
-/* A size is stored as pixels and shown as a per cent of the standard size. */
+/* A size is stored as pixels and shown as a percent of the standard size. */
 static int
 size_percent (gint size)
 {

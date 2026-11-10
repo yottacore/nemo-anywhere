@@ -144,7 +144,7 @@ is_listed (const char *id)
 	return FALSE;
 }
 
-/* Every page the stacks hold, against every page listed above. */
+/* Every page in the stacks, against every page listed above. */
 static void
 check_stack (GtkContainer *stack)
 {

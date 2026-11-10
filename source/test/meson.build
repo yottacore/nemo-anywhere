@@ -3,7 +3,7 @@
 # on. Linked whole, since nothing calls into it by name; every test executable
 # has it, through test_scratch or on its own.
 #
-# On macOS it's a dylib instead, the only way to reach GLib's calls there (see
+# On macOS it's a dylib instead, the only way to get in front of GLib's calls there (see
 # FENCED in test-fence.c), plus a small part linked whole that calls into it,
 # since the linker drops a dylib nothing calls.
 if is_macos
@@ -67,7 +67,7 @@ test('2zfbv Search Engine test',
     dependencies: [ gtk, nemo_private, test_scratch ],
   ),
   args: [],
-  timeout: 180        # three searches, each with its own 30s ceiling
+  timeout: 180        # 3 searches, each with its own 30s ceiling
 )
 
 test('dcnvg Search folder test',
@@ -143,7 +143,7 @@ test('dav3s Config store test',
     dependencies: [ gtk, nemo_private, test_scratch, test_heap ],
   ),
   args: [],
-  timeout: 90         # a hundred external rewrites, each waiting on the file monitor
+  timeout: 90         # 100 external rewrites, each waiting on the file monitor
 )
 
 test('ddy4b Bulk rename default test',
@@ -306,7 +306,7 @@ test('de5hg Multi-row drag leak test', leaks, args: [ 'drag' ],
   timeout: 180)       # every round waits out GDK's snap-back, about half a second
 
 if not is_windows
-  # The sanitizer lane's suppressions, held to what they name. Whole stacks,
+  # The sanitizer lane's suppressions, limited to what they name. Whole stacks,
   # added to the lane's own options.
   sanitizerLeaksEnv = environment()
   sanitizerLeaksEnv.append('ASAN_OPTIONS', 'fast_unwind_on_malloc=0', separator: ':')
@@ -451,7 +451,7 @@ test('da8qa Metadata store test',
   args: []
 )
 
-# Needs the slug define: the point of the test is the path the app really builds.
+# Needs the slug define: the point of the test is the path the app builds.
 test('dbfh8 Config root test',
   executable('test-nemo-config-root',
     [ 'test-nemo-config-root.c' ],
@@ -813,8 +813,8 @@ test('dbcw6 Extension column test',
 if is_windows
   # The recycle-bin monitor is polled, so the same-count case has to sit through
   # a few turns of it - well past the 30s meson allows by default. On a machine
-  # with a full bin the whole run has been seen to take four and a half minutes.
-  # It watches the real bin for a quiet spell, so nothing else may run beside
+  # with a full bin the whole run has been seen to take 4.5 minutes.
+  # It watches the real bin for a quiet period, so nothing else may run beside
   # it: the archive combinations test recycles into that same bin.
   test('da8rb Trash win32 test',
     executable('test-nemo-trash-win32',
@@ -935,7 +935,7 @@ test('de7as Move Replace asks the guard once test',
   args: [ 'guard' ],
 )
 
-# Carries the resource for the emblem art, as the next test does.
+# Builds in the resource for the emblem art, as the next test does.
 test('dd5de Link emblems test',
   executable('test-nemo-emblems',
     [ 'test-nemo-emblems.c' ] + gresources,
@@ -945,7 +945,7 @@ test('dd5de Link emblems test',
   args: []
 )
 
-# Carries its own copy of the resource, for the reason the next test explains.
+# Builds in its own copy of the resource, for the reason the next test gives.
 test('dcb5t App resources test',
   executable('test-nemo-app-resources',
     [ 'test-nemo-app-resources.c' ] + gresources,
@@ -1077,7 +1077,7 @@ if is_windows
   )
 endif
 
-# The win32 helper lives in src/, not a library, so it is compiled straight in.
+# The win32 helper is in src/, not a library, so it's compiled straight in.
 if is_windows
   test('dbedz Win32 argument quoting test',
     executable('test-nemo-view-win32',
@@ -1113,7 +1113,7 @@ if is_windows
   )
 endif
 
-# Puts three windows on screen and needs the foreground, so it skips over ssh,
+# Puts 3 windows on screen and needs the foreground, so it skips over ssh,
 # and runs alone, since it takes the foreground from any test beside it.
 if is_windows
   test('ddgns Tab move foreground right test',
@@ -1209,7 +1209,7 @@ endif
 
 test('dbes6 Appearance themes test',
   # The theme resource is linked into the app, not into libnemo-private, so a
-  # test that checks it has to carry its own copy.
+  # test that checks it has to build in its own copy.
   executable('test-nemo-appearance',
     [ 'test-nemo-appearance.c' ] + gresources + themeGresources,
     include_directories: [ rootInclude, ],
@@ -1367,7 +1367,7 @@ if not is_windows and not is_macos
     executable('test-nemo-launch-env',
       [ 'test-nemo-launch-env.c' ],
       include_directories: [ rootInclude, ],
-      # The copy it runs is out of reach of the build rpath.
+      # The copy it runs is outside the build rpath.
       c_args: nemo_definitions + (extensionShared ? [
         '-DTEST_EXTENSION_LIB_DIR="@0@"'.format(meson.project_build_root() / 'libnemo-extension'),
       ] : []),
@@ -1382,7 +1382,7 @@ if not is_windows
     executable('test-nemo-runtime-env',
       [ 'test-nemo-runtime-env.c' ],
       include_directories: [ rootInclude, ],
-      # The copy it runs is out of reach of the build rpath.
+      # The copy it runs is outside the build rpath.
       c_args: nemo_definitions + (extensionShared ? [
         '-DTEST_EXTENSION_LIB_DIR="@0@"'.format(meson.project_build_root() / 'libnemo-extension'),
       ] : []),
@@ -1893,7 +1893,7 @@ if not is_windows
     timeout: 180
   )
 
-  # Preloaded too; it holds an smb:// mount and looks at the window meanwhile.
+  # Preloaded too; it stalls an smb:// mount and looks at the window meanwhile.
   connecting_probe = shared_module('test-nemo-connecting-probe',
     [ 'test-nemo-connecting-probe.c' ],
     dependencies: [ gtk, cc.find_library('dl', required: false) ],
@@ -2233,7 +2233,7 @@ test('dbj6x Extract job test',
 )
 
 # A rar with a link libarchive 3.8.9 and older can't read. Writes it with rar;
-# the links it holds are POSIX ones. Reads one back with libarchive too.
+# the links in it are POSIX ones. Reads one back with libarchive too.
 if not is_windows
   test('ddx67 Extract rar long link test',
     executable('test-extract-rar-links',
@@ -2451,7 +2451,7 @@ test('de7ad Thumbnail of a picture dated ahead test',
   args: []
 )
 
-# It holds a listing by standing in for a GIO call, which only works where
+# It stalls a listing by standing in for a GIO call, which only works where
 # the loader looks in the program first.
 if not is_windows
   test('de7cs Thumbnail lookup behind a slow count test',
@@ -2568,7 +2568,7 @@ test('dbsx7 Config schema drift test',
 
 if is_windows
   # The exe needs the app's own manifest or every long-path call fails on the
-  # file not being there, which is not what is under test.
+  # file not being there, which isn't what is under test.
   testWinMod = import('windows')
   longPathManifest = testWinMod.compile_resources('test-manifest.rc',
     include_directories: include_directories('../src'),
@@ -2594,7 +2594,7 @@ if is_windows
   )
 endif
 
-# The bookmark list lives in src/, not a library, so it is compiled straight in.
+# The bookmark list is in src/, not a library, so it's compiled straight in.
 if is_windows
   test('dbwe5 First run test',
     executable('test-nemo-first-run-win32',

@@ -20,13 +20,13 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* Draw counts are held in memory for up to 30 s before they are written, so a
+/* Draw counts are kept in memory for up to 30 s before they are written, so a
  * quit has to write them, and fold the journal back into the file. The built
  * program opens a folder of pictures and quits soon after, the way a user ends
  * it. First a folder of big pictures, closed while thumbnails are still being
  * made. Then a small one, closed once its thumbnails are made, then again,
  * when they are drawn from the store, and a third time through --quit from
- * another copy. After each the journal is empty, and after the last two the
+ * another copy. After each the journal is empty, and after the last 2 the
  * counts went up. A --version run, which never uses the store, leaves none
  * behind.
  *
@@ -93,8 +93,8 @@ report_stuck (GPid pid)
 		char *line = NULL;
 		char *close_paren;
 
-		/* comm is in parentheses and may hold spaces; state, then utime and
-		   stime as the 12th and 13th fields after it. */
+		/* comm is in parentheses and may contain spaces; state, then utime and
+		   stime as fields 12 and 13 after it. */
 		if (g_file_get_contents (path, &line, NULL, NULL) &&
 		    (close_paren = strrchr (line, ')')) != NULL) {
 			char **fields = g_strsplit (close_paren + 2, " ", 14);
@@ -138,7 +138,7 @@ report_stuck (GPid pid)
 }
 
 /* TRUE when it went away inside the time with a clean exit. One that didn't
-   is reported and killed, so it can't hold the store through the next run. */
+   is reported and killed, so it can't keep the store locked through the next run. */
 static gboolean
 wait_exit (GPid pid, int seconds)
 {
@@ -291,8 +291,8 @@ close_window (Display *display, GPid pid)
 	return TRUE;
 }
 
-/* Sizes and shades differ, so no two are the same file. Dated well back, since
- * a file changed in the last moments is not thumbnailed yet. */
+/* Sizes and shades differ, so no 2 are the same file. Dated well back, since
+ * a file changed in the last moments isn't thumbnailed yet. */
 static char **
 make_pictures (const char *folder, int count, int scale)
 {
@@ -511,7 +511,7 @@ main (int argc, char *argv[])
 	}
 
 	/* Made before the program starts, so the program's own setup of a new
-	 * file is not part of what is timed here. */
+	 * file isn't part of what is timed here. */
 	db = nemo_cache_db_get ();
 	check (db != NULL);
 	if (db == NULL) {

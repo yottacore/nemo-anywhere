@@ -21,9 +21,9 @@
 */
 
 /* Whether a search may run is checked a moment after the typing stops. Enter
- * pressed before that moment once threw the check away and went by the answer
+ * pressed before that moment once threw the check away and went by the result
  * for the text before, so a quick "type, Enter" did nothing. A real editor,
- * built from its resource, with a pattern that does not parse standing in for
+ * built from its resource, with a pattern that doesn't parse standing in for
  * the text before. */
 
 #include <config.h>
@@ -104,7 +104,7 @@ main (int argc, char *argv[])
 	}
 
 	nemo_global_preferences_init ();
-	/* A regular expression can fail to parse, which a plain pattern cannot. */
+	/* A regular expression can fail to parse, which a plain pattern can't. */
 	nemo_config_set_boolean (nemo_search_preferences, NEMO_PREFERENCES_SEARCH_FILES_REGEX, TRUE);
 
 	editor = nemo_query_editor_new ();

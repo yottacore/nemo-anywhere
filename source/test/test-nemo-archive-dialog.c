@@ -29,7 +29,7 @@
  * Then the link choices: which groups show for the selection, which store
  * choices each format and its options leave, the Junctions defaults, and the
  * volume sizes with their notes. And that the link and filesystem choices
- * as set reach the job. */
+ * as set go to the job. */
 
 #include <config.h>
 
@@ -190,7 +190,7 @@ check_screen (const Probe *probe, int work_height)
 	/* The buttons stay on screen. */
 	check (probe->closed_height + shown <= work_height);
 
-	/* Where they fit whole, they are not cut. */
+	/* Where they fit whole, they aren't cut. */
 	if (probe->closed_height + probe->natural <= work_height) {
 		check (shown == probe->natural);
 	}
@@ -226,7 +226,7 @@ probe_dialog (gpointer data)
 	scroll = GTK_SCROLLED_WINDOW (gtk_bin_get_child (GTK_BIN (probe->expander)));
 	gtk_widget_get_preferred_height (gtk_bin_get_child (GTK_BIN (scroll)), NULL, &probe->natural);
 
-	/* The fixture only means something if the options would not fit whole on
+	/* The fixture only means something if the options wouldn't fit whole on
 	   the short screen. */
 	check (probe->closed_height + probe->natural > 540);
 
@@ -234,7 +234,7 @@ probe_dialog (gpointer data)
 	check_screen (probe, 768);
 	check_screen (probe, 1080);
 
-	/* Opened for real, on a screen tall enough to hold everything. */
+	/* Opened for real, on a screen tall enough to fit everything. */
 	gdk_monitor_get_workarea (gdk_display_get_monitor_at_window (gtk_widget_get_display (probe->dialog),
 								     gtk_widget_get_window (probe->dialog)),
 				  &work);
@@ -1233,7 +1233,7 @@ probe_sizes (gpointer data)
 #endif
 	check_sizes (dialog);
 
-	/* Stored is not followed. */
+	/* Stored isn't followed. */
 	click (dialog, "symlinks-store");
 	check (is_on (dialog, "symlinks-store"));
 	check_sizes (dialog);

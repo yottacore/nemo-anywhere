@@ -48,8 +48,8 @@
 #include <shlobj.h>
 #include <gdk/gdkwin32.h>
 
-/* The toolkit's own drag on Windows only reaches our own windows, and the
- * protocol that reaches other programs is behind this switch. Our drags speak
+/* The toolkit's own drag on Windows only works between our own windows, and the
+ * protocol other programs understand is behind this switch. Our drags speak
  * that one, so our own windows have to be listening on it too. */
 #define OLE_DND_ENV "GDK_WIN32_USE_EXPERIMENTAL_OLE2_DND"
 
@@ -58,7 +58,7 @@
 #define URI_LIST_FORMAT  L"text/uri-list"
 
 /* The shell's own names. The CFSTR_ macros follow whether UNICODE is defined,
- * which it is not here, so they are spelled out wide. */
+ * which it isn't here, so they are spelled out wide. */
 #define SHELL_ID_LIST_FORMAT L"Shell IDList Array"
 #define PREFERRED_EFFECT_FORMAT L"Preferred DropEffect"
 #define PERFORMED_EFFECT_FORMAT L"Performed DropEffect"
@@ -169,7 +169,7 @@ hdrop_block (gchar **paths)
 	return block;
 }
 
-/* An id list runs to a zero-length item, and its own two bytes count. */
+/* An id list runs to a zero-length item, and its own 2 bytes count. */
 static guint
 pidl_size (LPCITEMIDLIST pidl)
 {
@@ -188,7 +188,7 @@ pidl_size (LPCITEMIDLIST pidl)
  * list, then one per file. The desktop stands in as the parent, which is what
  * makes the children below it the fully qualified lists we already have.
  *
- * NULL if any path will not parse, and then the format is simply not offered -
+ * NULL if any path won't parse, and then the format isn't offered -
  * CF_HDROP is what the programs this is for read anyway. */
 static HGLOBAL
 shell_id_list_block (gchar **paths)
@@ -745,7 +745,7 @@ attach_drag_image (IDataObject *data, cairo_surface_t *icon, int hot_x, int hot_
 /* Putting it together */
 
 /* Local paths for a uri-list payload, or NULL if any line has none - a place
- * only nemo understands cannot be dragged into another program. */
+ * only nemo understands can't be dragged into another program. */
 static gchar **
 paths_from_uri_list (const char *uri_list)
 {
@@ -872,7 +872,7 @@ release_grab (GtkWidget *widget, guint button)
 
 /* A move onto another program leaves the originals here: the other side copied
  * them and is waiting for us to take our copies away. Only reached when the
- * target did not do the move itself, and never for a drop back into nemo, where
+ * target didn't do the move itself, and never for a drop back into nemo, where
  * our own drop code has already moved them. */
 static void
 remove_moved_sources (GtkWidget *widget, const char *uri_list)
@@ -941,10 +941,10 @@ nemo_dnd_win32_data_object (const char    *uri_list,
 	format_add (self, RegisterClipboardFormatW (SHELL_ID_LIST_FORMAT),
 		    shell_id_list_block (paths));
 
-	/* No preferred effect goes in. Explorer does not put one in its own drags
+	/* No preferred effect goes in. Explorer doesn't put one in its own drags
 	 * either, and a target that sees one obeys it - saying copy there made a
 	 * drag onto another folder on the same drive copy when it should move.
-	 * What the drag allows is carried by the effects mask instead. */
+	 * The effects mask says what the drag allows instead. */
 
 	if (icon_list != NULL) {
 		format_add (self, RegisterClipboardFormatW (ICON_LIST_FORMAT),
@@ -1095,7 +1095,7 @@ nemo_dnd_win32_drag (GtkWidget       *widget,
 	source = g_new0 (DropSource, 1);
 	source->iface.lpVtbl = &source_vtbl;
 	source->ref = 1;
-	/* Not the middle button: Windows' drag does not reliably end on its release. */
+	/* Not the middle button: Windows' drag doesn't reliably end on its release. */
 	if (GetKeyState (VK_RBUTTON) & 0x8000) {
 		source->button = MK_RBUTTON;
 		button = GDK_BUTTON_SECONDARY;

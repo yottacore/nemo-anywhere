@@ -27,7 +27,7 @@ Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'include/run-temp.ps1')
 $ErrorActionPreference = "Stop"
 
-## The problems with one project's text, one line each; none when it is good.
+## The problems with one project's text, one line each, and none when it's good.
 function Test-ProjectText {
 	param([Parameter(Mandatory)][string]$Label, [Parameter(Mandatory)][AllowEmptyString()][string]$Text)
 	$problems = [System.Collections.Generic.List[string]]::new()
@@ -96,7 +96,7 @@ function Invoke-SelfTest {
 		}
 		## The written tree has to be in it, or the check passed a project for nothing.
 		if (-not $text.Contains('<Name>libglib-2.0-0.dll</Name>') -or $text.Contains('<Name>nemo-anywhere.exe</Name>')) {
-			Write-Host "FAIL: the project does not list the flat tree as expected"
+			Write-Host "FAIL: the project doesn't list the flat tree as expected"
 			$failures++
 		}
 	} finally {

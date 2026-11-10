@@ -57,7 +57,7 @@ png_only_loaders (const char *dir)
 		return NULL;
 	}
 
-	/* One loader per block, its module path on the first line that is not
+	/* One loader per block, its module path on the first line that isn't
 	 * a comment. */
 	blocks = g_strsplit (text, "\n\n", -1);
 	for (i = 0; blocks[i] != NULL; i++) {

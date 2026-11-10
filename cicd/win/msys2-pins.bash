@@ -6,7 +6,7 @@
 ##	- update: resolves the dependency closure of the roots below from today's
 ##	  package databases and writes the list. The msys side leaves out what the
 ##	  base install already has. That base comes from the dated installer the
-##	  pinned setup-msys2 commit unpacks, so BASE_DATE, SETUP_MSYS2 and the
+##	  pinned setup-msys2 commit unpacks, so BASE_DATE, SETUP_MSYS2, and the
 ##	  `uses:` line in release-win.yml move together. Run by hand, then commit.
 ##	  It also writes sysroot-pins.txt, the part of the same closure the cross
 ##	  build image's sysroot takes (fetch-sysroot.bash), so the cross build
@@ -32,7 +32,7 @@ MINGW_ROOTS=(gcc gtk3 libarchive json-glib libexif meson ninja pkgconf)
 MSYS_ROOTS=(intltool)
 ## The cross build's sysroot. gtk3 drags in the bulk of the stack (glib2, atk,
 ## cairo, gdk-pixbuf2, pango, json-glib, libepoxy, gettext, icon theme). The rest
-## are our extra meson deps. Exempi (XMP) is not packaged for mingw - we
+## are our extra meson deps. Exempi (XMP) isn't packaged for mingw - we
 ## cross-build with -Dxmp=false instead. sqlite3 already arrives through the gtk3
 ## chain, but the thumbnail cache links it directly, so name it here rather than
 ## let a refresh of that chain drop it.

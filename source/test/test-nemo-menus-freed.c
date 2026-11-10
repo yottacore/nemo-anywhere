@@ -24,7 +24,7 @@
 /* The tab menu, the Back button's history menu and the list header's column
  * menu are made new on every open. They were never freed, so each open left
  * a menu behind for the life of the window or the program, and the tab menu
- * kept a hold on its tab. Up made an empty menu it never showed. A menu is a
+ * kept a ref on its tab. Up made an empty menu it never showed. A menu is a
  * window of its own, so the probe opens and closes each one a few times and
  * counts the windows left over.
  *

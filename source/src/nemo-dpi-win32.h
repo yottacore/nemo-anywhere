@@ -25,10 +25,10 @@
  * on the scaling is ours to do.
  *
  * GTK does most of it: it reads the awareness we declared, works out a scale
- * factor per monitor and draws at that. What it cannot do is a fraction - the
+ * factor per monitor and draws at that. What it can't do is a fraction - the
  * factor is a whole number, so a display at 125% or 150% is drawn at 100% and
  * everything on it comes out smaller than the windows beside it. Text is the
- * half of that we can fix: point sizes go through gtk-xft-dpi, which is not
+ * half of that we can fix: point sizes go through gtk-xft-dpi, which isn't
  * restricted to whole steps, so setting it to the monitor's real DPI - with
  * the whole-number part the toolkit already applied divided back out - leaves
  * the type the size it should be. Widgets and icons stay on the whole step.

@@ -43,7 +43,7 @@
 
 /* How long to keep pumping before deciding the sheet was never ours to run.
  * The shell usually puts the sheet on a thread of its own, in which case our
- * thread never owns a window and this is simply how long we idle before going. */
+ * thread never owns a window and this is how long we idle before going. */
 #define SHEET_GRACE_USEC	(3 * G_USEC_PER_SEC)
 
 typedef struct {
@@ -98,9 +98,9 @@ pump_until_sheet_closes (void)
 	}
 }
 
-/* Every item has to be a child of one folder - that is the only shape the
+/* Every item has to be a child of one folder - that's the only kind the
  * shell's own multi-item sheet has. Callers guarantee it by directory name;
- * this re-checks against what the shell actually parsed. */
+ * this re-checks against what the shell parsed. */
 static gboolean
 collect_children (ITEMIDLIST_ABSOLUTE **absolute,
 		  guint                 count,
@@ -273,7 +273,7 @@ collect_paths (GList *files)
 			if (shared_parent == NULL) {
 				shared_parent = parent;
 			} else {
-				/* Search results can span folders; the sheet cannot. */
+				/* Search results can span folders; the sheet can't. */
 				usable = (g_ascii_strcasecmp (parent, shared_parent) == 0);
 				g_free (parent);
 			}

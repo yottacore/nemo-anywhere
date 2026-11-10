@@ -31,7 +31,7 @@
  * nemo-connect-server-dialog-main.c for the standalone version.
  */
 
-/* The result travels as user_data. It used to be a file-static, so two dialogs
+/* The result travels as user_data. It used to be a file-static, so 2 dialogs
  * open at once clobbered each other's - the first to finish completed the
  * second's result and left the first hanging. */
 static void

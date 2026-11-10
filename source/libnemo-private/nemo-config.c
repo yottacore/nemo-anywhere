@@ -30,7 +30,7 @@
 #include <string.h>
 
 /* SHCL's file tier is in, for its writer: a temp file beside the target, synced
- * before it is published, and on Windows a replace that carries the old file's
+ * before it is published, and on Windows a replace that keeps the old file's
  * permissions, attributes and alternate streams onto the new one - none of
  * which g_file_set_contents does.
  *
@@ -51,7 +51,7 @@
 #define SAVE_DEBOUNCE_SECONDS 2
 /* A failing write retries, but not every couple of seconds forever. */
 #define SAVE_RETRY_SECONDS    30
-/* Settings hold ~168 keys - a few KB. Cap the read well above that: the parsed
+/* Settings have ~168 keys - a few KB. Cap the read well above that: the parsed
  * document costs many times the file size, and an oversized or corrupt file
  * has no business taking that much of the process. */
 #define CONFIG_MAX_BYTES      (8 * 1024 * 1024)
@@ -70,7 +70,7 @@ enum {
 
 static guint signals[LAST_SIGNAL];
 
-/* One document for the whole app. The lock is not decoration: file
+/* One document for the whole app. The lock isn't decoration: file
  * operations write favorites and view state from worker threads. */
 static GMutex      config_lock;
 static shcl_doc   *config_doc;
@@ -78,7 +78,7 @@ static char       *config_path;
 static guint       save_timeout_id;
 static GFileMonitor *config_monitor;
 static char       *last_written;       /* what we last put on disk, to ignore our own event */
-static gsize       last_written_len;   /* byte length - the file may legally hold a NUL */
+static gsize       last_written_len;   /* byte length - the file may legally contain a NUL */
 static GHashTable *config_groups;      /* name -> NemoConfigGroup (owned) */
 static gboolean    config_ready;
 static gboolean    config_stopped;     /* shut down; the next init starts over */
@@ -139,7 +139,7 @@ typedef struct {
 
 static KeyPath *key_paths;
 
-/* Every accessor comes through here, so a linear walk of 168 keys with two
+/* Every accessor comes through here, so a linear walk of 168 keys with 2
  * string compares each was on the way into every read. */
 static const NemoConfigKey *
 find_key (const char *group, const char *key)
@@ -162,7 +162,7 @@ find_key (const char *group, const char *key)
 		key_paths = g_new0 (KeyPath, count);
 
 		/* The table owns the string; key_paths borrows it. Neither is ever
-		 * freed, since the key table cannot change at runtime. */
+		 * freed, since the key table can't change at runtime. */
 		for (k = nemo_config_keys; k->key != NULL; k++, i++) {
 			char *p = key_path (k);
 
@@ -239,7 +239,7 @@ require_key (NemoConfigGroup *group, const char *key, NemoConfigType type)
 {
 	const NemoConfigKey *k;
 
-	/* Almost always means nemo_global_preferences_init() has not run, so
+	/* Almost always means nemo_global_preferences_init() hasn't run, so
 	 * say that rather than blaming the key. */
 	if (group == NULL) {
 		g_critical ("nemo-config: '%s' read before the config store was opened", key);
@@ -285,10 +285,10 @@ new_empty_doc (void)
 
 /* The file as it was, beside it, before a format change rewrites it. Same
  * bytes, so putting it back is a rename. Returns the name, or NULL when it
- * could not be written, and then the old file must stay as it is.
+ * couldn't be written, and then the old file must stay as it is.
  *
  * shcl_upgrade_file and shcl_write_backup don't fit: the first keeps keys we
- * drop, and both refuse a backup name that's taken, where two copies started
+ * drop, and both refuse a backup name that's taken, where 2 copies started
  * in the same second each need one. */
 static char *
 backup_old_format (const char *text, gsize len, gint64 format)
@@ -305,7 +305,7 @@ backup_old_format (const char *text, gsize len, gint64 format)
 	if (dot != NULL)
 		*dot = '\0';
 
-	/* Two copies starting in the same second can both get here. */
+	/* A pair of copies starting in the same second can both get here. */
 	for (tries = 1; tries < 10; tries++) {
 		char  *name, *had = NULL;
 		gsize  had_len = 0;
@@ -442,7 +442,7 @@ append_dev_unescaped (GString *out, const char *s, gsize n)
 /* The items of a value as those builds read it: every comma outside quotes
  * splits, a # outside quotes starts a comment, and a quote pairs up only
  * when the item ends right after it closes. Today's rules read it the same
- * unless a double-quoted item holds a backslash, so any other value gives
+ * unless a double-quoted item has a backslash, so any other value gives
  * NULL. */
 static GPtrArray *
 dev_items (const char *s, gsize n)
@@ -727,7 +727,7 @@ dev_value_on_line (GPtrArray *values, gsize line)
 
 /* @at_start: a file with no format line is read as 2.x only at startup. One
  * that turns up while running is a hand edit in progress, by today's rules,
- * unless it is still the 2.x file startup read and could not save over. */
+ * unless it is still the 2.x file startup read and couldn't save over. */
 static void
 load_locked (gboolean at_start)
 {
@@ -737,7 +737,7 @@ load_locked (gboolean at_start)
 	shcl_doc *fresh;
 
 	/* Refuse an implausibly large file. Keep the in-memory doc so a pending
-	 * save cannot then overwrite the real file with defaults. */
+	 * save can't then overwrite the real file with defaults. */
 	{
 		GStatBuf st;
 		if (g_stat (config_path, &st) == 0 && st.st_size > CONFIG_MAX_BYTES) {
@@ -840,7 +840,7 @@ load_locked (gboolean at_start)
 		load_count++;
 
 		/* A broken line is skipped, not fatal - say which, once, so a
-		 * hand-edit that lost a value is not a silent mystery. */
+		 * hand-edit that lost a value isn't a silent mystery. */
 		n = shcl_diag_count (config_doc);
 		for (i = 0; i < n && i < 10; i++) {
 			shcl_str m = shcl_diag_message (config_doc, i);
@@ -853,7 +853,7 @@ load_locked (gboolean at_start)
 		}
 		g_clear_pointer (&dev_values, g_ptr_array_unref);
 
-		/* Anything the parse could not keep is gone from the next save, so say
+		/* Anything the parse couldn't keep is gone from the next save, so say
 		 * so rather than let a hand-edited line disappear without a word. */
 		if (shcl_lost_count (config_doc) > 0) {
 			g_warning ("nemo-config: %s has %zu line(s) that couldn't be kept; "
@@ -883,7 +883,7 @@ load_locked (gboolean at_start)
 		/* A transient failure (AV/sync/editor lock, the delete half of a
 		 * non-atomic external save) must not swap defaults into memory: a
 		 * queued save would then write that near-empty doc over the real
-		 * file. Keep what we have; only a genuinely absent file resets. */
+		 * file. Keep what we have; only a missing file resets. */
 		if (!gone && config_doc != NULL)
 			return;
 
@@ -941,7 +941,7 @@ in_catalog (const NemoConfigKey *k)
 
 /* SHCL's own writer decides how a value is spelled - the quoting, the list
  * separator, the empty list - so ask it rather than keep a second opinion
- * here. One throwaway document holds every default at a numbered top-level
+ * here. One throwaway document has every default at a numbered top-level
  * name, and its canonical form is one line per key in table order. */
 static char **
 default_texts (guint *n_out)
@@ -1066,7 +1066,7 @@ catalog_entries (void)
 /* The lines the catalog can produce, for recognizing a copy already in the
  * file. Built from every key, not from the block about to be written: a key
  * set since the last save drops out of the block and its old line still has to
- * come off. Kept in two sets because a description alone is not evidence - the
+ * come off. Kept in 2 sets because a description alone isn't evidence - the
  * same text sits above the key once it is live. */
 static void
 catalog_line_sets (GHashTable **keys, GHashTable **descs)
@@ -1099,8 +1099,8 @@ catalog_line_sets (GHashTable **keys, GHashTable **descs)
 	*descs = desc_set;
 }
 
-/* The block to write: the header, then every key @doc does not already carry.
- * Listing one that is set would invite uncommenting it, and two bindings of
+/* The block to write: the header, then every key @doc doesn't already have.
+ * Listing one that is set would invite uncommenting it, and 2 bindings of
  * one key read as ambiguous and fall back to the default. */
 static char *
 catalog_body (shcl_doc *doc)
@@ -1161,7 +1161,7 @@ is_banner_line (const char *bare)
 
 /* Which lines are the info block. Only a run of "##" lines that names the
  * format counts, found the way shcl_set_banner finds one: by its SHCL line or
- * its version line, never its links. Inside the run, a line that is not one of
+ * its version line, never its links. Inside the run, a line that isn't one of
  * the block's own is somebody's note and stays. */
 static gboolean *
 find_banner_lines (GPtrArray *lines)
@@ -1201,7 +1201,7 @@ find_banner_lines (GPtrArray *lines)
  * which SHCL then writes out again - indented under whatever group it decided
  * they belong to, if a line was uncommented in the middle of them, so the
  * match ignores leading whitespace. Byte length throughout: the file may
- * legally hold a NUL. */
+ * legally contain a NUL. */
 static char *
 apply_catalog (shcl_doc *doc, const char *text, gsize len, gsize *out_len)
 {
@@ -1242,7 +1242,7 @@ apply_catalog (shcl_doc *doc, const char *text, gsize len, gsize *out_len)
 
 			drop = g_hash_table_contains (key_lines, next + strspn (next, " \t"));
 		}
-		/* A blank that only sat between two stripped lines goes with them. */
+		/* A blank that only sat between 2 stripped lines goes with them. */
 		if (!drop && *bare == '\0' && dropped_last)
 			drop = TRUE;
 		if (!drop)
@@ -1402,7 +1402,7 @@ snapshot_locked (void)
 
 	for (k = nemo_config_keys; k->key != NULL; k++) {
 		char          *path = key_path (k);
-		/* read_string, not read_raw: raw only answers for fenced blocks and
+		/* read_string, not read_raw: raw only works for fenced blocks and
 		 * reports every ordinary value as empty, which made the whole diff
 		 * blind to a changed value and only able to see a key appear or go. */
 		shcl_read_str  r    = shcl_read_string (config_doc, path, strlen (path));
@@ -1611,12 +1611,12 @@ reload_locked (gboolean queue_save, GHashTable **before, GHashTable **after)
 	held = capture_keys_locked (held_keys);
 	beaten = capture_keys_locked (beaten_keys);
 	load_locked (FALSE);
-	/* A failed read kept the doc, and what it holds with it. */
+	/* A failed read kept the doc, and what's in it with it. */
 	if (load_count != loads) {
 		settle_held_locked (held);
 		settle_beaten_locked (beaten);
 	}
-	/* An in-app change made inside the debounce window is not on disk yet, so
+	/* An in-app change made inside the debounce window isn't on disk yet, so
 	 * the file we just read doesn't have it. Put those keys back, or the
 	 * queued save would write the reloaded document and lose them. */
 	restore_pending_locked (pending);
@@ -2158,7 +2158,7 @@ emit_changed (const char *group, const char *key)
 	/* GSettings delivered "changed" on the main context and all 84 ported
 	 * handlers assume it - they touch widgets. File operations reach a set()
 	 * from worker threads (delete -> favorites -> set_strv), so hop when we
-	 * are not already there. Always queued: g_main_context_invoke would run
+	 * aren't already there. Always queued: g_main_context_invoke would run
 	 * the handler on the worker itself whenever the main thread is outside
 	 * the loop at that moment. */
 	if (config_thread == NULL || g_thread_self () == config_thread) {
@@ -2206,7 +2206,7 @@ nemo_config_group_init (G_GNUC_UNUSED NemoConfigGroup *self)
 
 /* Reads */
 
-/* A missing key falls back to the declared default. An empty one does not:
+/* A missing key falls back to the declared default. An empty one doesn't:
  * "set to nothing" is a real value, and conflating the two would make an
  * emptied list spring back to its default. */
 gboolean
@@ -2389,7 +2389,7 @@ nemo_config_get_enum (NemoConfigGroup *group, const char *key)
 
 /* Storing a value that equals the default would pin the key: a later change
  * to that default could no longer reach the user. Drop it instead, which
- * also keeps the file down to what was actually chosen. */
+ * also keeps the file down to what was chosen. */
 static gboolean
 drop_if_default (const NemoConfigKey *k, const char *as_text, char *path)
 {
@@ -2404,7 +2404,7 @@ drop_if_default (const NemoConfigKey *k, const char *as_text, char *path)
 
 /* Only for a key that wasn't in the file yet: set_comment pushes another
  * leading line each time it's called, so re-commenting on every write would
- * grow the same line forever. An existing key already carries its comment. */
+ * grow the same line forever. An existing key already has its comment. */
 static void
 apply_comment_if_new (const NemoConfigKey *k, const char *path, gboolean existed)
 {
@@ -2542,7 +2542,7 @@ nemo_config_set_strv (NemoConfigGroup *group, const char *key, const char *const
 	while (value != NULL && value[n] != NULL)
 		n++;
 
-	/* Same as the scalars: a list matching the default is not stored. */
+	/* Same as the scalars: a list matching the default isn't stored. */
 	if (k->def_list != NULL) {
 		gsize dn = 0;
 		while (k->def_list[dn] != NULL)
@@ -2738,7 +2738,7 @@ nemo_config_reset_all (void)
 }
 
 #ifdef G_OS_WIN32
-/* A leading slash that is not a UNC share. Nothing a Windows install writes
+/* A leading slash that isn't a UNC share. Nothing a Windows install writes
  * starts that way, so it can only be a path from a POSIX machine. */
 static gboolean
 is_posix_absolute (const char *value)
@@ -2761,7 +2761,7 @@ nemo_config_drop_foreign_paths (void)
 
 		if (k->type != NEMO_CONFIG_STRING && k->type != NEMO_CONFIG_STRING_LIST)
 			continue;
-		/* A key the reader cannot make sense of - written twice, say - falls
+		/* A key the reader can't make sense of, such as one written twice, falls
 		 * back to the default on a read, and writing that back would replace a
 		 * line the user can still fix by hand with one they never typed. */
 		if (status != SHCL_GOOD && status != SHCL_EMPTY)

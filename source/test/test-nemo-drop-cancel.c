@@ -23,7 +23,7 @@
 /* Two drops that stop to ask before anything moves. With the delete test guard
  * armed, a move asks first, since the originals stop being where they were. A
  * link drop opens Make link, which is its own question. Cancel leaves both
- * sides as they were and says the drop did not happen; the go-ahead does the
+ * sides as they were and says the drop didn't happen; the go-ahead does the
  * drop, so the Cancel is known to be what stopped it. A link with no folder to
  * go in makes nothing and says so, rather than starting a job with none. Needs
  * a display; exits 77 without. */

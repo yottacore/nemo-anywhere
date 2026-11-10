@@ -2,16 +2,16 @@
 
 ##	- Purpose: the lint stage. Runs every checker in turn and fails on the first
 ##	  one that reports something.
-##	- Each checker decides for itself what to do about a tool that is not
-##	  installed, so there is nothing to probe for out here. That matters: while
-##	  the stage was gated on cppcheck, a box without it ran no checks at all,
+##	- Each checker decides for itself what to do about a tool that isn't
+##	  installed, so there is nothing to probe for out here. While the stage was
+##	  gated on cppcheck, a box without it ran no checks at all,
 ##	  which is how the Bash checker came to run nowhere.
-##	- vendor-themes.bash's self-test rides along here rather than in the test
-##	  stage: it needs git, which the build container does not have, and it runs
+##	- vendor-themes.bash's self-test runs here rather than in the test
+##	  stage: it needs git, which the build container doesn't have, and it runs
 ##	  in well under a second. The other script tests are here for the same
-##	  reason - git, pwsh or python3, none of them in the container - and so the
-##	  merge gate runs them. The packages stage never runs in the gate.
-##	- A script test that cannot run on this box exits 77 and says why, which is
+##	  reason. They need git, pwsh, or python3, and none of them is in the
+##	  container. This way the merge gate runs them. The packages stage never runs in the gate.
+##	- A script test that can't run on this box exits 77 and says why, which is
 ##	  not a failure here.
 ##	- Syntax: lint.bash [base-branch]   (passed through to the C check)
 
@@ -37,7 +37,7 @@ fLintRun "$root" "$img" bash "${here}/lint-python.bash"
 fLintRun "$root" "$img" bash "${here}/lint-powershell.bash"
 bash "${here}/lint-identity.bash"
 bash "${here}/lint-prose.bash"
-## Its fixture is full of symlinks, which MSYS2 cannot make without the symlink
+## Its fixture is full of symlinks, which MSYS2 can't make without the symlink
 ## privilege. Themes are only ever vendored on Linux.
 if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then
 	echo "[ vendor-themes self-test skipped: needs symlinks, not there under MSYS2 ]"

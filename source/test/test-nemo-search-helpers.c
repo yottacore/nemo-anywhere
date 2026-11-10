@@ -1,7 +1,7 @@
 /* The text behind "Containing:" for office files, read in the app. Each
  * format is written out minimally, with libarchive for the zips and the tests'
  * own compound file writer for the rest, and the text the app reads has to
- * carry the words that went in - and not the ones from parts it must skip.
+ * have the words that went in, without the ones from parts it must skip.
  * These were the cases of the converter programs that read them before.
  * Then the search engine itself is pointed at the same files, with a
  * helper definition that can't be used in the helper folder, and has to find
@@ -370,7 +370,7 @@ test_xls (void)
 	g_byte_array_free (wb, TRUE);
 }
 
-/* An SST that says it holds four billion strings and then stops. The count is
+/* An SST that says it has 4 billion strings and then stops. The count is
  * read straight off the file, so nothing but the parser's own progress test
  * keeps it from reading the same exhausted record once per claimed string.
  * In the converter program that read these before, one workbook like this in
@@ -646,7 +646,7 @@ main (int argc, char *argv[])
 	GError *error = NULL;
 	g_autofree char *scratch = test_scratch_config_home ("nemo-helpers-home-XXXXXX");
 
-	/* The user's helper folder comes off these two. */
+	/* The user's helper folder comes off these 2. */
 	g_setenv ("LOCALAPPDATA", scratch, TRUE);
 	g_setenv ("XDG_DATA_HOME", scratch, TRUE);
 

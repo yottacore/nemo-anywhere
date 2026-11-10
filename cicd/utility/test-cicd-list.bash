@@ -2,7 +2,7 @@
 
 ##	- Purpose: Check cicd.bash --list. It prints the steps the other options
 ##	  give, each with the test IDs its command runs, and runs nothing: no
-##	  step, CPU scope, container cap, tool pin probe, run folder or log. A
+##	  step, CPU scope, container cap, tool pin probe, run folder, or log. A
 ##	  plain run of the same copy does each of those, so the markers can fail.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-list.bash

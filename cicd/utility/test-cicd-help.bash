@@ -88,7 +88,7 @@ fi
 
 for what in "${skipped[@]}"; do
 	if ! grep -q -i -F -- "$what" <<< "$quickHelp"; then
-		fFail "--quick skips ${what}, but --help does not say so"
+		fFail "--quick skips ${what}, but --help doesn't say so"
 	fi
 done
 

@@ -392,7 +392,7 @@ check_every (const char *tmp, guint supported, GtkWidget *window)
 		GList *uris = NULL;
 		int before = failures;
 
-		/* Nothing new from a kind that is not in the selection, or from a
+		/* Nothing new from a kind that isn't in the selection, or from a
 		   choice that changes nothing for what is made. */
 		if ((!with_folder && fo > 0) || (!with_file && fi > 0) ||
 		    (!symlink && rel > 0)) {

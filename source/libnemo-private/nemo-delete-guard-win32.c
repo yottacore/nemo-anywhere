@@ -183,7 +183,7 @@ refresh_home_nodes (void)
 	}
 }
 
-/* The old path compare stays as a floor, for a folder that cannot be opened. */
+/* The old path compare stays as a floor, for a folder that can't be opened. */
 static gboolean
 path_is_home (const char *path, gboolean or_above)
 {

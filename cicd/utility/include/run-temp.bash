@@ -35,7 +35,7 @@ runTempKeep=0
 
 fSafeRm(){
 	local p="${1:-}" real='' own="${projectName:-${CICD_PROJECT:-}}"
-	## Outside a run there's no project root, so only the tmp folder rule holds.
+	## Outside a run there's no project root, so only the tmp folder rule applies.
 	if [[ -n "${HOST_TEMP:-}" && -n "${own}" ]]; then own="${HOST_TEMP}/${own}"; else own=""; fi
 	if [[ "${#}" -ne 1 || -z "${p}" || "${p}" == *..* || "${p}" == *//* || "${p}" == *$'\n'* ]]; then
 		printf 'safe-rm: refused, bad path: "%s"\n' "${p}" >&2; return 1

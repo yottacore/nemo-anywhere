@@ -616,7 +616,7 @@ update_layout_menus (NemoIconView *view)
 
 
 /* The list and icon views share one sort, kept as a list column. Find results
-   keep their own. A window not remembering per folder holds one for every
+   keep their own. A window not remembering per folder keeps one for every
    folder in it. Otherwise it's the folder's.
    Returns: (transfer full) (nullable): NULL for the default, else free with g_free */
 static char *
@@ -941,7 +941,7 @@ get_sort_criterion_by_sort_type (NemoFileSortType sort_type)
 	return &sort_criteria[0];
 }
 
-/* Both settings are a per cent of the standard size, which is how the
+/* Both settings are a percent of the standard size, which is how the
    settings window shows them. */
 static gint
 get_default_icon_size (NemoIconView *icon_view)
@@ -966,7 +966,7 @@ get_default_icon_size (NemoIconView *icon_view)
 }
 
 /* Which of the folder's saved sizes applies. A folder keeps one for when it is
-   mostly pictures and one for when it is not, and a child that inherits both
+   mostly pictures and one for when it isn't, and a child that inherits both
    picks by what is in the child. */
 static const char *
 icon_size_key (NemoIconView *icon_view)
@@ -980,7 +980,7 @@ icon_size_key (NemoIconView *icon_view)
 		: NEMO_METADATA_KEY_ICON_VIEW_ZOOM_LEVEL;
 }
 
-/* With per-folder settings off the window holds the size instead, one for
+/* With per-folder settings off the window keeps the size instead, one for
    pictures and one for everything else. 0 means nothing is held. */
 static gint
 held_icon_size (NemoIconView *icon_view)
@@ -1004,7 +1004,7 @@ hold_icon_size (NemoIconView *icon_view, gint size)
 	}
 }
 
-/* A folder's saved size, which is a number of pixels now and was one of seven
+/* A folder's saved size, which is a number of pixels now and was one of 7
    levels before that. */
 static gint
 saved_icon_size (NemoFile *file, const char *key, gint fallback)
@@ -1183,10 +1183,10 @@ icon_view_notify_clipboard_info (G_GNUC_UNUSED NemoClipboardMonitor *monitor,
 
 /* A folder of pictures is sized from its own pair of settings: the stored image
    size if it has one, or the image default. Nothing is written back here - the
-   folder is already carrying whatever it was given, and the default has to stay
+   folder already has whatever it was given, and the default has to stay
    a default so the preference can still move it.
 
-   With per-folder settings off the window holds a size for pictures apart from
+   With per-folder settings off the window keeps a size for pictures apart from
    the plain one, so neither leaks into the other. */
 static gint
 size_for_mostly_images (NemoIconView *icon_view)
@@ -2357,7 +2357,7 @@ default_icon_size_changed_callback (gpointer callback_data)
 
         /* Setting a new default is an instruction about the folder in front of you,
          * so let go of the zoom this window was holding and take the default.
-         * The callback is per view, so gate on which one is actually in front -
+         * The callback is per view, so gate on which one is in front -
          * otherwise every open tab loses its zoom too. A folder that remembers
          * its own settings keeps them; those change on the Current tab.
          */

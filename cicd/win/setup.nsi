@@ -5,7 +5,7 @@
 ##	- For this account only. No elevation, nothing machine-wide.
 ##	- Built by pack-setup.bash, which passes these:
 ##	  VERSION   the release version, as in source/meson.build
-##	  VIVERSION the same as four numbers, for the version resource
+##	  VIVERSION the same as 4 numbers, for the version resource
 ##	  PAYLOAD   the unpacked zip's top folder
 ##	  ICON      the app's .ico
 ##	  OUTFILE   where the setup exe goes
@@ -90,7 +90,7 @@ Var PathState
 !macro fShared un
 
 ## The leaf name is checked before anything is moved or removed, the same guard
-## install.ps1 has. A folder by any other name never reaches RMDir /r.
+## install.ps1 has. A folder by any other name never gets to RMDir /r.
 Function ${un}fGuardDir
 	${GetFileName} "$INSTDIR" $0
 	${If} $0 != "${APP_NAME}"
@@ -132,7 +132,7 @@ FunctionEnd
 ## Reads the user PATH unexpanded into $PathIn. $PathState says what was found:
 ## ok, absent, or skip when it can't be edited safely. NSIS strings stop at
 ## NSIS_MAX_STRLEN. A longer value reads as an error, the same as no value, so
-## the value names are listed to tell the two apart, and one that is there is
+## the value names are listed to tell the 2 apart, and one that is there is
 ## left alone rather than written back cut short.
 Function ${un}fPathRead
 	StrCpy $PathState "absent"
@@ -245,7 +245,7 @@ Section "Install"
 	RMDir /r "$Backup"
 
 	## Unpacked beside the install first, so a full disk or a failed write
-	## never leaves nothing installed. The swap after is two renames on one
+	## never leaves nothing installed. The swap after is 2 renames on one
 	## volume.
 	SetOutPath "$Staging"
 	File /r "${PAYLOAD}/*"

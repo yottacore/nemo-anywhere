@@ -3,12 +3,12 @@
 ##	- Purpose: Profile the app under a realistic workload and write a flamegraph
 ##	  SVG, for the pipeline's profiler stage and for looking at by hand.
 ##	- Sampling is done by attaching a debugger and taking a backtrace of every
-##	  thread, repeatedly. Deliberately NOT perf: perf needs a privileged sysctl on
-##	  this box, and a profiler that cannot run without root is a profiler nobody
-##	  runs. This costs accuracy - samples are wall-clock, not CPU cycles, so a
-##	  blocked thread shows up - which is why the report discounts the wait bucket.
+##	  thread, over and over. It doesn't use perf, which needs a privileged sysctl
+##	  on this box, and a profiler that can't run without root never gets run.
+##	  This costs accuracy. Samples are wall-clock rather than CPU cycles, so a
+##	  blocked thread shows up, and the report discounts the wait bucket for it.
 ##	- Workload: browse a generated folder tree headlessly, so the run exercises
-##	  folder loading, icon lookup and thumbnailing rather than an idle window.
+##	  folder loading, icon lookup, and thumbnailing rather than an idle window.
 ##	- Everything runs on a private headless display; the visible session is never
 ##	  touched.
 ##	- Syntax:
@@ -19,7 +19,7 @@
 ##	   --bin PATH   profile this binary (default: the staged release, else the
 ##	                container debug build copied out)
 ##	   --probe      check the box can profile at all, then exit. Lets the caller
-##	                tell "this box cannot" from "the run went wrong".
+##	                tell "this box can't" from "the run went wrong".
 
 ##	History: At bottom of script.
 
@@ -60,7 +60,7 @@ esac; done
 #
 # Anything missing here is the box, not the app, so say so and let the caller
 # decide whether that is a skip or a failure. --probe is how it asks, so a box
-# that simply cannot profile reads as a skipped stage rather than a broken build.
+# that can't profile reads as a skipped stage rather than a broken build.
 
 fCheckPreconditions(){
 	local tool missing=()
@@ -69,7 +69,7 @@ fCheckPreconditions(){
 	done
 	((${#missing[@]})) && fDie "missing: ${missing[*]}"
 	[[ "$(cat /proc/sys/kernel/yama/ptrace_scope 2>/dev/null || echo 0)" == 0 ]] \
-		|| fDie "ptrace is restricted (yama/ptrace_scope is not 0), cannot sample"
+		|| fDie "ptrace is restricted (yama/ptrace_scope isn't 0), can't sample"
 	:
 }
 
@@ -78,9 +78,9 @@ fCheckPreconditions
 
 work="$(mktemp -d)"
 
-## Profile the DEBUG build, not the release one: the release binaries are
-## stripped, and a sampler that cannot name a function produces a flamegraph of
-## six boxes. The prefix is staged out of the build's cache volume once and reused,
+## Profile the debug build, not the release one: the release binaries are
+## stripped, and a sampler that can't name a function produces a flamegraph of
+## 6 boxes. The prefix is staged out of the build's cache volume once and reused,
 ## through a tar stream, so the files are the host user's.
 PREFIX="${ROOT}/cicd/artifacts/profiling/prefix"
 
@@ -123,7 +123,7 @@ fEcho_Clean
 fEcho "Building a workload folder"
 tree="${work}/tree"
 mkdir -p "${tree}/sub"
-## A few hundred mixed files: enough to make folder loading, sorting, icon lookup
+## A few hundred mixed files: enough to make folder loading, sorting, icon lookup,
 ## and thumbnailing do real work, small enough to stay quick.
 for i in $(seq 1 300); do
 	printf 'sample text %s\n' "$i" > "${tree}/file-${i}.txt"

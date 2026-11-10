@@ -1,5 +1,5 @@
 /* Settings files from each SHCL release before format 3, written by that
- * release's own code (shcl-old-writer, built per release), have to read in the
+ * release's own code through shcl-old-writer, have to read in the
  * app the way that release read them. The conversion checked is the app's, at
  * startup: a file with no format line is read as 2.x, and backed up and
  * rewritten when today's rules would read it another way.
@@ -9,7 +9,7 @@
  * has a list today's rules refuse.
  *
  * A file with no format line is converted when the store opens, and the store
- * opens once a process, so each case is two runs of this program: one that
+ * opens once a process, so each case is 2 runs of this program: one that
  * opens the old file, and one that opens what the first left behind. The
  * blocked case is one run: no backup can be written, so the file must never
  * be saved over, and a hand edit to it while running is still read the old
@@ -332,7 +332,7 @@ count_backup_files (const char *dir)
 	return n;
 }
 
-/* An old file that could not be backed up stays as it is, and an edit to it
+/* An old file that couldn't be backed up stays as it is, and an edit to it
  * while running is read the way the startup read it. */
 static int
 open_blocked (const char *home, const char *writer, const char *label)

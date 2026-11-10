@@ -128,7 +128,7 @@ test_count_held (void)
 	check (shown == 1);
 	check (wanted == 2);
 
-	/* A bigger copy on its way is not shown yet. */
+	/* A bigger copy on its way isn't shown yet. */
 	nemo_file_set_is_thumbnailing (held, TRUE);
 	shown = wanted = 0;
 	nemo_file_count_thumbnail (held, &shown, &wanted);

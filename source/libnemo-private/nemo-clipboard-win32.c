@@ -23,15 +23,15 @@
 /* The toolkit only advertises a file cut or copy and hands it over when
  * somebody asks. Nothing on Windows works that way. Explorer expects CF_HDROP
  * to be sitting there already, and in a remote desktop session the redirector
- * asks the moment the clipboard changes, does not get an answer in time, and
+ * asks the moment the clipboard changes, doesn't get an answer in time, and
  * puts the client's own clipboard back - which left a copy doing nothing at
  * all, nemo's own paste included. Everything is written up front here, so
  * there is nothing left to ask for.
  *
- * Nemo's own format goes on alongside the Windows ones. It carries the uris,
+ * Nemo's own format goes on alongside the Windows ones. It has the uris,
  * which paste still reads through the toolkit, so nothing on that side needed
  * changing; CF_HDROP is what every other program reads. A private format on
- * its own does not survive the redirector, but it rides along fine next to the
+ * its own doesn't survive the redirector, but it rides along fine next to the
  * formats the redirector does recognize.
  */
 
@@ -86,7 +86,7 @@ window_of (GtkWidget *widget)
 }
 
 /* Local paths for @uris, or NULL if any of them has none - a place only nemo
- * understands cannot go on the Windows clipboard. */
+ * understands can't go on the Windows clipboard. */
 static gchar **
 paths_from_uris (GList *uris)
 {

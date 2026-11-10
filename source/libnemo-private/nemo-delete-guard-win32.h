@@ -26,7 +26,7 @@
 G_BEGIN_DECLS
 
 /* TRUE when path names the home folder, or with or_above a folder above it,
-   whether by case, slashes, a short name or a junction on the way. */
+   whether by case, slashes, a short name, or a junction on the way. */
 gboolean nemo_delete_guard_win32_is_home (const char *path,
 					  gboolean    or_above);
 

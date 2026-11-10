@@ -22,7 +22,7 @@
 
 /* settings.shcl is read before anything else and can be edited by hand, so it
  * is the widest way in. The parser is vendored rather than ours, and it
- * promises two things worth holding it to: parsing never fails, and a depth cap
+ * promises 2 things that are checked here. Parsing never fails, and a depth cap
  * keeps a hostile document from running the tree walks off the stack. A crash
  * here is a report upstream, not a local patch.
  *

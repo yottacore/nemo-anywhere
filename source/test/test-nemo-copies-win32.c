@@ -1,6 +1,6 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 
-/* test-nemo-copies-win32.c - copies of the app reach each other with no bus.
+/* test-nemo-copies-win32.c - copies of the app talk to each other with no bus.
 
    Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu).
 
@@ -503,7 +503,7 @@ main (int argc, char *argv[])
 	g_clear_error (&error);
 	g_clear_pointer (&reply, g_variant_unref);
 
-	/* A settings change made here reaches both. */
+	/* A settings change made here gets to both. */
 	check (nemo_instances_start (app));
 	nemo_config_set_boolean (nemo_preferences, NEMO_PREFERENCES_SHOW_FULL_PATH_TITLES, TRUE);
 	check (wait_for_title (alpha_name, "alpha-folder", TRUE, WAIT_SECONDS));

@@ -56,7 +56,7 @@ same_file (const char *a, const char *b)
 }
 
 #ifndef G_OS_WIN32
-/* Whether a and b are one directory entry, under two spellings where the
+/* Whether a and b are one directory entry, under 2 spellings where the
    file system ignores case or normalization. A symlink with a second hard
    link could pass the inode test alone. */
 static gboolean
@@ -78,7 +78,7 @@ is_taken (const char *path)
 }
 
 /* Where the item will be once renamed, or NULL with error set when the name
-   will not do or is taken by something else. */
+   won't do or is taken by something else. */
 static char *
 renamed_path (const char *path, const char *new_name, GError **error)
 {
@@ -186,7 +186,7 @@ nemo_link_edit_symlink (const char  *link_path,
 
 #ifdef G_OS_WIN32
 	/* Windows keeps file and folder symlinks apart. A new target that is
-	   there decides; one that is not keeps the kind the link had. */
+	   there decides; one that isn't keeps the kind the link had. */
 	if (kind != NEMO_LINK_JUNCTION) {
 		char *resolved = g_path_is_absolute (new_target)
 			? g_strdup (new_target) : g_build_filename (dir, new_target, NULL);
@@ -215,7 +215,7 @@ nemo_link_edit_symlink (const char  *link_path,
 
 #ifdef G_OS_WIN32
 	/* Nothing takes the place of a folder in one step here, so the old link
-	   goes first. If it will not go, the new one is taken back. */
+	   goes first. If it won't go, the new one is taken back. */
 	if (!remove_link (link_path, error)) {
 		remove_link (spare, NULL);
 		goto out;

@@ -595,7 +595,7 @@ static const gint icon_size_steps[] = {
 	NEMO_ICON_SIZE_MAXIMUM
 };
 
-/* The seven levels a size was until 2026-09, in order, so an older settings
+/* The 7 levels a size was until 2026-09, in order, so an older settings
  * file or a folder's saved size still reads as what it meant. */
 static const gint legacy_icon_sizes[] = {
 	NEMO_ICON_SIZE_SMALLEST,
@@ -715,7 +715,7 @@ nemo_icon_size_percent (gint size)
 gboolean
 nemo_icon_size_is_legacy_level (gint saved)
 {
-	/* No real size is this small, so the two cannot be confused. */
+	/* No real size is this small, so the two can't be confused. */
 	return saved >= 0 && saved < N_LEGACY_LEVELS;
 }
 

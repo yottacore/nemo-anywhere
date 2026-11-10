@@ -256,7 +256,7 @@ drop_kept (NemoDirectory *directory, gboolean forget)
 		g_source_remove (folder->timeout_id);
 	}
 
-	/* The last unref can take the directory with it, so it is not looked
+	/* The last unref can take the directory with it, so it isn't looked
 	   at again after this. */
 	for (l = folder->files; l != NULL; l = l->next) {
 		if (forget) {

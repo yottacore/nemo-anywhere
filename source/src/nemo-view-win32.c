@@ -23,7 +23,7 @@
 #include <shlobj.h>
 
 /* ShellExecuteW returns >32 on success; anything at or below is an error code.
-   Ignoring it meant a refused UAC prompt or a missing shell just did nothing. */
+   Ignoring it meant a refused UAC prompt or a missing shell did nothing. */
 static gboolean
 shell_execute_ok (HINSTANCE result, DWORD failure, const gchar *what, const gchar *target)
 {
@@ -298,7 +298,7 @@ nemo_view_win32_open_in_explorer (const gchar *path,
 
 	/* An item id rather than a command line, so nothing about the name has to
 	   survive being re-split. Needs COM on this thread; already-initialized
-	   and a different apartment are both fine to carry on from. */
+	   and a different apartment are both fine to go on from. */
 	item = ILCreateFromPathW (wpath);
 	g_free (wpath);
 

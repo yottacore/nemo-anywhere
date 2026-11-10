@@ -23,14 +23,14 @@
 
 /* The icon view keeps one rename field and hides it between renames. Each
  * rename gives it the width of a name under an icon, which follows the icon
- * size, then the name, then shows it. GTK does not re-ask a hidden widget for
+ * size, then the name, then shows it. GTK doesn't re-ask a hidden widget for
  * its size, and the same name again changes nothing, so a second rename of a
  * file after a zoom got the field at its old width. The name, centered in the
  * new width, sat partly or wholly outside it, out of sight. A folder of
  * pictures grows its icons by itself once it has loaded, so there it took
  * only a rename cut short by that and a second F2.
  *
- * The field sits in a GtkLayout, as in the icon view, and goes through the
+ * The field is in a GtkLayout, as in the icon view, and goes through the
  * same steps, growing and then shrinking. */
 
 #include <config.h>

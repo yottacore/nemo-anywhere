@@ -26,12 +26,12 @@
  * counts could come in first (2026101419191454). The built program starts in
  * the list view on a folder of folders, and test-nemo-open-time-probe,
  * preloaded, goes into each and back up, and times its rows. The probe holds
- * back each answer of a listing after the first, so the batches come in the
+ * back each batch of a listing after the first, so the batches come in the
  * same order on any box. Each kind below has a bar it has to come in under:
  *
  * - LEVELS folders of varied files, pictures and a sub-folder among them,
  *   listed a little slower than a local disk does: the best time to all rows.
- *   The first isn't held to the bar alone, since it's where the thumbnail
+ *   The first isn't checked against the bar alone, since it's where the thumbnail
  *   store is opened, and the pictures among a folder's first files still wait
  *   on their lookup.
  * - PLAIN folders of text files only, listed the same way: the best time to
@@ -47,7 +47,7 @@
  * sub-folder in each of LEVELS, since the counts no longer get a head start on
  * the rows.
  *
- * A sanitizer build checks all but the time bars (TEST_TIME_BARS_HOLD).
+ * A sanitizer build checks all but the time bars, through TEST_TIME_BARS_HOLD.
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Linux
  * and FreeBSD only, since it works by LD_PRELOAD. */
@@ -76,7 +76,7 @@
 /* Files in the sub-folder of each of LEVELS. */
 #define INNER_FILES 3
 
-/* What the probe holds each later answer of a slow listing for. */
+/* What the probe holds each later batch of a slow listing for. */
 #define HOLD_MS 1000.0
 
 /* The old wait was a 200 ms timer started when the first rows came in, so it
@@ -124,7 +124,7 @@ static const guint8 pixel_png[] = {
 	0x44, 0xae, 0x42, 0x60, 0x82,
 };
 
-/* Names, sizes and dates that differ, so no two rows measure or sort alike.
+/* Names, sizes and dates that differ, so no 2 rows measure or sort alike.
    With varied set, a few are pictures, which wait for a thumbnail lookup in a
    folder's first load. */
 static void

@@ -46,7 +46,7 @@ recurse (int depth)
    out through it. Both bodies end in mov rax, imm64 / call rax / int3, and the
    imm64 is filled in with abort. */
 
-/* Plants a return address back into itself and a stack pointer that does not
+/* Plants a return address back into itself and a stack pointer that doesn't
    move, where its unwind data says a machine frame is. */
 static const unsigned char loop_body[] = {
 	0x48, 0x83, 0xec, 0x48,				/* sub rsp, 0x48 */
@@ -58,7 +58,7 @@ static const unsigned char loop_body[] = {
 	0xcc,						/* int3 */
 };
 
-/* Version 1, two codes: alloc 32, then a machine frame. */
+/* Version 1, 2 codes: alloc 32, then a machine frame. */
 static const unsigned char loop_unwind[] = {
 	0x01, 0x00, 0x02, 0x00, 0x00, 0x32, 0x00, 0x0a,
 };
@@ -142,7 +142,7 @@ run_child (const char *how)
 		abort ();
 	}
 
-	/* A call through a pointer that is no longer there: the shape a freed
+	/* A call through a pointer that is no longer there: the form a freed
 	   object takes, and the one an unwinder is most likely to give up on. */
 	if (strcmp (how, "nullcall") == 0) {
 		EEL_ANALYZER_SKIP ("null-dereference") // the crash this case is for
@@ -166,7 +166,7 @@ run_child (const char *how)
 
 #ifndef G_OS_WIN32
 	/* The same signal a fault raises, sent instead. There is no fault to come
-	   back to, so a handler that simply returns lets this exit cleanly. */
+	   back to, so a handler that only returns lets this exit cleanly. */
 	if (strcmp (how, "sent") == 0) {
 		kill (getpid (), SIGSEGV);
 		return 0;
@@ -283,8 +283,8 @@ run_crashing_child (const char *self, const char *config_root, const char *how,
 	return result;
 }
 
-/* Lines under the stack heading that carry an address. Notes about where the
-   walk stopped are not frames. */
+/* Lines under the stack heading that have an address. Notes about where the
+   walk stopped aren't frames. */
 static int
 count_frames (const char *text)
 {
@@ -374,7 +374,7 @@ written_to (const char *stderr_text)
 static char *
 seeded_name (int i)
 {
-	/* Named in the opposite order to their times, since the name carries
+	/* Named in the opposite order to their times, since the name has
 	   when a run started and the file time is when it crashed. */
 	return g_strdup_printf ("crash-20260101-000000-%d.txt", SWEEP_SEEDED - i);
 }
@@ -505,7 +505,7 @@ main (int argc, char *argv[])
 		check (strstr (result.stderr_text, result.report_path) != NULL);
 	}
 
-	/* Learned from the child rather than rebuilt here, so the test cannot
+	/* Learned from the child rather than rebuilt here, so the test can't
 	   disagree with the code about where reports go. */
 	if (result.report_path != NULL && result.report_path[0] != '\0') {
 		crash_dir = g_path_get_dirname (result.report_path);
@@ -513,7 +513,7 @@ main (int argc, char *argv[])
 
 	child_result_clear (&result);
 
-	/* An assertion failure, which never reaches a fault handler on Windows. */
+	/* An assertion failure, which never calls a fault handler on Windows. */
 	result = run_crashing_child (argv[0], config_root, "abort", TRUE);
 	if (result.spawned) {
 		check_died_of (result.status, SIGABRT, 0x40000015UL);
@@ -528,8 +528,8 @@ main (int argc, char *argv[])
 
 	/* A jump to nowhere. The stack has to be recovered from the return
 	   address, since there is no function at the address that faulted. The
-	   frames that matter are the caller's and everything above it, not just
-	   the reporter's own two. */
+	   frames that matter are the caller's and everything above it, rather
+	   than only the reporter's own 2. */
 	result = run_crashing_child (argv[0], config_root, "nullcall", TRUE);
 	if (result.spawned) {
 		check_died_of (result.status, SIGSEGV, 0xc0000005UL);
@@ -565,7 +565,7 @@ main (int argc, char *argv[])
 #ifndef G_OS_WIN32
 	/* A fault the kernel raised is left to happen again, which only works
 	   because there is a fault to repeat. A sent one has to be raised again,
-	   or the child carries on and exits cleanly. */
+	   or the child goes on and exits cleanly. */
 	result = run_crashing_child (argv[0], config_root, "sent", TRUE);
 	if (result.spawned) {
 		check_died_of (result.status, SIGSEGV, 0);
@@ -581,7 +581,7 @@ main (int argc, char *argv[])
 #endif
 
 	/* Running out of stack, which leaves the handler very little to run on.
-	   The emulator does not reserve the stack the handler needs, so there it
+	   The emulator doesn't reserve the stack the handler needs, so there it
 	   proves nothing either way. */
 #if defined (G_OS_WIN32) && defined (__x86_64__)
 	if (!under_wine ())

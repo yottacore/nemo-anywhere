@@ -95,7 +95,7 @@ run_view (const char *exe, const char *probe, const char *view, gboolean remembe
 	int i, results = 0;
 
 	g_mkdir_with_parents (folder, 0700);
-	/* Size order is not name order, so the two sorts differ. */
+	/* Size order isn't name order, so the 2 sorts differ. */
 	for (f = 0; f < G_N_ELEMENTS (files); f++) {
 		char *fill = g_strnfill (files[f].size, 'x');
 
@@ -139,7 +139,7 @@ run_view (const char *exe, const char *probe, const char *view, gboolean remembe
 		goto out;
 	}
 
-	/* The probe gives each step ten seconds, and there are three. */
+	/* The probe gives each step 10 seconds, and there are 3. */
 	for (i = 0; i < 400 && alive (pid) && !done; i++) {
 		g_usleep (100 * 1000);
 		g_free (text);

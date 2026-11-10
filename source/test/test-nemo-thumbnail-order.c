@@ -206,7 +206,7 @@ spin_until_thumbnail (NemoFile *file, int limit_ms)
 }
 
 /* Stored on an earlier visit, but still waiting in the queue: scrolling to
- * it does not read it out of turn. */
+ * it doesn't read it out of turn. */
 static void
 test_stored_waits_its_turn (void)
 {
@@ -310,7 +310,7 @@ main (int argc, char **argv)
 	dir = g_build_filename (tmp, "pictures", NULL);
 	check (g_mkdir (dir, 0755) == 0);
 
-	/* Back-dated, or a picture changed in the last two seconds is left
+	/* Back-dated, or a picture changed in the last 2 seconds is left
 	   alone in case it is still being written. */
 	for (i = 0; i < COUNT; i++) {
 		g_autofree char *name = g_strdup_printf ("shot-%02d.png", i);

@@ -1,5 +1,5 @@
 /* A leak shows as heap growth when the operation that leaks is repeated.
- * glibc and Windows only: elsewhere the heap cannot be read. */
+ * glibc and Windows only: elsewhere the heap can't be read. */
 
 #ifndef TEST_HEAP_H
 #define TEST_HEAP_H

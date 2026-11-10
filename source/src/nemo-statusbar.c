@@ -85,7 +85,7 @@ nemo_status_bar_get_property (GObject      *object,
 #define THUMB_TICK_MS 150
 /* A run shorter than this, one edited file say, never puts the bar up. */
 #define THUMB_SHOW_AFTER_TICKS 2
-/* And it stays up a moment once it ends, full, rather than just vanish. */
+/* And it stays up a moment once it ends, full, rather than vanish. */
 #define THUMB_LINGER_TICKS 4
 
 /* One bar, for the thumbnails built so far. A second one that counted the
@@ -260,7 +260,7 @@ nemo_status_bar_constructed (GObject *object)
     gtk_box_pack_start (GTK_BOX (bar), sep, FALSE, FALSE, 6);
     bar->separator = sep;
 
-    /* Only ever one of the next two is up, so keep show_all off both and let
+    /* Only ever one of the next 2 is up, so keep show_all off both and let
        sync_button_states say which. */
     button = gtk_button_new ();
     icon = gtk_image_new_from_icon_name ("nemo-sidebar-hide-symbolic", size);
@@ -299,7 +299,7 @@ nemo_status_bar_constructed (GObject *object)
     nemo_icon_size_steps (&n_steps);
 
     /* The slider runs along the steps rather than over pixels, so the marks
-       come out evenly spaced although the sizes they stand for do not. */
+       come out evenly spaced although the sizes they stand for don't. */
     GtkWidget *zoom_slider = gtk_scale_new_with_range (GTK_ORIENTATION_HORIZONTAL,
                                                        0.0,
                                                        (gdouble) (n_steps - 1),
@@ -434,7 +434,7 @@ nemo_status_bar_sync_zoom_widgets (NemoStatusBar *bar)
     if (!NEMO_IS_VIEW (view))
         return;
 
-    /* Row height is not what the slider is for - list view sizes itself off the
+    /* Row height isn't what the slider is for - list view sizes itself off the
        columns, so it only clutters the bar there. */
     gtk_widget_set_visible (bar->zoom_slider, !NEMO_IS_LIST_VIEW (view));
 

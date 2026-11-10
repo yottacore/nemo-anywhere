@@ -31,7 +31,7 @@
 gboolean nemo_drop_win32_prepare (void);
 
 /* What the program the files came from allows for the drag in progress, or
- * the last one: copy, move and link, as the toolkit's actions. All three
+ * the last one: copy, move and link, as the toolkit's actions. All 3
  * before any drag has come in. */
 GdkDragAction nemo_drop_win32_offered_actions (void);
 

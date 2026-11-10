@@ -82,7 +82,7 @@ covers (Display *xdisplay, Window root, Window window, int x, int y)
 		return FALSE;
 	}
 
-	/* The frame counts too, so a drop on the title bar is not a miss. */
+	/* The frame counts too, so a drop on the title bar isn't a miss. */
 	top = top_ancestor (xdisplay, root, window);
 	if (top == None || !XGetWindowAttributes (xdisplay, top, &attrs) ||
 	    !XTranslateCoordinates (xdisplay, top, root, 0, 0, &left, &top_edge, &child)) {

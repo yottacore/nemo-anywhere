@@ -1,16 +1,16 @@
-/* nemo-launch-win32.c - starting a program that is not ours
+/* nemo-launch-win32.c - starting a program that isn't ours
  *
  * The single-exe build hooks whatever it starts, so the child sees our packed
  * files instead of the real disk. No process flag avoids it: the hooks go in at
  * creation, before the child runs an instruction. The only way out is to let a
  * different process do the creating.
  *
- * Two of them can. The desktop's shell keeps the arguments and puts the new
+ * There are 2 that can. The desktop's shell keeps the arguments and puts the new
  * window in front, but it drops the child to the ordinary integrity level and
  * refuses the call outright while we are elevated. The management service keeps
  * our token and always answers, but the window it starts opens behind and
- * cannot be raised afterwards. So the shell is asked first, the service catches
- * what the shell would not do, and a plain CreateProcess sits behind both.
+ * can't be raised afterwards. So the shell is asked first, the service catches
+ * what the shell wouldn't do, and a plain CreateProcess sits behind both.
  *
  * Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
  *
@@ -114,7 +114,7 @@ bstr_variant (const gchar *text)
  * hand back one inside this process, hooks and all.
  *
  * From a session with no shell of its own, such as session 0 over ssh, the
- * lookup still answers, with the console's desktop, which can be another
+ * lookup still returns, with the console's desktop, which can be another
  * user's. Their Explorer then starts the program as them, or puts up a box
  * about a path they can't read and the call waits on it. */
 static IShellDispatch2 *
@@ -167,8 +167,8 @@ desktop_shell (void)
 	return shell;
 }
 
-/* Explorer answers a file that is not there with a message box of its own, and
- * the call does not return until somebody dismisses it - which would hold the
+/* Explorer answers a file that isn't there with a message box of its own, and
+ * the call doesn't return until somebody dismisses it - which would hold the
  * thread that asked. Anything spelled as a path is checked here first; a bare
  * program name is still left for the shell to find. */
 static gboolean
@@ -227,7 +227,7 @@ shell_execute (const gchar *exe,
 		CoUninitialize ();
 	}
 
-	/* Only S_OK is a start. Wine's shell answers S_FALSE when its start
+	/* Only S_OK is a start. Wine's shell returns S_FALSE when its start
 	 * failed, and it fails a shortcut, since the empty verb goes on as a
 	 * verb named "". */
 	return hr == S_OK;
@@ -242,7 +242,7 @@ nemo_launch_win32_via_shell (const gchar *exe,
 }
 
 /* Win32_Process::Create. The provider host does the creating, so the child is
- * not ours, but it keeps our token and the window opens wherever it likes. */
+ * not ours. It keeps our token and the window opens wherever it likes. */
 gboolean
 nemo_launch_win32_via_service (const gchar *command_line,
 			       const gchar *workdir)
@@ -326,7 +326,7 @@ out:
 	return started;
 }
 
-/* CREATE_DEFAULT_ERROR_MODE so the program does not inherit ours - a packed
+/* CREATE_DEFAULT_ERROR_MODE so the program doesn't inherit ours - a packed
  * build turns the crash dialog off for itself, and that has no business
  * reaching what it opens. */
 static gboolean
@@ -398,7 +398,7 @@ nemo_launch_win32_set_failed_func (NemoLaunchWin32FailedFunc func)
 	g_mutex_unlock (&failed_lock);
 }
 
-/* A helper the app waits on has no window to report to, and one that will not
+/* A helper the app waits on has no window to report to, and one that won't
  * start would otherwise fail without a word, once per file. So it is said once,
  * by name, and a program that was missed from a bundle shows up. */
 void
@@ -454,7 +454,7 @@ nemo_launch_win32_split_command (const gchar  *command_line,
 		}
 	}
 
-	/* An unquoted path may hold spaces, and the registry has plenty of those.
+	/* An unquoted path may have spaces, and the registry has plenty of those.
 	 * The longest prefix that exists on disk wins, the way the shell reads it. */
 	for (p = command_line; exe == NULL && (p = strchr (p, '.')) != NULL; p++) {
 		if (g_ascii_strncasecmp (p, ".exe", 4) == 0 && (p[4] == '\0' || p[4] == ' ')) {
@@ -788,7 +788,7 @@ open_nowhere (void)
 }
 
 /* A pipe the program writes to. Ours is the overlapped end, so a read on it can
- * be cancelled; CreatePipe only makes ones that block until something comes. */
+ * be canceled; CreatePipe only makes ones that block until something comes. */
 static gboolean
 make_out_pipe (HANDLE *ours, HANDLE *theirs)
 {
@@ -829,7 +829,7 @@ close_valid (HANDLE handle)
 
 /* Kill on close, so whatever is in it ends with us, however we end: a quit, a
  * crash or a kill. A packed helper stuck on the packer's error box otherwise
- * stayed up for good. The handle is never closed by hand, and is not
+ * stayed up for good. The handle is never closed by hand, and isn't
  * inheritable, so nothing we start keeps it open.
  * Returns: (transfer none): NULL when Windows refused one */
 static HANDLE
@@ -861,11 +861,11 @@ helpers_job (void)
 
 /* Started directly, so in the single-exe build it is hooked like anything else
  * started that way. Neither broker can hand over a pipe, and a tool that only
- * reads files and writes to us does not mind the hooks. GLib's own spawn goes
+ * reads files and writes to us doesn't mind the hooks. GLib's own spawn goes
  * through a helper program, which gives a console tool a console window of its
  * own, and which never starts the tool at all from inside the single exe.
  *
- * Only the three handles given are inherited, so tools started at the same time
+ * Only the 3 handles given are inherited, so tools started at the same time
  * never hold each other's pipes open.
  *
  * A helper, which the app waits on or reads from, goes in helpers_job before it
@@ -1135,8 +1135,8 @@ nemo_launch_win32_pipe (const gchar * const  *argv,
 	return TRUE;
 }
 
-/* Batch files answer as console programs. Anything that is not a program
- * at all, a script say, answers 0 and is left to the shell and its file types. */
+/* Batch files answer as console programs. Anything that isn't a program
+ * at all, a script say, returns 0 and is left to the shell and its file types. */
 static gboolean
 is_console_program (const gchar *program)
 {

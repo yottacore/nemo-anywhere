@@ -1,6 +1,6 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 
-/* test-nemo-emblems.c - which link emblem a file wears.
+/* test-nemo-emblems.c - which link emblem a file gets.
 
    Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu).
 
@@ -142,7 +142,7 @@ test_which_emblem (const char *dir)
 }
 
 /* The names in nemo-file.h against the art in the resource. The icon theme
-   finds an emblem by name under the app icon path, so the file has to carry
+   finds an emblem by name under the app icon path, so the file has to have
    the name exactly. */
 static void
 test_art_is_found (void)

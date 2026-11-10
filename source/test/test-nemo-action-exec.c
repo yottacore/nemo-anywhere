@@ -24,8 +24,8 @@
  * its command and for an "exec" condition. The folder used to go in front
  * unquoted, and the line was then split on spaces, so an actions folder with a
  * space in it ran the wrong program: normal in a Windows profile, and in a
- * Linux home with a space. And a condition whose program cannot be started at
- * all answered from an unset value; it has to answer no. POSIX: the programs
+ * Linux home with a space. And a condition whose program can't be started at
+ * all was judged from an unset value; it has to count as false. POSIX: the programs
  * are shell scripts. */
 
 #include <config.h>
@@ -120,7 +120,7 @@ main (int argc, char *argv[])
 	check (no != NULL && !shown (no, parent));
 	check (missing != NULL && !shown (missing, parent));
 
-	/* Asked again, in case one answer was luck. */
+	/* Asked again, in case one result was luck. */
 	for (i = 0; i < 20 && missing != NULL; i++) {
 		check (!shown (missing, parent));
 	}

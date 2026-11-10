@@ -1,4 +1,4 @@
-/* Emptying the trash asks whenever the request did not come from the command in
+/* Emptying the trash asks whenever the request didn't come from the command in
  * a window. The bus's EmptyTrash used to go straight through once the trash
  * confirmation preference was off, with nothing in the log either. */
 

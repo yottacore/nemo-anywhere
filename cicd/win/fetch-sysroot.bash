@@ -6,9 +6,9 @@
 ##	  hosted build's, so the cross build links and packs the same DLLs, whatever
 ##	  day the image is built.
 ##	- No pacman needed: each .pkg.tar.zst comes straight from repo.msys2.org, which
-##	  keeps older versions, and is unpacked into the sysroot. Keeps the whole GTK3
-##	  Windows stack out of both the host and the repo - it lives only inside the
-##	  build image. A file the repo no longer has fails the build, which means it's
+##	  keeps older versions, and is unpacked into the sysroot. That keeps the whole
+##	  GTK3 Windows stack out of the host and the repo, and only in the build
+##	  image. A file the repo no longer has fails the build, which means it's
 ##	  time to move the pins.
 ##	- MSYS2_REPO_ROOT points it at another copy of the repo, such as a test's.
 ##	- Syntax: fetch-sysroot.bash [SYSROOT_DIR [PINS_FILE]]
@@ -50,8 +50,8 @@ done < "${PINS}"
 curlBin="$(command -v curl || true)"
 [[ "${curlBin}" == /mingw* && -x /usr/bin/curl ]] && curlBin=/usr/bin/curl
 fEcho "Fetching ${#files[@]} pinned packages"
-"${curlBin:-curl}" -fsSL --retry 3 --parallel --parallel-max 8 -K "${work}/curl.cfg" || fDie "could not fetch the pinned packages"
-## These libraries ship in the release, so unpacking one unverified is not on.
+"${curlBin:-curl}" -fsSL --retry 3 --parallel --parallel-max 8 -K "${work}/curl.cfg" || fDie "couldn't fetch the pinned packages"
+## These libraries go out in the release, so none is unpacked unverified.
 (cd "${work}" && sha256sum --quiet --strict -c sums) || fDie "checksum mismatch"
 
 mkdir -p "$SYSROOT"
@@ -62,8 +62,9 @@ done
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 #	Normalize thumbnailer descriptors. Some bake an absolute /mingw64/bin/ exec
-#	path (dead in every real Windows layout); others already use a bare name. Strip
-#	the prefix so the exec resolves off PATH, where the thumbnailer exes always sit.
+#	path, which is dead in every real Windows layout. Others already use a bare
+#	name. Strip the prefix so the exec resolves off PATH, where the thumbnailer
+#	exes always are.
 #	The ones run by gdk-pixbuf-thumbnailer go, as in every Windows bundle: the app
 #	draws those pictures itself. So does gsf-office's, which no root here pulls in
 #	now, since the app reads office files itself. cicd/utility/include/thumbnailers.bash

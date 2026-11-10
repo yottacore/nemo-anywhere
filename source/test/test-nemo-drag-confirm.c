@@ -1,5 +1,5 @@
 /* The rule behind the drop confirmation: which action, and which setting,
- * and the trash and delete test guard exceptions. The dialog itself is not driven here - only the
+ * and the trash and delete test guard exceptions. The dialog itself isn't driven here - only the
  * decision that puts it up. */
 
 #include <config.h>
@@ -29,8 +29,8 @@ set_guard (gboolean on)
 				 NEMO_PREFERENCES_TESTGUARD_ALL_DELETES, on);
 }
 
-/* Armed, the guard asks about the move itself, so the drop does not. A copy
-   is not the guard's business and still asks. */
+/* Armed, the guard asks about the move itself, so the drop doesn't. A copy
+   isn't the guard's business and still asks. */
 static void
 check_armed (void)
 {
@@ -63,14 +63,14 @@ main (int argc, char *argv[])
 	nemo_global_preferences_init ();
 	set_guard (FALSE);
 
-	/* A build compiled armed cannot be quieted, so the rest has nothing to
+	/* A build compiled armed can't be quieted, so the rest has nothing to
 	   say about it. */
 	if (NEMO_TESTGUARD_ALL_DELETES) {
 		check_armed ();
 		goto done;
 	}
 
-	/* Defaults: a move asks, a copy does not. */
+	/* Defaults: a move asks, a copy doesn't. */
 	check (nemo_drag_confirm_needed (GDK_ACTION_MOVE, "file:///tmp"));
 	check (!nemo_drag_confirm_needed (GDK_ACTION_COPY, "file:///tmp"));
 	check (!nemo_drag_confirm_needed (GDK_ACTION_LINK, "file:///tmp"));
@@ -90,7 +90,7 @@ main (int argc, char *argv[])
 	check (!nemo_drag_confirm_needed (GDK_ACTION_MOVE, "file:///tmp"));
 	check (!nemo_drag_confirm_needed (GDK_ACTION_COPY, "file:///tmp"));
 
-	/* Each setting answers only for its own action. */
+	/* Each setting applies only to its own action. */
 	set_prefs (TRUE, FALSE);
 	check (nemo_drag_confirm_needed (GDK_ACTION_MOVE, "file:///tmp"));
 	check (!nemo_drag_confirm_needed (GDK_ACTION_COPY, "file:///tmp"));
@@ -107,7 +107,7 @@ main (int argc, char *argv[])
 	check (!nemo_drag_confirm_needed (GDK_ACTION_PRIVATE, "file:///tmp"));
 	check (!nemo_drag_confirm_needed (GDK_ACTION_ASK, "file:///tmp"));
 
-	/* An empty drop goes through without a dialog, so this cannot block. */
+	/* An empty drop goes through without a dialog, so this can't block. */
 	check (nemo_drag_confirm_drop (NULL, GDK_ACTION_MOVE, NULL, "file:///tmp"));
 	/* Same for one the settings say not to ask about. */
 	set_prefs (FALSE, FALSE);

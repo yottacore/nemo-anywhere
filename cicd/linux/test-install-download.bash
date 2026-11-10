@@ -2,9 +2,9 @@
 
 ##	- Purpose: Check the one-line installers' download path, which --from skips:
 ##	  which release each channel picks, the checksum check, a release with no
-##	  sums file, and the question before anything is installed. The GitHub API and the downloads are
-##	  answered from a made-up release list, so nothing touches the network.
-##	  install.bash gets a curl on PATH that serves those files, and install.ps1
+##	  sums file, and the question before anything is installed. The GitHub API and the downloads
+##	  come from a made-up release list, so nothing touches the network.
+##	  install.bash gets a curl on PATH that returns those files, and install.ps1
 ##	  gets Invoke-RestMethod and Invoke-WebRequest functions, which PowerShell
 ##	  finds before the cmdlets, that go through the same curl.
 ##	- The made-up builds are named the way the release lanes name them, and a
@@ -12,10 +12,10 @@
 ##	  both arches are checked on either box. The same uname has them ask for
 ##	  the FreeBSD build once, under the name the FreeBSD lane gives it.
 ##	- Every install goes to a scratch home and a user prefix; neither installer
-##	  reaches for sudo without --target system, which is never passed here.
-##	- Linux only: install.bash does not run on Windows, and install.ps1 there
+##	  calls sudo without --target system, which is never passed here.
+##	- Linux only: install.bash doesn't run on Windows, and install.ps1 there
 ##	  would write the real PATH. A missing pwsh or python3 skips that part
-##	  with a note; exit 77 when this is not Linux.
+##	  with a note; exit 77 when this isn't Linux.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/linux/test-install-download.bash
 ##	- Test ID: dd5fv
@@ -50,8 +50,8 @@ trap 'fSafeRm_IfThere "${scratch}"' EXIT
 failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
-## Answers a URL from $CURL_SHIM_ROOT the way GitHub would, 404 for anything
-## else, and logs every request. Takes the two shapes the installers use.
+## Returns a URL's file from $CURL_SHIM_ROOT the way GitHub would, 404 for anything
+## else, and logs every request. Takes both forms of call the installers use.
 shimDir="${scratch}/shim"
 mkdir -p "$shimDir"
 cat > "${shimDir}/curl" <<'EOF'
@@ -80,7 +80,7 @@ if [[ -n "$out" ]]; then cp "$file" "$out"; else cat "$file"; fi
 EOF
 chmod +x "${shimDir}/curl"
 
-## Answers -m with $UNAME_SHIM_M and -s with $UNAME_SHIM_S when set; the real
+## Prints $UNAME_SHIM_M for -m and $UNAME_SHIM_S for -s when set; the real
 ## uname does the rest.
 cat > "${shimDir}/uname" <<'EOF'
 #!/usr/bin/env bash
@@ -92,7 +92,7 @@ EOF
 chmod +x "${shimDir}/uname"
 
 ## PowerShell looks a function up before a cmdlet of the same name, so these
-## stand in for the two web cmdlets for the one run of the installer.
+## stand in for the 2 web cmdlets for the one run of the installer.
 cat > "${shimDir}/run-install.ps1" <<'EOF'
 param([string]$Installer, [string]$Curl, [string]$Release = "stable", [switch]$Yes, [switch]$NoVerify)
 function Invoke-RestMethod {
@@ -184,8 +184,8 @@ fRun(){
 		[[ -n "$answer" ]] || cmd+=(-Yes)
 		[[ -z "$unverified" ]] || cmd+=(-NoVerify)
 	fi
-	## A proxy that answers nothing, so a request that slips past the stand-ins
-	## fails here instead of reaching GitHub.
+	## A proxy that never responds, so a request that slips past the stand-ins
+	## fails here instead of going to GitHub.
 	local runEnv=(env -u DISPLAY -u no_proxy -u NO_PROXY HOME="$home" XDG_DATA_HOME="${home}/.local/share"
 		TMPDIR="${home}/tmp" PATH="${shimDir}:${PATH}" CURL_SHIM_ROOT="$fixture" UNAME_SHIM_M="$unameM" UNAME_SHIM_S="$unameS"
 		https_proxy="http://127.0.0.1:9" HTTPS_PROXY="http://127.0.0.1:9")
@@ -218,9 +218,9 @@ fExpectInstall(){
 		tail -5 "${home}/run.log"
 		return 0
 	fi
-	grep -q -F "echo ${ver}" "${prefix}/bin/${exeName}" 2>/dev/null || fFail "${what}: ${ver} is not what got installed"
+	grep -q -F "echo ${ver}" "${prefix}/bin/${exeName}" 2>/dev/null || fFail "${what}: ${ver} isn't what got installed"
 	[[ -f "$launcher" ]] || fFail "${what}: no launcher"
-	[[ "$(readlink "$symlink" || true)" == "${prefix}/bin/${exeName}" ]] || fFail "${what}: symlink does not point into the prefix"
+	[[ "$(readlink "$symlink" || true)" == "${prefix}/bin/${exeName}" ]] || fFail "${what}: symlink doesn't point into the prefix"
 	if [[ -n "$unverified" ]]; then
 		grep -q "UNVERIFIED" "${home}/run.log" || fFail "${what}: the plan never said the install is unverified"
 	else
@@ -229,7 +229,7 @@ fExpectInstall(){
 	return 0
 }
 
-## $1 what, $2 text the transcript must hold.
+## $1 what, $2 text the transcript must contain.
 fExpectSaid(){
 	grep -q -F -- "$2" "${home}/run.log" || { fFail "${1}: never said '${2}'; last lines:"; tail -5 "${home}/run.log"; }
 	return 0
@@ -269,7 +269,7 @@ else
 	fEcho "pwsh not installed; install.ps1 not checked"
 fi
 havePython=1
-command -v python3 >/dev/null 2>&1 || { havePython=0; fEcho "python3 not installed; the question is not checked"; }
+command -v python3 >/dev/null 2>&1 || { havePython=0; fEcho "python3 not installed; the question isn't checked"; }
 
 for inst in "${installers[@]}"; do
 	fRun "$inst" stable "$mixed" stable ""
@@ -308,7 +308,7 @@ for inst in "${installers[@]}"; do
 	fi
 
 	## No sums file: refused before anything is fetched, on either channel, and
-	## the yes option alone does not get past it.
+	## the yes option alone doesn't get past it.
 	for channel in stable dev; do
 		fRun "$inst" "no-sums-${channel}" "$noSums" "$channel" ""
 		[[ "$runRc" != "0" ]] || fFail "${inst} ${channel} with no sums file: exited 0"

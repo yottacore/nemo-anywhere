@@ -36,7 +36,7 @@ gchar   *nemo_search_win32_build_sql        (const gchar *folder,
 					     gboolean     file_pattern_is_regex,
 					     const gchar *content_text);
 
-/* Whether the index holds anything under the folder. Opens the index itself. */
+/* Whether the index has anything under the folder. Opens the index itself. */
 gboolean nemo_search_win32_folder_is_indexed (const gchar *folder);
 
 #endif /* NEMO_SEARCH_ENGINE_WIN32_H */

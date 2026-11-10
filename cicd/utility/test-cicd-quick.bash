@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-##	- Purpose: Check which steps a cicd.bash run reaches with no options, with
+##	- Purpose: Check which steps cicd.bash runs with no options, with
 ##	  --long and --slow, with --quick, with --quick plus --include-arm or
 ##	  --include-bsd, with --backlog-run-quick and its areas, with
 ##	  --backlog-run-full and --merge-gate, and with the other names --gate and
@@ -10,7 +10,7 @@
 ##	  this box, fuzzing with its short command, and skips packages and every
 ##	  step that needs another box, and fuzzing when there's no short command. --backlog-run-full and
 ##	  --merge-gate run every check a plain run does, and never sync, format in
-##	  place, dogfood or publish. --no-remote leaves out every step on another
+##	  place, dogfood, or publish. --no-remote leaves out every step on another
 ##	  box. --no-container runs the lints with the host's tools, then stops
 ##	  with one line and exit 1 at the first step that needs a container.
 ##	  Each step opens with a Starting line and closes with PASS, or FAIL for
@@ -199,14 +199,14 @@ fRun(){
 			*)       [[ -f "${scratch}/out/${step}" ]] && ran=1 ;;
 		esac
 		if [[ "$want" == *" ${step} "* ]]; then
-			((ran)) || fFail "[${*:-no options}]: ${step} did not run"
+			((ran)) || fFail "[${*:-no options}]: ${step} didn't run"
 		else
 			((! ran)) || fFail "[${*:-no options}]: ${step} ran"
 		fi
 	done
 	[[ -z "$(git -C "$scratch" status --porcelain)" ]] || fFail "[${*:-no options}]: the run changed the tree"
 	if [[ "$want" == *" sync "* ]]; then
-		[[ "$out" == *"nothing to sync"* ]] || fFail "[${*:-no options}]: remote sync did not run"
+		[[ "$out" == *"nothing to sync"* ]] || fFail "[${*:-no options}]: remote sync didn't run"
 	else
 		[[ "$out" != *"nothing to sync"* ]] || fFail "[${*:-no options}]: remote sync ran"
 	fi
@@ -271,7 +271,7 @@ out="$(cd "$scratch" && CICD_CPU_CAPPED=1 bash cicd/cicd.bash --backlog-run-quic
 [[ "$rc" == 2 && "$out" == *"unknown area: nosuch"* && "$out" == *"format lint tests"* ]] || fFail "[--backlog-run-quick lint nosuch]: exit ${rc}, not 2 with the areas listed: ${out}"
 help="$(bash "${root}/cicd/cicd.bash" --help)"
 for name in --backlog-run-quick --backlog-run-full --merge-gate --gate --ci --no-remote --no-container "format, lint, tests"; do
-	grep -q -F -- "$name" <<< "$help" || fFail "--help does not name ${name}"
+	grep -q -F -- "$name" <<< "$help" || fFail "--help doesn't name ${name}"
 done
 
 ## --no-container: the lints on the host, with the host's tools, then a stop
@@ -348,7 +348,7 @@ grep -q -x -F -- "    - Format check (area not named)" <<< "$(cd "$scratch" && C
 ## Each run removed its run folder, and a plain run's plan names it.
 [[ -z "$(ls -A "${HOST_TEMP}/app" 2>/dev/null)" ]] || fFail "runs left these behind: $(ls -A "${HOST_TEMP}/app")"
 out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --quick --no-publish 2>&1 </dev/null)" || true
-grep -q -E "^Run folder \.+: ${HOST_TEMP}/app/[0-9]{8}-[0-9]{6}_[0-9]{3}$" <<< "$out" || fFail "the plan does not name the run folder"
+grep -q -E "^Run folder \.+: ${HOST_TEMP}/app/[0-9]{8}-[0-9]{6}_[0-9]{3}$" <<< "$out" || fFail "the plan doesn't name the run folder"
 
 if ((failures)); then
 	fEcho "FAILED: step selection, ${failures} problem(s)"

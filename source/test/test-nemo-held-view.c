@@ -26,13 +26,13 @@
  * One that did called into a freed tree view the next time row shading was
  * changed.
  *
- * The built program (argv[1]) opens two folders in tabs with
+ * The built program (argv[1]) opens 2 folders in tabs with
  * test-nemo-held-view-hooks (argv[2]) preloaded, which keeps each view the
  * program destroys and reports any handler left. A tab is closed with Ctrl+W.
- * In the list view, row shading, its color and folder expansion are then
- * changed in settings.shcl, and each change has to reach the open tab with
+ * In the list view, row shading, its color, and folder expansion are then
+ * changed in settings.shcl, and each change has to get to the open tab with
  * the program still running. Rows drawn shaded show that row shading is on.
- * The path separator is changed last, and the window has to spell its path
+ * The path separator is changed last, and the window has to write its path
  * again, which takes the path bar's buttons down. The icon view gets the
  * handler checks only.
  *
@@ -366,7 +366,7 @@ set_line (GString *lines, const char *key, const char *line)
 }
 
 /* Through the parser the program reads the file with, so a step whose text
-   does not mean what it says fails here. */
+   doesn't mean what it says fails here. */
 static gboolean
 reads_back (const char *text, const char *key, const char *value)
 {
@@ -384,7 +384,7 @@ reads_back (const char *text, const char *key, const char *value)
 /* The whole file each time, as a person editing it would leave it. The
    program's own debounced save can come between the write and the reload and
    put the old value back, which is a lost edit and not what this test is
-   about, so that case writes again. A line still on disk that never reached
+   about, so that case writes again. A line still on disk that never got to
    the tab is a failure. */
 static void
 change_setting (const char *viewer, const char *settings, GString *lines, const char *key,
@@ -540,7 +540,7 @@ check_held_view (const char *exe, const char *module, const char *viewer)
 				out, "draws", pid);
 		change_setting (viewer, settings, lines, "list-view.enable-folder-expansion", "false",
 				out, "expander_sets", pid);
-		/* The window, not the view, but this is where a running window is. */
+		/* It's the window rather than the view, but this is where a running window is. */
 		change_setting (viewer, settings, lines, "windows.path-separator", "slash",
 				out, "pathbar_removes", pid);
 		g_usleep (500 * 1000);

@@ -1,7 +1,7 @@
 /* Mechanism check for the replace-folder symlink defect (remove_target_
- * recursively). That function is static and only reached through a modal
- * Replace-conflict dialog, so it cannot be driven unattended; this instead
- * pins the two GIO facts the fix relies on:
+ * recursively). That function is static and only called through a modal
+ * Replace-conflict dialog, so it can't be driven unattended; this instead
+ * pins the 2 GIO facts the fix relies on:
  *
  *   1. enumerate-children with NOFOLLOW still opens a symlink-to-directory
  *      and lists the TARGET's entries - the premise that made the old,
@@ -64,7 +64,7 @@ main (void)
 			g_file_enumerator_close (e, NULL, NULL);
 			g_object_unref (e);
 		}
-		check (seen == 1);   /* the dangerous premise really holds */
+		check (seen == 1);   /* the dangerous premise is true */
 	}
 
 	/* Fact 2: the gate the fix adds sees a symlink, not a directory. */

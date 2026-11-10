@@ -9,6 +9,6 @@ severity=style
 
 # Follow `source` of a sibling script, and resolve its path against the
 # sourcing script rather than the working directory. Without the second one,
-# every sibling source reports SC1091 - that was half the first run's findings.
+# every sibling source reports SC1091, which was half the first run's findings.
 external-sources=true
 source-path=SCRIPTDIR

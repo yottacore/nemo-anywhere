@@ -29,7 +29,7 @@ GdkPixbuf *nemo_shell_icon_win32_for_path (const gchar *path,
 /* The same icon from the cache, or NULL at once. On a miss the shell is asked
  * on a worker thread, and ready (data) is called on the main thread when it
  * found an icon, which a second lookup then returns. A miss already under way
- * is not asked twice. data is always handed to destroy once it is no longer
+ * isn't asked twice. data is always handed to destroy once it is no longer
  * needed. Main thread only. Caller unrefs. */
 GdkPixbuf *nemo_shell_icon_win32_lookup (const gchar        *path,
 					 gint                pixel_size,

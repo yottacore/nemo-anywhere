@@ -73,7 +73,7 @@ struct _NemoDesktopThumbnailFactoryPrivate {
   GHashTable *mime_types_map;
   GList *monitors;
 
-  /* Borrowed from the config store, which outlives us - do not unref. */
+  /* Borrowed from the config store, which outlives us - don't unref. */
   NemoConfigGroup *settings;
   gulong disable_all_handler;
   gulong disable_handler;
@@ -334,7 +334,7 @@ size_prepared_cb (GdkPixbufLoader *loader,
     }
 
     /* A long thin image rounds its short side down to nothing - a 5000x1 png
-     * asks the loader for 128x0, which it cannot make. Keep the pixel. */
+     * asks the loader for 128x0, which it can't make. Keep the pixel. */
     width = MAX (width, 1);
     height = MAX (height, 1);
   } else {
@@ -1409,7 +1409,7 @@ script_timed_out (gpointer data)
 }
 
 /* Nothing wants the picture any more, so the helper is ended like a timeout.
- * Runs on the thread that cancelled. g_subprocess_force_exit is safe from any
+ * Runs on the thread that canceled. g_subprocess_force_exit is safe from any
  * thread, and the disconnect after the loop waits for this to finish. A
  * cancellable source on the private context instead let a cancel from another
  * thread write into the context after it was freed, and quitting hung. */
@@ -1433,8 +1433,8 @@ script_finished (GObject *source, GAsyncResult *result, gpointer data)
 
 /* Runs a thumbnailer command line, giving up on it after THUMBNAILER_TIMEOUT_SECONDS.
  * There is no timeout on a plain spawn, and these are worker threads out of a pool
- * of one to four - a single helper that never exits used to cost that slot for the
- * rest of the session, and four of them stopped thumbnailing altogether. */
+ * of 1 to 4 - a single helper that never exits used to cost that slot for the
+ * rest of the session, and 4 of them stopped thumbnailing altogether. */
 static gboolean
 run_thumbnailer_script (const char *command_line, GCancellable *cancellable)
 {
@@ -1524,9 +1524,9 @@ nemo_desktop_thumbnail_factory_generate_thumbnail (NemoDesktopThumbnailFactory *
                                                                    ? 256 : 128, NULL);
 }
 
-/* The same, at any size rather than the two the shared cache has folders for.
+/* The same, at any size rather than the 2 the shared cache has folders for.
  * An external thumbnailer is free to hand back something smaller than asked.
- * Once @cancellable is cancelled every reader stops and the answer is NULL,
+ * Once @cancellable is canceled every reader stops and the answer is NULL,
  * which the caller tells apart from a failure by the cancellable.
  * Returns: (transfer full): unref with g_object_unref */
 GdkPixbuf *
@@ -1639,7 +1639,7 @@ nemo_desktop_thumbnail_factory_generate_thumbnail_at_size (NemoDesktopThumbnailF
       const gchar *orig_width, *orig_height;
       scale = (double)size / MAX (width, height);
 
-      /* Same rounding trap as the loader above, and scale_down_pixbuf answers
+      /* Same rounding trap as the loader above, and scale_down_pixbuf returns
        * a zero side with NULL, which used to go straight on being used. */
       scaled = nemo_desktop_thumbnail_scale_down_pixbuf (pixbuf,
 						  MAX ((int) floor (width * scale + 0.5), 1),
@@ -2267,7 +2267,7 @@ nemo_desktop_thumbnail_cache_fix_permissions (void)
  * Note - this may not be the same as the uid of the user running this
  * check.
  *
- * if factory is not NULL, factory->priv->permissions_problem will be
+ * if factory isn't NULL, factory->priv->permissions_problem will be
  * set to the result of the check.
  * 
  * Return value: TRUE if everything checks out in these folders for the

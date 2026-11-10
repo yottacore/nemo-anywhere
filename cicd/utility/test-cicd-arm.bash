@@ -6,7 +6,7 @@
 ##	  has the version in it. The arm64 packages and their check run only when the
 ##	  arm64 build did. --include-bsd brings FreeBSD back under --quick. A copy
 ##	  of cicd.bash runs a whole pipeline in a scratch dir, every stage a
-##	  stand-in, with one arm64 and one other cross target, packager and check.
+##	  stand-in, with one arm64 and one other cross target, packager, and check.
 ##	  Then the real config.bash is read: its arm64 entry has to name
 ##	  release-arm64.bash and the tarball that script writes, and its arm64
 ##	  packager and check have to ask for arm64.
@@ -115,14 +115,14 @@ fPipeline(){
 		fFail "[$*]: the run failed (exit ${rc}): $(tail -5 <<< "$out")"
 		return 0
 	fi
-	[[ -f "${scratch}/out/app.exe" ]] || fFail "[$*]: the other cross target did not run"
-	[[ -f "${scratch}/out/pkg-other" && -f "${scratch}/out/check-other" ]] || fFail "[$*]: the other packager or check did not run"
+	[[ -f "${scratch}/out/app.exe" ]] || fFail "[$*]: the other cross target didn't run"
+	[[ -f "${scratch}/out/pkg-other" && -f "${scratch}/out/check-other" ]] || fFail "[$*]: the other packager or check didn't run"
 	case "$want" in
 		arm)
-			[[ -f "${scratch}/out/app-${ver}-linux-arm64.tar.gz" ]] || fFail "[$*]: the arm64 build did not run"
-			[[ "$out" == *"OK: Linux arm64 (stand-in): out/app-${ver}-linux-arm64.tar.gz"* ]] || fFail "[$*]: the arm64 artifact was not found under its versioned name"
-			[[ -f "${scratch}/out/pkg-arm64" ]] || fFail "[$*]: the arm64 packages were not made"
-			[[ -f "${scratch}/out/check-arm64" ]] || fFail "[$*]: the arm64 check did not run"
+			[[ -f "${scratch}/out/app-${ver}-linux-arm64.tar.gz" ]] || fFail "[$*]: the arm64 build didn't run"
+			[[ "$out" == *"OK: Linux arm64 (stand-in): out/app-${ver}-linux-arm64.tar.gz"* ]] || fFail "[$*]: the arm64 artifact wasn't found under its versioned name"
+			[[ -f "${scratch}/out/pkg-arm64" ]] || fFail "[$*]: the arm64 packages weren't made"
+			[[ -f "${scratch}/out/check-arm64" ]] || fFail "[$*]: the arm64 check didn't run"
 			;;
 		"no arm")
 			[[ ! -e "${scratch}/out/app-${ver}-linux-arm64.tar.gz" ]] || fFail "[$*]: the arm64 build ran"
@@ -150,7 +150,7 @@ out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd
 [[ ! -e "${scratch}/out/app.exe" && ! -e "${scratch}/out/app-${ver}-linux-arm64.tar.gz" ]] || fFail "--no-cross still ran a cross target"
 [[ ! -e "${scratch}/out/pkg-arm64" && ! -e "${scratch}/out/check-arm64" ]] || fFail "--include-arm --no-cross still made or checked arm64 packages"
 [[ -f "${scratch}/out/pkg-other" ]] || fFail "--include-arm --no-cross left out the other packages"
-[[ "$out" == *"(skipped, arm64 too)"* ]] || fFail "--include-arm --no-cross does not say arm64 is skipped"
+[[ "$out" == *"(skipped, arm64 too)"* ]] || fFail "--include-arm --no-cross doesn't say arm64 is skipped"
 
 ## $1 "bsd" or "no bsd", $2 text the plan must have, rest the options.
 fBsd(){
@@ -164,7 +164,7 @@ fBsd(){
 	fi
 	[[ -f "${scratch}/out/bsd-tests" && -f "${scratch}/out/bsd-release" ]] && ran=1
 	if [[ "$want" == bsd ]]; then
-		((ran)) || fFail "[$*]: the FreeBSD lane did not run both steps"
+		((ran)) || fFail "[$*]: the FreeBSD lane didn't run both steps"
 	else
 		[[ ! -e "${scratch}/out/bsd-tests" && ! -e "${scratch}/out/bsd-release" ]] || fFail "[$*]: the FreeBSD lane ran"
 	fi
@@ -186,10 +186,10 @@ if [[ "$rc" != 0 ]]; then
 else
 	for step in "FreeBSD suite" "Release build: Linux arm64 (stand-in)" "Release build: FreeBSD" "Native Windows gate"; do
 		grep -qF "; SKIP ${step} ]" <<< "$out" || fFail "no SKIP line for ${step}"
-		grep -qxF "    - ${step}" <<< "$out" || fFail "${step} is not in the list of skipped steps at the end"
+		grep -qxF "    - ${step}" <<< "$out" || fFail "${step} isn't in the list of skipped steps at the end"
 	done
 	[[ ! -e "${scratch}/out/pkg-arm64" && ! -e "${scratch}/out/check-arm64" ]] || fFail "arm64 packages or their check ran with the arm64 build skipped"
-	[[ -f "${scratch}/out/pkg-other" && -f "${scratch}/out/check-other" && -f "${scratch}/out/app.exe" ]] || fFail "a step after the skips did not run"
+	[[ -f "${scratch}/out/pkg-other" && -f "${scratch}/out/check-other" && -f "${scratch}/out/app.exe" ]] || fFail "a step after the skips didn't run"
 	fEcho "OK: a box that isn't there is a SKIP, and the run goes on"
 fi
 
@@ -221,14 +221,14 @@ fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
 out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync 2>&1 </dev/null)" || fFail "the run with a side gate failed"
 [[ "$(cat "${scratch}/out/win-side" 2> /dev/null)" == 1 ]] || fFail "the side gate was not told it may leave its windowed tests to the other box"
 fWin sideother "its windowed tests go to"                    FAKE_WIN_RC=75 --
-[[ "$(cat "${scratch}/out/win-gate" 2> /dev/null)" == "-BacklogRunQuick -Yes -NoSync -NoFmt -NoTests" ]] || fFail "the other gate did not get -NoFmt -NoTests after a 75: $(cat "${scratch}/out/win-gate" 2> /dev/null)"
+[[ "$(cat "${scratch}/out/win-gate" 2> /dev/null)" == "-BacklogRunQuick -Yes -NoSync -NoFmt -NoTests" ]] || fFail "the other gate didn't get -NoFmt -NoTests after a 75: $(cat "${scratch}/out/win-gate" 2> /dev/null)"
 deskList="$(cat "${scratch}/out/win-side-list" 2> /dev/null)"
 [[ -n "$deskList" && "$deskList" == "$(cat "${scratch}/out/win-gate-list" 2> /dev/null)" ]] || fFail "the two gates were not given the same test list file: '${deskList}', '$(cat "${scratch}/out/win-gate-list" 2> /dev/null)'"
 fWin side "WARNING: no box there for the windowed tests"     FAKE_WIN_RC=75 FAKE_WIN_OTHER_GONE=1 --
 fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
 rc=0; out="$(cd "$scratch" && FAKE_WIN_RC=3 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync 2>&1 </dev/null)" || rc=$?
-((rc != 0)) || fFail "a failing native Windows gate did not fail the run"
-[[ "$out" == *"native Windows gate (exit 3)"* ]] || fFail "a failing native Windows gate was not named: $(tail -3 <<< "$out")"
+((rc != 0)) || fFail "a failing native Windows gate didn't fail the run"
+[[ "$out" == *"native Windows gate (exit 3)"* ]] || fFail "a failing native Windows gate wasn't named: $(tail -3 <<< "$out")"
 [[ ! -e "${scratch}/out/pkg-other" ]] || fFail "the packages ran after the native Windows gate failed"
 
 ## --quick leaves arm64 out. Since 2026-10-19 --include-arm brings it back under

@@ -85,7 +85,7 @@ write_image (const char *path, int n)
 	g_object_unref (pixbuf);
 }
 
-/* Only this theme is searched, so what a file shows does not hang on what the
+/* Only this theme is searched, so what a file shows doesn't hang on what the
  * box has. A bare Ubuntu 22.04 has no file type icon GTK can load: Yaru is
  * named and not there, and its cut-down Adwaita is mostly SVG. */
 static void
@@ -139,7 +139,7 @@ count_criticals (const gchar *domain, GLogLevelFlags level, const gchar *message
 
 /* Nothing in the theme, not even text-x-generic: the default picture, and no
  * criticals on the way there. A named icon and one read from a file take
- * different paths. Only an older GTK gets here, since later ones carry their
+ * different paths. Only an older GTK gets here, since later ones have their
  * own text-x-generic. */
 static void
 test_no_icon_anywhere (const char *tmp)
@@ -226,7 +226,7 @@ test_old_picture_kept (NemoFile *file)
 	check (details->thumbnail != NULL && details->thumbnail != old);
 	check (details->thumbnail_mtime == details->mtime);
 
-	/* A render that failed does not leave a picture of something else. */
+	/* A render that failed doesn't leave a picture of something else. */
 	failed.failed = TRUE;
 	nemo_file_take_thumbnail (file, &failed);
 	check (details->thumbnail == NULL);
@@ -273,7 +273,7 @@ test_ahead (NemoFile *off_screen, NemoFile *scrolled_in)
 
 	check (!nemo_file_wants_thumbnail_ahead (off_screen));
 
-	/* One of the two comes into view while it waits. */
+	/* One of the 2 comes into view while it waits. */
 	nemo_file_set_load_deferred_attrs (scrolled_in, NEMO_FILE_LOAD_DEFERRED_ATTRS_YES);
 
 	check (wait_until (not_thumbnailing, off_screen));
@@ -327,8 +327,8 @@ test_ahead_held (NemoFile *made_now, NemoFile *made_before)
 /* The limit offers sizes up to 64 GB. Read at the width of an int, 8 GB
  * truncated to 0 and turned every thumbnail off, and 2 GB went negative and
  * turned the limit off. The file here is a few hundred bytes, so a limit of one
- * byte refuses it and 8 GB must not. It takes the store's answer first, since
- * the limit only applies once the store is known to hold nothing. */
+ * byte refuses it and 8 GB must not. It asks the store first, since the
+ * limit only applies once the store is known to have nothing for it. */
 static void
 test_size_limit (NemoFile *file)
 {
@@ -382,7 +382,7 @@ main (int argc, char **argv)
 		write_image (path, i);
 	}
 
-	/* A picture changed in the last two seconds is left alone in case it is
+	/* A picture changed in the last 2 seconds is left alone in case it is
 	   still being written. Back-dating them skips the wait. */
 	for (i = 0; i < 4; i++) {
 		g_autofree char *name = g_strdup_printf ("shot-%d.png", i);

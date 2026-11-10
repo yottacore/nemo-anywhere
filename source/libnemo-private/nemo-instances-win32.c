@@ -2,7 +2,7 @@
  *
  * On Windows nothing runs a session bus, and GLib would start one of its own
  * (gdbus.exe) the first time anything asked for it. So each copy serves a pipe
- * instead, named for the user, the logon session and the process:
+ * instead, named for the user, the logon session, and the process:
  * \\.\pipe\NemoAnywhere.<user SID>.<logon id>.<pid>. The pipe goes when the
  * process does, however it ends, so a copy that died leaves nothing behind.
  * An elevated copy has a logon id of its own, so it and an ordinary one keep
@@ -14,7 +14,7 @@
  * anything, and lets the server identify it but not act as it.
  *
  * The list is every process in this session with a pipe by that name. Asking
- * the pipe file system for its names would be quicker, but wine cannot.
+ * the pipe file system for its names would be quicker, but wine can't.
  *
  * One call per connection: an 8-byte length, then a GVariant, each way. Both
  * ends run on one box, so the GVariant goes in its own byte order. The

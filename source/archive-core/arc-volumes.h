@@ -40,7 +40,7 @@ gboolean    arc_parse_size         (const char  *text,
 				    guint64     *bytes);
 char       *arc_format_size        (guint64      bytes);
 
-/* What the tool actually writes when splitting is on. `digits` is how wide the
+/* What the tool writes when splitting is on. `digits` is how wide the
    number is: 7z always uses 3, rar picks its own. */
 char       *arc_volume_name        (const char  *archive_name,
 				    ArcBackend   backend,

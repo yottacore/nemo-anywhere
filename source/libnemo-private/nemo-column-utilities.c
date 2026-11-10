@@ -78,7 +78,7 @@ get_builtin_columns (void)
 					       "unbounded", TRUE,
 					       NULL));
 #endif
-	/* Three dates, the same three on every platform. The times themselves
+	/* There are 3 dates, the same 3 on every platform. The times themselves
 	 * come from GIO, which reads whatever the OS keeps them in - statx birth
 	 * time on Linux, the Win32 creation time on Windows - so nothing here is
 	 * per-platform. The "- Time" twins these replaced showed the same instant
@@ -105,7 +105,7 @@ get_builtin_columns (void)
 					       "description", _("The date the file was last read."),
 					       NULL));
 
-	/* Real on Windows too: GIO answers owner::user with the file's actual
+	/* Real on Windows too: GIO fills in owner::user with the file's actual
 	 * owner there, unlike the fabricated mode bits below. */
 	columns = g_list_append (columns,
 				 g_object_new (NEMO_TYPE_COLUMN,
@@ -425,7 +425,7 @@ nemo_sort_columns (GList  *columns,
 				      column_order);
 }
 
-/* Find results are not a folder, so they keep one set of columns of their own,
+/* Find results aren't a folder, so they keep one set of columns of their own,
  * whatever remember-folder-settings says. The key is the shown columns in
  * their order; empty means these defaults. */
 static const char *const search_visible_columns[] = {
@@ -536,7 +536,7 @@ nemo_search_sort_forget (void)
 }
 
 /* The default is kept as nothing, as a folder's is, so a new default sort
- * order still reaches find results. */
+ * order still applies to find results. */
 void
 nemo_search_sort_save (const char *attribute,
 		       gboolean    reversed,

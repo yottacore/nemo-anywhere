@@ -7,7 +7,7 @@ c          = 'x86_64-w64-mingw32-gcc'
 cpp        = 'x86_64-w64-mingw32-g++'
 # The gcc- wrappers, not plain binutils: they load the LTO plugin, so an archive's
 # symbol index lists what the LTO objects inside it define. Without them a release
-# link fails on every symbol that lives in libeel.a or libnemo-private.a.
+# link fails on every symbol defined in libeel.a or libnemo-private.a.
 ar         = 'x86_64-w64-mingw32-gcc-ar'
 ranlib     = 'x86_64-w64-mingw32-gcc-ranlib'
 nm         = 'x86_64-w64-mingw32-gcc-nm'

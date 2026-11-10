@@ -31,7 +31,7 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 # shellcheck source=include/run-temp.bash
 source "${here}/include/run-temp.bash"
 HOST_TEMP="${TMPDIR:-/tmp}"
-fRunTemp_Make cicd-sweep-check "$(date +%Y%m%d-%H%M%S)" || { fEcho "FAILED: could not make a scratch folder"; exit 1; }
+fRunTemp_Make cicd-sweep-check "$(date +%Y%m%d-%H%M%S)" || { fEcho "FAILED: couldn't make a scratch folder"; exit 1; }
 scratch="${runTempDir}"
 trap 'fRunTemp_Done; rmdir "${HOST_TEMP}/cicd-sweep-check" 2> /dev/null || true' EXIT
 
@@ -111,7 +111,7 @@ fRun term 143;  fSwept term
 fRun "" 0 --keep-temp
 fNot keep "^rm "
 fHas keep "rmi d1"
-[[ "$lastOut" == *"[ kept the run's containers: app-run-step ]"* ]] || fFail "[keep]: did not name the kept container: $(tail -3 <<< "$lastOut")"
+[[ "$lastOut" == *"[ kept the run's containers: app-run-step ]"* ]] || fFail "[keep]: didn't name the kept container: $(tail -3 <<< "$lastOut")"
 [[ "$lastOut" != *"app-box"* ]] || fFail "[keep]: named a long-lived box as the run's"
 STUB_SWEEP=0 fRun "" 0
 fNot off "^(system|ps|rm|rmi|images|builder) "

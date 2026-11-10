@@ -68,7 +68,7 @@ token_count (const NemoCommandToken *token)
 }
 
 /* The next complete {{...}} at or after from. An opening brace with no closing
-   one is not a placeholder, it is text. */
+   one isn't a placeholder, it is text. */
 static gboolean
 next_token_span (const char  *from,
 		 const char **out_open,
@@ -120,7 +120,7 @@ expand_one (const char             *arg,
 
 			return TRUE;
 		}
-		/* Nobody declares it, so it is not a placeholder at all. */
+		/* Nobody declares it, so it isn't a placeholder at all. */
 	}
 
 	built = g_string_new (NULL);
@@ -142,7 +142,7 @@ expand_one (const char             *arg,
 		count = token_count (token);
 
 		if (count == 0) {
-			/* A "-o" with nothing to point at is not an argument. */
+			/* A "-o" with nothing to point at isn't an argument. */
 			g_string_free (built, TRUE);
 			return TRUE;
 		}
@@ -233,7 +233,7 @@ nemo_command_template_unused (const char             *template_text,
 
 		/* Only a choice the UI made, and only while it stands for
 		   something - a structural token written out by hand, or an
-		   option nobody turned on, is not worth a word. */
+		   option nobody turned on, isn't worth a word. */
 		if (!tokens[i].warn_if_dropped || token_count (&tokens[i]) == 0) {
 			continue;
 		}
@@ -273,7 +273,7 @@ nemo_command_template_from_config (const char *group,
 
 	text = nemo_config_get_string (nemo_config_get_group (group), key);
 
-	/* An emptied key means "give me the one you shipped with" rather than
+	/* An emptied key means "give me the built-in one" rather than
 	   "run nothing", which is what a person clearing the line expects. */
 	if (text == NULL || g_strstrip (text)[0] == '\0') {
 		g_free (text);
@@ -295,7 +295,7 @@ nemo_command_template_warn_unused (const char             *what,
 		return;
 	}
 
-	/* Not an error - the program simply never hears about that option - so
+	/* Not an error, since the program never hears about that option, so
 	   name the one that got dropped rather than leaving the dialog looking
 	   broken to somebody who edited the line months ago. */
 	joined = g_strjoinv (", ", missing);

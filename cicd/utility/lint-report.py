@@ -3,10 +3,10 @@
 ##	Purpose: List the warning and error lines in the newest run log under
 ##		cicd/artifacts/lint that no older log there has. Counters, times, pids
 ##		and temp names are evened out first, so a warning that only moved or
-##		came from another run still counts as the same one. Runs two ways:
-##		plain (print them) and --check (print them only when the newest log is
-##		newer than the one last recorded in a local marker, then record it -
-##		meant for session startup beside flame-report.py --check).
+##		came from another run still counts as the same one. Plain prints them.
+##		--check prints them only when the newest log is newer than the one last
+##		recorded in a local marker, then records it. That's meant for session
+##		startup beside flame-report.py --check.
 ##	Syntax: lint-report.py [--dir DIR | --file LOG] [--check [--force] [--no-mark]]
 ##		lint-report.py --self-test
 ##	Test ID: dehzr
@@ -128,7 +128,7 @@ def main():
     ap.add_argument("--check", action="store_true",
                     help="startup gate: print only if newer than the local marker, then record it")
     ap.add_argument("--force", action="store_true", help="with --check, report even if already seen")
-    ap.add_argument("--no-mark", action="store_true", help="with --check, do not update the marker")
+    ap.add_argument("--no-mark", action="store_true", help="with --check, don't update the marker")
     a = ap.parse_args()
 
     if a.file:
@@ -166,7 +166,7 @@ def main():
             with open(marker, "w", encoding="utf-8") as f:
                 f.write(ts + "\n")
         except OSError as e:
-            sys.stderr.write(f"lint-report: could not write marker: {e}\n")
+            sys.stderr.write(f"lint-report: couldn't write marker: {e}\n")
     return 0
 
 

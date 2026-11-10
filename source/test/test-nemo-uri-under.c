@@ -21,7 +21,7 @@
 */
 
 /* Trashing a folder takes the favorites under it along, and a location is
- * matched to the mount it sits on. Both once compared by bare prefix, so
+ * matched to the mount it's on. Both once compared by bare prefix, so
  * trashing ".../ab" dropped the favorite ".../abc.txt", and a location could
  * be put on a sibling mount whose root merely started the same way. Both go
  * through one rule now. */

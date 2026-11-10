@@ -1,14 +1,14 @@
 # Leak suppressions for cicd/linux/test-sanitizers.bash.
 # Only code we don't build goes here, named by the function that leaks, with
-# why it's safe to hide. A whole library only where no package of ours ships
+# why it's safe to hide. A whole library only where no package of ours installs
 # it. The names show only with the debug symbols the lane checks for.
 # A leak of ours is fixed. One that has to wait is filed, and the test that
 # shows it gets detect_leaks=0 in its meson env, with the backlog ID beside it.
 # de5hh checks that a leak beside these is still found.
 
-# fontconfig reaches a pattern's entries by an offset from the pattern, not a
-# pointer, so the entries of every live pattern look lost. A pattern that is
-# really lost still shows, from FcPatternCreate.
+# fontconfig finds a pattern's entries by an offset from the pattern, not a
+# pointer, so the entries of every live pattern look lost. A pattern that's lost
+# for real still shows, from FcPatternCreate.
 leak:FcPatternObjectInsertElt
 
 # GTK 3.24 drops a value each time a CSS transition starts from one still on its

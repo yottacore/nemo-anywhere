@@ -117,7 +117,7 @@ nemo_compute_title_for_location (GFile *location)
         path = nemo_compute_title_path_for_location (location);
         if (path != NULL) {
             /* The path already ends in the folder's name, so putting the name in
-               front of it just says the same thing twice. It is handed over
+               front of it says the same thing twice. It is handed over
                whole: the title bar and the tabs each shorten it to what they
                have room for. */
             title = g_strdup (path);
@@ -290,9 +290,9 @@ nemo_compute_search_title_for_location (GFile *location)
 /**
  * nemo_get_user_config_root:
  *
- * The per-user directory our own config directory lives in.
+ * The per-user directory our own config directory is in.
  *
- * GLib answers XDG everywhere, which is right on Linux and BSD but is a poor
+ * GLib returns XDG everywhere, which is right on Linux and BSD but is a poor
  * fit elsewhere: on Windows it points at the local, machine-bound AppData, and
  * on macOS at a hidden dotfile dir. Settings are small, portable and worth
  * carrying between a user's machines, so Windows gets roaming AppData and
@@ -335,7 +335,7 @@ nemo_get_user_config_root (void)
 /**
  * nemo_get_user_cache_root:
  *
- * The per-user directory our cache directory lives in.
+ * The per-user directory our cache directory is in.
  *
  * Deliberately not the same choice as the config root above. A cache is big,
  * rebuildable and tied to the machine that built it, so on Windows it belongs
@@ -419,7 +419,7 @@ migrate_legacy_user_directory (const char *user_directory)
 		return;
 
 	/* rename(2) wants somewhere to rename into. The real config roots always
-	 * exist, but a fresh profile or a redirected one need not. */
+	 * exist, but a fresh profile or a redirected one might not. */
 	parent = g_path_get_dirname (user_directory);
 	g_mkdir_with_parents (parent, DEFAULT_NEMO_DIRECTORY_MODE);
 
@@ -467,7 +467,7 @@ nemo_get_user_directory (void)
  * nemo_get_accel_map_file:
  *
  * The keyboard shortcut file, beside the settings file. The folder is made
- * here; the file need not exist.
+ * here; the file doesn't have to exist.
  *
  * Return value: (transfer full): the filename path, freed by the caller.
  **/
@@ -480,7 +480,7 @@ nemo_get_accel_map_file (void)
 }
 
 /* Where upstream Nemo keeps its shortcuts, and where older builds of ours
- * saved them too. Read once, to carry custom shortcuts over; never written.
+ * saved them too. Read once, to bring custom shortcuts over; never written.
  * Returns: (transfer full): free with g_free */
 char *
 nemo_get_legacy_accel_map_file (void)
@@ -1164,7 +1164,7 @@ nemo_get_exe_path (void)
 	}
 #else
 #if defined(__FreeBSD__) || defined(__DragonFly__)
-	/* procfs is not mounted there by default */
+	/* procfs isn't mounted there by default */
 	{
 		int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1 };
 		char path[4096];
@@ -1256,7 +1256,7 @@ nemo_get_locale_dir (void)
 }
 
 /* Where our sibling programs are - the document converters search uses. "" means
- * we could not work it out and the caller should just let PATH answer.
+ * we couldn't work it out and the caller should let PATH answer.
  * Returns: (transfer none): kept for the life of the process */
 const char *
 nemo_get_bin_dir (void)
@@ -1298,7 +1298,7 @@ setup_pixbuf_loaders (const char *contents)
 		const char *line = lines[i];
 
 		/* The module's own line is one quoted path. The lines under it
-		 * hold several quoted strings each. */
+		 * have several quoted strings each. */
 		if (line[0] == '"' && line[1] != '/' && g_str_has_suffix (line, "\"") &&
 		    strchr (line + 1, '"') == line + strlen (line) - 1) {
 			g_string_append_printf (fixed, "\"%s/%s\n", contents, line + 1);
@@ -1308,7 +1308,7 @@ setup_pixbuf_loaders (const char *contents)
 	}
 	g_strfreev (lines);
 
-	/* One per bundle, since two builds can be running at once. */
+	/* One per bundle, since 2 builds can be running at once. */
 	hash = g_compute_checksum_for_string (G_CHECKSUM_SHA1, contents, -1);
 	hash[12] = '\0';
 	name = g_strdup_printf ("pixbuf-loaders-%s.cache", hash);
@@ -1329,7 +1329,7 @@ setup_pixbuf_loaders (const char *contents)
 
 #ifndef G_OS_WIN32
 /* Put dir at the front of a colon-separated environment list, unless it is
- * already on it. fallback stands in for a list that is not set at all. */
+ * already on it. fallback stands in for a list that isn't set at all. */
 static void
 prepend_env_dir (const char *var, const char *dir, const char *fallback)
 {
@@ -1366,7 +1366,7 @@ prepend_env_dir (const char *var, const char *dir, const char *fallback)
 
 typedef struct {
 	char *var;
-	char *before;	/* NULL when it was not set */
+	char *before;	/* NULL when it wasn't set */
 } OwnSetting;
 
 static GMutex     own_settings_lock;
@@ -1463,7 +1463,7 @@ nemo_spawn_for_user (const char  *workdir,
 }
 #endif
 
-/* Each entry is NAME=VALUE, or a bare NAME for one that was not set.
+/* Each entry is NAME=VALUE, or a bare NAME for one that wasn't set.
  * Returns: (transfer full): free with nemo_restore_own_environ */
 char **
 nemo_swap_in_user_environ (void)
@@ -1510,7 +1510,7 @@ nemo_restore_own_environ (char **saved)
 }
 
 /* A relocatable prefix used to be entered through a shell wrapper that set this
- * up, which meant two files where one would do. The program does it for itself
+ * up, which meant 2 files where one would do. The program does it for itself
  * now. Everything scanned per data dir - actions, search helpers, icons, mime -
  * comes off XDG_DATA_DIRS, and GLib caches that list the first time anything
  * asks for it, so this has to run before anything else does.
@@ -1571,7 +1571,7 @@ nemo_setup_runtime_environment (void)
 		prepend_env_dir ("PATH", bindir, NULL);
 
 #ifdef __APPLE__
-		/* A bundle carries GTK's own data and modules too. */
+		/* A bundle has GTK's own data and modules too. */
 		if (in_bundle) {
 			char *contents = g_path_get_dirname (prefix);
 
@@ -1582,7 +1582,7 @@ nemo_setup_runtime_environment (void)
 		}
 #endif
 
-		/* Settings are not on GSettings any more, so there is normally no
+		/* Settings aren't on GSettings any more, so there is normally no
 		 * schema here - but an action file may still name someone else's. */
 		if (g_file_test (schemas, G_FILE_TEST_IS_DIR)) {
 			prepend_env_dir ("GSETTINGS_SCHEMA_DIR", schemas, NULL);
@@ -1788,7 +1788,7 @@ nemo_find_file_insensitive (GFile *parent, const gchar *name)
 	for (i = 0; (component = split_path[i]) != NULL; i++) {
 		if (!(next = nemo_find_file_insensitive_next (file,
 		                                                  component))) {
-			/* File does not exist */
+			/* File doesn't exist */
 			g_object_unref (file);
 			file = NULL;
 			break;
@@ -1997,7 +1997,7 @@ nemo_inhibit_power_manager (const char *message)
  * @cookie: the cookie value returned by nemo_inhibit_power_manager()
  *
  * Uninhibits power management. This function must be called after the task
- * which inhibited power management has finished, or the system will not
+ * which inhibited power management has finished, or the system won't
  * return to normal power management.
  */
 void
@@ -2502,7 +2502,7 @@ nemo_get_best_guess_file_mimetype (const gchar *filename,
      * zero-length implementation if the extension is unknown, or it has none.
      *
      * - Files that are NOT zero-length are treated the same as before.
-     * - Files that we are not certain about are treated the same as before.
+     * - Files that we aren't certain about are treated the same as before.
      *
      * Again, this only has an effect on zero-length, known-extension files.  My
      * argument for this differing from the standing implementation is that if I
@@ -2657,7 +2657,7 @@ nemo_get_mount_for_location_safe (GFile *location)
 
         /* Boundary-guarded: a bare prefix test would let a longer sibling
          * mount root (tried first by the descending-length sort) swallow a
-         * location that really sits under the true root. */
+         * location that really is under the true root. */
         if (nemo_uri_is_at_or_under (location_uri, mount_root_uri)) {
             // Add a ref for our match, as it will lose one when the list is freed.
             ret = g_object_ref (mount);
@@ -2711,7 +2711,7 @@ nemo_path_is_network_safe (const gchar *path)
     return nemo_location_is_network_safe (location);
 }
 
-/* Three places used to name a drive root three different ways: gio's display
+/* A drive root used to be named 3 different ways in 3 places: gio's display
    name is the basename, which is "\" for every drive alike; the volume monitor
    says "(C:) Windows"; and the sidebar built "Windows (C:)" itself. The drive
    letter is the part that identifies it, so that is what all of them show now. */
@@ -2761,7 +2761,7 @@ nemo_get_drive_root_name (G_GNUC_UNUSED GFile *location)
 }
 
 /* One path per line, with the line ending the local shells and editors expect.
-   A path pasted into cmd.exe or notepad has to carry CRLF to arrive as separate
+   A path pasted into cmd.exe or notepad has to have CRLF to arrive as separate
    lines. */
 #ifdef G_OS_WIN32
 #define PATH_LIST_SEPARATOR "\r\n"
@@ -2770,7 +2770,7 @@ nemo_get_drive_root_name (G_GNUC_UNUSED GFile *location)
 #endif
 
 /* Text for a list of locations (GFile *), one per line, for the clipboard.
-   Anything with no local path - a remote uri - contributes its uri instead, so
+   Anything with no local path, such as a remote uri, contributes its uri instead, so
    the text is never silently shorter than what was selected. Returns NULL when
    nothing at all could be named.
    Returns: (transfer full): free with g_free */
@@ -2795,7 +2795,7 @@ nemo_build_path_list_text (GList *locations,
         if (path != NULL) {
             nemo_path_apply_separator (path, separator);
         } else {
-            /* A uri's slashes are not separators, so it is copied as it stands. */
+            /* A uri's slashes aren't separators, so it is copied as it stands. */
             path = g_file_get_uri (G_FILE (l->data));
         }
         if (path == NULL) {
@@ -2857,7 +2857,7 @@ watch_separator_preferences (void)
 #endif
 
 /* Called from nemo_global_preferences_init, and it has to stay there. GObject
-   runs handlers in the order they were connected, so anything that spells out a
+   runs handlers in the order they were connected, so anything that shows a
    path from its own "changed::path-separator" handler reads a stale separator
    unless this one was connected first. That put the breadcrumb a step behind
    the window title. */
@@ -2880,8 +2880,8 @@ nemo_path_get_display_separator (void)
 #endif
 }
 
-/* The separator that is not being shown - what "copy the path the other way"
-   means. There is only one off Windows, so it answers the same as the first. */
+/* The separator that isn't being shown - what "copy the path the other way"
+   means. There is only one off Windows, so it returns the same as the first. */
 gchar
 nemo_path_get_other_separator (void)
 {
@@ -2920,7 +2920,7 @@ nemo_rename_setting_applies (void)
 }
 
 /* Rewrites in place - both separators are one ASCII byte, so nothing moves.
-   Only ever hand this a local path; a uri's slashes are not separators. */
+   Only ever hand this a local path; a uri's slashes aren't separators. */
 void
 nemo_path_apply_separator (G_GNUC_UNUSED gchar *path,
                            G_GNUC_UNUSED gchar  separator)
@@ -3083,7 +3083,7 @@ nemo_path_forms (const gchar *path,
 		path_forms_add (forms, path_forms_join (anchor, parts, count, separator));
 
 		/* The ellipsis stands in for everything between what is kept and the
-		   last folder, so the first steps replace one folder with three
+		   last folder, so the first steps replace one folder with 3
 		   characters and are dropped for being no shorter. */
 		items = g_new0 (gchar *, count + 2);
 		for (i = 0; i < last; i++) {
@@ -3119,7 +3119,7 @@ nemo_path_forms (const gchar *path,
 }
 
 /* Windows shells never print a ~, and the drive a path is on is worth more than
-   the four characters a ~ would save.
+   the 4 characters a ~ would save.
    Returns: (transfer none): owned by GLib */
 const gchar *
 nemo_path_display_home (void)
@@ -3147,7 +3147,7 @@ nemo_path_form_for_width (const gint *widths, guint count, gint avail)
 }
 
 /* Picks a form for each tab so the row fits in avail. The tab in front shows as
-   much of its path as the row can spare and is not capped, since the others are
+   much of its path as the row can spare and isn't capped, since the others are
    already as wide as they may get. They shorten together, one step at a time,
    until it can show the whole path or they have nothing left to give. Past the
    shortest form the notebook scrolls, as it always did. */
@@ -3480,7 +3480,7 @@ static gboolean
 is_new_folder_separator (gchar c)
 {
 #ifdef G_OS_WIN32
-    /* "/" goes with the typed location setting. Off, it's just a character a
+    /* "/" goes with the typed location setting. Off, it's only a character a
        name can't have. */
     watch_separator_preferences ();
     return c == '\\' || (c == '/' && slash_input_allowed);
@@ -3587,9 +3587,9 @@ nemo_new_folder_path_split (const gchar *text, GError **error)
 }
 
 /* The value of the Ext column: the tail of the name after the last dot, without
- * the dot. A dot is often just part of a name, so the tail only counts when it
+ * the dot. A dot is often part of a name, so the tail only counts when it
  * looks the part - short, letters and digits only, at least one letter. NULL when
- * there is not one worth showing.
+ * there isn't one worth showing.
  * Returns: (transfer full): free with g_free */
 gchar *
 nemo_filename_get_extension (const gchar *name)
@@ -3882,7 +3882,7 @@ gboolean
 nemo_filesystem_is_read_only (GFile *file, GFileInfo *fs_info)
 {
 #ifdef __APPLE__
-	/* GLib answers for /, the sealed system volume, whatever the path.
+	/* GLib reports on /, the sealed system volume, whatever the path.
 	   Not knowing counts as writable, as with no fs_info. */
 	g_autofree char *path = g_file_get_path (file);
 	struct statfs sfs;

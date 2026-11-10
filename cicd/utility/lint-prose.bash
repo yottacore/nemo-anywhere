@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
-##	- Purpose: three rules from project/style-guide_code.md and
+##	- Purpose: 3 rules from project/style-guide_code.md and
 ##	  project/style-guide_ux.md that nothing else checks: American spelling, no
 ##	  banner dividers in C, and ASCII only outside the copyright marker.
 ##	- Only the fork's own lines are checked. Most of source/ came from upstream
-##	  and spells things its own way, so a line that is byte for byte the same as
-##	  the one in the root commit is left alone. That keeps the check honest
-##	  without a growing list of exceptions.
+##	  and has its own spellings, so a line that is byte for byte the same as
+##	  the one in the root commit is left alone. That way the check needs no
+##	  growing list of exceptions.
 ##	- Needs git for that comparison, which is also true of the other checks in
 ##	  this stage.
 ##	- Syntax: lint-prose.bash
@@ -30,10 +30,10 @@ fi
 baseline="$(git rev-list --max-parents=0 HEAD)"
 
 ## This file is left out of its own scan, the same way lint-identity.bash is:
-## the word list below spells out the things being looked for.
+## the word list below names the things being looked for.
 self='cicd/utility/lint-prose.bash'
 
-## Print every hit that is not verbatim in the root commit. $1 is a description,
+## Print every hit that isn't verbatim in the root commit. $1 is a description,
 ## $2 an extended regex, the rest are paths.
 fReport(){
 	local what="$1" pattern="$2"; shift 2
@@ -44,7 +44,7 @@ fReport(){
 		file="${line%%:*}"
 		text="${line#*:}"; text="${text#*:}"
 		## A Windows checkout ends every line in CR, which the root commit's
-		## text does not have.
+		## text doesn't have.
 		text="${text%$'\r'}"
 		## An empty match is nothing to compare; treat it as ours.
 		if [[ -n "$text" ]] && git grep -qIF -e "$text" "$baseline" -- "*${file##*/}"; then
@@ -65,14 +65,14 @@ british='\b([a-z_]*colour[a-z_]*|behaviour[a-z]*|honour[a-z]*|flavour[a-z]*|[a-z
 fReport "a British spelling" "$british" source cicd utility README.md install.md building.md changelog.md project/design.md project/design_docs \
 	':!:cicd/utility/lint-ui-case.py' ':!:cicd/utility/include' || rc=1
 
-## "No banner dividers" - style-guide_code.md. Three forms had grown up before
-## anyone wrote that down. Four characters, so the emacs mode line's -*- stays
-## out of it. The bullet-rule form is caught by the ASCII check below.
+## "No banner dividers" - style-guide_code.md. There were 3 forms before anyone
+## wrote that down. The pattern wants 4 characters, so the emacs mode line's
+## -*- stays out of it. The bullet-rule form is caught by the ASCII check below.
 fReport "a banner divider" '^[[:space:]]*/?\*+[[:space:]]*[-=_.*#]{4,}' \
 	'source/*.c' 'source/*.h' || rc=1
 
 ## ASCII only, except the copyright symbol and the marker's own characters.
-## Upstream files are skipped whole: several carry an accented author name in
+## Upstream files are skipped whole: several have an accented author name in
 ## the header, which is theirs to keep.
 mapfile -t cfiles < <(git ls-files 'source/*.c' 'source/*.h')
 bad=""

@@ -125,7 +125,7 @@ read_rules (void)
 	rules.max_age_secs = days > 0 ? (gint64) days * 24 * 60 * 60 : 0;
 	rules.drop_missing = nemo_config_get_boolean (group, NEMO_FILE_CACHE_DROP_MISSING);
 
-	/* An hour at the least, so a zero cannot make every check a pass. */
+	/* An hour at the least, so a zero can't make every check a pass. */
 	low = MAX (low, 1);
 	high = MAX (high, low);
 	rules.gap_min_secs = (gint64) low * 60 * 60;

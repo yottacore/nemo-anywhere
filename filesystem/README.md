@@ -2,7 +2,7 @@
 <!-- markdownlint-disable MD055 -- Table pipe style [Expected: leading_and_trailing; Actual: leading_only; Missing trailing pipe] -->
 # filesystem
 
-A mirror of where things go on disk, so a folder in here can be copied straight to the matching place on a machine. Nothing in here is compiled, installed or packaged - it is drop-in material, and the application picks it up at startup with no build step and no restart beyond the next launch.
+A mirror of where things go on disk, so a folder in here can be copied straight to the matching place on a machine. Nothing in here is compiled, installed, or packaged. The application reads it at startup, so it doesn't need a build step or any restart beyond the next launch.
 
 The drop-in folders so far are for icon and widget themes:
 
@@ -11,9 +11,9 @@ filesystem/.config/nemo-anywhere/icons/
 filesystem/.config/nemo-anywhere/themes/
 ~~~
 
-## Where that folder really lives
+## Where that folder is
 
-The config directory follows the platform, so `.config` above is the Linux spelling of it. The icons folder sits beside `settings.shcl` wherever that is:
+The config directory follows the platform, so `.config` above is the Linux name for it. The icons folder is beside `settings.shcl`, wherever that is:
 
 | Platform   | Icon themes go in
 | :---       | :---
@@ -23,11 +23,11 @@ The config directory follows the platform, so `.config` above is the Linux spell
 
 Widget themes work the same way, in `themes/` beside it. The application creates both folders empty on first run, so the place to put something is discoverable without reading this.
 
-One icon theme is one folder with an `index.theme` in it - the ordinary freedesktop layout, exactly as any GTK icon theme comes. Drop it in whole and it appears in **Settings -> Appearance -> Icons** next time the application starts. A drop-in of the same name as a bundled set wins, which is how one can be replaced without rebuilding anything.
+One icon theme is one folder with an `index.theme` in it. That's the ordinary freedesktop layout that any GTK icon theme comes in. Drop it in whole and it appears in **Settings -> Appearance -> Icons** next time the application starts. A drop-in of the same name as a bundled set wins, which is how one can be replaced without rebuilding anything.
 
-## Two optional lines in index.theme
+## Optional lines in index.theme
 
-The picker only offers themes drawn for the light or dark mode in force, and it can swap between the two halves of a pair when the mode changes. It reads two keys of ours from `index.theme` to do that, and guesses from the folder name when they are absent:
+The picker only offers themes drawn for the light or dark mode in use, and it can swap between both halves of a pair when the mode changes. It reads 2 keys of ours from `index.theme` for that, and guesses from the folder name when they're missing:
 
 ~~~ini
 X-Nemo-Style=Circles Blue
@@ -43,7 +43,7 @@ X-Nemo-Counterpart=My-Theme-dark
 
 ## Buuf
 
-Buuf was on the list of sets to bundle and isn't here, because it is CC BY-NC-SA - the NonCommercial term means it can't ship inside anything, and it can't sit in this repository either. It is worth having, though, so fetch it yourself from [gnome-look](https://www.gnome-look.org/p/1012233) or from [alfathmuqoddas/buuf-nestort](https://github.com/alfathmuqoddas/buuf-nestort), and unpack the theme folder into the icons directory above.
+Buuf was on the list of sets to bundle and isn't here, because it's CC BY-NC-SA. The NonCommercial term means it can't be bundled with anything, or kept in this repository either. It's worth having, so fetch it yourself from [gnome-look](https://www.gnome-look.org/p/1012233) or from [alfathmuqoddas/buuf-nestort](https://github.com/alfathmuqoddas/buuf-nestort), and extract the theme folder into the icons directory above.
 
 Bash (Linux and BSD):
 
@@ -57,4 +57,4 @@ PowerShell (Windows):
 $dir = "$env:APPDATA\nemo-anywhere\icons"; $tgz = "$env:TEMP\buuf.tar.gz"; New-Item -ItemType Directory -Force $dir | Out-Null; curl.exe -fsSL https://github.com/alfathmuqoddas/buuf-nestort/archive/refs/heads/main.tar.gz -o $tgz; tar -xzf $tgz -C $dir --strip-components=1; Remove-Item $tgz
 ~~~
 
-Buuf is bitmap art, so it is large and it doesn't scale the way the bundled sets do. That is the trade for the only hand-drawn set of its kind.
+Buuf is bitmap art, so it's large and doesn't scale the way the bundled sets do.

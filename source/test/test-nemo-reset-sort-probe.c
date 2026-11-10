@@ -190,7 +190,7 @@ finish (void)
 	fflush (out);
 }
 
-/* Each step waits for what the one before set going. Up to ten seconds each. */
+/* Each step waits for what the one before set going. Up to 10 seconds each. */
 static gboolean
 tick (G_GNUC_UNUSED gpointer data)
 {
@@ -236,7 +236,7 @@ tick (G_GNUC_UNUSED gpointer data)
 		gtk_menu_item_activate (GTK_MENU_ITEM (menu_item ("Reset view to _defaults")));
 		break;
 	case 2:
-		/* The reset reloads the folder, so it must hold, not just pass by. */
+		/* The reset reloads the folder, so it must stay that way rather than pass by. */
 		steady = by_name () ? steady + 1 : 0;
 		if (steady < 10) {
 			return G_SOURCE_CONTINUE;

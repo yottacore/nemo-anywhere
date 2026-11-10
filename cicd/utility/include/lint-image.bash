@@ -32,7 +32,7 @@ fLintImage(){
 	if ! docker image inspect "$tag" >/dev/null 2>&1; then
 		echo "[ Building ${tag}, one time per Dockerfile.lint change ]" >&2
 		if ! docker build -q -t "$tag" --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" - <"$file" >&2; then
-			echo "[ WARNING: lint tools: host, ${tag} did not build ]" >&2
+			echo "[ WARNING: lint tools: host, ${tag} didn't build ]" >&2
 			return 0
 		fi
 		## By tag, never -f, so an image something still runs stays put.

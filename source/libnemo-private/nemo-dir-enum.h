@@ -53,7 +53,7 @@ GFileEnumerator *nemo_enumerate_children_finish (GFile                *dir,
 
 /* The folder listing, and a later look at one file in it. Off Windows a link
    is followed to describe what it points at, the way GLib's own listing does,
-   except a link onto a share its folder is not on (nemo-share.h). That one is
+   except a link onto a share its folder isn't on (nemo-share.h). That one is
    described as the link itself, with this attribute set, so nothing goes to
    the share until someone opens the link: follow is TRUE from then on. On
    Windows a link is never followed, since there it already has the type of
@@ -86,14 +86,14 @@ GFileInfo       *nemo_query_listing_info_finish (GFile                *file,
                                                  GAsyncResult         *result,
                                                  GError              **error);
 
-/* An entry the walk could not stat comes back with no type at all - a locked
+/* An entry the walk couldn't stat comes back with no type at all - a locked
    file at the root of a Windows drive, say - and GLib criticals on the missing
-   attribute rather than answering. Read it through here instead. */
+   attribute rather than a value. Read it through here instead. */
 
 GFileType        nemo_dir_enum_file_type        (GFileInfo            *info);
 
-/* TRUE when dir is a local path long enough that GLib's walk cannot be trusted.
-   Exposed for the tests; callers should just use the three above. */
+/* TRUE when dir is a local path long enough that GLib's walk can't be trusted.
+   Exposed for the tests; callers should use the 3 above. */
 gboolean         nemo_dir_enum_path_is_long     (GFile                *dir);
 
 G_END_DECLS

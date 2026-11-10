@@ -102,7 +102,7 @@ fWant other.thumbnailer "Exec=some-thumbnailer --in /tmp/x/%i %o"
 fWant other.thumbnailer "MimeType=x/y;"
 fWant lookalike.thumbnailer "TryExec=gdk-pixbuf-thumbnailer-plus"
 
-## A missing source folder is not an error; MSYS2 may have no thumbnailers.
+## A missing source folder isn't an error; MSYS2 may have no thumbnailers.
 fStageThumbnailers "${scratch}/none" "${scratch}/dest2" || fFail "a missing source folder failed"
 
 ## fetch-sysroot.bash runs alone in the image build, so it has its own copy of
@@ -128,11 +128,11 @@ else
 fi
 
 ## Every bundle has to use the shared step. None may copy the folder as is, or
-## carry gdk-pixbuf-thumbnailer.exe or gsf-office-thumbnailer.exe, which
+## include gdk-pixbuf-thumbnailer.exe or gsf-office-thumbnailer.exe, which
 ## nothing would start.
 fUses(){
 	local script="$1" pattern="$2" rel="${1#"${root}"/}"
-	grep -qE "$pattern" "$script" || fFail "${rel} does not stage descriptors through fStageThumbnailers"
+	grep -qE "$pattern" "$script" || fFail "${rel} doesn't stage descriptors through fStageThumbnailers"
 	if grep -nE 'cp .*share/(\$\{d\}|thumbnailers)' "$script" | grep -v fStageThumbnailers; then
 		fFail "${rel} still copies share/thumbnailers as is"
 	fi

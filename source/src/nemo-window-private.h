@@ -75,7 +75,7 @@ struct NemoWindowDetails
         NemoNavigationState *nav_state;
         
         /* Side panes. Places is packed outside the tree, so the tree divider
-         * moves with the window and the places one does not.
+         * moves with the window and the places one doesn't.
          */
         GtkWidget *tree_paned;
         GtkWidget *places_sidebar;
@@ -158,7 +158,7 @@ struct NemoWindowDetails
 #define NEMO_WINDOW_DEFAULT_HEIGHT		688
 
 /* The side pane default that goes with these is "sidebar-width" in
- * nemo-config-keys.h: 240px, ~19% of the default width. Change the two
+ * nemo-config-keys.h: 240px, ~19% of the default width. Change the 2
  * together, or a first run gets a sidebar out of proportion to its window.
  */
 

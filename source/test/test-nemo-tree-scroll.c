@@ -24,7 +24,7 @@
 /* In a narrow folder tree, a deep folder's indentation would push its name and
  * its children's out of the pane, so the tree scrolls sideways to show them,
  * and back to the left edge for a shallow folder (#2026102018234902). The
- * built program runs with the tree showing on a folder six deep, and
+ * built program runs with the tree showing on a folder 6 deep, and
  * test-nemo-tree-scroll-probe preloaded to select and check.
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Linux
@@ -132,7 +132,7 @@ run (const char *exe, const char *probe)
 		goto out;
 	}
 
-	/* The probe gives each step ten seconds, and there are three. */
+	/* The probe gives each step 10 seconds, and there are 3. */
 	for (i = 0; i < 400 && alive (pid) && !done; i++) {
 		g_usleep (100 * 1000);
 		g_free (text);

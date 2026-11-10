@@ -115,9 +115,9 @@ typedef enum {
 } NemoFileLoadDeferredAttrs;
 
 /* Emblems sometimes displayed for NemoFiles. Do not localize. */ 
-/* The two link emblems are our own art. A themed name cannot be used for them:
+/* The 2 link emblems are our own art. A themed name can't be used for them:
    an icon added by resource path is searched only after every theme, so a theme
-   that carries emblem-symbolic-link always wins, and most themes draw that as
+   that has emblem-symbolic-link always wins, and most themes draw that as
    the same arrow-in-a-box Windows uses for a shortcut. */
 #define NEMO_FILE_EMBLEM_NAME_SYMBOLIC_LINK "nemo-emblem-symlink"
 #define NEMO_FILE_EMBLEM_NAME_CANT_READ "unreadable"

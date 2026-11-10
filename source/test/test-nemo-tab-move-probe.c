@@ -125,7 +125,7 @@ view_name (GtkWidget *view)
 }
 
 /* Names in the order the view keeps them. Only the icon and compact views,
-   whose accessible object answers for the selection. */
+   whose accessible object reports the selection. */
 static void
 add_selected (GString *state, GtkWidget *view)
 {

@@ -22,7 +22,7 @@
 
 /* What stops a trash or delete from taking home with it, however the job came
  * about. The dialogs are one layer, and stray typing into a window that had just
- * come up got past them twice, so these rules sit where files are actually
+ * come up got past them twice, so these rules sit where files are
  * removed. A path that never shows a dialog is held to them too.
  *
  * Home, any folder above it, and a folder where a drive or share is mounted are

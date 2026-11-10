@@ -46,7 +46,7 @@ nemo_pane_layout_scale_position (int position,
 	}
 
 	/* Rounded to nearest, or a run of one-pixel resizes walks the divider
-	   toward whichever end the truncation favours. 64-bit because a wide
+	   toward whichever end the truncation favors. 64-bit because a wide
 	   position times a wide width overflows an int well before either is
 	   an implausible number of pixels. */
 	scaled = ((gint64) position * new_width + old_width / 2) / old_width;

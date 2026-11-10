@@ -22,7 +22,7 @@
 
 /* The pass itself is nemo_cache_db_prune. This decides when to run one: at
  * random somewhere between prune-min-hours and prune-max-hours after the last,
- * and only once nothing has been drawn for prune-idle-minutes, so it does not
+ * and only once nothing has been drawn for prune-idle-minutes, so it doesn't
  * compete with a folder that is filling with thumbnails. */
 
 #ifndef NEMO_CACHE_DB_PRUNE_H

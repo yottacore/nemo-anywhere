@@ -11,7 +11,7 @@ import sys
 import time
 
 EPOCH_2000 = 946684800
-# Crockford base32: no i, l, o or u, so nothing reads as a digit by mistake.
+# Crockford base32: no i, l, o, or u, so nothing reads as a digit by mistake.
 DIGITS = "0123456789abcdefghjkmnpqrstvwxyz"
 
 

@@ -432,7 +432,7 @@ nemo_tab_list_destroy (GtkWidget *widget)
 }
 
 /* A builder file sets the stack before it adds any style class, so a marked
-   stack is not marked yet when the rows are first made. */
+   stack isn't marked yet when the rows are first made. */
 static void
 nemo_tab_list_parser_finished (GtkBuildable *buildable, GtkBuilder *builder)
 {

@@ -108,7 +108,7 @@ struct _NemoLongEnumerator {
 
 	HANDLE find;
 	WIN32_FIND_DATAW data;
-	gboolean have_pending;	/* data holds an entry not yet handed out */
+	gboolean have_pending;	/* data has an entry not yet handed out */
 	gboolean exhausted;
 };
 
@@ -558,7 +558,7 @@ query_in_thread (GTask        *task,
 #endif /* !G_OS_WIN32 */
 
 /* Following a link on Windows means opening whatever it points at, and a link
-   to a share that is not answering costs twenty seconds per entry with the
+   to a share that isn't answering costs 20 seconds per entry with the
    whole listing stuck behind it. Windows puts the directory bit on the link
    itself, so the type still comes out right without the trip. */
 void

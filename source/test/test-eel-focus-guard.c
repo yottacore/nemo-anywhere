@@ -1,4 +1,4 @@
-/* A column header or a notebook tab never holds the keyboard focus. Focus left
+/* A column header or a notebook tab never keeps the keyboard focus. Focus left
  * on a header after a click, or on a tab after the path entry closed, sent the
  * arrow keys somewhere other than the file list.
  *
@@ -36,15 +36,15 @@ expect_focus (GtkWidget *window, GtkWidget *expected, const char *what)
 	}
 }
 
-/* Ask the display for the keyboard and wait for it, up to five seconds. A
- * display that is not busy hands it over on the first look.
+/* Ask the display for the keyboard and wait for it, up to 5 seconds. A
+ * display that isn't busy hands it over on the first look.
  *
- * Every Tab check below needs it. With another window holding the keyboard,
+ * Every Tab check below needs it. With the keyboard in another window,
  * GtkContainer's focus handler re-grabs the widget that is already the window's
  * focus widget, because it looks at has-focus, which an unfocused toplevel
  * clears. It then reports that as a move, the traversal stops there, and the
  * check reads as a failure no key press could ever produce - a real Shift+Tab
- * goes to whichever window does hold the keyboard. */
+ * goes to whichever window does have the keyboard. */
 static gboolean
 take_keyboard (GtkWidget *window)
 {
@@ -64,7 +64,7 @@ take_keyboard (GtkWidget *window)
 }
 
 /* One editable row, set up the way "Places" is. The scrolled window around it
- * takes the focus itself when its child will not, so it has to refuse too. */
+ * takes the focus itself when its child won't, so it has to refuse too. */
 static GtkWidget *
 places_list (GtkCellRenderer **renderer, GtkWidget **scrolled)
 {
@@ -209,7 +209,7 @@ main (int argc, char *argv[])
 	gtk_widget_grab_focus (page_button);
 	gtk_widget_child_focus (window, GTK_DIR_TAB_BACKWARD);
 
-	/* Losing it between those two lines is the same thing arriving late. */
+	/* Losing it between those 2 lines is the same thing arriving late. */
 	if (gtk_window_get_focus (GTK_WINDOW (window)) != entry
 	    && !gtk_window_has_toplevel_focus (GTK_WINDOW (window))) {
 		g_print ("another window took the keyboard mid-check; the rest is not checked\n");
@@ -218,7 +218,7 @@ main (int argc, char *argv[])
 	expect_focus (window, entry, "shift+tab out of the page");
 
 	/* What connecting a content view does. It grabs only when the tree pane
-	 * is not holding the focus, or a click in the tree would lose the keyboard. */
+	 * doesn't have the focus, or a click in the tree would lose the keyboard. */
 	gtk_widget_grab_focus (tree_row);
 	if (!eel_gtk_focus_is_within (tree_pane)) {
 		gtk_widget_grab_focus (content);

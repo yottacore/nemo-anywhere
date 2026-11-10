@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ElementTree
 import leconfig
 
 # The configured paths are only right for an install that stayed where it was
-# built, so work them out from this file first: it sits in
+# built, so work them out from this file first: it's in
 # <prefix>/share/<slug>/layout-editor.
 _DATA_HERE = Path(__file__).resolve().parent.parent
 _LOCALE_HERE = _DATA_HERE.parent / "locale"
@@ -79,8 +79,8 @@ def split_list(value):
 
 
 def action_data_dirs():
-    """Where action files can live. The prefix this script sits in goes on the
-    list itself, so the editor still finds the actions that shipped with it when
+    """Where action files can be. The prefix this script is in goes on the
+    list itself, so the editor still finds the actions that came with it when
     it was started from a shell rather than from the app."""
     dirs = list(GLib.get_system_data_dirs())
     own = str(_DATA_HERE.parent)
@@ -105,7 +105,7 @@ def set_default_button(dialog, response):
 
 class WidgetGroup:
     """Sensitivity applied to several widgets at once. Was XApp.VisibilityGroup,
-    which is not available off Cinnamon."""
+    which isn't available off Cinnamon."""
 
     def __init__(self, widgets):
         self.widgets = widgets
@@ -218,7 +218,7 @@ class DisabledActions:
         return None
 
     def from_schema(self):
-        """The shipped default, out of the schema that sits beside the app."""
+        """The built-in default, out of the schema that sits beside the app."""
         text = read_text(Path(PKG_DATADIR).joinpath(leconfig.APP_SLUG + ".schema.shcl"))
         if text is None:
             return []

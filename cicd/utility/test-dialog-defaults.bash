@@ -4,7 +4,7 @@
 ##	  place in source/ that makes one, in C or in Python, has to set a default
 ##	  response in the same function, with gtk_dialog_set_default_response or
 ##	  eel_dialog_set_default. df05h opens the dialogs that can be made without
-##	  the app and checks the button and its focus; this holds the rest.
+##	  the app and checks the button and its focus; this checks the rest.
 ##	- A file chooser is left out: GTK makes its accept button the default when
 ##	  it maps, and the focus belongs in the file list.
 ##	- Also runs the checker over made-up sources, so one that passes everything

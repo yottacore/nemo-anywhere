@@ -305,7 +305,7 @@ finish (void)
 	fflush (out);
 }
 
-/* Each step waits for what the one before set going. Up to ten seconds each. */
+/* Each step waits for what the one before set going. Up to 10 seconds each. */
 static gboolean
 tick (G_GNUC_UNUSED gpointer data)
 {
@@ -403,7 +403,7 @@ tick (G_GNUC_UNUSED gpointer data)
 		gdk_window_get_origin (bin, &origin_x, &origin_y);
 		event->button.window = g_object_ref (bin);
 		event->button.time = (guint32) (g_get_monotonic_time () / 1000);
-		/* Near the left, so the menu has room to the right and is not flipped. */
+		/* Near the left, so the menu has room to the right and isn't flipped. */
 		event->button.x = 60;
 		event->button.y = rect.y + rect.height / 2;
 		event->button.x_root = origin_x + event->button.x;
@@ -412,7 +412,7 @@ tick (G_GNUC_UNUSED gpointer data)
 		gdk_event_set_device (event, gdk_seat_get_pointer (seat));
 		want.x = (int) event->button.x_root;
 		want.y = (int) event->button.y_root;
-		/* GTK places it where the pointer really is, not where the event says. */
+		/* GTK places it where the pointer is, not where the event says. */
 		gdk_device_warp (gdk_seat_get_pointer (seat), gtk_widget_get_screen (pane),
 				 want.x, want.y);
 		gtk_main_do_event (event);

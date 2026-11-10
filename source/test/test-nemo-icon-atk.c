@@ -21,7 +21,7 @@
 */
 
 /* In the icon and compact views, an icon's accessible object had no extents,
- * and asking for its picture's place logged a critical. Now both answer, and
+ * and asking for its picture's place logged a critical. Now both work, and
  * the extents are where the icon is drawn. The built program runs once per
  * view, and once more in the icon view scrolled part way down, with
  * test-nemo-icon-atk-probe preloaded to ask and measure. Each run also
@@ -139,7 +139,7 @@ run_view (const char *exe, const char *probe, const char *view, int files, gbool
 		goto out;
 	}
 
-	/* The probe waits up to ten seconds; the program takes a few to start. */
+	/* The probe waits up to 10 seconds; the program takes a few to start. */
 	for (i = 0; i < 300 && alive (pid) && !done; i++) {
 		g_usleep (100 * 1000);
 		g_free (text);

@@ -1,8 +1,8 @@
-/* The divider has to actually move when the paned changes width, not just be
+/* The divider has to move when the paned changes width, rather than only be
  * asked to. The first version set the position from a size-allocate handler,
  * after GtkPaned had placed its children, and the tree pane never moved. The
  * arithmetic test passed the whole time, so this one reads the width the first
- * child was really given. */
+ * child was given. */
 
 #include <config.h>
 

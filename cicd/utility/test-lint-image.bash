@@ -50,7 +50,7 @@ mkdir -p "${scratch}/bin" "${scratch}/repo/cicd/linux"
 cp "$dockerfile" "${scratch}/repo/cicd/linux/"
 log="${scratch}/docker.log"
 
-## Answers from env: STUB_UP, STUB_HAVE (tags present), STUB_BUILD, STUB_IMAGES.
+## Replies from env: STUB_UP, STUB_HAVE (tags present), STUB_BUILD, STUB_IMAGES.
 cat >"${scratch}/bin/docker" <<'EOF'
 #!/usr/bin/env bash
 echo "$*" >>"$STUB_LOG"
@@ -98,7 +98,7 @@ fCase "NEMO_LINT_HOST=1" "" NEMO_LINT_HOST=1 STUB_HAVE="$want"
 fCase "MSYS2" "" STUB_UNAME=Msys STUB_HAVE="$want"
 [[ -s "$log" ]] && fFail "MSYS2: asked docker anyway"
 
-## A worktree's git dir lives in the main clone, outside what the run mounts.
+## A worktree's git dir is in the main clone, outside what the run mounts.
 git init -q "${scratch}/main"
 git -C "${scratch}/main" -c user.name=t -c user.email=t@t commit -q --allow-empty -m x
 git -C "${scratch}/main" worktree add -q --detach "${scratch}/wt"

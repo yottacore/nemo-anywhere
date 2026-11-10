@@ -21,7 +21,7 @@
 /* The core links GLib, GIO and libarchive and none of the app around it, so
  * it could leave for a project of its own. Everything else it needs comes
  * through an ArcHost: progress, new files, the folder walk, whether a path is
- * on a share, other programs, command lines, deletes, questions and the
+ * on a share, other programs, command lines, deletes, questions, and the
  * pre-scan's bar. The job queue stays in the app, which runs the core's work
  * on the job's thread. Modularity, in
  * project/design_docs/20260929-101432_compression.md, has the layers.
@@ -171,7 +171,7 @@ typedef struct {
 /* error and warning are on the main thread, after the work is done.
    conflict and password are on the job's thread and wait for the answer; the
    host pauses the job's clock while they're up. Fallbacks: error and warning
-   go to the log, conflict answers CANCEL, password answers NULL. */
+   go to the log, conflict returns CANCEL, password returns NULL. */
 typedef struct {
 	void  (*error)    (gpointer data, const char *primary, const char *details);
 	void  (*warning)  (gpointer data, const char *primary, const char *details);

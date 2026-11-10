@@ -7,7 +7,7 @@
 #include <string.h>
 #include <glib.h>
 
-/* A placeholder that survived means a token name that does not match the one
+/* A placeholder that survived means a token name that doesn't match the one
    the default command line was written with - which no switch check would
    notice on its own, since the argument is still there. */
 static gboolean
@@ -24,7 +24,7 @@ has_unexpanded (char **argv)
 	return FALSE;
 }
 
-/* Does argv carry this exact switch? */
+/* Does argv have this exact switch? */
 static gboolean
 has_arg (char       **argv,
 	 const char  *wanted)

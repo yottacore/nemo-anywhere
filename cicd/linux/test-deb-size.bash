@@ -5,7 +5,7 @@
 ##	  filesystem the work dir is on.
 ##	- Packs a small stand-in prefix with a copy of package.bash, .deb only, once
 ##	  under the temp dir and once under /dev/shm when that is another filesystem.
-##	  The release container is named as one that does not exist, so the
+##	  The release container is named as one that doesn't exist, so the
 ##	  dependency line falls back to its fixed list.
 ##	- Needs dpkg-deb; exit 77 without it. Without dpkg-gencontrol the expected
 ##	  size is counted here instead.
@@ -110,7 +110,7 @@ if [[ -f "${scratch}/a.deb" ]]; then
 	want="$(fExpected "${scratch}/a.deb")"
 	got="$(dpkg-deb -f "${scratch}/a.deb" Installed-Size)"
 	if [[ -z "$want" ]]; then
-		fFail "could not work out the expected Installed-Size"
+		fFail "couldn't work out the expected Installed-Size"
 	elif [[ "$got" != "$want" ]]; then
 		fFail "Installed-Size is ${got}, dpkg would write ${want}"
 	else

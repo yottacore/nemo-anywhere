@@ -2433,7 +2433,7 @@ action_new_empty_file_callback (G_GNUC_UNUSED GtkAction *action,
 
 /* @own_window skips the platform's sheet and goes straight to ours - the second
    properties item on Windows, where the shell sheet has nowhere to put a custom
-   icon, an emblem, an annotation or an extension page. */
+   icon, an emblem, an annotation, or an extension page. */
 static void
 show_properties (NemoView *view,
 		 GList    *files,
@@ -7280,7 +7280,7 @@ action_copy_path_callback (G_GNUC_UNUSED GtkAction *action,
 	copy_selection_paths (NEMO_VIEW (callback_data), nemo_path_get_display_separator ());
 }
 
-/* The other spelling of the same path. Windows only - nowhere else has two. */
+/* The other spelling of the same path. Windows only - nowhere else has 2. */
 static void
 action_copy_path_alt_callback (G_GNUC_UNUSED GtkAction *action,
 			       gpointer callback_data)
@@ -7363,9 +7363,9 @@ action_open_in_explorer_callback (G_GNUC_UNUSED GtkAction *action,
 #endif
 }
 
-/* The label spells out the separator the paths are not being shown with, so it
+/* The label names the separator the paths aren't being shown with, so it
    is set each time a menu is built. Windows only - nowhere else has a second
-   separator, and there the item is not shown at all. */
+   separator, and there the item isn't shown at all. */
 static void
 update_copy_path_alt_action (NemoView   *view,
 			     const char *action_name,
@@ -7673,7 +7673,7 @@ browse_extract_to_response_cb (GtkDialog *dialog,
 }
 
 /* What to unpack is taken now rather than when the chooser is answered: the
-   chooser is not modal, so the selection can have moved on by then. */
+   chooser isn't modal, so the selection can have moved on by then. */
 static void
 action_extract_to_callback (G_GNUC_UNUSED GtkAction *action,
 			    gpointer callback_data)
@@ -7993,7 +7993,7 @@ paste_clipboard_data (NemoView *view,
 									 copied_files_atom);
 
 #ifdef G_OS_WIN32
-	/* A copy made in another program carries only the Windows format. */
+	/* A copy made in another program has only the Windows format. */
 	if (item_uris == NULL) {
 		item_uris = nemo_clipboard_win32_get_files (&cut);
 	}
@@ -9507,7 +9507,7 @@ static const GtkActionEntry directory_view_entries[] = {
   /* label, accelerator */       N_("Cop_y path"), "",
   /* tooltip */                  N_("Copy the full path of this folder to the clipboard"),
 				 G_CALLBACK (action_background_copy_path_callback) },
-  /* The label carries the separator, so it is filled in when the menu is built. */
+  /* The label has the separator, so it is filled in when the menu is built. */
   /* name, stock id */         { NEMO_ACTION_COPY_PATH_ALT, "edit-copy-symbolic",
   /* label, accelerator */       NULL, "",
   /* tooltip */                  N_("Copy the full path of each selected item with the other separator"),
@@ -9576,7 +9576,7 @@ static const GtkActionEntry directory_view_entries[] = {
   /* Control on macOS too, where Cmd+M minimizes */
   /* name, stock id */         { "Create Link", NULL,
   /* label, accelerator */       N_("Ma_ke link..."), "<control>M",
-  /* tooltip */                  N_("Make a symlink, hardlink, junction or Windows shortcut to each selected item"),
+  /* tooltip */                  N_("Make a symlink, hardlink, junction, or Windows shortcut to each selected item"),
 				 G_CALLBACK (action_create_link_callback) },
   /* name, stock id */         { "Edit Link", NULL,
   /* label, accelerator */       N_("_Edit link..."), NULL,
@@ -10000,7 +10000,7 @@ clipboard_targets_received (G_GNUC_UNUSED GtkClipboard     *clipboard,
 	}
 
 #ifdef G_OS_WIN32
-	/* Another program's copy carries no nemo format to look for. */
+	/* Another program's copy has no nemo format to look for. */
 	if (!can_paste) {
 		can_paste = nemo_clipboard_win32_has_files ();
 	}
@@ -10781,7 +10781,7 @@ real_update_location_menu (NemoView *view)
 	g_assert (NEMO_IS_FILE (file));
 	/* MOUNT/FILESYSTEM_INFO may still be pending for a path-bar ancestor. We pop
 	   up now regardless (see schedule_pop_up_location_context_menu) - the volume
-	   items just stay hidden until that info exists, rather than deferring the
+	   items stay hidden until that info exists, rather than deferring the
 	   whole menu.
 
 	   INFO is usually there too, but on a slow mount it may not be, and
@@ -10820,7 +10820,7 @@ real_update_location_menu (NemoView *view)
 #endif
 
 		/* New folder goes inside this segment, so only offer it for the
-		   folder actually on display - an ancestor segment would create
+		   folder on display - an ancestor segment would create
 		   somewhere you can't see. */
 		gboolean is_current_dir = FALSE;
 		if (view->details->directory_as_file != NULL) {
@@ -11103,7 +11103,7 @@ real_update_menus (NemoView *view)
                                          NEMO_ACTION_OPEN_IN_EXPLORER);
 #ifdef G_OS_WIN32
     {
-        /* One entry at a time, and one Explorer can actually be pointed at:
+        /* One entry at a time, and one Explorer can be pointed at:
            a remote uri has no path to hand it. */
         gboolean can_show = FALSE;
 
@@ -11309,7 +11309,7 @@ real_update_menus (NemoView *view)
 					      NEMO_ACTION_CREATE_LINK);
 	/* Always something to offer, even on Windows without the symlink
 	   privilege: a junction needs none and nor does a hardlink. The dialog
-	   grays what this machine cannot make. */
+	   grays what this machine can't make. */
 	gtk_action_set_sensitive (action, can_link_files);
     gtk_action_set_visible (action, !selection_contains_recent && !selection_contains_favorites);
 	g_object_set (action, "label",
@@ -11318,7 +11318,7 @@ real_update_menus (NemoView *view)
 				selection_count),
 		      NULL);
 
-	/* A hardlink has nothing to change, so it is not offered one. */
+	/* A hardlink has nothing to change, so it isn't offered one. */
 	action = gtk_action_group_get_action (view->details->dir_action_group,
 					      NEMO_ACTION_EDIT_LINK);
 	gtk_action_set_visible (action, selection_count == 1 &&
@@ -11435,7 +11435,7 @@ real_update_menus (NemoView *view)
 			      NULL);
 
 		/* This one writes wherever it is pointed, so the folder being
-		   viewed being read-only is not its problem. */
+		   viewed being read-only isn't its problem. */
 		action = gtk_action_group_get_action (view->details->dir_action_group,
 						      NEMO_ACTION_EXTRACT_TO);
 		gtk_action_set_visible (action, is_archives);
@@ -11749,7 +11749,7 @@ schedule_pop_up_location_context_menu (NemoView *view,
 	   whenever the file wasn't loaded yet; that fired after the button release with
 	   a stale event, so the menu flashed open and shut and you had to right-click a
 	   second time. INFO is already loaded for path-bar segments, so the core items
-	   are correct; the volume items just stay hidden until the warm load finishes. */
+	   are correct; the volume items stay hidden until the warm load finishes. */
 	real_pop_up_location_context_menu (view);
 }
 

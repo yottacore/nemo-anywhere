@@ -134,7 +134,7 @@ add_mixed_unit_transition (GtkWidget *widget)
 	g_object_unref (provider);
 }
 
-/* A Linux build carries no bundled set, so the vendored themes go in as
+/* A Linux build has no bundled set, so the vendored themes go in as
    drop-ins, the loader a user's own theme takes. Returns the folder. */
 static char *
 offer_vendored_themes (void)

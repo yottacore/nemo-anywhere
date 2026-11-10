@@ -3,16 +3,16 @@
 ##	- Purpose: Build the Linux release artifacts under the names the installers
 ##	  look for: nemo-anywhere-<ver>-linux-<arch>.tar.gz plus a shared
 ##	  nemo-anywhere-<ver>-sha256sums.txt (see design.md, Delivery).
-##	- Built from the nemo-build-jammy image (Ubuntu 22.04), NOT the day-to-day
-##	  nemo-build-deps one: the release binary's glibc floor is whatever it was
-##	  built against, and trixie's 2.41 would rule out every distro older than
-##	  2025. See the Dockerfile beside this script.
+##	- Built from the Ubuntu 22.04 nemo-build-jammy image rather than the
+##	  day-to-day nemo-build-deps one, because the release binary's glibc floor is
+##	  whatever it was built against, and trixie's 2.41 would rule out every
+##	  distro older than 2025. See the Dockerfile beside this script.
 ##	- In a container of its own, named and removed the way every step's is
 ##	  (utility/include/step-box.bash). The image is built on demand, so a fresh
 ##	  clone can cut a release with one command.
-##	- The sums file covers every artifact sitting in the release dir, so a Windows
-##	  exe dropped in beside the tarball (the CI builds and signs that one) is
-##	  covered by the same file the installers verify against.
+##	- The sums file covers every artifact in the release dir, so a Windows exe
+##	  dropped in beside the tarball is covered by the same file the installers
+##	  verify against. The CI builds and signs that exe.
 ##	- Every build starts from an empty build dir, in the container, so no cache
 ##	  volume; release-setup.bash says why.
 ##	- Syntax: release.bash
@@ -58,7 +58,7 @@ fSetSourceDate "$ROOT"
 fWarnIfSourceDateIsAGuess "$ROOT"
 
 ## The pipeline's job count, from cicd.bash, or worked out the same way when run
-## alone - a release build should not make the box unusable either.
+## alone. A release build shouldn't make the box unusable either.
 fJobs_Default
 jobs="${CICD_MAX_JOBS}"
 
@@ -74,7 +74,7 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
 	fEcho_Clean "building image ${IMAGE}"
 	docker build --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" -t "$IMAGE" "${ROOT}/cicd/linux/" >/dev/null
 fi
-## -j alone does not hold the build to that many cores: every LTO link runs 4
+## -j alone doesn't limit the build to that many cores, since every LTO link runs 4
 ## jobs of its own, and ninja runs several links at once. So the container
 ## gets the cap too. The --security-opt pair lets the test's jail start (jail.bash).
 trap 'fStepBox_Stop' EXIT
@@ -99,18 +99,18 @@ arch="$(fReleaseArch "$machine")" || fDie "no release name for a ${machine} buil
 fEcho_Clean ""
 fEcho "Building ${SLUG} ${ver} (linux-${arch})"
 docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" bash /src/cicd/linux/release-setup.bash "$BUILD" /src/source "/opt/${SLUG}" \
-	|| fDie "could not set up ${BUILD} in ${CONTAINER}"
+	|| fDie "couldn't set up ${BUILD} in ${CONTAINER}"
 docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" nice -n 19 ninja -C "$BUILD" -j "$jobs" | tail -1
 
 fEcho_Clean ""
 fEcho "Smoke test"
 smoke="$(docker exec "$CONTAINER" xvfb-run -a "${BUILD}/src/${SLUG}" --version)"
-## Prefix match, not equality: the version string carries a build number that moves
+## Prefix match, not equality, since the version string has a build number that moves
 ## on every reconfigure. An exact match here silently failed every release for a week.
 [[ "$smoke" == "${SLUG} v${ver} build "* ]] || fDie "smoke test said '${smoke}', expected '${SLUG} v${ver} build <n>'"
 fEcho_Clean "$smoke"
-## The extension API lives in the exe in this build, and nothing else in the
-## lane would notice if an extension could no longer reach it.
+## The extension API is in the exe in this build, and nothing else in the
+## lane would notice if an extension could no longer link to it.
 docker exec "$CONTAINER" meson test -C "$BUILD" --no-rebuild --wrapper "bash /src/cicd/linux/jail.bash" "dcsvh Extension load test" >/dev/null \
 	|| fDie "extension load test failed; see ${BUILD}/meson-logs/testlog-bash.txt in ${CONTAINER} (kept with --keep-temp)"
 
@@ -127,7 +127,7 @@ fEcho_Clean ""
 fEcho "Packing ${name}.tar.gz"
 mkdir -p "$OUT"
 fSafeRm_Under "${OUT}" "${OUT}/${name}" "${OUT}/${name}.tar.gz"
-## /build* is not host-mounted, so docker cp is the only way out of the container.
+## /build* isn't host-mounted, so docker cp is the only way out of the container.
 docker cp "${CONTAINER}:${STAGE}" "${OUT}/${name}" >/dev/null
 ## Fixed owner, timestamp and entry order, so the same commit produces the same
 ## archive on any box. Without --sort the entries come out in readdir order, which
@@ -138,8 +138,8 @@ tar -czf "${OUT}/${name}.tar.gz" -C "$OUT" \
 	"${name}"
 
 ## Keep the staged tree on disk as well. The dogfood stage installs from it and the
-## launcher probes it, and neither should have to unpack the tarball to get at the
-## same files. Version-free name, so whatever is here is simply the current build.
+## launcher probes it, and neither should have to extract the tarball to get at the
+## same files. Version-free name, so whatever is here is the current build.
 fSafeRm_Under "${ROOT}/cicd/artifacts" "${DOGFOOD}"
 mkdir -p "$(dirname "${DOGFOOD}")"
 cp -a "${OUT}/${name}" "${DOGFOOD}"

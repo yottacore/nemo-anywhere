@@ -86,7 +86,7 @@ NemoDesktopWindow GtkPaned {
 /* The hover tint on list and sidebar rows is set per tree view by
    nemo-row-hover.c, since it is worked out from the theme's colors. */
 
-/* The bottom bar carries the side-pane buttons again, so it needs room for a
+/* The bottom bar has the side-pane buttons again, so it needs room for a
    button - but only just. Themes size both a button and the scale for a dialog,
    which is far taller than this bar wants to be. */
 #nemo-statusbar {
@@ -115,14 +115,14 @@ NemoDesktopWindow GtkPaned {
 }
 
 /* Most themes give an unselected tab no edge at all, so a row of them reads as
-   one strip with no telling where one tab stops. Draw a divider between any two
+   one strip with no telling where one tab stops. Draw a divider between any 2
    adjacent tabs that are both unselected. */
 notebook > header.top > tabs > tab:not(:checked) + tab:not(:checked),
 notebook > header.bottom > tabs > tab:not(:checked) + tab:not(:checked) {
 	border-left: 1px solid alpha(currentColor, 0.25);
 }
 
-/* Escape parks the list view's cursor on the first row, where it should not show. */
+/* Escape parks the list view's cursor on the first row, where it shouldn't show. */
 .nemo-cursor-forgotten {
 	outline-style: none;
 }

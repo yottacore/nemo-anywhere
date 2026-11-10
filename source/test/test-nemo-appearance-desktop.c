@@ -1,5 +1,5 @@
 /* The desktop's own icon and widget theme, as XSETTINGS hands them to GTK.
- * With nothing picked in the app, a change on the desktop has to reach the
+ * With nothing picked in the app, a change on the desktop has to get to the
  * window while it runs. A pick in the app wins over the desktop until it is
  * cleared, and clearing it goes back to what the desktop says now, not what it
  * said at launch.
@@ -201,7 +201,7 @@ showing (const char *icon_theme, const char *widget)
 	return same;
 }
 
-/* The change comes in as an X event, so let GDK read it. A wrong answer waits
+/* The change comes in as an X event, so let GDK read it. A wrong theme waits
  * out the whole limit and then fails, which is the point. */
 static gboolean
 settle_on (const char *icon_theme, const char *widget)
@@ -289,7 +289,7 @@ main (int argc, char *argv[])
 	desktop_says ("ZzDeskThree", "ZzWidgetOne");
 	check (settle_on ("ZzPicked", "ZzWidgetPicked"));
 
-	/* Cleared, it's the desktop's answer from now, and the desktop leads again. */
+	/* Cleared, it's the desktop's theme from now, and the desktop leads again. */
 	choose (NEMO_PREFERENCES_APPEARANCE_ICON_THEME, "");
 	choose (NEMO_PREFERENCES_APPEARANCE_GTK_THEME, "");
 	check (settle_on ("ZzDeskThree", "ZzWidgetOne"));

@@ -36,12 +36,12 @@ field: archive.create-with-rar
 field: archive.extract-with-7z
 	type: string
 	default: "{{PROGRAM}} x -y -bsp1 -spd {{PASSWORD}} -o{{TARGET_FOLDER}} -- {{SOURCE_ARCHIVE}}"
-	desc: "Command line 7-Zip is run with to unpack an archive. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program. Empty the line for the built-in one."
+	desc: "Command line 7-Zip is run with to extract an archive. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program. Empty the line for the built-in one."
 
 field: archive.extract-with-rar
 	type: string
 	default: "{{PROGRAM}} x -y {{PASSWORD}} -- {{SOURCE_ARCHIVE}} {{TARGET_FOLDER_WITH_SEPARATOR}}"
-	desc: "Command line rar or unrar is run with to unpack an archive. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program. Empty the line for the built-in one."
+	desc: "Command line rar or unrar is run with to extract an archive. Base flags only, which the app adds to or changes as a job needs; edit only to suit a different version of the program. Empty the line for the built-in one."
 
 field: archive.last-each
 	type: bool
@@ -127,7 +127,7 @@ field: compact-view.all-columns-have-same-width
 field: compact-view.default-icon-size
 	type: int
 	default: 100
-	desc: Icon size as a per cent of the standard 64 pixels
+	desc: Icon size as a percent of the standard 64 pixels
 
 field: debug.testguard-all-deletes
 	type: bool
@@ -232,12 +232,12 @@ field: icon-view.captions
 field: icon-view.default-icon-size
 	type: int
 	default: 100
-	desc: Icon size as a per cent of the standard 64 pixels
+	desc: Icon size as a percent of the standard 64 pixels
 
 field: icon-view.default-image-icon-size
 	type: int
 	default: 500
-	desc: "Icon size for a folder that is mostly images, as a per cent of the standard 64 pixels"
+	desc: "Icon size for a folder that is mostly images, as a percent of the standard 64 pixels"
 
 field: icon-view.image-folder-min-images
 	type: int
@@ -284,7 +284,7 @@ field: list-view.default-visible-columns
 field: list-view.default-icon-size
 	type: int
 	default: 75
-	desc: Icon size as a per cent of the standard 64 pixels
+	desc: Icon size as a percent of the standard 64 pixels
 
 field: list-view.enable-folder-expansion
 	type: bool
@@ -309,7 +309,7 @@ field: list-view.row-shading-color
 field: plugins.disabled-actions
 	type: string-array
 	default: [90_new-launcher.nemo_action, 90_new-workspace.nemo_action, 91_delete-workspace.nemo_action, 92_show-expo.nemo_action, add-desklets.nemo_action, change-background.nemo_action, set-as-background.nemo_action, set-resolution.nemo_action]
-	desc: Action files that are switched off. The shipped Cinnamon-only ones start here
+	desc: Action files that are switched off. The Cinnamon-only ones that come with the app start here
 
 field: plugins.disabled-extensions
 	type: string-array
@@ -473,7 +473,7 @@ field: preferences.never-queue-file-ops
 field: preferences.remember-folder-settings
 	type: bool
 	default: false
-	desc: "Each folder keeps its own view, zoom, sort and columns"
+	desc: "Each folder keeps its own view, zoom, sort, and columns"
 
 field: preferences.rename-selects-whole-name
 	type: bool

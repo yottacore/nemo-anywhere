@@ -7,13 +7,13 @@
 ##		  (2026100917220603). A program packed in the single exe can't load its
 ##		  libraries under hooking tools like MacType.
 ##		- The zip, which install.ps1 and the setup exe are made from, is read in
-##		  the packages stage. pack-portable.ps1 runs it on the flat tree it is
+##		  the packages stage. pack-portable.ps1 runs it on the flat tree it's
 ##		  about to pack into the single exe, and test-install-acl.ps1 on what
 ##		  install.ps1 put in place.
 ##		- With no -Path it reads this version's zip in cicd/artifacts/release,
 ##		  and exits 77 when there is none.
 ##		- -SelfTest makes small bundles with and without another exe and checks
-##		  each answer. Runs in the lint stage.
+##		  each result. Runs in the lint stage.
 ##	Syntax:
 ##		pwsh -NoProfile -File cicd/utility/test-bundle-exes.ps1 [-SelfTest] [-Path <zip or folder>...]
 ##	Test ID: ddqv0
@@ -59,7 +59,7 @@ function Get-BundleFile {
 	return $names
 }
 
-## The problems with one bundle, one line each; none when it is good.
+## The problems with one bundle, one line each, and none when it's good.
 function Test-Bundle {
 	param([Parameter(Mandatory)][string]$Bundle)
 	$label = Split-Path -Leaf $Bundle

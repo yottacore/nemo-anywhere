@@ -1,32 +1,33 @@
 #!/usr/bin/env pwsh
 
 ##	Purpose:
-##		- Dogfood launcher for Nemo Anywhere, same script on Linux, Windows and macOS.
+##		- Dogfood launcher for Nemo Anywhere, same script on Linux, Windows, and macOS.
 ##		  Copies the current build out of the synced dogfood dir into a local pool of
 ##		  date-stamped versions, points a symlink at the newest, and runs it with
 ##		  whatever arguments were passed.
-##		- A version is named '<name>_<YYYYMMDD-HHMMSS>_<role>' (+ '.exe' on Windows)
+##		- A version is named '<name>_<YYYYMMDD-HHMMSS>_<role>', plus '.exe' on Windows,
 ##		  where the stamp is the source build's mtime. Stamped names mean a running
 ##		  copy never blocks the next one, and the symlink is the only fixed name.
-##		- On Windows a build is one packed self-contained exe. Everywhere else it is a
+##		- On Windows a build is one packed self-contained exe. Everywhere else it's a
 ##		  relocatable prefix tree, so a version is a directory and the symlink points
 ##		  at the binary in its bin/, which sorts out its own runtime environment. On
 ##		  macOS the tree is an app bundle's Contents and the binary is in MacOS/.
 ##		- The pool is GFS-rotated on every run: the newest of each completed hour, day,
-##		  week, month and year, plus the most recent few, plus the very first build,
-##		  which is kept forever. On top of that a hard budget - at most 10 versions, at
-##		  least 5, and between those two only as many as fit in 1 GB. A version with a
+##		  week, month, and year, plus the most recent few, plus the very first build,
+##		  which is kept forever. On top of that is a hard budget: at most 10 versions,
+##		  at least 5, and between those 2 only as many as fit in 1 GB. A version with a
 ##		  running process in it is never removed.
-##		- Copies of one build do not agree on mtime (the sync layer restamps what it
-##		  carries), so a build that is already held is settled on its bytes, not its
-##		  date. Otherwise the same build comes back in under a new stamp every run.
+##		- Copies of one build don't agree on mtime, since the sync layer restamps the
+##		  files it syncs, so a build that's already in the pool is matched on its bytes
+##		  rather than its date. Otherwise the same build comes back in under a new
+##		  stamp every run.
 ##		- On Windows the whole launcher self-elevates: making a symlink needs a
-##		  privilege a filtered token does not have, so an unelevated run could not
+##		  privilege a filtered token doesn't have, so an unelevated run couldn't
 ##		  repoint the link and would keep launching the version it already had.
 ##		  '--no-admin' opts out.
 ##		- Opens at a configured startup location when the caller names none, and falls
-##		  back to another file manager when there is no build to run at all.
-##		- '--no-admin', '--no-update', '--install-only' and '--gui' are consumed here;
+##		  back to another file manager when there's no build to run at all.
+##		- '--no-admin', '--no-update', '--install-only', and '--gui' are consumed here;
 ##		  everything else is checked against the app's own options and forwarded.
 ##	History: At bottom of script.
 
@@ -47,20 +48,20 @@ $ExeExt  = if ($IsWindows) { ".exe" } else { "" }
 $ExeName = "${ProgramName}${ExeExt}"
 
 ## What a build looks like. Windows packs the whole GTK runtime into one exe; every
-## other platform ships the relocatable prefix, so a version is a directory and
+## other platform has the relocatable prefix, so a version is a directory and
 ## $PayloadMainBin is the binary inside it that the symlink and the launch point at.
-## That same file is what a build is identified by. On macOS the prefix sits in the
+## That same file is what a build is identified by. On macOS the prefix is in the
 ## bundle's Resources, and the binary in MacOS finds it there.
 $PayloadIsFile  = $IsWindows
 $PayloadMainBin = if ($IsWindows) { "" } elseif ($IsMacOS) { "Contents/MacOS/${ProgramName}" } else { "bin/${ProgramName}" }
 $PayloadShare   = if ($IsMacOS) { "Contents/Resources/share" } else { "share" }
 
 ## Where a build arrives from: the synced dogfood dir for this platform, which is
-## what the pipeline's dogfood stage publishes to. Only ever this platform's dir - a
-## Windows box has no use for the linux prefix sitting next to it. The sync tree gets
-## spelled differently from box to box, so each platform keeps a list and the first
-## one actually holding a build wins. 'synced' is a link to the Dropbox folder where
-## it exists at all, so the second spelling is what saves a box that lacks the link.
+## what the pipeline's dogfood stage publishes to. Only ever this platform's dir,
+## since a Windows box has no use for the linux prefix next to it. The sync tree has
+## a different path from box to box, so each platform has a list and the first one
+## with a build in it wins. 'synced' is a link to the Dropbox folder where it exists
+## at all, so the second path is for a box without the link.
 $SourceDirs = if ($IsWindows) {
 	@(
 		(Join-Path $HOME "synced\0-0\common\exec\app\mswin")
@@ -80,7 +81,7 @@ $SourceDirs = if ($IsWindows) {
 
 ## The shell wrapper a menu entry or shortcut should run, so a click goes through the
 ## same path a typed 'runfm' does. Neither box has the wrapper dir on PATH, so a
-## lookup alone is not enough - these are where deploy-launcher.bash puts them.
+## lookup alone isn't enough. These are where deploy-launcher.bash puts them.
 $WrapperPaths = if ($IsWindows) {
 	@(
 		(Join-Path $HOME "synced\0-0\common\exec\util\mswin\cli\by-self\cmd\runfm.cmd")
@@ -100,7 +101,7 @@ $WrapperPaths = if ($IsWindows) {
 
 ## Where this script itself gets deployed. A menu entry or shortcut has to name a
 ## path that will still be there next week, so a copy run from a scratch directory
-## writes no shortcut at all rather than one aimed at a file that is about to go.
+## writes no shortcut at all rather than one aimed at a file that's about to go.
 $LauncherPaths = if ($IsWindows) {
 	@(
 		(Join-Path $HOME "synced\0-0\common\exec\util\0_crossplatform\n8runfm.ps1")
@@ -113,8 +114,8 @@ $LauncherPaths = if ($IsWindows) {
 	)
 }
 
-## Where the pool lives and what the fixed name is. Deliberately local rather than
-## synced: versions churn on every build and have no business riding Dropbox. A
+## Where the pool goes and what the fixed name is. Local rather than synced, since
+## versions churn on every build and have no business in Dropbox. A
 ## packed exe also starts noticeably faster from LOCALAPPDATA than from a synced
 ## tree, where a scanner or the sync client is watching every read.
 if ($IsWindows) {
@@ -129,7 +130,7 @@ $LinkPath  = Join-Path $InstallDir $ExeName
 
 ## Pools from before this one: stamped copies under their own prefix, in whichever
 ## directory that version of the launcher kept them in. Retired on sight, since
-## neither sweep below can see them - and on Windows they are ~40 MB each.
+## neither sweep below can see them, and on Windows they're about 40 MB each.
 $LegacyPrefix = "nemofmdf"
 $LegacyDirs   = if ($IsWindows) {
 	@(
@@ -150,15 +151,15 @@ $LegacyDirs   = if ($IsWindows) {
 ##
 ## The by-self path is the old dogfood drop and is retired on purpose, the same one
 ## cicd-win.ps1 clears after a publish. Nothing else under there may be listed: on at
-## least one box 'exec\synced\util' is a LINK INTO THE LIVE SYNCED TREE, so a path
-## that looks local deletes the real file and the sync layer carries that everywhere.
-## Launcher files in particular are never swept - they live in that tree.
+## least one box 'exec\synced\util' is a link into the live synced tree, so a path
+## that looks local deletes the real file and the sync layer syncs that everywhere.
+## Launcher files in particular are never swept, since they're in that tree.
 $LegacyLaunchers = if ($IsWindows) {
 	@(
 		"C:\0-0\common\exec\synced\util\mswin\gui\by-self\win64\${ProgramName}.exe"
 		"C:\0-0\common\exec\synced\util\mswin\gui\by-self\win64\${ProgramName}"
 		"C:\opt\0-0\common\exec\local\util\mswin\gui\by-self\win64\${ProgramName}.exe"
-		## The run log the launcher left behind when the pool lived there.
+		## The run log the launcher left behind when the pool was there.
 		"C:\0-0\common\exec\local\util\mswin\gui\by-self\win64\n8runfm.log"
 		"C:\opt\0-0\common\exec\local\util\mswin\gui\by-self\win64\n8runfm.log"
 	)
@@ -167,15 +168,15 @@ $LegacyLaunchers = if ($IsWindows) {
 }
 
 ## Pool budget. Never more than $MaxVersions, never fewer than $MinVersions, and
-## between the two only as many as fit in $MaxPoolBytes. The oldest version held is
-## exempt: it is the one build that is kept forever.
+## between the 2 only as many as fit in $MaxPoolBytes. The oldest version in the pool
+## is exempt, since it's the one build that's kept forever.
 $MaxVersions  = 10
 $MinVersions  = 5
 $MaxPoolBytes = 1GB
 
 ## GFS retention, before the budget above trims it. Roles are retrospective: a
-## version is tagged hour/day/week/month/year only once that period has ended and it
-## is the last one in it. Sums to the budget's ceiling plus the first.
+## version is tagged hour/day/week/month/year only once that period has ended and it's
+## the last one in it. Sums to the budget's ceiling plus the first.
 $KeepFrequent = 3
 $KeepHourly   = 2
 $KeepDaily    = 2
@@ -186,21 +187,22 @@ $KeepYearly   = 1
 ## Stamp format shared by every copy name and date comparison below.
 $StampFormat = "yyyyMMdd-HHmmss"
 
-## Same instant, spelled for a person.
+## Same instant, written for a person.
 $StampDisplay = "yyyy-MM-dd HH:mm:ss"
 
 ## Launch elevated. Windows only, on by default, '--no-admin' turns it off. Set from
-## the flag at the entry point, so this initial value is not the default.
+## the flag at the entry point, so this initial value isn't the default.
 $RunAsAdmin = $false
 
 ## Options the app itself accepts, so a typo is refused here instead of forwarded.
 ## The packed Windows exe is GUI-subsystem: its "Could not parse arguments" goes to
-## a stderr nobody is attached to, and it takes over ten seconds to get that far, so
+## a stderr nobody is attached to, and it takes over 10 seconds to get that far, so
 ## an unknown flag reads as the launcher doing nothing at all. Anything not starting
 ## with '-' is a path or URI and passes untouched.
 ##
-## First list is nemo's own (source/src/nemo-main-application.c, the GOptionEntry
-## table); second is the GTK option group it adds. Keep them in step with that table.
+## First list is the app's own, from the GOptionEntry table in
+## source/src/nemo-main-application.c. Second is the GTK option group it adds. Keep
+## them in step with that table.
 $KnownAppOptions = @(
 	"--check", "-c", "--browser", "--version", "--geometry", "-g",
 	"--no-default-window", "-n", "--no-desktop", "--tabs", "-t", "--select", "-s",
@@ -220,8 +222,8 @@ $ValueAppOptions = @(
 	"--tab-view", "--tab-select"
 )
 
-## Fallback file managers, tried in order when there is no build of ours to run.
-## Launched plainly (generic managers accept a path arg at most).
+## Fallback file managers, tried in order when there's no build of ours to run.
+## Launched plainly, since generic managers accept a path arg at most.
 $FallbackManagers = if ($IsWindows) {
 	@("explorer.exe")
 } else {
@@ -229,8 +231,8 @@ $FallbackManagers = if ($IsWindows) {
 }
 
 ## Where the app opens when the caller didn't name a location. First candidate that
-## exists wins - C:\opt\0-0 is a junction to C:\0-0 here, but another box may have
-## only one of the two. Nothing here has to exist; if none does, the app just opens
+## exists wins. C:\opt\0-0 is a junction to C:\0-0 here, but another box may have
+## only one of the 2. Nothing here has to exist; if none does, the app opens
 ## wherever it would have on its own.
 $StartupLocations = if ($IsWindows) {
 	@(
@@ -247,16 +249,16 @@ $StartupLocations = if ($IsWindows) {
 ## notes refer to; on Windows the pool dir is as good a home as any.
 $LogDir = if ($IsWindows) { $TargetDir } else { Join-Path $HOME ".local/share/nemo-anywhere-dogfood" }
 
-## Per-run decision log, so a window that closes on its own cannot lose the reason
+## Per-run decision log, so a window that closes on its own can't lose the reason
 ## behind a launch.
 $RunLog = Join-Path $LogDir "n8runfm.log"
 
-## Unix only: where the detached app's own output goes (GTK/GLib gripes, the trash
-## and delete job log, and any crash message), since it no longer has the caller's
-## console. Appended to and trimmed like the run log.
+## Unix only: where the detached app's own output goes, since it no longer has the
+## caller's console. That's GTK/GLib gripes, the trash and delete job log, and any
+## crash message. Appended to and trimmed like the run log.
 $AppLog = Join-Path $LogDir "n8runfm-app.log"
 
-## Running-process image paths, filled in on first use (see fRunningExePaths).
+## Running-process image paths, filled in on first use by fRunningExePaths.
 $RunningPaths = $null
 
 
@@ -301,7 +303,7 @@ function fMain {
 
 	## Not tied to the launch: a box that has no build yet still has a stale shortcut
 	## worth repointing, and one that was pruned to nothing would otherwise keep a
-	## menu entry aimed at a version directory that is gone.
+	## menu entry aimed at a version directory that's gone.
 	fStep "Desktop"
 	if     ($IsWindows) { fRefreshShortcuts }
 	elseif ($IsMacOS)   { fWriteMacApp }
@@ -314,8 +316,8 @@ function fMain {
 	$PassArgs = fAddStartupLocation -PassArgs $PassArgs
 	$exe = fRunTarget
 	if ($exe) {
-		## The Process goes nowhere - it's there for a test harness, and letting it
-		## reach the output stream would dump a process table on the way out.
+		## The Process goes nowhere. It's there for a test harness, and letting it
+		## into the output stream would dump a process table on the way out.
 		$null = fLaunchApp -Exe $exe -PassArgs $PassArgs
 		return
 	}
@@ -326,10 +328,10 @@ function fMain {
 
 
 ## Refuse an option the app will reject, rather than forwarding it into a silent
-## death (see $KnownAppOptions). Only '-'-leading tokens are checked - anything else
+## death, per $KnownAppOptions. Only '-'-leading tokens are checked, and anything else
 ## is a path or URI. '--opt=value' is checked on the name; a value that follows as
 ## its own token doesn't lead with '-', so it passes as a path would. '--' ends the
-## options, and a single-dash run of known short flags ('-tn') is accepted bundled.
+## options, and a single-dash run of known short flags, such as '-tn', is accepted.
 function fCheckPassArgs {
 	param([string[]]$PassArgs)
 
@@ -379,8 +381,8 @@ function fAddStartupLocation {
 
 
 ## True when the caller already named where to open. Anything after '--' is a path
-## or URI; before it, so is any token that doesn't lead with '-', unless it is the
-## value of the option in front of it (see $ValueAppOptions).
+## or URI; before it, so is any token that doesn't lead with '-', unless it's the
+## value of the option in front of it, per $ValueAppOptions.
 function fHasLocationArg {
 	param([string[]]$PassArgs)
 
@@ -393,7 +395,7 @@ function fHasLocationArg {
 		if ($arg -eq "--") { $afterDash = $true; continue }
 		if ($skipNext) { $skipNext = $false; continue }
 		if ($arg -match '^-') {
-			## '--opt=value' carries its own value; '--opt value' eats the next token.
+			## '--opt=value' has its own value; '--opt value' eats the next token.
 			if ($arg -notmatch '=' -and $ValueAppOptions -contains $arg) { $skipNext = $true }
 			continue
 		}
@@ -403,9 +405,8 @@ function fHasLocationArg {
 }
 
 
-## The build to consider: the first configured source dir that actually holds one.
-## Returns a FileInfo (Windows) or DirectoryInfo (the prefix everywhere else), or
-## $null.
+## The build to consider: the first configured source dir that has one. Returns a
+## FileInfo on Windows, a DirectoryInfo for the prefix everywhere else, or $null.
 function fPickSource {
 	foreach ($dir in $SourceDirs) {
 		$path = Join-Path $dir $ExeName
@@ -420,7 +421,7 @@ function fPickSource {
 
 ## The one file that says which build a payload is: the payload itself on Windows,
 ## the binary inside the prefix everywhere else. Its mtime is the build stamp and
-## its bytes settle whether two copies are the same build. Returns a FileInfo, or
+## its bytes settle whether 2 copies are the same build. Returns a FileInfo, or
 ## $null when the payload is incomplete.
 function fIdFile {
 	param([Parameter(Mandatory)][string]$PayloadPath)
@@ -429,8 +430,8 @@ function fIdFile {
 }
 
 
-## Bring in the synced build when it is newer than everything held. Copies to a
-## '.partial' name and renames into place, so a run that dies mid-copy cannot leave
+## Bring in the synced build when it's newer than everything in the pool. Copies to a
+## '.partial' name and renames into place, so a run that dies mid-copy can't leave
 ## a half-written version that later reads as a perfectly good one.
 function fCopyIfNewer {
 	$src = fPickSource
@@ -454,9 +455,9 @@ function fCopyIfNewer {
 		return
 	}
 
-	## The sync layer restamps what it carries, so a build already held keeps looking
-	## new. Settle it on the bytes and just take the newer stamp, which makes the
-	## cheap date test above answer it next run.
+	## The sync layer restamps the files it syncs, so a build already in the pool
+	## keeps looking new. Settle it on the bytes and take the newer stamp, so the
+	## cheap date test above settles it next run.
 	$twin = fHeldMatching -SourceId $srcId
 	if ($twin) {
 		$restamped = Join-Path $TargetDir "${ProgramName}_${stamp}${ExeExt}"
@@ -481,7 +482,7 @@ function fCopyIfNewer {
 		if (-not (fSafeRm_Under $TargetDir @($tmp))) { throw "couldn't clear ${tmp}" }
 		if ($PayloadIsFile) { Copy-Item -LiteralPath $src.FullName -Destination $tmp -Force -ErrorAction Stop }
 		else                { Copy-Item -LiteralPath $src.FullName -Destination $tmp -Recurse -Force -ErrorAction Stop }
-		## A synced-sourced exe can carry a mark-of-the-web; clear it so the launch
+		## A synced-sourced exe can have a mark-of-the-web; clear it so the launch
 		## isn't SmartScreen-blocked. Best-effort, and no-op for a prefix dir.
 		if ($PayloadIsFile) { Unblock-File -LiteralPath $tmp -ErrorAction SilentlyContinue }
 		Move-Item -LiteralPath $tmp -Destination $dst -Force -ErrorAction Stop
@@ -494,14 +495,14 @@ function fCopyIfNewer {
 }
 
 
-## A held version built from the same bytes as $SourceId, or $null. Size first,
-## because these are large and a hash of every one of them is not free.
+## A version in the pool built from the same bytes as $SourceId, or $null. Size
+## first, because these are large and a hash of every one of them isn't free.
 function fHeldMatching {
 	param([Parameter(Mandatory)]$SourceId)
 
 	## Newest first: every twin has the same bytes, so which one comes back only
-	## decides which one gets carried forward under the new stamp. Taking the newest
-	## keeps the pool's history in order.
+	## decides which one gets renamed to the new stamp. Taking the newest keeps the
+	## pool's history in order.
 	$candidates = @(fHeldCopies |
 		Where-Object { $_.IdFile -and $_.IdFile.Length -eq $SourceId.Length } |
 		Sort-Object Stamp -Descending)
@@ -511,9 +512,9 @@ function fHeldMatching {
 		$want = (Get-FileHash -LiteralPath $SourceId.FullName -Algorithm SHA256 -ErrorAction Stop).Hash
 	} catch { return $null }
 
-	## An unreadable copy just is not a match - the next one may be. Hold the
-	## result rather than reaching straight for .Hash: under StrictMode a
-	## property read off a failed call throws.
+	## An unreadable copy isn't a match, but the next one may be. Keep the
+	## result in a variable rather than going straight for .Hash: under StrictMode
+	## a property read off a failed call throws.
 	foreach ($copy in $candidates) {
 		$got = Get-FileHash -LiteralPath $copy.IdFile.FullName -Algorithm SHA256 -ErrorAction SilentlyContinue
 		if ($got -and $got.Hash -eq $want) { return $copy }
@@ -562,14 +563,14 @@ function fRotate {
 
 ## Assign each version its GFS role, coarsest wins: first, year, month, week, day,
 ## hour, frequent, and 'latest' for the single newest. Returns a name -> role map; a
-## version with no entry is one nothing is keeping. Same role names as the pipeline's
+## version with no entry is one nothing keeps. Same role names as the pipeline's
 ## gfs-rotate.bash, so both pools read alike.
 function fGfsRoles {
 	param([Parameter(Mandatory)][object[]]$Copies)
 
 	$cur = fPeriodKeys (Get-Date)
 
-	## Last version in each COMPLETED period. The still-open current period is
+	## Last version in each completed period. The still-open current period is
 	## skipped, which is what makes the roles retrospective.
 	$per = @{}
 	foreach ($p in "hour", "day", "week", "month", "year") { $per[$p] = @{} }
@@ -601,9 +602,9 @@ function fGfsRoles {
 		if (-not $roles.ContainsKey($Copies[$i].Name)) { $roles[$Copies[$i].Name] = "frequent" }
 	}
 
-	## The newest is labelled 'latest' rather than by period - a stable, naturally
-	## sorting pointer at the most recent build. Unless it is also the only one, in
-	## which case 'first' already claimed it.
+	## The newest is labeled 'latest' rather than by period, so the most recent build
+	## always has the same name and it sorts last. Unless it's also the only one, in
+	## which case 'first' already has it.
 	$last = $Copies[$Copies.Count - 1].Name
 	if ($roles[$last] -ne "first") { $roles[$last] = "latest" }
 
@@ -625,9 +626,9 @@ function fPeriodKeys {
 }
 
 
-## Trim the GFS-kept set to what the pool is allowed to hold: at most $MaxVersions,
+## Trim the GFS-kept set to what the pool is allowed to have: at most $MaxVersions,
 ## at least $MinVersions, and between those only as many as fit $MaxPoolBytes.
-## Filled newest-first, because that is the end that gets run. The oldest version is
+## Filled newest-first, because that's the end that gets run. The oldest version is
 ## seeded in first and so survives whatever the budget does to the rest.
 ## Returns a set of names to keep.
 function fBudget {
@@ -653,13 +654,13 @@ function fBudget {
 		$bytes += $size
 	}
 
-	## Comma: a HashSet is enumerable, so a plain return unrolls it - and a one-version
+	## Comma: a HashSet is enumerable, so a plain return unrolls it, and a one-version
 	## pool then comes back as a bare string whose .Contains is a substring test.
 	return ,$keep
 }
 
 
-## Bytes a version occupies: the file's own length, or everything under the prefix.
+## Bytes a version uses: the file's own length, or everything under the prefix.
 ## Asked at most once per version per run, and only by the budget.
 function fPayloadSize {
 	param([Parameter(Mandatory)][string]$Path)
@@ -676,7 +677,7 @@ function fPayloadSize {
 
 
 ## Every stamped version in the pool, as { Payload, Name, Stamp, IdFile }. The role
-## suffix is optional: a version copied in this run has not been tagged yet.
+## suffix is optional, since a version copied in this run hasn't been tagged yet.
 function fHeldCopies {
 	$rx   = "^$([regex]::Escape($ProgramName))_(?<stamp>\d{8}-\d{6})(_[a-z]+)?$([regex]::Escape($ExeExt))$"
 	$type = if ($PayloadIsFile) { @{ File = $true } } else { @{ Directory = $true } }
@@ -694,7 +695,7 @@ function fHeldCopies {
 }
 
 
-## Newest held version, or $null.
+## Newest version in the pool, or $null.
 function fNewestCopy {
 	fHeldCopies | Sort-Object Stamp -Descending | Select-Object -First 1
 }
@@ -737,7 +738,7 @@ function fSafeRm_Tree {
 
 
 ## Removes each path, and what's in it, strictly under the parent, with no link
-## between the two; the parent itself may sit behind one. The same rule as
+## between the 2; the parent itself may sit behind one. The same rule as
 ## install.ps1's copy, which has the repo's. A link inside goes as a link, never
 ## followed, and one that's gone is skipped. Warns for a refusal, and returns
 ## $false if any was refused or couldn't go, such as a copy that's held open.
@@ -776,7 +777,7 @@ function fSafeRm_Under {
 }
 
 
-## Delete one version unless something is running out of it, or it is locked.
+## Delete one version unless something is running out of it, or it's locked.
 ## Returns $true if deleted.
 function fRemoveIfIdle {
 	param(
@@ -784,10 +785,10 @@ function fRemoveIfIdle {
 		[string[]]$Running
 	)
 	if ($PayloadIsFile) {
-		## Single exe: in use = a running process whose image IS this exact copy.
+		## Single exe: in use = a running process whose image is this exact copy.
 		$inUse = $Running | Where-Object { $_ -ieq $Copy.Payload.FullName }
 	} else {
-		## Prefix: in use = a running process whose image lives anywhere inside it.
+		## Prefix: in use = a running process whose image is anywhere inside it.
 		$prefix = $Copy.Payload.FullName + [System.IO.Path]::DirectorySeparatorChar
 		$inUse = $Running | Where-Object { $_.StartsWith($prefix) }
 	}
@@ -801,12 +802,12 @@ function fRemoveIfIdle {
 }
 
 
-## Full image paths of everything currently running (best-effort). Worked out once
-## per run - every sweep asks the same question, and the answer is not cheap.
+## Full image paths of everything running, best-effort. Worked out once per run,
+## since every sweep asks the same question, and finding out isn't cheap.
 ##
 ## On Windows the Path property throws for each of the few hundred protected system
 ## processes, and swallowing those exceptions costs whole seconds; one CIM query
-## answers the same thing in a fraction of the time. Elsewhere the property is the
+## returns the same thing in a fraction of the time. Elsewhere the property is the
 ## cheap way round.
 function fRunningExePaths {
 	if ($null -ne $script:RunningPaths) { return $script:RunningPaths }
@@ -828,14 +829,14 @@ function fRunningExePaths {
 }
 
 
-## Delete leftover partial copies (an interrupted run's '.partial'), unless fresh
+## Delete leftover partial copies, an interrupted run's '.partial', unless fresh
 ## enough to be a concurrent run's copy in progress.
 function fDeleteStalePartials {
 	$cutoff = (Get-Date).AddHours(-1)
 	Get-ChildItem -LiteralPath $TargetDir -Force -Filter "${ProgramName}_*.partial" -ErrorAction SilentlyContinue |
 		Where-Object { $_.LastWriteTime -lt $cutoff } |
 		ForEach-Object {
-			## A partial still held open belongs to a run that is still going.
+			## A partial still held open belongs to a run that's still going.
 			$null = fSafeRm_Under $TargetDir @($_.FullName)
 			if (-not (Test-Path -LiteralPath $_.FullName)) {
 				fItem "ok" "cleaned" "stale partial copy: $($_.Name)"
@@ -846,7 +847,7 @@ function fDeleteStalePartials {
 
 ## Retire the pools from before this one: stamped copies under their own prefix, in
 ## whichever directory an older launcher kept them in. Neither sweep above can see
-## them, so they would sit there for good at a couple of hundred MB each.
+## them, so they'd stay there for good at a couple of hundred MB each.
 function fRetireLegacyCopies {
 	$rx      = "^$([regex]::Escape($LegacyPrefix))_\d{8}-\d{6}(_[a-z0-9]+)?(\.tmp)?$([regex]::Escape($ExeExt))?$"
 	$running = @(fRunningExePaths)
@@ -855,8 +856,8 @@ function fRetireLegacyCopies {
 }
 
 
-## One legacy pool directory's worth. The current pool lives under $TargetDir, so a
-## sweep of $InstallDir cannot reach a version this launcher is keeping.
+## One legacy pool directory's worth. The current pool is under $TargetDir, so a
+## sweep of $InstallDir can't touch a version this launcher is keeping.
 function fRetireLegacyIn {
 	param(
 		[Parameter(Mandatory)][string]$Dir,
@@ -867,7 +868,7 @@ function fRetireLegacyIn {
 	Get-ChildItem -LiteralPath $Dir -Force -Filter "$($LegacyPrefix)_*" -ErrorAction SilentlyContinue |
 		Where-Object { $_.Name -match $Pattern } |
 		ForEach-Object {
-			## $_ is rebound by the Where-Object below, so hold the item first.
+			## $_ is rebound by the Where-Object below, so save the item first.
 			$item   = $_
 			$prefix = $item.FullName + [System.IO.Path]::DirectorySeparatorChar
 			if ($Running | Where-Object { $_ -ieq $item.FullName -or $_.StartsWith($prefix) }) {
@@ -898,7 +899,7 @@ function fRetireLegacyLaunchers {
 
 
 ## Point the fixed name at the newest version. Replaced rather than updated in place:
-## repointing an existing symlink is not something every platform agrees on, and the
+## repointing an existing symlink isn't something every platform agrees on, and the
 ## launch reads the link fresh anyway.
 function fUpdateLink {
 	$newest = fNewestCopy
@@ -914,8 +915,8 @@ function fUpdateLink {
 		fItem "ok" "link" "$LinkPath -> $($newest.Name)"
 	} catch {
 		## Windows without the symlink privilege is the case this catches. A plain
-		## copy still runs, it just costs the disk space - and only where a version
-		## is one file; a prefix is left alone and the launch falls back to it.
+		## copy still runs, but costs the disk space, and only where a version is
+		## one file. A prefix is left alone and the launch falls back to it.
 		if (-not $PayloadIsFile) {
 			fWarn -Gui "couldn't link $LinkPath ($($_.Exception.Message))"
 			return
@@ -931,7 +932,7 @@ function fUpdateLink {
 
 
 ## The thing to run inside a version: the payload itself on Windows, the binary in
-## the prefix's bin/ everywhere else - it resolves its own location through the
+## the prefix's bin/ everywhere else. It resolves its own location through the
 ## symlink and sets up the runtime environment, so nothing here has to.
 function fMainBin {
 	param([Parameter(Mandatory)][string]$PayloadPath)
@@ -940,7 +941,7 @@ function fMainBin {
 }
 
 
-## What to actually run: the file the fixed name resolves to, else the newest
+## What to run: the file the fixed name resolves to, else the newest
 ## version directly, else nothing. Never the link itself, so a run that repoints
 ## it while this one starts can't swap the build out from under it, and the
 ## process shows which version it is.
@@ -972,8 +973,8 @@ function fRealPath {
 
 ## Lift the app icon out of the newest version and keep it beside the pool under a
 ## fixed name. A desktop entry or shortcut that points into a version directory goes
-## dark the moment rotation prunes that version, and a stale icon is exactly what
-## nobody notices until the menu entry is blank. Returns the fixed path, or $null.
+## dark the moment rotation prunes that version, and nobody notices a stale icon
+## until the menu entry is blank. Returns the fixed path, or $null.
 function fPublishIcon {
 	$newest = fNewestCopy
 	if (-not $newest) { return $null }
@@ -982,7 +983,7 @@ function fPublishIcon {
 	$src  = if ($PayloadIsFile) { $null }
 	        else { Join-Path $newest.Payload.FullName "${PayloadShare}/icons/hicolor/256x256/apps/${ProgramName}.png" }
 	if (-not $src -or -not (Test-Path -LiteralPath $src)) {
-		## Windows carries its icon inside the exe, and an older prefix may not have
+		## Windows has its icon inside the exe, and an older prefix may not have
 		## the file at all. A copy already published still beats nothing.
 		if (Test-Path -LiteralPath $dest) { return $dest }
 		return $null
@@ -1004,8 +1005,9 @@ function fPublishIcon {
 
 ## Give the desktop a menu entry, so the program shows its own icon in the menu and
 ## the switcher instead of a generic one. Exec is this launcher, not the app: a menu
-## click should pick up a new build the same way a shell launch does. Linux only -
-## Windows takes its icon out of the exe. Never fatal: a missing entry costs an icon.
+## click should pick up a new build the same way a shell launch does. Linux only,
+## since Windows takes its icon out of the exe. Never fatal: a missing entry costs
+## an icon.
 function fRegisterDesktopEntry {
 	$newest = fNewestCopy
 	if (-not $newest) { return }
@@ -1025,7 +1027,7 @@ function fRegisterDesktopEntry {
 			New-Item -ItemType Directory -Path $appsDir -Force | Out-Null
 		}
 		## Written from scratch rather than copied out of the prefix: that file is
-		## four hundred lines of translations and every Exec in it is unqualified.
+		## 400 lines of translations and every Exec in it is unqualified.
 		$entry = @(
 			"[Desktop Entry]"
 			"Type=Application"
@@ -1054,7 +1056,7 @@ function fRegisterDesktopEntry {
 
 
 ## macOS counterpart of the desktop entry. There are no menu files there: an app in
-## ~/Applications is what Spotlight, Launchpad and the Dock find. Its program is a
+## ~/Applications is what Spotlight, Launchpad, and the Dock find. Its program is a
 ## script that has this launcher bring in and rotate a new build, then runs the
 ## build in its own process through a link inside the bundle. So the Dock sees one
 ## program, under this bundle's name and icon, and it can be kept there. Started by
@@ -1078,8 +1080,8 @@ function fWriteMacApp {
 	$start = $StartupLocations | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 	$startLine = if ($start) { 'if [ $# -eq 0 ]; then set -- ' + (& $q $start) + '; fi' } else { "" }
 	## Started from the Finder it gets launchd's bare PATH, which has neither
-	## Homebrew nor ~/.local/bin, so the wrapper would not find pwsh. With no build
-	## held, the wrapper runs as usual and falls back to another file manager.
+	## Homebrew nor ~/.local/bin, so the wrapper wouldn't find pwsh. With no build
+	## in the pool, the wrapper runs as usual and falls back to another file manager.
 	$wantScript = @'
 #!/bin/bash
 export PATH="$HOME/.local/bin:/usr/local/bin:/opt/homebrew/bin:$PATH"
@@ -1134,7 +1136,7 @@ exec @RUN@ "$@"
 
 
 ## Windows counterpart of the desktop entry. Shortcuts here are made by hand and
-## then outlive whatever they pointed at: both boxes still carried a Start Menu link
+## then outlive whatever they pointed at: both boxes still had a Start Menu link
 ## to a launcher path and an exe drop that were retired weeks ago, so clicking it did
 ## nothing at all. Anything already pointing at this app is repointed at the current
 ## launcher and the published icon; if nothing does, one is made in the user's own
@@ -1154,8 +1156,8 @@ function fRefreshShortcuts {
 		$env:PUBLIC ? (Join-Path $env:PUBLIC "Desktop") : $null
 	) | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
 
-	## Names this app's shortcuts have gone by, in the target, the arguments or the
-	## icon. Deliberately narrow: 'runfm' on its own would catch someone else's.
+	## Names this app's shortcuts have gone by, in the target, the arguments, or the
+	## icon. Narrow on purpose, since 'runfm' on its own would catch someone else's.
 	$mine = '(n8runfm|[\\/]runfm\.(cmd|ps1)|nemo-anywhere)'
 
 	$shell = New-Object -ComObject WScript.Shell
@@ -1213,9 +1215,9 @@ function fRefreshShortcuts {
 }
 
 
-## What a shortcut should run. The .cmd wrapper when there is one - it is what a
-## double-click has always gone through - otherwise pwsh on this script. Minimized
-## either way: the console is a stepping stone to a GUI and nobody wants to see it.
+## What a shortcut should run. The .cmd wrapper when there's one, since that's what
+## a double-click has always gone through, otherwise pwsh on this script. Minimized
+## either way, since the console only starts a GUI and nobody wants to see it.
 function fShortcutCommand {
 	$wrapper = fWrapperPath
 	if (-not $wrapper) { fItem "-" "shortcut" "no deployed launcher to point at; left alone"; return $null }
@@ -1241,10 +1243,10 @@ function fShortcutIcon {
 
 ## The shell wrapper a desktop entry or shortcut should run.
 ##
-## The deploy-managed homes come first on purpose. A shortcut records a path and
-## keeps it, so it should record the same spelling on every box - and PATH does not
-## give that: on one box 'runfm' resolved through two chained links, and the .lnk
-## kept the chained spelling rather than the plain one that names the same file.
+## The deploy-managed paths come first on purpose. A shortcut records a path and
+## keeps it, so it should record the same path on every box, and PATH doesn't give
+## that. On one box 'runfm' resolved through 2 chained links, and the .lnk kept the
+## chained path rather than the plain one that names the same file.
 ## The environment variable and PATH stay as fallbacks for a box laid out some other
 ## way. Nothing is written at all if none of them exist.
 function fWrapperPath {
@@ -1294,7 +1296,7 @@ function fLaunchFallback {
 
 
 ## Resolve an executable's full path from PATH, or $null. -CommandType Application
-## keeps it to real executables (never a shell function/alias of the same name).
+## keeps it to real executables, never a shell function/alias of the same name.
 function fFindOnPath {
 	param([Parameter(Mandatory)][string]$Exe)
 	$cmd = Get-Command $Exe -CommandType Application -ErrorAction SilentlyContinue |
@@ -1310,12 +1312,12 @@ function fFindOnPath {
 ## Windows needs nothing extra: with no redirections Start-Process goes through
 ## ShellExecute, which already detaches.
 ##
-## Unix would hand the app our own stdout, holding the caller's pipe open for the
-## app's whole life. Start-Process -RedirectStandard* is worse - it pumps through a
-## pipe owned by THIS process, so the app's output is dropped once we exit. Do it in
+## Unix would hand the app our own stdout, keeping the caller's pipe open for the
+## app's whole life. Start-Process -RedirectStandard* is worse. It pumps through a
+## pipe owned by this process, so the app's output is dropped once we exit. Do it in
 ## the shell instead: setsid and sh both exec in place, so the app owns real fds, sits
 ## in a fresh session out of reach of a terminal hangup, and keeps the reported PID.
-## The log path rides an env var to keep quotes off the command line.
+## The log path goes in an env var to keep quotes off the command line.
 function fStartApp {
 	param(
 		[Parameter(Mandatory)][string]$Exe,
@@ -1335,26 +1337,26 @@ function fStartApp {
 			$sp.FilePath     = $setsid
 			$sp.ArgumentList = @("/bin/sh") + $shArgs
 		} else {
-			## No setsid (macOS, some BSDs): streams still detached, session not.
+			## No setsid on macOS and some BSDs: streams still detached, session not.
 			$sp.FilePath     = "/bin/sh"
 			$sp.ArgumentList = $shArgs
 		}
 	}
 
 	## Start-Process joins ArgumentList into one command line with a naive space join
-	## and no quoting, then the target re-splits it (.NET on unix, the MSVCRT parser
-	## on Windows). Quote every element so args with spaces, quotes or trailing
+	## and no quoting, then the target re-splits it, with .NET on unix and the MSVCRT
+	## parser on Windows. Quote every element so args with spaces, quotes, or trailing
 	## backslashes survive that round trip.
 	## ContainsKey, not $sp.ArgumentList: under Set-StrictMode -Version Latest a
-	## hashtable member that was never set throws rather than answering $null, so the
+	## hashtable member that was never set throws rather than returning $null, so the
 	## plain read blew up every launch that passed no arguments.
 	if ($sp.ContainsKey("ArgumentList")) {
 		$sp.ArgumentList = @($sp.ArgumentList | ForEach-Object { fQuoteArg $_ })
 	}
 
-	## RunAs is a ShellExecute verb, so Windows only - and only reached when the whole
-	## launcher is already elevated (the entry point self-elevates first), so this
-	## raises no second consent prompt.
+	## RunAs is a ShellExecute verb, so Windows only. It runs only when the whole
+	## launcher is already elevated, since the entry point self-elevates first, so
+	## this raises no second consent prompt.
 	if ($IsWindows -and $RunAsAdmin) { $sp.Verb = "RunAs" }
 
 	try {
@@ -1420,7 +1422,7 @@ function fStep {
 
 
 ## One row under a step: a status tag, an optional label column, then free text. Only
-## the tag is colored - a whole colored line is a wall of green.
+## the tag is colored, since a whole colored line is a wall of green.
 function fItem {
 	param([string]$Status = "-", [string]$Label = "", [string]$Detail = "")
 
@@ -1450,9 +1452,9 @@ function fHumanSize {
 }
 
 
-## Non-fatal problem (and the run log). Pass -Gui to also show it in the
-## end-of-run dialog (the shortcut case, where the console flashes shut) - reserved
-## for real problems (a failed copy), not benign skips (a source that isn't there).
+## Non-fatal problem, to the console and the run log. Pass -Gui to also show it in
+## the end-of-run dialog, for the shortcut case where the console flashes shut. -Gui
+## is for real problems such as a failed copy, not a source that isn't there.
 function fWarn {
 	param([string]$Msg, [switch]$Gui)
 	fItem "warn" "" $Msg
@@ -1460,13 +1462,13 @@ function fWarn {
 }
 
 
-## Fatal error to stderr (and the run log), then stop. Pops a dialog first when GUI
-## feedback is on, so a shortcut click shows WHY instead of a blank flash.
+## Fatal error to stderr and the run log, then stop. Pops a dialog first when GUI
+## feedback is on, so a shortcut click shows why instead of a blank flash.
 ##
 ## WriteErrorLine rather than Write-Error: under $ErrorActionPreference = "Stop" a
 ## Write-Error throws, so the exit below never runs and the caller reads a thrown
-## error instead of rc 1 - and its formatter folds a multi-line message (the option
-## list) onto one wrapped line.
+## error instead of rc 1. Its formatter also folds a multi-line message, such as the
+## option list, onto one wrapped line.
 function fFail {
 	param([string]$Msg)
 	fLog "FAIL: $Msg"
@@ -1476,8 +1478,8 @@ function fFail {
 }
 
 
-## True when this process is running elevated (Administrators / high integrity).
-## Windows-only notion; everything else answers false and never elevates.
+## True when this process is running elevated, as Administrators or high integrity.
+## Windows-only notion; everything else returns false and never elevates.
 function fIsElevated {
 	if (-not $IsWindows) { return $false }
 	$id = [System.Security.Principal.WindowsIdentity]::GetCurrent()
@@ -1486,10 +1488,11 @@ function fIsElevated {
 }
 
 
-## True when we were double-clicked (a .lnk / Explorer launch) rather than started
-## from a shell - Explorer is the parent of a shortcut click, a terminal (pwsh/cmd/
-## wt) is the parent of a command-line run. Used to auto-enable GUI feedback so a
-## flash-and-close shortcut can still report a failure. Best-effort -> $false.
+## True when we were double-clicked from a .lnk or Explorer rather than started from
+## a shell. Explorer is the parent of a shortcut click, and a terminal such as
+## pwsh, cmd, or wt is the parent of a command-line run. Used to turn on GUI
+## feedback so a flash-and-close shortcut can still report a failure. Best-effort,
+## and $false when unsure.
 function fLaunchedFromShortcut {
 	if (-not $IsWindows) { return $false }
 	try {
@@ -1500,8 +1503,8 @@ function fLaunchedFromShortcut {
 }
 
 
-## Show a modal message box. Never throws - feedback must not be the thing that
-## breaks a launch; a no-op if WinForms can't load (which is every non-Windows box).
+## Show a modal message box. Never throws, since feedback must not be the thing that
+## breaks a launch. A no-op if WinForms can't load, which is every non-Windows box.
 function fGuiShow {
 	param(
 		[Parameter(Mandatory)][string]$Msg,
@@ -1521,8 +1524,8 @@ function fGuiShow {
 
 
 ## Append a timestamped line to the run log. Best-effort: logging must never be the
-## thing that stops a launch, and there is nowhere to report a failed log line to -
-## the console is gone on a shortcut click and fWarn writes here itself.
+## thing that stops a launch, and there's nowhere to report a failed log line to.
+## The console is gone on a shortcut click, and fWarn writes here itself.
 function fLog {
 	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingEmptyCatchBlock', '',
 		Justification = 'Nothing can be reported from inside the logger itself.')]
@@ -1549,9 +1552,9 @@ function fTrimLog {
 
 
 ## Remove any mark-of-the-web this script picked up from the sync layer. An unsigned
-## script carrying MOTW is refused under a RemoteSigned policy, which silently kills a
-## shortcut click - the body never runs, so nothing copies and nothing logs. Only
-## helps the NEXT run; this one already got past the policy.
+## script with MOTW is refused under a RemoteSigned policy, which silently kills a
+## shortcut click. The body never runs, so nothing copies and nothing logs. Only
+## helps the next run; this one already got past the policy.
 function fSelfHealMotw {
 	try {
 		$zone = Get-Content -LiteralPath $PSCommandPath -Stream Zone.Identifier -ErrorAction SilentlyContinue
@@ -1571,12 +1574,12 @@ function fSelfHealMotw {
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-## Problems worth reporting at the end (a failed copy etc.), shown in a dialog when
+## Problems to report at the end, such as a failed copy, shown in a dialog when
 ## launched from a shortcut. Must exist before any fWarn -Gui / fFail can run.
 $script:RunWarnings = @()
 
 ## Rows printed under the current step, so a step that decided nothing can say so.
-## Must exist before the first fItem, which under StrictMode is not allowed to
+## Must exist before the first fItem, which under StrictMode isn't allowed to
 ## increment a variable nobody has declared.
 $script:StepRows = 0
 
@@ -1584,10 +1587,10 @@ $script:StepRows = 0
 ##   --no-admin   run without elevating. On Windows elevation is on by default: the
 ##                whole launcher self-elevates below, so the copy, the symlink and
 ##                the launched app all get admin rights. '--admin' is still accepted,
-##                and is the only way to ask for it on unix - where it is refused.
-##   --no-update  skip the copy, rotate and relink; just run what is already held.
-##   --install-only  do the copy, rotate, relink and desktop steps, and launch nothing.
-##   --gui        force the end-of-run / failure dialog on (auto-on for a shortcut).
+##                and is the only way to ask for it on unix, where it's refused.
+##   --no-update  skip the copy, rotate, and relink; run what's already in the pool.
+##   --install-only  do the copy, rotate, relink, and desktop steps, and launch nothing.
+##   --gui        force the end-of-run / failure dialog on; on by itself for a shortcut.
 ## Single-dash spellings are accepted too: '-admin' is what a PowerShell user types,
 ## and it collides with nothing in the app's own option set.
 $wantAdmin = $IsWindows
@@ -1608,8 +1611,8 @@ foreach ($arg in $args) {
 
 $script:GuiFeedback = $forceGui -or (fLaunchedFromShortcut)
 
-## Refuse a flag the app doesn't know before anything else happens - ahead of the UAC
-## prompt in particular, so a typo can't cost a consent click and a copy first.
+## Refuse a flag the app doesn't know before anything else happens, and ahead of the
+## UAC prompt in particular, so a typo can't cost a consent click and a copy first.
 fCheckPassArgs -PassArgs $passArgs
 
 if ($wantAdmin -and -not $IsWindows) {
@@ -1619,11 +1622,11 @@ if ($wantAdmin -and -not $IsWindows) {
 
 ## Self-elevate: unless '--no-admin', and not already elevated, relaunch the whole
 ## script elevated and hand off. Making the symlink needs a privilege a filtered token
-## does not carry, so an unelevated run could not repoint the fixed name and would go
-## on launching whatever it already had. The relaunch carries the original args plus
-## '--gui' (its parent is the UAC broker, not Explorer, so it can't re-detect the
-## shortcut). A declined consent is not fatal: fall through and run unelevated, with a
-## dialog saying the build may be stale.
+## doesn't have, so an unelevated run couldn't repoint the fixed name and would go
+## on launching whatever it already had. The relaunch passes the original args plus
+## '--gui', since its parent is the UAC broker rather than Explorer and it can't
+## detect the shortcut again. A declined consent isn't fatal: fall through and run
+## unelevated, with a dialog saying the build may be stale.
 if ($wantAdmin -and -not (fIsElevated)) {
 	$self = (Get-Process -Id $PID).Path      # the pwsh.exe hosting this script
 	$fwd  = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath) + $args + "--gui"
@@ -1641,12 +1644,12 @@ if ($wantAdmin -and -not (fIsElevated)) {
 	}
 }
 
-## Elevated (self- or from an elevated shell): also launch the app elevated.
+## Elevated, by itself or from an elevated shell: also launch the app elevated.
 if ($wantAdmin) { $RunAsAdmin = $true }
 
 fMain -PassArgs $passArgs -NoUpdate:$noUpdate -InstallOnly:$installOnly
 
-## Report any real problems (a failed copy etc.) for the shortcut case.
+## Report any real problems, such as a failed copy, for the shortcut case.
 if ($script:GuiFeedback -and $script:RunWarnings.Count) {
 	fGuiShow -Icon Warning -Title "Nemo Anywhere dogfood" -Msg (
 		"Launched, but with issues:`n`n - " + ($script:RunWarnings -join "`n - "))

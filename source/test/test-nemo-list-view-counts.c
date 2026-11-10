@@ -24,7 +24,7 @@
  * front of the GTK and GObject calls the list view makes per row and per
  * cell, counts them, and passes each one on. libgtk-3 binds its own calls to
  * itself, so what is counted is what the program asks for, not what GTK does
- * inside. The counts go to $NEMO_COUNTS_OUT ten times a second, since the
+ * inside. The counts go to $NEMO_COUNTS_OUT 10 times a second, since the
  * program is stopped from outside and never gets to say goodbye. */
 
 #define _GNU_SOURCE
@@ -42,9 +42,9 @@
 static gint cells;	/* cells the program set up itself, as measuring does */
 static gint plain;	/* "no background" handed to a renderer */
 static gint tinted;	/* a shaded background handed to a renderer */
-static gint areas;	/* where a row sits on screen, asked for */
+static gint areas;	/* where a row is on screen, asked for */
 static gint column_lists;
-static gint style_reads;	/* the two theme sizes measuring needs */
+static gint style_reads;	/* the 2 theme sizes measuring needs */
 
 static void *
 real (const char *name)

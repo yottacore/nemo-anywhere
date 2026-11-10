@@ -21,7 +21,7 @@
 */
 
 /* A few settings are the desktop's to decide, not ours: which terminal to
- * open, whether the session records recent files, 12h or 24h clocks. Where
+ * open, whether the session records recent files, and 12h or 24h clocks. Where
  * a desktop publishes them we read its answer; everywhere else - Windows,
  * a bare WM, any non-Cinnamon session - our own value in settings.shcl
  * stands in. Read-only by design: this reports what the desktop wants, it

@@ -37,14 +37,14 @@
 #define READ_BUFFER_SIZE (64 * 1024)
 
 /* Stands for "this folder was skipped" in the folder cache, where a plain NULL
-   cannot be told apart from a miss. Its own address, so it can never collide
+   can't be told apart from a miss. Its own address, so it can never collide
    with a real GFile and needs no cast from a number. */
 static const char skipped_marker;
 #define SKIPPED ((gpointer) &skipped_marker)
 
 typedef enum {
 	EXTRACT_OK,
-	EXTRACT_UNSUPPORTED,	/* the file would not open; another backend may */
+	EXTRACT_UNSUPPORTED,	/* the file wouldn't open; another backend may */
 	EXTRACT_FAILED
 } ExtractResult;
 
@@ -59,7 +59,7 @@ struct _ArcExtract {
 
 	/* Per-archive: where this one is being unpacked, and what its folders
 	   turned into once names were resolved. Keyed on the path the archive
-	   uses, so a renamed folder carries its children with it. */
+	   uses, so a renamed folder takes its children with it. */
 	GFile              *current_base;
 	GHashTable         *dir_map;		/* char * -> GFile * or SKIPPED */
 	char               *current_name;	/* the archive being read */
@@ -69,7 +69,7 @@ struct _ArcExtract {
 	ArcConflictResponse default_response;
 
 	/* One archive going wrong stops that archive, not the rest of them.
-	   Cancelling stops everything. */
+	   Canceling stops everything. */
 	gboolean            archive_failed;
 
 	/* Whether this archive has put anything on disk yet. Nothing yet means
@@ -218,7 +218,7 @@ ask_password (ExtractJob *job)
 
 /* Picks the file an entry should be written to, asking about anything already
    there. Returns NULL when the entry is to be skipped, or when the job was
-   cancelled - job_aborted tells the two apart. */
+   canceled - job_aborted tells the two apart. */
 static GFile *
 resolve_target (ExtractJob *job,
 		GFile      *dir,
@@ -409,7 +409,7 @@ dir_for_rel (ExtractJob *job,
 	return dir;
 }
 
-/* Splits an entry path into the folder it lives in and its own name, resolving
+/* Splits an entry path into the folder it's in and its own name, resolving
    the folder. Returns NULL when anything along the way was skipped. */
 static GFile *
 target_for_entry (ExtractJob  *job,
@@ -457,7 +457,7 @@ apply_entry_metadata (ExtractJob *job,
 	}
 
 #ifndef G_OS_WIN32
-	/* Worth carrying across for the executable bit alone; win32 has no
+	/* Worth copying across for the executable bit alone; win32 has no
 	   mode to set and fabricates one on the way back out. */
 	if (mode != 0) {
 		g_file_set_attribute_uint32 (target, G_FILE_ATTRIBUTE_UNIX_MODE, mode,
@@ -582,7 +582,7 @@ write_entry_data (ExtractJob     *job,
 		}
 
 		/* A sparse file arrives as blocks with gaps between them. Skip
-		   the gap where the stream can, and pad it where it cannot. */
+		   the gap where the stream can, and pad it where it can't. */
 		if ((guint64) offset > written) {
 			if (g_seekable_can_seek (G_SEEKABLE (out))) {
 				if (!g_seekable_seek (G_SEEKABLE (out), offset, G_SEEK_SET,
@@ -699,7 +699,7 @@ extract_with_libarchive (ExtractJob *job,
 	archive_read_set_passphrase_callback (a, job, passphrase_cb);
 
 	/* zip and 7z are laid out to be read backwards from a trailing index,
-	   and are far happier when they can seek than when they cannot. */
+	   and are far happier when they can seek than when they can't. */
 	if (g_seekable_can_seek (G_SEEKABLE (in))) {
 		archive_read_set_seek_callback (a, source_seek);
 	}
@@ -1098,7 +1098,7 @@ run_unpack_command (ExtractJob         *job,
 	return ran;
 }
 
-/* One command's attempt. Failing is not the archive's verdict - another command
+/* One command's attempt. Failing isn't the archive's verdict - another command
    may still manage it - so what went wrong comes back in out_details for the
    caller to report once everything has been tried. */
 static ExtractResult
@@ -1184,7 +1184,7 @@ extract_with_command (ExtractJob         *job,
 		/* A locked archive is a question rather than a failure - but it
 		   is only worth asking when the tool says that is what stopped
 		   it, and ask_password only ever asks once per job anyway. */
-		/* The tools do not always get a word in - launched from a window
+		/* The tools don't always get a word in - launched from a window
 		   with no console, unrar's complaint reaches nobody - so what
 		   libarchive made of the archive counts too. */
 		if (attempt == 0 && job->password == NULL && !job->password_declined &&
@@ -1270,14 +1270,14 @@ extract_one (ExtractJob *job,
 
 		if (made == NULL) {
 			job->current_base = NULL;
-			return !job_aborted (job);	/* a skipped folder is not a failure */
+			return !job_aborted (job);	/* a skipped folder isn't a failure */
 		}
 
 		base = g_object_ref (made);
 		g_hash_table_remove_all (job->dir_map);
 
 		/* The folder is ours, not the archive's, so a command backend
-		   may still take over when libarchive cannot read it. */
+		   may still take over when libarchive can't read it. */
 		job->wrote_anything = FALSE;
 	} else {
 		base = g_object_ref (job->destination_dir);
@@ -1291,7 +1291,7 @@ extract_one (ExtractJob *job,
 		ArcBackend order[2];
 		guint count = command_backends_for (job->current_name, order);
 		char *details = NULL;
-		char *passed = NULL;	/* why a command was not even tried */
+		char *passed = NULL;	/* why a command wasn't even tried */
 		guint i;
 
 		result = EXTRACT_FAILED;
