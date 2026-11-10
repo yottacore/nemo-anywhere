@@ -1235,6 +1235,17 @@ band_motion (NemoListView *view, GdkEventMotion *event)
 }
 
 static gboolean band_end_takes_focus (void);
+static gboolean ctrl_click_sets_anchor (void);
+
+/* In a multiple selection GTK's Shift anchor goes to each row
+   gtk_tree_selection_select_path selects, so code that puts rows back
+   leaves it on the last one. This puts it on path, which stays selected. */
+static void
+anchor_to (GtkTreeSelection *selection, GtkTreePath *path)
+{
+	gtk_tree_selection_unselect_path (selection, path);
+	gtk_tree_selection_select_path (selection, path);
+}
 
 /* TRUE when it was dragging, so the release was no click. */
 static gboolean
@@ -1271,9 +1282,7 @@ band_stop (NemoListView *view)
 				gtk_tree_selection_select_path (selection, l->data);
 			}
 			if (band_end_takes_focus ()) {
-				/* GTK moved its Shift anchor to each row put back. */
-				gtk_tree_selection_unselect_path (selection, end);
-				gtk_tree_selection_select_path (selection, end);
+				anchor_to (selection, end);
 			}
 			g_list_free_full (rows, (GDestroyNotify) gtk_tree_path_free);
 		}
@@ -1978,10 +1987,10 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 				} else if ((event->state & eel_gtk_primary_mask (event->window)) != 0) {
 					GList *selected_rows;
 					GList *l;
+					GtkTreePath *cursor = NULL;
 
 					call_parent = FALSE;
 					if ((event->state & GDK_SHIFT_MASK) != 0) {
-						GtkTreePath *cursor;
 						gtk_tree_view_get_cursor (tree_view, &cursor, NULL);
 						if (cursor != NULL) {
 							gtk_tree_selection_select_range (selection, cursor, path);
@@ -2005,6 +2014,11 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 						gtk_tree_path_free (p);
 					}
 					g_list_free (selected_rows);
+					/* A Ctrl+Shift+click's run keeps the end it ran from. */
+					if (ctrl_click_sets_anchor ()) {
+						anchor_to (selection, cursor != NULL ? cursor : path);
+					}
+					gtk_tree_path_free (cursor);
 				} else {
 					view->details->ignore_button_release = on_expander;
 				}
@@ -4834,17 +4848,42 @@ classic_key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer call
 static gboolean
 add_run_from_anchor (NemoListView *view, GtkWidget *widget, GdkEventKey *event)
 {
-	GtkTreeSelection *selection = gtk_tree_view_get_selection (view->details->tree_view);
+	GtkTreeView *tree_view = view->details->tree_view;
+	GtkTreeSelection *selection = gtk_tree_view_get_selection (tree_view);
 	GList *kept = gtk_tree_selection_get_selected_rows (selection, NULL);
+	GtkTreePath *was = NULL;
+	GtkTreePath *cursor = NULL;
+	GtkTreePath *anchor = NULL;
 	GList *l;
 
 	g_signal_handlers_block_by_func (selection, list_selection_changed_callback, view);
+	gtk_tree_view_get_cursor (tree_view, &was, NULL);
 	event->state &= ~GDK_CONTROL_MASK;
 	gtk_bindings_activate_event (G_OBJECT (widget), event);
+	gtk_tree_view_get_cursor (tree_view, &cursor, NULL);
+	/* Shift's run is all that's selected now, so the anchor is the end
+	   the cursor isn't on. At the edge nothing moved. */
+	if (cursor != NULL && (was == NULL || gtk_tree_path_compare (was, cursor) != 0)) {
+		GList *run = gtk_tree_selection_get_selected_rows (selection, NULL);
+
+		if (run != NULL) {
+			GtkTreePath *first = run->data;
+
+			anchor = gtk_tree_path_copy (gtk_tree_path_compare (first, cursor) == 0 ?
+						     g_list_last (run)->data : first);
+		}
+		g_list_free_full (run, (GDestroyNotify) gtk_tree_path_free);
+	}
 	for (l = kept; l != NULL; l = l->next) {
 		gtk_tree_selection_select_path (selection, l->data);
 	}
+	if (anchor != NULL) {
+		anchor_to (selection, anchor);
+	}
 	g_signal_handlers_unblock_by_func (selection, list_selection_changed_callback, view);
+	gtk_tree_path_free (anchor);
+	gtk_tree_path_free (cursor);
+	gtk_tree_path_free (was);
 	g_list_free_full (kept, (GDestroyNotify) gtk_tree_path_free);
 	list_selection_changed_callback (selection, view);
 
@@ -4944,6 +4983,9 @@ typedef struct {
 	/* Our band leaves the focus and the anchor on the last row it touched,
 	   wherever the pointer ends. */
 	gboolean band_end_takes_focus;
+	/* A Ctrl+click leaves the anchor on the row clicked, where v1's is
+	   wherever putting the selection back left it. */
+	gboolean ctrl_click_sets_anchor;
 } ListViewRules;
 
 static const ListViewRules rules_anywhere_v1 = {
@@ -4974,6 +5016,7 @@ static const ListViewRules rules_anywhere = {
 	.focus_in = focus_in_event_callback,
 	.gtk_bands = FALSE,
 	.band_end_takes_focus = TRUE,
+	.ctrl_click_sets_anchor = TRUE,
 };
 
 static const ListViewRules *
@@ -4994,6 +5037,12 @@ static gboolean
 band_end_takes_focus (void)
 {
 	return list_view_rules ()->band_end_takes_focus;
+}
+
+static gboolean
+ctrl_click_sets_anchor (void)
+{
+	return list_view_rules ()->ctrl_click_sets_anchor;
 }
 
 static gboolean

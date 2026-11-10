@@ -33,21 +33,50 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- List view under Nemo Anywhere: Ctrl+Shift+click runs from the focus, not the anchor.
+	- ID: 2026111012592994
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261110-125929
+	- Opened by: t00mietum
+	- Related IDs: 2026111012335173
+	- Target OS: All
+	- Steps to reproduce: list view, Nemo Anywhere. Click row 2, Ctrl+Down twice, then Ctrl+Shift+click row 6.
+	- Incorrect behavior: likely adds rows 4 to 6, from the focus, and not 2 to 6. The anchor then goes to row 4.
+	- Expected behavior: the run goes from the anchor, and the anchor stays, per the design doc's "Mouse".
+	- Reproduced: no. From a reading of the press code.
+	- Possible cause: the press runs from GTK's cursor, since GTK has no call that gives its anchor. The two differ after a Ctrl+arrow, since a Shift run already holds the rows between them. A Ctrl+click on a selected row may leave the focus behind the same way, since the release only unselects it.
+	- Test case: none yet. dec8w would get a Ctrl+arrow then a Ctrl+Shift+click.
+
 - List view: after a Ctrl+click, a Shift+click runs from another row than the one clicked.
 	- ID: 2026111012335173
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261110-123351
 	- Opened by: t00mietum
-	- Related IDs: 2026102407515573
+	- Related IDs: 2026102407515573, 2026111012592994
 	- Target OS: All
 	- Steps to reproduce: list view, Nemo Anywhere or v1. Click row 6, Ctrl+click row 2, then Shift+click row 4.
 	- Incorrect behavior: the run likely goes from row 6, the last row put back, and not from row 2. Ctrl+Shift with an arrow key may move the anchor the same way.
 	- Expected behavior: a Ctrl+click moves the anchor to the row clicked, per the design doc's "Mouse".
-	- Reproduced: no. From a reading of the Ctrl+click and Ctrl+Shift+arrow code, which set the cursor and then select each kept row again. The band did the same, shown by dec8v before 2026102407515573's fix.
+	- Reproduced: 20261110, under Nemo Anywhere in dec8w's new checks. That Shift+click selected rows 4 to 6. After a Ctrl+Shift+click a Shift+click ran from row 6 too, and after Ctrl+Space on row 6 and a Ctrl+Shift+Down, a Shift+click ran from row 5.
 	- Possible cause: in a multiple selection, `gtk_tree_selection_select_path` moves GTK's Shift anchor to each row it selects.
-	- Test case: none yet. dec8w would get a Ctrl+click then a Shift+click.
+	- Actual cause:
+		- As above. The Ctrl+click and Ctrl+Shift+click press puts the selection back after setting the cursor, and Ctrl+Shift with an arrow puts back what Shift's run dropped. Each left the anchor on the last row put back.
+	- Actual fix: under Nemo Anywhere a Ctrl+click puts the anchor back on the row clicked, and a Ctrl+Shift+click on the row its run started from. Ctrl+Shift with an arrow puts it back on the end of the run the cursor isn't on. The band uses the same helper.
+	- Decisions:
+		- v1 and Classic keep theirs, as for the band in 2026102407515573, since v1 is pinned as found and Classic is upstream's.
+		- A Ctrl+Shift+click still runs from the focus, as before, since GTK gives no way to read its anchor. The two differ mostly after a Ctrl+arrow; filed as 2026111012592994.
+		- Ctrl+Shift with an arrow at the first or last row moves nothing, so the anchor is left as it was.
+	- Swept: every place the list view selects rows again after a cursor move or a run: the band, both presses (Classic keeps upstream's), the release after a click on a selected row (it unselects the rest, which leaves the anchor right), and Ctrl+Shift with an arrow. The tree pane and the places sidebar don't put rows back.
+	- Branch: round1110b
+	- Test case: dec8w, in the list view and both icon views under Nemo Anywhere: a Shift+click after a Ctrl+Shift+click, and a Shift+click after a Ctrl+click. In the list view also a Shift+click after Ctrl+Space and Ctrl+Shift+Down.
+		- 20261110: dec8w's list view count under Nemo Anywhere went from 87 to 90, the icon view from 99 to 101, and the compact view from 101 to 103.
+	- Verified: 20261110, dec8w fails on the old code (the 3 list view checks) and passes with the fix. de8bd, de8dm, dec8v, ddy5f and de8ec pass. The quick gate's lints pass. Both analyzers report nothing on the changed files.
+	- Acceptance signoff: Self-closed: dec8w.
+	- Closed: 20261110-125942
 
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414

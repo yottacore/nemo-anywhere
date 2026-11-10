@@ -1011,6 +1011,8 @@ anywhere_list_keys (void)
 	key (GDK_KEY_Down, GDK_CONTROL_MASK);
 	key (GDK_KEY_Down, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
 	want (items (5, 6, 7, 8, -1), "Ctrl+Shift+Down adds the run from the Ctrl+Space row and keeps the rest");
+	click (3, GDK_SHIFT_MASK);
+	want (run_of (3, 6, -1), "and a Shift+click then runs from that row too");
 
 	key (GDK_KEY_Escape, 0);
 	want (g_strdup (""), "Escape clears the selection");
@@ -1076,6 +1078,15 @@ rules_tick (void)
 		click (2, GDK_CONTROL_MASK);
 		click (4, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
 		want (items (2, 3, 4, 6, -1), "Ctrl+Shift+click adds the run from the last Ctrl+click");
+		if (anywhere) {
+			/* #2026111012335173 */
+			click (0, GDK_SHIFT_MASK);
+			want (run_of (0, 2, -1), "and a Shift+click then runs from the same item");
+			click (6, 0);
+			click (2, GDK_CONTROL_MASK);
+			click (4, GDK_SHIFT_MASK);
+			want (run_of (2, 4, -1), "a Shift+click after a Ctrl+click runs from the Ctrl+clicked item");
+		}
 		break;
 	case 7:
 		if (!click_blank (0)) {
