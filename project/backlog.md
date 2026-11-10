@@ -180,10 +180,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The FreeBSD and arm64 lanes and the private runner print the step lines of `cicd.bash` for their own steps. Those are the 79-dot rule, `Step N of M; Starting`, then `PASS` or `FAIL`, in local time to the hundredth.
 		- Each lane is already one step of `cicd.bash`, so its own steps print inside that one. They need a form that doesn't read as the outer run's step count, such as `FreeBSD 1 of 3`.
 		- `cicd/utility/include/echo.bash`, which the lanes and the release scripts use, still draws a 74-dot rule.
-		- The private runner is in the private repo.
 	- Progress log:
 		- 20261028: the FreeBSD and arm64 lanes and `echo.bash` are done. The private runner is in child 2026102820110989.
-		- It waits for the private repo's round, which closes children 2026102820110989 and 2026102820110967. Until then the private runner doesn't print any step lines or a b26 jobs line.
+		- It waits on children 2026102820110989 and 2026102820110967. Until then the private runner doesn't print any step lines or a b26 jobs line.
 	- Decisions:
 		- A lane's steps print as `FreeBSD N of M` or `arm64 N of M`, under the same 79-dot rule, time stamp and `Starting`, `PASS` and `FAIL` words as `cicd.bash`.
 		- The steps are Box ready (the login and clock waits), Send, then Build and suite, or Release build and Bring back. The build step opens with the box's jobs line.
@@ -213,7 +212,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261028: the FreeBSD and arm64 lanes are done. The private runner is in child 2026102820110967.
 		- 20261028: ddmn7's job count for the suite went from 4 to 6, since the fixed 4 is gone and its stand-in box has 12 CPUs.
-		- It waits for the private repo's round, which closes children 2026102820110989 and 2026102820110967. Until then the private runner doesn't print any step lines or a b26 jobs line.
+		- It waits on children 2026102820110989 and 2026102820110967. Until then the private runner doesn't print any step lines or a b26 jobs line.
 	- Decisions:
 		- Each lane reads its box's CPU count and 1-minute load over ssh, right before the build or suite, and works the count out by the same rules as this box, in `include/jobs.bash`. It prints the count the way a step of `cicd.bash` does, naming the box.
 		- `NEMO_BSD_JOBS` and `NEMO_ARM_JOBS` now pin the count, with no fixed default. A pin that isn't a count fails the lane.
@@ -248,7 +247,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261029: open only for its child 2026102819522603, which waits on the private runner's child 2026102820110989.
 		- 20261102: still open for that child. The full run at fdce4acd passed the private runner, but it didn't print any step lines of its own.
 		- 20261103: the same at 92fc2c77. The native gate printed `Windows N of 4` and the gate's own `Step N of M` lines on b29w and vm925w.
-		- It waits for the private repo's round, which closes children 2026102820110989 and 2026102820110967. Until then the private runner doesn't print any step lines or a b26 jobs line.
+		- It waits on children 2026102820110989 and 2026102820110967. Until then the private runner doesn't print any step lines or a b26 jobs line.
 	- Decisions:
 		- The steps are the old stages, plus the smoke checks, now their own step in the full run as in the gate: Remote sync, Lints, Build (debug), Tests, Smoke checks, Runtime bundle, Packages, Dogfood, Publish. The names match `cicd.bash`'s where the step is the same.
 		- A missing toolchain, `-NoBuild`, `-NoPack` and a missing Enigma Virtual Box turn steps off in the plan, rather than warning inside the step. Dogfood says which of those turned the pack off.
@@ -271,10 +270,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026102517333362
 	- Requirements:
 		- The private runner prints its own steps the way the FreeBSD and arm64 lanes do, with the 79-dot rule, `<box> N of M; Starting`, then `PASS` or `FAIL`, in local time to the hundredth.
-		- The private runner is in the private repo, which has branches of its own.
 	- Progress log:
 		- 20261028: split from 2026102819522603, whose lanes part is done.
-		- It waits for the private repo's round, since the runner and its branches are there.
+		- The runner isn't in this repo, so the work is done there.
 	- Test case: none yet.
 
 - CICD CPU: the private runner.
@@ -288,10 +286,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026102819522603
 	- Requirements:
 		- The boxes the private runner builds on follow the same rules as the FreeBSD and arm64 lanes, with `nice -n 19` on macOS and `BelowNormal` on Windows, and jobs from each box's own CPU count and load.
-		- The private runner is in the private repo, which has branches of its own.
 	- Progress log:
 		- 20261028: split from 2026102517333362, whose lanes part is done.
-		- It waits for the private repo's round, since the runner and its branches are there.
+		- The runner isn't in this repo, so the work is done there.
 	- Test case: none yet.
 
 - On Windows, GLib leaks the new name of every rename in a watched folder.
@@ -2115,7 +2112,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- The 2 backlog-run flags and `--merge-gate` never dogfood, publish, commit, push, install, sync, rewrite a tracked file, or prompt. A round never dogfoods.
 			- The pre-push hook runs `--merge-gate` on a push to main, and skips it when the commits change only docs and other paths no build reads, listed in one place. A push to dev stays ungated.
 			- `cicd-win.ps1` takes the same flags.
-		- Overrides: 2026101816495201's decision that `--gate` stays the merge gate, design.md, "Branches and the merge gate", and the gate and full run lines in the private round settings.
+		- Overrides: 2026101816495201's decision that `--gate` stays the merge gate, and design.md, "Branches and the merge gate".
 	- Progress log:
 		- 20261025: split into children 2026102516165473 to 2026102516165482, one per part. `--long` and `--slow` were already in. Later, 2026102516295605 was split from 2026102516165477.
 		- 20261107: every child is closed. cicd.bash and cicd-win.ps1 both take the standard flags, --list included.
@@ -2264,7 +2261,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Each VM is put back the way it was found, paused, off or running, through the VM state helper.
 			- Each box gets the project's own work folder under its temp root.
 			- The Windows dogfood refresh names `b29w`, never `b29w-wif`.
-		- Overrides: the native Windows step in the private round settings, run by hand. The rule sending windowed checks to vm925w stays.
+		- Overrides: running the native Windows step by hand. The rule sending windowed checks to vm925w stays.
 	- Test case: the children's: ddmmw, ddmn7 and ddmmv (2026102808250949, 2026102808084300, 2026102516403481), dehyb (2026102808250954), depg0 and ddmmw (2026102808250959).
 	- Prereq IDs: 2026102516403481
 	- 2026-10-26, round1026a full run: vmFreeBSD was off. The lane started it, then failed at once with 'bsdtest@vmFreeBSD is not a FreeBSD box reachable as that user', before ssh was up, and stopped the run. The lane should wait for ssh after a start.
@@ -2315,7 +2312,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The native Windows gate is part of the default run. It favors b29w, and goes to vm925w for GPU or timed work, and for a check that puts a window on screen. b29w can still run a windowed check unattended under its test account. `--no-remote` skips every box.
 		- Each Windows box gets the project's own work folder under its temp root, removed at the end.
 		- The VM is put back the way it was found, through the VM state helper.
-		- Overrides: the native Windows step in the private round settings, run by hand. The rule sending windowed checks to vm925w stays.
+		- Overrides: running the native Windows step by hand. The rule sending windowed checks to vm925w stays.
 	- Test case: depg0 and ddmmw, from children 2026103114202710 and 2026103114202730.
 	- Acceptance signoff: Self-closed: both children closed with their tests passing.
 	- Closed: 20261103-131217
@@ -2521,7 +2518,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- The run prints one `PASS`, `FAIL` or `SKIP` line per regression and fuzz test, with its ID and name.
 		- Overrides: the test ID rule in the private project rules, in milliseconds.
 	- Progress log:
-		- 20261028: all 415 IDs were converted, from the time each one already had, along with the backlog, the private notes, the suppressions and the lints that name them. Of those, 117 moved to a later free minute, by 16 at most.
+		- 20261028: all 415 IDs were converted, from the time each one already had, along with the backlog, the suppressions, and the lints that name them. Of those, 117 moved to a later free minute, by 16 at most.
 		- 20261028: meson's result lines are rewritten as `PASS`, `FAIL` or `SKIP`, then the ID and name, on Linux, FreeBSD and native Windows. The fuzz targets, the C lint checks, the lint stage's script tests and self-tests, the package checks, the jail check, the sanitizer suite, the GUI smokes, the build flags check and the Windows-only script tests print the same line.
 	- Decisions:
 		- IDs are padded to 5 digits. Only the eel test is shorter, `00591` rather than `591`, which would also match other numbers in a search. The ID check wants at least 5 digits and allows up to an hour ahead, for a later free minute.
@@ -2554,7 +2551,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- `nemo-winbuild` comes from `cicd/win/Dockerfile`, with the base by digest, apt from a dated snapshot and the MSYS2 sysroot by version.
 		- It passes the cross build, packing and wine runs that `nemo-winbuild:init` passes, and the pipeline uses it in place of the snapshot.
-		- The snapshot has 2 packages and about 5 GB of later layers that the recipe doesn't have. The list is in the private notes.
+		- The snapshot has 2 packages and about 5 GB of later layers that the recipe doesn't have.
 	- Progress log:
 		- 20261031: split into children 2026103113501526 (the recipe pinned) and 2026103113501545 (the steps run from it). Both are done.
 	- Test case: from the children, depf5 and defps.
@@ -2579,7 +2576,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- One line at the end says what was removed and about what it freed, from `docker system df` before and after. It's checked with 2 runs, one killed partway.
 			- Temp folders are 2026102416300002.
 		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
-		- Overrides: the list of images to keep, in the private notes under the dev and test boxes.
+		- Overrides: the old list of images to keep.
 	- Progress log:
 		- 20261025: split into children 2026102516403487 (labels and the sweep at the end of a run), 2026102516403492 (a container per step) and 2026102516403497 (one pass over what came before labels).
 		- 20261031: it closed with its 3 children. Temp folders stay with 2026102416300002.
@@ -2620,7 +2617,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Fall back to the host, with one line saying so, when docker is missing or the image can't be built. Today the step is skipped instead.
 			- `--no-container` runs on the host on purpose.
 			- Tests whose point is the real desktop, GPU or another platform stay on the host or a test box.
-		- The file list is in the private notes.
 	- Progress log:
 		- 20261026: split into children 2026102617145688 (the host fallback) and 2026102617145788 (pinned image recipes). `--no-container` is 2026102516295605.
 		- 20261031: it closed with its 2 children.
@@ -2901,7 +2897,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Of the 3 modes, the last one named wins.
 	- Progress log:
 		- 20261025: it's in `cicd.bash`, with help, design.md and building.md. The pre-push hook moved to `--merge-gate` in 2026102516165475.
-	- Swept: every doc and script that names `--gate`. The hook is 2026102516165475, `cicd-win.ps1` is 2026102516165482, and the private round settings' gate and full run lines are left for the round.
+	- Swept: every doc and script that names `--gate`. The hook is 2026102516165475, and `cicd-win.ps1` is 2026102516165482.
 	- Branch: round1025b
 	- Test case: de54r, `test-cicd-quick.bash`. It gained a formatter, format check, README image and demo stand-in, and checks the steps each mode runs, the areas, the one-line note for `--gate` and `--ci`, a bad area, that nothing changes the tree, and that `--help` names them.
 	- Verified: 20261025. de54r passes, and fails 20 checks on the old `cicd.bash`. It also fails with publish, dogfood, sync, or the README images and the demo left on under `--merge-gate`. `cicd/cicd.bash --gate` passed for real on round1025b, with lint and then the suite at 235 OK and 1 skipped. dddq3 and ddmmw pass.
@@ -3355,9 +3351,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the step warns that b26's console isn't collierjr's and skips the GUI tests, the way the native Windows lane warns on a locked session, or the tests run in the session that has the console.
 	- Reproduced: 20261108, full run at d6c7ae09 and 1 rerun each, with mactest holding the console since 13:35 b26 time.
 	- Progress log:
-		- The fix goes in the private repo's runner, so it's for that repo's round.
+		- The fix goes in the runner, which isn't in this repo.
 		- 20261109: with someone else on the console, the runner warns and skips the 3 tests that need it. The rest of the mac suite runs, 159 OK.
-	- Test case: none yet. The runner is in nemo-anywhere-private.
+	- Test case: none yet. The runner isn't in this repo.
 	- Acceptance signoff: Self-closed: the private runner passed with mactest holding the console, 159 OK and the 3 skipped.
 	- Closed: 20261109-141500
 
@@ -6013,7 +6009,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- Every run works in `${HOST_TEMP}/nemo-anywhere/<YYYYmmDD-HHMMSS>_<NNN>/`, points `TMPDIR`, `TEMP`, and `TMP` at it, and writes `run.pid` there.
 			- A trap removes it at the end, on failure and Ctrl+C too. `--keep-temp` keeps it and prints its path.
 			- Each run also removes the project's own run folders older than 2 days with no live process.
-			- Every recursive removal goes through a repo copy of the guard. So far, 93 `rm -r` lines in 47 scripts and 29 `Remove-Item -Recurse` lines in 14 PowerShell scripts don't yet. File list in the private notes.
+			- Every recursive removal goes through a repo copy of the guard. So far, 93 `rm -r` lines in 47 scripts and 29 `Remove-Item -Recurse` lines in 14 PowerShell scripts don't yet.
 			- The same on the Windows boxes and the test VMs.
 	- Progress log:
 		- 20261025: split into children 2026102516403466 (the run folder in `cicd.bash`), 2026102516403471 (the bash scripts), 2026102516403476 (`cicd-win.ps1` and the PowerShell scripts), and 2026102516403481 (the test VMs).
@@ -6033,7 +6029,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102516403466
 	- Requirements:
 		- `cicd-win.ps1` gets the same run folder, `run.pid`, removal at the end, keep switch, and stale sweep as `cicd.bash`, on the Windows boxes.
-		- A PowerShell copy of the guard. The 29 `Remove-Item -Recurse` lines in 14 scripts go through it. File list in the private notes.
+		- A PowerShell copy of the guard. The 29 `Remove-Item -Recurse` lines in 14 scripts go through it.
 	- Progress log:
 		- 20261103: split into children 2026110315184948 (the run folder in `cicd-win.ps1`, and the guard), 2026110315184983 (the scripts under `cicd/`), and 2026110315185015 (`install.ps1` and `n8runfm.ps1`, the prefix removal near line 619 included).
 		- 20261107: every child closed. detts' list of scripts still to move has been empty since 20261104, install.ps1's prefix removal included.
@@ -6078,7 +6074,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026102416300002
 	- Prereq IDs: 2026102516403466
 	- Requirements:
-		- The 93 `rm -r` lines in 47 scripts go through the repo copy of the guard, or a guard of the same kind that names the one parent it may remove under. File list in the private notes.
+		- The 93 `rm -r` lines in 47 scripts go through the repo copy of the guard, or a guard of the same kind that names the one parent it may remove under.
 	- Progress log:
 		- 20261026: split into children 2026102618083910 (removals in a temp folder), 2026102617555865 (removals outside a temp root) and 2026102617555870 (the installer, and removals inside a container). The first is in. The third is in too, and waits on a FreeBSD run.
 	- Test case: defnq, which has the list of rm -r lines that skip a guard; only the 2 guards' own lines are left.
@@ -6129,7 +6125,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026102516403476
 	- Prereq IDs: 2026110315184948
 	- Requirements:
-		- Each `Remove-Item -Recurse` in the scripts under `cicd/` goes through the PowerShell guard. File list in the private notes.
+		- Each `Remove-Item -Recurse` in the scripts under `cicd/` goes through the PowerShell guard.
 		- A test that fails on a new bare `Remove-Item -Recurse`, as defnq does for `rm -r`.
 	- Progress log:
 		- 20261103: the 18 removals in 14 scripts under `cicd/` go through `Remove-SafeTree`. A test's scratch under the temp folder takes the tmp folder rule. `pack-portable.ps1`'s flat tree, `sandbox.ps1`'s app tree, `lane-box.ps1`'s run folder, and `cicd-win.ps1`'s old dogfood drop take `-Under` their one parent. `lane.bash` sends `run-temp.ps1` beside `lane-box.ps1`, since the box has only those 2 before the clone.
@@ -7070,7 +7066,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Without docker, or under MSYS2, lint still runs with the host's tools.
 	- Decisions:
 		- It's a separate `nemo-lint` image, not part of `nemo-build-deps`. Rebuilding that one for GTK reasons shouldn't move the lint versions.
-		- Only the 4 tool checkers go in it. The rest of `lint.bash` has script tests that need docker, ssh or the private tree, so it stays on the host.
+		- Only the 4 tool checkers go in it. The rest of `lint.bash` has script tests that need docker or ssh, so it stays on the host.
 		- It isn't used on the other boxes. FreeBSD has no docker, macOS would need a VM, and vm925w has its hypervisor off. Lint gives the same result anywhere, so one box is enough.
 	- Actual effort: Avg
 	- Progress log:
@@ -12072,7 +12068,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928
 	- Requirements:
 		- Everything changed from 20260917 to 20260927, reviewed or not, plus the ground the 20260919 review didn't get to where it changed since.
-		- Items 1 to 45 below have this ID as their parent. Technical detail is in the private notes under the same numbers.
+		- Items 1 to 45 below have this ID as their parent.
 	- Progress log:
 		- 20260928-133814: Filed 33 defects and 12 enhancements. Of the defects, 4 are regressions or missed twins of an earlier fix, in items 4, 12, 21, and 22, item 15 reopens 3 closures, and the rest are new ground. Of all of them, 19 were reproduced, some only in part. The others were only read, and each says so.
 	- Decisions:

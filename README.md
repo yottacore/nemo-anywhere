@@ -64,7 +64,7 @@
 
 ## Why
 
-Nemo is one of the best file managers going. It (and its ancestors) have decades of development work and polish.
+Nemo is one of the best file managers going. It (and its ancestors) has decades of development work and polish.
 
 But: it's tightly integrated into the Linux Cinnamon desktop.
 
@@ -168,7 +168,7 @@ These are the features that make Nemo worth porting:
 
 	- For symlinks, you can choose relative or absolute path.
 
-		- Note: Shortcuts, by Microsoft definition, handily contain both relative and absolute paths by definition, plus a portable path such as `%USERPROFILE%\Documents`. This helps the shortcut format overcome the limitations of relative vs absolute symbolic links.
+		- Note: Shortcuts, by Microsoft definition, handily contain both relative and absolute paths, plus a portable path such as `%USERPROFILE%\Documents`. This helps the shortcut format overcome the limitations of relative vs absolute symbolic links.
 
 - Windows environment variables and backslashes work on Linux and macOS. Linux and macOS variables and forward slashes work on Windows.
 
@@ -244,7 +244,7 @@ Every build goes through exhaustive static and dynamic analysis for security and
 
 Current limitations:
 
-- All prerelease builds, as a build rule, enable the option "Paranoid mode for move, overwrite, trash, and delete". It's wired into all possible trash/delete/move code paths (replacing the existing dialogs where possible), as an extra safety net for all prereleases - whether needed or not. It can be safely turned off in Settings.
+- All prerelease builds, as a build rule, enable the option "Paranoid mode for move, overwrite, trash, and delete". It's built into all possible trash/delete/move code paths (replacing the existing dialogs where possible), as an extra safety net for all prereleases - whether needed or not. It can be safely turned off in Settings.
 
 - The Windows exe isn't code-signed yet, so Windows may warn the first time it runs.
 

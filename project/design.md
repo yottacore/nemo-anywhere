@@ -715,7 +715,7 @@ Tests are ordinary executables run by meson, and the bar for adding one is a def
 
 - No test can touch real files. On Linux each test runs in a bubblewrap jail inside the build container. The repo and the system are read-only, and a fresh home and temp folder of its own are the only places it can write. The FreeBSD and Windows suites run as a throwaway test user and give each test the same fresh home and temp folder, without the jail. On every platform the test library refuses a delete or a move outside the test's own folders, and the test ends there, naming the path. The jail costs about 10 ms a test, which is lost in the noise of a whole suite run.
 
-- Anything that needs a real desktop, such as clicking a menu or driving a drag, runs on a private virtual display with a window manager in the Linux build container, and on Windows in a throwaway Windows Sandbox built from the host's own image, which has its own desktop and keeps no state. A window can also be photographed without disturbing anything, since it renders off-screen even when covered.
+- Anything that needs a real desktop, such as clicking a menu or driving a drag, runs on a private virtual display with a window manager in the Linux build container, and on Windows in a throwaway Windows Sandbox built from the host's own image, which has its own desktop and keeps no state.
 
 - Interactive behavior that no assertion checks is verified by hand against a build kept on the desktop for daily use.
 
