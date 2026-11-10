@@ -149,6 +149,13 @@ ANALYZE_LONG_CMD=(env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-900}" bash cicd/
 ## 2026102114400593.
 HEAP_SOAK_CMD=(bash cicd/utility/heap-soak.bash)
 
+## The clang analyzer across files, over both compile lists, after the heap
+## soak: with --long, or --leakcheck named. About 20 min, so not in a plain
+## run. Fails on a missed planted pair; its findings are report only for now.
+## 10 min a file, since following calls takes about 3 times the per-file run.
+## Backlog 2026110920250275.
+ANALYZE_CTU_CMD=(env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-600}" bash cicd/utility/analyze.bash --ctu)
+
 ## Stage 3 (after lints): dependency policy (licenses/advisories). NOT READY - unset.
 ## NEEDS: a C-world equivalent if wanted (there is no Cargo.lock to police); likely
 ## not applicable until there are vendored deps.

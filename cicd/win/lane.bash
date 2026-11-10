@@ -15,7 +15,9 @@
 ##	  the ssh session (win/lane-box.ps1) and polled, with its log printed here
 ##	  as it goes. At the end, a failure and a TERM included, the gate is
 ##	  stopped and the folder removed, along with the project's stale ones
-##	  there. Not under the ssh login's %TEMP%, since the test user's desktop
+##	  there. After a gate or desktop step that ended and failed, its meson
+##	  testlog*.txt comes back first, to cicd/artifacts/build-win here as
+##	  <box>_<folder>_testlog*.txt. Not under the ssh login's %TEMP%, since the test user's desktop
 ##	  tests run in the same folder, and PowerShell as that user reads every
 ##	  folder above a path it works in, which another user's profile refuses.
 ##	- The ssh login is in session 0, with no desktop, so the tests that put a
@@ -73,17 +75,34 @@ sshOpts=(-o ConnectTimeout=30 -o BatchMode=yes -o ServerAliveInterval=30 -o LogL
 fSay(){ printf '%s\n' "$*"; }
 fDieW(){ { printf '[ FAILED: %s ]\n' "$*"; } >&2; exit 1; }
 
-## Set once the box has a folder, for the EXIT trap.
-box=""; dirW=""; dirS=""; scratch=""; sent=0
+## Set once the box has a folder, for the EXIT trap. ended: the gate wrote its rc.
+box=""; dirW=""; dirS=""; scratch=""; sent=0; ended=0
 
 ## Every command here is put together on this side, for cmd.exe on the box.
 # shellcheck disable=SC2029
 fOnBox(){ ssh "${sshOpts[@]}" "$box" "$@" < /dev/null; }
 fBoxPs(){ fOnBox "pwsh -NoProfile -ExecutionPolicy Bypass -File ${dirW}\\lane-box.ps1 -Dir ${dirW} $*" | tr -d '\r'; }
 
+## The failed run's meson test logs, which go with the folder otherwise. The
+## folder's own name keeps a later run from writing over them.
+fKeepTestLogs(){
+	local dest="${ROOT}/cicd/artifacts/build-win" names name kept=0
+	names="$(fOnBox "dir /b ${dirW}\\repo\\cicd\\artifacts\\build-win\\meson-logs\\testlog*.txt" 2> /dev/null | tr -d '\r' || true)"
+	mkdir -p -- "$dest" || return 0
+	while read -r name; do
+		[[ "$name" =~ ^testlog[A-Za-z0-9._-]*\.txt$ ]] || continue
+		if scp -q "${sshOpts[@]}" "${box}:${dirS}/repo/cicd/artifacts/build-win/meson-logs/${name}" "${dest}/${box}_${dirW##*\\}_${name}" < /dev/null; then
+			fSay "kept ${dest}/${box}_${dirW##*\\}_${name}"; kept=1
+		fi
+	done <<< "$names"
+	((kept)) || fSay "no meson test log to keep from ${box}"
+}
+
 fCleanUp(){
 	local rc=$?
 	trap - EXIT INT TERM HUP
+	## Not after a pass, 75 included, nor a stop from outside, which wants to be quick.
+	case "$rc" in 0|75|129|130|143) ;; *) if ((sent && ended)); then fKeepTestLogs || true; fi ;; esac
 	## Before lane-box.ps1 is there, the folder is still empty.
 	if ((sent)); then
 		fBoxPs -Remove || fSay "could not remove ${box}:${dirW}"
@@ -246,6 +265,7 @@ fGate(){
 		fi
 	done
 	fShowLog
+	ended=1
 	code="$(sed -n 's/^rc=\(-\{0,1\}[0-9][0-9]*\).*/\1/p' <<< "$rc" | head -n 1)"
 	[[ -n "$code" ]] || fDie "the gate on ${box} left an unreadable exit code: ${rc}"
 	fEcho_Clean "the gate on ${box} exited ${code} (${rc#* })"
@@ -281,6 +301,8 @@ fMain "${@}"
 
 
 ##	History:
+##		- 2026-11-10: A failed gate's meson test logs are kept here before its
+##		  folder goes.
 ##		- 2026-11-06: The gate runs cicd-win.ps1 -BacklogRunQuick, -Gate's new name.
 ##		- 2026-11-04: NEMO_WIN_DESKTOP_LIST hands the windowed tests to the next
 ##		  box, which then builds only and runs just those.

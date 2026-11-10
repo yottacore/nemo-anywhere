@@ -87,7 +87,7 @@ static gboolean    save_failing;
 static GThread    *config_thread;      /* whoever called init - the UI thread */
 static gboolean    hands_off;          /* the file is read but never saved over */
 static gboolean    rewrite_due;        /* converted from an older format, not saved yet */
-static gboolean    still_v2;           /* on disk as read at startup: 2.x, not saved over */
+static gboolean    still_old;          /* on disk as converted at startup, not saved over */
 static guint       load_count;         /* bumped each time load_locked replaces the doc */
 
 /* Sharing with the other copies. A change is stamped, so 2 copies that set
@@ -382,6 +382,134 @@ known_keys_only (shcl_doc *from)
 	return to;
 }
 
+/* A dev build from 20260925 to 20261105 stamped its file format 3 but wrote
+ * a list bare, `a, b`, which format 3 refuses (E026), so the key reads as its
+ * default. Those builds split such a value on every unquoted comma, as format
+ * 3 does inside brackets, so brackets around it read the same items. Only a
+ * line SHCL refuses that way and whose key is a list is changed: text with a
+ * comma in it stays text, and a file today's rules read cleanly is left
+ * alone. Returns the changed text, malloc'd, or NULL when nothing changed. */
+static char *
+bracket_bare_lists (const char *text, gsize len, size_t *out_len)
+{
+	shcl_doc    *doc = shcl_parse (text, len);
+	shcl_tokens  tok, val;
+	GHashTable  *refused;
+	GPtrArray   *groups;       /* path of each open group, by depth */
+	GArray      *depths;       /* its indent */
+	GString     *out = NULL;
+	gsize        at = 0, line = 0, i, copied = 0;
+	char        *result = NULL;
+
+	if (doc == NULL)
+		return NULL;
+
+	refused = g_hash_table_new (NULL, NULL);
+	for (i = 0; i < shcl_diag_count (doc); i++) {
+		if (strcmp (shcl_diag_code (doc, i), "E026") == 0)
+			g_hash_table_add (refused, GSIZE_TO_POINTER (shcl_diag_line (doc, i)));
+	}
+	if (g_hash_table_size (refused) == 0) {
+		g_hash_table_destroy (refused);
+		shcl_free (doc);
+		return NULL;
+	}
+
+	groups = g_ptr_array_new_with_free_func (g_free);
+	depths = g_array_new (FALSE, FALSE, sizeof (gsize));
+	memset (&tok, 0, sizeof tok);
+	memset (&val, 0, sizeof val);
+
+	if (len >= 3 && memcmp (text, "\xEF\xBB\xBF", 3) == 0)
+		at = 3;
+	while (at < len) {
+		const char          *p = text + at;
+		const char          *nl = memchr (p, '\n', len - at);
+		gsize                whole = nl != NULL ? (gsize) (nl - p) + 1 : len - at;
+		gsize                n = nl != NULL ? (gsize) (nl - p) : whole;
+		gsize                indent, s;
+		GString             *path;
+		const NemoConfigKey *k;
+		GString             *br;
+
+		line++;
+		at += whole;
+		if (n > 0 && p[n - 1] == '\r')
+			n--;
+		for (indent = 0; indent < n && (p[indent] == '\t' || p[indent] == ' '); indent++)
+			;
+		/* Blank, a comment, or a stacked item: none opens or closes a group. */
+		if (indent == n || p[indent] == '#' || p[indent] == '-')
+			continue;
+		while (depths->len > 0 &&
+		       g_array_index (depths, gsize, depths->len - 1) >= indent) {
+			g_array_set_size (depths, depths->len - 1);
+			g_ptr_array_set_size (groups, (gint) groups->len - 1);
+		}
+
+		shcl_tokenize (doc, p + indent, n - indent, ':', 0, SHCL_RULES_CURRENT, &tok);
+		if (!tok.has_sep || tok.has_fault || tok.nseg == 0)
+			continue;
+		path = g_string_new (groups->len > 0 ? groups->pdata[groups->len - 1] : NULL);
+		for (s = 0; s < tok.nseg; s++) {
+			const shcl_piece *name = &tok.segments[s].name;
+
+			if (path->len > 0)
+				g_string_append_c (path, '.');
+			g_string_append_len (path, p + indent + name->start,
+			                     (gssize) (name->end - name->start));
+		}
+
+		if (tok.value_start == tok.value_end) {
+			g_array_append_val (depths, indent);
+			g_ptr_array_add (groups, g_string_free (path, FALSE));
+			continue;
+		}
+		k = find_key (NULL, path->str);
+		g_string_free (path, TRUE);
+		if (k == NULL || k->type != NEMO_CONFIG_STRING_LIST ||
+		    !g_hash_table_contains (refused, GSIZE_TO_POINTER (line)) ||
+		    tok.has_array)
+			continue;
+
+		/* Brackets that don't make a well formed list leave it as it was. */
+		br = g_string_new ("[");
+		g_string_append_len (br, p + indent + tok.value_start,
+		                     (gssize) (tok.value_end - tok.value_start));
+		g_string_append_c (br, ']');
+		shcl_tokenize_value (doc, br->str, br->len, 0, SHCL_RULES_CURRENT, &val);
+		g_string_free (br, TRUE);
+		if (!val.has_array || val.has_array_fault)
+			continue;
+
+		if (out == NULL)
+			out = g_string_sized_new (len + 64);
+		g_string_append_len (out, text + copied,
+		                     (gssize) (p + indent + tok.value_start - (text + copied)));
+		g_string_append_c (out, '[');
+		g_string_append_len (out, p + indent + tok.value_start,
+		                     (gssize) (tok.value_end - tok.value_start));
+		g_string_append_c (out, ']');
+		copied = (gsize) (p + indent + tok.value_end - text);
+	}
+
+	if (out != NULL) {
+		g_string_append_len (out, text + copied, (gssize) (len - copied));
+		result = malloc (out->len + 1);
+		if (result == NULL)
+			SHCL_OOM ();
+		memcpy (result, out->str, out->len + 1);
+		*out_len = out->len;
+		g_string_free (out, TRUE);
+	}
+
+	g_ptr_array_unref (groups);
+	g_array_unref (depths);
+	g_hash_table_destroy (refused);
+	shcl_free (doc);
+	return result;
+}
+
 /* @at_start: a file with no format line is read as 2.x only at startup. One
  * that turns up while running is a hand edit in progress, by today's rules,
  * unless it is still the 2.x file startup read and could not save over. */
@@ -412,6 +540,7 @@ load_locked (gboolean at_start)
 		gint64          format = shcl_format_version (text, len);
 		shcl_migration  conv = { NULL, 0, 0, 0, 0 };
 		gboolean        was_hands_off = hands_off;
+		gboolean        bare_lists = FALSE;
 
 		hands_off = FALSE;
 		rewrite_due = FALSE;
@@ -426,7 +555,13 @@ load_locked (gboolean at_start)
 				           ", newer than this release reads (%d); "
 				           "settings changed here won't be saved",
 				           config_path, format, SHCL_FORMAT_MAJOR);
-		} else if (format >= 0 ? format < SHCL_FORMAT_MAJOR : at_start || still_v2) {
+		} else if (format == SHCL_FORMAT_MAJOR) {
+			/* Only at startup, as for a file with no format line: a bare
+			 * list typed while running is a hand edit by today's rules. */
+			if (at_start || still_old)
+				conv.text = bracket_bare_lists (text, len, &conv.len);
+			bare_lists = conv.text != NULL;
+		} else if (format >= 0 ? format < SHCL_FORMAT_MAJOR : at_start || still_old) {
 			/* No format line: every file a 2.x release wrote, or a hand edit
 			 * that dropped the line. Taken as 2.x, since the app's own files
 			 * are the common case. If both rules read it the same, the next
@@ -436,21 +571,28 @@ load_locked (gboolean at_start)
 			    memcmp (conv.text, text, len) == 0)
 				g_clear_pointer (&conv.text, free);
 		}
-		still_v2 = format < 0 && conv.text != NULL;
+		still_old = bare_lists || (format < 0 && conv.text != NULL);
 
 		if (conv.text != NULL) {
 			gint64  was    = format >= 0 ? format : 2;
 			char   *backup = backup_old_format (text, len, was);
 
 			if (backup == NULL) {
-				g_warning ("nemo-config: %s is in an older SHCL format and no "
-				           "backup could be written beside it; it won't be "
-				           "saved over", config_path);
+				g_warning ("nemo-config: %s %s and no backup could be written "
+				           "beside it; it won't be saved over", config_path,
+				           bare_lists ? "has lists without brackets"
+				                      : "is in an older SHCL format");
 				hands_off = TRUE;
 			} else {
-				g_message ("nemo-config: %s was SHCL format %" G_GINT64_FORMAT
-				           " and is rewritten for format %d; the old file is %s",
-				           config_path, was, SHCL_FORMAT_MAJOR, backup);
+				if (bare_lists)
+					g_message ("nemo-config: %s has lists without brackets, as "
+					           "builds before SHCL 3.0.0-beta1 wrote them, and is "
+					           "rewritten with them; the old file is %s",
+					           config_path, backup);
+				else
+					g_message ("nemo-config: %s was SHCL format %" G_GINT64_FORMAT
+					           " and is rewritten for format %d; the old file is %s",
+					           config_path, was, SHCL_FORMAT_MAJOR, backup);
 				if (conv.ambiguous > 0 || conv.lost > 0)
 					g_warning ("nemo-config: %zu value(s) could be read two "
 					           "ways and %zu line(s) couldn't be converted; "
@@ -527,7 +669,7 @@ load_locked (gboolean at_start)
 		if (gone) {
 			hands_off = FALSE;
 			rewrite_due = FALSE;
-			still_v2 = FALSE;
+			still_old = FALSE;
 			g_clear_pointer (&last_written, g_free);
 			last_written_len = 0;
 		}
@@ -995,7 +1137,7 @@ save_now (G_GNUC_UNUSED gpointer data)
 		g_hash_table_remove_all (held_keys);
 		save_failing = FALSE;
 		rewrite_due = FALSE;
-		still_v2 = FALSE;
+		still_old = FALSE;
 	} else {
 		if (!save_failing) {
 			g_warning ("nemo-config: can't write %s: %s",

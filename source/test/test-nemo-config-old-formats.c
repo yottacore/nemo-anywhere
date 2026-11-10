@@ -4,11 +4,16 @@
  * startup: a file with no format line is read as 2.x, and backed up and
  * rewritten when today's rules would read it another way.
  *
+ * So does a file from a dev build before SHCL 3.0.0-beta1 (shcl-dev-writer),
+ * stamped format 3 with its lists bare. It is backed up and rewritten when it
+ * has a list today's rules refuse.
+ *
  * A file with no format line is converted when the store opens, and the store
  * opens once a process, so each case is two runs of this program: one that
  * opens the old file, and one that opens what the first left behind. The
  * blocked case is one run: no backup can be written, so the file must never
- * be saved over, and a hand edit to it while running is still read as 2.x.
+ * be saved over, and a hand edit to it while running is still read the old
+ * way.
  *
  *   test-nemo-config-old-formats <release> <writer> [<release> <writer> ...] */
 
@@ -26,6 +31,14 @@
 #include "test-check.h"
 
 #define FORMAT_LINE "\n##    Format   3\n"
+
+/* The format a backup is named for: 3 for a dev build's stamped file, 2 for
+ * one with no format line. */
+static int
+format_of (const char *text)
+{
+	return strstr (text, FORMAT_LINE) != NULL ? 3 : 2;
+}
 
 static char *
 read_path (const char *path, gsize *len)
@@ -197,7 +210,7 @@ open_old_file (const char *home, const char *writer, const char *variant, const 
 	char       *expect = g_build_filename (home, "expect.txt", NULL);
 	const char *run[] = { writer, path, expect, variant, NULL };
 	int         status = -1;
-	char       *old, *now;
+	char       *old, *now, *suffix;
 	gsize       old_len, now_len;
 	GPtrArray  *backups;
 
@@ -207,7 +220,9 @@ open_old_file (const char *home, const char *writer, const char *variant, const 
 	check (g_spawn_check_exit_status (status, NULL));
 	old = read_path (path, &old_len);
 	check (old_len > 0);
-	check (strstr (old, "##    Format") == NULL);
+	suffix = g_strdup_printf ("_format-v%d.shcl", format_of (old));
+	if (format_of (old) == 2)
+		check (strstr (old, "##    Format") == NULL);
 
 	nemo_config_init ();
 
@@ -227,7 +242,7 @@ open_old_file (const char *home, const char *writer, const char *variant, const 
 
 			kept = read_path (full, &kept_len);
 			check (kept_len == old_len && memcmp (kept, old, old_len) == 0);
-			check (g_str_has_suffix (backups->pdata[0], "_format-v2.shcl"));
+			check (g_str_has_suffix (backups->pdata[0], suffix));
 			g_free (kept);
 			g_free (full);
 		}
@@ -246,6 +261,7 @@ open_old_file (const char *home, const char *writer, const char *variant, const 
 	g_free (now);
 
 	nemo_config_shutdown ();
+	g_free (suffix);
 	g_free (old);
 	g_free (expect);
 	g_free (path);
@@ -279,7 +295,7 @@ open_saved_file (const char *home, const char *variant, const char *label)
 /* A directory at each name a backup could take in the next minute, so none
  * can be written. Only regular files count as backups after this. */
 static void
-block_backups (const char *dir)
+block_backups (const char *dir, int format)
 {
 	GDateTime *now = g_date_time_new_now_local ();
 	int        s;
@@ -287,7 +303,7 @@ block_backups (const char *dir)
 	for (s = -2; s < 60; s++) {
 		GDateTime *at = g_date_time_add_seconds (now, s);
 		char      *stamp = g_date_time_format (at, "%Y%m%d-%H%M%S");
-		char      *name = g_strdup_printf ("settings_backup_%s_format-v2.shcl", stamp);
+		char      *name = g_strdup_printf ("settings_backup_%s_format-v%d.shcl", stamp, format);
 		char      *full = g_build_filename (dir, name, NULL);
 
 		check (g_mkdir_with_parents (full, 0700) == 0);
@@ -316,7 +332,7 @@ count_backup_files (const char *dir)
 	return n;
 }
 
-/* A 2.x file that could not be backed up stays as it is, and an edit to it
+/* An old file that could not be backed up stays as it is, and an edit to it
  * while running is read the way the startup read it. */
 static int
 open_blocked (const char *home, const char *writer, const char *label)
@@ -336,7 +352,7 @@ open_blocked (const char *home, const char *writer, const char *label)
 	                     NULL, NULL, NULL, NULL, &status, NULL));
 	check (g_spawn_check_exit_status (status, NULL));
 	old = read_path (path, &old_len);
-	block_backups (dir);
+	block_backups (dir, format_of (old));
 
 	nemo_config_init ();
 	prefs = nemo_config_get_group ("preferences");

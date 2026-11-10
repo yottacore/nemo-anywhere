@@ -33,6 +33,41 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Nemo Anywhere dim checkmarks: the icon view.
+	- ID: 2026102411133414
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Needs local test suite run?: no. The quick gate's tests passed with it.
+	- Priority|Severity: High
+	- Opened: 20261024-111334
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515571
+	- Prereq IDs: 2026102411133409
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Only under Nemo Anywhere. A dim checkmark on every selected icon, and none on the rest. The text doesn't change.
+		- In the top-left corner of the icon, on a small scrim that reads on any thumbnail.
+		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
+	- Progress log:
+		- 20261024: opened.
+		- 20261109: under Nemo Anywhere each selected icon in the icon view gets a dim checkmark in its top-left corner, on a small patch of the selection color. Labels are unchanged. The marks follow the setting live. The compact view and the desktop get none yet.
+		- 20261110: left at signoff for the look of the mark on icons, as the list view column's was. Tests pass.
+	- Decisions:
+		- The patch is the theme's selection background, and the mark is the selected text in the insensitive look, the same pair as the list view's column. So the mark reads the same in both views, and the patch stands out on light, dark and busy thumbnails.
+		- The mark is the list view's size, shrunk to two fifths of the icon on small icons.
+		- It sits at the corner of the icon image, so on a theme icon with empty margins it can sit a little off the visible shape.
+		- Top-left in a right-to-left layout too, as the design doc says.
+		- The icon item has a read-only `dim-checkmark` property, which gives what the drawing goes by, for the tests.
+	- Swept: the label highlight and the drag image (no mark in either), the compact view's layout (left to 2026102411133419), the desktop, and the model switch in the list view and the icon container.
+	- Branch: round1110a
+	- Test case: dec8w and dec8v, where every icon view check also checks the marks: on the selected icons under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). Under Nemo Anywhere the two icon view band checks in dec8v check them too. The result counts don't change.
+	- Not covered by a test yet: the marks coming and going when the setting changes while the window is open.
+	- Verified: 20261109, dec8w, dec8v, de8bd, de8dm, ddy5f and de8ec pass, and fail with marks drawn on every icon under every model. The quick gate passed (lints, and 242 OK, 1 skipped). The clang analyzer reports nothing on the two changed files.
+	- Verified: 20261109, the icon view under Nemo Anywhere in Adwaita and Adwaita dark, with 3 of 7 icons selected: a mark on each selected icon and none on the rest, labels unchanged. It reads on white, black, blue and striped thumbnails.
+	- Acceptance signoff: Pending: the look of the mark on icons. dec8w and dec8v pass.
+
 - The native gate on b29w sometimes fails on test-nemo-office's leftover folder.
 	- ID: 2026103116203164
 	- Type: Bug
@@ -509,46 +544,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: treeedit
 	- Test case: df066 (Ctrl+C in the tree with the whole list selected).
 
-- Nemo Anywhere selection model: need to be able to initiate a left-drag-to-select from the checkmark column.
-	- ID: 2026110919315994
-	- Type: Bug
-	- Status: Queued
-	- Needs local test suite run?: Yes
-	- Priority|Severity: High
-	- Opened: 20261109-193159
-	- Opened by: t00mietum
-	- Related IDs: 2026102407515573
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-	- Steps to reproduce: list view under the Nemo Anywhere model, left drag starting in the checkmark column.
-	- Incorrect behavior: a left-drag-to-select can't be started from the checkmark column.
-	- Expected behavior: a left drag from the checkmark column selects, in addition to right-drag-to-select etc.
-	- Notes:
-		- 2026102407515573 already plans a plain drag band from the checkmark column.
-	- Test case: none yet.
-
-- Nemo Anywhere dim checkmarks: the icon view.
-	- ID: 2026102411133414
-	- Type: Enhancement
-	- Status: Queued
-	- Needs local test suite run?: Yes
-	- Priority|Severity: High
-	- Opened: 20261024-111334
-	- Opened by: t00mietum
-	- Parent ID: 2026102407515571
-	- Prereq IDs: 2026102411133409
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- Only under Nemo Anywhere. A dim checkmark on every selected icon, and none on the rest. The text doesn't change.
-		- In the top-left corner of the icon, on a small scrim that reads on any thumbnail.
-		- A test that the marks match the selection after a click, Ctrl+click, a band, Select all and Escape.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
-	- Progress log:
-		- 20261024: opened.
-	- Test case: none yet.
-
 - Nemo Anywhere dim checkmarks: the compact view.
 	- ID: 2026102411133419
 	- Type: Enhancement
@@ -597,30 +592,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: split into children, one per view: 2026102412041967 (list view), ...969 (icon view), ...971 (compact view).
 	- Test case: one per child.
 
-- Nemo Anywhere focus outline and keys: the icon view.
-	- ID: 2026102412041969
-	- Type: Enhancement
-	- Status: Queued
-	- Needs local test suite run?: Yes
-	- Priority|Severity: High
-	- Opened: 20261024-120419
-	- Opened by: t00mietum
-	- Parent ID: 2026102407515572
-	- Prereq IDs: 2026102412041967
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- Only under Nemo Anywhere. No focus outline, except while a Ctrl+arrow move has put the focus on an icon that isn't selected.
-		- Up, Down, Left, Right, Page Up and Page Down count from the range ends. After a Ctrl+arrow move they count from the focus.
-		- Ctrl with an arrow moves the focus alone. Ctrl+Space adds or removes the focused icon. Ctrl+Shift with an arrow adds the run from the anchor. Ctrl+Home and Ctrl+End are the same as the key alone.
-		- Escape clears the selection, the focus and the anchor. A second Escape does nothing, and the next arrow starts at the first icon. An Escape that cancels something else does only that.
-		- Space previews, and never starts type-ahead on its own.
-		- dec8w checks each key in the icon view.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
-	- Progress log:
-		- 20261024: opened.
-	- Test case: none yet.
-
 - Nemo Anywhere focus outline and keys: the compact view.
 	- ID: 2026102412041971
 	- Type: Enhancement
@@ -666,6 +637,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- v1 already has the plain drag rule and the Ctrl, Shift and right bands from a row (ddy5f). What's new is the band from the checkmark column, and where a band leaves the focus and the anchor.
 	- Progress log:
 		- 20261024: opened.
+		- 20261110: a plain drag from the checkmark column bands now, done in 2026110919315994 (dec8v). Still left: where a band leaves the focus and the anchor.
 	- Test case: none yet.
 
 - Nemo Anywhere: the tree view rules, less the affirmative parts.
@@ -762,60 +734,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261025: split into children 2026102517333367 (`cicd.bash`, the gate included) and 2026102517333373 (`cicd-win.ps1` and the other boxes).
 	- Test case: none yet.
 
-- The private runner's mac GUI tests fail when another user holds b26's console.
-	- ID: 2026110817502353
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261108-175023
-	- Opened by:
-	- Target OS: macOS
-	- Steps to reproduce: sign in as another user on b26's console, then run the private runner step of a full run.
-	- Incorrect behavior: dd5ca, dd5dk and der9s fail every time, on the clipboard, a tab's width and a drop, and the step fails as if the code broke.
-	- Expected behavior: the step warns that b26's console isn't collierjr's and skips the GUI tests, the way the native Windows lane warns on a locked session, or the tests run in the session that has the console.
-	- Reproduced: 20261108, full run at d6c7ae09 and 1 rerun each, with mactest holding the console since 13:35 b26 time.
-	- Progress log:
-		- Where the fix goes: the private repo's runner, so it's for that repo's round.
-		- 20261109: with someone else on the console, the runner warns and skips the 3 tests that need it. The rest of the mac suite runs, 159 OK.
-	- Test case: none yet. The runner is in nemo-anywhere-private.
-	- Acceptance signoff: Self-closed: the private runner passed with mactest holding the console, 159 OK and the 3 skipped.
-	- Closed: 20261109-141500
-
-- The native Windows gate removes its folder after a failure, test log and all.
-	- ID: 2026110910285880
+- Move every Windows lane from MSYS2's MINGW64 to UCRT64.
+	- ID: 2026110920004210
 	- Type: Task
 	- Status: Queued
 	- Priority|Severity: Avg
-	- Opened: 20261109-102858
-	- Opened by: t00mietum
-	- Related IDs: 2026103116284963
+	- Opened: 20261109-200042
+	- Opened by: 2026102809292776
+	- Related IDs: 2026102809292776, 2026101913541100, 2026102112223038
 	- Target OS: Windows
 	- Requirements:
-		- On a failed gate, `win/lane.bash` copies the box's `meson-logs/testlog-*.txt` to `cicd/artifacts/build-win/` here before it removes the folder.
-		- The copy's name has the box and the folder's stamp, so a later run doesn't write over it.
-		- A passing gate copies nothing.
-	- Progress log:
-		- 20261109: ddepv failed in the full run's native gate on b29w, and its log went with the folder.
-	- Test case: test-lane.bash, a failed gate leaves the test log here.
-
-- Convert a settings file stamped format 3 by a dev build before SHCL 3.0.0-beta1.
-	- ID: 2026110911251998
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261109-112519
-	- Opened by: t00mietum
-	- Related IDs: 2026110520234226
-	- Requirements:
-		- Every SHCL format the app has written loads and is converted, not only the released ones.
-		- That takes in a file a dev or dogfood build wrote from 20260925 to 20261105. It says format 3 but writes a list bare, as `a, b`, which format 3 refuses with E026, so the list reads as its default.
-		- Such a list reads as that build read it, and the file is backed up and saved with brackets, as the old format conversion does.
-		- A value that is text with a comma in it isn't taken for a list. Only a key whose schema type is a list is converted.
-	- Progress log:
-		- 20261109: seen in a dogfood settings file on Windows: the favorites line was bare, so the favorites read as the default. Fixed there by hand.
-	- Decisions:
-		- Changed my mind on 2026110520234226's "isn't converted" for these files.
-	- Test case: none yet. ddf4w, Config old formats test, is where it belongs.
+		- MSYS2 deprecated MINGW64 on 2026-03-15, and since 2026-10-24 drops it from leaf packages as they update. The hosted build's pins hold until they're moved, but a move, such as for the GLib or GTK fixes, can find a package gone.
+		- UCRT64 links the exe and every DLL to Windows' UCRT in place of msvcrt, so all lanes move together: the hosted build, the pins, the cross build image and its sysroot, the wine runner, the analyzer's clang-win lane, and both Windows boxes.
+		- The cross image needs a mingw cross compiler that targets UCRT, so its objects and the sysroot's DLLs share one C runtime.
+		- Once it's done, take `suppress-deprecation-warnings` out of `release-win.yml`. dehzp then wants it gone.
+		- After the rc.1 cut, since the release build works as it is.
+		- Split it before starting. It doesn't fit one worker's time cap.
+	- Estimated effort: High
 
 - Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
 	- ID: 2026102114400592
@@ -830,7 +765,45 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The parent's CodeQL and cross-file clang requirements, over the same 2 compile lists.
 		- Each is pinned, in a container, and fails on a planted leak and null dereference first.
 	- Estimated effort: High
+	- Progress log:
+		- 20261110: Split into children: `2026110920250275` (cross-file clang, report only), `...293` (CodeQL) and `...1244` (the cross-file findings fixed or suppressed, then they fail the run). The first is in; the other 2 are Queued.
 	- Test case: de8ep (CodeQL) and de8eq (cross-file clang), each with a planted fault.
+
+- Static analyzers: CodeQL under `--leakcheck`.
+	- ID: 2026110920250293
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261109-202502
+	- Opened by: 2026102114400592
+	- Parent ID: 2026102114400592
+	- Prereq IDs: 2026101911105600
+	- Target OS: Linux
+	- Requirements:
+		- The parent's CodeQL requirements, over the same 2 compile lists, the Python included.
+		- A pinned CLI and query packs, run locally in a container, with no hosted service. It fails on a planted leak and null dereference first.
+	- Estimated effort: High
+	- Progress log:
+		- 20261110: The newest bundle is v2.27.4 (2026-11-02). It comes per language as well, with the CLI in each: C and C++ 165 MB, Python 111 MB, against 560 MB for all of them. The release gives a sha256 for each file, so `ADD --checksum` can pin them.
+		- The Windows list needs the tracer to see the mingw cross compiler in the cross build's image. Not tried yet.
+	- Test case: de8ep, with a planted leak and null dereference.
+
+- Static analyzers: the cross-file clang findings fixed or suppressed, then they fail the run.
+	- ID: 2026110920251244
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261109-202512
+	- Opened by: 2026102114400592
+	- Parent ID: 2026102114400592
+	- Prereq IDs: 2026110920250275
+	- Target OS: Linux
+	- Requirements:
+		- Every finding the cross-file run adds over the per-file one is fixed, or suppressed at the line with a one-line reason, or for vendored code in `analyze-vendored.txt`.
+		- Then a finding left, or a file cut off at the cap, fails the step, as in the per-file stage.
+	- Estimated effort: Avg
+	- Test case: de8eq, and de8en for the count it then fails on.
+	- 20261110: first whole-tree counts: Linux 55 (6 ours, 7 tests, 42 inherited), Windows 67 (7 ours, 17 tests, 43 inherited), 0 cut off, 861 s for both lanes. The report-only branch in analyze.bash takes any non-zero exit from count as findings, so a crash of count passed too; making findings fail closes that.
 
 - Settings: search.
 	- ID: 2026101417352263
@@ -1000,6 +973,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: the xattrs checkbox is today's "Save checksums onto the files", moved and relabeled.
 	- Test case: none yet.
 
+- A tab or newline in a dev build's settings file before SHCL 3.0.0-beta1 reads as a backslash and a letter.
+	- ID: 2026110921160616
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261109-211606
+	- Opened by: item 2026110911251998
+	- Related IDs: 2026110911251998, 2026110520234226
+	- Steps to reproduce [Bug]: with a dev or dogfood build from 20260925 to 20261105, set a value with a tab in it, such as `archive.create-with-rar` to `rar<tab>a`. Then start this build on the same settings.
+	- Incorrect behavior [Bug]: it reads as `rar\ta`, a backslash and a t. The same goes for a newline, and for `\\` and `\"` in a double-quoted value, which those builds wrote for text holding a backslash and both kinds of quote.
+	- Expected behavior [Bug]: every value reads as that build read it.
+	- Reproduced [Bug]: yes, 20261109, Linux. ddf4w's dev case has the tab, marked as read another way.
+	- Possible cause [Bug]: those builds read `\t \n \\ \" \'` as escapes inside double quotes. 3.0.0-beta1 reads a backslash there as text, and writes a tab as a named escape. The file says format 3 either way, so a double-quoted backslash in it can't be told from one typed for today's rules, such as `"C:\temp #1"`, which is how it writes that text now. Only a file with a bare list is known to be from such a build.
+	- Test case: ddf4w, Config old formats test: the 3.0.0-dev case marks `archive.create-with-rar`, and fails once it reads as that build read it.
+
 - Compress dialog: the Reset button's text sits about 8 px below the Advanced label.
 	- ID: 2026110817490431
 	- Type: Bug
@@ -1082,33 +1070,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Reproduced: 20261022 on vm925w, while checking 2026101007562511.
 	- Test case: none yet.
 
-- dct7k fails as an elevated login on b29w: the real file's owner is Administrators.
-	- ID: 2026110911200530
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261109-112005
-	- Opened by: t00mietum
-	- Related IDs: 2026103116284963
-	- Target OS: Windows
-	- Steps to reproduce: run `test-nemo-owner-columns.exe` over ssh as collierjr on b29w, with any TEMP.
-	- Incorrect behavior: `check_windows_lookup` fails, "owner_name is '(null)', wanted 'Lumpy Prime'". A file an elevated login makes is owned by `BUILTIN\Administrators`, which has no full name.
-	- Expected behavior: the check makes a file the current user owns, or skips the full name part when the owner isn't the current user.
-	- Reproduced: 20261109 on b29w at dev, 2 runs, one with the login's TEMP and one with TEMP under `%ProgramData%`. Not seen in the native gate, which passed dct7k.
-	- Test case: dct7k on b29w over ssh.
-
-- The hosted Windows build warns that MSYS2's MINGW64 environment is deprecated.
-	- ID: 2026102809292776
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261028-092927
-	- Opened by: 2026102618560000
-	- Related IDs: 2026102618560000
-	- Target OS: Windows
-	- Requirements: the setup step warns "MINGW64 is deprecated. Migrate to UCRT64 or CLANG64." on every run. Options: move every Windows lane to UCRT64, which changes the C runtime the exe links and so touches the dev box, the cross image and the bundle; or turn the warning off in the workflow and keep MINGW64. The rest of the pipeline wants no warnings.
-	- Test case: none yet.
-
 - Write a long list in the settings file one `- ` item per line, not in brackets.
 	- ID: 2026110911301888
 	- Type: Enhancement
@@ -1138,34 +1099,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- A drop that offers file contents in place of a path (`FileGroupDescriptorW` and `FileContents`) writes the files into the folder dropped on.
 	- Test case: TBD
-
-- Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
-	- ID: 2026092910143202
-	- Type: Enhancement
-	- Status: Queued
-	- Opened: 20260929-101432
-	- Opened by: t00mietum
-	- Related IDs: 2026092813381404, 2026092813381416
-	- Target OS: Linux, Windows
-	- Design: [20260929-101432_compression.md](design_docs/20260929-101432_compression.md). The requirements, decisions, and what needs more thought are there.
-	- Requirements:
-		- Deselect and disable options the archiver can't do.
-		- Symlinks and Junctions as radio groups, plus nested and other filesystems options, each with a live size change. A total size beside Cancel and OK.
-		- Rename the delete box, and say why a delete check failed.
-		- Volume sizes say what each is for.
-		- A pre-scan progress bar after OK.
-		- Keep compress and extract modular, for a possible split to their own project.
-		- Options opens by itself when a remembered choice isn't the default, and a button beside it resets them.
-		- 7z goes to 7-Zip first where it's installed, and an edited 7-Zip line gets `-spd` at run time.
-		- An edited rar line gets `-r0` at run time, so an `-r` left in it no longer takes same-named files from the folders below.
-	- Progress log:
-		- 20260929-161500: design moved to its own doc, with the new size counting. 5 of the 8 old open points are settled there.
-		- 20260929-173000: decided a nested filesystems option, exact totals for files with more than one path, dangling links under Ignore, the library's 7z storing links, and the order of the code split. Still open: `-spd`.
-		- 20260929-190000: `-spd` is added at run time, 7-Zip is used first for 7z, and Options opens by itself and gets a reset button. Other filesystems is for folders only. Still open: a selected link to another filesystem.
-		- 20260930-090000: a link onto another filesystem is followed only when both options are on. The reset button also collapses Options, and the store option's flyover says when it forces one thread. The settings comments on the command lines now say they are base flags. Nothing left open.
-		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
-		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
-	- Test case: extend test-nemo-archive-combos to each link choice and the mounted filesystem option. IDs when written.
 
 - SMB and SFTP networking is broken.
 	- ID: 2026101417352260
@@ -1216,6 +1149,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddytk, Share folder with a local path lists test. A folder that isn't on this machine but has a path, whose listing refuses that call the way gvfs's does, lists all 3 entries with its link followed, and one file there is looked at once, following links. dbee2, Network win32 test, test_smb_addresses: smb addresses taken as typed, parsed, as a uri and as an argument go to the UNC path, the server's share list or the network, with spaces, escapes, a user, domain and port, an IPv6 address, and upper case where typed. ddzxz, Connect to Server address scheme test: ssh and sftp addresses in any case lose the scheme with SSH chosen, other schemes and plain names are kept, and every alias gvfs's mount files declare is checked where gvfs is installed.
 	- Acceptance signoff: Self-closed: ssh is now a full alias for sftp everywhere, Connect to Server included, and the error seen was there (ddzxz). ddytk pins the smb and sftp listings, and dbee2 the Windows smb addresses, checked natively on vm925w with Connect to Server too. Asking only for server and share on Windows is how Windows connects, as the session.
 	- Closed: 20261025-155000
+
+- Nemo Anywhere selection model: need to be able to initiate a left-drag-to-select from the checkmark column.
+	- ID: 2026110919315994
+	- Type: Bug
+	- Status: Done
+	- Needs local test suite run?: no. dec8v covers it, and the quick gate passed.
+	- Priority|Severity: High
+	- Opened: 20261109-193159
+	- Opened by: t00mietum
+	- Related IDs: 2026102407515573
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+	- Steps to reproduce: list view under the Nemo Anywhere model, left drag starting in the checkmark column.
+	- Incorrect behavior: a left-drag-to-select can't be started from the checkmark column.
+	- Expected behavior: a left drag from the checkmark column selects, in addition to right-drag-to-select etc.
+	- Notes:
+		- 2026102407515573 already plans a plain drag band from the checkmark column.
+	- Reproduced: 20261109, in dec8v's new checks: a plain drag from the checkmark column dragged files and left only the row pressed selected, and a Shift drag from there dragged files too.
+	- Actual cause:
+		- A plain press on a row armed a file drag wherever it landed, the checkmark column included.
+		- The press counted as one on the expanders when its x was within their width of the row's left edge. Name has the expanders, and under Nemo Anywhere the checkmark column comes first, so a press there was taken for one, and Ctrl and Shift couldn't band from it.
+	- Actual fix: a plain left press in the checkmark column arms a band, on a selected row too. A release with no move is still a click on the row. The expander test goes by the column hit and the x inside it.
+	- Progress log:
+		- 20261109: the checkmark column bands on a plain left drag, and Shift and Ctrl band from it as from the rest of a row.
+	- Decisions:
+		- Only the plain drag is new there. Ctrl, Shift and right drags from the checkmark column follow the row rules: a band from a row not selected, a file drag from a selected one. The design doc's "always a band, even on a selected row" is part of the affirmative override, which the switch-off model leaves out.
+		- The band replaces the selection from the row pressed, as Shift's does.
+	- Swept: the other expander tests in the list view (the name cell click test already takes the column's offset; Nemo Classic's press has no checkmark column), and every place a band ends without a release, so a lost release can't start a file drag.
+	- Branch: round1110a
+	- Test case: dec8v, with 7 new list view results under Nemo Anywhere, 31 up from 24: a plain drag from the checkmark column of a row not selected and of a selected one, a Shift drag from it, and a click there. ddy5f and de8ec keep their counts.
+	- Verified: 20261109, dec8v fails on the old code (4 checks) and with only the expander part left out (2 checks), and passes with the fix. ddy5f and de8ec pass. The quick gate's lints, and its tests (242 OK, 1 skipped), pass. Both analyzers report nothing on the changed files.
+	- Acceptance signoff: Self-closed: dec8v.
+	- Closed: 20261109-205746
 
 - ddagc fails in a round worktree, so the lint stage stops before the tests after it.
 	- ID: 2026110313162837
@@ -1860,6 +1827,43 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass three runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. dd8d9 covers it.
 	- Closed: 20261003-112426
+
+- Nemo Anywhere focus outline and keys: the icon view.
+	- ID: 2026102412041969
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. The Linux suite passed in the quick gate, 242 OK and 1 skipped.
+	- Priority|Severity: High
+	- Opened: 20261024-120419
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515572
+	- Prereq IDs: 2026102412041967
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Only under Nemo Anywhere. No focus outline, except while a Ctrl+arrow move has put the focus on an icon that isn't selected.
+		- Up, Down, Left, Right, Page Up and Page Down count from the range ends. After a Ctrl+arrow move they count from the focus.
+		- Ctrl with an arrow moves the focus alone. Ctrl+Space adds or removes the focused icon. Ctrl+Shift with an arrow adds the run from the anchor. Ctrl+Home and Ctrl+End are the same as the key alone.
+		- Escape clears the selection, the focus and the anchor. A second Escape does nothing, and the next arrow starts at the first icon. An Escape that cancels something else does only that.
+		- Space previews, and never starts type-ahead on its own.
+		- dec8w checks each key in the icon view.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Keyboard" and "Terms".
+	- Progress log:
+		- 20261024: opened.
+		- 20261109: under Nemo Anywhere the icon container has its own key handler. Ctrl+Home and Ctrl+End drop the Ctrl, Page Up and Page Down move the selection, and Ctrl+Space toggles the focus and moves the anchor to it. Plain arrow keys count from the selection's first or last icon, and from the focus while it is on an icon not selected. Ctrl+Shift with an arrow adds Shift's run from the anchor, where v1 makes a band. An icon draws the focus outline only while it isn't selected.
+		- 20261109: Escape, the second Escape, the arrow after it and Space were already right in v1's handlers, so they only got checks.
+		- 20261109: dec8w expects 99 icon view results, up from 75. de8bd and de8dm stay at 75.
+	- Decisions:
+		- The keyboard focus v1 already keeps, set by a Ctrl+arrow and cleared by a click, a plain key or Escape, stands in for the list view's flag. Whether the outline shows is read from it and the selection.
+		- Page Down goes to the farthest icon a page down the column, and from the bottom of a column to the last icon. Page Up is the same upward.
+		- Ctrl+Space with no focus, as after Escape, does nothing. v1 puts the outline on the first icon there, which this model shows only after a Ctrl+arrow.
+		- The compact view shares the handler, so it has these rules too. Its Page Up and Page Down go a page across, since it scrolls sideways. Its shared dec8w checks follow, and its own checks are 2026102412041971's.
+	- Not covered by a test yet: Shift with Page Up and Page Down, a folder longer than a page, and the outline as drawn on screen.
+	- Swept: every key the design doc's "Keyboard" names, in the icon container's key handler, keyboard_move_to's callers (Home, End, the arrows, the new page keys), v1's Ctrl+Space, the outline's one draw site, and the icon view's Escape handler.
+	- Branch: round1110a
+	- Test case: dec8w, Selection rules test, Nemo Anywhere: the icon view's key checks, the outline among them.
+	- Verified: 20261109, dec8w fails 17 icon view and 6 compact view checks with the icon container's Nemo Anywhere key rules bypassed, and 2 with the outline drawn on selected icons, and passes with both. de8bd, de8dm, ddy5f and dec8v pass. The quick gate passed: lint, and the Linux suite, 242 OK and 1 skipped.
+	- Closed: 20261109-221825
 
 - CICD reset: standard flags.
 	- ID: 2026102416300004
@@ -3079,6 +3083,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20261022-214700
 	- Verified: 20261021, de8dm, de8ec, de8bd and ddy5f pass in all 3 views. dd5df, dbnfq, dbsx7 and dc8tz pass. The build has no warnings, the Windows cross build with warnings as errors is clean, and the UI case and test ID checks pass.
 
+- The private runner's mac GUI tests fail when another user holds b26's console.
+	- ID: 2026110817502353
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261108-175023
+	- Opened by:
+	- Target OS: macOS
+	- Steps to reproduce: sign in as another user on b26's console, then run the private runner step of a full run.
+	- Incorrect behavior: dd5ca, dd5dk and der9s fail every time, on the clipboard, a tab's width and a drop, and the step fails as if the code broke.
+	- Expected behavior: the step warns that b26's console isn't collierjr's and skips the GUI tests, the way the native Windows lane warns on a locked session, or the tests run in the session that has the console.
+	- Reproduced: 20261108, full run at d6c7ae09 and 1 rerun each, with mactest holding the console since 13:35 b26 time.
+	- Progress log:
+		- Where the fix goes: the private repo's runner, so it's for that repo's round.
+		- 20261109: with someone else on the console, the runner warns and skips the 3 tests that need it. The rest of the mac suite runs, 159 OK.
+	- Test case: none yet. The runner is in nemo-anywhere-private.
+	- Acceptance signoff: Self-closed: the private runner passed with mactest holding the console, 159 OK and the 3 skipped.
+	- Closed: 20261109-141500
+
 - ddepv on b29w: the heap grew over 64 rounds again.
 	- ID: 2026103116284963
 	- Type: Bug
@@ -3197,6 +3220,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: dehzp passes, and fails on the workflow as it was, on 5 checks. All 86 pinned files are on the MSYS2 repo under those names.
 	- Closed: 20261028
 	- Verified: 20261028, release-win.yml run 40737555415 on round1028a at 313352b1 passed both MSYS2 steps, the build, the pack and the upload.
+	- Verified: 20261110: hosted run 42768444473 on round1110a passed with the pinned packages, the first green hosted run since 20260804.
 
 - The native gate on vm925w stops on scratch folders 7 tests leave behind.
 	- ID: 2026102413432225
@@ -5103,6 +5127,98 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: de025 covers it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
 
+- The native Windows gate removes its folder after a failure, test log and all.
+	- ID: 2026110910285880
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261109-102858
+	- Opened by: t00mietum
+	- Related IDs: 2026103116284963
+	- Target OS: Windows
+	- Requirements:
+		- On a failed gate, `win/lane.bash` copies the box's `meson-logs/testlog-*.txt` to `cicd/artifacts/build-win/` here before it removes the folder.
+		- The copy's name has the box and the folder's stamp, so a later run doesn't write over it.
+		- A passing gate copies nothing.
+	- Progress log:
+		- 20261109: ddepv failed in the full run's native gate on b29w, and its log went with the folder.
+		- 20261109: done. After a gate or desktop step that ended and failed, the lane brings the box's `meson-logs/testlog*.txt` back to `cicd/artifacts/build-win/<box>_<folder>_testlog.txt`, then removes the folder. `lane.bash`, `test-lane.bash` and design.md's native gate bullet.
+	- Decisions:
+		- `testlog*.txt` rather than `testlog-*.txt`. The gate's `meson test` has no `--setup`, so meson names it `testlog.txt`, and a setup's `testlog-<setup>.txt` still matches.
+		- The name is the box, then the folder's own name, stamp and counter, so 2 runs in the same second don't write over each other.
+		- A failed desktop step keeps it too, since its tests write the same log in the same build.
+		- A stop from outside, a TERM, Ctrl+C or HUP, keeps nothing, so the stop stays quick. So does a lane failure before the gate wrote its exit code.
+	- Test case: depg0: a failing gate and a failing desktop step each keep the one log, by its name, asked for before the folder's removal. A passing gate and a TERM mid-gate keep none.
+	- Verified: 20261109, depg0 passes, and fails its 2 new checks against the old `lane.bash`. On b29w, the lane's own `fKeepTestLogs` brought back a staged `testlog.txt` from a run folder under `%ProgramData%`, by name and content, left its `testlog.json`, and `lane-box.ps1 -Remove` then removed the folder.
+	- Verified: 20261109, `cicd/cicd.bash --backlog-run-quick` passes.
+	- Acceptance signoff: Self-closed: depg0 pins it, and the copy ran on b29w.
+	- Closed: 20261109-194400
+
+- Convert a settings file stamped format 3 by a dev build before SHCL 3.0.0-beta1.
+	- ID: 2026110911251998
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261109-112519
+	- Opened by: t00mietum
+	- Related IDs: 2026110520234226, 2026110921160616
+	- Requirements:
+		- Every SHCL format the app has written loads and is converted, not only the released ones.
+		- That takes in a file a dev or dogfood build wrote from 20260925 to 20261105. It says format 3 but writes a list bare, as `a, b`, which format 3 refuses with E026, so the list reads as its default.
+		- Such a list reads as that build read it, and the file is backed up and saved with brackets, as the old format conversion does.
+		- A value that is text with a comma in it isn't taken for a list. Only a key whose schema type is a list is converted.
+	- Progress log:
+		- 20261109: seen in a dogfood settings file on Windows: the favorites line was bare, so the favorites read as the default. Fixed there by hand.
+		- 20261110: the full run's gcc analyzer found a file left open on a short write in shcl-dev-writer.c's put; fixed, and the generator with it.
+	- Decisions:
+		- Changed my mind on 2026110520234226's "isn't converted" for these files.
+		- Only a list key's line that SHCL refuses with E026 gets brackets, so a file today's rules read cleanly is never rewritten. A hand-typed `a,b`, with no space, reads as one item, as today's rules read it, though those builds read 2.
+		- Only at startup, or while the file from startup couldn't be saved over, as for a file with no format line. A bare list typed while the app runs is a hand edit, read by today's rules.
+		- The dev header isn't kept in `vendor/shcl-old/`. Its 10,000 lines would add a slow file to every analyzer lane. What `shcl-old-writer` wrote with it is kept in `shcl-dev-writer.c`, which ddf4w runs as release 3.0.0-dev.
+		- Departs from "every format loads": 3 values that aren't lists still read another way. A tab or newline those builds wrote in double quotes is filed as 2026110921160616. 2 hand spellings, `a\,b` and `'it''s'`, read by today's rules. All 3 are marked in ddf4w.
+	- Actual fix: at startup, a format 3 file with a list key written bare, as `a, b`, gets brackets around that value, then is backed up as `format-v3` and rewritten, as the old format conversion does. The items read as those builds read them, since they split on every unquoted comma, as format 3 does inside brackets.
+	- Verified: 20261109, Linux: ddf4w and ddez6 fail with the conversion turned off and pass with it. ddf4w's no-backup case also fails when only startup converts. Quick gate passed (242 OK, 1 skipped). clang's analyzer finds nothing in the 4 changed C files.
+	- Swept: the conversion has one call, in `load_locked`, reached from startup and from `reload_locked`. The other readers of settings text without SHCL read today's files, and the layout editor's `split_list` already takes a list either way.
+	- Branch: round1110a
+	- Commit: e582647d
+	- Test case: ddf4w, Config old formats test: release 3.0.0-dev, a file from a dev build's setters, plain, hand-edited, and with no bare list, reads as that build read it, and saves with brackets. ddez6, Config format upgrade test: a root key, a text key, a bracketed list and CRLF lines at startup, and a bare list typed while running.
+	- Acceptance signoff: Self-closed: ddf4w and ddez6 fail without the conversion and pass with it.
+	- Closed: 20261109-212427
+
+- Static analyzers: the clang analyzer in cross-file mode under `--leakcheck`, report only.
+	- ID: 2026110920250275
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: No
+	- Priority|Severity: Avg
+	- Opened: 20261109-202502
+	- Opened by: 2026102114400592
+	- Parent ID: 2026102114400592
+	- Prereq IDs: 2026101911105600
+	- Target OS: Linux
+	- Requirements:
+		- The clang analyzer over both compile lists, following calls into the other .c files of the same list.
+		- Pinned, in both build images, and fails when it misses a planted leak or null dereference that needs the other file.
+		- Findings are counted and kept with the run's artifacts, and don't fail the run yet.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Progress log:
+		- 20261110: `analyze.bash --ctu` is the "Cross-file analyzer" step, after the heap soak. `analyze.py run --ctu` indexes each file's external functions, leaves out any that more than one file defines, and has clang parse the other file when a call needs it. clang-tools-19 is in both images, from their snapshots.
+		- Times on the Linux box at 8 jobs: indexing the Linux list's 484 files took 19 s. A sample of 26 files, 1 in 20, took 79 s per file and 216 s across files, with 3 findings against 1. `nemo-list-view.c` took 19 s and 80 s, at 1.1 GB. So about 17 to 20 min for both lists at a quarter of the cores.
+	- Decisions:
+		- Runs with `--long`, or `--leakcheck` named, and not in a plain run, where the leak checks are on by default. It would add about 20 min there, against the 5 min a step may add.
+		- Report only, as the per-file stage was at first. 2026110920251244 fixes or suppresses its findings and then makes them fail the run. Until then it fails only on a missed planted pair, a lane that doesn't run, or a missing tool.
+		- Each file is parsed again when a call needs it, rather than saved as an AST, so it needs no disk for the whole tree's ASTs.
+		- The planted NULL is read in the other file, not returned from it, since clang by default drops a report on a NULL that an inlined call returned. A plain clang run has to miss both planted faults, so a pass shows the run went across files.
+		- A 10 min cap a file (`ANALYZE_TU_TIMEOUT`, 600), since following calls takes about 3 times as long. A file cut off is reported, not failed, until 2026110920251244.
+		- The count leaves out the stale suppression check, since a gcc-only vendored entry matches nothing in clang's logs.
+	- Branch: round1110a
+	- Test case: de8eq (`analyze.bash --ctu`, the planted pair in both containers), and desha for when the step runs.
+	- Verified: 20261110, de8eq passes in both containers, and fails in both with the cross-file switch turned off. desha passes with its new cases, and fails with the step put in a plain run. test-cicd-help, test-cicd-quick, test-cicd-list, test-analyze-gate and de8em pass. In `cicd/cicd.bash --backlog-run-quick` the lints passed, and the tests area passed in the new image (242 OK, 1 skipped), run alone after a timeout cut the first run short.
+	- Verified: 20261110: the full run's Cross-file analyzer step took 861 s at 4 jobs, 2 lanes at once, and de8eq passed. Its count then crashed on the CTU index line, so it printed no table and still passed; fixed in analyze.py parse_log with a de8em case that failed first. Over the saved logs: Linux 55 findings (6 ours, 7 tests, 42 inherited), Windows 67 (7 ours, 17 tests, 43 inherited), 0 files cut off.
+	- Swept: every reader of `leakcheck` in `cicd.bash` (plan, preflight, step), `--help`, `config.bash`, design.md's test and run lengths text, the callers of `analyzer_argv` and `count`, and the tests that copy `cicd.bash`.
+	- Closed: 20261109-235909
+
 - Static analyzers: the vendored suppression list is out of date since SHCL 3.0.0-beta1.
 	- ID: 2026110814550429
 	- Type: Task
@@ -6997,6 +7113,30 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddf4w Config old formats test.
 	- Acceptance signoff: Self-closed: ddf4w is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- dct7k fails as an elevated login on b29w: the real file's owner is Administrators.
+	- ID: 2026110911200530
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261109-112005
+	- Opened by: t00mietum
+	- Related IDs: 2026103116284963
+	- Target OS: Windows
+	- Steps to reproduce: run `test-nemo-owner-columns.exe` over ssh as collierjr on b29w, with any TEMP.
+	- Incorrect behavior: `check_windows_lookup` fails, "owner_name is '(null)', wanted 'Lumpy Prime'". A file an elevated login makes is owned by `BUILTIN\Administrators`, which has no full name.
+	- Expected behavior: the check makes a file the current user owns, or skips the full name part when the owner isn't the current user.
+	- Reproduced: 20261109 on b29w at dev, 2 runs, one with the login's TEMP and one with TEMP under `%ProgramData%`. Not seen in the native gate, which passed dct7k.
+	- Actual cause: the test assumed the file it writes is owned by whoever runs it. An elevated login's new files are owned by Administrators, so the lookup rightly found no full name.
+	- Decisions:
+		- The test hands the file to the current user, rather than skipping, so the full name is still checked on an elevated login. Naming your own user as owner needs no privilege. If that fails, it prints a note and skips that part.
+	- Actual fix: dct7k sets the scratch file's owner to the current user before the lookup.
+	- Swept: the other real-file check in dct7k is notepad.exe, owned by TrustedInstaller whoever runs it. No other test reads an owner's full name.
+	- Verified: 20261109, on b29w over ssh as collierjr (High integrity), dct7k failed before the fix and passed after, with the login's TEMP and with TEMP under `%ProgramData%`. It passes under wine, and the quick gate passes.
+	- Branch: round1110a
+	- Commit: 9d9cbf6b
+	- Test case: dct7k on b29w over ssh.
+	- Closed: 20261109-195742
 
 - dd26k logged GTK criticals once in the sanitizer lane, from the window whose only tab was closed.
 	- ID: 2026102509531273
@@ -10340,6 +10480,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: ddymm covers the list, the message and the line under the box, and dbj6x the extract. `_` in extracted names is what 7-Zip does. `/` keeping its old text is fine for now.
 	- Closed: 20261016-130621
 
+- The hosted Windows build warns that MSYS2's MINGW64 environment is deprecated.
+	- ID: 2026102809292776
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261028-092927
+	- Opened by: 2026102618560000
+	- Related IDs: 2026102618560000, 2026110920004210
+	- Target OS: Windows
+	- Requirements: the setup step warns "MINGW64 is deprecated. Migrate to UCRT64 or CLANG64." on every run. Options: move every Windows lane to UCRT64, which changes the C runtime the exe links and so touches the dev box, the cross image and the bundle; or turn the warning off in the workflow and keep MINGW64. The rest of the pipeline wants no warnings.
+	- Test case: dehzp `cicd/win/test-msys2-pins.bash`, in the lint stage. The workflow acknowledges MINGW64's deprecation warning while it builds on MINGW64, and no other warning. The hosted run is the real test.
+	- Needs external testing: No
+	- Branch: round1110a
+	- Verified: dehzp passes, and fails with the acknowledgment taken out, with a second warning ID added, and with msystem set to UCRT64 under the old one. The quick gate passed (242 OK, 1 skipped).
+	- Verified: 20261110: hosted run 42768444473 (release-win.yml on round1110a) passed, with no deprecation warning in the MSYS2 base step and no warning lines in the log.
+	- Swept: release-win.yml is the only workflow and the only setup-msys2 step. The native lanes start MSYS2 shells themselves, and this warning is the action's.
+	- Decisions:
+		- Kept MINGW64 and acknowledged the warning with the action's own `suppress-deprecation-warnings: msystem-mingw64`, for the rc.1 cut. The pins hold the packages, so the hosted build works as it is.
+		- The move to UCRT64 is its own item, 2026110920004210. It changes the C runtime of the exe and every DLL, so every Windows lane and both boxes move at once, which is far past this item's cap. Since 2026-10-24 MSYS2 drops MINGW64 from leaf packages as they update, so it shouldn't wait long.
+		- dehzp lets the workflow acknowledge only that one warning, and only on MINGW64, so a new warning from the action still shows and the line can't outlive the move.
+	- Closed: 20261109-225345
+
 - Add the date " (YYYY-mm-DD)" to the end of the build number, for pre-release versions.
 	- ID: 2026103113431800
 	- Type: Feature
@@ -10524,6 +10686,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: ef05a4f
 	- Test case: ddeqt Archive stop time test now has a 7z case. A 4 GiB and a 16 GiB file are stopped at their first progress report. Before the fix, the 4 GiB one took 50 s and the 16 GiB one didn't end in 100 s. After, both take 0.01 s. ddetk Stopped 7z leak test, which fails at 82 bytes a round when the close is left out.
 	- Acceptance signoff: waiting. The archive writer's handling of a stop changed again, this time for the 7z.
+
+- Compression dialog reset: link handling per kind of link, mounted filesystems, live size totals, clearer delete check.
+	- ID: 2026092910143202
+	- Type: Enhancement
+	- Status: Done
+	- Opened: 20260929-101432
+	- Opened by: t00mietum
+	- Related IDs: 2026092813381404, 2026092813381416
+	- Target OS: Linux, Windows
+	- Design: [20260929-101432_compression.md](design_docs/20260929-101432_compression.md). The requirements, decisions, and what needs more thought are there.
+	- Requirements:
+		- Deselect and disable options the archiver can't do.
+		- Symlinks and Junctions as radio groups, plus nested and other filesystems options, each with a live size change. A total size beside Cancel and OK.
+		- Rename the delete box, and say why a delete check failed.
+		- Volume sizes say what each is for.
+		- A pre-scan progress bar after OK.
+		- Keep compress and extract modular, for a possible split to their own project.
+		- Options opens by itself when a remembered choice isn't the default, and a button beside it resets them.
+		- 7z goes to 7-Zip first where it's installed, and an edited 7-Zip line gets `-spd` at run time.
+		- An edited rar line gets `-r0` at run time, so an `-r` left in it no longer takes same-named files from the folders below.
+	- Progress log:
+		- 20260929-161500: design moved to its own doc, with the new size counting. 5 of the 8 old open points are settled there.
+		- 20260929-173000: decided a nested filesystems option, exact totals for files with more than one path, dangling links under Ignore, the library's 7z storing links, and the order of the code split. Still open: `-spd`.
+		- 20260929-190000: `-spd` is added at run time, 7-Zip is used first for 7z, and Options opens by itself and gets a reset button. Other filesystems is for folders only. Still open: a selected link to another filesystem.
+		- 20260930-090000: a link onto another filesystem is followed only when both options are on. The reset button also collapses Options, and the store option's flyover says when it forces one thread. The settings comments on the command lines now say they are base flags. Nothing left open.
+		- 20261004-150000: `-r0` is added at run time to an edited rar line, from 2026100410431108.
+		- 20261005-162747: split into child items, in work order: 2026100516274126, 2026100516274163, 2026100516274200, 2026100516274237, 2026100516274275, 2026100516274312, 2026100516274349, 2026100516274386, 2026100516274423, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646, 2026100516274683, 2026100516275399. Each has this item as its parent.
+	- Test case: its children's: 2026100516274646: dd5dm, Compress dialog height test: closed with Reset grayed at the defaults, Reset lit by a change and by a password alone, Reset clearing them and closing Options, opening by itself for remembered choices with the buttons on screen, Reset dropping them from the settings file, and a remembered lock the format can't do opening Options, shown off and grayed, and back on with rar. dcwjb, Archive settings test, test_choices: the defaults match the settings table, each choice off its default counts, a forced off shows off and leaves the choice, saving keeps it with a preset as its size, and the reset drops every key under Options and nothing else.; 2026100516274423: dd42v, Archive option combinations: the crossed rows take each Symlinks choice, Follow nested and other filesystems, and on Windows each Junctions choice, with sub on a nested filesystem and the linked folder on another one. Each Symlinks choice in the library's formats with and without a delete, on a link to a file, one to a folder and 2 that lead nowhere, and one picked alone. The library rows for the old rule are commented out with the reason. dbj83, Archive job test: the delete check with followed content changed, added and missing, the links ignored, a link back into the selection, and a followed folder on another filesystem with the option off and on; the old rule's row commented out with the reason. ddn4x, Archive scan test, check_list: the job's list for each choice. dd5dm, Compress dialog height test: the filesystem options as set reach the job.; 2026100516274460: dd42v, Archive option combinations: the crossed rows for 7z and rar go by every Symlinks choice, both filesystem options, and on Windows each Junctions choice, so rar rows mix following symlinks with keeping junctions. check_link_choice and check_dangling now run for every writer, check_loop has a followed link back up, and check_dangling_deep and check_at_names run under Follow. ddn4x, Archive scan test: a folder walked again is named, and a link that leads nowhere is marked.; 2026100516274535: dbj83, Archive job test. check_prescan_reports: the pre-scan reports at its start, midway through the core's walk, and at its end with the full count and size, all before the archive exists, for zip and for rar where it's installed, and is over once the job is. check_prescan_bar: a pre-scan over within half a second never shows the bar, one still going shows it with the count found, never sooner than half a second, and the bar goes when it ends.; 2026100516274572: dbj83, Archive job test, check_reasons: a file, a folder, and both missing; a file, and a folder with a file, in the archive and not selected; both ways at once; the sizes when the counts match; no size when a count is off; 2 files of other sizes with the same total; an ignored link. dd5dm, Compress dialog height test, probe_locked_links: the box's label.; 2026100516274386: dd5dm, Compress dialog height test, for which groups show and what is grayed for a plain file or a folder, the store choices per format and with a password or volumes, the one-thread flyover, a grayed choice coming back, the group's access key, and on Windows the Junctions defaults and a hand change sticking. dbhae, Archive options test, for the store choices per format and options, and when storing links costs threads.; 2026100516274498: dd5dm, Compress dialog height test, check_scan_sizes on a scratch tree with made-up mounts, links and a share: the total and each Follow control's change match the core's own numbers for the defaults, widened, widened with a format change, narrowed, and with a store choice. Plain files count nothing followed. A selection on a share isn't walked. Cancel frees the scan, a Compress that comes back keeps it, and the parent closing mid-scan frees it with no critical.; 2026100516274683: none new. dbhae, dcwjb, dbj83, ddav1, ddeqt, dd42v, dd5dm and the core tests stay as they are, and pass before and after.; 2026100516275399: dbj6w, dbj6x and the extract leak test ddeqn stay as they are, and pass before and after. ddx67 from 2026101312094706. ddx6z, Archive core build test: no GTK or app folder or define on a core file's compile line, and no call into GTK, GDK or nemo in the core library.; 2026100516274609: dbhae, Archive options test, each preset by label and by size reads back as its size, and typed sizes read as before. dd5dm, Compress dialog height test, for the list in order, 2 GiB to start with, and a remembered size shown as its preset or as typed.; 2026100516274275: ddn4x, Archive scan test. A scratch tree with folder and file links, a link back up that loops, a link to itself, one that leads nowhere, a `.lnk`, made-up nested, other and share mounts, a link chain onto the share, and on Windows a junction and a junction loop. Every mix's totals, changes, file and share counts, an option turned off and one turned on mid-scan, a folder reached by a link before and after its own path, the gap between reports, Cancel from outside and inside a report, a host with no walk or share check, and the app's own host. ddn29 gained the share check's fallback and forwarding. ddn4x also lists a folder that leaves the size off one name and the kind off another. dd5ht gained an absolute path that climbs back onto a share.; 2026100516274163: ddn29, Archive core test, for the junction defaults table, the fall back to Ignore, a hand change sticking, and the follow bits. dcwjb, Archive settings test, for the old values mapped over and dropped in each mix, what is and isn't remembered, and the fall back agreeing with each writer's claim for every format.; 2026100516274312: dbhae, Archive options test, for which writer gets 7z and for the added `-spd`, directly and through edited lines. dd42v, the `*` and `?` rows again with a 7-Zip line without `-spd`, and a library 7z row that stores links. dbj6x, an `s?.7z` extracted with an edited 7-Zip line.; 2026100516274349: dbhae, Archive options test, for the added `-r0` after an `-r`, and none on the extract lines. On Windows also a `rar.cmd` and a `7Z.Bat` wrapper, and a `rar.txt` that isn't one. dd42v, the picked `a.txt` beside `sub/a.txt` rows again with an edited rar line that keeps `-r`.; 2026100516274200: ddn29, Archive core test. Made-up Linux and Windows mount tables: ZFS, Btrfs, APFS, a bind mount, tmpfs, NFS, one mount over another, a folder mount on Windows, volume names, long path forms, shares and mapped drives. Also the real table, read once.; 2026100516274126: ddn29, Archive core test. ddn2a, a lint check that keeps GTK and nemo out of the core and its test, and keeps deletes, folder walks, program starts and command line splitting out of the core.; 2026100516274237: ddn29, Archive core test. The 2 worked examples with their paths in both orders, every total and change checked against the rule over 12000 random paths, and 200000 paths added and found again. `test-arc-core bench N` times N paths.
+	- Closed: 20261109-193940
 
 - Compression reset: Options opens by itself, gets a reset button, and unticks what the writer can't do.
 	- ID: 2026100516274646

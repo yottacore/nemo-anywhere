@@ -184,6 +184,12 @@ foreach release : [ '1.0.0-beta1', '1.0.0-beta2', '1.0.0-rc1', '1.1.0', '1.2.0',
   ) ]
 endforeach
 
+# A dev build before SHCL 3.0.0-beta1 stamped format 3 and wrote lists bare.
+# What shcl-old-writer wrote with its header is kept in this one.
+shclOldWriters += [ '3.0.0-dev', executable('shcl-old-writer-3.0.0-dev',
+  [ 'shcl-dev-writer.c' ],
+) ]
+
 test('ddf4w Config old formats test',
   executable('test-nemo-config-old-formats',
     [ 'test-nemo-config-old-formats.c' ],

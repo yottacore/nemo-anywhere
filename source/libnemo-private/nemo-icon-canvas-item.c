@@ -147,7 +147,9 @@ enum {
     	PROP_HIGHLIGHTED_FOR_DROP,
 	PROP_HIGHLIGHTED_FOR_CLIPBOARD,
     PROP_PINNED,
-    PROP_FAV_UNAVAILABLE
+    PROP_FAV_UNAVAILABLE,
+	PROP_DIM_CHECKMARK,
+	PROP_FOCUS_OUTLINE
 };
 
 typedef enum {
@@ -181,6 +183,8 @@ static gboolean hit_test_stretch_handle              (NemoIconCanvasItem        
 						      GtkCornerType *corner);
 
 static void       nemo_icon_canvas_item_ensure_bounds_up_to_date (NemoIconCanvasItem *icon_item);
+static gboolean   shows_dim_checkmark                  (NemoIconCanvasItem        *item);
+static gboolean   shows_focus_outline                  (NemoIconCanvasItem        *item);
 
 /* Object initialization function for the icon item. */
 static void
@@ -416,6 +420,14 @@ nemo_icon_canvas_item_get_property (GObject        *object,
         case PROP_HIGHLIGHTED_AS_KEYBOARD_FOCUS:
 		g_value_set_boolean (value, details->is_highlighted_as_keyboard_focus);
                 break;
+
+	case PROP_DIM_CHECKMARK:
+		g_value_set_boolean (value, shows_dim_checkmark (NEMO_ICON_CANVAS_ITEM (object)));
+		break;
+
+	case PROP_FOCUS_OUTLINE:
+		g_value_set_boolean (value, shows_focus_outline (NEMO_ICON_CANVAS_ITEM (object)));
+		break;
 
         case PROP_HIGHLIGHTED_FOR_DROP:
 		g_value_set_boolean (value, details->is_highlighted_for_drop);
@@ -1153,7 +1165,7 @@ draw_label_text (NemoIconCanvasItem *item,
         gtk_style_context_restore (context);
 	}
 
-	if (item->details->is_highlighted_as_keyboard_focus) {
+	if (shows_focus_outline (item)) {
 		if (needs_highlight) {
 			state = GTK_STATE_FLAG_SELECTED;
 		}
@@ -1352,6 +1364,73 @@ map_surface (NemoIconCanvasItem *icon_item)
 	return icon_item->details->rendered_surface;
 }
 
+#define CHECKMARK_TEXT "\u2713"
+
+/* Under Nemo Anywhere a dim mark follows the selection (2026102407515571).
+   The compact view's goes by the name, not the icon. */
+static gboolean
+shows_dim_checkmark (NemoIconCanvasItem *item)
+{
+	NemoIconContainer *container;
+
+	if (!item->details->is_highlighted_for_selection ||
+	    nemo_global_preferences_get_selection_model () != NEMO_SELECTION_MODEL_ANYWHERE ||
+	    EEL_CANVAS_ITEM (item)->canvas == NULL) {
+		return FALSE;
+	}
+	container = NEMO_ICON_CONTAINER (EEL_CANVAS_ITEM (item)->canvas);
+
+	return !container->details->is_desktop && !nemo_icon_container_is_layout_vertical (container);
+}
+
+/* Nemo Anywhere outlines the focus only while it is on an icon not selected,
+   as after a Ctrl+arrow (2026102412041969). */
+static gboolean
+shows_focus_outline (NemoIconCanvasItem *item)
+{
+	return item->details->is_highlighted_as_keyboard_focus &&
+	       !(item->details->is_highlighted_for_selection &&
+		 nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE);
+}
+
+/* The icon's top-left corner, on a patch of the selection color so it reads
+   on any thumbnail. Dim is the insensitive look, as in the list view's column.
+   No bigger than there, and shrunk to fit a small icon. */
+static void
+draw_dim_checkmark (NemoIconCanvasItem *item,
+                    cairo_t            *cr,
+                    GtkStyleContext    *context,
+                    const EelIRect     *icon_rect)
+{
+	PangoLayout *layout;
+	int width, height, side, room;
+	double scale;
+
+	if (!shows_dim_checkmark (item)) {
+		return;
+	}
+
+	layout = gtk_widget_create_pango_layout (GTK_WIDGET (EEL_CANVAS_ITEM (item)->canvas), CHECKMARK_TEXT);
+	pango_layout_get_pixel_size (layout, &width, &height);
+	side = MAX (MAX (width, height), 1);
+	room = MIN (icon_rect->x1 - icon_rect->x0, icon_rect->y1 - icon_rect->y0) * 2 / 5;
+	scale = room < side ? (double) MAX (room, 1) / side : 1.0;
+
+	gtk_style_context_save (context);
+	cairo_save (cr);
+	cairo_translate (cr, icon_rect->x0, icon_rect->y0);
+	cairo_scale (cr, scale, scale);
+
+	gtk_style_context_set_state (context, GTK_STATE_FLAG_SELECTED);
+	gtk_render_background (context, cr, 0, 0, side, side);
+	gtk_style_context_set_state (context, GTK_STATE_FLAG_SELECTED | GTK_STATE_FLAG_INSENSITIVE);
+	gtk_render_layout (context, cr, (side - width) / 2.0, (side - height) / 2.0, layout);
+
+	cairo_restore (cr);
+	gtk_style_context_restore (context);
+	g_object_unref (layout);
+}
+
 /* Draw the icon item for non-anti-aliased mode. */
 static void
 nemo_icon_canvas_item_draw (EelCanvasItem *item,
@@ -1389,6 +1468,8 @@ nemo_icon_canvas_item_draw (EelCanvasItem *item,
 
 	/* Draw stretching handles (if necessary). */
 	draw_stretch_handles (icon_item, cr, &icon_rect);
+
+	draw_dim_checkmark (icon_item, cr, context, &icon_rect);
 
 	/* Draw the label text. */
 	draw_label_text (icon_item, cr, icon_rect);
@@ -2138,6 +2219,22 @@ nemo_icon_canvas_item_class_init (NemoIconCanvasItemClass *class)
                               "fav-unavailable",
                               "backing file is a favorite and isn't reachable",
                       FALSE, G_PARAM_READWRITE));
+
+	/* For the selection tests, since the mark is only drawn. */
+	g_object_class_install_property (
+		object_class,
+		PROP_DIM_CHECKMARK,
+		g_param_spec_boolean ("dim-checkmark",
+				      "dim checkmark",
+				      "whether Nemo Anywhere's dim checkmark is drawn on the icon",
+				      FALSE, G_PARAM_READABLE));
+	g_object_class_install_property (
+		object_class,
+		PROP_FOCUS_OUTLINE,
+		g_param_spec_boolean ("focus-outline",
+				      "focus outline",
+				      "whether the keyboard focus outline is drawn on the icon",
+				      FALSE, G_PARAM_READABLE));
 
 	item_class->update = nemo_icon_canvas_item_update;
 	item_class->draw = nemo_icon_canvas_item_draw;

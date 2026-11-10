@@ -26,8 +26,8 @@
  * $NEMO_DRAG_VIEW, through GTK's own event path, and checks what each did to
  * the selection, whether a file drag began, and when a menu opened. In the
  * list view it also right-clicks a Places row, and in the others a row of the
- * tree pane. Under Nemo Anywhere each list view check also looks at the
- * checkmarks. One "ok" or "FAIL" line per check goes to $NEMO_DRAG_OUT, and
+ * tree pane. Each list view check under Nemo Anywhere, and each icon view
+ * check, also looks at the checkmarks. One "ok" or "FAIL" line per check goes to $NEMO_DRAG_OUT, and
  * "done" at the end. Every file drag is canceled, so nothing moves. */
 
 #include <stdio.h>
@@ -42,6 +42,7 @@
 static FILE           *out;
 static const char     *folder_name;
 static gboolean        list_mode;
+static gboolean        compact_mode;
 static gboolean        classic;
 static gboolean        anywhere;
 static GtkWidget      *window;
@@ -357,17 +358,71 @@ marked_list (void)
 	return g_string_free (list, FALSE);
 }
 
+static EelCanvasItem *
+canvas_item (int item)
+{
+	AtkObject *child = atk_object_ref_accessible_child (gtk_widget_get_accessible (pane), item);
+	GObject *object = ATK_IS_GOBJECT_ACCESSIBLE (child) ?
+		atk_gobject_accessible_get_object (ATK_GOBJECT_ACCESSIBLE (child)) : NULL;
+
+	g_object_unref (child);
+	return (EelCanvasItem *) object;
+}
+
+/* The icons with a mark, as selected_list puts them. */
+static char *
+icon_marked_list (void)
+{
+	GString *list = g_string_new (NULL);
+	int i;
+
+	for (i = 0; i < item_count (); i++) {
+		gboolean marked = FALSE;
+
+		g_object_get (canvas_item (i), "dim-checkmark", &marked, NULL);
+		if (marked) {
+			g_string_append_printf (list, "%s%d", list->len > 0 ? "," : "", i);
+		}
+	}
+	return g_string_free (list, FALSE);
+}
+
+/* Under Nemo Anywhere the marks are part of every list and icon view check,
+   and under the other models the icon view has none. The compact view's come
+   with its own item, 2026102411133419. */
+static char *
+marks (void)
+{
+	if (list_mode) {
+		return anywhere ? marked_list () : NULL;
+	}
+	return compact_mode ? NULL : icon_marked_list ();
+}
+
+/* For a check that doesn't name the whole selection. */
+static gboolean
+marks_follow (void)
+{
+	char *got = selected_list ();
+	char *marked = marks ();
+	gboolean follow = marked == NULL || strcmp (marked, anywhere ? got : "") == 0;
+
+	g_free (marked);
+	g_free (got);
+	return follow;
+}
+
 static void
 check_selection (const char *want, const char *what)
 {
 	char *got = selected_list ();
-	/* Under Nemo Anywhere the marks are part of every list view check. */
-	char *marked = anywhere && list_mode ? marked_list () : g_strdup (got);
-	char *line = anywhere && list_mode ?
+	char *marked = marks ();
+	char *line = marked != NULL ?
 		g_strdup_printf ("%s (selected %s, marked %s, want %s)", what, got, marked, want) :
 		g_strdup_printf ("%s (selected %s, want %s)", what, got, want);
 
-	report (strcmp (got, want) == 0 && strcmp (marked, got) == 0, line);
+	report (strcmp (got, want) == 0 &&
+		(marked == NULL || strcmp (marked, anywhere ? got : "") == 0), line);
 	g_free (line);
 	g_free (marked);
 	g_free (got);
@@ -400,18 +455,26 @@ blank_x (void)
 	return cell.x + 4;
 }
 
+/* The middle of the checkmark column. */
+static double
+checks_x (void)
+{
+	GtkTreePath *path = gtk_tree_path_new_from_indices (0, -1);
+	GdkRectangle cell;
+
+	gtk_tree_view_get_background_area (GTK_TREE_VIEW (pane), path, checkmark_column (), &cell);
+	gtk_tree_path_free (path);
+	return cell.x + cell.width / 2;
+}
+
 static void
 icon_center (int item, double *x, double *y)
 {
-	AtkObject *child = atk_object_ref_accessible_child (gtk_widget_get_accessible (pane), item);
-	GObject *object = ATK_IS_GOBJECT_ACCESSIBLE (child) ?
-		atk_gobject_accessible_get_object (ATK_GOBJECT_ACCESSIBLE (child)) : NULL;
-	EelCanvasItem *canvas_item = (EelCanvasItem *) object;
+	EelCanvasItem *icon = canvas_item (item);
 
-	g_assert (canvas_item != NULL);
-	*x = (canvas_item->x1 + canvas_item->x2) / 2;
-	*y = (canvas_item->y1 + canvas_item->y2) / 2;
-	g_object_unref (child);
+	g_assert (icon != NULL);
+	*x = (icon->x1 + icon->x2) / 2;
+	*y = (icon->y1 + icon->y2) / 2;
 }
 
 /* The spot in sight nearest to (near_x, near_y) that is clear of every icon. */
@@ -747,6 +810,44 @@ list_tick (void)
 			check_selection ("5", "and the row pressed is selected");
 		}
 		report (pane_is_active (pane), "and that pane is the active one now");
+		if (!anywhere) {
+			finish ();
+			return TRUE;
+		}
+		break;
+	/* Nemo Anywhere's checkmark column bands on a plain drag. */
+	case 18:
+		select_items (none);
+		if (checkmark_column () == NULL) {
+			report (FALSE, "the checkmark column is showing");
+			finish ();
+			return TRUE;
+		}
+		press_and_move (bin, 1, 0, checks_x (), row_y (1), checks_x (), row_y (3));
+		release (bin, 1, 0, checks_x (), row_y (3));
+		report (drags == 0, "a plain drag from the checkmark column drags no files");
+		check_selection ("1,2,3", "and bands from the row pressed");
+		break;
+	case 19:
+		select_items (second_to_fourth);
+		press_and_move (bin, 1, 0, checks_x (), row_y (2), checks_x (), row_y (5));
+		release (bin, 1, 0, checks_x (), row_y (5));
+		report (drags == 0, "a plain drag from the checkmark column of a selected row drags no files");
+		check_selection ("2,3,4,5", "and bands, in place of the selection");
+		break;
+	case 20:
+		/* The expanders are Name's, so this isn't a press on one. */
+		select_items (first);
+		press_and_move (bin, 1, GDK_SHIFT_MASK, checks_x (), row_y (4), checks_x (), row_y (6));
+		release (bin, 1, GDK_SHIFT_MASK, checks_x (), row_y (6));
+		report (drags == 0, "Shift and a drag from the checkmark column drags no files");
+		check_selection ("4,5,6", "and bands, in place of the selection");
+		break;
+	case 21:
+		select_items (first_and_fourth);
+		press (bin, 1, checks_x (), row_y (3), 0);
+		release (bin, 1, 0, checks_x (), row_y (3));
+		check_selection ("3", "a click in the checkmark column of a selected row selects it alone");
 		finish ();
 		return TRUE;
 	}
@@ -786,7 +887,7 @@ icon_tick (void)
 			check_selection ("0,1,2,3", "after picking the run at once");
 		} else {
 			report (drags == 0 && bands == 1, "Shift and a drag from an icon not selected bands");
-			report (is_selected (3) && is_selected (5) && !is_selected (0),
+			report (is_selected (3) && is_selected (5) && !is_selected (0) && marks_follow (),
 				"and the band replaces the selection");
 		}
 		break;
@@ -808,7 +909,7 @@ icon_tick (void)
 			check_selection ("0,4", "after adding the icon at once");
 		} else {
 			report (drags == 0 && bands == 1, "Ctrl and a drag from an icon not selected bands");
-			report (is_selected (0) && is_selected (4) && is_selected (6),
+			report (is_selected (0) && is_selected (4) && is_selected (6) && marks_follow (),
 				"and the band adds to the selection");
 		}
 		break;
@@ -965,6 +1066,7 @@ probe_start (void)
 		return;
 	}
 	list_mode = g_strcmp0 (view, "list-view") == 0;
+	compact_mode = g_strcmp0 (view, "compact-view") == 0;
 	out = fopen (path, "w");
 	if (out == NULL) {
 		return;

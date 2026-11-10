@@ -14,6 +14,9 @@
 ##	    while it's off. With neither there, the lane exits 77 before any lock
 ##	    is taken or anything is sent.
 ##	  - A TERM mid-gate removes the folder, which stops the gate there.
+##	  - A failed gate or desktop step brings the box's meson test log back,
+##	    before the folder goes, as cicd/artifacts/build-win/<box>_<folder>_
+##	    testlog.txt. A passing gate and a TERM bring none.
 ##	  - An uncommitted edit is named as left out.
 ##	  - After a passing gate, the meson tests its Tests step skipped, and only
 ##	    those, go to the box and run as wintest in its desktop session. Their
@@ -86,6 +89,7 @@ cat > "${scratch}/bin/ssh" <<-EOF
 		schtasks*) printf 'Status: Running\\r\\n' ;;
 		'if exist '*'run.rc') [[ -z "\${FAKE_RC:-}" ]] || printf 'rc=%s secs=7\\r\\n' "\${FAKE_RC}" ;;
 		tasklist*) printf 'pwsh.exe   4242 Services   0   90,000 K\\r\\n' ;;
+		'dir /b '*'\\repo\\cicd\\artifacts\\build-win\\meson-logs\\testlog*.txt') printf 'testlog.txt\\r\\n' ;;
 	esac
 	exit 0
 EOF
@@ -105,6 +109,9 @@ cat > "${scratch}/bin/scp" <<-EOF
 			printf 'SKIP ddzzs a smoke  0.02s\\r\\n'
 			printf 'OK: 1 tests\\r\\n'
 		} > "\$2"; exit 0
+	fi
+	if [[ "\$1" == *:*/repo/cicd/artifacts/build-win/meson-logs/testlog.txt ]]; then
+		printf 'the box meson log\\r\\n' > "\$2"; exit 0
 	fi
 	if [[ "\$1" == *:*/desktop.log ]]; then
 		printf 'PASS ddzzw a windowed test  1.20s\\r\\n' > "\$2"; exit 0
@@ -135,13 +142,26 @@ fLane(){
 	shift
 	while (($#)) && [[ "$1" != -- ]]; do envs+=("$1"); shift; done
 	shift
-	rm -f "$log" "${scratch}/sent/"*; touch "$log"
+	rm -f "$log" "${scratch}/sent/"* "${repo}/cicd/artifacts/build-win/"*; touch "$log"
 	laneRc=0
 	## A home of its own, so the real lock tools are never found.
 	(cd "$repo" && env -u WINDOWS_HOST_LOCK "${envs[@]}" HOME="${scratch}/home" PATH="${scratch}/bin:${PATH}" BOX_WRAP_TOOL="$tool" BOX_READY_POLL=0 NEMO_WIN_POLL=0 \
 		bash cicd/win/lane.bash "$@") > "${scratch}/out.log" 2>&1 || laneRc=$?
 }
 dirRe='C:\\ProgramData\\nemo-anywhere\\[0-9]{8}-[0-9]{6}_'
+## The meson logs kept here from the box.
+fKept(){ [[ -d "${repo}/cicd/artifacts/build-win" ]] || return 0; find "${repo}/cicd/artifacts/build-win" -type f 2> /dev/null | sed "s|^${repo}/||" | sort; }
+## $1 the folder's number, $2 the case. One log, named for b29w and that
+## folder, asked for before the folder's removal.
+fCheckKept(){
+	local kept leaf
+	kept="$(fKept)"
+	leaf="$(grep -oE "[0-9]{8}-[0-9]{6}_${1}\$" <<< "$(grep '^ssh b29w mkdir ' "$log")" | head -n 1)"
+	[[ "$kept" == "cicd/artifacts/build-win/b29w_${leaf}_testlog.txt" ]] || { fFail "$2: the kept test log is not b29w_${leaf}_testlog.txt: ${kept:-none}"; return; }
+	[[ "$(tr -d '\r' < "${repo}/${kept}")" == 'the box meson log' ]] || fFail "$2: the kept test log is not the box's"
+	grep -q ' -Remove$' <<< "$(sed -n '/meson-logs.testlog/,$p' "$log")" || fFail "$2: the test log was asked for after the folder went"
+	grep -qF "kept ${repo}/${kept}" "${scratch}/out.log" || fFail "$2: the kept test log was not named"
+}
 
 fLane "${scratch}/x_vm-state.bash" FAKE_VMS=vm925w FAKE_RC=0 FAKE_DRC=0 -- b29w vm925w
 if ((laneRc == 0)); then
@@ -168,6 +188,8 @@ if ((laneRc == 0)); then
 	grep -q 'Windows 4 of 4; PASS Desktop tests ]' "${scratch}/out.log" || fFail "no PASS line for the desktop tests"
 	grep -qE "^ssh b29w pwsh .*-Desktop .*" <<< "$(sed -n '/-Remove$/,$p' "$log")" && fFail "the desktop tests ran after the folder was removed"
 	! grep -q 'uncommitted' "${scratch}/out.log" || fFail "a clean tree was said to have uncommitted edits"
+	! grep -q 'meson-logs' "$log" || fFail "a passing gate asked for its test log"
+	[[ -z "$(fKept)" ]] || fFail "a passing gate kept a test log: $(fKept)"
 	fEcho "OK: b29w runs the gate in its own folder, removed after"
 else
 	fFail "the lane failed with b29w there (exit ${laneRc}): $(tail -3 "${scratch}/out.log")"
@@ -179,7 +201,8 @@ if ((laneRc == 1)); then
 	grep -qE "^ssh b29w pwsh .*-Dir ${dirRe}003 -Remove\$" "$log" || fFail "the work folder was not removed after a failure"
 	grep -q 'Windows 3 of 4; FAIL Gate ]' "${scratch}/out.log" || fFail "no FAIL line for the gate"
 	! grep -q ' -Desktop ' "$log" || fFail "the desktop tests ran after a failing gate"
-	fEcho "OK: a failing gate fails the lane, and its folder still goes"
+	fCheckKept 003 "a failing gate"
+	fEcho "OK: a failing gate fails the lane, keeps its test log here, and its folder still goes"
 else
 	fFail "a failing gate gave exit ${laneRc}, not 1: $(tail -3 "${scratch}/out.log")"
 fi
@@ -209,6 +232,7 @@ fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 FAKE_DRC=1 -- b29w
 if ((laneRc == 1)); then
 	grep -q 'Windows 4 of 4; FAIL Desktop tests ]' "${scratch}/out.log" || fFail "no FAIL line for the desktop tests"
 	grep -qE "^ssh b29w pwsh .*-Dir ${dirRe}001 -Remove\$" "$log" || fFail "the work folder was not removed after the desktop tests failed"
+	fCheckKept 001 "a failing desktop step"
 	fEcho "OK: a failing desktop test fails the lane"
 else
 	fFail "a failing desktop test gave exit ${laneRc}, not 1: $(tail -3 "${scratch}/out.log")"
@@ -290,7 +314,7 @@ fi
 
 ## A gate that never ends, stopped from here, the way cicd.bash stops it.
 if command -v setsid > /dev/null 2>&1; then
-	rm -f "$log"; touch "$log"
+	rm -f "$log" "${repo}/cicd/artifacts/build-win/"*; touch "$log"
 	(cd "$repo" && exec env -u WINDOWS_HOST_LOCK HOME="${scratch}/home" PATH="${scratch}/bin:${PATH}" BOX_WRAP_TOOL="${scratch}/x_vm-state.bash" BOX_READY_POLL=0 NEMO_WIN_POLL=1 \
 		setsid bash cicd/win/lane.bash b29w) > "${scratch}/out.log" 2>&1 &
 	lanePid=$!
@@ -300,6 +324,7 @@ if command -v setsid > /dev/null 2>&1; then
 	laneRc=0; wait "$lanePid" || laneRc=$?
 	((laneRc != 0)) || fFail "a TERM mid-gate gave exit 0"
 	grep -qE "^ssh b29w pwsh .*-Dir ${dirRe}001 -Remove\$" "$log" || fFail "a TERM mid-gate left the work folder: $(tail -3 "${scratch}/out.log")"
+	[[ -z "$(fKept)" ]] || fFail "a TERM mid-gate kept a test log: $(fKept)"
 	fEcho "OK: a TERM mid-gate removes the work folder"
 fi
 

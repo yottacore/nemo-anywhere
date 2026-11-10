@@ -32,7 +32,8 @@
  * "Nemo Anywhere v1" selection model; argv[3] can name another. The
  * "nemo-classic" results are upstream 6.6.4's own, seen there, but for the
  * ones the probe marks (#2026102016594200). "nemo-anywhere" takes v1's
- * results for now (#2026102019174440).
+ * results for now (#2026102019174440), and a plain drag from its checkmark
+ * column bands (#2026110919315994).
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Runs
  * on an X server of its own, since drags and menus take the pointer. Linux
@@ -215,7 +216,9 @@ main (int argc, char *argv[])
 		return 77;
 	}
 
-	run_view (argv[1], argv[2], model, "list-view", 24);
+	/* Nemo Anywhere adds the checkmark column's bands. */
+	run_view (argv[1], argv[2], model, "list-view",
+		  g_strcmp0 (model, "nemo-anywhere") == 0 ? 31 : 24);
 	run_view (argv[1], argv[2], model, "icon-view", 15);
 	run_view (argv[1], argv[2], model, "compact-view", 15);
 

@@ -161,6 +161,7 @@ static gboolean model_key_press_event (GtkWidget *widget, GdkEventKey *event);
 static gboolean model_search_key_press_event (GtkWidget *widget, GdkEventKey *event,
 					      NemoIconContainer *container);
 static gboolean bands_flip (void);
+static gboolean keys_from_range_ends (void);
 
 static gpointer accessible_parent_class;
 
@@ -2327,6 +2328,41 @@ get_rubberband (NemoIcon *icon1,
 	return ret;
 }
 
+static gboolean
+is_add_run_event (GdkEventKey *event)
+{
+	return keys_from_range_ends () &&
+	       (event->state & GDK_CONTROL_MASK) != 0 &&
+	       (event->state & GDK_SHIFT_MASK) != 0;
+}
+
+/* Where a plain arrow or page key counts from under Nemo Anywhere: the focus
+   while a Ctrl+arrow has it off the selection, else the selection's first or
+   last icon, else what Ctrl+Space left the focus on. */
+static NemoIcon *
+range_end_or_focus (NemoIconContainer *container, gboolean last)
+{
+	NemoIcon *focus = container->details->keyboard_focus;
+	NemoIcon *end = NULL;
+	GList *l;
+
+	if (focus != NULL && !focus->is_selected) {
+		return focus;
+	}
+	for (l = container->details->icons; l != NULL; l = l->next) {
+		NemoIcon *icon = l->data;
+
+		if (icon->is_selected) {
+			end = icon;
+			if (!last) {
+				break;
+			}
+		}
+	}
+
+	return end != NULL ? end : container->details->range_selection_base_icon;
+}
+
 static void
 keyboard_move_to (NemoIconContainer *container,
 		  NemoIcon *icon,
@@ -2345,6 +2381,18 @@ keyboard_move_to (NemoIconContainer *container,
 		 */
 		set_keyboard_focus (container, icon);
 		container->details->keyboard_rubberband_start = NULL;
+	} else if (event != NULL && is_add_run_event (event)) {
+		/* Nemo Anywhere: the run from the anchor joins the selection. */
+		NemoIcon *anchor = container->details->range_selection_base_icon;
+
+		if (anchor == NULL) {
+			anchor = from != NULL ? from : icon;
+			container->details->range_selection_base_icon = anchor;
+		}
+		set_keyboard_focus (container, icon);
+		if (select_range (container, anchor, icon, FALSE)) {
+			g_signal_emit (container, signals[SELECTION_CHANGED], 0);
+		}
 	} else if (event != NULL &&
 		   ((event->state & GDK_CONTROL_MASK) != 0 ||
 		    !container->details->auto_layout) &&
@@ -2475,6 +2523,15 @@ keyboard_arrow_key (NemoIconContainer *container,
 	 */
 
 	from = container->details->keyboard_focus;
+	if (keys_from_range_ends () &&
+	    (event->state & (GDK_CONTROL_MASK | GDK_SHIFT_MASK)) == 0) {
+		gboolean rtl = nemo_icon_container_is_layout_rtl (container);
+
+		from = range_end_or_focus (container,
+					   direction == GTK_DIR_DOWN ||
+					   (direction == GTK_DIR_RIGHT && !rtl) ||
+					   (direction == GTK_DIR_LEFT && rtl));
+	}
 
 	if (from == NULL) {
 		if (has_multiple_selection (container)) {
@@ -2551,11 +2608,13 @@ keyboard_arrow_key (NemoIconContainer *container,
 	keyboard_move_to (container, to, from, event);
 }
 
+/* Under Nemo Anywhere Ctrl+Shift adds a run, which wraps as Shift's does. */
 static gboolean
 is_rectangle_selection_event (GdkEventKey *event)
 {
 	return (event->state & GDK_CONTROL_MASK) != 0 &&
-	       (event->state & GDK_SHIFT_MASK) != 0;
+	       (event->state & GDK_SHIFT_MASK) != 0 &&
+	       !keys_from_range_ends ();
 }
 
 static void
@@ -5124,6 +5183,12 @@ nemo_icon_container_init (NemoIconContainer *container)
                              G_CALLBACK (tooltip_prefs_changed_callback),
                              container, G_CONNECT_SWAPPED);
 
+    /* The dim checkmarks come and go with the model. */
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_SELECTION_MODEL,
+                             G_CALLBACK (gtk_widget_queue_draw),
+                             container, G_CONNECT_SWAPPED);
+
     container->details->show_icon_view_tooltips = nemo_config_get_boolean (nemo_preferences,
                                                                           NEMO_PREFERENCES_TOOLTIPS_ICON_VIEW);
     container->details->tooltip_flags = nemo_global_preferences_get_tooltip_flags ();
@@ -5613,6 +5678,131 @@ classic_button_press_event (GtkWidget *widget,
 	return return_value;
 }
 
+/* Page Up and Page Down go to the farthest icon a page down or up the
+   column, or across the row where the view scrolls sideways. A page shorter
+   than a row still goes one, and from a column's end they go to the first or
+   last icon. */
+static NemoIcon *
+icon_a_page_away (NemoIconContainer *container, NemoIcon *from, gboolean forward)
+{
+	gboolean sideways = nemo_icon_container_is_layout_vertical (container);
+	GtkAdjustment *adjustment = sideways ?
+		gtk_scrollable_get_hadjustment (GTK_SCROLLABLE (container)) :
+		gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (container));
+	double page = gtk_adjustment_get_page_size (adjustment);
+	EelCanvasItem *start = EEL_CANVAS_ITEM (from->item);
+	NemoIcon *inside = NULL, *beyond = NULL;
+	double farthest = 0, nearest = 0;
+	GList *l;
+
+	for (l = container->details->icons; l != NULL; l = l->next) {
+		EelCanvasItem *item = EEL_CANVAS_ITEM (((NemoIcon *) l->data)->item);
+		/* The icon view centers each column, and the compact view's rows
+		   line up by their tops. */
+		double across = sideways ? item->y1 - start->y1 :
+				(item->x1 + item->x2 - start->x1 - start->x2) / 2;
+		double along = (sideways ? item->x1 - start->x1 : item->y1 - start->y1) *
+			       (forward ? 1 : -1);
+
+		if (ABS (across) > 4 || along <= 0) {
+			continue;
+		}
+		if (along <= page && along > farthest) {
+			farthest = along;
+			inside = l->data;
+		} else if (along > page && (beyond == NULL || along < nearest)) {
+			nearest = along;
+			beyond = l->data;
+		}
+	}
+	if (inside != NULL || beyond != NULL) {
+		return inside != NULL ? inside : beyond;
+	}
+
+	return find_best_icon (container, NULL,
+			       !forward ? leftmost_in_top_row :
+			       sideways ? last_column_lowest : rightmost_in_bottom_row,
+			       NULL);
+}
+
+static void
+keyboard_page (NemoIconContainer *container, GdkEventKey *event, gboolean forward)
+{
+	NemoIcon *from = container->details->keyboard_focus;
+
+	if (from == NULL || (event->state & GDK_SHIFT_MASK) == 0) {
+		from = range_end_or_focus (container, forward);
+	}
+	keyboard_move_to (container,
+			  from != NULL ? icon_a_page_away (container, from, forward) :
+			  find_best_icon (container, NULL, leftmost_in_top_row, NULL),
+			  from, event);
+}
+
+/* Ctrl+Space adds or removes the focus and moves the anchor to it. v1 puts
+   the outline on the first icon when there is no focus, and this model draws
+   one only after a Ctrl+arrow, so then it does nothing. */
+static void
+keyboard_toggle_focus (NemoIconContainer *container)
+{
+	NemoIcon *focus = container->details->keyboard_focus != NULL ?
+		container->details->keyboard_focus : container->details->range_selection_base_icon;
+
+	if (focus == NULL) {
+		return;
+	}
+	icon_toggle_selected (container, focus);
+	container->details->range_selection_base_icon = focus;
+	g_signal_emit (container, signals[SELECTION_CHANGED], 0);
+}
+
+/* See the design doc's "Keyboard". What isn't here is v1's, less what
+   keys_from_range_ends changes inside it. */
+static int
+anywhere_key_press_event (GtkWidget *widget, GdkEventKey *event)
+{
+	NemoIconContainer *container = NEMO_ICON_CONTAINER (widget);
+	gboolean ctrl = (event->state & GDK_CONTROL_MASK) != 0;
+	gboolean shift = (event->state & GDK_SHIFT_MASK) != 0;
+
+	if (is_renaming (container) || is_renaming_pending (container) ||
+	    (container->details->search_window != NULL &&
+	     gtk_widget_get_visible (container->details->search_window))) {
+		return key_press_event (widget, event);
+	}
+
+	switch (event->keyval) {
+	case GDK_KEY_Home:
+	case GDK_KEY_KP_Home:
+	case GDK_KEY_End:
+	case GDK_KEY_KP_End:
+		event->state &= ~GDK_CONTROL_MASK;
+		break;
+	case GDK_KEY_Page_Up:
+	case GDK_KEY_KP_Page_Up:
+	case GDK_KEY_Page_Down:
+	case GDK_KEY_KP_Page_Down:
+		/* Ctrl with them switches tabs. */
+		if (!ctrl && (event->state & GDK_MOD1_MASK) == 0) {
+			keyboard_page (container, event,
+				       event->keyval == GDK_KEY_Page_Down ||
+				       event->keyval == GDK_KEY_KP_Page_Down);
+			return TRUE;
+		}
+		break;
+	case GDK_KEY_space:
+		if (ctrl && !shift) {
+			keyboard_toggle_focus (container);
+			return TRUE;
+		}
+		break;
+	default:
+		break;
+	}
+
+	return key_press_event (widget, event);
+}
+
 /* The selection and focus rules for icon and compact views, one set per
    selection model. See design_docs/20261020-103804_behavior-models.md,
    "The setting". */
@@ -5627,6 +5817,9 @@ typedef struct {
 	/* A band, the mouse's or the keyboard's, flips what it crosses rather
 	   than adding it. */
 	gboolean band_flips;
+	/* A plain arrow key counts from the selection's first or last icon, and
+	   Ctrl+Shift with one adds a run rather than a band. */
+	gboolean keys_from_range_ends;
 } ContainerRules;
 
 static const ContainerRules rules_anywhere_v1 = {
@@ -5651,16 +5844,17 @@ static const ContainerRules rules_classic = {
 	.band_flips = TRUE,
 };
 
-/* Nemo Anywhere, switch off. v1's rules until its own go in
-   (2026102019174440). */
+/* Nemo Anywhere, switch off. v1's rules but for its keys, until the rest of
+   its own go in (2026102019174440). */
 static const ContainerRules rules_anywhere = {
 	.button_press = button_press_event,
 	.button_release = button_release_event,
 	.motion_notify = motion_notify_event,
-	.key_press = key_press_event,
+	.key_press = anywhere_key_press_event,
 	.search_key_press = nemo_icon_container_search_key_press_event,
 	.item_event = item_event_callback,
 	.band_flips = FALSE,
+	.keys_from_range_ends = TRUE,
 };
 
 static const ContainerRules *
@@ -5681,6 +5875,12 @@ static gboolean
 bands_flip (void)
 {
 	return container_rules ()->band_flips;
+}
+
+static gboolean
+keys_from_range_ends (void)
+{
+	return container_rules ()->keys_from_range_ends;
 }
 
 static gboolean

@@ -55,7 +55,9 @@
 ##	   --leakcheck         run the slow leak and static checks (CodeQL, the
 ##	                       clang analyzer across files, the heap growth soak
 ##	                       test). On in a plain run and off under --quick, so
-##	                       this adds them back there
+##	                       this adds them back there. The analyzer across
+##	                       files takes about 20 min, so a plain run leaves it
+##	                       to --long or this flag
 ##	   --no-leakcheck      leave those out of a plain run. Whichever of the two
 ##	                       comes last on the command line wins
 ##	   --no-dogfood        skip installing the native release locally
@@ -277,8 +279,14 @@ declare -p WIN_GATE_CMD &>/dev/null || WIN_GATE_CMD=()
 ## takes about 98 of a plain run's 152 minutes. Naming either one beats both flags.
 [[ -n "$include_arm" ]] || include_arm=$((long))
 leak_why="--no-leakcheck"; [[ -n "$leakcheck" ]] || leak_why="--quick"
+leak_asked=0; [[ "$leakcheck" != 1 ]] || leak_asked=1
 [[ -n "$leakcheck" ]] || leakcheck=$((! quick))
 declare -p HEAP_SOAK_CMD &>/dev/null || HEAP_SOAK_CMD=()           ## a config with no soak
+declare -p ANALYZE_CTU_CMD &>/dev/null || ANALYZE_CTU_CMD=()
+## The analyzer across files would add about 20 min to a plain run, which has
+## the leak checks on by default, so there it waits for --long or --leakcheck.
+run_ctu=$((leakcheck && (long || leak_asked)))
+ctu_why="$leak_why"; ((! leakcheck)) || ctu_why="--long or --leakcheck adds it"
 [[ -n "$include_bsd" ]] || include_bsd=$((! quick))
 ((! no_bsd)) || include_bsd=0
 declare -p BSD_TEST_CMD &>/dev/null || BSD_TEST_CMD=()           ## a config with no FreeBSD box
@@ -440,6 +448,7 @@ fStep_Cmd(){
 		"Release build: "*)       for t in "${CROSS_TARGETS[@]}"; do [[ "Release build: ${t%%|*}" != "$1" ]] || echo "${t#*|*|*|}"; done ;;
 		"Static analyzers")       echo "${ANALYZE_CMD[*]}" ;;
 		"Heap soak")              echo "${HEAP_SOAK_CMD[*]}" ;;
+		"Cross-file analyzer")    echo "${ANALYZE_CTU_CMD[*]}" ;;
 		"Native Windows gate")    echo "${WIN_GATE_SIDE_CMD[*]} ${WIN_GATE_CMD[*]}" ;;
 		Packages)                 echo "${PACKAGE_CMDS[*]:-} ${PACKAGE_CHECKS[*]:-}" ;;
 		"Private runner")         echo "${PRIVATE_RUNNER:-}" ;;
@@ -769,6 +778,7 @@ fi
 ((${#BSD_RELEASE_CMD[@]})) && fPlan "$run_bsd_release" "Release build: FreeBSD" "$bsd_why"
 ((${#ANALYZE_CMD[@]})) && fPlan "$((! quick))" "Static analyzers" "--quick"
 ((${#HEAP_SOAK_CMD[@]})) && fPlan "$leakcheck" "Heap soak" "$leak_why"
+((${#ANALYZE_CTU_CMD[@]})) && fPlan "$run_ctu" "Cross-file analyzer" "$ctu_why"
 ((${#WIN_GATE_SIDE_CMD[@]} + ${#WIN_GATE_CMD[@]})) && fPlan "$run_win" "Native Windows gate" "$win_why"
 pkg_why="--no-package"; ((quick)) && pkg_why="--quick"
 fPlan "$((PACKAGE_ENABLE && ! quick))"  "Packages"              "$pkg_why"
@@ -821,6 +831,7 @@ else
 fi
 fEcho_Clean "Leak checks .........: $( ((leakcheck)) && echo on || echo off )"
 ((${#HEAP_SOAK_CMD[@]})) && fEcho_Clean "Heap soak ...........: $( ((leakcheck)) && echo "${HEAP_SOAK_CMD[*]}" || echo "(skipped ${leak_why})" )"
+((${#ANALYZE_CTU_CMD[@]})) && fEcho_Clean "Cross-file analyzer .: $( ((run_ctu)) && echo "${ANALYZE_CTU_CMD[*]}" || echo "(skipped, ${ctu_why})" )"
 if ((quick)); then
 	fEcho_Clean "Static analyzers ....: (skipped --quick)"
 elif [[ -n "${ANALYZE_CMD+x}" ]] && ((${#ANALYZE_CMD[@]})); then
@@ -1181,6 +1192,12 @@ if ((leakcheck)) && ((${#HEAP_SOAK_CMD[@]})); then
 	"${HEAP_SOAK_CMD[@]}"
 fi
 
+## Both compile lists again, clang following calls across files.
+if ((run_ctu)) && ((${#ANALYZE_CTU_CMD[@]})); then
+	fStep "Cross-file analyzer" hard
+	"${ANALYZE_CTU_CMD[@]}"
+fi
+
 ## Stage 6: packages. Distributables built from what stage 5 produced, never
 ## rebuilt from source. Which formats, and how, is entirely the project's business
 ## (PACKAGE_CMDS in config.bash) - the engine only decides when it happens and that
@@ -1506,6 +1523,7 @@ fEcho_Clean
 ##		- 2026-10-21: static analyzer stage after the cross build, report only.
 ##		- 2026-11-08: the static analyzer stage fails on a finding left.
 ##		- 2026-11-08: heap growth soak step under --leakcheck.
+##		- 2026-11-10: cross-file clang step, under --long or --leakcheck.
 ##		- 2026-10-24: --long (or --slow) adds arm64, now off in a plain run.
 ##		- 2026-10-25: --backlog-run-quick, --backlog-run-full and --merge-gate;
 ##		  --gate and --ci are other names for the first and last. --no-remote.

@@ -27,7 +27,13 @@
 ##	  flags, blake3's SIMD ones and the 2 that build SHCL, are on
 ##	  analyze-slow.txt, each with how its lane runs it and what still covers it.
 ##	- --self-test runs analyze.py's own self-test and the planted faults only.
-##	- Syntax: cicd/utility/analyze.bash [--self-test]
+##	- --ctu is the cross-file clang run, under --leakcheck: clang alone over
+##	  both lists, following calls into the other .c files of the same list,
+##	  with logs in cicd/artifacts/analyze-ctu/. It fails when either lane misses
+##	  the planted pair, whose leak and NULL come from the other file (test
+##	  de8eq), or a run fails. Its findings and cut-off files are report only
+##	  for now (backlog 2026110920251244).
+##	- Syntax: cicd/utility/analyze.bash [--self-test] [--ctu]
 ##	- Test ID: de8es
 
 ##	Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu)
@@ -52,6 +58,10 @@ source "${here}/include/jobs.bash"
 fJobs_Default hard
 jobs="${CICD_MAX_JOBS}"
 tool="/src/cicd/utility/analyze.py"
+ctu=0; selfTest=0
+for a in "$@"; do case "${a}" in --ctu) ctu=1 ;; --self-test) selfTest=1 ;; esac; done
+tools=(gcc clang); ctuArg=(); tag=""
+((! ctu)) || { tools=(clang); ctuArg=(--ctu); tag="-ctu"; }
 ## lane|container|compile list|compiler
 lanes=(
 	"linux|step|/build/compile_commands.json|cc"
@@ -72,12 +82,12 @@ fPlanted(){
 	local l lane container db cc a rc
 	for l in "${lanes[@]}"; do
 		IFS='|' read -r lane container db cc <<< "${l}"
-		for a in gcc clang; do
-			rc=0; fInLane "${container}" "planted-${a}" python3 "${tool}" planted --tool "${a}" --cc "${cc}" | grep -E '^\[|^### SKIP' || rc="${PIPESTATUS[0]}"
+		for a in "${tools[@]}"; do
+			rc=0; fInLane "${container}" "planted-${a}${tag}" python3 "${tool}" planted --tool "${a}" --cc "${cc}" "${ctuArg[@]}" | grep -E '^\[|^### SKIP' || rc="${PIPESTATUS[0]}"
 			case "${rc}" in
 				0)  ;;
-				77) fEcho "FAILED: ${a}-${lane}: not run, no ${a} in ${container}"; failed=1 ;;
-				*)  fEcho "FAILED: ${a}-${lane} missed a planted fault"; failed=1 ;;
+				77) fEcho "FAILED: ${a}${tag}-${lane}: not run, no ${a}${tag:+ or clang-extdef-mapping} in ${container}"; failed=1 ;;
+				*)  fEcho "FAILED: ${a}${tag}-${lane} missed a planted fault"; failed=1 ;;
 			esac
 		done
 	done
@@ -86,12 +96,15 @@ fPlanted(){
 echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
 python3 "${root}/cicd/utility/analyze.py" --self-test || failed=1
 fPlanted
-if [[ "${1:-}" == "--self-test" ]]; then
+if ((ctu)); then
+	if ((failed)); then echo "FAIL de8eq cross-file clang planted faults"; else echo "PASS de8eq cross-file clang planted faults"; fi
+fi
+if ((selfTest)); then
 	((failed)) && fDie "analyzer self-test"
 	fEcho "OK: analyzer self-test"; exit 0
 fi
 
-out="${root}/cicd/artifacts/analyze"
+out="${root}/cicd/artifacts/analyze${tag}"
 last="${out}/last"
 mkdir -p "${last}"
 stamp="$(date +%Y%m%d-%H%M%S)"
@@ -103,17 +116,18 @@ for l in "${lanes[@]}"; do
 done
 python3 "${root}/cicd/utility/analyze.py" cover "${root}" "${last}/compile-linux.json" "${last}/compile-win.json" || failed=1
 
-## All 4 at once, a quarter of the jobs each. A few files take gcc many minutes
-## alone, so the rest overlap that tail.
-each=$(( jobs / 4 )); ((each)) || each=1
-fSection "Analyzers (${each} jobs each, 4 at once)"
+## All at once, an even share of the jobs each. A few files take gcc many
+## minutes alone, so the rest overlap that tail.
+nRuns=$(( ${#lanes[@]} * ${#tools[@]} ))
+each=$(( jobs / nRuns )); ((each)) || each=1
+fSection "Analyzers${tag:+ across files} (${each} jobs each, ${nRuns} at once)"
 t0=${SECONDS}
-pids=(); names=()
+pids=(); names=(); logs=()
 for l in "${lanes[@]}"; do
 	IFS='|' read -r lane container db cc <<< "${l}"
-	for a in gcc clang; do
-		fInLane "${container}" "${a}" env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-900}" nice -n 19 python3 "${tool}" run --tool "${a}" --db "${db}" --lane "${lane}" --jobs "${each}" > "${last}/${a}-${lane}.log" 2>&1 &
-		pids+=("$!"); names+=("${a}-${lane}")
+	for a in "${tools[@]}"; do
+		fInLane "${container}" "${a}${tag}" env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-900}" nice -n 19 python3 "${tool}" run --tool "${a}" --db "${db}" --lane "${lane}" --jobs "${each}" "${ctuArg[@]}" > "${last}/${a}${tag}-${lane}.log" 2>&1 &
+		pids+=("$!"); names+=("${a}${tag}-${lane}"); logs+=("${a}${tag}-${lane}.log")
 	done
 done
 for i in "${!pids[@]}"; do
@@ -126,8 +140,14 @@ for i in "${!pids[@]}"; do
 done
 fEcho "analyzers took $(( SECONDS - t0 )) s"
 
-python3 "${root}/cicd/utility/analyze.py" count "${root}" "${last}"/{gcc,clang}-{linux,win}.log | tee "${out}/counts_${stamp}.txt" || failed=1
-tar -C "${last}" -czf "${out}/findings_${stamp}.tgz" gcc-linux.log clang-linux.log gcc-win.log clang-win.log
+countRc=0
+python3 "${root}/cicd/utility/analyze.py" count ${ctuArg[@]:+--no-stale} "${root}" "${logs[@]/#/${last}/}" | tee "${out}/counts_${stamp}.txt" || countRc="${PIPESTATUS[0]}"
+if ((countRc && ctu)); then
+	fEcho "The cross-file findings and cut-off files above don't fail the run yet (backlog 2026110920251244)"
+elif ((countRc)); then
+	failed=1
+fi
+tar -C "${last}" -czf "${out}/findings_${stamp}.tgz" "${logs[@]}"
 gfs_rotate "${out}" counts txt   >/dev/null 2>&1 || true
 gfs_rotate "${out}" findings tgz >/dev/null 2>&1 || true
 
@@ -145,3 +165,4 @@ fEcho "OK: analyzer stage"
 ##		  runs, and an analyzer missing from either image fails the stage.
 ##		- 2026-11-08: analyze-slow.txt for the files gcc can't finish inside the
 ##		  cap, and a file cut off fails the stage.
+##		- 2026-11-10: --ctu, the cross-file clang run.
