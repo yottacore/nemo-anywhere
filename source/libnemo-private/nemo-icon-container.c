@@ -5124,6 +5124,12 @@ nemo_icon_container_init (NemoIconContainer *container)
                              G_CALLBACK (tooltip_prefs_changed_callback),
                              container, G_CONNECT_SWAPPED);
 
+    /* The dim checkmarks come and go with the model. */
+    g_signal_connect_object (nemo_preferences,
+                             "changed::" NEMO_PREFERENCES_SELECTION_MODEL,
+                             G_CALLBACK (gtk_widget_queue_draw),
+                             container, G_CONNECT_SWAPPED);
+
     container->details->show_icon_view_tooltips = nemo_config_get_boolean (nemo_preferences,
                                                                           NEMO_PREFERENCES_TOOLTIPS_ICON_VIEW);
     container->details->tooltip_flags = nemo_global_preferences_get_tooltip_flags ();

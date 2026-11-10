@@ -27,8 +27,8 @@
  * by $NEMO_SEL_VIEW through GTK's own event path, then in the folder tree,
  * then opens folders from home, and checks each rule of the selection model
  * in $NEMO_SEL_MODEL. Where the next item over depends on the layout, the icon views work it out from where
- * the icons are. Under Nemo Anywhere each list view check also looks at the
- * checkmarks. One "ok" or "FAIL" line per check goes to $NEMO_SEL_OUT, and
+ * the icons are. Each list view check under Nemo Anywhere, and each icon view
+ * check, also looks at the checkmarks. One "ok" or "FAIL" line per check goes to $NEMO_SEL_OUT, and
  * "done" at the end. Drags are left to test-nemo-drag-select. */
 
 #include <stdarg.h>
@@ -377,17 +377,49 @@ marked_list (void)
 	return g_string_free (list, FALSE);
 }
 
+static EelCanvasItem *canvas_item (int item);
+
+/* The icons with a mark, as selected_list puts them. */
+static char *
+icon_marked_list (void)
+{
+	GString *list = g_string_new (NULL);
+	int i;
+
+	for (i = 0; i < item_count (); i++) {
+		gboolean marked = FALSE;
+
+		g_object_get (canvas_item (i), "dim-checkmark", &marked, NULL);
+		if (marked) {
+			g_string_append_printf (list, "%s%d", list->len > 0 ? "," : "", i);
+		}
+	}
+	return g_string_free (list, FALSE);
+}
+
+/* Under Nemo Anywhere the marks are part of every list and icon view check,
+   and under the other models the icon view has none. The compact view's come
+   with its own item, 2026102411133419. */
+static char *
+marks (void)
+{
+	if (list_mode) {
+		return anywhere ? marked_list () : NULL;
+	}
+	return compact_mode ? NULL : icon_marked_list ();
+}
+
 static void
 want (char *wanted, const char *what)
 {
 	char *got = selected_list ();
-	/* Under Nemo Anywhere the marks are part of every list view check. */
-	char *marked = anywhere && list_mode ? marked_list () : g_strdup (got);
-	char *line = anywhere && list_mode ?
+	char *marked = marks ();
+	char *line = marked != NULL ?
 		g_strdup_printf ("%s (selected %s, marked %s, want %s)", what, got, marked, wanted) :
 		g_strdup_printf ("%s (selected %s, want %s)", what, got, wanted);
 
-	report (strcmp (got, wanted) == 0 && strcmp (marked, got) == 0, line);
+	report (strcmp (got, wanted) == 0 &&
+		(marked == NULL || strcmp (marked, anywhere ? got : "") == 0), line);
 	g_free (line);
 	g_free (marked);
 	g_free (got);

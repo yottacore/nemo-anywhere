@@ -579,8 +579,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
 	- Type: Enhancement
-	- Status: Queued
-	- Needs local test suite run?: Yes
+	- Status: Done
+	- Needs local test suite run?: no. The quick gate's tests passed with it.
 	- Priority|Severity: High
 	- Opened: 20261024-111334
 	- Opened by: t00mietum
@@ -595,7 +595,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What it looks like".
 	- Progress log:
 		- 20261024: opened.
-	- Test case: none yet.
+		- 20261109: under Nemo Anywhere each selected icon in the icon view gets a dim checkmark in its top-left corner, on a small patch of the selection color. Labels are unchanged. The marks follow the setting live. The compact view and the desktop get none yet.
+	- Decisions:
+		- The patch is the theme's selection background, and the mark is the selected text in the insensitive look, the same pair as the list view's column. So the mark reads the same in both views, and the patch stands out on light, dark and busy thumbnails.
+		- The mark is the list view's size, shrunk to two fifths of the icon on small icons.
+		- It sits at the corner of the icon image, so on a theme icon with empty margins it can sit a little off the visible shape.
+		- Top-left in a right-to-left layout too, as the design doc says.
+		- The icon item has a read-only `dim-checkmark` property, which gives what the drawing goes by, for the tests.
+	- Swept: the label highlight and the drag image (no mark in either), the compact view's layout (left to 2026102411133419), the desktop, and the model switch in the list view and the icon container.
+	- Branch: round1110a
+	- Test case: dec8w and dec8v, where every icon view check also checks the marks: on the selected icons under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). Under Nemo Anywhere the two icon view band checks in dec8v check them too. The result counts don't change.
+	- Not covered by a test yet: the marks coming and going when the setting changes while the window is open.
+	- Verified: 20261109, dec8w, dec8v, de8bd, de8dm, ddy5f and de8ec pass, and fail with marks drawn on every icon under every model. The quick gate passed (lints, and 242 OK, 1 skipped). The clang analyzer reports nothing on the two changed files.
+	- Verified: 20261109, the icon view under Nemo Anywhere in Adwaita and Adwaita dark, with 3 of 7 icons selected: a mark on each selected icon and none on the rest, labels unchanged. It reads on white, black, blue and striped thumbnails.
+	- Acceptance signoff: Self-closed: dec8w and dec8v, and the look checked in Adwaita light and dark.
+	- Closed: 20261109-215033
 
 - Nemo Anywhere dim checkmarks: the compact view.
 	- ID: 2026102411133419
