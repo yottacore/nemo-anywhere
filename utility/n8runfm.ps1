@@ -940,12 +940,32 @@ function fMainBin {
 }
 
 
-## What to actually run: the fixed name when it is there, else the newest version
-## directly, else nothing.
+## What to actually run: the file the fixed name resolves to, else the newest
+## version directly, else nothing. Never the link itself, so a run that repoints
+## it while this one starts can't swap the build out from under it, and the
+## process shows which version it is.
 function fRunTarget {
-	if (Test-Path -LiteralPath $LinkPath) { return $LinkPath }
+	if (Test-Path -LiteralPath $LinkPath) {
+		$real = fRealPath $LinkPath
+		if ($real) { return $real }
+	}
 	$newest = fNewestCopy
 	if ($newest) { return (fMainBin $newest.Payload.FullName) }
+	return $null
+}
+
+
+## The file a path ends up at once every link on the way is followed, or the path
+## itself when it isn't a link, as the Windows copy fallback is. $null when the
+## chain ends nowhere.
+function fRealPath {
+	param([Parameter(Mandatory)][string]$Path)
+	$item = Get-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+	if (-not $item) { return $null }
+	if (-not $item.LinkType) { return $item.FullName }
+	try   { $real = $item.ResolveLinkTarget($true) }
+	catch { return $null }
+	if ($real -and $real.Exists) { return $real.FullName }
 	return $null
 }
 
@@ -1636,6 +1656,7 @@ exit 0
 
 
 ##	History:
+##		- 2026-11-09: Runs the file the fixed name resolves to, never the link.
 ##		- 2026-11-04: Every recursive removal goes through a guard of its own that
 ##		  names the one parent it may remove under, and refuses a link or a path
 ##		  through one.
