@@ -908,6 +908,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The parent's CodeQL requirements, over the same 2 compile lists, the Python included.
 		- A pinned CLI and query packs, run locally in a container, with no hosted service. It fails on a planted leak and null dereference first.
 	- Estimated effort: High
+	- Progress log:
+		- 20261110: The newest bundle is v2.27.4 (2026-11-02). It comes per language as well, with the CLI in each: C and C++ 165 MB, Python 111 MB, against 560 MB for all of them. The release gives a sha256 for each file, so `ADD --checksum` can pin them.
+		- The Windows list needs the tracer to see the mingw cross compiler in the cross build's image. Not tried yet.
 	- Test case: de8ep, with a planted leak and null dereference.
 
 - Static analyzers: the cross-file clang findings fixed or suppressed, then they fail the run.
