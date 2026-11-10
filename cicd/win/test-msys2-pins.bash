@@ -2,7 +2,8 @@
 
 ##	- Purpose: Check that the hosted Windows build installs only pinned MSYS2
 ##	  packages. The workflow pins setup-msys2 by commit, which fixes the base
-##	  install, turns its update off and names no packages of its own. The list
+##	  install, turns its update off and names no packages of its own. It
+##	  acknowledges only MINGW64's deprecation warning, and only on MINGW64. The list
 ##	  is well formed, has every root, and was written for that same commit. The
 ##	  closure follows provides and leaves out the base, and a hole fails. The
 ##	  install refuses a bad checksum or line before pacman runs.
@@ -45,6 +46,14 @@ uses="$(grep -E '^[[:space:]]*uses:[[:space:]]*msys2/setup-msys2@' <<<"${wf}" ||
 block="$(sed -n '/uses:[[:space:]]*msys2\/setup-msys2@/,/^[[:space:]]*- name:/p' "${workflow}")"
 grep -qE '^[[:space:]]*update:[[:space:]]*false[[:space:]]*$' <<<"${block}" || fFail "setup-msys2 must have update: false"
 if grep -qE '^[[:space:]]*(install|pacboy):' <<<"${block}"; then fFail "setup-msys2 installs packages of its own"; fi
+## MINGW64's deprecation warning is acknowledged until the move to UCRT64,
+## and no other, so a warning the action adds later still shows.
+msystem="$(sed -n 's/^[[:space:]]*msystem:[[:space:]]*\([A-Za-z0-9]*\)[[:space:]]*$/\1/p' <<<"${block}")"
+suppressed="$(sed -n 's/^[[:space:]]*suppress-deprecation-warnings:[[:space:]]*//p' <<<"${block}")"
+for w in ${suppressed}; do
+	[[ "${w}" == msystem-mingw64 && "${msystem}" == MINGW64 ]] || fFail "setup-msys2 suppresses ${w}, with msystem ${msystem:-unset}"
+done
+if [[ "${msystem}" == MINGW64 && " ${suppressed} " != *" msystem-mingw64 "* ]]; then fFail "setup-msys2 warns that MINGW64 is deprecated on every run"; fi
 grep -qE '^[[:space:]]*run:[[:space:]]*bash cicd/win/msys2-pins\.bash install[[:space:]]*$' <<<"${wf}" || fFail "no step runs msys2-pins.bash install"
 if grep -qE 'pacman[[:space:]]+-S' <<<"${wf}"; then fFail "workflow runs pacman -S, which installs whatever is current"; fi
 chocos="$(grep -E '^[[:space:]]*choco[[:space:]]+install' <<<"${wf}" || true)"
@@ -153,3 +162,4 @@ fEcho "OK: the hosted Windows build installs ${count} pinned MSYS2 packages and 
 
 ##	History:
 ##		- 20261028: Created.
+##		- 20261109: Checks the deprecation warnings the workflow turns off.

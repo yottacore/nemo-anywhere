@@ -46,11 +46,15 @@ jobs:
       # The action's commit fixes the dated base install it unpacks, and the
       # toolchain on top of it comes from cicd/win/msys2-pins.txt, so a tag
       # builds from the same packages whenever it runs. msys2-pins.bash moves them.
+      # MSYS2 has deprecated MINGW64. The pins keep its packages from going away
+      # under a tag, so its warning is acknowledged until every Windows lane
+      # moves to UCRT64 (2026110920004210).
       - name: MSYS2 base
         uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
         with:
           msystem: MINGW64
           update: false
+          suppress-deprecation-warnings: msystem-mingw64
 
       - name: MSYS2 mingw64 toolchain
         shell: msys2 {0}

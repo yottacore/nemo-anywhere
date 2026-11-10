@@ -33,6 +33,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Move every Windows lane from MSYS2's MINGW64 to UCRT64.
+	- ID: 2026110920004210
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261109-200042
+	- Opened by: 2026102809292776
+	- Related IDs: 2026102809292776, 2026101913541100, 2026102112223038
+	- Target OS: Windows
+	- Requirements:
+		- MSYS2 deprecated MINGW64 on 2026-03-15, and since 2026-10-24 drops it from leaf packages as they update. The hosted build's pins hold until they're moved, but a move, such as for the GLib or GTK fixes, can find a package gone.
+		- UCRT64 links the exe and every DLL to Windows' UCRT in place of msvcrt, so all lanes move together: the hosted build, the pins, the cross build image and its sysroot, the wine runner, the analyzer's clang-win lane, and both Windows boxes.
+		- The cross image needs a mingw cross compiler that targets UCRT, so its objects and the sysroot's DLLs share one C runtime.
+		- Once it's done, take `suppress-deprecation-warnings` out of `release-win.yml`. dehzp then wants it gone.
+		- After the rc.1 cut, since the release build works as it is.
+		- Split it before starting. It doesn't fit one worker's time cap.
+	- Estimated effort: High
+
 - The native gate on b29w sometimes fails on test-nemo-office's leftover folder.
 	- ID: 2026103116203164
 	- Type: Bug
@@ -1119,14 +1137,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The hosted Windows build warns that MSYS2's MINGW64 environment is deprecated.
 	- ID: 2026102809292776
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
 	- Priority|Severity: Low
 	- Opened: 20261028-092927
 	- Opened by: 2026102618560000
-	- Related IDs: 2026102618560000
+	- Related IDs: 2026102618560000, 2026110920004210
 	- Target OS: Windows
 	- Requirements: the setup step warns "MINGW64 is deprecated. Migrate to UCRT64 or CLANG64." on every run. Options: move every Windows lane to UCRT64, which changes the C runtime the exe links and so touches the dev box, the cross image and the bundle; or turn the warning off in the workflow and keep MINGW64. The rest of the pipeline wants no warnings.
-	- Test case: none yet.
+	- Test case: dehzp `cicd/win/test-msys2-pins.bash`, in the lint stage. The workflow acknowledges MINGW64's deprecation warning while it builds on MINGW64, and no other warning. The hosted run is the real test.
+	- Needs external testing: release-win.yml by workflow_dispatch on round1110a. The MSYS2 base step should show no deprecation warning, and the run should pass.
+	- Branch: round1110a
+	- Verified: dehzp passes, and fails with the acknowledgment taken out, with a second warning ID added, and with msystem set to UCRT64 under the old one. The quick gate passed (242 OK, 1 skipped).
+	- Swept: release-win.yml is the only workflow and the only setup-msys2 step. The native lanes start MSYS2 shells themselves, and this warning is the action's.
+	- Decisions:
+		- Kept MINGW64 and acknowledged the warning with the action's own `suppress-deprecation-warnings: msystem-mingw64`, for the rc.1 cut. The pins hold the packages, so the hosted build works as it is.
+		- The move to UCRT64 is its own item, 2026110920004210. It changes the C runtime of the exe and every DLL, so every Windows lane and both boxes move at once, which is far past this item's cap. Since 2026-10-24 MSYS2 drops MINGW64 from leaf packages as they update, so it shouldn't wait long.
+		- dehzp lets the workflow acknowledge only that one warning, and only on MINGW64, so a new warning from the action still shows and the line can't outlive the move.
 
 - Write a long list in the settings file one `- ` item per line, not in brackets.
 	- ID: 2026110911301888
