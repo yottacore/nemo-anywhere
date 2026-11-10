@@ -1275,7 +1275,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The hosted Windows build warns that MSYS2's MINGW64 environment is deprecated.
 	- ID: 2026102809292776
 	- Type: Task
-	- Status: Waiting on automated testing
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261028-092927
 	- Opened by: 2026102618560000
@@ -1283,14 +1283,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Target OS: Windows
 	- Requirements: the setup step warns "MINGW64 is deprecated. Migrate to UCRT64 or CLANG64." on every run. Options: move every Windows lane to UCRT64, which changes the C runtime the exe links and so touches the dev box, the cross image and the bundle; or turn the warning off in the workflow and keep MINGW64. The rest of the pipeline wants no warnings.
 	- Test case: dehzp `cicd/win/test-msys2-pins.bash`, in the lint stage. The workflow acknowledges MINGW64's deprecation warning while it builds on MINGW64, and no other warning. The hosted run is the real test.
-	- Needs external testing: release-win.yml by workflow_dispatch on round1110a. The MSYS2 base step should show no deprecation warning, and the run should pass.
+	- Needs external testing: No
 	- Branch: round1110a
 	- Verified: dehzp passes, and fails with the acknowledgment taken out, with a second warning ID added, and with msystem set to UCRT64 under the old one. The quick gate passed (242 OK, 1 skipped).
+	- Verified: 20261110: hosted run 42768444473 (release-win.yml on round1110a) passed, with no deprecation warning in the MSYS2 base step and no warning lines in the log.
 	- Swept: release-win.yml is the only workflow and the only setup-msys2 step. The native lanes start MSYS2 shells themselves, and this warning is the action's.
 	- Decisions:
 		- Kept MINGW64 and acknowledged the warning with the action's own `suppress-deprecation-warnings: msystem-mingw64`, for the rc.1 cut. The pins hold the packages, so the hosted build works as it is.
 		- The move to UCRT64 is its own item, 2026110920004210. It changes the C runtime of the exe and every DLL, so every Windows lane and both boxes move at once, which is far past this item's cap. Since 2026-10-24 MSYS2 drops MINGW64 from leaf packages as they update, so it shouldn't wait long.
 		- dehzp lets the workflow acknowledge only that one warning, and only on MINGW64, so a new warning from the action still shows and the line can't outlive the move.
+	- Closed: 20261109-225345
 
 - Write a long list in the settings file one `- ` item per line, not in brackets.
 	- ID: 2026110911301888
@@ -3381,6 +3383,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: dehzp passes, and fails on the workflow as it was, on 5 checks. All 86 pinned files are on the MSYS2 repo under those names.
 	- Closed: 20261028
 	- Verified: 20261028, release-win.yml run 40737555415 on round1028a at 313352b1 passed both MSYS2 steps, the build, the pack and the upload.
+	- Verified: 20261110: hosted run 42768444473 on round1110a passed with the pinned packages, the first green hosted run since 20260804.
 
 - The native gate on vm925w stops on scratch folders 7 tests leave behind.
 	- ID: 2026102413432225
