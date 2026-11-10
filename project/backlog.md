@@ -586,7 +586,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere: the focus outline and the keyboard rules, per view.
 	- ID: 2026102407515572
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Needs local test suite run?: Yes
 	- Priority|Severity: High
 	- Opened: 20261024-075155
@@ -606,7 +606,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261024: opened.
 		- 20261024: split into children, one per view: 2026102412041967 (list view), ...969 (icon view), ...971 (compact view).
-	- Test case: one per child.
+	- Test case: its children's: 2026102412041971: dec8w, Selection rules test, Nemo Anywhere: the compact view's key checks, the outline among them.; 2026102412041969: dec8w, Selection rules test, Nemo Anywhere: the icon view's key checks, the outline among them.; 2026102412041967: dec8w, Selection rules test, Nemo Anywhere: the list view's key checks, the outline among them.
+	- Closed: 20261110-122330
 
 - Nemo Anywhere focus outline and keys: the compact view.
 	- ID: 2026102412041971
