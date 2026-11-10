@@ -543,6 +543,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Left: F2 rename in the tree, and whether the tree takes a multi-selection with the switch off (needs more thought, with 2026102407515574).
 	- Branch: treeedit
 	- Test case: df066 (Ctrl+C in the tree with the whole list selected).
+	- Decisions: 20261110, the tree stays single-select. Only the edit keys and menu entries come over, acting on the one selected folder. Multi-select waits for the affirmative switch.
 
 - Nemo Anywhere dim checkmarks: the compact view.
 	- ID: 2026102411133419
@@ -1153,7 +1154,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere selection model: need to be able to initiate a left-drag-to-select from the checkmark column.
 	- ID: 2026110919315994
 	- Type: Bug
-	- Status: Done
+	- Status: Queued
 	- Needs local test suite run?: no. dec8v covers it, and the quick gate passed.
 	- Priority|Severity: High
 	- Opened: 20261109-193159
@@ -1177,12 +1178,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- Only the plain drag is new there. Ctrl, Shift and right drags from the checkmark column follow the row rules: a band from a row not selected, a file drag from a selected one. The design doc's "always a band, even on a selected row" is part of the affirmative override, which the switch-off model leaves out.
 		- The band replaces the selection from the row pressed, as Shift's does.
+		- 20261110: changed my mind. Every drag from the checkmark column bands, Ctrl, Shift and right drags on a selected row included. Normal mouse file actions don't start from that column, since it's only for multi-select.
 	- Swept: the other expander tests in the list view (the name cell click test already takes the column's offset; Nemo Classic's press has no checkmark column), and every place a band ends without a release, so a lost release can't start a file drag.
 	- Branch: round1110a
 	- Test case: dec8v, with 7 new list view results under Nemo Anywhere, 31 up from 24: a plain drag from the checkmark column of a row not selected and of a selected one, a Shift drag from it, and a click there. ddy5f and de8ec keep their counts.
 	- Verified: 20261109, dec8v fails on the old code (4 checks) and with only the expander part left out (2 checks), and passes with the fix. ddy5f and de8ec pass. The quick gate's lints, and its tests (242 OK, 1 skipped), pass. Both analyzers report nothing on the changed files.
 	- Acceptance signoff: Self-closed: dec8v.
-	- Closed: 20261109-205746
 
 - ddagc fails in a round worktree, so the lint stage stops before the tests after it.
 	- ID: 2026110313162837
