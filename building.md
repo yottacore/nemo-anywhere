@@ -6,7 +6,7 @@
 
 The reference Linux build happens in a container, so no development packages are installed on your own machine and the dependency versions are pinned to something known good.
 
-You need Docker (or Podman with a Docker alias) and git. Everything else is fetched by the build. The first run builds the container image, which takes a few minutes, and later runs reuse it.
+You need git, and Docker or Podman with a Docker alias. Everything else is fetched by the build. The first run builds the container image, which takes a few minutes, and later runs reuse it.
 
 ~~~bash
 git clone https://github.com/yottacore/nemo-anywhere.git
@@ -23,14 +23,14 @@ To build without the container, on a Linux box with the GTK3 development stack:
 meson setup build source && ninja -C build
 ~~~
 
-On Windows the build is native, not cross-compiled. You need [MSYS2](https://www.msys2.org/) with the mingw64 GTK3 toolchain, and [Enigma Virtual Box](https://enigmaprotector.com/en/aboutvb.html) if you want the single-exe artifact - without it the pipeline still builds and tests, it just skips packing.
+On Windows the build is native, not cross-compiled. You need [MSYS2](https://www.msys2.org/) with the mingw64 GTK3 toolchain, and [Enigma Virtual Box](https://enigmaprotector.com/en/aboutvb.html) if you want the single-exe artifact. Without it the pipeline still builds and tests, but skips the packing.
 
 ~~~powershell
 pacman -S --needed mingw-w64-x86_64-{gcc,meson,ninja,pkgconf,gtk3,json-glib,libarchive,libexif,cppcheck,gettext} intltool git
 pwsh cicd/cicd-win.ps1 -BacklogRunQuick  # lint, build and test
 ~~~
 
-The full picture, meaning the exact package list, the Windows cross-compile, the release lanes and the pipeline stages, is in [project/design.md](project/design.md). How to send a change is in [contributing.md](contributing.md), and how the code is written is in [project/style-guide_code.md](project/style-guide_code.md).
+[project/design.md](project/design.md) has the exact package list, the Windows cross-compile, the release lanes, and the pipeline stages. How to send a change is in [contributing.md](contributing.md), and how the code is written is in [project/style-guide_code.md](project/style-guide_code.md).
 
 ## Copyright and license
 

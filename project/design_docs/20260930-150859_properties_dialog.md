@@ -42,9 +42,9 @@ The Properties window shows what a file or folder is, and lets a few things abou
 
 - Anything the shell can't name opens ours rather than doing nothing.
 
-- On a folder, or several items, Contents is two lines, Folders and Files, each with its hidden count beside it, as in "12 (and 3 hidden)". Both count up live while the folder is walked, and so does Size.
+- On a folder or several items, Contents shows a Folders line and a Files line, each with its hidden count beside it, as in "12 (and 3 hidden)". Both count up live while the folder is walked, and so does Size.
 
-- A shortcut shows its Target, Arguments, Start in and Comment, each saved as it's edited.
+- A shortcut shows its Target, Arguments, Start in, and Comment, each saved as it's edited.
 
 ## Goals
 
@@ -60,7 +60,7 @@ The Properties window shows what a file or folder is, and lets a few things abou
 
 - Properties is the platform's own on Windows. Alt+Enter and Ctrl+I hand the selection to the shell property sheet, the same one Explorer shows, so a file's details read the way they do everywhere else on the machine and any tab a third-party program adds is there too.
 
-- Our own window is still there under Ctrl+Enter. It covers what the shell sheet has no room for: a custom icon, an emblem, an annotation, an extension page. Anything the shell can't name falls back to it: a virtual location, a selection spanning folders such as a search result set, or an item that's gone since it was clicked.
+- Our own window is still there under Ctrl+Enter. It shows what the shell sheet has no room for, such as a custom icon, an emblem, an annotation, or an extension page. It also opens for anything the shell can't name, like a virtual location, a selection across several folders from a search, or an item that's gone since it was clicked.
 
 - The shell sheet runs off the window's thread, so the window behind it stays live while it's open.
 
@@ -68,7 +68,7 @@ The Properties window shows what a file or folder is, and lets a few things abou
 
 ### Counting today
 
-- Contents is two lines, Folders and Files, each with its hidden count beside it. Both count up live while the folder is walked, and so does Size.
+- Contents shows a Folders line and a Files line, each with its hidden count beside it. Both count up live while the folder is walked, and so does Size.
 
 - With several items selected, a selected folder counts as one of the folders. A lone folder shows only what is inside it.
 
@@ -94,7 +94,7 @@ None.
 
 - "Contents" and "Size" as one line each. Replaced by the Folders and Files lines with hidden counts.
 
-- "Advanced properties" as the name of ours on Windows. It's plain "Properties" now, and sits first.
+- "Advanced properties" as the name of ours on Windows. It's plain "Properties" now, and comes first.
 
 ## Research findings
 

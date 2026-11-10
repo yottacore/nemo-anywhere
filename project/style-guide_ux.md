@@ -6,7 +6,7 @@
 <!-- TOC ignore:true -->
 # nemo-anywhere UI style
 
-How the interface behaves and reads, and why. Companion to [design.md](design.md), which has the reasoning at more length, and [style-guide_code.md](style-guide_code.md).
+How the interface behaves and reads, and why. It goes with [design.md](design.md), which has the reasoning at more length, and [style-guide_code.md](style-guide_code.md).
 
 Most of this came out of a bug. Where a rule looks fussy, there is usually a closed item in [backlog.md](backlog.md) behind it.
 
@@ -35,23 +35,23 @@ Most of this came out of a bug. Where a rule looks fussy, there is usually a clo
 
 ## Words
 
-- Sentence case everywhere: menu items, labels, buttons, tooltips and dialog text. Only the first word gets a capital.
+- Sentence case everywhere: menu items, labels, buttons, tooltips, and dialog text. Only the first word gets a capital.
 
-- A name keeps its capital wherever it stands. That covers the platforms, the toolkit, formats and acronyms, and the named places in the sidebar such as Trash and Home. A command, tab or page named inside a sentence keeps its capital too, as in "the Paste command" or "Copy settings to Default".
+- A name keeps its capital wherever it stands. That covers the platforms, the toolkit, formats and acronyms, and the named places in the sidebar such as Trash and Home. A command, tab, or page named inside a sentence keeps its capital too, as in "the Paste command" or "Copy settings to Default".
 
 - Upstream Nemo is mostly Title Case. A label copied from it has to be brought down, and the lint gate will say so if it isn't.
 
-- American spelling. "Color", "gray", "canceled".
+- Use American spelling: "Color", "gray", "canceled".
 
 - Say what happens, in plain words. "Delete permanently" beats "Remove from disk", and "Move here" beats "OK".
 
-- The Windows word where the thing is a Windows thing. "Open as Administrator" on Windows and "Open as Root" on Linux, "Windows properties" for the shell's own sheet.
+- Use the Windows word where the thing is a Windows thing. "Open as Administrator" on Windows and "Open as Root" on Linux, "Windows properties" for the shell's own sheet.
 
-- Shortcut text is left alone. It is written the way the toolkit writes it.
+- Shortcut text is left alone. It's written the way the toolkit writes it.
 
 ## When to ask
 
-A question is a speed bump. It is worth it where a slip costs something that can't be taken back, and nowhere else, since a question asked too often gets answered without being read.
+A question is a speed bump. It's worth it where a slip costs something that can't be taken back, and nowhere else, since a question asked too often gets answered without being read.
 
 - Ask before anything that removes or overwrites a file: trash, delete, and a copy or move over something already there.
 
@@ -61,7 +61,7 @@ A question is a speed bump. It is worth it where a slip costs something that can
 
 - Some things are refused rather than asked. Nobody deletes their home folder from a file manager on purpose, so that isn't a question.
 
-- Some questions are asked whatever the preferences say: a large job, or one that no trash or delete command in a window started. The question says why it is being asked.
+- Some questions are asked whatever the preferences say, for a large job or for one that wasn't started by a trash or delete command in a window. The question says why it's being asked.
 
 - One question per action. A drop on the Trash asks under the trash setting, not twice. On Windows the shell's own recycle prompt is switched off, so ours is the only one.
 
@@ -73,7 +73,7 @@ The details and the history are in [design.md, File operations](design.md#file-o
 
 - Buttons are named for what they do: "Delete", "Replace", "Skip", "Move here". Each has a mnemonic.
 
-- Enter takes the button that goes ahead, a delete or a replace included, and that button opens with the focus ring on it. Where an entry takes the typing first it keeps the focus, and Enter there still takes the button. The test guard's question is the one that starts on Cancel, since it is there to be the pause. `eel_dialog_set_default` does both halves.
+- Enter takes the button that goes ahead, a delete or a replace included, and that button opens with the focus ring on it. Where an entry takes the typing first it keeps the focus, and Enter there still takes the button. The test guard's question is the one that starts on Cancel, since it's there to be the pause. `eel_dialog_set_default` does both halves.
 
 - Message text in an error or question dialog can be selected and copied. People paste errors into bug reports and search boxes.
 
@@ -81,13 +81,13 @@ The details and the history are in [design.md, File operations](design.md#file-o
 
 - A settings window opens big enough for its largest page, so no page starts out behind a scrollbar.
 
-- Something that can't be done isn't offered and then refused. Gray it out, and where the reason isn't obvious, say it in the dialog. The link copy dialog is the example: where the destination can't hold a link, the other choices are grayed and a line says why.
+- Something that can't be done isn't offered and then refused. Gray it out, and where the reason isn't obvious, say it in the dialog. The link copy dialog is the example: where the destination doesn't support links, the other choices are grayed and a line says why.
 
 ## Keyboard and focus
 
 The file list is where the keyboard belongs. Anything that leaves the focus somewhere else by accident is a bug, because the arrow keys then do nothing and it looks like the app has stopped listening.
 
-- Column headings, tabs and path buttons never keep the focus. A click on one puts the keyboard back in the file list. Tab and Shift+Tab pass over the tab strip.
+- Column headings, tabs, and path buttons never keep the focus. A click on one puts the keyboard back in the file list. Tab and Shift+Tab pass over the tab strip.
 
 - Tabs in a dialog never take the focus either, including the page list down the left of Settings. Ctrl+Page Up and Ctrl+Page Down, and Ctrl+Tab and Ctrl+Shift+Tab, step through them. Where a page has sub-tabs the keys go through those first, then on to the next page.
 
@@ -103,27 +103,27 @@ The file list is where the keyboard belongs. Anything that leaves the focus some
 
 - One keystroke should do the obvious whole job. Ctrl+H shows both kinds of hidden file on Windows at once, and Settings can still set the two apart.
 
-- A tab that is grayed out still opens, and shows its controls grayed out, so it is plain what is turned off. Its page must never be blank.
+- A tab that's grayed out still opens, and shows its controls grayed out, so it's plain what's turned off. Its page must never be blank.
 
 ## What a platform can't do
 
 - A whole feature a platform doesn't have is left out on that platform. The Windows settings page isn't built into the other platforms' dialogs. A menu entry for a service that isn't running hides rather than failing.
 
-- A choice inside a dialog that only some machines can use is grayed, not hidden, so the dialog keeps the same layout everywhere.
+- A choice inside a dialog that only some machines can use is grayed rather than hidden, so the dialog keeps the same layout everywhere.
 
-- An action that would do nothing is grayed. "Open as Administrator" in a copy that is already elevated is one.
+- An action that would do nothing is grayed. "Open as Administrator" in a copy that's already elevated is one.
 
 ## Icons
 
-- Use a standard freedesktop icon name wherever one fits, so every theme has it. Names only Mint themes carry were all mapped to standard ones, and new code shouldn't bring them back.
+- Use a standard freedesktop icon name wherever one fits, so every theme has it. Names that only Mint themes have were all mapped to standard ones, and new code shouldn't bring them back.
 
-- The app's own artwork is compiled into the program under names of its own. A theme can't override it, which is why the link overlays live there.
+- The app's own artwork is compiled into the program under names of its own. A theme can't override it, which is why the link overlays are there.
 
-- A missing icon falls back through the theme's `Inherits` line to Adwaita and then hicolor. The result can be a glyph that doesn't match, but never a blank.
+- A missing icon falls back through the theme's `Inherits` line to Adwaita and then hicolor. The result can be a glyph that doesn't match, but it's never blank.
 
 - A shortcut and a symlink have to look different at a glance. A shortcut gets the arrow and a symlink or junction gets a chain link.
 
-- A shortcut to a folder shows the theme's folder icon with the overlay, not the shell's folder art, which looks out of place next to the theme's folders.
+- A shortcut to a folder shows the theme's folder icon with the overlay rather than the shell's folder art, which looks out of place next to the theme's folders.
 
 - New art matches the flat style of the icons beside it. An icon that points one way is mirrored for right-to-left.
 
@@ -133,24 +133,24 @@ How theme lookup works is in [design.md, Appearance and themes](design.md#appear
 
 ## Layout
 
-- 12 pixels between a label and its field. A field stops at the same right-hand margin as the rest of the section, and fields in a group start at the same point as each other. The command fields on the Behavior page are the pattern.
+- A label and its field have 12 pixels between them. A field stops at the same right-hand margin as the rest of the section, and fields in a group start at the same point as each other. The command fields on the Behavior page are the pattern.
 
-- A button that acts on a tab's content sits at the top right of that content, not in the tab header. Each tab has its own buttons, and they don't come and go as tabs change.
-	- The Settings window is the exception. There a button sits at the left, on a line of its own at the top of its section, since top right looked out of place beside the nested tab list and made the window wider.
+- A button that acts on a tab's content goes at the top right of that content rather than in the tab header. Each tab has its own buttons, and they don't come and go as tabs change.
+	- The Settings window is the exception. There a button goes at the left, on a line of its own at the top of its section, since top right looked out of place beside the nested tab list and made the window wider.
 
 - In a dialog with its tabs in a list down the left, a page with sub-tabs lists them in that same list, indented under it, so they can be seen without opening the page. The page and the sub-tab showing are both lit. A dialog with its tabs on top keeps sub-tabs on the page, as tabs on top of their own. A page too long to fit is split into sub-tabs of related settings rather than left to scroll.
 
-- Two unselected tabs next to each other get a divider. Most themes draw none, and a row of tabs then reads as one strip.
+- Unselected tabs next to each other get a divider. Most themes draw none, and a row of tabs then reads as one strip.
 
-- A value too long for its column gets a tooltip with the whole value. That holds whatever the item tooltip setting says, since it is only showing what is already on screen.
+- A value too long for its column gets a tooltip with the whole value. The item tooltip setting doesn't change that, since the tooltip only shows what's already on screen.
 
-- Styling the app needs goes in its own stylesheet, so it holds under whatever theme is in use.
+- Styling the app needs goes in its own stylesheet, so it still works under whatever theme is in use.
 
 ## What the checks catch
 
 - `cicd/utility/lint-ui-case.py` checks every translatable string in the tree for sentence case. It runs from `cicd/utility/lint-c.bash` and fails the gate. A name that trips it goes in its `NAMES` list, and a whole string it reads wrong goes in `KEEP`, each with a one-line reason.
 
-- `lint-c.bash` also fails if a delete or an overwrite in `nemo-file-operations.c` can get past the delete guards without being seen. It also fails if something other than a window could start a trash, delete or move, such as a new bus method.
+- `lint-c.bash` also fails if a delete or an overwrite in `nemo-file-operations.c` can get past the delete guards without being seen. It also fails if something other than a window could start a trash, delete, or move, such as a new bus method.
 
 - `test-nemo-prefs-widgets` fails if a settings widget the code looks up by name has gone missing from the layout file.
 

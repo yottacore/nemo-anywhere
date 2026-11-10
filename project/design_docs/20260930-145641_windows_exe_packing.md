@@ -44,7 +44,7 @@ On Windows, nemo-anywhere is one `nemo-anywhere.exe` with the whole GTK runtime 
 
 - A setup exe installs the zip's files for one user, for anyone who wants an install with an uninstaller.
 
-- Two costs came with the packer, and both are handled: a slow start, and hooks that followed every program the app started, until sharing with started programs was turned off. See [Design](#design).
+- The packer had 2 costs, and both are handled. One was a slow start, and the other was hooks that followed every program the app started, until sharing with started programs was turned off. See [Design](#design).
 
 ## Specification
 
@@ -60,9 +60,9 @@ On Windows, nemo-anywhere is one `nemo-anywhere.exe` with the whole GTK runtime 
 
 - No compressing packer such as UPX on top.
 
-- Every file the packer carries costs startup time, so the file count is kept down. Themes and the app's own art are compiled into the program.
+- Every file in the pack costs startup time, so the file count is kept down. Themes and the app's own art are compiled into the program.
 
-- Enigma Virtual Box is only needed for the exe. Without it everything else still builds, tests and stages, and only the packing step skips.
+- Enigma Virtual Box is only needed for the exe. Without it everything else still builds, tests, and stages, and only the packing step skips.
 
 ## Goals
 
@@ -70,7 +70,7 @@ On Windows, nemo-anywhere is one `nemo-anywhere.exe` with the whole GTK runtime 
 
 - Start fast, since a file manager is opened dozens of times a day.
 
-- Programs opened from the app work exactly as they would opened any other way.
+- Programs opened from the app work exactly as they would if opened any other way.
 
 - Trip antivirus as little as possible.
 
@@ -86,60 +86,60 @@ On Windows, nemo-anywhere is one `nemo-anywhere.exe` with the whole GTK runtime 
 
 ### How the exe is built
 
-- A pack step flattens the staged bundle into the same layout the release zip uses: exe and dlls at the root, with `lib/`, `share/` and `etc/` beside them. GLib-stack libraries find their data next to their own dll, so that tree also runs unpacked with a bare double-click. The step then packs the lot into one exe.
+- A pack step flattens the staged bundle into the same layout the release zip uses, with the exe and dlls at the root and `lib/`, `share/`, and `etc/` beside them. GLib-stack libraries find thier data next to their own dll, so that tree also runs unpacked with a bare double-click. The step then packs the lot into one exe.
 
-- It is stage five of the Windows pipeline, after the native build and stage.
+- It is stage 5 of the Windows pipeline, after the native build and stage.
 
 - One binary only. The connect-server and open-with dialogs run inside the main program, and the extension library is folded into it, so there's nothing beside the exe.
 
-- The exe is a graphical program, not a console one, so Windows doesn't open a terminal before the window. `--version` output still works when piped.
+- The exe is a graphical program rather than a console one, so Windows doesn't open a terminal before the window. `--version` output still works when piped.
 
 - The font settings for the native text look are set inside the exe, so no launcher is needed for them.
 
-- It carries a version resource with real publisher and version details. A blank one scores worse with antivirus and looks unfinished in Properties.
+- It has a version resource with real publisher and version details. A blank one scores worse with antivirus and looks unfinished in Properties.
 
 - It's rebuilt before it's packed. The pack step packs what's already staged.
 
 ### Startup time
 
-- The packer charges for every file it carries, about 2.8 ms each, and all of it before the program's own code runs. Bytes hardly matter.
+- The packer charges for every file in the pack, about 2.8 ms each, and all of it before the program's own code runs. Bytes hardly matter.
 
-- So the file count is what gets cut. The bundled themes and the app's own artwork are compiled into the program as one resource, instead of a couple of thousand loose files. The toolkit's full icon set was replaced by trimmed copies of just the names a file manager asks for. That took the bundle from 4,840 files to about 150, and startup from 14.2 s to 3.4 s.
+- So the file count is what gets cut. The bundled themes and the app's own artwork are compiled into the program as one resource, instead of a couple of thousand loose files. The toolkit's full icon set was replaced by trimmed copies with only the names a file manager asks for. That took the bundle from 4,840 files to about 150, and startup from 14.2 s to 3.4 s.
 
-- About 2.5 s over an unpacked folder is left. That's the packer's own cost, and only a different packer could reach it.
+- About 2.5 s over an unpacked folder is left. That's the packer's own cost, and only a different packer could get rid of it.
 
 - A splash comes up while it starts, drawn with Windows' own toolkit because it has to be up before GTK is. It goes when the first folder has listed, or a second after the view is up, whichever comes first. Nothing inside the program can cover the time before that, since the packer's loader owns the process first.
 
-- Each window is its own process, so on Windows a new window carries this startup time too. That's one reason it's a setting.
+- Each window is its own process, so on Windows a new window has this startup time too. That's one reason it's a setting.
 
 ### Programs the app starts
 
 The packed exe shares its virtual filesystem with every program it starts, by putting its hooks into each one. A program that runs sandboxed child processes of its own, which is anything built on Chromium, can't start them with the hooks in place, and reports a crash. A 32-bit program never starts at all, and nothing says so.
 
-- Sharing can't just be turned off. The app's own helpers, the document converters for search, the thumbnailers and two toolkit helpers, live inside the virtual filesystem and need it to find their libraries.
+- Sharing couldn't be turned off at first. The app's own helpers, which were the document converters for search, the thumbnailers, and 2 toolkit helpers, were packed inside the virtual filesystem and needed it to find their libraries.
 	- None of them is in a bundle now. The converters and the office thumbnailer went when the app started reading office files itself, and the 2 toolkit helpers with 2026100917220603.
-	- So sharing is off since 2026100917220603. A program the app starts gets no hooks and can't see the packed files, and a 32-bit one starts like any other. A check refuses a pack project with sharing on, so it can't come back by accident.
+	- So sharing has been off since 2026100917220603. A program the app starts gets no hooks and can't see the packed files, and a 32-bit one starts like any other. A check refuses a pack project with sharing on, so it can't come back by accident.
 	- The brokers below came first, as the way around the hooks, and are still how a program gets started.
 
-- So the app never starts another program itself. It asks one of two brokers outside its own process tree:
+- So the app never starts another program itself. It asks one of 2 brokers outside its own process tree:
 	- The desktop shell first. It passes arguments, brings the new window forward, and is the ordinary way a file gets opened.
 	- The system's management service when the shell won't do it. An elevated session refuses the shell call, and there may be no shell running at all. It keeps the caller's rights, but the new window opens behind.
-	- A plain start of its own is last, so a launch can still happen where neither broker answers.
+	- A plain start of its own is last, so a launch can still happen where neither broker works.
 
-- A file that isn't there is refused before the shell is asked. The shell answers a missing file with a message box of its own and doesn't return until it's dismissed.
+- A file that isn't there is refused before the shell is asked. The shell shows its own message box for a missing file and doesn't return until it's dismissed.
 
 - The programs offered under "Open with" go the same way. A store app has no command line and is left to the toolkit.
 
-- Tools whose output the app reads are the exception: the archive programs, the search converters, the thumbnailers and ImageMagick. Neither broker can hand over a pipe, so these are started directly, with no console window. They ran with the hooks while sharing was on, which they didn't mind. GLib's own way of starting them goes through a helper program that never starts them from inside the packed exe.
+- The exceptions are the tools whose output the app reads, which are the archive programs, the search converters, the thumbnailers, and ImageMagick. Neither broker can hand over a pipe, so these are started directly, with no console window. They ran with the hooks while sharing was on, which they didn't mind. GLib's own way of starting them goes through a helper program that never starts them from inside the packed exe.
 	- They end with the app, however it ends. Each one goes into a job that Windows ends when the app's handle to it closes, before it runs, so anything it starts goes too. A program the user asked for, such as an action's command, isn't a helper and keeps running.
 
 - A new copy of the app, for a new window or a tab moved out to one, is started directly too. The packed exe started as itself finds its own libraries whatever hooks it got, and a direct start keeps the new window in front. A link, such as one in the About box, goes to the shell like a file does, once the registry shows something handles its scheme. GLib's own way for both goes through its helper, which is a program packed inside the exe.
 
-- MacType, a font tool, loads into every program on the desktop and breaks the packer's hand-over: a helper started from the packed exe can load none of the libraries packed beside it, and shows the packer's "Cannot load library" box. Nothing in the app or the pack is wrong. The fix is to add the exe to MacType's exclusion list, which README says. The zip isn't packed, so it isn't affected.
-	- Since 2026100914514406 the packed exe starts no program packed inside it. Office files are read in the app, there is no session bus, and new windows and links go the ways above. So README no longer asks for the exclusion.
+- MacType, a font tool, loads into every program on the desktop and breaks the packer's hand-over. A helper started from the packed exe can't load any of the libraries packed beside it, and shows the packer's "Cannot load library" box. Nothing in the app or the pack is wrong. The fix is to add the exe to MacType's exclusion list, which README says. The zip isn't packed, so it isn't affected.
+	- Since 2026100914514406 the packed exe doesn't start any program packed inside it. Office files are read in the app, there is no session bus, and new windows and links go the ways above. So README no longer asks for the exclusion.
 
-- No Windows bundle has a program in it but the app, since 2026100917220603. That holds for the zip, the copy `install.ps1` puts in place and the single exe alike, so a start that still reached for one fails the same way in all 3, not only under MacType. GLib's 2 spawn helpers were the last ones. A check refuses any other `.exe` when the zip and the single exe are packed.
-	- A start that fails says so. One the user asked for shows the error in a dialog. A helper that won't start is reported once per program, not once per file.
+- Since 2026100917220603, Windows bundles haven't had any program in them but the app. That's true for the zip, the copy `install.ps1` puts in place, and the single exe, so a start that still looked for one fails the same way in all 3, and not only under MacType. GLib's 2 spawn helpers were the last ones. A check refuses any other `.exe` when the zip and the single exe are packed.
+	- A start that fails says so. One the user asked for shows the error in a dialog. A helper that won't start is reported once per program rather than once per file.
 
 - `nemo-launch-win32.c` is the one place that starts another program on Windows. A check in the C lint fails any other.
 
@@ -159,17 +159,17 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 ### The setup exe
 
-- It's made from the release zip with NSIS, in the packaging stage on Linux, so it carries exactly the files `install.ps1` installs. Two builds of one commit give the same bytes.
+- It's made from the release zip with NSIS, in the packaging stage on Linux, so it has exactly the files `install.ps1` installs. Building one commit twice gives the same bytes.
 
 - It installs for the current account only and never asks for admin rights. That matches the script's default and Windows' own user installs, and a setup that raises a UAC prompt for a file manager would be a surprise. There's no machine-wide choice.
 
-- Everything it writes is what `install.ps1` writes for a user install: the folder under `%LOCALAPPDATA%\Programs`, the Start menu shortcut, and the folder on the user PATH. It adds `uninstall.exe` in the folder and an entry in Settings, Apps. The folder can't be changed, so the two installers always find each other's install.
+- Everything it writes is what `install.ps1` writes for a user install, which is the folder under `%LOCALAPPDATA%\Programs`, the Start menu shortcut, and the folder on the user PATH. It adds `uninstall.exe` in the folder and an entry in Settings, Apps. The folder can't be changed, so the 2 installers always find each other's install.
 
-- An install already there is replaced the same way the script does it: the new files go in a folder beside it, then two renames swap them. A folder that something has open can't be renamed, so it waits 10 seconds for the app's session bus to finish, then asks to close the app. Nothing is half replaced.
+- An install already there is replaced the same way the script does it. The new files go in a folder beside it, then 2 renames swap them. A folder that something has open can't be renamed, so it waits 10 seconds for the app's session bus to finish, then asks to close the app. Nothing is half replaced.
 
-- The uninstaller moves the folder aside the same way before removing it, then the shortcut, the PATH entry and the Apps entry. Settings stay.
+- The uninstaller moves the folder aside the same way before removing it, then the shortcut, the PATH entry, and the Apps entry. Settings stay.
 
-- NSIS strings hold 1023 characters. A user PATH that won't fit with the folder added is left alone, and the setup says so, rather than written back cut short.
+- NSIS strings can have up to 1023 characters. A user PATH that won't fit with the folder added is left alone, and the setup says so, rather than written back cut short.
 
 - `install.ps1` keeps the setup's uninstaller and Apps entry when it reinstalls over a setup install, and `-Uninstall` removes the entry.
 
@@ -199,15 +199,15 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - Shrinking the exe with UPX or a similar compressor. Packers of that kind trip antivirus.
 
-- A machine-wide setup. It needs elevation, and `install.ps1 -Target system` already covers it.
+- A machine-wide setup. It needs elevation, and `install.ps1 -Target system` already does that.
 
-- Building the setup on the Windows box from its own staged files. Those are a native build, not the zip `install.ps1` installs, and the hosted workflow only builds the portable exe.
+- Building the setup on the Windows box from its own staged files. Those are a native build rather than the zip `install.ps1` installs, and the hosted workflow only builds the portable exe.
 
 ### Superseded
 
 - Leaving the packer's sharing with started programs on. The app's own helpers needed it, until none was left in the exe.
 
-- A library folder beside the exe, started through a `.vbs` launcher that set the library path. The single exe removed the whole arrangement.
+- A library folder beside the exe, started through a `.vbs` launcher that set the library path. The single exe replaced all of that.
 
 - Signing through SignPath Foundation, which only signs artifacts built in hosted CI. The application was refused.
 
@@ -215,13 +215,13 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 ## Research findings
 
-- The packer's cost is per file, not per byte, and all before `main`. To `--version`: 4,840 files took 14.3 s, 1,038 took 4.0 s, 124 took 1.9 s, and the unpacked folder 0.9 s.
+- The packer's cost is per file rather than per byte, and all before `main`. Timed to `--version`, 4,840 files took 14.3 s, 1,038 took 4.0 s, 124 took 1.9 s, and the unpacked folder 0.9 s.
 
-- The packer's own compression and mapping options changed startup by nothing measurable.
+- The packer's own compression and mapping options didn't change startup by any measurable amount.
 
-- The hooks follow the process tree. A helper started by the packed exe is hooked, and so is everything it starts, wherever it sits on disk.
+- The hooks follow the process tree. A helper started by the packed exe is hooked, and so is everything it starts, wherever it is on disk.
 
-- Of six ways to start a program from inside the process, only the management service came out clean. The desktop shell, asked through its own COM object, also comes out clean.
+- Of 6 ways to start a program from inside the process, only the management service came out clean. The desktop shell, asked through its own COM object, also comes out clean.
 
 | What                          | Shell          | Management service
 | :---                          | :---           | :---
@@ -235,9 +235,9 @@ The packed exe shares its virtual filesystem with every program it starts, by pu
 
 - A window started by the management service can't be brought forward afterward. Granting the right to take the foreground, and raising the window directly, both report success and change nothing.
 
-- The packer has four options in all, and none of them can limit sharing to some programs.
+- The packer has 4 options in all, and none of them can limit sharing to some programs.
 
-- A packed test program that had started a 32-bit program kept a processor busy waiting on it, for nine days, until the child was killed.
+- A packed test program that had started a 32-bit program kept a processor busy waiting on it, for 9 days, until the child was killed.
 
 - With sharing off, a program the app starts directly can't see the packed files, and loads only what it would load anyway. With sharing on it saw them, and a plain `ping` came up with about 10 extra system libraries the hooks pulled in.
 

@@ -6,7 +6,7 @@
 <!-- TOC ignore:true -->
 # nemo-anywhere code style
 
-How the C in this repo is written, and why. Companion to [design.md](design.md), [style-guide_ux.md](style-guide_ux.md) and [../contributing.md](../contributing.md).
+How the C in this repo is written, and why. It goes with [design.md](design.md), [style-guide_ux.md](style-guide_ux.md), and [../contributing.md](../contributing.md).
 
 <!-- TOC ignore:true -->
 ## Table of contents
@@ -41,9 +41,9 @@ How the C in this repo is written, and why. Companion to [design.md](design.md),
 
 ## The one rule that beats the rest
 
-This began as a fork of a twenty-year-old GNOME codebase. It no longer follows upstream and never will, so the inherited code is ours to improve. New code looks like the code beside it, so each file reads as one piece. Restyling or cleaning up inherited code is welcome, as its own change rather than mixed into a fix.
+This began as a fork of a 20-year-old GNOME codebase. It no longer follows upstream and never will, so the inherited code is ours to improve. New code looks like the code beside it, so each file reads as one piece. Restyling or cleaning up inherited code is welcome, as its own change rather than mixed into a fix.
 
-Vendored code is left alone entirely. Don't restyle it, don't rename in it, don't "modernize" it. The vendored trees are `vendor/` at the repo root (icons, themes, the SHCL header and blake3) and `source/cut-n-paste-code/`.
+Vendored code is left alone entirely. Don't restyle it, don't rename in it, don't "modernize" it. The vendored trees are `source/cut-n-paste-code/`, and `vendor/` at the repo root with the icons, themes, the SHCL header, and blake3.
 
 ## No formatter config yet
 
@@ -53,11 +53,11 @@ Until one is added, the rules are written down here.
 
 ## Layout
 
-- Tabs to indent. A tab is eight columns, so deep nesting gets uncomfortable fast, which is the point.
+- Tabs to indent. A tab is 8 columns, so deep nesting gets uncomfortable fast, which is the point.
 
-- Alignment runs to the nearest tab stop with tabs, then the rest of the way with spaces. The continuation lines in the sample below are two tabs and five spaces, not twenty-one spaces.
+- Alignment runs to the nearest tab stop with tabs, then the rest of the way with spaces. The continuation lines in the sample below are 2 tabs and 5 spaces rather than 21 spaces.
 
-- Roughly two thirds of the files carry an Emacs mode line saying the same thing: `/* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */`. It came with the inherited code and is optional. Keep it on a file that has one; a new file doesn't need it.
+- Roughly two thirds of the files have an Emacs mode line that says the same thing: `/* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */`. It came with the inherited code and is optional. Keep it on a file that has one. A new file doesn't need it.
 
 - Function definitions put the return type on its own line, the name at column zero, and the opening brace on its own line. Parameters that wrap are aligned under the first one.
 
@@ -87,9 +87,9 @@ move_proportionally (const NemoColumnLayoutItem *items,
 
 - The build names c17, not gnu17. Nothing in the tree needs a GNU language extension. Strict c17 hides the POSIX and BSD calls glibc gives by default, so the build asks for them back with `_DEFAULT_SOURCE`, in one place.
 
-- Warnings are at `-Wextra` (meson's `warning_level=2`), and the tree builds clean there. Every pipeline build adds `-Dwerror=true`, so a new warning fails the gate. A plain `meson setup` leaves that off, so someone building with a newer compiler gets a warning, not a failed build. Vendored code builds at the same level, `-Werror` included. A warning that's only about its upstream's style is turned off for that one library in its meson file, with the reason beside it, since the vendored file stays as it came.
+- Warnings are at meson's `warning_level=2`, which is `-Wextra`, and the tree builds clean there. Every pipeline build adds `-Dwerror=true`, so a new warning fails the gate. A plain `meson setup` leaves that off, so someone building with a newer compiler gets a warning rather than a failed build. Vendored code builds at the same level, `-Werror` included. A warning that's only about its upstream's style is turned off for that one library in its meson file, with the reason beside it, since the vendored file stays as it came.
 
-- An unused parameter gets `G_GNUC_UNUSED` in front of its type. A callback takes the arguments its caller passes. Where they differ, a small wrapper makes the call; a cast to `GFunc`, `GClosureNotify` or `GWeakNotify` hides the mismatch rather than fixing it. A `switch` case that runs on into the next one says so with `G_GNUC_FALLTHROUGH`.
+- An unused parameter gets `G_GNUC_UNUSED` in front of its type. A callback takes the arguments its caller passes. Where they differ, a small wrapper makes the call. A cast to `GFunc`, `GClosureNotify`, or `GWeakNotify` hides the mismatch rather than fixing it. A `switch` case that runs on into the next one says so with `G_GNUC_FALLTHROUGH`.
 
 - Declare at first use rather than at the top of the function. `-Wno-declaration-after-statement` is passed for exactly that. Initialize at the declaration, and `= {0}` for a struct.
 
@@ -99,13 +99,13 @@ move_proportionally (const NemoColumnLayoutItem *items,
 
 - A `static inline` in a header beats a function-like macro. Where a macro is the only way, parenthesize every argument and wrap a multi-statement body in `do { ... } while (0)`.
 
-- Headers are self-contained: a header compiles on its own and includes what it uses, so nothing depends on include order. `<glib.h>` comes before any `G_OS_WIN32` guard, because `windows.h` defines `DELETE`.
+- Headers are self-contained. Each one compiles on its own and includes what it uses, so nothing depends on include order. `<glib.h>` comes before any `G_OS_WIN32` guard, because `windows.h` defines `DELETE`.
 
-- No undefined behavior. The ones that actually turn up in C of this age are strict aliasing, signed overflow and reading past the end of an array. Type-pun through `memcpy`, never a pointer cast. Assume nothing about endianness, char signedness, struct padding or pointer width, and never write a struct to a file as raw bytes.
+- No undefined behavior. The ones that turn up in C of this age are strict aliasing, signed overflow, and reading past the end of an array. Type-pun through `memcpy`, never a pointer cast. Assume nothing about endianness, char signedness, struct padding, or pointer width, and never write a struct to a file as raw bytes.
 
 ## Naming
 
-- Public functions are `nemo_<file>_<verb>`, matching the file they live in.
+- Public functions are `nemo_<file>_<verb>`, matching the file they're in.
 
 - Static helpers are plain lowercase with underscores, no prefix.
 
@@ -113,7 +113,7 @@ move_proportionally (const NemoColumnLayoutItem *items,
 
 - Names are searchable. `upper_bound` beats `ub`. A single letter is fine for a loop index and nowhere else.
 
-- GObject boilerplate follows whatever GObject wants. It is generated shape, not a style choice.
+- GObject boilerplate follows whatever GObject wants. It's generated code rather than a style choice.
 
 ## Files
 
@@ -121,23 +121,23 @@ move_proportionally (const NemoColumnLayoutItem *items,
 
 - Header guards are `#ifndef NEMO_THING_H`, not `#pragma once`.
 
-- A file under `src/` or `libnemo-private/` carries a one-line description, then the copyright and the GPL-2.0-only notice, after the mode line if it has one. Two comment shapes are in use and both are fine: an indented block after the description, as in `nemo-column-layout.c`, or a star-continuation comment, as in `nemo-launch-win32.c`. Copy from whichever neighbor you are working next to rather than retyping. Tests carry no block.
+- A file under `src/` or `libnemo-private/` has a one-line description, then the copyright and the GPL-2.0-only notice, after the mode line if it has one. There are 2 comment layouts in use, and both are fine: an indented block after the description, as in `nemo-column-layout.c`, or a star-continuation comment, as in `nemo-launch-win32.c`. Copy from whichever neighbor you're working next to rather than retyping. Tests don't have one.
 
-- `libnemo-extension/` is LGPL, not GPL-2.0-only, because it is the public API other people's extensions compile against. Don't put a GPL notice in there and don't take an LGPL one out.
+- `libnemo-extension/` is LGPL, not GPL-2.0-only, because it's the public API other people's extensions compile against. Don't put a GPL notice in there and don't take an LGPL one out.
 
 - A file that keeps an upstream copyright keeps it. Add a line, don't replace one.
 
 ## Platform-specific code
 
-Both conventions are in the tree, and which one wins in general still needs more thought, in [design.md](design.md#needs-more-thought). What is settled for new code: anything more than a few lines of Windows-only work gets its own file, named `*-win32.c`, with a header that declares a small portable-looking API. `nemo-clipboard-win32.c` and `nemo-trash-win32.c` are the pattern.
+Both conventions are in the tree, and which one wins in general still needs more thought, in [design.md](design.md#needs-more-thought). For new code this much is settled. Anything more than a few lines of Windows-only work gets its own file, named `*-win32.c`, with a header that declares a small portable-looking API. `nemo-clipboard-win32.c` and `nemo-trash-win32.c` are the pattern.
 
 Short branches stay inline under `#ifdef G_OS_WIN32`. A branch that grows past a screen is a sign it wants its own file.
 
-Reach for GLib before writing platform code at all. `GSubprocess` already terminates a process on both sides, so no `windows.h` and no branch.
+Look for a GLib call before writing platform code at all. `GSubprocess` already terminates a process on both sides, so it needs no `windows.h` and no branch.
 
 ## Comments
 
-Terse, and about why. The code says what.
+Comments are terse, and about why. The code says what.
 
 Comment the things that cost somebody a day: a workaround for a toolkit bug, an ordering that looks arbitrary but isn't, a decision that a later reader would otherwise undo. Don't comment a line that reads fine on its own, and don't open a file with a summary of its own contents.
 
@@ -147,56 +147,56 @@ Where a piece of reasoning is longer than a few lines, it goes at the top of the
 
 ## Memory and errors
 
-- Explicit `g_free` and `g_object_unref` are the norm, because that is what the surrounding code does. `g_autofree` and `g_autoptr` appear in newer files and are fine there, but don't go converting old ones.
+- Explicit `g_free` and `g_object_unref` are the norm, because that's what the surrounding code does. `g_autofree` and `g_autoptr` appear in newer files and are fine there, but don't go converting old ones.
 
 - Failures come back as `GError`. Check them or pass them up. Don't swallow one silently.
 
 - GLib allocators abort rather than returning NULL, so a NULL check on `g_new` is dead code.
 
-- Anything asked once per file on every pass of the async file engine must not allocate. `g_file_peek_path` over `g_file_get_path`.
+- Anything asked once per file on every pass of the async file engine must not allocate. Use `g_file_peek_path` over `g_file_get_path`.
 
-- A function that allocates says who frees the result, in one line in the header. The language can't express it, so either it is written down or the next reader guesses.
+- A function that allocates says who frees the result, in one line in the header. The language can't express it, so either it's written down or the next reader guesses.
 
-- `goto out` is how cleanup is written here: one label, resources released in reverse order. Around twenty-five files do it, and it is the only sanctioned goto.
+- `goto out` is how cleanup is written here: one label, resources released in reverse order. About 25 files use it, and it's the only goto allowed.
 
-- No VLAs and no `alloca`; the lint gate below rejects them. A size is either bounded, and a fixed array covers it, or it isn't, and it belongs on the heap.
+- No VLAs and no `alloca`. The lint gate below rejects them. A size is either bounded, and a fixed array covers it, or it isn't, and it belongs on the heap.
 
-- Build text with `g_strdup_printf`, `g_strconcat` or `GString`. No `sprintf`, `strcpy` or `strcat`, and `g_snprintf` only with its return checked.
+- Build text with `g_strdup_printf`, `g_strconcat`, or `GString`. No `sprintf`, `strcpy`, or `strcat`, and `g_snprintf` only with its return checked.
 
 ## What the lint gate rejects
 
-`cicd/utility/lint.bash` is the gate's lint stage. It runs `lint-c.bash`, which is cppcheck plus the checks on user-facing strings and on the delete guards, then `lint-bash.bash`, which is shellcheck over the project's own scripts, and the Python, PowerShell, identity and prose checks after it. A finding from any of them fails the gate. Where a tool itself is missing, that step warns and is skipped, so a box without cppcheck, python or shellcheck can't hard-block a push; `CPPCHECK_STRICT=1` and `SHELLCHECK_STRICT=1` turn those misses into failures.
+`cicd/utility/lint.bash` is the gate's lint stage. It runs `lint-c.bash`, which is cppcheck plus the checks on user-facing strings and on the delete guards, then `lint-bash.bash`, which is shellcheck over the project's own scripts, and the Python, PowerShell, identity, and prose checks after it. A finding from any of them fails the gate. Where a tool itself is missing, that step warns and is skipped, so a box without cppcheck, python, or shellcheck can't hard-block a push. `CPPCHECK_STRICT=1` and `SHELLCHECK_STRICT=1` turn those misses into failures.
 
-On Linux, cppcheck, shellcheck, ruff and PSScriptAnalyzer run inside the `nemo-lint` image from `cicd/linux/Dockerfile.lint`, at fixed versions, so two boxes give the same findings. The image is built the first time it's needed, and again whenever that file changes. Without docker, or with `NEMO_LINT_HOST=1`, the host's own tools are used. Under MSYS2 they always are.
+On Linux, cppcheck, shellcheck, ruff, and PSScriptAnalyzer run inside the `nemo-lint` image from `cicd/linux/Dockerfile.lint`, at fixed versions, so every box gives the same findings. The image is built the first time it's needed, and again whenever that file changes. Without docker, or with `NEMO_LINT_HOST=1`, the host's own tools are used. Under MSYS2 they always are.
 
-- `alloca`, and therefore `g_newa`. Use `g_new0` and `g_free` even for three ints.
+- `alloca`, and therefore `g_newa`. Use `g_new0` and `g_free` even for 3 ints.
 
 - Any cppcheck finding at all, including informational ones. A known false positive gets an inline suppression with the reason written next to it.
 
-- Title case in a user-facing string. Menu items, labels and dialog text are sentence case. A proper noun that trips the check goes in the checker's own list, with its reason.
+- Title case in a user-facing string. Menu items, labels, and dialog text are sentence case. A proper noun that trips the check goes in the checker's own list, with its reason.
 
-- Any shellcheck finding at all, down to style level. A rule that has to be off carries a `shellcheck disable=` line with its reason, either at the site or in the file's header block, and new ones go at the site so the rest of the file keeps its cover.
+- Any shellcheck finding at all, down to style level. A rule that has to be off has a `shellcheck disable=` line with its reason, either at the site or in the file's header block, and new ones go at the site so the rule stays on for the rest of the file.
 
-On a feature branch, cppcheck is scoped to the files the branch touched, but it lints the whole of each of those files, so touching a large old file can raise findings that were already sitting in it. On dev and main, which only take merges, it lints every C file in the tree, so the release merge the gate checks on main is covered in full. Vendored code built into the app is checked on both, as a bug there is a bug in the app. A finding in it is suppressed in `.cppcheck-suppressions` with its reason, not in the vendored file. `vendor/shcl-old/` is left out, since only a test builds it. cppcheck gets no include paths, and a macro it can't see between two strings makes it give up on that file, so those macros have values in `.cppcheck-macros.h`. A new one fails the gate by name. The string check is whole-tree, because the tree is already clean and a Title Case label pasted in from upstream should be caught wherever it turns up. shellcheck is whole-tree too, and covers every script written for this project: the `*.bash` files, plus `cicd/hooks/pre-push` and `utility/runfm`, which are named by whatever runs them. The scripts under `source/` are upstream's, and `n8git_backup-and-publish` is a shared copy maintained elsewhere, so neither is linted here.
+On a feature branch, cppcheck is scoped to the files the branch touched, but it lints the whole of each of those files, so touching a large old file can raise findings that were already in it. On dev and main, which only take merges, it lints every C file in the tree, so the release merge the gate checks on main is covered in full. Vendored code built into the app is checked on both, since a bug there is a bug in the app. A finding in it is suppressed in `.cppcheck-suppressions` with its reason, not in the vendored file. `vendor/shcl-old/` is left out, since only a test builds it. cppcheck gets no include paths, and a macro it can't see between 2 strings makes it give up on that file, so those macros have values in `.cppcheck-macros.h`. A new one fails the gate by name. The string check is whole-tree, because the tree is already clean and a Title Case label pasted in from upstream should be caught wherever it turns up. shellcheck is whole-tree too, and covers every script written for this project: the `*.bash` files, plus `cicd/hooks/pre-push` and `utility/runfm`, which are named by whatever runs them. The scripts under `source/` are upstream's, and `n8git_backup-and-publish` is a shared copy maintained elsewhere, so neither is linted here.
 
 ## Tests
 
-New behavior arrives with a test. A fix arrives with a test that fails without the fix, and showing that it fails is part of the work.
+New behavior comes with a test. A fix comes with a test that fails without the fix, and showing that it fails is part of the work.
 
-Tests live in `source/test/`. A POSIX-only test is registered under `if not is_windows` in `source/test/meson.build`, or it breaks the Windows cross build. A Windows-only test is registered under `if is_windows`, and its source carries no stub for other platforms.
+Tests are in `source/test/`. A POSIX-only test is registered under `if not is_windows` in `source/test/meson.build`, or it breaks the Windows cross build. A Windows-only test is registered under `if is_windows`, and its source has no stub for other platforms.
 
 Scratch directories come from `test_scratch_dir` in `test-scratch.h`, not `g_dir_make_tmp`. It takes the same arguments, and the directory is removed when the test exits.
 
-A test that reads real user configuration is a test that fails on somebody else's machine. Point `HOME`, `APPDATA` and `XDG_CONFIG_HOME` at a scratch directory first.
+A test that reads real user configuration is a test that fails on somebody else's machine. Point `HOME`, `APPDATA`, and `XDG_CONFIG_HOME` at a scratch directory first.
 
 The suite needs a display. `cicd/linux/run-tests.bash` starts one of its own, so run the suite through it rather than a bare `meson test`. Without a display, a good part of it fails in ways that read like real assertion failures.
 
-Through `run-tests.bash` each test also gets a home and temp folder of its own, in a jail on Linux (`cicd/linux/jail.bash`). Every test binary links `test-fence.c`, which ends a test that deletes or moves anything outside its own folders. Run by hand, a test's own folders are the temp dir and what `test_scratch_dir` made, so one that writes the real home stops there too.
+Through `run-tests.bash` each test also gets a home and temp folder of its own, in a jail on Linux that `cicd/linux/jail.bash` sets up. Every test binary links `test-fence.c`, which ends a test that deletes or moves anything outside its own folders. Run by hand, a test's own folders are the temp dir and what `test_scratch_dir` made, so one that writes the real home stops there too.
 
 ## Other languages in the tree
 
 - Bash files are named `*.bash` and must pass shellcheck. No formatter. Tabs.
 
-- PowerShell is tabs, `Set-StrictMode -Version Latest`, and no BOM on anything carrying a shebang.
+- PowerShell is tabs, `Set-StrictMode -Version Latest`, and no BOM on anything with a shebang.
 
-- Python is tabs in helpers written for this project. The inherited Python is four spaces and stays that way: the action layout editor, the meson install helpers, the sample action file.
+- Python is tabs in helpers written for this project. The inherited Python is 4 spaces and stays that way. That's the action layout editor, the meson install helpers, and the sample action file.

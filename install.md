@@ -5,7 +5,7 @@
 <!-- TOC ignore:true -->
 # Installation
 
-Everything is on the [releases page](https://github.com/yottacore/nemo-anywhere/releases). Pick whichever of the three below suits you. Building from source is for working on it, not for using it.
+Everything is on the [releases page](https://github.com/yottacore/nemo-anywhere/releases). Pick whichever of the 3 below suits you. Building from source is for working on it, not for using it.
 
 <!-- TOC ignore:true -->
 ## Table of contents
@@ -41,7 +41,7 @@ This one is for Linux and WSL, and for BSD and macOS once those are built:
 bash <(curl -fsSL https://raw.githubusercontent.com/yottacore/nemo-anywhere/main/install.bash)
 ~~~
 
-This one is for Windows, or anywhere else with PowerShell. It is a full installer on its own, not a wrapper around the one above:
+This one is for Windows, or anywhere else with PowerShell. It's a full installer on its own rather than a wrapper around the one above:
 
 ~~~powershell
 & ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/yottacore/nemo-anywhere/main/install.ps1')))
@@ -64,9 +64,9 @@ Settings go in per-platform standard locations: `~/.config/nemo-anywhere` on Lin
 
 ## DIY
 
-Extract `nemo-anywhere-<version>-linux-x86_64.tar.gz` wherever you like and run `bin/nemo-anywhere` from inside it. It is relocatable, so no fixed path is required. Verify the download against the `nemo-anywhere-<version>-sha256sums.txt` file published beside it.
+Extract `nemo-anywhere-<version>-linux-x86_64.tar.gz` wherever you like and run `bin/nemo-anywhere` from inside it. It's relocatable, so it doesn't need a fixed path. Verify the download against the `nemo-anywhere-<version>-sha256sums.txt` file published beside it.
 
-A Linux build needs GTK 3.24.33 or newer and glibc 2.35 or newer at runtime, which means Ubuntu 22.04, Debian 12, Mint 21, Fedora 36 or anything more recent.
+A Linux build needs GTK 3.24.33 or newer and glibc 2.35 or newer at runtime, which means Ubuntu 22.04, Debian 12, Mint 21, Fedora 36, or anything more recent.
 
 ## Copyright and license
 

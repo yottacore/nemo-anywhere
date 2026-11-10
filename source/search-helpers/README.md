@@ -33,13 +33,13 @@ These definition files can be placed in `<datadir>/nemo-anywhere/search-helpers`
 
 On Windows a path goes in as written, single backslashes and all, as in `TryExec=C:\Tools\pdftotext.exe;` and `Exec="C:\Program Files\xpdf\pdftotext.exe" %s -`. Double quotes group a path with spaces. A file with every backslash doubled reads the same.
 
-When more than one helper claims a type, the one with the highest `Priority` runs; the next is only tried when it couldn't read the file at all.
+When more than one helper claims a type, the one with the highest `Priority` runs. The next one is only tried when the first couldn't read the file at all.
 
 ##### Office files:
 
-The app reads Word, Excel and PowerPoint files, old and new, OpenDocument and EPUB itself, before any helper, so no helper is needed for them. A helper installed for one of those types runs only for a file the app couldn't read.
+The app reads Word, Excel, and PowerPoint files in old and new formats, plus OpenDocument and EPUB, by itself before any helper runs, so no helper is needed for them. A helper installed for one of those types runs only for a file the app couldn't read.
 
-The definitions under `third-party/` name programs that may or may not be installed (pdftotext, exiftool and so on) and are skipped when they aren't.
+The definitions under `third-party/` name programs such as pdftotext and exiftool that may or may not be installed, and they're skipped when they aren't.
 
 ##### Debugging:
 If something doesn't seem to be working, you can run nemo with debugging enabled:

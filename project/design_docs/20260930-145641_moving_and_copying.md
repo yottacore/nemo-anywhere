@@ -36,21 +36,21 @@
 
 ## Summary
 
-How files are copied and moved, and how links are handled along the way. It also covers making and editing links, since those share the same kinds and the same rules.
+This is about how files are copied and moved, and how links are handled along the way. Making and editing links are here too, since they share the same kinds and the same rules.
 
-- Built today: a copy that meets a link asks what to do with it, a move always takes a link as a link, copies are clones where the filesystem allows, and Make link and Edit link cover every kind of link on every platform.
+- Built today: a copy that meets a link asks what to do with it, a move always takes a link as a link, copies are clones where the filesystem allows, and Make link and Edit link handle every kind of link on every platform.
 
 - Deleting and trashing are in [design.md](../design.md#trash-and-delete).
 
 ## Specification
 
-- Copying anything that holds a link asks what should be at the far end, once per operation. It's asked on every platform, even where the destination can hold no links.
+- Copying anything that contains a link asks what should be at the far end, once per operation. It's asked on every platform, even where the destination can't have any links.
 
 - A move always takes a link as the link. A move on one drive is a rename and asks nothing.
 
 - Deletes and moves never follow links of any kind.
 
-- A link counts as one item, not a folder to walk into.
+- A link counts as one item rather than a folder to walk into.
 
 - A drop that moves files says what it is about to do, and waits. Copies and links don't ask by default. Both are settings under Behavior.
 
@@ -68,7 +68,7 @@ How files are copied and moved, and how links are handled along the way. It also
 
 - Copies that cost almost no space where the filesystem can share it.
 
-- Links that work the same on Windows, Linux and the rest, and read the same way on each.
+- Links that work the same on Windows, Linux, and the rest, and read the same way on each.
 
 ### Non-goals
 
@@ -82,42 +82,42 @@ How files are copied and moved, and how links are handled along the way. It also
 
 ### Copying links
 
-Copying a link asks what should be at the far end. A link can stay a link or be replaced by what it points at, and neither answer is right every time, so the question is put once per operation rather than guessed. It is asked whenever the source has a link, on every platform, including where the destination can take none. There every option but the copy is grayed out and the dialog says why. A copy that quietly turns links into files, or files into links, is the thing being avoided.
+Copying a link asks what should be at the far end. A link can stay a link or be replaced by what it points at, and neither answer is right every time, so the question is put once per operation rather than guessed. It is asked whenever the source has a link, on every platform, including where the destination can't take any. There every option but the copy is grayed out and the dialog says why. A copy that quietly turns links into files, or files into links, is the thing being avoided.
 
-- The dialog names only the kinds the source actually has, with a row per kind:
+- The dialog names only the kinds the source has, with a row per kind:
 	- File symlinks: "Copy link as-is" or "Copy contents".
 	- Folder symlinks: "Copy link as-is", "Copy as a junction" on Windows, or "Copy contents".
 	- Folder junctions, on Windows: "Copy link as-is", "Copy as a symlink", or "Copy contents".
 	- On a move, "Move" takes the place of "Copy".
 	- Labels are singular or plural to match the count.
 
-- Shortcuts (.lnk) are always copied as just the shortcut file. A shortcut is a plain file to a copy, and alone it asks nothing.
+- Shortcuts (.lnk) are always copied as only the shortcut file. A shortcut is a plain file to a copy, and alone it asks nothing.
 
 - Links inside a folder whose contents are copied are kept as links, or junctions, where the destination allows. A tooltip on "Copy contents" says so.
 
-- Windows is where this mattered most. A copy there always followed the link and left the contents behind, so a link couldn't be copied as a link at all. POSIX already kept symlinks by default; what is new there is being able to ask for the contents instead.
+- Windows is where this mattered most. A copy there always followed the link and left the contents behind, so a link couldn't be copied as a link at all. POSIX already kept symlinks by default. What's new there is being able to ask for the contents instead.
 
-- Windows has two kinds of link where POSIX has one, and the dialog says so. A folder symlink and a junction both point at a folder, but only the symlink needs a privilege Windows normally withholds. Each row starts on the kind it found and falls back to the nearest kind that still reaches the same target, then to a plain copy. Anything the destination can't take is grayed out rather than hidden, so the dialog doesn't change shape between machines.
+- Windows has 2 kinds of link where POSIX has one, and the dialog says so. A folder symlink and a junction both point at a folder, but only the symlink needs a privilege Windows normally withholds. Each row starts on the kind it found and falls back to the nearest kind that still points at the same target, then to a plain copy. Anything the destination can't take is grayed out rather than hidden, so the dialog's layout doesn't change between machines.
 
 - The kind of a Windows link comes from its reparse tag. Nothing else tells a junction from a folder symlink, and it also keeps cloud placeholders and store app aliases, which are reparse points too, from being read as links.
 
-- A link keeps its own spelling, so a relative one still points where it pointed. Asking for a junction is the exception: those can only name a full path, so a relative target is resolved first.
+- A link keeps its target as written, so a relative one still points where it pointed. Asking for a junction is the exception, because a junction can only name a full path, so a relative target is resolved first.
 
 - A link counts as one item rather than a folder to walk into. That is what POSIX always did and Windows never did, and it is what stops a copy following a link to somewhere large or unreachable.
 
 ### Moving
 
-- A move always takes a link as the link. Taking the contents would empty the folder the link points at, which isn't what was asked to go. A move to another drive still asks, and can make a different kind of link, but the copy option is grayed out. A move on one drive is a rename and asks nothing, so every link arrives as it was.
+- A move always takes a link as the link. Taking the contents would empty the folder the link points at, which isn't what was asked to go. A move to another drive still asks, and can make a different kind of link, but the copy option is grayed out. A move on one drive is a rename and asks nothing, so every link stays as it was.
 
-- A drop that moves files names what it is about to do and where, and waits for an answer. Accidental drags, most of all big ones across filesystems, are one of the worst things about file managers. Moves ask by default; copies and links don't. Both are settings under Behavior. It covers every place a drop can move files: the file list, the icon view, both sidebars, the path bar and the tabs. A drop on the Trash asks under its own setting, not twice.
+- A drop that moves files names what it is about to do and where, and waits for an answer. Accidental drags, most of all big ones across filesystems, are one of the worst things about file managers. Moves ask by default, but copies and links don't. Both are settings under Behavior. This applies to every place a drop can move files, which are the file list, the icon view, both sidebars, the path bar, and the tabs. A drop on the Trash asks under its own setting rather than twice.
 
-- A move is held to the delete guard like a delete, since the original leaves. See [design.md](../design.md#trash-and-delete).
+- A move goes through the delete guard like a delete, since the original leaves. See [design.md](../design.md#trash-and-delete).
 
 ### Clone copies
 
 - On Linux, Nemo Anywhere already does all copy operations on supported filesystems, with essentially the same thing as `cp --reflink=auto` - so that if it's possible and beneficial (e.g. not for tiny files), copies will be clones. There is no risk and almost never downsides to this being unchangeable hard-coded behavior, only potentially massive benefits. (And the downsides are trivial.)
-	- A file under 64 KiB is read whole and written out plainly, so it is never cloned. 64 KiB is 16 blocks of 4 KiB. A clone saves less than that below it, while the filesystem keeps track of the shared part for as long as both copies exist.
-	- The limit is `performance.clone-min-kib` in the settings file. 0 always clones, and 1024 is the most.
+	- A file under 64 KiB is read whole and written out plainly, so it is never cloned. That's 16 blocks of 4 KiB. A clone saves less than that below it, while the filesystem keeps track of the shared part for as long as both copies exist.
+	- The limit is `performance.clone-min-kib` in the settings file. A value of 0 always clones, and 1024 is the most.
 	- An overwrite, a link copied as a link, or anything the plain copy can't start goes the usual way, so conflicts and errors read the same.
 	- Other platforms have nothing to skip, since only Linux clones on copy there.
 
@@ -129,42 +129,42 @@ Make link asks what to make, one row for the folders and one for the files. Fold
 
 - From the menu the dialog doesn't say where the links go, since it is always the folder in view. A link drop opens the same dialog, and there it names the folder, since a drop can be onto another folder or another window.
 
-- A symlink path row picks absolute or relative for whatever comes out a symlink. It is hidden when nothing does, since a junction is always absolute and a hardlink has no path, but keeps its space so the dialog doesn't jump. It sits a little lower than the rows above it, since it's a different kind of choice.
-	- Absolute is the default. Relative is there for links inside a tree: it keeps working when the whole tree is moved or mounted somewhere else, which is the usual reason to link inside one. It always has to work from the folder the link really sits in, since `..` climbs from there. So the paths as seen and the real paths, with symlinked folders resolved, are both tried, and the shortest that still reaches the target wins. Resolving alone would send a link up to the root whenever a symlinked folder on the way leads to another tree. Between two Windows drives there is no relative path, and the link keeps the absolute one.
+- A symlink path row picks absolute or relative for whatever comes out a symlink. It is hidden when nothing does, since a junction is always absolute and a hardlink has no path, but keeps its space so the dialog doesn't jump. It's a little lower than the rows above it, since it's a different kind of choice.
+	- Absolute is the default. Relative is there for links inside a tree, because it keeps working when the whole tree is moved or mounted somewhere else, which is the usual reason to link inside one. It always has to work from the folder that contains the link, since `..` climbs from there. So the paths as seen and the real paths, with symlinked folders resolved, are both tried, and the shortest one that still points at the target is used. Resolving alone would send a link up to the root whenever a symlinked folder on the way leads to another tree. Between 2 Windows drives there is no relative path, and the link keeps the absolute one.
 
-- A link made beside its original says what it is: "photo - symlink.jpg", "photo - hardlink.jpg", "folder - junction". The extension stays last so the link still opens as its type. A shortcut follows Explorer's pattern instead, "photo.jpg - shortcut.lnk". A link made in another folder keeps the original's name. A clash adds " 2", " 3" and so on.
+- A link made beside its original has its kind in its name, as in "photo - symlink.jpg", "photo - hardlink.jpg", and "folder - junction". The extension stays last so the link still opens as its type. A shortcut follows Explorer's pattern instead, "photo.jpg - shortcut.lnk". A link made in another folder keeps the original's name. A clash adds " 2", " 3", and so on.
 
 - A drop never asks the drop question for links, since the dialog is the question. Every link drop opens it, from the Alt menu or with the link keys held, in any view or sidebar.
 
-- A hardlink is never picked for anyone, even where a symlink can't be made. It is the one choice that can cost something: an edit through one name changes a file that looks unrelated, and a program that saves by replacing the file splits the two names apart without a word. Its tooltip says so, and choosing it asks once more, every time. Make hardlink is the default there, as the button that goes ahead is in every dialog. Backing out goes back to the dialog with the choices as they were. See [Hardlinks](20260925-063617_dedupe_and_thumbnails.md#hardlinks) for why.
+- A hardlink is never picked for anyone, even where a symlink can't be made. It's the one choice that can cost something. An edit through one name changes a file that looks unrelated, and a program that saves by replacing the file splits the 2 names apart without a word. Its tooltip says so, and choosing it asks once more, every time. Make hardlink is the default there, as the button that goes ahead is in every dialog. Backing out goes back to the dialog with the choices as they were. See [Hardlinks](20260925-063617_dedupe_and_thumbnails.md#hardlinks) for why.
 
 - Nothing is remembered. Every open starts from the defaults, so what it offers never depends on what was done last time. A way to change the defaults may come later.
 
-- Windows with no symlink privilege still gets the menu item, since a junction, a hardlink and a shortcut need none. The symlink choices are gray, with a line saying why, and files start on Shortcut.
+- Windows with no symlink privilege still gets the menu item, since a junction, a hardlink, and a shortcut don't need it. The symlink choices are gray, with a line saying why, and files start on Shortcut.
 
 ### Shortcuts
 
-- A shortcut can carry several paths at once, and is followed by the first that still leads somewhere. So every shortcut gets all three: Absolute, Relative and Portable. There is no choice to make.
-	- Portable is the path with a Windows environment variable in it, such as `%USERPROFILE%\Documents\notes.txt`, where one covers the target. It keeps working for another user or on another machine, so it is tried first. Off Windows the home folder is `%USERPROFILE%`, and a target on a mounted Windows share keeps its `\\server\share` path there instead.
+- A shortcut can store several paths at once, and is followed by the first that still leads somewhere. So every shortcut gets all 3, which are Absolute, Relative, and Portable. There is no choice to make.
+	- Portable is the path with a Windows environment variable in it, such as `%USERPROFILE%\Documents\notes.txt`, where a variable fits the target. It keeps working for another user or on another machine, so it is tried first. Off Windows the home folder is `%USERPROFILE%`, and a target on a mounted Windows share keeps its `\\server\share` path there instead.
 	- Windows 11 follows a shortcut through its item ID list, which names the target in Windows' own terms, or else through the portable path. It never uses the absolute or relative path alone. No Linux path can be written as an item ID list, so Explorer follows a shortcut made off Windows only through its portable path. Nemo Anywhere on Windows reads the rest itself.
 	- On Windows the shell writes the item ID list and the relative path.
-	- The paths inside are spelled the Windows way on every platform, with backslashes, and variables are always `%NAME%`, never `$NAME`. Each is read back for the platform in use.
+	- The paths inside are written the Windows way on every platform, with backslashes, and variables are always `%NAME%`, never `$NAME`. Each is read back for the platform in use.
 
-- A shortcut's target is read from the shortcut file, never by visiting the target. A shortcut to a share that isn't answering would otherwise stall the window.
+- A shortcut's target is read from the shortcut file, never by visiting the target. A shortcut to a share that isn't responding would otherwise stall the window.
 
 ### Editing links
 
-Edit link changes an existing link's name and where it points. It is offered only when one symlink, junction or shortcut is selected. A hardlink has no target to change.
+Edit link changes an existing link's name and where it points. It is offered only when one symlink, junction, or shortcut is selected. A hardlink has no target to change.
 
 - A symlink or junction gets one target field, taken as typed, so a relative one stays relative. The new link is made under a spare name first. On Linux it is then renamed over the old one, so the old link is never missing. Windows can't rename over a folder, so there the old link goes first, and the new one is taken back if it won't.
 
-- A shortcut shows its three paths, and any can be emptied to drop it. Only the paths are rewritten; its arguments, Start in folder and icon stay. What else it records about the old target goes with them, the item ID list included, since Windows would follow that first.
+- A shortcut shows its 3 paths, and any can be emptied to drop it. Only the paths are rewritten. Its arguments, Start in folder, and icon stay. What else it records about the old target goes with them, the item ID list included, since Windows would follow that first.
 
 - The old link is removed through the delete guard, which removes a link and nothing else.
 
 ### Needs more thought
 
-- A relative symlink between two shares of one server doesn't resolve (2026092813381418).
+- A relative symlink between 2 shares of one server doesn't resolve (2026092813381418).
 
 ## Alternative ideas
 
@@ -192,7 +192,7 @@ Edit link changes an existing link's name and where it points. It is offered onl
 
 - "Symlink" and "Copy" as the link copy choices. "Symlink" read as making a new link. They became "Copy link as-is" and "Copy contents".
 
-- A "Shortcut paths" choice in Make link. Every shortcut now gets all three paths.
+- A "Shortcut paths" choice in Make link. Every shortcut now gets all 3 paths.
 
 - "Link to ..." names for links made in another folder. They keep the original's name now.
 
@@ -210,7 +210,7 @@ Edit link changes an existing link's name and where it points. It is offered onl
 
 - A clone below 64 KiB saves less than the filesystem spends keeping track of the shared part.
 
-- Copy-on-Write clones, by platform: FICLONE on Btrfs, ZFS, XFS, OCFS2 and bcachefs on Linux, `clonefile()` on APFS, and FSCTL_DUPLICATE_EXTENTS_TO_FILE on ReFS. ZFS needs OpenZFS 2.2 or later with block cloning on.
+- Copy-on-Write clones, by platform: FICLONE on Btrfs, ZFS, XFS, OCFS2, and bcachefs on Linux, `clonefile()` on APFS, and FSCTL_DUPLICATE_EXTENTS_TO_FILE on ReFS. ZFS needs OpenZFS 2.2 or later with block cloning on.
 
 ## Roadmap
 
