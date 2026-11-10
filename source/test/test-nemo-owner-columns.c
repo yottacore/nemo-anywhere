@@ -17,6 +17,7 @@
 
 #ifdef G_OS_WIN32
 #include <windows.h>
+#include <aclapi.h>
 #include <lm.h>
 #include "test-scratch.h"
 #endif
@@ -109,6 +110,44 @@ current_user_full_name (char **user_name)
 	return full_name;
 }
 
+/* A file an elevated login makes is owned by Administrators, which has no full
+   name, so the scratch file is handed to the user who runs the test. Naming
+   your own user as owner needs no privilege. */
+static gboolean
+own_file (const char *path)
+{
+	HANDLE token;
+	TOKEN_USER *user = NULL;
+	DWORD len = 0;
+	wchar_t *wpath;
+	DWORD err = ERROR_INVALID_DATA;
+
+	if (!OpenProcessToken (GetCurrentProcess (), TOKEN_QUERY, &token)) {
+		return FALSE;
+	}
+	GetTokenInformation (token, TokenUser, NULL, 0, &len);
+	if (len > 0) {
+		user = g_malloc (len);
+		if (!GetTokenInformation (token, TokenUser, user, len, &len)) {
+			g_clear_pointer (&user, g_free);
+		}
+	}
+	CloseHandle (token);
+	if (user == NULL) {
+		return FALSE;
+	}
+
+	wpath = g_utf8_to_utf16 (path, -1, NULL, NULL, NULL);
+	if (wpath != NULL) {
+		err = SetNamedSecurityInfoW (wpath, SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION,
+					     user->User.Sid, NULL, NULL, NULL);
+	}
+	g_free (wpath);
+	g_free (user);
+
+	return err == ERROR_SUCCESS;
+}
+
 /* A file on disk, with the owner name as GIO would give it and the display
    name left for the lookup, the way a fresh info load leaves it. */
 static void
@@ -164,9 +203,13 @@ check_windows_lookup (void)
 	if (full_name == NULL) {
 		g_print ("note: %s has no full name, so only the empty case is checked\n", user_name);
 	}
-	both = full_name != NULL ? g_strdup_printf ("%s - %s", user_name, full_name)
-				 : g_strdup (user_name);
-	check_real_file (path, user_name, full_name, both);
+	if (own_file (path)) {
+		both = full_name != NULL ? g_strdup_printf ("%s - %s", user_name, full_name)
+					 : g_strdup (user_name);
+		check_real_file (path, user_name, full_name, both);
+	} else {
+		g_print ("note: %s can't be given to %s, so its full name isn't checked\n", path, user_name);
+	}
 
 	/* Owned by a service, not a user, so there is no name to find. */
 	windir = g_getenv ("SystemRoot");
