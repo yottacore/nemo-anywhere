@@ -21,6 +21,7 @@
 #include <shlobj.h>
 #include <ole2.h>
 
+#include <eel/eel-analyzer.h>
 #include <libnemo-private/nemo-dnd-win32.h>
 
 #include "test-scratch.h"
@@ -203,8 +204,12 @@ main (void)
 
 	/* A place with no local path can't go to another program, and saying so is
 	 * what sends the caller back to the toolkit's own drag. */
+	EEL_ANALYZER_SKIP ("malloc-leak") // an object comes back only when the check fails, and the test fails with it
 	check (nemo_dnd_win32_data_object ("trash:///\r\n", NULL, GDK_ACTION_COPY) == NULL);
+	EEL_ANALYZER_END
+	EEL_ANALYZER_SKIP ("malloc-leak") // the same
 	check (nemo_dnd_win32_data_object ("", NULL, GDK_ACTION_COPY) == NULL);
+	EEL_ANALYZER_END
 	check (nemo_dnd_win32_data_object (NULL, NULL, GDK_ACTION_COPY) == NULL);
 
 	g_remove (one);

@@ -24,6 +24,7 @@
 #include <string.h>
 
 #include "nemo-config.h"
+#include <eel/eel-analyzer.h>
 #ifdef G_OS_WIN32
 #include "nemo-instances-win32.h"
 #endif
@@ -578,7 +579,9 @@ nemo_instances_start (GApplication *application)
 	/* Up before the pipe, which is what lists this copy. */
 	instances_up = TRUE;
 	if (!nemo_instances_win32_start (dispatch, &error)) {
+		EEL_ANALYZER_SKIP ("null-dereference") // only its critical for a second start leaves error unset, and instances_up rules that out
 		g_warning ("Other copies can't reach this one: %s", error->message);
+		EEL_ANALYZER_END
 		g_clear_error (&error);
 		instances_up = FALSE;
 		return FALSE;

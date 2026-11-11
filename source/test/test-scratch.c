@@ -296,8 +296,10 @@ make_in (const char *base, const char *tmpl, GError **error)
 {
 	char *path;
 
-	/* g_mkdtemp_full fills in the template where it stands. */
+	/* g_mkdtemp_full fills in the template where it stands. path is never
+	   NULL, but the analyzer can't tell, and a caller given NULL reads error. */
 	path = g_build_filename (base, tmpl, NULL);
+	g_assert (path != NULL);
 	if (g_mkdtemp_full (path, 0700) == NULL) {
 		int saved = errno;
 

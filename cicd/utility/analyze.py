@@ -21,7 +21,9 @@
 #   planted  Inside a build container. Runs one analyzer over a planted leak and
 #            null dereference, and fails unless it reports both. With --ctu,
 #            the leak and the NULL come from a second file, and a plain clang
-#            run has to miss both, so only following the call finds them.
+#            run has to miss both, so only following the call finds them. A
+#            NULL read the second file suppresses has to stay quiet, so the
+#            second file is parsed as the analyzer sees it.
 #
 # --self-test runs cover and count over made-up input, the -Werror form of a
 # gcc finding included, since a parser that only knows "warning:" counts 0.
@@ -192,10 +194,12 @@ def ctu_prepare(runs, clang, tmp, jobs):
     for full, e, _ in runs:
         firsts.setdefault(full, e)
 
+    # A plain parse doesn't define __clang_analyzer__, so without it the other
+    # file's EEL_ANALYZER_SKIP lines lose their suppression.
     def flags(full, e):
         src = os.path.normpath(os.path.join(e["directory"], e["file"]))
         return [a for a in analyzer_argv(e, "clang-parse", clang)[1:]
-                if os.path.normpath(os.path.join(e["directory"], a)) != src]
+                if os.path.normpath(os.path.join(e["directory"], a)) != src] + ["-D__clang_analyzer__=1"]
 
     def defs(item):
         full, e = item
@@ -292,13 +296,24 @@ int planted_null(int n) { int *q = 0; if (n > 1) return 0; return *q; }
 # call returned (suppress-null-return-paths).
 PLANTED_CALLER = """int *planted_make(int n);
 int planted_read(const int *q);
+int planted_quiet(const int *q);
 int planted_leak(int n) { int *p = planted_make(n); if (!p) return -1; return p[0]; }
 int planted_null(void) { return planted_read(0); }
+int planted_skipped(void) { return planted_quiet(0); }
 """
+# planted_quiet's NULL read is suppressed the way EEL_ANALYZER_SKIP does it, so
+# a report of it means the other file was parsed as the analyzer doesn't see it.
 PLANTED_CALLEE = """#include <stdlib.h>
 int *planted_make(int n) { int *p = malloc(4 * sizeof *p); if (p) p[0] = n; return p; }
 int planted_read(const int *q) { return *q; }
+int planted_quiet(const int *q) {
+#if defined(__clang_analyzer__)
+	[[clang::suppress]]
+#endif
+	return *q;
+}
 """
+PLANTED_QUIET_LINE = PLANTED_CALLEE.splitlines().index("\treturn *q;") + 1
 
 
 def planted_found(block):
@@ -344,7 +359,11 @@ def cmd_planted(args):
     seen = planted_found(plain) & want if plain is not None else set()
     if seen:
         print("[ FAILED: a plain clang run found %s too, so the planted pair proves nothing ]" % ", ".join(sorted(seen)))
-    return 1 if missing or seen else 0
+    quiet = ctu and any(m and os.path.basename(m.group(1)) == "planted_callee.c" and int(m.group(2)) == PLANTED_QUIET_LINE
+                        for m in map(CLANG_RE.match, block.splitlines()))
+    if quiet:
+        print("[ FAILED: a suppression in the other file was ignored ]")
+    return 1 if missing or seen or quiet else 0
 
 
 UNUSED = "source/unused/"

@@ -819,7 +819,55 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Then a finding left, or a file cut off at the cap, fails the step, as in the per-file stage.
 	- Estimated effort: Avg
 	- Test case: de8eq, and de8en for the count it then fails on.
-	- 20261110: first whole-tree counts: Linux 55 (6 ours, 7 tests, 42 inherited), Windows 67 (7 ours, 17 tests, 43 inherited), 0 cut off, 861 s for both lanes. The report-only branch in analyze.bash takes any non-zero exit from count as findings, so a crash of count passed too. Making findings fail closes that.
+	- Progress log:
+		- 20261110: first whole-tree counts: Linux 55 (6 ours, 7 tests, 42 inherited), Windows 67 (7 ours, 17 tests, 43 inherited), 0 cut off, 861 s for both lanes. The report-only branch in analyze.bash takes any non-zero exit from count as findings, so a crash of count passed too. Making findings fail closes that.
+		- 20261110: split into children: `2026111022134952` (ours and tests, and the cause of most of the counts), Done, and `2026111022135419` (inherited, then they fail the run), Queued.
+
+- Static analyzers: the cross-file clang findings in our code and the tests fixed or suppressed.
+	- ID: 2026111022134952
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261110-221349
+	- Opened by: 2026110920251244
+	- Parent ID: 2026110920251244
+	- Prereq IDs: 2026110920250275
+	- Target OS: Linux
+	- Requirements:
+		- Every finding the cross-file run has in our files and in the tests, in either lane, is fixed, or suppressed at the line with a one-line reason, per the parent.
+	- Estimated effort: Avg
+	- Test case: de8eq, now with a NULL read the other file suppresses, which has to stay quiet.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261110: most of the first counts weren't new findings. clang parses the other file without `__clang_analyzer__`, so every `EEL_ANALYZER_SKIP` there was empty and its finding came back through the caller. `ctu_prepare` now defines it. The whole run after that has Linux 15 (11 inherited, 1 ours, 3 tests) and Windows 22 (11 inherited, 1 ours, 10 tests), against 55 and 67.
+		- 20261110: 11 of the tests' 13 came from `make_in` in `test-scratch.c`, which clang read as maybe giving NULL with no error set, so every caller printing `error->message` was flagged. The 2 in `test-nemo-dnd-win32.c` and the 1 in `nemo-instances.c` are suppressed at the line.
+	- Decisions:
+		- `make_in` asserts that `g_build_filename` gave a path, rather than taking `g_mkdtemp_full`'s return in a second variable, since cppcheck then reads the first as leaked.
+		- `nemo_instances_win32_start` leaves error unset only on its critical for a second start, which `instances_up` rules out, so the caller's line is suppressed rather than the critical turned into an error.
+		- `arc-path-list.c:162` is ours but goes to `...5419`. archive-core doesn't use eel, so it needs its own form of the skip, or zeroed entries, which its growth would undo.
+	- Swept: every test that reads `error->message` after `test_scratch_dir` goes through `make_in`. The other users of `analyzer_argv`'s parse form are `ctu_prepare`'s index and invocation list, which share `flags`.
+	- Branch: round1111a
+	- Verified: 20261110, de8eq passes in both containers, and fails in the Linux one without the define. The whole cross-file run (796 s, 4 jobs a lane) has no finding left in ours or tests apart from `arc-path-list.c`, after which the changed files and every test it flagged, rerun across files in both lanes, give none. gcc and clang per file give none on the changed files. de8em passes, df30s and ddn4x pass, and the format and lint gate passes.
+	- Closed: 20261110-224837
+
+- Static analyzers: the cross-file clang findings in inherited code fixed or suppressed, then they fail the run.
+	- ID: 2026111022135419
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261110-221354
+	- Opened by: 2026110920251244
+	- Parent ID: 2026110920251244
+	- Prereq IDs: 2026111022134952
+	- Target OS: Linux
+	- Requirements:
+		- Every finding the cross-file run has in inherited code, and in vendored code, in either lane, is fixed, or suppressed at the line with a one-line reason, or for vendored code in `analyze-vendored.txt`.
+		- Then a finding left, or a file cut off at the cap, fails the step, as in the per-file stage.
+	- Estimated effort: Avg
+	- Test case: de8eq, and de8en for the count it then fails on.
+	- Notes:
+		- 20261110: after `...4952`, 14 unique findings are left across both lanes: `arc-path-list.c:162` (ours, moved here, since archive-core doesn't use eel), `eel-gtk-extensions.c:267`, `nemo-directory-async.c:5037`, `nemo-file-operations.c:5783` and `:6413`, `nemo-file-undo-manager.c:177`, `nemo-icon-container.c:399`, `:773` and `:9119`, `nemo-search-engine-advanced.c:923`, `nemo-tree-view-drag-dest.c:427`, `nemo-icon-view-container.c:1360`, `nemo-icon-view-grid-container.c:768` and `nemo-query-editor.c:609`. No vendored ones, and none cut off.
+		- A few files can be rerun across files without the whole 13 min run with private `tools/analyze-ctu-files.py`.
 
 - Settings: search.
 	- ID: 2026101417352263
