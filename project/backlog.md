@@ -949,7 +949,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ddqdq with no monitor: the copies never list a titled window.
 	- ID: 2026103115510091
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261031-155100
 	- Opened by: 2026102822580302
@@ -960,7 +960,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: the copies list their windows with titles, as they did at 1694aeb with no monitor. A disconnected session doesn't have a monitor either.
 	- Reproduced: 20261028 on b29w, at 2964120b and 051f2d14.
 	- Possible cause: not looked into. It's something between 1694aeb and 2964120b, maybe the jail.
-	- Test case: ddqdq, with no monitor.
+	- Actual cause:
+		- The titles were there, but cut short. With no monitor the window is 1028 px wide, and a full path title is shortened to fit, with `...` for the folders it leaves out. That cut `nemo-copies-`, which the test took as the sign of a whole path, so the 2 waits for alpha's and beta's whole path titles timed out.
+		- The jail (71bb7a65) put the scratch folder deeper, under `nemo-suite-*`, the test's own folder and its `tmp`, so the path no longer fit in 1028 px. At 1694aeb it did.
+		- The GDK assertion shows in passing runs too, and isn't part of it.
+	- Actual fix: 9736011e already has ddqdq look for the folder at the end of a path, whatever the window cuts. ddqdq's no-monitor skip is gone, so it runs in the gate over ssh again.
+	- Decisions:
+		- The skip goes, since what ddqdq checks is the link between copies, which doesn't need a screen. A run without a monitor covers a disconnected session too.
+		- So ddqdq runs in the gate on b29w now, not in the lane's desktop step.
+	- Swept: the other no-monitor skips from 484a8e8b. debgn needs the focus, which never comes back in session 0, so it keeps its skip. dbxkh's skip is about the shell, not a monitor. dcrph, the other full path title test, has no window to cut a title.
+	- Branch: round1111a
+	- Commit: 08de1b8b
+	- Test case: ddqdq.
+	- Verified: 20261110, native gate on b29w over ssh, with 0 monitors. ddqdq passes without its skip, with 194 OK and 0 failed. In a second gate there, with 0 monitors too, the whole path titles came back as `C:\ProgramData\nemo-anywhere\<run>\tmp\nemo-anywhere\...\alpha-folder - Nemo Anywhere`, which the check before 9736011e refuses and the current one takes.
+	- Acceptance signoff: Self-closed: ddqdq passes in the gate on b29w without a monitor.
+	- Closed: 20261110-202331
 
 - On Windows, the zip draws some file icons differently from the single exe.
 	- ID: 2026102515500000
