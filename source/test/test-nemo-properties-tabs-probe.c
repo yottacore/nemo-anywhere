@@ -23,7 +23,7 @@
 
 /* Preloaded into the real program by test-nemo-properties-tabs. Once the
  * window shows $NEMO_PROPTABS_FOLDER it opens Properties on that folder with
- * Ctrl+I. The tabs along the top must never take the focus: not by Tab, and
+ * Alt+Enter. The tabs along the top must never take the focus: not by Tab, and
  * not by a click, which still switches the page. Ctrl+Page Up and Down, and
  * Ctrl+Tab and Ctrl+Shift+Tab, step the pages and wrap round, from a page and
  * from the Close button. One "ok"
@@ -320,8 +320,9 @@ tick (G_GNUC_UNUSED gpointer data)
 		if (waited - step_at < 10) {
 			return G_SOURCE_CONTINUE;
 		}
-		report (gtk_accel_groups_activate (G_OBJECT (window), GDK_KEY_i, GDK_CONTROL_MASK),
-			"Ctrl+I is a shortcut in the window");
+		/* Ctrl+I is Properties only under Nemo Anywhere v1 and Nemo Classic. */
+		report (gtk_accel_groups_activate (G_OBJECT (window), GDK_KEY_Return, GDK_MOD1_MASK),
+			"Alt+Enter is a shortcut in the window");
 		break;
 	case 2:
 		toplevels = gtk_window_list_toplevels ();

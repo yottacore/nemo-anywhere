@@ -124,6 +124,7 @@
 #define NEMO_ACTION_CREATE_LINK "Create Link"
 #define NEMO_ACTION_EDIT_LINK "Edit Link"
 #define NEMO_ACTION_SELECT_ALL "Select All"
+#define NEMO_ACTION_SELECT_NONE "Select None"
 #define NEMO_ACTION_INVERT_SELECTION "Invert Selection"
 #define NEMO_ACTION_SELECT_PATTERN "Select Pattern"
 #define NEMO_ACTION_TRASH "Trash"

@@ -537,13 +537,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: opened.
 		- 20261024: split into children, worked in this order: 2026102407515570 (the setting value and rules tables), ...571 (dim checkmarks), ...572 (focus outline and keys), ...573 (mouse and drags), ...574 (tree view), ...575 (wording, keys, then the dropdown entry and the default).
 		- 20261108: `nemo-anywhere` is the default and heads the dropdown, ahead of the other children. See ...575.
+		- 20261110: ...575 is done, so all 6 children are.
 	- Test case: one per child.
 
 - Nemo Anywhere: the switch-off wording and keys, then the dropdown entry and the default.
 	- ID: 2026102407515575
 	- Type: Enhancement
-	- Status: Started
-	- Needs local test suite run?: Yes
+	- Status: Done
+	- Needs local test suite run?: no. dec8w, de8bd and de8dm, and the tests that open Properties, passed 20261110.
 	- Priority|Severity: High
 	- Opened: 20261024-075155
 	- Opened by: t00mietum
@@ -564,10 +565,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: opened.
 		- 20261108: the dropdown entry and the default are in, ahead of the prereqs. "Nemo Anywhere" heads the dropdown, `nemo-anywhere` is the default in the key table and the schema, and a settings file with no model set now gets it. The wording, keys and status bar line are still to do.
 		- 20261108: the long press, keyboard menu and menus-freed probes took the list view's first column as the name cell, which is now the checkmark column. They take the expander column, which is Name under every model.
+		- 20261110: under Nemo Anywhere the Edit menu has Select none, between Select all and Select items matching. Ctrl+I inverts the selection there, as Ctrl+Shift+I does, and Properties is on Alt+Enter. The status bar reads "Ready to act on N items selected;  Free space: Z". The shortcuts window follows the model for Ctrl+I. v1 and Classic are unchanged.
 	- Decisions:
 		- The default moves ahead of the rest of the model, so the parts that are built show without a settings edit while the rest comes in. Those are the list view's checkmark column, the F2 pair, Ctrl+Shift+V, and the tree keys.
-	- Branch: anydefault
-	- Test case: dd5df checks the dropdown's order and the default, and that a settings file naming a model keeps it. The rename region test (test-eel-rename-region) checks that the whole-name setting counts under v1 and Classic but not under the default.
+		- Select all and Invert selection already had the switch-off wording, so only Select none is new. It clears the selection and leaves the focus where it was, as Select all and Invert do. Escape is still the way to drop the focus too.
+		- The status bar's "Ready to act on" line shows only while something is selected. With nothing selected it stays "N items, free space: Z", since there's nothing to act on. The floating bar keeps its short form.
+		- Ctrl+I stays one action, which picks Properties or Invert by the model, so a model change needs no accelerator swap. The Invert selection entry still shows Ctrl+Shift+I, which works under every model.
+	- Branch: anydefault, round1111a
+	- Test case: dd5df checks the dropdown's order and the default, and that a settings file naming a model keeps it. The rename region test (test-eel-rename-region) checks that the whole-name setting counts under v1 and Classic but not under the default. dec8w, de8bd and de8dm check per model and view: the Edit menu's entries, Select none clearing the selection, Ctrl+I inverting (Nemo Anywhere) or opening Properties (v1 and Classic), and the status bar line. ddxes and de55r open Properties with Alt+Enter.
+		- 20261110: dec8w's counts went from 98, 108 and 110 to 104, 114 and 116, and de8bd's and de8dm's from 72, 75 and 75 to 76, 79 and 79.
+	- Swept: the other Ctrl+I bindings (none outside the view's action), the tests that pressed Ctrl+I for Properties (ddxes and de55r, now Alt+Enter), the shortcuts window, and the Properties design doc's Windows key list.
+	- Verified: 20261110, dec8w, de8bd, de8dm, ddxes, de55r, dd5df, dbnfq, ddwn8, ddwn9 and ddgh6 pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
+	- Not covered by a test: the shortcuts window's Ctrl+I entries.
+	- Acceptance signoff: Self-closed: dec8w, de8bd and de8dm.
+	- Closed: 20261110-220510
 
 - Tree view: in "Checkmark selection" mode, folders follow the content view's selection rules and can be fully edited.
 	- ID: 2026102018234903

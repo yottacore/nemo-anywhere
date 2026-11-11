@@ -1791,6 +1791,15 @@ action_select_all_callback (G_GNUC_UNUSED GtkAction *action,
 }
 
 static void
+action_select_none_callback (G_GNUC_UNUSED GtkAction *action,
+			     gpointer callback_data)
+{
+	g_assert (NEMO_IS_VIEW (callback_data));
+
+	nemo_view_call_set_selection (callback_data, NULL);
+}
+
+static void
 action_invert_selection_callback (G_GNUC_UNUSED GtkAction *action,
 				  gpointer callback_data)
 {
@@ -1799,28 +1808,41 @@ action_invert_selection_callback (G_GNUC_UNUSED GtkAction *action,
 	nemo_view_invert_selection (callback_data);
 }
 
-/* Select all and Invert selection, one pair per selection model. See
-   design_docs/20261020-103804_behavior-models.md, "The setting". */
+static void action_properties_callback (GtkAction *action, gpointer callback_data);
+
+/* Select all, Select none, Invert selection and Ctrl+I, one set per
+   selection model. See design_docs/20261020-103804_behavior-models.md,
+   "The setting", "Keyboard" and "Menus". A NULL select_none leaves the
+   entry out of the Edit menu. */
 typedef struct {
 	void (*select_all) (GtkAction *action, gpointer callback_data);
+	void (*select_none) (GtkAction *action, gpointer callback_data);
 	void (*invert_selection) (GtkAction *action, gpointer callback_data);
+	void (*primary_i) (GtkAction *action, gpointer callback_data);
 } ViewSelectRules;
 
 static const ViewSelectRules rules_anywhere_v1 = {
 	.select_all = action_select_all_callback,
+	.select_none = NULL,
 	.invert_selection = action_invert_selection_callback,
+	.primary_i = action_properties_callback,
 };
 
-/* Upstream 6.6.4's two are the same as ours. */
+/* Upstream 6.6.4's are the same as ours. */
 static const ViewSelectRules rules_classic = {
 	.select_all = action_select_all_callback,
+	.select_none = NULL,
 	.invert_selection = action_invert_selection_callback,
+	.primary_i = action_properties_callback,
 };
 
-/* Nemo Anywhere's two are v1's while its switch is off. */
+/* With its switch off, Nemo Anywhere adds Select none, and Ctrl+I inverts
+   the selection as Ctrl+Shift+I does. Properties keeps Alt+Enter. */
 static const ViewSelectRules rules_anywhere = {
 	.select_all = action_select_all_callback,
+	.select_none = action_select_none_callback,
 	.invert_selection = action_invert_selection_callback,
+	.primary_i = action_invert_selection_callback,
 };
 
 static const ViewSelectRules *
@@ -1847,6 +1869,23 @@ static void
 model_invert_selection (GtkAction *action, gpointer callback_data)
 {
 	view_select_rules ()->invert_selection (action, callback_data);
+}
+
+static void
+model_select_none (GtkAction *action, gpointer callback_data)
+{
+	const ViewSelectRules *rules = view_select_rules ();
+
+	/* The entry is hidden then, but its action can still be called by name. */
+	if (rules->select_none != NULL) {
+		rules->select_none (action, callback_data);
+	}
+}
+
+static void
+model_primary_i (GtkAction *action, gpointer callback_data)
+{
+	view_select_rules ()->primary_i (action, callback_data);
 }
 
 static void
@@ -3110,6 +3149,12 @@ nemo_view_init (NemoView *view)
 	g_signal_connect_object (nemo_preferences,
 				 "changed::" NEMO_PREFERENCES_ENABLE_DELETE,
 				 G_CALLBACK (schedule_update_menus_callback), view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_preferences,
+				 "changed::" NEMO_PREFERENCES_SELECTION_MODEL,
+				 G_CALLBACK (schedule_update_menus_callback), view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (nemo_preferences,
+				 "changed::" NEMO_PREFERENCES_SELECTION_MODEL,
+				 G_CALLBACK (nemo_view_display_selection_info), view, G_CONNECT_SWAPPED);
     g_signal_connect_object (nemo_menu_config_preferences,
                              "changed",
                              G_CALLBACK (schedule_update_menus_callback), view, G_CONNECT_SWAPPED);
@@ -3544,6 +3589,17 @@ nemo_view_display_selection_info (NemoView *view)
 			g_free (view->details->detail_string);
 		}
 		view->details->detail_string = g_strdup ("");
+	}
+
+	/* Nemo Anywhere's line says what a command would act on. With its switch
+	   off that's always the selection. See
+	   design_docs/20261020-103804_behavior-models.md, "Status bar and dialogs". */
+	if (view_status_string != NULL &&
+	    nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE) {
+		g_free (status_string);
+		status_string = free_space_str != NULL ?
+			g_strdup_printf (_("Ready to act on %s;  Free space: %s"), view_status_string, free_space_str) :
+			g_strdup_printf (_("Ready to act on %s"), view_status_string);
 	}
 
 	g_free (free_space_str);
@@ -9418,10 +9474,11 @@ static const GtkActionEntry directory_view_entries[] = {
   /* tooltip */                  N_("View or modify the properties of each selected item"),
 #endif
 				 G_CALLBACK (action_properties_callback) },
+  /* Properties under Nemo Anywhere v1 and Nemo Classic, else Invert selection */
   /* name, stock id */         { "PropertiesAccel", NULL,
   /* label, accelerator */       "PropertiesAccel", "<Primary>I",
   /* tooltip */                  NULL,
-				 G_CALLBACK (action_properties_callback) },
+				 G_CALLBACK (model_primary_i) },
   /* name, stock id */         { NEMO_ACTION_ADVANCED_PROPERTIES, "document-properties-symbolic",
   /* label, accelerator */       N_("_Properties"), "<Primary>Return",
   /* tooltip */                  N_("View or modify the properties of each selected item"),
@@ -9561,6 +9618,10 @@ static const GtkActionEntry directory_view_entries[] = {
   /* label, accelerator */       N_("Select _all"), "<Primary>A",
   /* tooltip */                  N_("Select all items in this window"),
 				 G_CALLBACK (model_select_all) },
+  /* name, stock id */         { NEMO_ACTION_SELECT_NONE, NULL,
+  /* label, accelerator */       N_("Select _none"), NULL,
+  /* tooltip */                  N_("Clear the selection in this window"),
+				 G_CALLBACK (model_select_none) },
   /* name, stock id */         { "Select Pattern", NULL,
   /* label, accelerator */       N_("Select i_tems matching..."), "<Primary>S",
   /* tooltip */                  N_("Select items in this window matching a given pattern"),
@@ -11353,7 +11414,8 @@ real_update_menus (NemoView *view)
 	action = gtk_action_group_get_action (view->details->dir_action_group,
 					      NEMO_ACTION_PROPERTIES_ACCEL);
 
-	gtk_action_set_sensitive (action, show_properties);
+	gtk_action_set_sensitive (action, view_select_rules ()->primary_i == action_properties_callback ?
+					  show_properties : !nemo_view_is_empty (view));
 
 	action = gtk_action_group_get_action (view->details->dir_action_group,
 					      NEMO_ACTION_ADVANCED_PROPERTIES);
@@ -11377,6 +11439,11 @@ real_update_menus (NemoView *view)
 	action = gtk_action_group_get_action (view->details->dir_action_group,
 					      NEMO_ACTION_SELECT_ALL);
 	gtk_action_set_sensitive (action, !nemo_view_is_empty (view));
+
+	action = gtk_action_group_get_action (view->details->dir_action_group,
+					      NEMO_ACTION_SELECT_NONE);
+	gtk_action_set_sensitive (action, !nemo_view_is_empty (view));
+	gtk_action_set_visible (action, view_select_rules ()->select_none != NULL);
 
 	action = gtk_action_group_get_action (view->details->dir_action_group,
 					      NEMO_ACTION_SELECT_PATTERN);
