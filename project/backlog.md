@@ -33,6 +33,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Icon views under Nemo Anywhere: a Ctrl+Shift drag from a selected icon also takes the run to it.
+	- ID: 2026111021233343
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261110-212333
+	- Opened by: t00mietum
+	- Related IDs: 2026111019540307
+	- Target OS: All
+	- Steps to reproduce: icon or compact view, Nemo Anywhere. Click icon 0, Ctrl+click icon 3, then Ctrl+Shift+drag icon 3 somewhere.
+	- Incorrect behavior: the press adds the run from the anchor to icon 3 at once, as v1's does, so the drag takes icons 0 to 3.
+	- Expected behavior: the drag takes the selection as it was, icons 0 and 3, as the list view's does. Only a Ctrl+Shift+click adds the run, on its release, per the design doc's "Mouse".
+	- Reproduced: no. This comes from a reading of the icon container's press, which runs a Shift press from the anchor whether or not the icon is selected.
+	- Test case: none yet. dec8v would get the steps above in both icon views, as its list view check does.
+
 - On Linux and BSD, a bundled icon set picked in the settings file may draw Adwaita's folders instead of its own.
 	- ID: 2026111020501135
 	- Type: Bug
@@ -52,7 +67,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Icon views under Nemo Anywhere: after a Ctrl+click takes an icon out, a Shift+click runs from the icon clicked.
 	- ID: 2026111019540326
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261110-195403
 	- Opened by: t00mietum
@@ -61,13 +76,26 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce: icon or compact view, Nemo Anywhere. Click icon 2, Ctrl+click icon 4, Ctrl+click icon 2, then Shift+click icon 5.
 	- Incorrect behavior: likely selects icon 5 alone, rather than 2 to 5. The list view runs from row 2 there.
 	- Expected behavior: a Ctrl+click moves the anchor to the object clicked, also when it takes it out, per the design doc's "Mouse".
-	- Reproduced: no. This comes from a reading of the icon container's release, which clears the anchor, and its Shift+click, which starts over from the icon clicked when the anchor isn't selected.
-	- Test case: none yet. dec8w would get the steps above in both icon views.
+	- Reproduced: 20261110, under Nemo Anywhere in dec8w's new checks. In both icon views the Shift+click selected icon 5 alone. Ctrl+Space after the same Ctrl+clicks did nothing, and after Ctrl+Space took an icon out, Shift with an arrow started over from the next icon.
+	- Actual cause:
+		- As above. The release cleared the anchor, and a Shift+click or Shift with an arrow started over when the anchor wasn't selected.
+	- Actual fix: under Nemo Anywhere a Ctrl+click that takes an icon out leaves the anchor there, and a Shift run, from the mouse or the keys, counts from the anchor whether it's selected or not.
+	- Decisions:
+		- v1 and Classic keep theirs, as in 2026111012335173.
+		- A Shift run counts from the anchor whenever there is one, as the design doc's "Anchor" says, so also after a click on empty space, or an app-made selection that left it out. v1 started over from the icon clicked there. The list view's GTK anchor goes to the last row an app-made selection picks.
+		- The Ctrl+click leaves no focus, so Ctrl+Space then toggles the anchor and puts the icon back, as in the list view.
+	- Swept: the icon container's Shift+click press (Classic keeps upstream's), Shift with an arrow, Ctrl+Space, which already left the anchor on an icon it takes out, and the release after a click on a selected icon. The list view already ran from row 2.
+	- Branch: round1111a
+	- Test case: dec8w, Selection rules test, Nemo Anywhere. In all 3 views a Shift+click after a Ctrl+click took an item out. In both icon views also Shift with an arrow after Ctrl+Space took one out, and Ctrl+Space after a Ctrl+click took one out.
+		- 20261110: with 2026111019540307's checks, dec8w's list view count under Nemo Anywhere went from 95 to 98, the icon view from 103 to 108, and the compact view from 105 to 110.
+	- Verified: 20261110, dec8w fails on the old code (3 checks in each icon view) and passes with the fix. de8bd, de8dm, dec8v, ddy5f and de8ec pass. The quick gate's format and lint pass. Neither analyzer reports anything on the changed files.
+	- Acceptance signoff: Self-closed: dec8w.
+	- Closed: 20261110-212407
 
 - Nemo Anywhere: a Ctrl+Shift+click on a selected object takes it out, rather than adding the run.
 	- ID: 2026111019540307
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261110-195403
 	- Opened by: t00mietum
@@ -76,9 +104,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce: list view or an icon view, Nemo Anywhere. Click row 2, Ctrl+click row 6, Ctrl+click row 3, then Ctrl+Shift+click row 6.
 	- Incorrect behavior: likely, a Ctrl+Shift+click on a selected object takes that one out, as a Ctrl+click does.
 	- Expected behavior: it adds the run from the anchor to it, whether it overlaps or not, per the design doc's "Mouse". The focus moves, the anchor stays.
-	- Reproduced: no. This comes from a reading of the release code in the list view and the icon container.
+	- Reproduced: 20261110, under Nemo Anywhere in dec8w's new checks. The list view took row 6 out and left rows 2 and 3. Both icon views added the run on the press, then took icon 6 out, which left 2 to 5.
 	- Possible cause: a press on a selected object waits for the release, so a drag can start, and the release treats Ctrl+Shift as Ctrl. The list view's run needs GTK's anchor, which only its Shift+click press reads, as in 2026111012592994.
-	- Test case: none yet. dec8w would get a Ctrl+Shift+click on a selected object, in each view.
+	- Actual cause:
+		- As above. Both releases treated Ctrl+Shift as Ctrl, and the icon views' press had already added the run.
+	- Actual fix: under Nemo Anywhere the icon container's release leaves a Ctrl+Shift+click alone, since its press added the run. The list view's press on a selected row lets GtkTreeView run its own Shift+click to find its anchor, then puts back the selection and the anchor, so a drag still takes what was selected. Its release adds the run from that anchor.
+	- Decisions:
+		- v1 and Classic keep theirs.
+		- The list view's press leaves the focus on the row, for a drag too, since GTK's Shift+click moves its cursor there.
+		- When GtkTreeView doesn't run the Shift+click, as on a press it counts as a second click, the release runs from the focus, as the press on a row not selected does.
+		- The icon views still add the run on the press, as v1's do, so a Ctrl+Shift drag from a selected icon takes the run too. Filed as 2026111021233343.
+	- Swept: the list view's release after a Ctrl, Shift or Ctrl+Shift click on a selected row, both presses (Classic keeps upstream's), and the middle button, which takes the same path. The press on a row not selected now shares the GTK part. The icon container's press and release. The tree pane is single-select.
+	- Branch: round1111a
+	- Test case: dec8w, Selection rules test, Nemo Anywhere: in all 3 views a Ctrl+Shift+click on a selected item, and a Shift+click after it. dec8v, Drag select test, Nemo Anywhere: in the list view a Ctrl+Shift drag from a selected row drags files and keeps the selection.
+		- 20261110: dec8v's list view count under Nemo Anywhere went from 46 to 48. dec8w's counts are on 2026111019540326.
+	- Verified: 20261110, dec8w fails on the old code (2 checks in each view) and passes with the fix. dec8v passes on both. de8bd, de8dm, ddy5f and de8ec pass. The quick gate's format and lint pass. Neither analyzer reports anything on the changed files.
+	- Acceptance signoff: Self-closed: dec8w and dec8v.
+	- Closed: 20261110-212407
 
 - The native gate on b29w sometimes fails on test-nemo-office's leftover folder.
 	- ID: 2026103116203164

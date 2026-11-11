@@ -220,7 +220,7 @@ main (int argc, char *argv[])
 	/* Nemo Anywhere adds the checkmark column's bands, and checks where a
 	   band leaves the focus and the anchor. */
 	run_view (argv[1], argv[2], model, "list-view",
-		  g_strcmp0 (model, "nemo-anywhere") == 0 ? 46 : 24);
+		  g_strcmp0 (model, "nemo-anywhere") == 0 ? 48 : 24);
 	run_view (argv[1], argv[2], model, "icon-view",
 		  g_strcmp0 (model, "nemo-anywhere") == 0 ? 17 : 15);
 	run_view (argv[1], argv[2], model, "compact-view",

@@ -919,6 +919,19 @@ anywhere_icon_keys (void)
 	key (GDK_KEY_Down, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
 	want (run_of (1, next_item (r4, 0, 1), -1), "and Ctrl+Shift+Down runs on from it to the row below");
 
+	/* #2026111019540326 */
+	click (1, 0);
+	key (GDK_KEY_Right, GDK_CONTROL_MASK);
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	key (GDK_KEY_Right, GDK_SHIFT_MASK);
+	want (run_of (r2, r3, -1), "Shift+Right after Ctrl+Space took an icon out runs from that icon");
+	click (2, 0);
+	click (4, GDK_CONTROL_MASK);
+	click (2, GDK_CONTROL_MASK);
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	want (items (2, 4, -1), "Ctrl+Space after a Ctrl+click took an icon out puts it back");
+
 	key (GDK_KEY_Escape, 0);
 	want (g_strdup (""), "Escape clears the selection");
 	report (!outline_shown (), "and shows no focus outline");
@@ -1015,6 +1028,19 @@ anywhere_compact_keys (void)
 	run = run_of (r2, e2, -1);
 	want (g_strdup_printf ("1,%s", run), "and Ctrl+Shift+Right runs on from it to the next column");
 	g_free (run);
+
+	/* #2026111019540326 */
+	click (1, 0);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	key (GDK_KEY_Down, GDK_SHIFT_MASK);
+	want (run_of (2, 3, -1), "Shift+Down after Ctrl+Space took an item out runs from that item");
+	click (2, 0);
+	click (4, GDK_CONTROL_MASK);
+	click (2, GDK_CONTROL_MASK);
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	want (items (2, 4, -1), "Ctrl+Space after a Ctrl+click took an item out puts it back");
 
 	key (GDK_KEY_Escape, 0);
 	want (g_strdup (""), "Escape clears the selection");
@@ -1154,6 +1180,20 @@ rules_tick (void)
 			click (2, GDK_CONTROL_MASK);
 			click (4, GDK_SHIFT_MASK);
 			want (run_of (2, 4, -1), "a Shift+click after a Ctrl+click runs from the Ctrl+clicked item");
+			/* #2026111019540326 */
+			click (2, 0);
+			click (4, GDK_CONTROL_MASK);
+			click (2, GDK_CONTROL_MASK);
+			click (5, GDK_SHIFT_MASK);
+			want (run_of (2, 5, -1), "a Shift+click after a Ctrl+click took an item out runs from that item");
+			/* #2026111019540307 */
+			click (2, 0);
+			click (6, GDK_CONTROL_MASK);
+			click (3, GDK_CONTROL_MASK);
+			click (6, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
+			want (run_of (2, 6, -1), "a Ctrl+Shift+click on a selected item adds the run from the anchor");
+			click (0, GDK_SHIFT_MASK);
+			want (run_of (0, 3, -1), "and the anchor stays");
 		}
 		break;
 	case 7:
