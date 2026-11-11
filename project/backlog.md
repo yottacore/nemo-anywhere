@@ -1015,6 +1015,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every place that stages Windows icons: `stage-native.bash` (single exe and the hosted release build, already hicolor only), `pack-zip.bash` (zip, then the setup exe and `install.ps1`), `utility/run-windows-build-via-wine.bash`. `pack-portable.ps1` and `pack-setup.bash` copy what those made. The Linux and FreeBSD packages carry only hicolor, and ddqjk passes on the beta2 ones. A staged `cicd/artifacts/win-run` keeps the old icons until `--restage`.
 	- Verified: ddqjk fails on the beta2 zip (Adwaita and AdwaitaLegacy on disk) and passes on the same tree with only hicolor. Its self-test fails with the new check turned off and passes with it. The quick format and lint gate passes.
 	- Branch: round1111a
+	- Commit: db39bd1d
 	- Test case: ddqjk (`test-bundle-left-out.bash`), the Windows bundle check in the packages stage, and its self-test in lint.
 
 - Windows: build MSYS2's gtk3 with the OLE drag abort fix in `t00mietum/nemo-anywhere-deps`, as a pinned release file.
