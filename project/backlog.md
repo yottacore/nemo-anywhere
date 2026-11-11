@@ -594,7 +594,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere: the tree view rules, less the affirmative parts.
 	- ID: 2026102407515574
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Needs local test suite run?: Yes
 	- Priority|Severity: High
 	- Opened: 20261024-075155
@@ -615,7 +615,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261110: split into children, worked in this order: 2026111013031711 (the dim checkmark column), ...729 (the content view's marks while the tree has the focus), ...747 (the tree's focus and keys).
 		- 20261110: ...711 and ...729 are done. ...747 is queued.
 		- 20261110: ...747 is done, so all 3 are.
-	- Test case: one per child.
+	- Test case: its children's: 2026111013031747: df066, Tree keys and selection test: Ctrl+Down and Ctrl+Up, the outline, Escape, Ctrl+C after a Ctrl move, Ctrl+Space, Up after a Ctrl move, Ctrl+End and Ctrl+Home.; 2026111013031711: de8bd, de8dm and dec8w, where every tree check also checks the marks: on the selected row only under Nemo Anywhere, and no column for them under the other models. The result counts don't change. df06r covers the sideways scroll with the column there.; 2026111013031729: dec8w, Selection rules test, Nemo Anywhere: in each view, the check that every item is marked while the tree has the focus on the viewed folder, and that a click in the view takes the marks back to its selection.
+	- Closed: 20261110-214839
 
 - Nemo Anywhere tree view: its own focus and anchor, under the content view's mouse and keyboard rules.
 	- ID: 2026111013031747
