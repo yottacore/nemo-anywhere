@@ -109,6 +109,8 @@ struct FMTreeViewDetails {
 	guint popup_file_idle_handler;
 	
 	guint selection_changed_timer;
+	/* Nemo Anywhere: a Ctrl+Up or Ctrl+Down took the cursor off on its own. */
+	gboolean focus_adrift;
 
     NemoActionManager *action_manager;
     gulong actions_changed_id;
@@ -230,6 +232,54 @@ refresh_highlight (FMTreeView *view)
 }
 
 static gboolean
+cursor_on_selection (GtkTreeView *tree_view)
+{
+	GtkTreePath *path;
+	gboolean on;
+
+	gtk_tree_view_get_cursor (tree_view, &path, NULL);
+	if (path == NULL) {
+		return TRUE;
+	}
+	on = gtk_tree_selection_path_is_selected (gtk_tree_view_get_selection (tree_view), path);
+	gtk_tree_path_free (path);
+
+	return on;
+}
+
+/* Nemo Anywhere shows the cursor only while a Ctrl move has it off the
+   selected row, as in the list view. */
+static void
+focus_outline_update (FMTreeView *view)
+{
+	GtkTreeView *tree_view = view->details->tree_widget;
+	GtkStyleContext *context;
+	gboolean quiet;
+
+	if (tree_view == NULL) {
+		return;
+	}
+	context = gtk_widget_get_style_context (GTK_WIDGET (tree_view));
+	quiet = nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE &&
+		!(view->details->focus_adrift && !cursor_on_selection (tree_view));
+	if (quiet == gtk_style_context_has_class (context, "nemo-focus-quiet")) {
+		return;
+	}
+	if (quiet) {
+		gtk_style_context_add_class (context, "nemo-focus-quiet");
+	} else {
+		gtk_style_context_remove_class (context, "nemo-focus-quiet");
+	}
+}
+
+static void
+focus_settle (FMTreeView *view)
+{
+	view->details->focus_adrift = FALSE;
+	focus_outline_update (view);
+}
+
+static gboolean
 show_selection_idle_callback (gpointer callback_data)
 {
 	FMTreeView *view;
@@ -267,6 +317,7 @@ show_selection_idle_callback (gpointer callback_data)
 		(view->details->sort_model, path);
 	gtk_tree_path_free (path);
 	gtk_tree_view_set_cursor (view->details->tree_widget, sort_path, NULL, FALSE);
+	focus_settle (view);
 	if (gtk_widget_get_realized (GTK_WIDGET (view->details->tree_widget))) {
 		gtk_tree_view_scroll_to_cell (view->details->tree_widget, sort_path, NULL, FALSE, 0, 0);
 	}
@@ -1646,19 +1697,18 @@ tree_edit_key (GdkEventKey *event)
 	}
 }
 
-/* The same rules as the row's right-click menu, on the row with the cursor. */
+/* The same rules as the row's right-click menu, on the selected row. After a
+   Ctrl move the cursor can be elsewhere. */
 static gboolean
 tree_edit (FMTreeView *view, GtkTreeView *tree_view, TreeEditKey edit)
 {
-	GtkTreePath *path;
+	GtkTreeIter iter;
 	NemoFile *file;
 
-	gtk_tree_view_get_cursor (tree_view, &path, NULL);
-	if (path == NULL) {
+	if (!gtk_tree_selection_get_selected (gtk_tree_view_get_selection (tree_view), NULL, &iter)) {
 		return GDK_EVENT_PROPAGATE;
 	}
-	file = sort_model_path_to_file (view, path);
-	gtk_tree_path_free (path);
+	file = sort_model_iter_to_file (view, &iter);
 	if (file == NULL) {
 		return GDK_EVENT_PROPAGATE;
 	}
@@ -1691,43 +1741,168 @@ tree_edit (FMTreeView *view, GtkTreeView *tree_view, TreeEditKey edit)
 	return GDK_EVENT_STOP;
 }
 
-/* Right and Left as in list view's tree column, and the edit keys act on the
-   tree's own folder rather than the content view's selection. */
-static gboolean
-anywhere_key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
+/* The selected row, or NULL. Free with gtk_tree_path_free. */
+static GtkTreePath *
+selected_path (GtkTreeView *tree_view)
 {
-	GtkTreeView *tree_view = GTK_TREE_VIEW (widget);
-	GtkTreePath *path;
-	TreeEditKey edit = tree_edit_key (event);
+	GtkTreeModel *model;
+	GtkTreeIter iter;
 
-	if (edit != TREE_EDIT_NONE) {
-		return tree_edit (FM_TREE_VIEW (user_data), tree_view, edit);
+	if (!gtk_tree_selection_get_selected (gtk_tree_view_get_selection (tree_view), &model, &iter)) {
+		return NULL;
 	}
-	if (event->keyval != GDK_KEY_Right && event->keyval != GDK_KEY_Left) {
-		return key_press_callback (widget, event, user_data);
+	return gtk_tree_model_get_path (model, &iter);
+}
+
+/* Setting the cursor on the row that is already selected changes nothing
+   else, so no folder opens. */
+static void
+cursor_to_selection (GtkTreeView *tree_view)
+{
+	GtkTreePath *path = selected_path (tree_view);
+
+	if (path != NULL && !cursor_on_selection (tree_view)) {
+		gtk_tree_view_set_cursor (tree_view, path, NULL, FALSE);
 	}
+	gtk_tree_path_free (path);
+}
+
+static gboolean
+anywhere_right_left (GtkTreeView *tree_view, FMTreeView *view, guint keyval)
+{
+	GtkTreePath *path;
 
 	gtk_tree_view_get_cursor (tree_view, &path, NULL);
 	if (path == NULL) {
 		return GDK_EVENT_STOP;
 	}
-	if (event->keyval == GDK_KEY_Right) {
+	if (keyval == GDK_KEY_Right) {
 		gtk_tree_view_expand_row (tree_view, path, FALSE);
 	} else if (!gtk_tree_view_collapse_row (tree_view, path) &&
 		   gtk_tree_path_get_depth (path) > 1 && gtk_tree_path_up (path)) {
 		/* Already closed, or nothing in it. */
 		gtk_tree_view_set_cursor (tree_view, path, NULL, FALSE);
+		view->details->focus_adrift = FALSE;
 	}
 	gtk_tree_path_free (path);
+	focus_outline_update (view);
 
 	return GDK_EVENT_STOP;
 }
 
-/* Nemo Anywhere: v1's but for the keys and a folder change that leaves the
-   content view unselected, until the tree rules go in (2026102407515574). */
+/* Ctrl+Space selects the focused row, which opens it. A single-select tree
+   has nothing to take out, so on the selected row it does nothing. */
+static gboolean
+anywhere_select_focus (GtkTreeView *tree_view, FMTreeView *view)
+{
+	GtkTreePath *path;
+
+	gtk_tree_view_get_cursor (tree_view, &path, NULL);
+	if (path != NULL && !cursor_on_selection (tree_view)) {
+		gtk_tree_selection_select_path (gtk_tree_view_get_selection (tree_view), path);
+	}
+	gtk_tree_path_free (path);
+	focus_settle (view);
+
+	return GDK_EVENT_STOP;
+}
+
+/* The content view's keys, as far as a single-select tree takes them: see
+   the design doc's "Keyboard" and "Tree view". Right and Left are as in list
+   view's tree column, and the edit keys act on the tree's own folder rather
+   than the content view's selection. */
+static gboolean
+anywhere_key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
+{
+	FMTreeView *view = FM_TREE_VIEW (user_data);
+	GtkTreeView *tree_view = GTK_TREE_VIEW (widget);
+	GdkModifierType mods = event->state & gtk_accelerator_get_default_mod_mask ();
+	gboolean ctrl = (mods & GDK_CONTROL_MASK) != 0;
+	gboolean page = FALSE;
+	TreeEditKey edit = tree_edit_key (event);
+	gboolean handled;
+
+	if (edit != TREE_EDIT_NONE) {
+		return tree_edit (view, tree_view, edit);
+	}
+
+	switch (event->keyval) {
+	case GDK_KEY_Right:
+	case GDK_KEY_Left:
+		return anywhere_right_left (tree_view, view, event->keyval);
+	case GDK_KEY_space:
+	case GDK_KEY_KP_Space:
+		if (mods != GDK_CONTROL_MASK) {
+			return key_press_callback (widget, event, user_data);
+		}
+		return anywhere_select_focus (tree_view, view);
+	case GDK_KEY_Escape:
+		if (mods != 0 || !view->details->focus_adrift) {
+			return key_press_callback (widget, event, user_data);
+		}
+		cursor_to_selection (tree_view);
+		focus_settle (view);
+		return GDK_EVENT_STOP;
+	case GDK_KEY_Home:
+	case GDK_KEY_KP_Home:
+	case GDK_KEY_End:
+	case GDK_KEY_KP_End:
+		event->state &= ~GDK_CONTROL_MASK;
+		view->details->focus_adrift = FALSE;
+		handled = key_press_callback (widget, event, user_data);
+		focus_outline_update (view);
+		return handled;
+	case GDK_KEY_Page_Up:
+	case GDK_KEY_KP_Page_Up:
+	case GDK_KEY_Page_Down:
+	case GDK_KEY_KP_Page_Down:
+		page = TRUE;
+		break;
+	case GDK_KEY_Up:
+	case GDK_KEY_KP_Up:
+	case GDK_KEY_Down:
+	case GDK_KEY_KP_Down:
+		break;
+	default:
+		return key_press_callback (widget, event, user_data);
+	}
+
+	if (ctrl && page) {
+		return key_press_callback (widget, event, user_data);
+	}
+	if (ctrl) {
+		/* There's no run to add in a single-select tree, so Ctrl+Shift
+		   moves the focus as Ctrl does. */
+		event->state &= ~GDK_SHIFT_MASK;
+		view->details->focus_adrift = TRUE;
+		handled = key_press_callback (widget, event, user_data);
+		focus_outline_update (view);
+		return handled;
+	}
+	/* Single-select, so the range ends are the selected row. */
+	if (!(view->details->focus_adrift && !cursor_on_selection (tree_view))) {
+		cursor_to_selection (tree_view);
+	}
+	view->details->focus_adrift = FALSE;
+	handled = key_press_callback (widget, event, user_data);
+	focus_outline_update (view);
+
+	return handled;
+}
+
+static gboolean
+anywhere_button_pressed_callback (GtkTreeView *treeview, GdkEventButton *event, FMTreeView *view)
+{
+	focus_settle (view);
+
+	return button_pressed_callback (treeview, event, view);
+}
+
+/* Nemo Anywhere: v1's mouse rules, with its own focus and keys, and a folder
+   change that leaves the content view unselected. */
 static const TreeRules rules_anywhere = {
 	.selection_changed = selection_changed_callback,
-	.button_press = button_pressed_callback,
+	.button_press = anywhere_button_pressed_callback,
 	.button_release = button_released_callback,
 	.key_press = anywhere_key_press_callback,
 	.open_flags = NEMO_WINDOW_OPEN_FLAG_SELECT_NOTHING,
@@ -2155,6 +2330,15 @@ create_tree (FMTreeView *view)
 				 "changed::" NEMO_PREFERENCES_SELECTION_MODEL,
 				 G_CALLBACK (content_marks_changed),
 				 view, G_CONNECT_SWAPPED);
+	focus_settle (view);
+	g_signal_connect_object (nemo_preferences,
+				 "changed::" NEMO_PREFERENCES_SELECTION_MODEL,
+				 G_CALLBACK (focus_settle),
+				 view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (view->details->tree_widget, "cursor-changed",
+				 G_CALLBACK (focus_outline_update), view, G_CONNECT_SWAPPED);
+	g_signal_connect_object (gtk_tree_view_get_selection (view->details->tree_widget), "changed",
+				 G_CALLBACK (focus_outline_update), view, G_CONNECT_SWAPPED);
 
 	gtk_widget_show (GTK_WIDGET (view->details->tree_widget));
 

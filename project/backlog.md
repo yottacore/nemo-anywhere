@@ -33,6 +33,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Folder tree model: the number of top-level rows is always 1.
+	- ID: 2026111021433545
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261110-214335
+	- Opened by: t00mietum
+	- Related IDs: 2026111013031747
+	- Target OS: All
+	- Steps to reproduce: call gtk_tree_model_iter_n_children with no parent on the tree pane's model, with Computer, Home and File system showing.
+	- Incorrect behavior: it returns 1, so code that takes the last top-level row as the count less one gets the first row instead.
+	- Expected behavior: the number of top-level rows.
+	- Reproduced: 20261110, in df066's probe, which then walks the rows with gtk_tree_model_iter_next instead.
+	- Possible cause: fm_tree_model_iter_n_children returns 1 for a NULL parent rather than counting root_node and its siblings (nemo-tree-sidebar-model.c), inherited from upstream.
+	- Test case: none yet. A check in df066's probe that the count matches the rows gtk_tree_model_iter_next walks.
+
 - Icon views under Nemo Anywhere: a Ctrl+Shift drag from a selected icon also takes the run to it.
 	- ID: 2026111021233343
 	- Type: Bug
@@ -598,12 +614,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: opened.
 		- 20261110: split into children, worked in this order: 2026111013031711 (the dim checkmark column), ...729 (the content view's marks while the tree has the focus), ...747 (the tree's focus and keys).
 		- 20261110: ...711 and ...729 are done. ...747 is queued.
+		- 20261110: ...747 is done, so all 3 are.
 	- Test case: one per child.
 
 - Nemo Anywhere tree view: its own focus and anchor, under the content view's mouse and keyboard rules.
 	- ID: 2026111013031747
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261110-130317
 	- Opened by: t00mietum
@@ -612,12 +629,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Before the next cut.
 		- Only under Nemo Anywhere, and single-select, per the parent.
-		- No focus outline, except while a Ctrl+Up or Ctrl+Down has put the the focus on a row that isn't selected.
+		- No focus outline, except while a Ctrl+Up or Ctrl+Down has put the focus on a row that isn't selected.
 		- Ctrl+Up and Ctrl+Down move the focus alone, opening nothing. Ctrl+Space selects the focused row, which opens it. After a Ctrl move, Up and Down count from the focus.
 		- Ctrl+Home and Ctrl+End are the same as the key alone.
 		- Escape drops a Ctrl move's focus. What else it clears needs a Decisions row, since the tree's selected row is the viewed folder.
 		- df066 checks each key.
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view", "Mouse" and "Keyboard".
+	- Progress log:
+		- 20261110: under Nemo Anywhere the tree keeps its own focus. Ctrl+Up and Ctrl+Down move it alone and open nothing, and the outline shows only while it's off the selected row. Ctrl+Space selects the focused row, which opens it. Up, Down, Page Up and Page Down count from the selected row, or from the focus after a Ctrl move. Ctrl+Home and Ctrl+End are Home and End. Escape and a click drop a Ctrl move's focus.
+		- 20261110: Ctrl+C, Ctrl+X, Ctrl+V, Delete and Shift+Delete in the tree act on the selected folder. Before, they took the row with the focus, which a Ctrl move can leave elsewhere.
+	- Decisions:
+		- Escape puts the focus back on the selected row and clears nothing else. The selected row is the viewed folder, so clearing it would leave the tree showing no place while the content view still shows one. With no Ctrl move to drop, Escape does nothing, as before.
+		- Ctrl+Space on the selected row does nothing, since a single-select tree has nothing to take out. GTK's own Ctrl+Space would unselect the viewed folder.
+		- Ctrl+Shift+Up and Ctrl+Shift+Down are Ctrl+Up and Ctrl+Down, since there's no run to add.
+		- No anchor is kept. A single-select tree has no Shift run, so Shift with an arrow moves the selection as the arrow does. The mouse rules stay v1's, which are already the content view's for one row.
+		- Ctrl with Page Up or Page Down is left alone, as in the list view.
+	- Swept: every key in the design doc's "Keyboard" that a single-select tree can take, the edit keys, which read the cursor, and each place the cursor moves without a key: a click, a folder change from the content view or the toolbar, Left to the parent, and a change of the setting. The list view's twin uses the same flag and style class.
+	- Branch: round1111a
+	- Test case: df066, Tree keys and selection test: Ctrl+Down and Ctrl+Up, the outline, Escape, Ctrl+C after a Ctrl move, Ctrl+Space, Up after a Ctrl move, Ctrl+End and Ctrl+Home.
+		- 20261110: df066 expects 18 results, up from 8.
+	- Not covered by a test yet: the outline as drawn on screen, Page Up and Page Down, and a click dropping a Ctrl move's focus.
+	- Verified: 20261110, df066 fails 7 of its 10 new checks on the old code and passes with the change. The other 3, Ctrl+Down's own move, opening nothing and the outline showing, were already GTK's. de8bd, de8dm, dec8w and df06r pass. The quick gate's format and lint pass. Neither analyzer reports anything on the 3 changed files.
+	- Acceptance signoff: Self-closed: df066.
+	- Closed: 20261110-214335
 
 - Affirmative checkmarks: the switch and the places it will plug into, with no affirmative behavior yet.
 	- ID: 2026102019174477

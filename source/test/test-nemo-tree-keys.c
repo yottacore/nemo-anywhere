@@ -25,7 +25,9 @@
  * focused folder as in list view's tree column (#2026102018234900), and a
  * folder change made in the tree leaves nothing selected in the content view,
  * where Back and Up still select the folder just left (#2026102018234901). The
- * built program runs in the list view with the tree showing, and
+ * tree's focus moves with Ctrl+Up and Ctrl+Down and opens nothing, with the
+ * content view's rules for Escape, Ctrl+Space, Up, Ctrl+Home and Ctrl+End
+ * (#2026111013031747). The built program runs in the list view with the tree showing, and
  * test-nemo-tree-keys-probe preloaded to press, click and check.
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Linux
@@ -76,7 +78,7 @@ stop (GPid pid)
 	g_spawn_close_pid (pid);
 }
 
-#define RESULTS 8
+#define RESULTS 18
 
 static void
 run (const char *exe, const char *probe)
@@ -139,7 +141,7 @@ run (const char *exe, const char *probe)
 		goto out;
 	}
 
-	/* The probe gives each step 10 seconds, and there are 6. */
+	/* The probe gives each step 10 seconds, and there are 13. */
 	for (i = 0; i < 700 && alive (pid) && !done; i++) {
 		g_usleep (100 * 1000);
 		g_free (text);
