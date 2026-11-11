@@ -951,6 +951,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- When GtkTreeView doesn't run the Shift+click, as on a press it counts as a second click, the run goes from the focus as before. So does one on an expander, where GTK's press would open or close the row.
 		- A Ctrl+click that takes a row out shows no focus outline, since only a Ctrl+arrow does. Plain Up and Down still count from the range ends.
 		- A Ctrl+Shift+click on a selected object still takes it out, filed as 2026111019540307. The icon views' anchor after a Ctrl+click that takes an icon out is 2026111019540326.
+		- 20261111: both filed bugs, 2026111019540307 and 2026111019540326, fixed in 7a234231.
 	- Actual fix: under Nemo Anywhere a Ctrl+Shift+click lets GtkTreeView run its own Shift+click, which goes from its anchor, then puts back what was selected and the anchor. A Ctrl+click that takes a row out moves the focus there too.
 	- Swept: the list view's other Ctrl+Shift run (the arrow keys, already from GTK's anchor), the band, both presses (Classic keeps upstream's), and the release after a click on a selected row. The icon container keeps its own anchor, so its Ctrl+Shift+click already runs from it. The tree pane is single-select.
 	- Branch: round1111a
