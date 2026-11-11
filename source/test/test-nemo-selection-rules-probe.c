@@ -1068,6 +1068,20 @@ anywhere_list_keys (void)
 	click (3, GDK_SHIFT_MASK);
 	want (run_of (3, 6, -1), "and a Shift+click then runs from that row too");
 
+	/* #2026111012592994 */
+	click (2, 0);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	click (6, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
+	want (run_of (2, 6, -1), "a Ctrl+Shift+click after Ctrl+Down runs from the anchor, not the focus");
+	click (0, GDK_SHIFT_MASK);
+	want (run_of (0, 2, -1), "and the anchor stays");
+	click (2, 0);
+	click (4, GDK_CONTROL_MASK);
+	click (2, GDK_CONTROL_MASK);
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	want (items (2, 4, -1), "a Ctrl+click that takes a row out moves the focus there, for Ctrl+Space");
+
 	key (GDK_KEY_Escape, 0);
 	want (g_strdup (""), "Escape clears the selection");
 	report (!outline_shown (), "and shows no focus outline");

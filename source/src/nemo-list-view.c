@@ -786,6 +786,30 @@ button_event_modifies_selection (GdkEventButton *event)
 	return (event->state & (eel_gtk_primary_mask (event->window) | GDK_SHIFT_MASK)) != 0;
 }
 
+static gboolean ctrl_click_moves_focus (void);
+
+/* Takes path out of the selection and puts the focus and the anchor on it.
+   Setting the cursor selects its row alone, so the rest goes back after. */
+static void
+unselect_to_focus (NemoListView *view, GtkTreePath *path)
+{
+	GtkTreeView *tree_view = view->details->tree_view;
+	GtkTreeSelection *selection = gtk_tree_view_get_selection (tree_view);
+	GList *rows = gtk_tree_selection_get_selected_rows (selection, NULL);
+	GList *l;
+
+	g_signal_handlers_block_by_func (selection, list_selection_changed_callback, view);
+	gtk_tree_view_set_cursor (tree_view, path, NULL, FALSE);
+	for (l = rows; l != NULL; l = l->next) {
+		gtk_tree_selection_select_path (selection, l->data);
+	}
+	/* Unselecting moves GTK's anchor to the row too. */
+	gtk_tree_selection_unselect_path (selection, path);
+	g_signal_handlers_unblock_by_func (selection, list_selection_changed_callback, view);
+	g_list_free_full (rows, (GDestroyNotify) gtk_tree_path_free);
+	list_selection_changed_callback (selection, view);
+}
+
 static void
 nemo_list_view_did_not_drag (NemoListView *view,
 				 GdkEventButton *event)
@@ -806,6 +830,9 @@ nemo_list_view_did_not_drag (NemoListView *view,
 			if (!button_event_modifies_selection (event)) {
 				gtk_tree_selection_unselect_all (selection);
 				gtk_tree_selection_select_path (selection, path);
+			} else if (ctrl_click_moves_focus () &&
+				   (event->state & GDK_SHIFT_MASK) == 0) {
+				unselect_to_focus (view, path);
 			} else {
 				gtk_tree_selection_unselect_path (selection, path);
 			}
@@ -1236,6 +1263,8 @@ band_motion (NemoListView *view, GdkEventMotion *event)
 
 static gboolean band_end_takes_focus (void);
 static gboolean ctrl_click_sets_anchor (void);
+static void row_activated_callback (GtkTreeView *treeview, GtkTreePath *path,
+				    GtkTreeViewColumn *column, NemoListView *view);
 
 /* In a multiple selection GTK's Shift anchor goes to each row
    gtk_tree_selection_select_path selects, so code that puts rows back
@@ -1245,6 +1274,62 @@ anchor_to (GtkTreeSelection *selection, GtkTreePath *path)
 {
 	gtk_tree_selection_unselect_path (selection, path);
 	gtk_tree_selection_select_path (selection, path);
+}
+
+/* GtkTreeView has no call that gives its anchor, but its Shift+click runs
+   from it. So a Ctrl+Shift+click lets it run one, puts back what was
+   selected, and leaves the anchor where it was. FALSE when GTK didn't run
+   it, as on a press it counts as a second click. Nothing has changed then. */
+static gboolean
+add_click_run_from_anchor (NemoListView *view, GtkWidget *widget,
+			   GdkEventButton *event, GtkTreePath *path)
+{
+	GtkTreeView *tree_view = view->details->tree_view;
+	GtkTreeSelection *selection = gtk_tree_view_get_selection (tree_view);
+	GList *kept = gtk_tree_selection_get_selected_rows (selection, NULL);
+	GdkModifierType state = event->state;
+	GtkTreePath *cursor = NULL;
+	GtkTreePath *anchor = NULL;
+	GList *l;
+
+	g_signal_handlers_block_by_func (selection, list_selection_changed_callback, view);
+	g_signal_handlers_block_by_func (tree_view, row_activated_callback, view);
+	event->state &= ~eel_gtk_primary_mask (event->window);
+	GTK_WIDGET_GET_CLASS (tree_view)->button_press_event (widget, event);
+	event->state = state;
+	g_signal_handlers_unblock_by_func (tree_view, row_activated_callback, view);
+
+	gtk_tree_view_get_cursor (tree_view, &cursor, NULL);
+	if (cursor != NULL && gtk_tree_path_compare (cursor, path) == 0 &&
+	    gtk_tree_selection_path_is_selected (selection, path)) {
+		GList *run = gtk_tree_selection_get_selected_rows (selection, NULL);
+
+		/* The run is all that's selected now, so the anchor is the end
+		   that wasn't clicked. */
+		if (run != NULL) {
+			GtkTreePath *first = run->data;
+
+			anchor = gtk_tree_path_copy (gtk_tree_path_compare (first, path) == 0 ?
+						     g_list_last (run)->data : first);
+		}
+		g_list_free_full (run, (GDestroyNotify) gtk_tree_path_free);
+	}
+	for (l = kept; l != NULL; l = l->next) {
+		gtk_tree_selection_select_path (selection, l->data);
+	}
+	if (anchor != NULL) {
+		anchor_to (selection, anchor);
+	}
+	g_signal_handlers_unblock_by_func (selection, list_selection_changed_callback, view);
+	gtk_tree_path_free (cursor);
+	g_list_free_full (kept, (GDestroyNotify) gtk_tree_path_free);
+	list_selection_changed_callback (selection, view);
+
+	if (anchor == NULL) {
+		return FALSE;
+	}
+	gtk_tree_path_free (anchor);
+	return TRUE;
 }
 
 /* TRUE when it was dragging, so the release was no click. */
@@ -1984,6 +2069,11 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 				if (view->details->row_selected_on_button_down) {
 					call_parent = on_expander;
 					view->details->ignore_button_release = call_parent;
+				} else if (primary && (event->state & GDK_SHIFT_MASK) != 0 &&
+					   event->type == GDK_BUTTON_PRESS && !on_expander &&
+					   ctrl_click_sets_anchor () &&
+					   add_click_run_from_anchor (view, widget, event, path)) {
+					call_parent = FALSE;
 				} else if ((event->state & eel_gtk_primary_mask (event->window)) != 0) {
 					GList *selected_rows;
 					GList *l;
@@ -4994,8 +5084,12 @@ typedef struct {
 	   wherever the pointer ends. */
 	gboolean band_end_takes_focus;
 	/* A Ctrl+click leaves the anchor on the row clicked, where v1's is
-	   wherever putting the selection back left it. */
+	   wherever putting the selection back left it. A Ctrl+Shift+click runs
+	   from the anchor and keeps it, where v1's runs from the focus. */
 	gboolean ctrl_click_sets_anchor;
+	/* A Ctrl+click that takes a row out moves the focus there, where v1's
+	   stays where it was. */
+	gboolean ctrl_click_moves_focus;
 } ListViewRules;
 
 static const ListViewRules rules_anywhere_v1 = {
@@ -5027,6 +5121,7 @@ static const ListViewRules rules_anywhere = {
 	.gtk_bands = FALSE,
 	.band_end_takes_focus = TRUE,
 	.ctrl_click_sets_anchor = TRUE,
+	.ctrl_click_moves_focus = TRUE,
 };
 
 static const ListViewRules *
@@ -5053,6 +5148,12 @@ static gboolean
 ctrl_click_sets_anchor (void)
 {
 	return list_view_rules ()->ctrl_click_sets_anchor;
+}
+
+static gboolean
+ctrl_click_moves_focus (void)
+{
+	return list_view_rules ()->ctrl_click_moves_focus;
 }
 
 static gboolean

@@ -33,6 +33,37 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Icon views under Nemo Anywhere: after a Ctrl+click takes an icon out, a Shift+click runs from the icon clicked.
+	- ID: 2026111019540326
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261110-195403
+	- Opened by: t00mietum
+	- Related IDs: 2026111012592994
+	- Target OS: All
+	- Steps to reproduce: icon or compact view, Nemo Anywhere. Click icon 2, Ctrl+click icon 4, Ctrl+click icon 2, then Shift+click icon 5.
+	- Incorrect behavior: likely selects icon 5 alone, rather than 2 to 5. The list view runs from row 2 there.
+	- Expected behavior: a Ctrl+click moves the anchor to the object clicked, also when it takes it out, per the design doc's "Mouse".
+	- Reproduced: no. This comes from a reading of the icon container's release, which clears the anchor, and its Shift+click, which starts over from the icon clicked when the anchor isn't selected.
+	- Test case: none yet. dec8w would get the steps above in both icon views.
+
+- Nemo Anywhere: a Ctrl+Shift+click on a selected object takes it out, rather than adding the run.
+	- ID: 2026111019540307
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261110-195403
+	- Opened by: t00mietum
+	- Related IDs: 2026111012592994
+	- Target OS: All
+	- Steps to reproduce: list view or an icon view, Nemo Anywhere. Click row 2, Ctrl+click row 6, Ctrl+click row 3, then Ctrl+Shift+click row 6.
+	- Incorrect behavior: likely, a Ctrl+Shift+click on a selected object takes that one out, as a Ctrl+click does.
+	- Expected behavior: it adds the run from the anchor to it, whether it overlaps or not, per the design doc's "Mouse". The focus moves, the anchor stays.
+	- Reproduced: no. This comes from a reading of the release code in the list view and the icon container.
+	- Possible cause: a press on a selected object waits for the release, so a drag can start, and the release treats Ctrl+Shift as Ctrl. The list view's run needs GTK's anchor, which only its Shift+click press reads, as in 2026111012592994.
+	- Test case: none yet. dec8w would get a Ctrl+Shift+click on a selected object, in each view.
+
 - The native gate on b29w sometimes fails on test-nemo-office's leftover folder.
 	- ID: 2026103116203164
 	- Type: Bug
@@ -844,18 +875,32 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - List view under Nemo Anywhere: Ctrl+Shift+click runs from the focus, not the anchor.
 	- ID: 2026111012592994
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261110-125929
 	- Opened by: t00mietum
-	- Related IDs: 2026111012335173
+	- Related IDs: 2026111012335173, 2026111019540307, 2026111019540326
 	- Target OS: All
 	- Steps to reproduce: list view, Nemo Anywhere. Click row 2, Ctrl+Down twice, then Ctrl+Shift+click row 6.
 	- Incorrect behavior: likely adds rows 4 to 6 from the focus, rather than 2 to 6. The anchor then goes to row 4.
 	- Expected behavior: the run goes from the anchor, and the anchor stays, per the design doc's "Mouse".
-	- Reproduced: no. This comes from a reading of the press code.
+	- Reproduced: 20261110, under Nemo Anywhere in dec8w's new checks. The Ctrl+Shift+click selected rows 2 and 4 to 6, and a Shift+click after it ran from row 4. After a Ctrl+click took a row out, Ctrl+Space toggled the row the focus was on before.
 	- Possible cause: the press runs from GTK's cursor, since GTK has no call that gives its anchor. They differ after a Ctrl+arrow, since a Shift run already includes the rows between them. A Ctrl+click on a selected row may leave the focus behind the same way, since the release only unselects it.
-	- Test case: none yet. dec8w would get a Ctrl+arrow then a Ctrl+Shift+click.
+	- Actual cause:
+		- As above, both. Unselecting the row moves GTK's anchor there, but not its cursor.
+	- Decisions:
+		- v1 and Classic keep theirs, as in 2026111012335173.
+		- When GtkTreeView doesn't run the Shift+click, as on a press it counts as a second click, the run goes from the focus as before. So does one on an expander, where GTK's press would open or close the row.
+		- A Ctrl+click that takes a row out shows no focus outline, since only a Ctrl+arrow does. Plain Up and Down still count from the range ends.
+		- A Ctrl+Shift+click on a selected object still takes it out, filed as 2026111019540307. The icon views' anchor after a Ctrl+click that takes an icon out is 2026111019540326.
+	- Actual fix: under Nemo Anywhere a Ctrl+Shift+click lets GtkTreeView run its own Shift+click, which goes from its anchor, then puts back what was selected and the anchor. A Ctrl+click that takes a row out moves the focus there too.
+	- Swept: the list view's other Ctrl+Shift run (the arrow keys, already from GTK's anchor), the band, both presses (Classic keeps upstream's), and the release after a click on a selected row. The icon container keeps its own anchor, so its Ctrl+Shift+click already runs from it. The tree pane is single-select.
+	- Branch: round1111a
+	- Test case: dec8w, Selection rules test, Nemo Anywhere. In the list view: a Ctrl+Shift+click after Ctrl+Down twice, a Shift+click after it, and Ctrl+Space after a Ctrl+click that took a row out.
+		- 20261110: dec8w's list view count under Nemo Anywhere went from 92 to 95.
+	- Verified: 20261110, dec8w fails on the old code (the 3 new checks) and passes with the fix. de8bd, de8dm, ddy5f, de8ec and dec8v pass. The quick gate's format and lint pass. Neither analyzer reports anything on the changed files.
+	- Acceptance signoff: Self-closed: dec8w.
+	- Closed: 20261110-195434
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
