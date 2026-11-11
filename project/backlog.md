@@ -33,123 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Changelog: the Nemo Anywhere selection model, for rc.1.
-	- ID: 2026111022095190
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261110-220951
-	- Opened by:
-	- Related IDs: 2026102019174440, 2026102407515575
-	- Progress log:
-		- The selection model work has no changelog entry yet: the model as the default, its checkmarks, focus and keys, Select none, Ctrl+I inverting and Properties on Alt+Enter, and the status bar line.
-		- Test case: the docs checks.
-
-- Folder tree model: the number of top-level rows is always 1.
-	- ID: 2026111021433545
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261110-214335
-	- Opened by: t00mietum
-	- Related IDs: 2026111013031747
-	- Target OS: All
-	- Steps to reproduce: call gtk_tree_model_iter_n_children with no parent on the tree pane's model, with Computer, Home and File system showing.
-	- Incorrect behavior: it returns 1, so code that takes the last top-level row as the count less one gets the first row instead.
-	- Expected behavior: the number of top-level rows.
-	- Reproduced: 20261110, in df066's probe, which then walks the rows with gtk_tree_model_iter_next instead.
-	- Possible cause: fm_tree_model_iter_n_children returns 1 for a NULL parent rather than counting root_node and its siblings (nemo-tree-sidebar-model.c), inherited from upstream.
-	- Test case: none yet. A check in df066's probe that the count matches the rows gtk_tree_model_iter_next walks.
-
-- Icon views under Nemo Anywhere: a Ctrl+Shift drag from a selected icon also takes the run to it.
-	- ID: 2026111021233343
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261110-212333
-	- Opened by: t00mietum
-	- Related IDs: 2026111019540307
-	- Target OS: All
-	- Steps to reproduce: icon or compact view, Nemo Anywhere. Click icon 0, Ctrl+click icon 3, then Ctrl+Shift+drag icon 3 somewhere.
-	- Incorrect behavior: the press adds the run from the anchor to icon 3 at once, as v1's does, so the drag takes icons 0 to 3.
-	- Expected behavior: the drag takes the selection as it was, icons 0 and 3, as the list view's does. Only a Ctrl+Shift+click adds the run, on its release, per the design doc's "Mouse".
-	- Reproduced: no. This comes from a reading of the icon container's press, which runs a Shift press from the anchor whether or not the icon is selected.
-	- Test case: none yet. dec8v would get the steps above in both icon views, as its list view check does.
-
-- On Linux and BSD, a bundled icon set picked in the settings file may draw Adwaita's folders instead of its own.
-	- ID: 2026111020501135
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261110-205011
-	- Opened by: 2026102515500000
-	- Related IDs: 2026102515500000
-	- Target OS: Linux, BSD
-	- Steps to reproduce: on a desktop with the adwaita-icon-theme package installed, set `appearance` `icon-theme` to a bundled set such as Mica in the settings file, and open a folder with a subfolder and a text file.
-	- Incorrect behavior: likely Adwaita's blue folder and plain text icon, not the set's own.
-	- Expected behavior: the picked set's own icons, as on Windows.
-	- Reproduced: No.
-	- Possible cause: the one found in 2026102515500000. GTK 3 looks in an Adwaita theme on disk before hicolor, and the bundled sets sit in hicolor. Here the system's Adwaita is on disk. design.md says Linux and the BSDs use the desktop's themes, so this is only for a pick in the settings file.
-	- Test case: none yet.
-
-- Icon views under Nemo Anywhere: after a Ctrl+click takes an icon out, a Shift+click runs from the icon clicked.
-	- ID: 2026111019540326
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20261110-195403
-	- Opened by: t00mietum
-	- Related IDs: 2026111012592994
-	- Target OS: All
-	- Steps to reproduce: icon or compact view, Nemo Anywhere. Click icon 2, Ctrl+click icon 4, Ctrl+click icon 2, then Shift+click icon 5.
-	- Incorrect behavior: likely selects icon 5 alone, rather than 2 to 5. The list view runs from row 2 there.
-	- Expected behavior: a Ctrl+click moves the anchor to the object clicked, also when it takes it out, per the design doc's "Mouse".
-	- Reproduced: 20261110, under Nemo Anywhere in dec8w's new checks. In both icon views the Shift+click selected icon 5 alone. Ctrl+Space after the same Ctrl+clicks did nothing, and after Ctrl+Space took an icon out, Shift with an arrow started over from the next icon.
-	- Actual cause:
-		- As above. The release cleared the anchor, and a Shift+click or Shift with an arrow started over when the anchor wasn't selected.
-	- Actual fix: under Nemo Anywhere a Ctrl+click that takes an icon out leaves the anchor there, and a Shift run, from the mouse or the keys, counts from the anchor whether it's selected or not.
-	- Decisions:
-		- v1 and Classic keep theirs, as in 2026111012335173.
-		- A Shift run counts from the anchor whenever there is one, as the design doc's "Anchor" says, so also after a click on empty space, or an app-made selection that left it out. v1 started over from the icon clicked there. The list view's GTK anchor goes to the last row an app-made selection picks.
-		- The Ctrl+click leaves no focus, so Ctrl+Space then toggles the anchor and puts the icon back, as in the list view.
-	- Swept: the icon container's Shift+click press (Classic keeps upstream's), Shift with an arrow, Ctrl+Space, which already left the anchor on an icon it takes out, and the release after a click on a selected icon. The list view already ran from row 2.
-	- Branch: round1111a
-	- Test case: dec8w, Selection rules test, Nemo Anywhere. In all 3 views a Shift+click after a Ctrl+click took an item out. In both icon views also Shift with an arrow after Ctrl+Space took one out, and Ctrl+Space after a Ctrl+click took one out.
-		- 20261110: with 2026111019540307's checks, dec8w's list view count under Nemo Anywhere went from 95 to 98, the icon view from 103 to 108, and the compact view from 105 to 110.
-	- Verified: 20261110, dec8w fails on the old code (3 checks in each icon view) and passes with the fix. de8bd, de8dm, dec8v, ddy5f and de8ec pass. The quick gate's format and lint pass. Neither analyzer reports anything on the changed files.
-	- Acceptance signoff: Self-closed: dec8w.
-	- Closed: 20261110-212407
-
-- Nemo Anywhere: a Ctrl+Shift+click on a selected object takes it out, rather than adding the run.
-	- ID: 2026111019540307
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20261110-195403
-	- Opened by: t00mietum
-	- Related IDs: 2026111012592994
-	- Target OS: All
-	- Steps to reproduce: list view or an icon view, Nemo Anywhere. Click row 2, Ctrl+click row 6, Ctrl+click row 3, then Ctrl+Shift+click row 6.
-	- Incorrect behavior: likely, a Ctrl+Shift+click on a selected object takes that one out, as a Ctrl+click does.
-	- Expected behavior: it adds the run from the anchor to it, whether it overlaps or not, per the design doc's "Mouse". The focus moves, the anchor stays.
-	- Reproduced: 20261110, under Nemo Anywhere in dec8w's new checks. The list view took row 6 out and left rows 2 and 3. Both icon views added the run on the press, then took icon 6 out, which left 2 to 5.
-	- Possible cause: a press on a selected object waits for the release, so a drag can start, and the release treats Ctrl+Shift as Ctrl. The list view's run needs GTK's anchor, which only its Shift+click press reads, as in 2026111012592994.
-	- Actual cause:
-		- As above. Both releases treated Ctrl+Shift as Ctrl, and the icon views' press had already added the run.
-	- Actual fix: under Nemo Anywhere the icon container's release leaves a Ctrl+Shift+click alone, since its press added the run. The list view's press on a selected row lets GtkTreeView run its own Shift+click to find its anchor, then puts back the selection and the anchor, so a drag still takes what was selected. Its release adds the run from that anchor.
-	- Decisions:
-		- v1 and Classic keep theirs.
-		- The list view's press leaves the focus on the row, for a drag too, since GTK's Shift+click moves its cursor there.
-		- When GtkTreeView doesn't run the Shift+click, as on a press it counts as a second click, the release runs from the focus, as the press on a row not selected does.
-		- The icon views still add the run on the press, as v1's do, so a Ctrl+Shift drag from a selected icon takes the run too. Filed as 2026111021233343.
-	- Swept: the list view's release after a Ctrl, Shift or Ctrl+Shift click on a selected row, both presses (Classic keeps upstream's), and the middle button, which takes the same path. The press on a row not selected now shares the GTK part. The icon container's press and release. The tree pane is single-select.
-	- Branch: round1111a
-	- Test case: dec8w, Selection rules test, Nemo Anywhere: in all 3 views a Ctrl+Shift+click on a selected item, and a Shift+click after it. dec8v, Drag select test, Nemo Anywhere: in the list view a Ctrl+Shift drag from a selected row drags files and keeps the selection.
-		- 20261110: dec8v's list view count under Nemo Anywhere went from 46 to 48. dec8w's counts are on 2026111019540326.
-	- Verified: 20261110, dec8w fails on the old code (2 checks in each view) and passes with the fix. dec8v passes on both. de8bd, de8dm, ddy5f and de8ec pass. The quick gate's format and lint pass. Neither analyzer reports anything on the changed files.
-	- Acceptance signoff: Self-closed: dec8w and dec8v.
-	- Closed: 20261110-212407
-
 - The native gate on b29w sometimes fails on test-nemo-office's leftover folder.
 	- ID: 2026103116203164
 	- Type: Bug
@@ -413,6 +296,26 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The runner isn't in this repo, so the work is done there.
 	- Test case: none yet.
 
+- Move every Windows lane from MSYS2's MINGW64 to UCRT64.
+	- ID: 2026110920004210
+	- Type: Task
+	- Status: Stalled
+		- Held for the rc.1 cut, per its Requirements.
+	- Priority|Severity: Avg
+	- Opened: 20261109-200042
+	- Opened by: 2026102809292776
+	- Related IDs: 2026102809292776, 2026101913541100, 2026102112223038
+	- Target OS: Windows
+	- Requirements:
+		- MSYS2 deprecated MINGW64 on 2026-03-15, and since 2026-10-24 drops it from leaf packages as they update. The hosted build's pins hold until they're moved, but a move, such as for the GLib or GTK fixes, can find a package gone.
+		- UCRT64 links the exe and every DLL to Windows' UCRT in place of msvcrt, so all lanes move together: the hosted build, the pins, the cross build image and its sysroot, the wine runner, the analyzer's clang-win lane, and both Windows boxes.
+		- The cross image needs a mingw cross compiler that targets UCRT, so its objects and the sysroot's DLLs share one C runtime.
+		- Once it's done, take `suppress-deprecation-warnings` out of `release-win.yml`. dehzp then wants it gone.
+		- It waits until after the rc.1 cut, since the release build works as it is.
+		- Split it before starting. It doesn't fit one worker's time cap.
+	- Estimated effort: High
+	- 20261110: if the patched gtk3 of 2026102112223038 (children 2026111011404145 on) is in by then, it has to be rebuilt for UCRT64 too.
+
 - On Windows, GLib leaks the new name of every rename in a watched folder.
 	- ID: 2026101913541100
 	- Type: Bug
@@ -520,79 +423,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261021 counts, unique findings by where they are (vendored, inherited, ours, tests, system headers): gcc on the Linux list 2, 12, 0, 7, 1, total 22, with 3 files not analyzed; gcc on the Windows list 3, 21, 6, 7, 3, total 40; clang on the Linux list 3, 34, 15, 17, 0, total 69; clang on the Windows list not run, since `nemo-winbuild` doesn't have clang. That's 120 unique across the 3. The 5 in system headers are GLib macros, and count toward their callers.
 	- Test case: each new stage is its own test, with a planted fault it has to catch.
 
-- Build the "Nemo Anywhere" selection model with the affirmative switch off.
-	- ID: 2026102019174440
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: Yes
-	- Priority|Severity: High
-	- Opened: 20261020-191745
-	- Opened by: t00mietum
-	- Parent ID: 2026101816495208
-	- Prereq IDs: 2026102016594100, 2026102016594200
-	- Related IDs: 2026102019174477, 2026102019174514
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- Its own entry in the selection model dropdown, in the same conditionals as Nemo Anywhere v1 and Nemo Classic, tree view and content view.
-		- Only what the design doc keeps with the switch off:
-			- The dim checkmarks, which follow the selection exactly.
-			- The list view drag rule.
-			- Every selection rule, the range-ends arrows and the partial Explorer keys included.
-			- The tree view rules, less the affirmative parts.
-		- A command acts on the selection, full stop.
-		- Wording is the "Switch off" column of the wording table.
-		- Tests per rule and view, like the v1 and Classic ones.
-		- Not started until both carve-outs are done and their tests are green.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "The affirmative switch".
-	- Progress log:
-		- 20261020: opened.
-		- 20261024: split into children, worked in this order: 2026102407515570 (the setting value and rules tables), ...571 (dim checkmarks), ...572 (focus outline and keys), ...573 (mouse and drags), ...574 (tree view), ...575 (wording, keys, then the dropdown entry and the default).
-		- 20261108: `nemo-anywhere` is the default and heads the dropdown, ahead of the other children. See ...575.
-		- 20261110: ...575 is done, so all 6 children are.
-	- Test case: its children's: 2026102407515575: dd5df checks the dropdown's order and the default, and that a settings file naming a model keeps it. The rename region test (test-eel-rename-region) checks that the whole-name setting counts under v1 and Classic but not under the default. dec8w, de8bd and de8dm check per model and view: the Edit menu's entries, Select none clearing the selection, Ctrl+I inverting (Nemo Anywhere) or opening Properties (v1 and Classic), and the status bar line. ddxes and de55r open Properties with Alt+Enter.; 2026102407515574: its children's: 2026111013031747: df066, Tree keys and selection test: Ctrl+Down and Ctrl+Up, the outline, Escape, Ctrl+C after a Ctrl move, Ctrl+Space, Up after a Ctrl move, Ctrl+End and Ctrl+Home.; 2026111013031711: de8bd, de8dm and dec8w, where every tree check also checks the marks: on the selected row only under Nemo Anywhere, and no column for them under the other models. The result counts don't change. df06r covers the sideways scroll with the column there.; 2026111013031729: dec8w, Selection rules test, Nemo Anywhere: in each view, the check that every item is marked while the tree has the focus on the viewed folder, and that a click in the view takes the marks back to its selection.; 2026102407515571: its children's: 2026102411133414: dec8w and dec8v, where every icon view check also checks the marks: on the selected icons under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). Under Nemo Anywhere the 2 icon view band checks in dec8v check them too. The result counts don't change.; 2026102411133419: dec8w and dec8v, where every compact view check also checks the marks: on the selected items under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). The result counts don't change.; 2026102411133409: dec8w and dec8v, where every list view check also checks the marks, the bands included. de8bd, de8dm and dec8w check the column is there only under Nemo Anywhere, thin, and without the expanders.; 2026102407515572: its children's: 2026102412041971: dec8w, Selection rules test, Nemo Anywhere: the compact view's key checks, the outline among them.; 2026102412041969: dec8w, Selection rules test, Nemo Anywhere: the icon view's key checks, the outline among them.; 2026102412041967: dec8w, Selection rules test, Nemo Anywhere: the list view's key checks, the outline among them.; 2026102407515573: dec8v, Drag select test, Nemo Anywhere. In the list view: a band from the checkmark column down past the rows, and a Ctrl band up from a row not selected, each followed by the focus and a Shift+click from the anchor. In the icon and compact views: a band from the background over 2 or more icons, then a Shift+click. ddy5f and de8ec keep their counts.; 2026102407515570: dec8w, Selection rules test, Nemo Anywhere, and dec8v, Drag select test, Nemo Anywhere. dd5df checks the value is read and not offered.
-	- Closed: 20261110-220951
-
-- Nemo Anywhere: the switch-off wording and keys, then the dropdown entry and the default.
-	- ID: 2026102407515575
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: no. dec8w, de8bd and de8dm, and the tests that open Properties, passed 20261110.
-	- Priority|Severity: High
-	- Opened: 20261024-075155
-	- Opened by: t00mietum
-	- Parent ID: 2026102019174440
-	- Prereq IDs: 2026102407515571, 2026102407515572, 2026102407515573, 2026102407515574
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- The Edit menu has Select all, Select none and Invert selection, the "Switch off" column of the wording table.
-		- Ctrl+A selects all. Ctrl+I and Ctrl+Shift+I invert the selection. Properties keeps Alt+Enter. Nemo Anywhere v1 and Nemo Classic keep Ctrl+I as Properties.
-		- The status bar shows the selected count only, the doc's third line.
-		- "Nemo Anywhere" first in the dropdown, ahead of Nemo Classic and Nemo Anywhere v1, and `nemo-anywhere` becomes the default.
-		- Tests for the menu labels and keys per model, and the dropdown checks in dd5df and dbnfq.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Menus", "Status bar and dialogs" and "The affirmative switch".
-	- Notes:
-		- A settings file with no model set moves from v1 to Nemo Anywhere at that point.
-	- Progress log:
-		- 20261024: opened.
-		- 20261108: the dropdown entry and the default are in, ahead of the prereqs. "Nemo Anywhere" heads the dropdown, `nemo-anywhere` is the default in the key table and the schema, and a settings file with no model set now gets it. The wording, keys and status bar line are still to do.
-		- 20261108: the long press, keyboard menu and menus-freed probes took the list view's first column as the name cell, which is now the checkmark column. They take the expander column, which is Name under every model.
-		- 20261110: under Nemo Anywhere the Edit menu has Select none, between Select all and Select items matching. Ctrl+I inverts the selection there, as Ctrl+Shift+I does, and Properties is on Alt+Enter. The status bar reads "Ready to act on N items selected;  Free space: Z". The shortcuts window follows the model for Ctrl+I. v1 and Classic are unchanged.
-	- Decisions:
-		- The default moves ahead of the rest of the model, so the parts that are built show without a settings edit while the rest comes in. Those are the list view's checkmark column, the F2 pair, Ctrl+Shift+V, and the tree keys.
-		- Select all and Invert selection already had the switch-off wording, so only Select none is new. It clears the selection and leaves the focus where it was, as Select all and Invert do. Escape is still the way to drop the focus too.
-		- The status bar's "Ready to act on" line shows only while something is selected. With nothing selected it stays "N items, free space: Z", since there's nothing to act on. The floating bar keeps its short form.
-		- Ctrl+I stays one action, which picks Properties or Invert by the model, so a model change needs no accelerator swap. The Invert selection entry still shows Ctrl+Shift+I, which works under every model.
-	- Branch: anydefault, round1111a
-	- Test case: dd5df checks the dropdown's order and the default, and that a settings file naming a model keeps it. The rename region test (test-eel-rename-region) checks that the whole-name setting counts under v1 and Classic but not under the default. dec8w, de8bd and de8dm check per model and view: the Edit menu's entries, Select none clearing the selection, Ctrl+I inverting (Nemo Anywhere) or opening Properties (v1 and Classic), and the status bar line. ddxes and de55r open Properties with Alt+Enter.
-		- 20261110: dec8w's counts went from 98, 108 and 110 to 104, 114 and 116, and de8bd's and de8dm's from 72, 75 and 75 to 76, 79 and 79.
-	- Swept: the other Ctrl+I bindings (none outside the view's action), the tests that pressed Ctrl+I for Properties (ddxes and de55r, now Alt+Enter), the shortcuts window, and the Properties design doc's Windows key list.
-	- Verified: 20261110, dec8w, de8bd, de8dm, ddxes, de55r, dd5df, dbnfq, ddwn8, ddwn9 and ddgh6 pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
-	- Not covered by a test: the shortcuts window's Ctrl+I entries.
-	- Acceptance signoff: Self-closed: dec8w, de8bd and de8dm.
-	- Closed: 20261110-220510
-
 - Tree view: in "Checkmark selection" mode, folders follow the content view's selection rules and can be fully edited.
 	- ID: 2026102018234903
 	- Type: Enhancement
@@ -614,70 +444,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: treeedit
 	- Test case: df066 (Ctrl+C in the tree with the whole list selected).
 	- Decisions: 20261110, the tree stays single-select. Only the edit keys and menu entries come over, acting on the one selected folder. Multi-select waits for the affirmative switch.
-
-- Nemo Anywhere: the tree view rules, less the affirmative parts.
-	- ID: 2026102407515574
-	- Type: Enhancement
-	- Status: Done
-	- Needs local test suite run?: No
-	- Priority|Severity: High
-	- Opened: 20261024-075155
-	- Opened by: t00mietum
-	- Parent ID: 2026102019174440
-	- Prereq IDs: 2026102407515572, 2026102407515573
-	- Related IDs: 2026102018234903
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- The tree's own focus and anchor, under the mouse and keyboard rules of the content view.
-		- The dim checkmark, in an invisible column left of the tree.
-		- When the tree has the focus and the viewed folder is selected there, every object in the content view is drawn with the dim mark.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view".
-	- Decided: the tree stays single-select with the switch off, per the 20261110 Decisions row on 2026102018234903. Only the edit keys and menu entries come over, acting on the one selected folder.
-	- Progress log:
-		- 20261024: opened.
-		- 20261110: split into children, worked in this order: 2026111013031711 (the dim checkmark column), ...729 (the content view's marks while the tree has the focus), ...747 (the tree's focus and keys).
-		- 20261110: ...711 and ...729 are done. ...747 is queued.
-		- 20261110: ...747 is done, so all 3 are.
-	- Test case: its children's: 2026111013031747: df066, Tree keys and selection test: Ctrl+Down and Ctrl+Up, the outline, Escape, Ctrl+C after a Ctrl move, Ctrl+Space, Up after a Ctrl move, Ctrl+End and Ctrl+Home.; 2026111013031711: de8bd, de8dm and dec8w, where every tree check also checks the marks: on the selected row only under Nemo Anywhere, and no column for them under the other models. The result counts don't change. df06r covers the sideways scroll with the column there.; 2026111013031729: dec8w, Selection rules test, Nemo Anywhere: in each view, the check that every item is marked while the tree has the focus on the viewed folder, and that a click in the view takes the marks back to its selection.
-	- Closed: 20261110-214839
-	- Verified: 20261111, the round's quick run at 9dc03cfc passed, 242 OK and 1 skipped (de5hh), with df066, dec8w, de8bd and de8dm among them.
-
-- Nemo Anywhere tree view: its own focus and anchor, under the content view's mouse and keyboard rules.
-	- ID: 2026111013031747
-	- Type: Enhancement
-	- Status: Done
-	- Priority|Severity: High
-	- Opened: 20261110-130317
-	- Opened by: t00mietum
-	- Parent ID: 2026102407515574
-	- Target OS: All
-	- Requirements:
-		- Before the next cut.
-		- Only under Nemo Anywhere, and single-select, per the parent.
-		- No focus outline, except while a Ctrl+Up or Ctrl+Down has put the focus on a row that isn't selected.
-		- Ctrl+Up and Ctrl+Down move the focus alone, opening nothing. Ctrl+Space selects the focused row, which opens it. After a Ctrl move, Up and Down count from the focus.
-		- Ctrl+Home and Ctrl+End are the same as the key alone.
-		- Escape drops a Ctrl move's focus. What else it clears needs a Decisions row, since the tree's selected row is the viewed folder.
-		- df066 checks each key.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view", "Mouse" and "Keyboard".
-	- Progress log:
-		- 20261110: under Nemo Anywhere the tree keeps its own focus. Ctrl+Up and Ctrl+Down move it alone and open nothing, and the outline shows only while it's off the selected row. Ctrl+Space selects the focused row, which opens it. Up, Down, Page Up and Page Down count from the selected row, or from the focus after a Ctrl move. Ctrl+Home and Ctrl+End are Home and End. Escape and a click drop a Ctrl move's focus.
-		- 20261110: Ctrl+C, Ctrl+X, Ctrl+V, Delete and Shift+Delete in the tree act on the selected folder. Before, they took the row with the focus, which a Ctrl move can leave elsewhere.
-	- Decisions:
-		- Escape puts the focus back on the selected row and clears nothing else. The selected row is the viewed folder, so clearing it would leave the tree showing no place while the content view still shows one. With no Ctrl move to drop, Escape does nothing, as before.
-		- Ctrl+Space on the selected row does nothing, since a single-select tree has nothing to take out. GTK's own Ctrl+Space would unselect the viewed folder.
-		- Ctrl+Shift+Up and Ctrl+Shift+Down are Ctrl+Up and Ctrl+Down, since there's no run to add.
-		- No anchor is kept. A single-select tree has no Shift run, so Shift with an arrow moves the selection as the arrow does. The mouse rules stay v1's, which are already the content view's for one row.
-		- Ctrl with Page Up or Page Down is left alone, as in the list view.
-	- Swept: every key in the design doc's "Keyboard" that a single-select tree can take, the edit keys, which read the cursor, and each place the cursor moves without a key: a click, a folder change from the content view or the toolbar, Left to the parent, and a change of the setting. The list view's twin uses the same flag and style class.
-	- Branch: round1111a
-	- Test case: df066, Tree keys and selection test: Ctrl+Down and Ctrl+Up, the outline, Escape, Ctrl+C after a Ctrl move, Ctrl+Space, Up after a Ctrl move, Ctrl+End and Ctrl+Home.
-		- 20261110: df066 expects 18 results, up from 8.
-	- Not covered by a test yet: the outline as drawn on screen, Page Up and Page Down, and a click dropping a Ctrl move's focus.
-	- Verified: 20261110, df066 fails 7 of its 10 new checks on the old code and passes with the change. The other 3, Ctrl+Down's own move, opening nothing and the outline showing, were already GTK's. de8bd, de8dm, dec8w and df06r pass. The quick gate's format and lint pass. Neither analyzer reports anything on the 3 changed files.
-	- Acceptance signoff: Self-closed: df066.
-	- Closed: 20261110-214335
 
 - Affirmative checkmarks: the switch and the places it will plug into, with no affirmative behavior yet.
 	- ID: 2026102019174477
@@ -749,25 +515,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261025: split into children 2026102517333367 (`cicd.bash`, the gate included) and 2026102517333373 (`cicd-win.ps1` and the other boxes).
 	- Test case: none yet.
 
-- Move every Windows lane from MSYS2's MINGW64 to UCRT64.
-	- ID: 2026110920004210
+- Changelog: the Nemo Anywhere selection model, for rc.1.
+	- ID: 2026111022095190
 	- Type: Task
-	- Status: Stalled
-		- Held for the rc.1 cut, per its Requirements.
+	- Status: Queued
 	- Priority|Severity: Avg
-	- Opened: 20261109-200042
-	- Opened by: 2026102809292776
-	- Related IDs: 2026102809292776, 2026101913541100, 2026102112223038
-	- Target OS: Windows
-	- Requirements:
-		- MSYS2 deprecated MINGW64 on 2026-03-15, and since 2026-10-24 drops it from leaf packages as they update. The hosted build's pins hold until they're moved, but a move, such as for the GLib or GTK fixes, can find a package gone.
-		- UCRT64 links the exe and every DLL to Windows' UCRT in place of msvcrt, so all lanes move together: the hosted build, the pins, the cross build image and its sysroot, the wine runner, the analyzer's clang-win lane, and both Windows boxes.
-		- The cross image needs a mingw cross compiler that targets UCRT, so its objects and the sysroot's DLLs share one C runtime.
-		- Once it's done, take `suppress-deprecation-warnings` out of `release-win.yml`. dehzp then wants it gone.
-		- It waits until after the rc.1 cut, since the release build works as it is.
-		- Split it before starting. It doesn't fit one worker's time cap.
-	- Estimated effort: High
-	- 20261110: if the patched gtk3 of 2026102112223038 (children 2026111011404145 on) is in by then, it has to be rebuilt for UCRT64 too.
+	- Opened: 20261110-220951
+	- Opened by:
+	- Related IDs: 2026102019174440, 2026102407515575
+	- Progress log:
+		- The selection model work has no changelog entry yet: the model as the default, its checkmarks, focus and keys, Select none, Ctrl+I inverting and Properties on Alt+Enter, and the status bar line.
+		- Test case: the docs checks.
 
 - Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
 	- ID: 2026102114400592
@@ -823,33 +581,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261110: first whole-tree counts: Linux 55 (6 ours, 7 tests, 42 inherited), Windows 67 (7 ours, 17 tests, 43 inherited), 0 cut off, 861 s for both lanes. The report-only branch in analyze.bash takes any non-zero exit from count as findings, so a crash of count passed too. Making findings fail closes that.
 		- 20261110: split into children: `2026111022134952` (ours and tests, and the cause of most of the counts), Done, and `2026111022135419` (inherited, then they fail the run), Queued.
-
-- Static analyzers: the cross-file clang findings in our code and the tests fixed or suppressed.
-	- ID: 2026111022134952
-	- Type: Task
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261110-221349
-	- Opened by: 2026110920251244
-	- Parent ID: 2026110920251244
-	- Prereq IDs: 2026110920250275
-	- Target OS: Linux
-	- Requirements:
-		- Every finding the cross-file run has in our files and in the tests, in either lane, is fixed, or suppressed at the line with a one-line reason, per the parent.
-	- Estimated effort: Avg
-	- Test case: de8eq, now with a NULL read the other file suppresses, which has to stay quiet.
-	- Actual effort: Avg
-	- Progress log:
-		- 20261110: most of the first counts weren't new findings. clang parses the other file without `__clang_analyzer__`, so every `EEL_ANALYZER_SKIP` there was empty and its finding came back through the caller. `ctu_prepare` now defines it. The whole run after that has Linux 15 (11 inherited, 1 ours, 3 tests) and Windows 22 (11 inherited, 1 ours, 10 tests), against 55 and 67.
-		- 20261110: 11 of the tests' 13 came from `make_in` in `test-scratch.c`, which clang read as maybe giving NULL with no error set, so every caller printing `error->message` was flagged. The 2 in `test-nemo-dnd-win32.c` and the 1 in `nemo-instances.c` are suppressed at the line.
-	- Decisions:
-		- `make_in` asserts that `g_build_filename` gave a path, rather than taking `g_mkdtemp_full`'s return in a second variable, since cppcheck then reads the first as leaked.
-		- `nemo_instances_win32_start` leaves error unset only on its critical for a second start, which `instances_up` rules out, so the caller's line is suppressed rather than the critical turned into an error.
-		- `arc-path-list.c:162` is ours but goes to `...5419`. archive-core doesn't use eel, so it needs its own form of the skip, or zeroed entries, which its growth would undo.
-	- Swept: every test that reads `error->message` after `test_scratch_dir` goes through `make_in`. The other users of `analyzer_argv`'s parse form are `ctu_prepare`'s index and invocation list, which share `flags`.
-	- Branch: round1111a
-	- Verified: 20261110, de8eq passes in both containers, and fails in the Linux one without the define. The whole cross-file run (796 s, 4 jobs a lane) has no finding left in ours or tests apart from `arc-path-list.c`, after which the changed files and every test it flagged, rerun across files in both lanes, give none. gcc and clang per file give none on the changed files. de8em passes, df30s and ddn4x pass, and the format and lint gate passes.
-	- Closed: 20261110-224837
 
 - Static analyzers: the cross-file clang findings in inherited code fixed or suppressed, then they fail the run.
 	- ID: 2026111022135419
@@ -1038,36 +769,52 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: the xattrs checkbox is today's "Save checksums onto the files", moved and relabeled.
 	- Test case: none yet.
 
-- List view under Nemo Anywhere: Ctrl+Shift+click runs from the focus, not the anchor.
-	- ID: 2026111012592994
+- Folder tree model: the number of top-level rows is always 1.
+	- ID: 2026111021433545
 	- Type: Bug
-	- Status: Done
+	- Status: Queued
 	- Priority|Severity: Low
-	- Opened: 20261110-125929
+	- Opened: 20261110-214335
 	- Opened by: t00mietum
-	- Related IDs: 2026111012335173, 2026111019540307, 2026111019540326
+	- Related IDs: 2026111013031747
 	- Target OS: All
-	- Steps to reproduce: list view, Nemo Anywhere. Click row 2, Ctrl+Down twice, then Ctrl+Shift+click row 6.
-	- Incorrect behavior: likely adds rows 4 to 6 from the focus, rather than 2 to 6. The anchor then goes to row 4.
-	- Expected behavior: the run goes from the anchor, and the anchor stays, per the design doc's "Mouse".
-	- Reproduced: 20261110, under Nemo Anywhere in dec8w's new checks. The Ctrl+Shift+click selected rows 2 and 4 to 6, and a Shift+click after it ran from row 4. After a Ctrl+click took a row out, Ctrl+Space toggled the row the focus was on before.
-	- Possible cause: the press runs from GTK's cursor, since GTK has no call that gives its anchor. They differ after a Ctrl+arrow, since a Shift run already includes the rows between them. A Ctrl+click on a selected row may leave the focus behind the same way, since the release only unselects it.
-	- Actual cause:
-		- As above, both. Unselecting the row moves GTK's anchor there, but not its cursor.
-	- Decisions:
-		- v1 and Classic keep theirs, as in 2026111012335173.
-		- When GtkTreeView doesn't run the Shift+click, as on a press it counts as a second click, the run goes from the focus as before. So does one on an expander, where GTK's press would open or close the row.
-		- A Ctrl+click that takes a row out shows no focus outline, since only a Ctrl+arrow does. Plain Up and Down still count from the range ends.
-		- A Ctrl+Shift+click on a selected object still takes it out, filed as 2026111019540307. The icon views' anchor after a Ctrl+click that takes an icon out is 2026111019540326.
-		- 20261111: both filed bugs, 2026111019540307 and 2026111019540326, fixed in 7a234231.
-	- Actual fix: under Nemo Anywhere a Ctrl+Shift+click lets GtkTreeView run its own Shift+click, which goes from its anchor, then puts back what was selected and the anchor. A Ctrl+click that takes a row out moves the focus there too.
-	- Swept: the list view's other Ctrl+Shift run (the arrow keys, already from GTK's anchor), the band, both presses (Classic keeps upstream's), and the release after a click on a selected row. The icon container keeps its own anchor, so its Ctrl+Shift+click already runs from it. The tree pane is single-select.
-	- Branch: round1111a
-	- Test case: dec8w, Selection rules test, Nemo Anywhere. In the list view: a Ctrl+Shift+click after Ctrl+Down twice, a Shift+click after it, and Ctrl+Space after a Ctrl+click that took a row out.
-		- 20261110: dec8w's list view count under Nemo Anywhere went from 92 to 95.
-	- Verified: 20261110, dec8w fails on the old code (the 3 new checks) and passes with the fix. de8bd, de8dm, ddy5f, de8ec and dec8v pass. The quick gate's format and lint pass. Neither analyzer reports anything on the changed files.
-	- Acceptance signoff: Self-closed: dec8w.
-	- Closed: 20261110-195434
+	- Steps to reproduce: call gtk_tree_model_iter_n_children with no parent on the tree pane's model, with Computer, Home and File system showing.
+	- Incorrect behavior: it returns 1, so code that takes the last top-level row as the count less one gets the first row instead.
+	- Expected behavior: the number of top-level rows.
+	- Reproduced: 20261110, in df066's probe, which then walks the rows with gtk_tree_model_iter_next instead.
+	- Possible cause: fm_tree_model_iter_n_children returns 1 for a NULL parent rather than counting root_node and its siblings (nemo-tree-sidebar-model.c), inherited from upstream.
+	- Test case: none yet. A check in df066's probe that the count matches the rows gtk_tree_model_iter_next walks.
+
+- Icon views under Nemo Anywhere: a Ctrl+Shift drag from a selected icon also takes the run to it.
+	- ID: 2026111021233343
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261110-212333
+	- Opened by: t00mietum
+	- Related IDs: 2026111019540307
+	- Target OS: All
+	- Steps to reproduce: icon or compact view, Nemo Anywhere. Click icon 0, Ctrl+click icon 3, then Ctrl+Shift+drag icon 3 somewhere.
+	- Incorrect behavior: the press adds the run from the anchor to icon 3 at once, as v1's does, so the drag takes icons 0 to 3.
+	- Expected behavior: the drag takes the selection as it was, icons 0 and 3, as the list view's does. Only a Ctrl+Shift+click adds the run, on its release, per the design doc's "Mouse".
+	- Reproduced: no. This comes from a reading of the icon container's press, which runs a Shift press from the anchor whether or not the icon is selected.
+	- Test case: none yet. dec8v would get the steps above in both icon views, as its list view check does.
+
+- On Linux and BSD, a bundled icon set picked in the settings file may draw Adwaita's folders instead of its own.
+	- ID: 2026111020501135
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261110-205011
+	- Opened by: 2026102515500000
+	- Related IDs: 2026102515500000
+	- Target OS: Linux, BSD
+	- Steps to reproduce: on a desktop with the adwaita-icon-theme package installed, set `appearance` `icon-theme` to a bundled set such as Mica in the settings file, and open a folder with a subfolder and a text file.
+	- Incorrect behavior: likely Adwaita's blue folder and plain text icon, not the set's own.
+	- Expected behavior: the picked set's own icons, as on Windows.
+	- Reproduced: No.
+	- Possible cause: the one found in 2026102515500000. GTK 3 looks in an Adwaita theme on disk before hicolor, and the bundled sets sit in hicolor. Here the system's Adwaita is on disk. design.md says Linux and the BSDs use the desktop's themes, so this is only for a pick in the settings file.
+	- Test case: none yet.
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
@@ -1112,65 +859,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: in 2026111011410487. The pinned GTK has to free a drag canceled in the turn it began.
 	- Verified: under wine, GTK 3.24.52, with OLE on, a begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. A cancel 300 ms in frees both, as does OLE off either way. It was the same on Windows 11 on 20261022. With the patch, on Windows 11 on 20261022, a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
 	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, without any pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
-
-- ddqdq with no monitor: the copies never list a titled window.
-	- ID: 2026103115510091
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20261031-155100
-	- Opened by: 2026102822580302
-	- Related IDs: 2026102822580302, 2026103114202730
-	- Target OS: Windows
-	- Steps to reproduce: ddqdq on native Windows from ssh, in session 0, with its no-monitor skip taken out.
-	- Incorrect behavior: it times out waiting for the alpha and beta window titles, with "gdk_monitor_get_geometry: assertion 'GDK_IS_MONITOR (monitor)' failed".
-	- Expected behavior: the copies list their windows with titles, as they did at 1694aeb with no monitor. A disconnected session doesn't have a monitor either.
-	- Reproduced: 20261028 on b29w, at 2964120b and 051f2d14.
-	- Possible cause: not looked into. It's something between 1694aeb and 2964120b, maybe the jail.
-	- Actual cause:
-		- The titles were there, but cut short. With no monitor the window is 1028 px wide, and a full path title is shortened to fit, with `...` for the folders it leaves out. That cut `nemo-copies-`, which the test took as the sign of a whole path, so the 2 waits for alpha's and beta's whole path titles timed out.
-		- The jail (71bb7a65) put the scratch folder deeper, under `nemo-suite-*`, the test's own folder and its `tmp`, so the path no longer fit in 1028 px. At 1694aeb it did.
-		- The GDK assertion shows in passing runs too, and isn't part of it.
-	- Actual fix: 9736011e already has ddqdq look for the folder at the end of a path, whatever the window cuts. ddqdq's no-monitor skip is gone, so it runs in the gate over ssh again.
-	- Decisions:
-		- The skip goes, since what ddqdq checks is the link between copies, which doesn't need a screen. A run without a monitor covers a disconnected session too.
-		- So ddqdq runs in the gate on b29w now, not in the lane's desktop step.
-	- Swept: the other no-monitor skips from 484a8e8b. debgn needs the focus, which never comes back in session 0, so it keeps its skip. dbxkh's skip is about the shell, not a monitor. dcrph, the other full path title test, has no window to cut a title.
-	- Branch: round1111a
-	- Commit: 08de1b8b
-	- Test case: ddqdq.
-	- Verified: 20261110, native gate on b29w over ssh, with 0 monitors. ddqdq passes without its skip, with 194 OK and 0 failed. In a second gate there, with 0 monitors too, the whole path titles came back as `C:\ProgramData\nemo-anywhere\<run>\tmp\nemo-anywhere\...\alpha-folder - Nemo Anywhere`, which the check before 9736011e refuses and the current one takes.
-	- Acceptance signoff: Self-closed: ddqdq passes in the gate on b29w without a monitor.
-	- Closed: 20261110-202331
-
-- On Windows, the zip draws some file icons differently from the single exe.
-	- ID: 2026102515500000
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20261025-155000
-	- Opened by: 2026101007562511
-	- Related IDs: 2026101007562511
-	- Target OS: Windows
-	- Steps to reproduce: extract the release zip and start the app, then start the single exe built from the same commit. Look at a bookmark's folder icon and a text file's icon.
-	- Incorrect behavior: the zip draws the bookmark's folder icon blue and the text file's icon plain.
-	- Expected behavior: the same icons as the single exe, tan and lined.
-	- Reproduced: 20261022 on vm925w, while checking 2026101007562511.
-	- Reproduced: 20261111 under wine, with the beta2 zip: blue folders and a plain text icon. The same tree without its `share/icons/Adwaita` and `AdwaitaLegacy` draws a tan folder and Mica's lined text icon.
-	- Actual cause: the zip copied the sysroot's whole `share/icons`, which has upstream's Adwaita (blue folders, plain mimetypes) and AdwaitaLegacy, 2744 files. GTK 3 always looks in an Adwaita theme on disk before hicolor, and it reads the bundled icon sets as part of hicolor, so the on-disk Adwaita won for every name it has. The single exe stages only hicolor, so the bundled sets win there.
-	- Actual fix: the zip and the wine runner take only hicolor from the sysroot's icons, as `stage-native.bash` already did. ddqjk now refuses any bundle with an icon theme on disk but hicolor.
-	- Decisions:
-		- Fix the bundle, not the lookup. GTK 3 has no way to put a resource path ahead of an on-disk Adwaita, and the single exe already lives without these files.
-	- Swept: every place that stages Windows icons: `stage-native.bash` (single exe and the hosted release build, already hicolor only), `pack-zip.bash` (zip, then the setup exe and `install.ps1`), `utility/run-windows-build-via-wine.bash`. `pack-portable.ps1` and `pack-setup.bash` copy what those made. The Linux and FreeBSD packages carry only hicolor, and ddqjk passes on the beta2 ones. A staged `cicd/artifacts/win-run` keeps the old icons until `--restage`.
-	- Verified: ddqjk fails on the beta2 zip (Adwaita and AdwaitaLegacy on disk) and passes on the same tree with only hicolor. Its self-test fails with the new check turned off and passes with it. The quick format and lint gate passes.
-	- Branch: round1111a
-	- Commit: db39bd1d
-	- Test case: ddqjk (`test-bundle-left-out.bash`), the Windows bundle check in the packages stage, and its self-test in lint.
-	- Verified 20261111: ddqjk passes on a zip packed from 181fb8ff, which has db39bd1d, with only hicolor under share/icons. It fails on the published beta2 zip.
-	- Note 20261111: under wine the published beta2 zip and the 181fb8ff zip draw the same light tan folders, Places bookmarks included, and the same lined text icon, in the list and icon views. So wine doesn't show this bug, and the wine reading above doesn't hold. Only vm925w can judge the look.
-	- Verified 20261111 on vm925w: the zip packed from 181fb8ff and a single exe packed from the same cross build open the same folder with the same tan folder and lined text icon, in the list and icon views, and the same tan bookmark folders. The published beta2 zip draws a blue folder and a plain text icon there, and the same beta2 tree without its Adwaita and AdwaitaLegacy folders draws tan and lined.
-	- Acceptance signoff: Self-closed: the vm925w check above.
-	- Closed: 20261110-232922
 
 - Windows: build MSYS2's gtk3 with the OLE drag abort fix in `t00mietum/nemo-anywhere-deps`, as a pinned release file.
 	- ID: 2026111011404145
@@ -2030,6 +1718,143 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass 3 runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. dd8d9 covers it.
 	- Closed: 20261003-112426
+
+- Build the "Nemo Anywhere" selection model with the affirmative switch off.
+	- ID: 2026102019174440
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: Yes
+	- Priority|Severity: High
+	- Opened: 20261020-191745
+	- Opened by: t00mietum
+	- Parent ID: 2026101816495208
+	- Prereq IDs: 2026102016594100, 2026102016594200
+	- Related IDs: 2026102019174477, 2026102019174514
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Its own entry in the selection model dropdown, in the same conditionals as Nemo Anywhere v1 and Nemo Classic, tree view and content view.
+		- Only what the design doc keeps with the switch off:
+			- The dim checkmarks, which follow the selection exactly.
+			- The list view drag rule.
+			- Every selection rule, the range-ends arrows and the partial Explorer keys included.
+			- The tree view rules, less the affirmative parts.
+		- A command acts on the selection, full stop.
+		- Wording is the "Switch off" column of the wording table.
+		- Tests per rule and view, like the v1 and Classic ones.
+		- Not started until both carve-outs are done and their tests are green.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "The affirmative switch".
+	- Progress log:
+		- 20261020: opened.
+		- 20261024: split into children, worked in this order: 2026102407515570 (the setting value and rules tables), ...571 (dim checkmarks), ...572 (focus outline and keys), ...573 (mouse and drags), ...574 (tree view), ...575 (wording, keys, then the dropdown entry and the default).
+		- 20261108: `nemo-anywhere` is the default and heads the dropdown, ahead of the other children. See ...575.
+		- 20261110: ...575 is done, so all 6 children are.
+	- Test case: its children's: 2026102407515575: dd5df checks the dropdown's order and the default, and that a settings file naming a model keeps it. The rename region test (test-eel-rename-region) checks that the whole-name setting counts under v1 and Classic but not under the default. dec8w, de8bd and de8dm check per model and view: the Edit menu's entries, Select none clearing the selection, Ctrl+I inverting (Nemo Anywhere) or opening Properties (v1 and Classic), and the status bar line. ddxes and de55r open Properties with Alt+Enter.; 2026102407515574: its children's: 2026111013031747: df066, Tree keys and selection test: Ctrl+Down and Ctrl+Up, the outline, Escape, Ctrl+C after a Ctrl move, Ctrl+Space, Up after a Ctrl move, Ctrl+End and Ctrl+Home.; 2026111013031711: de8bd, de8dm and dec8w, where every tree check also checks the marks: on the selected row only under Nemo Anywhere, and no column for them under the other models. The result counts don't change. df06r covers the sideways scroll with the column there.; 2026111013031729: dec8w, Selection rules test, Nemo Anywhere: in each view, the check that every item is marked while the tree has the focus on the viewed folder, and that a click in the view takes the marks back to its selection.; 2026102407515571: its children's: 2026102411133414: dec8w and dec8v, where every icon view check also checks the marks: on the selected icons under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). Under Nemo Anywhere the 2 icon view band checks in dec8v check them too. The result counts don't change.; 2026102411133419: dec8w and dec8v, where every compact view check also checks the marks: on the selected items under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). The result counts don't change.; 2026102411133409: dec8w and dec8v, where every list view check also checks the marks, the bands included. de8bd, de8dm and dec8w check the column is there only under Nemo Anywhere, thin, and without the expanders.; 2026102407515572: its children's: 2026102412041971: dec8w, Selection rules test, Nemo Anywhere: the compact view's key checks, the outline among them.; 2026102412041969: dec8w, Selection rules test, Nemo Anywhere: the icon view's key checks, the outline among them.; 2026102412041967: dec8w, Selection rules test, Nemo Anywhere: the list view's key checks, the outline among them.; 2026102407515573: dec8v, Drag select test, Nemo Anywhere. In the list view: a band from the checkmark column down past the rows, and a Ctrl band up from a row not selected, each followed by the focus and a Shift+click from the anchor. In the icon and compact views: a band from the background over 2 or more icons, then a Shift+click. ddy5f and de8ec keep their counts.; 2026102407515570: dec8w, Selection rules test, Nemo Anywhere, and dec8v, Drag select test, Nemo Anywhere. dd5df checks the value is read and not offered.
+	- Closed: 20261110-220951
+
+- Nemo Anywhere: the switch-off wording and keys, then the dropdown entry and the default.
+	- ID: 2026102407515575
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: no. dec8w, de8bd and de8dm, and the tests that open Properties, passed 20261110.
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Prereq IDs: 2026102407515571, 2026102407515572, 2026102407515573, 2026102407515574
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- The Edit menu has Select all, Select none and Invert selection, the "Switch off" column of the wording table.
+		- Ctrl+A selects all. Ctrl+I and Ctrl+Shift+I invert the selection. Properties keeps Alt+Enter. Nemo Anywhere v1 and Nemo Classic keep Ctrl+I as Properties.
+		- The status bar shows the selected count only, the doc's third line.
+		- "Nemo Anywhere" first in the dropdown, ahead of Nemo Classic and Nemo Anywhere v1, and `nemo-anywhere` becomes the default.
+		- Tests for the menu labels and keys per model, and the dropdown checks in dd5df and dbnfq.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Menus", "Status bar and dialogs" and "The affirmative switch".
+	- Notes:
+		- A settings file with no model set moves from v1 to Nemo Anywhere at that point.
+	- Progress log:
+		- 20261024: opened.
+		- 20261108: the dropdown entry and the default are in, ahead of the prereqs. "Nemo Anywhere" heads the dropdown, `nemo-anywhere` is the default in the key table and the schema, and a settings file with no model set now gets it. The wording, keys and status bar line are still to do.
+		- 20261108: the long press, keyboard menu and menus-freed probes took the list view's first column as the name cell, which is now the checkmark column. They take the expander column, which is Name under every model.
+		- 20261110: under Nemo Anywhere the Edit menu has Select none, between Select all and Select items matching. Ctrl+I inverts the selection there, as Ctrl+Shift+I does, and Properties is on Alt+Enter. The status bar reads "Ready to act on N items selected;  Free space: Z". The shortcuts window follows the model for Ctrl+I. v1 and Classic are unchanged.
+	- Decisions:
+		- The default moves ahead of the rest of the model, so the parts that are built show without a settings edit while the rest comes in. Those are the list view's checkmark column, the F2 pair, Ctrl+Shift+V, and the tree keys.
+		- Select all and Invert selection already had the switch-off wording, so only Select none is new. It clears the selection and leaves the focus where it was, as Select all and Invert do. Escape is still the way to drop the focus too.
+		- The status bar's "Ready to act on" line shows only while something is selected. With nothing selected it stays "N items, free space: Z", since there's nothing to act on. The floating bar keeps its short form.
+		- Ctrl+I stays one action, which picks Properties or Invert by the model, so a model change needs no accelerator swap. The Invert selection entry still shows Ctrl+Shift+I, which works under every model.
+	- Branch: anydefault, round1111a
+	- Test case: dd5df checks the dropdown's order and the default, and that a settings file naming a model keeps it. The rename region test (test-eel-rename-region) checks that the whole-name setting counts under v1 and Classic but not under the default. dec8w, de8bd and de8dm check per model and view: the Edit menu's entries, Select none clearing the selection, Ctrl+I inverting (Nemo Anywhere) or opening Properties (v1 and Classic), and the status bar line. ddxes and de55r open Properties with Alt+Enter.
+		- 20261110: dec8w's counts went from 98, 108 and 110 to 104, 114 and 116, and de8bd's and de8dm's from 72, 75 and 75 to 76, 79 and 79.
+	- Swept: the other Ctrl+I bindings (none outside the view's action), the tests that pressed Ctrl+I for Properties (ddxes and de55r, now Alt+Enter), the shortcuts window, and the Properties design doc's Windows key list.
+	- Verified: 20261110, dec8w, de8bd, de8dm, ddxes, de55r, dd5df, dbnfq, ddwn8, ddwn9 and ddgh6 pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
+	- Not covered by a test: the shortcuts window's Ctrl+I entries.
+	- Acceptance signoff: Self-closed: dec8w, de8bd and de8dm.
+	- Closed: 20261110-220510
+
+- Nemo Anywhere: the tree view rules, less the affirmative parts.
+	- ID: 2026102407515574
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: No
+	- Priority|Severity: High
+	- Opened: 20261024-075155
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174440
+	- Prereq IDs: 2026102407515572, 2026102407515573
+	- Related IDs: 2026102018234903
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- The tree's own focus and anchor, under the mouse and keyboard rules of the content view.
+		- The dim checkmark, in an invisible column left of the tree.
+		- When the tree has the focus and the viewed folder is selected there, every object in the content view is drawn with the dim mark.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view".
+	- Decided: the tree stays single-select with the switch off, per the 20261110 Decisions row on 2026102018234903. Only the edit keys and menu entries come over, acting on the one selected folder.
+	- Progress log:
+		- 20261024: opened.
+		- 20261110: split into children, worked in this order: 2026111013031711 (the dim checkmark column), ...729 (the content view's marks while the tree has the focus), ...747 (the tree's focus and keys).
+		- 20261110: ...711 and ...729 are done. ...747 is queued.
+		- 20261110: ...747 is done, so all 3 are.
+	- Test case: its children's: 2026111013031747: df066, Tree keys and selection test: Ctrl+Down and Ctrl+Up, the outline, Escape, Ctrl+C after a Ctrl move, Ctrl+Space, Up after a Ctrl move, Ctrl+End and Ctrl+Home.; 2026111013031711: de8bd, de8dm and dec8w, where every tree check also checks the marks: on the selected row only under Nemo Anywhere, and no column for them under the other models. The result counts don't change. df06r covers the sideways scroll with the column there.; 2026111013031729: dec8w, Selection rules test, Nemo Anywhere: in each view, the check that every item is marked while the tree has the focus on the viewed folder, and that a click in the view takes the marks back to its selection.
+	- Closed: 20261110-214839
+	- Verified: 20261111, the round's quick run at 9dc03cfc passed, 242 OK and 1 skipped (de5hh), with df066, dec8w, de8bd and de8dm among them.
+
+- Nemo Anywhere tree view: its own focus and anchor, under the content view's mouse and keyboard rules.
+	- ID: 2026111013031747
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261110-130317
+	- Opened by: t00mietum
+	- Parent ID: 2026102407515574
+	- Target OS: All
+	- Requirements:
+		- Before the next cut.
+		- Only under Nemo Anywhere, and single-select, per the parent.
+		- No focus outline, except while a Ctrl+Up or Ctrl+Down has put the focus on a row that isn't selected.
+		- Ctrl+Up and Ctrl+Down move the focus alone, opening nothing. Ctrl+Space selects the focused row, which opens it. After a Ctrl move, Up and Down count from the focus.
+		- Ctrl+Home and Ctrl+End are the same as the key alone.
+		- Escape drops a Ctrl move's focus. What else it clears needs a Decisions row, since the tree's selected row is the viewed folder.
+		- df066 checks each key.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "Tree view", "Mouse" and "Keyboard".
+	- Progress log:
+		- 20261110: under Nemo Anywhere the tree keeps its own focus. Ctrl+Up and Ctrl+Down move it alone and open nothing, and the outline shows only while it's off the selected row. Ctrl+Space selects the focused row, which opens it. Up, Down, Page Up and Page Down count from the selected row, or from the focus after a Ctrl move. Ctrl+Home and Ctrl+End are Home and End. Escape and a click drop a Ctrl move's focus.
+		- 20261110: Ctrl+C, Ctrl+X, Ctrl+V, Delete and Shift+Delete in the tree act on the selected folder. Before, they took the row with the focus, which a Ctrl move can leave elsewhere.
+	- Decisions:
+		- Escape puts the focus back on the selected row and clears nothing else. The selected row is the viewed folder, so clearing it would leave the tree showing no place while the content view still shows one. With no Ctrl move to drop, Escape does nothing, as before.
+		- Ctrl+Space on the selected row does nothing, since a single-select tree has nothing to take out. GTK's own Ctrl+Space would unselect the viewed folder.
+		- Ctrl+Shift+Up and Ctrl+Shift+Down are Ctrl+Up and Ctrl+Down, since there's no run to add.
+		- No anchor is kept. A single-select tree has no Shift run, so Shift with an arrow moves the selection as the arrow does. The mouse rules stay v1's, which are already the content view's for one row.
+		- Ctrl with Page Up or Page Down is left alone, as in the list view.
+	- Swept: every key in the design doc's "Keyboard" that a single-select tree can take, the edit keys, which read the cursor, and each place the cursor moves without a key: a click, a folder change from the content view or the toolbar, Left to the parent, and a change of the setting. The list view's twin uses the same flag and style class.
+	- Branch: round1111a
+	- Test case: df066, Tree keys and selection test: Ctrl+Down and Ctrl+Up, the outline, Escape, Ctrl+C after a Ctrl move, Ctrl+Space, Up after a Ctrl move, Ctrl+End and Ctrl+Home.
+		- 20261110: df066 expects 18 results, up from 8.
+	- Not covered by a test yet: the outline as drawn on screen, Page Up and Page Down, and a click dropping a Ctrl move's focus.
+	- Verified: 20261110, df066 fails 7 of its 10 new checks on the old code and passes with the change. The other 3, Ctrl+Down's own move, opening nothing and the outline showing, were already GTK's. de8bd, de8dm, dec8w and df06r pass. The quick gate's format and lint pass. Neither analyzer reports anything on the 3 changed files.
+	- Acceptance signoff: Self-closed: df066.
+	- Closed: 20261110-214335
 
 - Nemo Anywhere dim checkmarks: the icon view.
 	- ID: 2026102411133414
@@ -5629,6 +5454,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: de025 tests it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
 
+- Static analyzers: the cross-file clang findings in our code and the tests fixed or suppressed.
+	- ID: 2026111022134952
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261110-221349
+	- Opened by: 2026110920251244
+	- Parent ID: 2026110920251244
+	- Prereq IDs: 2026110920250275
+	- Target OS: Linux
+	- Requirements:
+		- Every finding the cross-file run has in our files and in the tests, in either lane, is fixed, or suppressed at the line with a one-line reason, per the parent.
+	- Estimated effort: Avg
+	- Test case: de8eq, now with a NULL read the other file suppresses, which has to stay quiet.
+	- Actual effort: Avg
+	- Progress log:
+		- 20261110: most of the first counts weren't new findings. clang parses the other file without `__clang_analyzer__`, so every `EEL_ANALYZER_SKIP` there was empty and its finding came back through the caller. `ctu_prepare` now defines it. The whole run after that has Linux 15 (11 inherited, 1 ours, 3 tests) and Windows 22 (11 inherited, 1 ours, 10 tests), against 55 and 67.
+		- 20261110: 11 of the tests' 13 came from `make_in` in `test-scratch.c`, which clang read as maybe giving NULL with no error set, so every caller printing `error->message` was flagged. The 2 in `test-nemo-dnd-win32.c` and the 1 in `nemo-instances.c` are suppressed at the line.
+	- Decisions:
+		- `make_in` asserts that `g_build_filename` gave a path, rather than taking `g_mkdtemp_full`'s return in a second variable, since cppcheck then reads the first as leaked.
+		- `nemo_instances_win32_start` leaves error unset only on its critical for a second start, which `instances_up` rules out, so the caller's line is suppressed rather than the critical turned into an error.
+		- `arc-path-list.c:162` is ours but goes to `...5419`. archive-core doesn't use eel, so it needs its own form of the skip, or zeroed entries, which its growth would undo.
+	- Swept: every test that reads `error->message` after `test_scratch_dir` goes through `make_in`. The other users of `analyzer_argv`'s parse form are `ctu_prepare`'s index and invocation list, which share `flags`.
+	- Branch: round1111a
+	- Verified: 20261110, de8eq passes in both containers, and fails in the Linux one without the define. The whole cross-file run (796 s, 4 jobs a lane) has no finding left in ours or tests apart from `arc-path-list.c`, after which the changed files and every test it flagged, rerun across files in both lanes, give none. gcc and clang per file give none on the changed files. de8em passes, df30s and ddn4x pass, and the format and lint gate passes.
+	- Closed: 20261110-224837
+
 - The native Windows gate removes its folder after a failure, test log and all.
 	- ID: 2026110910285880
 	- Type: Task
@@ -7614,6 +7466,154 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddf4w Config old formats test.
 	- Acceptance signoff: Self-closed: ddf4w is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- Icon views under Nemo Anywhere: after a Ctrl+click takes an icon out, a Shift+click runs from the icon clicked.
+	- ID: 2026111019540326
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261110-195403
+	- Opened by: t00mietum
+	- Related IDs: 2026111012592994
+	- Target OS: All
+	- Steps to reproduce: icon or compact view, Nemo Anywhere. Click icon 2, Ctrl+click icon 4, Ctrl+click icon 2, then Shift+click icon 5.
+	- Incorrect behavior: likely selects icon 5 alone, rather than 2 to 5. The list view runs from row 2 there.
+	- Expected behavior: a Ctrl+click moves the anchor to the object clicked, also when it takes it out, per the design doc's "Mouse".
+	- Reproduced: 20261110, under Nemo Anywhere in dec8w's new checks. In both icon views the Shift+click selected icon 5 alone. Ctrl+Space after the same Ctrl+clicks did nothing, and after Ctrl+Space took an icon out, Shift with an arrow started over from the next icon.
+	- Actual cause:
+		- As above. The release cleared the anchor, and a Shift+click or Shift with an arrow started over when the anchor wasn't selected.
+	- Actual fix: under Nemo Anywhere a Ctrl+click that takes an icon out leaves the anchor there, and a Shift run, from the mouse or the keys, counts from the anchor whether it's selected or not.
+	- Decisions:
+		- v1 and Classic keep theirs, as in 2026111012335173.
+		- A Shift run counts from the anchor whenever there is one, as the design doc's "Anchor" says, so also after a click on empty space, or an app-made selection that left it out. v1 started over from the icon clicked there. The list view's GTK anchor goes to the last row an app-made selection picks.
+		- The Ctrl+click leaves no focus, so Ctrl+Space then toggles the anchor and puts the icon back, as in the list view.
+	- Swept: the icon container's Shift+click press (Classic keeps upstream's), Shift with an arrow, Ctrl+Space, which already left the anchor on an icon it takes out, and the release after a click on a selected icon. The list view already ran from row 2.
+	- Branch: round1111a
+	- Test case: dec8w, Selection rules test, Nemo Anywhere. In all 3 views a Shift+click after a Ctrl+click took an item out. In both icon views also Shift with an arrow after Ctrl+Space took one out, and Ctrl+Space after a Ctrl+click took one out.
+		- 20261110: with 2026111019540307's checks, dec8w's list view count under Nemo Anywhere went from 95 to 98, the icon view from 103 to 108, and the compact view from 105 to 110.
+	- Verified: 20261110, dec8w fails on the old code (3 checks in each icon view) and passes with the fix. de8bd, de8dm, dec8v, ddy5f and de8ec pass. The quick gate's format and lint pass. Neither analyzer reports anything on the changed files.
+	- Acceptance signoff: Self-closed: dec8w.
+	- Closed: 20261110-212407
+
+- Nemo Anywhere: a Ctrl+Shift+click on a selected object takes it out, rather than adding the run.
+	- ID: 2026111019540307
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261110-195403
+	- Opened by: t00mietum
+	- Related IDs: 2026111012592994
+	- Target OS: All
+	- Steps to reproduce: list view or an icon view, Nemo Anywhere. Click row 2, Ctrl+click row 6, Ctrl+click row 3, then Ctrl+Shift+click row 6.
+	- Incorrect behavior: likely, a Ctrl+Shift+click on a selected object takes that one out, as a Ctrl+click does.
+	- Expected behavior: it adds the run from the anchor to it, whether it overlaps or not, per the design doc's "Mouse". The focus moves, the anchor stays.
+	- Reproduced: 20261110, under Nemo Anywhere in dec8w's new checks. The list view took row 6 out and left rows 2 and 3. Both icon views added the run on the press, then took icon 6 out, which left 2 to 5.
+	- Possible cause: a press on a selected object waits for the release, so a drag can start, and the release treats Ctrl+Shift as Ctrl. The list view's run needs GTK's anchor, which only its Shift+click press reads, as in 2026111012592994.
+	- Actual cause:
+		- As above. Both releases treated Ctrl+Shift as Ctrl, and the icon views' press had already added the run.
+	- Actual fix: under Nemo Anywhere the icon container's release leaves a Ctrl+Shift+click alone, since its press added the run. The list view's press on a selected row lets GtkTreeView run its own Shift+click to find its anchor, then puts back the selection and the anchor, so a drag still takes what was selected. Its release adds the run from that anchor.
+	- Decisions:
+		- v1 and Classic keep theirs.
+		- The list view's press leaves the focus on the row, for a drag too, since GTK's Shift+click moves its cursor there.
+		- When GtkTreeView doesn't run the Shift+click, as on a press it counts as a second click, the release runs from the focus, as the press on a row not selected does.
+		- The icon views still add the run on the press, as v1's do, so a Ctrl+Shift drag from a selected icon takes the run too. Filed as 2026111021233343.
+	- Swept: the list view's release after a Ctrl, Shift or Ctrl+Shift click on a selected row, both presses (Classic keeps upstream's), and the middle button, which takes the same path. The press on a row not selected now shares the GTK part. The icon container's press and release. The tree pane is single-select.
+	- Branch: round1111a
+	- Test case: dec8w, Selection rules test, Nemo Anywhere: in all 3 views a Ctrl+Shift+click on a selected item, and a Shift+click after it. dec8v, Drag select test, Nemo Anywhere: in the list view a Ctrl+Shift drag from a selected row drags files and keeps the selection.
+		- 20261110: dec8v's list view count under Nemo Anywhere went from 46 to 48. dec8w's counts are on 2026111019540326.
+	- Verified: 20261110, dec8w fails on the old code (2 checks in each view) and passes with the fix. dec8v passes on both. de8bd, de8dm, ddy5f and de8ec pass. The quick gate's format and lint pass. Neither analyzer reports anything on the changed files.
+	- Acceptance signoff: Self-closed: dec8w and dec8v.
+	- Closed: 20261110-212407
+
+- List view under Nemo Anywhere: Ctrl+Shift+click runs from the focus, not the anchor.
+	- ID: 2026111012592994
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261110-125929
+	- Opened by: t00mietum
+	- Related IDs: 2026111012335173, 2026111019540307, 2026111019540326
+	- Target OS: All
+	- Steps to reproduce: list view, Nemo Anywhere. Click row 2, Ctrl+Down twice, then Ctrl+Shift+click row 6.
+	- Incorrect behavior: likely adds rows 4 to 6 from the focus, rather than 2 to 6. The anchor then goes to row 4.
+	- Expected behavior: the run goes from the anchor, and the anchor stays, per the design doc's "Mouse".
+	- Reproduced: 20261110, under Nemo Anywhere in dec8w's new checks. The Ctrl+Shift+click selected rows 2 and 4 to 6, and a Shift+click after it ran from row 4. After a Ctrl+click took a row out, Ctrl+Space toggled the row the focus was on before.
+	- Possible cause: the press runs from GTK's cursor, since GTK has no call that gives its anchor. They differ after a Ctrl+arrow, since a Shift run already includes the rows between them. A Ctrl+click on a selected row may leave the focus behind the same way, since the release only unselects it.
+	- Actual cause:
+		- As above, both. Unselecting the row moves GTK's anchor there, but not its cursor.
+	- Decisions:
+		- v1 and Classic keep theirs, as in 2026111012335173.
+		- When GtkTreeView doesn't run the Shift+click, as on a press it counts as a second click, the run goes from the focus as before. So does one on an expander, where GTK's press would open or close the row.
+		- A Ctrl+click that takes a row out shows no focus outline, since only a Ctrl+arrow does. Plain Up and Down still count from the range ends.
+		- A Ctrl+Shift+click on a selected object still takes it out, filed as 2026111019540307. The icon views' anchor after a Ctrl+click that takes an icon out is 2026111019540326.
+		- 20261111: both filed bugs, 2026111019540307 and 2026111019540326, fixed in 7a234231.
+	- Actual fix: under Nemo Anywhere a Ctrl+Shift+click lets GtkTreeView run its own Shift+click, which goes from its anchor, then puts back what was selected and the anchor. A Ctrl+click that takes a row out moves the focus there too.
+	- Swept: the list view's other Ctrl+Shift run (the arrow keys, already from GTK's anchor), the band, both presses (Classic keeps upstream's), and the release after a click on a selected row. The icon container keeps its own anchor, so its Ctrl+Shift+click already runs from it. The tree pane is single-select.
+	- Branch: round1111a
+	- Test case: dec8w, Selection rules test, Nemo Anywhere. In the list view: a Ctrl+Shift+click after Ctrl+Down twice, a Shift+click after it, and Ctrl+Space after a Ctrl+click that took a row out.
+		- 20261110: dec8w's list view count under Nemo Anywhere went from 92 to 95.
+	- Verified: 20261110, dec8w fails on the old code (the 3 new checks) and passes with the fix. de8bd, de8dm, ddy5f, de8ec and dec8v pass. The quick gate's format and lint pass. Neither analyzer reports anything on the changed files.
+	- Acceptance signoff: Self-closed: dec8w.
+	- Closed: 20261110-195434
+
+- ddqdq with no monitor: the copies never list a titled window.
+	- ID: 2026103115510091
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261031-155100
+	- Opened by: 2026102822580302
+	- Related IDs: 2026102822580302, 2026103114202730
+	- Target OS: Windows
+	- Steps to reproduce: ddqdq on native Windows from ssh, in session 0, with its no-monitor skip taken out.
+	- Incorrect behavior: it times out waiting for the alpha and beta window titles, with "gdk_monitor_get_geometry: assertion 'GDK_IS_MONITOR (monitor)' failed".
+	- Expected behavior: the copies list their windows with titles, as they did at 1694aeb with no monitor. A disconnected session doesn't have a monitor either.
+	- Reproduced: 20261028 on b29w, at 2964120b and 051f2d14.
+	- Possible cause: not looked into. It's something between 1694aeb and 2964120b, maybe the jail.
+	- Actual cause:
+		- The titles were there, but cut short. With no monitor the window is 1028 px wide, and a full path title is shortened to fit, with `...` for the folders it leaves out. That cut `nemo-copies-`, which the test took as the sign of a whole path, so the 2 waits for alpha's and beta's whole path titles timed out.
+		- The jail (71bb7a65) put the scratch folder deeper, under `nemo-suite-*`, the test's own folder and its `tmp`, so the path no longer fit in 1028 px. At 1694aeb it did.
+		- The GDK assertion shows in passing runs too, and isn't part of it.
+	- Actual fix: 9736011e already has ddqdq look for the folder at the end of a path, whatever the window cuts. ddqdq's no-monitor skip is gone, so it runs in the gate over ssh again.
+	- Decisions:
+		- The skip goes, since what ddqdq checks is the link between copies, which doesn't need a screen. A run without a monitor covers a disconnected session too.
+		- So ddqdq runs in the gate on b29w now, not in the lane's desktop step.
+	- Swept: the other no-monitor skips from 484a8e8b. debgn needs the focus, which never comes back in session 0, so it keeps its skip. dbxkh's skip is about the shell, not a monitor. dcrph, the other full path title test, has no window to cut a title.
+	- Branch: round1111a
+	- Commit: 08de1b8b
+	- Test case: ddqdq.
+	- Verified: 20261110, native gate on b29w over ssh, with 0 monitors. ddqdq passes without its skip, with 194 OK and 0 failed. In a second gate there, with 0 monitors too, the whole path titles came back as `C:\ProgramData\nemo-anywhere\<run>\tmp\nemo-anywhere\...\alpha-folder - Nemo Anywhere`, which the check before 9736011e refuses and the current one takes.
+	- Acceptance signoff: Self-closed: ddqdq passes in the gate on b29w without a monitor.
+	- Closed: 20261110-202331
+
+- On Windows, the zip draws some file icons differently from the single exe.
+	- ID: 2026102515500000
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261025-155000
+	- Opened by: 2026101007562511
+	- Related IDs: 2026101007562511
+	- Target OS: Windows
+	- Steps to reproduce: extract the release zip and start the app, then start the single exe built from the same commit. Look at a bookmark's folder icon and a text file's icon.
+	- Incorrect behavior: the zip draws the bookmark's folder icon blue and the text file's icon plain.
+	- Expected behavior: the same icons as the single exe, tan and lined.
+	- Reproduced: 20261022 on vm925w, while checking 2026101007562511.
+	- Reproduced: 20261111 under wine, with the beta2 zip: blue folders and a plain text icon. The same tree without its `share/icons/Adwaita` and `AdwaitaLegacy` draws a tan folder and Mica's lined text icon.
+	- Actual cause: the zip copied the sysroot's whole `share/icons`, which has upstream's Adwaita (blue folders, plain mimetypes) and AdwaitaLegacy, 2744 files. GTK 3 always looks in an Adwaita theme on disk before hicolor, and it reads the bundled icon sets as part of hicolor, so the on-disk Adwaita won for every name it has. The single exe stages only hicolor, so the bundled sets win there.
+	- Actual fix: the zip and the wine runner take only hicolor from the sysroot's icons, as `stage-native.bash` already did. ddqjk now refuses any bundle with an icon theme on disk but hicolor.
+	- Decisions:
+		- Fix the bundle, not the lookup. GTK 3 has no way to put a resource path ahead of an on-disk Adwaita, and the single exe already lives without these files.
+	- Swept: every place that stages Windows icons: `stage-native.bash` (single exe and the hosted release build, already hicolor only), `pack-zip.bash` (zip, then the setup exe and `install.ps1`), `utility/run-windows-build-via-wine.bash`. `pack-portable.ps1` and `pack-setup.bash` copy what those made. The Linux and FreeBSD packages carry only hicolor, and ddqjk passes on the beta2 ones. A staged `cicd/artifacts/win-run` keeps the old icons until `--restage`.
+	- Verified: ddqjk fails on the beta2 zip (Adwaita and AdwaitaLegacy on disk) and passes on the same tree with only hicolor. Its self-test fails with the new check turned off and passes with it. The quick format and lint gate passes.
+	- Branch: round1111a
+	- Commit: db39bd1d
+	- Test case: ddqjk (`test-bundle-left-out.bash`), the Windows bundle check in the packages stage, and its self-test in lint.
+	- Verified 20261111: ddqjk passes on a zip packed from 181fb8ff, which has db39bd1d, with only hicolor under share/icons. It fails on the published beta2 zip.
+	- Note 20261111: under wine the published beta2 zip and the 181fb8ff zip draw the same light tan folders, Places bookmarks included, and the same lined text icon, in the list and icon views. So wine doesn't show this bug, and the wine reading above doesn't hold. Only vm925w can judge the look.
+	- Verified 20261111 on vm925w: the zip packed from 181fb8ff and a single exe packed from the same cross build open the same folder with the same tan folder and lined text icon, in the list and icon views, and the same tan bookmark folders. The published beta2 zip draws a blue folder and a plain text icon there, and the same beta2 tree without its Adwaita and AdwaitaLegacy folders draws tan and lined.
+	- Acceptance signoff: Self-closed: the vm925w check above.
+	- Closed: 20261110-232922
 
 - A tab or newline in a dev build's settings file before SHCL 3.0.0-beta1 reads as a backslash and a letter.
 	- ID: 2026110921160616
