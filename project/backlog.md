@@ -1789,7 +1789,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: the other Ctrl+I bindings (none outside the view's action), the tests that pressed Ctrl+I for Properties (ddxes and de55r, now Alt+Enter), the shortcuts window, and the Properties design doc's Windows key list.
 	- Verified: 20261110, dec8w, de8bd, de8dm, ddxes, de55r, dd5df, dbnfq, ddwn8, ddwn9 and ddgh6 pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
 	- Not covered by a test: the shortcuts window's Ctrl+I entries.
-	- Acceptance signoff: Self-closed: dec8w, de8bd and de8dm.
+	- Acceptance signoff: Self-closed: dec8w, de8bd and de8dm. Signed off 20261111: the Ctrl+I and Alt+Enter keys, Select none, and the status bar line.
 	- Closed: 20261110-220510
 
 - Nemo Anywhere: the tree view rules, less the affirmative parts.
