@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 
-/* test-nemo-tree-keys-probe.c - presses Right and Left in the folder tree and
-   changes folders there, from inside the program.
+/* test-nemo-tree-keys-probe.c - presses keys in the folder tree and changes
+   folders there, from inside the program.
 
    Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu).
 
@@ -27,8 +27,10 @@
  * goes back and up with Alt+Up, which still selects the folder just left. Last
  * it presses Right and Left on the folder's tree row, and a second Left to
  * go to its parent, then copies that row with Ctrl+C while the list has
- * everything selected. One "ok" or "FAIL" line per check goes to
- * $NEMO_TREE_KEYS_OUT, and "done" at the end. */
+ * everything selected. Then it opens the folder again and its row, and moves
+ * the tree's focus with Ctrl+Up and Ctrl+Down, Escape, Ctrl+Space, Up, Ctrl+End
+ * and Ctrl+Home, with a Ctrl+C after a Ctrl move. One "ok" or "FAIL" line per
+ * check goes to $NEMO_TREE_KEYS_OUT, and "done" at the end. */
 
 #include <stdio.h>
 #include <string.h>
@@ -41,6 +43,7 @@ static const char *folder_name;
 static GtkWidget  *window;
 static GtkTreeView *tree;
 static int         step;
+static int         changes;
 static int         waited;
 static guint32     stamp;
 static char       *title_before;
@@ -174,6 +177,67 @@ static gboolean
 tree_selected_is (GtkTreePath *path)
 {
 	return path != NULL && gtk_tree_selection_path_is_selected (gtk_tree_view_get_selection (tree), path);
+}
+
+static gboolean
+tree_cursor_is (GtkTreePath *path)
+{
+	GtkTreePath *cursor = NULL;
+	gboolean is;
+
+	gtk_tree_view_get_cursor (tree, &cursor, NULL);
+	is = path != NULL && cursor != NULL && gtk_tree_path_compare (path, cursor) == 0;
+	gtk_tree_path_free (cursor);
+	return is;
+}
+
+/* The row with the cursor is selected, and the cursor isn't outlined. */
+static gboolean
+focus_quiet_on (GtkTreePath *path)
+{
+	GtkStyleContext *context = gtk_widget_get_style_context (GTK_WIDGET (tree));
+
+	return tree_cursor_is (path) && tree_selected_is (path) &&
+	       gtk_style_context_has_class (context, "nemo-focus-quiet");
+}
+
+/* The last of the iter's siblings, from the iter on. */
+static void
+last_sibling (GtkTreeModel *model, GtkTreeIter *iter)
+{
+	GtkTreeIter next = *iter;
+
+	while (gtk_tree_model_iter_next (model, &next)) {
+		*iter = next;
+	}
+}
+
+static GtkTreePath *
+tree_last_row (void)
+{
+	GtkTreeModel *model = gtk_tree_view_get_model (tree);
+	GtkTreeIter iter, child;
+	GtkTreePath *path;
+
+	if (model == NULL || !gtk_tree_model_get_iter_first (model, &iter)) {
+		return NULL;
+	}
+	for (;;) {
+		last_sibling (model, &iter);
+		path = gtk_tree_model_get_path (model, &iter);
+		if (!gtk_tree_view_row_expanded (tree, path) ||
+		    !gtk_tree_model_iter_children (model, &child, &iter)) {
+			return path;
+		}
+		gtk_tree_path_free (path);
+		iter = child;
+	}
+}
+
+static void
+count_change (G_GNUC_UNUSED GtkTreeSelection *selection, G_GNUC_UNUSED gpointer data)
+{
+	changes++;
 }
 
 static void
@@ -342,7 +406,8 @@ folder_row_ready (void)
 static gboolean
 steps (void)
 {
-	GtkTreePath *path, *parent;
+	GtkTreePath *path, *parent, *alpha, *beta;
+	GtkStyleContext *context;
 
 	switch (step) {
 	case 0: {
@@ -441,8 +506,110 @@ steps (void)
 		g_clear_object (&copied);
 		g_object_unref (home);
 		g_strfreev (uris);
-		return TRUE;
+		note_title ();
+		if (!click_tree_path (tree_row (folder_name))) {
+			report (FALSE, "the folder is in the tree again");
+		}
+		break;
 	}
+	case 8:
+		if (!title_changed () || list_count () < 3 || waited < 10 ||
+		    (path = folder_row_ready ()) == NULL) {
+			return FALSE;
+		}
+		gtk_tree_view_expand_row (tree, path, FALSE);
+		gtk_tree_path_free (path);
+		break;
+	case 9:
+		/* Ctrl+Down twice and Ctrl+Up leave the focus on alpha, the
+		   folder's first sub-folder. */
+		alpha = tree_row ("alpha");
+		beta = tree_row ("beta");
+		if (alpha == NULL || beta == NULL || waited < 5) {
+			gtk_tree_path_free (alpha);
+			gtk_tree_path_free (beta);
+			return FALSE;
+		}
+		gtk_widget_grab_focus (GTK_WIDGET (tree));
+		g_signal_connect (gtk_tree_view_get_selection (tree), "changed", G_CALLBACK (count_change), NULL);
+		path = tree_row (folder_name);
+		note_title ();
+		key (GDK_KEY_Down, GDK_CONTROL_MASK);
+		key (GDK_KEY_Down, GDK_CONTROL_MASK);
+		key (GDK_KEY_Up, GDK_CONTROL_MASK);
+		context = gtk_widget_get_style_context (GTK_WIDGET (tree));
+		report (tree_cursor_is (alpha) && tree_selected_is (path) && !tree_selected_is (alpha),
+			"Ctrl+Down and Ctrl+Up in the tree move the focus alone");
+		report (!gtk_style_context_has_class (context, "nemo-focus-quiet"),
+			"the focus outline shows while the focus is off the selected row");
+		gtk_tree_path_free (alpha);
+		gtk_tree_path_free (beta);
+		gtk_tree_path_free (path);
+		break;
+	case 10:
+		if (waited < 8) {
+			return FALSE;
+		}
+		report (changes == 0 && g_strcmp0 (gtk_window_get_title (GTK_WINDOW (window)), title_before) == 0,
+			"and open nothing");
+		path = tree_row (folder_name);
+		key (GDK_KEY_Escape, 0);
+		report (focus_quiet_on (path) && changes == 0,
+			"Escape takes the focus back to the selected row, and hides the outline");
+		gtk_tree_path_free (path);
+		key (GDK_KEY_Down, GDK_CONTROL_MASK);
+		key (GDK_KEY_c, GDK_CONTROL_MASK);
+		break;
+	case 11: {
+		gchar **uris = gtk_clipboard_wait_for_uris (gtk_clipboard_get (GDK_SELECTION_CLIPBOARD));
+		char *top = g_build_filename (g_get_home_dir (), folder_name, NULL);
+		GFile *wanted = g_file_new_for_path (top);
+		GFile *copied = uris != NULL && g_strv_length (uris) == 1 ? g_file_new_for_uri (uris[0]) : NULL;
+
+		report (copied != NULL && g_file_equal (copied, wanted),
+			"Ctrl+C after a Ctrl move copies the selected folder, not the focused one");
+		g_clear_object (&copied);
+		g_object_unref (wanted);
+		g_free (top);
+		g_strfreev (uris);
+		note_title ();
+		key (GDK_KEY_space, GDK_CONTROL_MASK);
+		alpha = tree_row ("alpha");
+		report (focus_quiet_on (alpha), "Ctrl+Space selects the focused row");
+		gtk_tree_path_free (alpha);
+		break;
+	}
+	case 12:
+		if (!title_changed ()) {
+			return FALSE;
+		}
+		report (g_str_has_prefix (gtk_window_get_title (GTK_WINDOW (window)), "alpha"), "which opens it");
+		/* From the focus on the folder, Up selects the row above it.
+		   From the selection it would select the folder. */
+		path = tree_row (folder_name);
+		parent = gtk_tree_path_copy (path);
+		if (gtk_tree_path_prev (parent)) {
+			gtk_tree_view_collapse_row (tree, parent);
+		} else {
+			gtk_tree_path_up (parent);
+		}
+		key (GDK_KEY_Up, GDK_CONTROL_MASK);
+		key (GDK_KEY_Up, 0);
+		report (focus_quiet_on (parent) && !tree_selected_is (path),
+			"after a Ctrl move Up counts from the focus");
+		gtk_tree_path_free (parent);
+		gtk_tree_path_free (path);
+		/* Each key restarts the wait before a folder opens, so only the
+		   first row opens. */
+		key (GDK_KEY_End, GDK_CONTROL_MASK);
+		path = tree_last_row ();
+		report (focus_quiet_on (path), "Ctrl+End selects the last row, as End does");
+		gtk_tree_path_free (path);
+		key (GDK_KEY_Home, GDK_CONTROL_MASK);
+		path = gtk_tree_path_new_first ();
+		report (focus_quiet_on (path), "Ctrl+Home selects the first row, as Home does");
+		gtk_tree_path_free (path);
+		return TRUE;
 	}
 	return TRUE;
 }
@@ -462,7 +629,7 @@ tick (G_GNUC_UNUSED gpointer data)
 	if (!steps ()) {
 		return G_SOURCE_CONTINUE;
 	}
-	if (step == 7) {
+	if (step == 12) {
 		finish ();
 		return G_SOURCE_REMOVE;
 	}

@@ -466,6 +466,9 @@ action_show_shortcuts_window (G_GNUC_UNUSED GtkAction *action,
 {
     NemoWindow *window;
     static GtkWidget *shortcuts_window;
+    static GObject *invert_shortcut;
+    static GObject *properties_shortcut;
+    gboolean primary_i_inverts;
 
     window = NEMO_WINDOW (user_data);
 
@@ -475,6 +478,8 @@ action_show_shortcuts_window (G_GNUC_UNUSED GtkAction *action,
 
         builder = gtk_builder_new_from_resource ("/org/nemo/nemo-shortcuts.ui");
         shortcuts_window = GTK_WIDGET (gtk_builder_get_object (builder, "keyboard_shortcuts"));
+        invert_shortcut = gtk_builder_get_object (builder, "shortcut_invert_selection");
+        properties_shortcut = gtk_builder_get_object (builder, "shortcut_properties");
 
         gtk_window_set_position (GTK_WINDOW (shortcuts_window), GTK_WIN_POS_CENTER);
         /* A section too long for one page gets page buttons. */
@@ -490,6 +495,13 @@ action_show_shortcuts_window (G_GNUC_UNUSED GtkAction *action,
     {
         gtk_window_set_transient_for (GTK_WINDOW (shortcuts_window), GTK_WINDOW (window));
     }
+
+    /* Ctrl+I follows the selection model, which can change while this is kept. */
+    primary_i_inverts = nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE;
+    g_object_set (invert_shortcut, "accelerator",
+                  primary_i_inverts ? "<Primary>I <shift><Primary>I" : "<shift><Primary>I", NULL);
+    g_object_set (properties_shortcut, "accelerator",
+                  primary_i_inverts ? "<alt>Return" : "<Primary>I <alt>Return", NULL);
 
     gtk_widget_show_all (shortcuts_window);
     gtk_window_present (GTK_WINDOW (shortcuts_window));

@@ -163,6 +163,7 @@ static gboolean model_search_key_press_event (GtkWidget *widget, GdkEventKey *ev
 static gboolean bands_flip (void);
 static gboolean keys_from_range_ends (void);
 static gboolean band_end_takes_focus (void);
+static gboolean ctrl_click_sets_anchor (void);
 
 static gpointer accessible_parent_class;
 
@@ -2418,6 +2419,20 @@ is_add_run_event (GdkEventKey *event)
 	       (event->state & GDK_SHIFT_MASK) != 0;
 }
 
+/* The icon a Shift run from the mouse or the keys counts from. With no
+   anchor, or under v1 one that isn't selected, it starts over from icon. */
+static NemoIcon *
+shift_run_anchor (NemoIconContainer *container, NemoIcon *icon)
+{
+	NemoIcon *anchor = container->details->range_selection_base_icon;
+
+	if (anchor == NULL || (!anchor->is_selected && !ctrl_click_sets_anchor ())) {
+		anchor = icon;
+		container->details->range_selection_base_icon = icon;
+	}
+	return anchor;
+}
+
 /* Where a plain arrow or page key counts from under Nemo Anywhere: the focus
    while a Ctrl+arrow has it off the selection, else the selection's first or
    last icon, else what Ctrl+Space left the focus on. */
@@ -2497,13 +2512,7 @@ keyboard_move_to (NemoIconContainer *container,
 		   (event->state & GDK_CONTROL_MASK) == 0 &&
 		   (event->state & GDK_SHIFT_MASK) != 0) {
 		/* Select range */
-		NemoIcon *start_icon;
-
-		start_icon = container->details->range_selection_base_icon;
-		if (start_icon == NULL || !start_icon->is_selected) {
-			start_icon = icon;
-			container->details->range_selection_base_icon = icon;
-		}
+		NemoIcon *start_icon = shift_run_anchor (container, icon);
 
 		set_keyboard_focus (container, icon);
 
@@ -3367,11 +3376,15 @@ nemo_icon_container_did_not_drag (NemoIconContainer *container,
 
 	details = container->details;
 
+	/* Nemo Anywhere's Ctrl+Shift+click press already added the run, which
+	   has this icon in it. */
 	if (details->icon_selected_on_button_down &&
 	    ((event->state & eel_gtk_primary_mask (event->window)) != 0 ||
-	     (event->state & GDK_SHIFT_MASK) == 0)) {
+	     (event->state & GDK_SHIFT_MASK) == 0) &&
+	    !(ctrl_click_sets_anchor () && (event->state & GDK_SHIFT_MASK) != 0)) {
 		if (button_event_modifies_selection (event)) {
-			details->range_selection_base_icon = NULL;
+			details->range_selection_base_icon =
+				ctrl_click_sets_anchor () ? details->drag_icon : NULL;
 			icon_toggle_selected (container, details->drag_icon);
 			g_signal_emit (container,
 				       signals[SELECTION_CHANGED], 0);
@@ -5454,13 +5467,8 @@ handle_icon_button_press (NemoIconContainer *container,
 
 	if ((event->button == DRAG_BUTTON || event->button == MIDDLE_BUTTON) &&
 	    (event->state & GDK_SHIFT_MASK) != 0) {
-		NemoIcon *start_icon;
+		NemoIcon *start_icon = shift_run_anchor (container, icon);
 
-		start_icon = details->range_selection_base_icon;
-		if (start_icon == NULL || !start_icon->is_selected) {
-			start_icon = icon;
-			details->range_selection_base_icon = icon;
-		}
 		if (select_range (container, start_icon, icon,
 				  (event->state & eel_gtk_primary_mask (event->window)) == 0)) {
 			g_signal_emit (container,
@@ -5905,6 +5913,11 @@ typedef struct {
 	/* A mouse band leaves the focus and the anchor on the last icon it
 	   touched. */
 	gboolean band_end_takes_focus;
+	/* A Ctrl+click leaves the anchor on the icon clicked, also when it takes
+	   it out, and a Shift run counts from the anchor even when it isn't
+	   selected. A Ctrl+Shift+click on a selected icon keeps it. v1's clears
+	   the anchor, starts a run over from the icon clicked, and takes it out. */
+	gboolean ctrl_click_sets_anchor;
 } ContainerRules;
 
 static const ContainerRules rules_anywhere_v1 = {
@@ -5941,6 +5954,7 @@ static const ContainerRules rules_anywhere = {
 	.band_flips = FALSE,
 	.keys_from_range_ends = TRUE,
 	.band_end_takes_focus = TRUE,
+	.ctrl_click_sets_anchor = TRUE,
 };
 
 static const ContainerRules *
@@ -5973,6 +5987,12 @@ static gboolean
 band_end_takes_focus (void)
 {
 	return container_rules ()->band_end_takes_focus;
+}
+
+static gboolean
+ctrl_click_sets_anchor (void)
+{
+	return container_rules ()->ctrl_click_sets_anchor;
 }
 
 static gboolean

@@ -44,6 +44,7 @@ static const char     *folder_name;
 static gboolean        list_mode;
 static gboolean        classic;
 static gboolean        anywhere;
+static gboolean        ctrl_dragged;
 static GtkWidget      *window;
 static GtkWidget      *pane;
 static GdkWindow      *bin;
@@ -692,10 +693,25 @@ list_tick (void)
 		}
 		break;
 	case 5:
+		/* Each drag needs a tick of its own to let go. */
+		if (!ctrl_dragged) {
+			select_items (first_and_fourth);
+			press_and_move (bin, 1, GDK_CONTROL_MASK, 40, row_y (3), 40, row_y (6));
+			release (bin, 1, GDK_CONTROL_MASK, 40, row_y (6));
+			report (drags == 1, "Ctrl and a drag from a selected row drags files");
+			check_selection ("0,3", "and keeps the selection");
+			if (anywhere) {
+				ctrl_dragged = TRUE;
+				return FALSE;
+			}
+			break;
+		}
+		/* #2026111019540307. Another row, so it's no double click. */
+		ctrl_dragged = FALSE;
 		select_items (first_and_fourth);
-		press_and_move (bin, 1, GDK_CONTROL_MASK, 40, row_y (3), 40, row_y (6));
-		release (bin, 1, GDK_CONTROL_MASK, 40, row_y (6));
-		report (drags == 1, "Ctrl and a drag from a selected row drags files");
+		press_and_move (bin, 1, GDK_CONTROL_MASK | GDK_SHIFT_MASK, 40, row_y (0), 40, row_y (6));
+		release (bin, 1, GDK_CONTROL_MASK | GDK_SHIFT_MASK, 40, row_y (6));
+		report (drags == 1, "Ctrl+Shift and a drag from a selected row drags files");
 		check_selection ("0,3", "and keeps the selection");
 		break;
 	case 6:

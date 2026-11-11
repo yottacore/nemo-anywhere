@@ -71,7 +71,11 @@ if [[ ! -x "${DEST}/app/nemo-anywhere.exe" ]] || (( restage )); then
 		# bundles.
 		cp -r lib/gdk-pixbuf-2.0 "$D/mingw64/lib/"
 		cp -r share/glib-2.0/schemas "$D/mingw64/share/glib-2.0/"
-		cp -r share/icons share/themes "$D/mingw64/share/"
+		# hicolor only, like the bundles. An Adwaita on disk draws over the
+		# bundled icon sets (2026102515500000).
+		mkdir -p "$D/mingw64/share/icons"
+		cp -r share/icons/hicolor "$D/mingw64/share/icons/"
+		cp -r share/themes "$D/mingw64/share/"
 		cp -r etc "$D/mingw64/"
 		cp -r /src/cicd/win/bundle-etc/. "$D/mingw64/etc/"'
 	docker exec "$CONTAINER" bash -c 'source /src/cicd/utility/include/thumbnailers.bash &&

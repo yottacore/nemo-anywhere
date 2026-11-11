@@ -393,7 +393,7 @@
               </object>
             </child>
             <child>
-              <object class="GtkShortcutsShortcut">
+              <object class="GtkShortcutsShortcut" id="shortcut_invert_selection">
                 <property name="visible">True</property>
                 <property name="title" translatable="yes" context="shortcut window">Invert selection</property>
                 <property name="accelerator">&lt;shift&gt;&lt;Primary&gt;I</property>
@@ -421,7 +421,7 @@
               </object>
             </child>
             <child>
-              <object class="GtkShortcutsShortcut">
+              <object class="GtkShortcutsShortcut" id="shortcut_properties">
                 <property name="visible">True</property>
                 <property name="title" translatable="yes" context="shortcut window">Show item properties</property>
                 <property name="accelerator">&lt;Primary&gt;I &lt;alt&gt;Return</property>

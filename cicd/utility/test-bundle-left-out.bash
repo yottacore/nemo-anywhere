@@ -5,6 +5,9 @@
 ##	  package depends on libgsf. The app reads office files itself
 ##	  (2026100909260549). catdoc's mso-doc definition is allowed, since it
 ##	  names a program on the system.
+##	- Also that no bundle has an icon theme on disk but hicolor. GTK looks in
+##	  an Adwaita on disk before hicolor, where the bundled sets sit, so the
+##	  zip's copy drew blue folders over them (2026102515500000).
 ##	  - Kinds, any number: linux-x86_64 and linux-arm64 (tarball, .deb and .rpm,
 ##	    with their Depends and Requires), windows (the zip, which the setup exe
 ##	    is made from), bsd (the pkg with its deps, and the tarball beside it).
@@ -54,8 +57,16 @@ def tar_names(raw):
     with tarfile.open(fileobj=io.BytesIO(unzstd(raw)), mode="r:*") as t:
         return [m.name for m in t.getmembers() if not m.isdir()], t
 
+def icon_theme(name):
+    parts = name.strip("/").split("/")
+    for i in range(1, len(parts) - 2):
+        if parts[i] == "icons" and parts[i - 1] == "share":
+            return parts[i + 1]
+    return None
+
 def check_names(label, names):
     count = 0
+    themes = set()
     for name in names:
         count += 1
         base = name.rstrip("/").rsplit("/", 1)[-1]
@@ -63,6 +74,10 @@ def check_names(label, names):
             if fnmatch.fnmatchcase(base.lower(), pattern):
                 failures.append(f"{label}: has {name}")
                 break
+        theme = icon_theme(name)
+        if theme is not None and theme.lower() != "hicolor" and theme not in themes:
+            themes.add(theme)
+            failures.append(f"{label}: has icon theme {theme} on disk, which draws over the bundled ones")
     if count == 0:
         failures.append(f"{label}: no files listed")
     print(f"{label}: {count} file(s) looked at")
@@ -207,12 +222,16 @@ fSelfTest(){
 
 	## A zip like the Windows one, flat, with the dll at the root.
 	local flat="${scratch}/flat/${slug}-x"
-	mkdir -p "${flat}/share/thumbnailers" "${flat}/share/${slug}/search-helpers"
+	mkdir -p "${flat}/share/thumbnailers" "${flat}/share/${slug}/search-helpers" "${flat}/share/icons/hicolor/16x16/apps" \
+		"${flat}/share/${slug}/icons/Mine"
 	touch "${flat}/${slug}.exe" "${flat}/libglib-2.0-0.dll" "${flat}/share/thumbnailers/librsvg.thumbnailer" \
-		"${flat}/share/${slug}/search-helpers/mso-doc.nemo_search_helper"
+		"${flat}/share/${slug}/search-helpers/mso-doc.nemo_search_helper" "${flat}/share/icons/hicolor/index.theme" \
+		"${flat}/share/icons/hicolor/16x16/apps/${slug}.png" "${flat}/share/${slug}/icons/Mine/index.theme"
 	(cd "${scratch}/flat" && python3 -I -m zipfile -c "${scratch}/good.zip" "${slug}-x")
 	fExpect good "${scratch}/good.zip"
-	for bad in libgsf-1-114.dll gsf-office-thumbnailer.exe share/thumbnailers/gsf-office.thumbnailer; do
+	for bad in libgsf-1-114.dll gsf-office-thumbnailer.exe share/thumbnailers/gsf-office.thumbnailer \
+		share/icons/Adwaita/index.theme share/icons/AdwaitaLegacy/16x16/places/folder.png; do
+		mkdir -p "$(dirname "${flat}/${bad}")"
 		touch "${flat}/${bad}"
 		rm -f "${scratch}/bad.zip"
 		(cd "${scratch}/flat" && python3 -I -m zipfile -c "${scratch}/bad.zip" "${slug}-x")

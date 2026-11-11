@@ -30,9 +30,10 @@
 ##	- --ctu is the cross-file clang run, under --leakcheck: clang alone over
 ##	  both lists, following calls into the other .c files of the same list,
 ##	  with logs in cicd/artifacts/analyze-ctu/. It fails when either lane misses
-##	  the planted pair, whose leak and NULL come from the other file (test
-##	  de8eq), or a run fails. Its findings and cut-off files are report only
-##	  for now (backlog 2026110920251244).
+##	  the planted pair, whose leak and NULL come from the other file, or reports
+##	  a NULL read the other file suppresses (test de8eq), or a run fails. Its
+##	  findings and cut-off files are report only for now (backlog
+##	  2026110920251244).
 ##	- Syntax: cicd/utility/analyze.bash [--self-test] [--ctu]
 ##	- Test ID: de8es
 

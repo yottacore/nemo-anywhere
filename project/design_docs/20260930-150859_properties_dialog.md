@@ -38,7 +38,7 @@ The Properties window shows what a file or folder is, and lets a few things abou
 
 ## Specification
 
-- On Windows, Alt+Enter, Ctrl+I and "Windows properties" open the shell's own sheet. Ours is plain "Properties", first in the menu, and on Ctrl+Enter.
+- On Windows, Alt+Enter and "Windows properties" open the shell's own sheet, and so does Ctrl+I under the Nemo Anywhere v1 and Nemo Classic selection models. Ours is plain "Properties", first in the menu, and on Ctrl+Enter.
 
 - Anything the shell can't name opens ours rather than doing nothing.
 
@@ -58,7 +58,7 @@ The Properties window shows what a file or folder is, and lets a few things abou
 
 ### Which window opens
 
-- Properties is the platform's own on Windows. Alt+Enter and Ctrl+I hand the selection to the shell property sheet, the same one Explorer shows, so a file's details read the way they do everywhere else on the machine and any tab a third-party program adds is there too.
+- Properties is the platform's own on Windows. Alt+Enter, and Ctrl+I under Nemo Anywhere v1 and Nemo Classic, hand the selection to the shell property sheet, the same one Explorer shows, so a file's details read the way they do everywhere else on the machine and any tab a third-party program adds is there too.
 
 - Our own window is still there under Ctrl+Enter. It shows what the shell sheet has no room for, such as a custom icon, an emblem, an annotation, or an extension page. It also opens for anything the shell can't name, like a virtual location, a selection across several folders from a search, or an item that's gone since it was clicked.
 

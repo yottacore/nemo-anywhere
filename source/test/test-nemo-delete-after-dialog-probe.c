@@ -23,7 +23,7 @@
 
 /* Preloaded into the real program by test-nemo-delete-after-dialog. Once the
  * window shows $NEMO_DELDLG_FOLDER it selects everything (one file), opens
- * Properties with Ctrl+I, closes it with Escape, and presses Shift+Delete as
+ * Properties with Alt+Enter, closes it with Escape, and presses Shift+Delete as
  * soon as the window has the focus back. The key has to bring up the delete
  * question at the first press. The question is then canceled. One "ok" or
  * "FAIL" line per check goes to $NEMO_DELDLG_OUT, and "done" at the end.
@@ -184,8 +184,9 @@ tick (G_GNUC_UNUSED gpointer data)
 		}
 		report (gtk_accel_groups_activate (G_OBJECT (window), GDK_KEY_a, GDK_CONTROL_MASK),
 			"Ctrl+A selects the file");
-		report (gtk_accel_groups_activate (G_OBJECT (window), GDK_KEY_i, GDK_CONTROL_MASK),
-			"Ctrl+I opens Properties");
+		/* Ctrl+I is Properties only under Nemo Anywhere v1 and Nemo Classic. */
+		report (gtk_accel_groups_activate (G_OBJECT (window), GDK_KEY_Return, GDK_MOD1_MASK),
+			"Alt+Enter opens Properties");
 		break;
 	case 2:
 		props = find_toplevel ("NemoPropertiesWindow", NULL, NULL);

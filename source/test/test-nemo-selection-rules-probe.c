@@ -60,6 +60,7 @@ static int        tabs_before;
 static int        last_clicked = -1;
 static int        home_item = -1;
 static gboolean   menu_on_press;
+static gboolean   primary_i_sent;
 static gint64     last_click_time;
 static guint      glib_handler;
 static int        glib_criticals;
@@ -123,6 +124,133 @@ find_widget (GtkWidget *within, const char *type_name)
 
 	find_cb (within, &find);
 	return find.found;
+}
+
+/* The menu bar may be hidden, so this doesn't ask for it to be mapped. */
+static void
+find_menu_bar_cb (GtkWidget *widget, gpointer data)
+{
+	GtkWidget **found = data;
+
+	if (*found != NULL) {
+		return;
+	}
+	if (GTK_IS_MENU_BAR (widget)) {
+		*found = widget;
+	} else if (GTK_IS_CONTAINER (widget)) {
+		gtk_container_forall (GTK_CONTAINER (widget), find_menu_bar_cb, data);
+	}
+}
+
+/* The menu bar entry labeled `wanted`, mnemonic left out, or NULL. */
+static GtkWidget *
+menu_entry (const char *wanted)
+{
+	GtkWidget *bar = NULL;
+	GtkWidget *found = NULL;
+	GList *tops;
+	GList *t;
+
+	find_menu_bar_cb (window, &bar);
+	if (bar == NULL) {
+		return NULL;
+	}
+	tops = gtk_container_get_children (GTK_CONTAINER (bar));
+	for (t = tops; t != NULL && found == NULL; t = t->next) {
+		GtkWidget *menu = GTK_IS_MENU_ITEM (t->data) ? gtk_menu_item_get_submenu (t->data) : NULL;
+		GList *entries = menu != NULL ? gtk_container_get_children (GTK_CONTAINER (menu)) : NULL;
+		GList *e;
+
+		for (e = entries; e != NULL && found == NULL; e = e->next) {
+			const char *label = GTK_IS_MENU_ITEM (e->data) ? gtk_menu_item_get_label (e->data) : NULL;
+			char *plain = label != NULL ? g_strdup (label) : NULL;
+			char *from;
+			char *to;
+
+			if (plain == NULL) {
+				continue;
+			}
+			for (from = to = plain; *from != '\0'; from++) {
+				if (*from != '_') {
+					*to++ = *from;
+				}
+			}
+			*to = '\0';
+			if (strcmp (plain, wanted) == 0) {
+				found = e->data;
+			}
+			g_free (plain);
+		}
+		g_list_free (entries);
+	}
+	g_list_free (tops);
+
+	return found;
+}
+
+static gboolean
+menu_entry_shown (const char *wanted)
+{
+	GtkWidget *entry = menu_entry (wanted);
+
+	return entry != NULL && gtk_widget_get_visible (entry);
+}
+
+static void
+find_statusbar_cb (GtkWidget *widget, gpointer data)
+{
+	GtkWidget **found = data;
+
+	if (*found != NULL) {
+		return;
+	}
+	if (GTK_IS_STATUSBAR (widget)) {
+		*found = widget;
+	} else if (GTK_IS_CONTAINER (widget)) {
+		gtk_container_forall (GTK_CONTAINER (widget), find_statusbar_cb, data);
+	}
+}
+
+/* The status bar's text, which may be hidden, or "" for none. */
+static const char *
+status_text (void)
+{
+	GtkWidget *bar = NULL;
+	GList *children;
+	GList *l;
+	const char *text = "";
+
+	find_statusbar_cb (window, &bar);
+	if (bar == NULL) {
+		return text;
+	}
+	children = gtk_container_get_children (GTK_CONTAINER (gtk_statusbar_get_message_area (GTK_STATUSBAR (bar))));
+	for (l = children; l != NULL; l = l->next) {
+		if (GTK_IS_LABEL (l->data)) {
+			text = gtk_label_get_text (l->data);
+			break;
+		}
+	}
+	g_list_free (children);
+
+	return text;
+}
+
+static GtkWidget *
+properties_window (void)
+{
+	GList *toplevels = gtk_window_list_toplevels ();
+	GList *l;
+	GtkWidget *found = NULL;
+
+	for (l = toplevels; l != NULL && found == NULL; l = l->next) {
+		if (is_a (l->data, "NemoPropertiesWindow")) {
+			found = l->data;
+		}
+	}
+	g_list_free (toplevels);
+
+	return found;
 }
 
 static GtkWidget *
@@ -919,6 +1047,19 @@ anywhere_icon_keys (void)
 	key (GDK_KEY_Down, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
 	want (run_of (1, next_item (r4, 0, 1), -1), "and Ctrl+Shift+Down runs on from it to the row below");
 
+	/* #2026111019540326 */
+	click (1, 0);
+	key (GDK_KEY_Right, GDK_CONTROL_MASK);
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	key (GDK_KEY_Right, GDK_SHIFT_MASK);
+	want (run_of (r2, r3, -1), "Shift+Right after Ctrl+Space took an icon out runs from that icon");
+	click (2, 0);
+	click (4, GDK_CONTROL_MASK);
+	click (2, GDK_CONTROL_MASK);
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	want (items (2, 4, -1), "Ctrl+Space after a Ctrl+click took an icon out puts it back");
+
 	key (GDK_KEY_Escape, 0);
 	want (g_strdup (""), "Escape clears the selection");
 	report (!outline_shown (), "and shows no focus outline");
@@ -1016,6 +1157,19 @@ anywhere_compact_keys (void)
 	want (g_strdup_printf ("1,%s", run), "and Ctrl+Shift+Right runs on from it to the next column");
 	g_free (run);
 
+	/* #2026111019540326 */
+	click (1, 0);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	key (GDK_KEY_Down, GDK_SHIFT_MASK);
+	want (run_of (2, 3, -1), "Shift+Down after Ctrl+Space took an item out runs from that item");
+	click (2, 0);
+	click (4, GDK_CONTROL_MASK);
+	click (2, GDK_CONTROL_MASK);
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	want (items (2, 4, -1), "Ctrl+Space after a Ctrl+click took an item out puts it back");
+
 	key (GDK_KEY_Escape, 0);
 	want (g_strdup (""), "Escape clears the selection");
 	report (!outline_shown (), "and shows no focus outline");
@@ -1067,6 +1221,20 @@ anywhere_list_keys (void)
 	want (items (5, 6, 7, 8, -1), "Ctrl+Shift+Down adds the run from the Ctrl+Space row and keeps the rest");
 	click (3, GDK_SHIFT_MASK);
 	want (run_of (3, 6, -1), "and a Shift+click then runs from that row too");
+
+	/* #2026111012592994 */
+	click (2, 0);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	key (GDK_KEY_Down, GDK_CONTROL_MASK);
+	click (6, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
+	want (run_of (2, 6, -1), "a Ctrl+Shift+click after Ctrl+Down runs from the anchor, not the focus");
+	click (0, GDK_SHIFT_MASK);
+	want (run_of (0, 2, -1), "and the anchor stays");
+	click (2, 0);
+	click (4, GDK_CONTROL_MASK);
+	click (2, GDK_CONTROL_MASK);
+	key (GDK_KEY_space, GDK_CONTROL_MASK);
+	want (items (2, 4, -1), "a Ctrl+click that takes a row out moves the focus there, for Ctrl+Space");
 
 	key (GDK_KEY_Escape, 0);
 	want (g_strdup (""), "Escape clears the selection");
@@ -1140,6 +1308,20 @@ rules_tick (void)
 			click (2, GDK_CONTROL_MASK);
 			click (4, GDK_SHIFT_MASK);
 			want (run_of (2, 4, -1), "a Shift+click after a Ctrl+click runs from the Ctrl+clicked item");
+			/* #2026111019540326 */
+			click (2, 0);
+			click (4, GDK_CONTROL_MASK);
+			click (2, GDK_CONTROL_MASK);
+			click (5, GDK_SHIFT_MASK);
+			want (run_of (2, 5, -1), "a Shift+click after a Ctrl+click took an item out runs from that item");
+			/* #2026111019540307 */
+			click (2, 0);
+			click (6, GDK_CONTROL_MASK);
+			click (3, GDK_CONTROL_MASK);
+			click (6, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
+			want (run_of (2, 6, -1), "a Ctrl+Shift+click on a selected item adds the run from the anchor");
+			click (0, GDK_SHIFT_MASK);
+			want (run_of (0, 3, -1), "and the anchor stays");
 		}
 		break;
 	case 7:
@@ -1265,11 +1447,61 @@ rules_tick (void)
 	case 24:
 		key (GDK_KEY_a, GDK_CONTROL_MASK);
 		want (run_of (0, last, -1), "Ctrl+A selects everything");
+		if (!anywhere) {
+			report (menu_entry_shown ("Select all") && menu_entry_shown ("Invert selection") &&
+				!menu_entry_shown ("Select none"),
+				"the Edit menu has Select all and Invert selection, and no Select none");
+			break;
+		}
+		report (menu_entry_shown ("Select all") && menu_entry_shown ("Select none") &&
+			menu_entry_shown ("Invert selection"),
+			"the Edit menu has Select all, Select none and Invert selection");
+		if (menu_entry ("Select none") != NULL) {
+			gtk_menu_item_activate (GTK_MENU_ITEM (menu_entry ("Select none")));
+		}
+		want (g_strdup (""), "Select none clears the selection");
+		key (GDK_KEY_a, GDK_CONTROL_MASK);
+		want (run_of (0, last, -1), "and Ctrl+A then selects everything again");
 		break;
 	case 25:
-		click (2, 0);
-		key (GDK_KEY_I, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
-		want (run_of (0, last, 2), "Ctrl+Shift+I inverts the selection");
+		if (!primary_i_sent) {
+			/* Every item is selected here, since step 24. The line is
+			   written at idle, so it may not be there yet. */
+			gboolean selected = strstr (status_text (), " selected") != NULL;
+			gboolean acts_on = g_str_has_prefix (status_text (), "Ready to act on ") &&
+					   strstr (status_text (), ";  Free space: ") != NULL;
+			char *line;
+
+			if ((!selected || acts_on != anywhere) && waited < 20) {
+				return FALSE;
+			}
+			line = g_strdup_printf ("%s (\"%s\")",
+				anywhere ? "the status bar says what a command would act on" :
+					   "the status bar gives the selected count without \"Ready to act on\"",
+				status_text ());
+			report (selected && acts_on == anywhere, line);
+			g_free (line);
+			click (2, 0);
+			key (GDK_KEY_I, GDK_CONTROL_MASK | GDK_SHIFT_MASK);
+			want (run_of (0, last, 2), "Ctrl+Shift+I inverts the selection");
+			key (GDK_KEY_i, GDK_CONTROL_MASK);
+			primary_i_sent = TRUE;
+		}
+		if (anywhere) {
+			want (items (2, -1), "Ctrl+I inverts it too");
+			key (GDK_KEY_i, GDK_CONTROL_MASK);
+			want (run_of (0, last, 2), "and a second Ctrl+I inverts it back");
+			break;
+		}
+		/* Nemo Anywhere v1 and Nemo Classic keep Ctrl+I for Properties. */
+		if (properties_window () == NULL && waited < 50) {
+			return FALSE;
+		}
+		report (properties_window () != NULL, "Ctrl+I opens Properties");
+		if (properties_window () != NULL) {
+			gtk_widget_destroy (properties_window ());
+		}
+		want (run_of (0, last, 2), "and leaves the selection alone");
 		break;
 	case 26:
 		key (GDK_KEY_Escape, 0);

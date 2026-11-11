@@ -95,7 +95,12 @@ docker exec "$CONTAINER" sh -c "
 	## No program but the app: not gdbus.exe, and not GLib's spawn helpers
 	## (2026100917220603). test-bundle-exes.ps1 refuses any other.
 	cp -r lib/gdk-pixbuf-2.0 /tmp/${name}/lib/
-	cp -r share/icons share/themes /tmp/${name}/share/
+	## Icons: hicolor only, as in the single exe. GTK looks in any Adwaita on
+	## disk before hicolor, which is where the bundled sets sit, so the
+	## sysroot's blue folders drew over them (2026102515500000).
+	mkdir -p /tmp/${name}/share/icons
+	cp -r share/icons/hicolor /tmp/${name}/share/icons/
+	cp -r share/themes /tmp/${name}/share/
 	[ -d share/glib-2.0/schemas ] && { mkdir -p /tmp/${name}/share/glib-2.0; cp -r share/glib-2.0/schemas /tmp/${name}/share/glib-2.0/; } || true
 	[ -d etc ] && cp -r etc /tmp/${name}/ || true
 
@@ -157,3 +162,4 @@ fEcho_Clean
 ##		- 2026-08-04: Created, so the Windows one-liner installer has an asset.
 ##		- 2026-10-13: GTK settings and font config from cicd/win/bundle-etc.
 ##		- 2026-10-26: A step container of its own, not nemo-winbuild.
+##		- 2026-11-11: Only hicolor from the sysroot's icons, as the single exe has.

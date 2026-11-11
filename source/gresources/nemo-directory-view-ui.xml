@@ -65,6 +65,7 @@
 		</placeholder>
 		<placeholder name="Select Items">
 		<menuitem name="Select All" action="Select All"/>
+		<menuitem name="Select None" action="Select None"/>
 		<menuitem name="Select Pattern" action="Select Pattern"/>
 		<menuitem name="Invert Selection" action="Invert Selection"/>
 		</placeholder>
