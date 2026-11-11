@@ -33,6 +33,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- On Linux and BSD, a bundled icon set picked in the settings file may draw Adwaita's folders instead of its own.
+	- ID: 2026111020501135
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261110-205011
+	- Opened by: 2026102515500000
+	- Related IDs: 2026102515500000
+	- Target OS: Linux, BSD
+	- Steps to reproduce: on a desktop with the adwaita-icon-theme package installed, set `appearance` `icon-theme` to a bundled set such as Mica in the settings file, and open a folder with a subfolder and a text file.
+	- Incorrect behavior: likely Adwaita's blue folder and plain text icon, not the set's own.
+	- Expected behavior: the picked set's own icons, as on Windows.
+	- Reproduced: No.
+	- Possible cause: the one found in 2026102515500000. GTK 3 looks in an Adwaita theme on disk before hicolor, and the bundled sets sit in hicolor. Here the system's Adwaita is on disk. design.md says Linux and the BSDs use the desktop's themes, so this is only for a pick in the settings file.
+	- Test case: none yet.
+
 - Icon views under Nemo Anywhere: after a Ctrl+click takes an icon out, a Shift+click runs from the icon clicked.
 	- ID: 2026111019540326
 	- Type: Bug
@@ -979,8 +995,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, the zip draws some file icons differently from the single exe.
 	- ID: 2026102515500000
 	- Type: Bug
-	- Status: Queued
-	- Needs external testing: a Windows box, the zip and the single exe from one commit side by side.
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: the Windows bundle check (ddqjk) in the packages stage, on a zip packed from this commit. The cross build image has to be rebuilt first, so no zip was packed here.
+	- Needs external testing: on vm925w, the zip and the single exe from this commit side by side. A bookmark's folder icon and a text file's icon match, tan and lined.
 	- Priority|Severity: Low
 	- Opened: 20261025-155000
 	- Opened by: 2026101007562511
@@ -990,7 +1007,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: the zip draws the bookmark's folder icon blue and the text file's icon plain.
 	- Expected behavior: the same icons as the single exe, tan and lined.
 	- Reproduced: 20261022 on vm925w, while checking 2026101007562511.
-	- Test case: none yet.
+	- Reproduced: 20261111 under wine, with the beta2 zip: blue folders and a plain text icon. The same tree without its `share/icons/Adwaita` and `AdwaitaLegacy` draws a tan folder and Mica's lined text icon.
+	- Actual cause: the zip copied the sysroot's whole `share/icons`, which has upstream's Adwaita (blue folders, plain mimetypes) and AdwaitaLegacy, 2744 files. GTK 3 always looks in an Adwaita theme on disk before hicolor, and it reads the bundled icon sets as part of hicolor, so the on-disk Adwaita won for every name it has. The single exe stages only hicolor, so the bundled sets win there.
+	- Actual fix: the zip and the wine runner take only hicolor from the sysroot's icons, as `stage-native.bash` already did. ddqjk now refuses any bundle with an icon theme on disk but hicolor.
+	- Decisions:
+		- Fix the bundle, not the lookup. GTK 3 has no way to put a resource path ahead of an on-disk Adwaita, and the single exe already lives without these files.
+	- Swept: every place that stages Windows icons: `stage-native.bash` (single exe and the hosted release build, already hicolor only), `pack-zip.bash` (zip, then the setup exe and `install.ps1`), `utility/run-windows-build-via-wine.bash`. `pack-portable.ps1` and `pack-setup.bash` copy what those made. The Linux and FreeBSD packages carry only hicolor, and ddqjk passes on the beta2 ones. A staged `cicd/artifacts/win-run` keeps the old icons until `--restage`.
+	- Verified: ddqjk fails on the beta2 zip (Adwaita and AdwaitaLegacy on disk) and passes on the same tree with only hicolor. Its self-test fails with the new check turned off and passes with it. The quick format and lint gate passes.
+	- Branch: round1111a
+	- Test case: ddqjk (`test-bundle-left-out.bash`), the Windows bundle check in the packages stage, and its self-test in lint.
 
 - Windows: build MSYS2's gtk3 with the OLE drag abort fix in `t00mietum/nemo-anywhere-deps`, as a pinned release file.
 	- ID: 2026111011404145
