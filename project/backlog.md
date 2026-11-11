@@ -171,6 +171,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026102819522603
 	- Type: Task
 	- Status: Stalled
+		- Held for its child 2026102820110989.
 	- Needs local test suite run?: none left. Closes with its child 2026102820110989, the private runner.
 	- Priority|Severity: High
 	- Opened: 20261028-195226
@@ -201,6 +202,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026102517333362
 	- Type: Task
 	- Status: Stalled
+		- Held for its child 2026102820110967.
 	- Needs local test suite run?: none left. Closes with its child 2026102820110967, the private runner.
 	- Priority|Severity: High
 	- Opened: 20261025-173333
@@ -232,6 +234,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026102517333373
 	- Type: Task
 	- Status: Stalled
+		- Held for its child 2026102819522603.
 	- Needs local test suite run?: no
 	- Needs external testing: none left. Closes with its child 2026102819522603.
 	- Priority|Severity: High
@@ -263,6 +266,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026102820110989
 	- Type: Task
 	- Status: Stalled
+		- Held for the private repo's round. Its backlog has no step output item for the runner yet.
 	- Priority|Severity: High
 	- Opened: 20261028-201109
 	- Opened by: 2026102819522603
@@ -279,6 +283,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026102820110967
 	- Type: Task
 	- Status: Stalled
+		- Held for the private repo's round, where nemo-anywhere-private:2026102416350001 covers the runner's CPU rules.
 	- Priority|Severity: High
 	- Opened: 20261028-201109
 	- Opened by: 2026102517333362
@@ -296,6 +301,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Type: Bug
 	- Status: Stalled
 		- It waits until a GLib release has `8bd4d6c2` and MSYS2 packages it. Then `cicd/win/msys2-pins.bash update` and a native gate run close it.
+		- Held for a GLib release with 8bd4d6c2, once MSYS2 packages it.
 	- Needs external testing: de5he in the native gate once the pins have a GLib with the fix. It should run the settings case and pass, as it did on b29w 20261104.
 	- Priority|Severity: Low
 	- Opened: 20261019-135411
@@ -597,7 +603,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Move every Windows lane from MSYS2's MINGW64 to UCRT64.
 	- ID: 2026110920004210
 	- Type: Task
-	- Status: Queued
+	- Status: Stalled
+		- Held for the rc.1 cut, per its Requirements.
 	- Priority|Severity: Avg
 	- Opened: 20261109-200042
 	- Opened by: 2026102809292776
