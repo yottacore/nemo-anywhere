@@ -33,6 +33,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Changelog: the Nemo Anywhere selection model, for rc.1.
+	- ID: 2026111022095190
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261110-220951
+	- Opened by:
+	- Related IDs: 2026102019174440, 2026102407515575
+	- Progress log:
+		- The selection model work has no changelog entry yet: the model as the default, its checkmarks, focus and keys, Select none, Ctrl+I inverting and Properties on Alt+Enter, and the status bar line.
+		- Test case: the docs checks.
+
 - Folder tree model: the number of top-level rows is always 1.
 	- ID: 2026111021433545
 	- Type: Bug
@@ -511,7 +523,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Build the "Nemo Anywhere" selection model with the affirmative switch off.
 	- ID: 2026102019174440
 	- Type: Enhancement
-	- Status: Started
+	- Status: Done
 	- Needs local test suite run?: Yes
 	- Priority|Severity: High
 	- Opened: 20261020-191745
@@ -538,7 +550,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261024: split into children, worked in this order: 2026102407515570 (the setting value and rules tables), ...571 (dim checkmarks), ...572 (focus outline and keys), ...573 (mouse and drags), ...574 (tree view), ...575 (wording, keys, then the dropdown entry and the default).
 		- 20261108: `nemo-anywhere` is the default and heads the dropdown, ahead of the other children. See ...575.
 		- 20261110: ...575 is done, so all 6 children are.
-	- Test case: one per child.
+	- Test case: its children's: 2026102407515575: dd5df checks the dropdown's order and the default, and that a settings file naming a model keeps it. The rename region test (test-eel-rename-region) checks that the whole-name setting counts under v1 and Classic but not under the default. dec8w, de8bd and de8dm check per model and view: the Edit menu's entries, Select none clearing the selection, Ctrl+I inverting (Nemo Anywhere) or opening Properties (v1 and Classic), and the status bar line. ddxes and de55r open Properties with Alt+Enter.; 2026102407515574: its children's: 2026111013031747: df066, Tree keys and selection test: Ctrl+Down and Ctrl+Up, the outline, Escape, Ctrl+C after a Ctrl move, Ctrl+Space, Up after a Ctrl move, Ctrl+End and Ctrl+Home.; 2026111013031711: de8bd, de8dm and dec8w, where every tree check also checks the marks: on the selected row only under Nemo Anywhere, and no column for them under the other models. The result counts don't change. df06r covers the sideways scroll with the column there.; 2026111013031729: dec8w, Selection rules test, Nemo Anywhere: in each view, the check that every item is marked while the tree has the focus on the viewed folder, and that a click in the view takes the marks back to its selection.; 2026102407515571: its children's: 2026102411133414: dec8w and dec8v, where every icon view check also checks the marks: on the selected icons under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). Under Nemo Anywhere the 2 icon view band checks in dec8v check them too. The result counts don't change.; 2026102411133419: dec8w and dec8v, where every compact view check also checks the marks: on the selected items under Nemo Anywhere, and on none under the other models (de8bd, de8dm, ddy5f, de8ec). The result counts don't change.; 2026102411133409: dec8w and dec8v, where every list view check also checks the marks, the bands included. de8bd, de8dm and dec8w check the column is there only under Nemo Anywhere, thin, and without the expanders.; 2026102407515572: its children's: 2026102412041971: dec8w, Selection rules test, Nemo Anywhere: the compact view's key checks, the outline among them.; 2026102412041969: dec8w, Selection rules test, Nemo Anywhere: the icon view's key checks, the outline among them.; 2026102412041967: dec8w, Selection rules test, Nemo Anywhere: the list view's key checks, the outline among them.; 2026102407515573: dec8v, Drag select test, Nemo Anywhere. In the list view: a band from the checkmark column down past the rows, and a Ctrl band up from a row not selected, each followed by the focus and a Shift+click from the anchor. In the icon and compact views: a band from the background over 2 or more icons, then a Shift+click. ddy5f and de8ec keep their counts.; 2026102407515570: dec8w, Selection rules test, Nemo Anywhere, and dec8v, Drag select test, Nemo Anywhere. dd5df checks the value is read and not offered.
+	- Closed: 20261110-220951
 
 - Nemo Anywhere: the switch-off wording and keys, then the dropdown entry and the default.
 	- ID: 2026102407515575
