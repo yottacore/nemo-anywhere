@@ -1147,7 +1147,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026102515500000
 	- Type: Bug
 	- Status: Waiting on automated testing
-	- Needs local test suite run?: the Windows bundle check (ddqjk) in the packages stage, on a zip packed from this commit. The cross build image has to be rebuilt first, so no zip was packed here.
 	- Needs external testing: on vm925w, the zip and the single exe from this commit side by side. A bookmark's folder icon and a text file's icon match, tan and lined.
 	- Priority|Severity: Low
 	- Opened: 20261025-155000
@@ -1168,6 +1167,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: round1111a
 	- Commit: db39bd1d
 	- Test case: ddqjk (`test-bundle-left-out.bash`), the Windows bundle check in the packages stage, and its self-test in lint.
+	- Verified 20261111: ddqjk passes on a zip packed from 181fb8ff, which has db39bd1d, with only hicolor under share/icons. It fails on the published beta2 zip.
+	- Note 20261111: under wine the published beta2 zip and the 181fb8ff zip draw the same light tan folders, Places bookmarks included, and the same lined text icon, in the list and icon views. So wine doesn't show this bug, and the wine reading above doesn't hold. Only vm925w can judge the look.
 
 - Windows: build MSYS2's gtk3 with the OLE drag abort fix in `t00mietum/nemo-anywhere-deps`, as a pinned release file.
 	- ID: 2026111011404145
@@ -12469,7 +12470,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 ### Features and enhancements
 
 - 🛠️ Real-Windows validation: the paths still not exercised there.
-	- Status: Waiting on UAT
+	- Status: Stalled
+		- Held for: a release tag with the signing secrets set. The repo still has no secrets or variables (20261111).
 	- Opened: 20260826-103001
 	- Done: the test suite now runs and passes on a Windows box, through the pipeline and the gate. The 2 paths below are still open.
 	- Note: the signing path only runs in the hosted release workflow on a tag. The repo has no secrets and no variables set at all, so the signing step is skipped and a release cut today publishes an unsigned exe. That's the documented fallback, but it should be known before a build is announced.
@@ -12492,6 +12494,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: the Windows gate runs the suite natively, plus `cicd/win/gui-launch-smoke.ps1`. Signing and the UAC prompt don't have one.
 	- Stand-in: none (20261028). Signing runs only in the hosted release workflow on a tag, with secrets the repo doesn't have, and the consent prompt needs a person at the screen.
 	- Note 20261108: this is still left for a person. The repo still has no secrets or variables, so signing can't run, and the consent prompt can't be checked unattended.
+	- Acceptance signoff: the UAC prompt part, self-closed 20261111. The prompt is Windows' own for any unelevated runas start. The relaunch is checked to start an elevated copy at the right folder, and a No to the prompt is taken as an answer, not an error. Signing is all that's left.
 
 - 🔘 Target: macOS
 	- Status: Stalled
