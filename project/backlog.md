@@ -3382,6 +3382,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- v1 and Classic keep theirs, as for the band in 2026102407515573, since v1 is pinned as found and Classic is upstream's.
 		- A Ctrl+Shift+click still runs from the focus, as before, since GTK doesn't give a way to read its anchor. They differ mostly after a Ctrl+arrow, which is filed as 2026111012592994.
 		- Ctrl+Shift with an arrow at the first or last row doesn't move anything, so the anchor is left as it was.
+		- 20261111: Ctrl+Shift+click now runs from the anchor, fixed in 2026111012592994.
 	- Swept: every place the list view selects rows again after a cursor move or a run: the band, both presses (Classic keeps upstream's), the release after a click on a selected row (it unselects the rest, which leaves the anchor right), and Ctrl+Shift with an arrow. The tree pane and the places sidebar don't put rows back.
 	- Branch: round1110b
 	- Test case: dec8w, in the list view and both icon views under Nemo Anywhere: a Shift+click after a Ctrl+Shift+click, and a Shift+click after a Ctrl+click. In the list view also a Shift+click after Ctrl+Space and Ctrl+Shift+Down.
