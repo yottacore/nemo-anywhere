@@ -1146,8 +1146,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, the zip draws some file icons differently from the single exe.
 	- ID: 2026102515500000
 	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs external testing: on vm925w, the zip and the single exe from this commit side by side. A bookmark's folder icon and a text file's icon match, tan and lined.
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261025-155000
 	- Opened by: 2026101007562511
@@ -1169,6 +1168,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddqjk (`test-bundle-left-out.bash`), the Windows bundle check in the packages stage, and its self-test in lint.
 	- Verified 20261111: ddqjk passes on a zip packed from 181fb8ff, which has db39bd1d, with only hicolor under share/icons. It fails on the published beta2 zip.
 	- Note 20261111: under wine the published beta2 zip and the 181fb8ff zip draw the same light tan folders, Places bookmarks included, and the same lined text icon, in the list and icon views. So wine doesn't show this bug, and the wine reading above doesn't hold. Only vm925w can judge the look.
+	- Verified 20261111 on vm925w: the zip packed from 181fb8ff and a single exe packed from the same cross build open the same folder with the same tan folder and lined text icon, in the list and icon views, and the same tan bookmark folders. The published beta2 zip draws a blue folder and a plain text icon there, and the same beta2 tree without its Adwaita and AdwaitaLegacy folders draws tan and lined.
+	- Acceptance signoff: Self-closed: the vm925w check above.
+	- Closed: 20261110-232922
 
 - Windows: build MSYS2's gtk3 with the OLE drag abort fix in `t00mietum/nemo-anywhere-deps`, as a pinned release file.
 	- ID: 2026111011404145
