@@ -527,25 +527,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md#where-pasted-and-new-items-go), "Where pasted and new items go".
 	- Test case: none yet.
 
-- The program's name is typed out in many places. Set it once and use that everywhere.
-	- ID: 2026101512190015
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261015-121900
-	- Opened by: t00mietum
-	- Requirements:
-		- Every place a person sees the name says "Nemo Anywhere", from one constant set once, such as a meson option written into `config.h`.
-		- That covers UI text, tooltips, dialogs, the About box, window titles, the launcher, the man page, installer messages and the action layout editor.
-		- Leftover bare "Nemo" meaning this program gets fixed on the way, such as the Settings menu tooltip "Edit Nemo settings".
-		- Credit to upstream Nemo stays as it is. It names the other project.
-		- A lint check refuses the name typed out anywhere but the one place.
-	- Notes:
-		- The name may have to change if the Cinnamon team won't allow it, so a rename should be a one-line edit plus a rebuild.
-		- Today there are about 60 C strings with "Nemo" in them, about 20 of them "Nemo Anywhere", plus .ui, .py and data files.
-		- The slug `nemo-anywhere`, the app id `org.NemoAnywhere` and file paths are a bigger rename, left for later.
-	- Test case: the new lint check, plus the existing UI case check for the strings it touches.
-
 - When moving a bookmark with the mouse, it should give some kind of indication of where it's going to go *between*.
 	- ID: 2026101613053686
 	- Type: Enhancement
@@ -17442,6 +17423,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ✋ Item 109. Platform code is split two ways: dedicated Windows modules alongside inline platform blocks in large shared files.
 		- Deferred: Need to decide whether this is "convention" or a "bug".
 	- Test case: none, all 3 items are deferred.
+
+- ✋ Make regular delete/recycle/overwrite confirmation dialogs default to OK.
+	- Opened: 20260917-125804
+	- Design: [20260930-150859_delete_guard.md](design_docs/20260930-150859_delete_guard.md).
+	- This reverses the earlier design intended to guard against an apparent spontaneous deletion bug.
+	- Don't alter the code that optionally provides ultra-protection by showing what will be deleted, how it was invoked, what files, etc.
+	- Only do this once nemo-anywhere has been in reliable use for many days or weeks, including archiving.
+	- Test case: none, deferred.
 
 ### Canceled
 
