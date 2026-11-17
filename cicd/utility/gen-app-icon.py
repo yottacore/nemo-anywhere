@@ -32,11 +32,11 @@ THEME_SIZES = (16, 22, 24, 32, 48, 64, 128, 256)
 CHECK_TOLERANCE = 8
 
 
-def check(root, logo):
+def check(root: str, logo: Image.Image) -> int:
     apps = os.path.join(root, "source", "data", "icons", "hicolor", "apps")
     stale = []
     for size in THEME_SIZES:
-        path = os.path.join(apps, "%dx%d" % (size, size), "nemo-anywhere.png")
+        path = os.path.join(apps, f"{size}x{size}", "nemo-anywhere.png")
         want = logo.resize((size, size), Image.LANCZOS)
         try:
             have = Image.open(path).convert("RGBA")
@@ -59,7 +59,7 @@ def check(root, logo):
     return 0
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     args = argv[1:]
     checking = "--check" in args
     args = [a for a in args if a != "--check"]
@@ -70,22 +70,22 @@ def main(argv):
 
     if checking:
         tag = next(line[9:] for line in __doc__.splitlines() if line.startswith("Test ID: "))
-        print("[ Test %s gen-app-icon.py --check ]" % tag)
+        print(f"[ Test {tag} gen-app-icon.py --check ]")
         return check(root, logo)
 
     ico = os.path.join(root, "source", "src", "nemo-anywhere.ico")
     logo.save(ico, format="ICO", sizes=[(s, s) for s in ICO_SIZES])
-    print("[ %s: %d KB ]" % (os.path.basename(ico), os.path.getsize(ico) / 1024))
+    print(f"[ {os.path.basename(ico)}: {os.path.getsize(ico) // 1024} KB ]")
 
     apps = os.path.join(root, "source", "data", "icons", "hicolor", "apps")
     total = 0
     for size in THEME_SIZES:
-        out_dir = os.path.join(apps, "%dx%d" % (size, size))
+        out_dir = os.path.join(apps, f"{size}x{size}")
         os.makedirs(out_dir, exist_ok=True)
         out = os.path.join(out_dir, "nemo-anywhere.png")
         logo.resize((size, size), Image.LANCZOS).save(out, optimize=True)
         total += os.path.getsize(out)
-    print("[ hicolor apps: %d sizes, %d KB ]" % (len(THEME_SIZES), total / 1024))
+    print(f"[ hicolor apps: {len(THEME_SIZES)} sizes, {total // 1024} KB ]")
 
     return 0
 

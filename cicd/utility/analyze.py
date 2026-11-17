@@ -50,6 +50,8 @@ import signal
 import subprocess
 import sys
 import tempfile
+from collections.abc import Sequence
+from typing import TypedDict
 
 SRC = "/src/"
 TU_TIMEOUT = int(os.environ.get("ANALYZE_TU_TIMEOUT", "900"))
@@ -68,7 +70,20 @@ DROP_WITH_ARG = {"-o", "-MF", "-MQ", "-MT"}
 DROP = {"-MD", "-MMD", "-Werror", "-pipe"}
 
 
-def private_dir(entry):
+class Entry(TypedDict, total=False):
+    directory: str
+    file: str
+    command: str
+    arguments: list[str]
+    output: str
+
+
+Run = tuple[str, Entry, str]
+Finding = tuple[str, int, int, str]
+SuppKey = tuple[str, int, str]
+
+
+def private_dir(entry: Entry) -> str:
     out = entry.get("output")
     if not out:
         argv = entry.get("arguments") or shlex.split(entry["command"])
@@ -80,7 +95,7 @@ def private_dir(entry):
 # targets can see different headers (2026102408163141). Meson gives each target
 # its own -I<target>.p, which has only objects, so that one doesn't count.
 # The tag names the target when a file has more than one run.
-def load_db(path):
+def load_db(path: str) -> list[Run]:
     with open(path, encoding="utf-8") as f:
         entries = json.load(f)
     runs = {}
@@ -94,7 +109,7 @@ def load_db(path):
                   key=lambda r: (r[0], r[2]))
 
 
-def analyzer_argv(entry, tool, clang):
+def analyzer_argv(entry: Entry, tool: str, clang: str | None) -> list[str]:
     argv = entry.get("arguments") or shlex.split(entry["command"])
     out = []
     skip = False
@@ -117,12 +132,13 @@ def analyzer_argv(entry, tool, clang):
         + ([] if tool == "clang-parse" else ["--analyze", "--analyzer-output", "text", "-fno-color-diagnostics", "-o", "/dev/null"])
 
 
-def rel(directory, path):
+def rel(directory: str, path: str) -> str:
     full = os.path.normpath(os.path.join(directory, path))
     return full[len(SRC):] if full.startswith(SRC) else full
 
 
-def run_one(full, entry, tool, clang, tag="", extra=(), cap=None):
+def run_one(full: str, entry: Entry, tool: str, clang: str | None, tag: str = "", extra: Sequence[str] = (),
+            cap: int | None = None) -> str:
     # Added last, so a listed -O<n> wins over the build's.
     argv = analyzer_argv(entry, tool, clang) + list(extra)
     cap = max(cap or 0, TU_TIMEOUT)
@@ -135,22 +151,23 @@ def run_one(full, entry, tool, clang, tag="", extra=(), cap=None):
     except subprocess.TimeoutExpired:
         os.killpg(p.pid, signal.SIGKILL)
         p.communicate()
-        rc, text = 124, "timed out after %d s\n" % cap
+        rc, text = 124, f"timed out after {cap} s\n"
     lines = []
     for line in text.splitlines():
         m = DIAG_RE.match(line)
         if m:
             line = rel(entry["directory"], m.group(1)) + line[len(m.group(1)):]
         lines.append(line)
-    name = rel("/", full) + (" [%s]" % tag if tag else "")
-    return "### %s rc=%d\n%s" % (name, rc, "\n".join(lines) + ("\n" if lines else ""))
+    name = rel("/", full) + (f" [{tag}]" if tag else "")
+    body = "\n".join(lines) + ("\n" if lines else "")
+    return f"### {name} rc={rc}\n{body}"
 
 
 SLOW_RE = re.compile(r"^((?:gcc|clang|clang-ctu)-(?:linux|win))\s+(\S+)\s+(-O[0-3gs]|cap=[1-9][0-9]*|skip)\s+(\S.*)$")
 
 
 # {lane: {path: how}}, and a problem per bad line.
-def parse_slow(text):
+def parse_slow(text: str) -> tuple[dict[str, dict[str, str]], list[str]]:
     slow, problems = {}, []
     for n, line in enumerate(text.splitlines(), 1):
         line = line.strip()
@@ -158,26 +175,26 @@ def parse_slow(text):
             continue
         m = SLOW_RE.match(line)
         if not m:
-            problems.append("line %d: want <lane> <path> -O<n>|cap=<s>|skip <reason>" % n)
+            problems.append(f"line {n}: want <lane> <path> -O<n>|cap=<s>|skip <reason>")
         elif m.group(2) in slow.get(m.group(1), {}):
-            problems.append("line %d: listed twice: %s %s" % (n, m.group(1), m.group(2)))
+            problems.append(f"line {n}: listed twice: {m.group(1)} {m.group(2)}")
         else:
             slow.setdefault(m.group(1), {})[m.group(2)] = m.group(3)
     return slow, problems
 
 
 # The block run prints for one run, or None to analyze it, with its flags and cap.
-def slow_plan(how):
+def slow_plan(how: str | None) -> tuple[str | None, tuple[str, ...], int | None]:
     if how is None:
         return None, (), None
     if how == "skip":
-        return "skipped in this lane, per %s\n" % SLOW_FILE, (), None
+        return f"skipped in this lane, per {SLOW_FILE}\n", (), None
     if how.startswith("cap="):
         return None, (), int(how[4:])
     return None, (how,), None
 
 
-def find_tool(name):
+def find_tool(name: str) -> str | None:
     return shutil.which(name) or shutil.which(name + "-19")
 
 
@@ -186,7 +203,7 @@ def find_tool(name):
 # A USR more than one file defines, such as each test's main, is left out, so
 # the analyzer never picks one at random. Returns the analyzer's extra flags.
 # On-demand parsing, not saved ASTs, so it needs no disk for the whole tree.
-def ctu_prepare(runs, clang, tmp, jobs):
+def ctu_prepare(runs: Sequence[Run], clang: str | None, tmp: str, jobs: int) -> list[str] | None:
     mapper = find_tool("clang-extdef-mapping")
     if not mapper:
         return None
@@ -196,12 +213,12 @@ def ctu_prepare(runs, clang, tmp, jobs):
 
     # A plain parse doesn't define __clang_analyzer__, so without it the other
     # file's EEL_ANALYZER_SKIP lines lose their suppression.
-    def flags(full, e):
+    def flags(full: str, e: Entry) -> list[str]:
         src = os.path.normpath(os.path.join(e["directory"], e["file"]))
         return [a for a in analyzer_argv(e, "clang-parse", clang)[1:]
                 if os.path.normpath(os.path.join(e["directory"], a)) != src] + ["-D__clang_analyzer__=1"]
 
-    def defs(item):
+    def defs(item: tuple[str, Entry]) -> tuple[str, list[str], int]:
         full, e = item
         try:
             p = subprocess.run([mapper, full, "--"] + flags(full, e), cwd=e["directory"], stdin=subprocess.DEVNULL,
@@ -223,26 +240,26 @@ def ctu_prepare(runs, clang, tmp, jobs):
                 where[u].add(full)
     once = sorted((u, next(iter(f))) for u, f in where.items() if len(f) == 1)
     with open(os.path.join(tmp, "externalDefMap.txt"), "w", encoding="utf-8") as f:
-        f.writelines("%d:%s %s\n" % (len(u), u, path) for u, path in once)
+        f.writelines(f"{len(u)}:{u} {path}\n" for u, path in once)
     # JSON is YAML, which the invocation list is read as.
     with open(os.path.join(tmp, "invocations.yaml"), "w", encoding="utf-8") as f:
         json.dump({full: [clang, full] + flags(full, e) for full, e in firsts.items()}, f)
-    print("### CTU index: %d files, %d functions, %d defined in more than one file, %d files not indexed"
-          % (len(firsts), len(once), len(where) - len(once), bad))
+    print(f"### CTU index: {len(firsts)} files, {len(once)} functions, {len(where) - len(once)} defined in more"
+          f" than one file, {bad} files not indexed")
     sys.stdout.flush()
     return [x for kv in ("experimental-enable-naive-ctu-analysis=true", "ctu-dir=" + tmp,
                          "ctu-invocation-list=" + os.path.join(tmp, "invocations.yaml"))
             for x in ("-Xclang", "-analyzer-config", "-Xclang", kv)]
 
 
-def cmd_run(args):
+def cmd_run(args: list[str]) -> int:
     tool = args[args.index("--tool") + 1]
     db = args[args.index("--db") + 1]
     ctu = "--ctu" in args
     if ctu and tool != "clang":
         print("[ FAILED: --ctu is clang's only ]")
         return 2
-    lane = "%s-%s" % ("clang-ctu" if ctu else tool, args[args.index("--lane") + 1]) if "--lane" in args else None
+    lane = f"{'clang-ctu' if ctu else tool}-{args[args.index('--lane') + 1]}" if "--lane" in args else None
     jobs = int(args[args.index("--jobs") + 1]) if "--jobs" in args else max(1, (os.cpu_count() or 2) // 2)
     clang = None
     if tool == "clang":
@@ -253,7 +270,7 @@ def cmd_run(args):
     with open(os.path.join(SRC, SLOW_FILE), encoding="utf-8") as f:
         slow, problems = parse_slow(f.read())
     for p in problems:
-        print("[ FAILED: %s: %s ]" % (SLOW_FILE, p))
+        print(f"[ FAILED: {SLOW_FILE}: {p} ]")
     if problems:
         return 1
     slow = slow.get(lane, {})
@@ -266,16 +283,18 @@ def cmd_run(args):
             return 77
         rc = run_all(runs, slow, ctu_flags, tool, clang, jobs)
     for path in stale:
-        print("[ FAILED: %s: %s not in %s ]" % (SLOW_FILE, path, db))
+        print(f"[ FAILED: {SLOW_FILE}: {path} not in {db} ]")
     return 1 if stale or rc else 0
 
 
-def run_all(runs, slow, ctu_flags, tool, clang, jobs):
-    def one(r):
+def run_all(runs: list[Run], slow: dict[str, str], ctu_flags: list[str], tool: str, clang: str | None,
+            jobs: int) -> int:
+    def one(r: Run) -> str:
         name = rel("/", r[0])
         block, extra, cap = slow_plan(slow.get(name))
         if block:
-            return "### %s rc=0\n%s" % (name + (" [%s]" % r[2] if r[2] else ""), block)
+            label = name + (f" [{r[2]}]" if r[2] else "")
+            return f"### {label} rc=0\n{block}"
         return run_one(r[0], r[1], tool, clang, r[2], tuple(ctu_flags) + extra, cap)
     # The slow ones start first, so the rest overlap them. Output keeps the list's order.
     order = sorted(range(len(runs)), key=lambda i: not slow.get(rel("/", runs[i][0]), "").startswith("cap="))
@@ -316,12 +335,12 @@ int planted_quiet(const int *q) {
 PLANTED_QUIET_LINE = PLANTED_CALLEE.splitlines().index("\treturn *q;") + 1
 
 
-def planted_found(block):
+def planted_found(block: str) -> set[str]:
     return {m.group(4) for m in (GCC_RE.match(x) or CLANG_RE.match(x) for x in block.splitlines())
             if m and os.path.basename(m.group(1)).startswith("planted")}
 
 
-def cmd_planted(args):
+def cmd_planted(args: list[str]) -> int:
     tool = args[args.index("--tool") + 1]
     cc = args[args.index("--cc") + 1]
     ctu = "--ctu" in args
@@ -353,12 +372,12 @@ def cmd_planted(args):
             block = run_one(entries[0][0], entries[0][1], tool, clang)
     sys.stdout.write(block)
     missing = want - planted_found(block)
-    print("[ %s%s: planted faults %s ]" % (tool, " across files" if ctu else "",
-                                           "missed: " + ", ".join(sorted(missing)) if missing else "found"))
+    result = "missed: " + ", ".join(sorted(missing)) if missing else "found"
+    print(f"[ {tool}{' across files' if ctu else ''}: planted faults {result} ]")
     # A plain run that finds them too means the planted pair doesn't need the other file.
     seen = planted_found(plain) & want if plain is not None else set()
     if seen:
-        print("[ FAILED: a plain clang run found %s too, so the planted pair proves nothing ]" % ", ".join(sorted(seen)))
+        print(f"[ FAILED: a plain clang run found {', '.join(sorted(seen))} too, so the planted pair proves nothing ]")
     quiet = ctu and any(m and os.path.basename(m.group(1)) == "planted_callee.c" and int(m.group(2)) == PLANTED_QUIET_LINE
                         for m in map(CLANG_RE.match, block.splitlines()))
     if quiet:
@@ -369,18 +388,18 @@ def cmd_planted(args):
 UNUSED = "source/unused/"
 
 
-def check_cover(tracked, built):
+def check_cover(tracked: set[str], built: set[str]) -> list[str]:
     problems = []
     for f in sorted(tracked):
         if f.startswith(UNUSED):
             if f in built:
-                problems.append("built from %s: %s" % (UNUSED, f))
+                problems.append(f"built from {UNUSED}: {f}")
         elif f not in built:
-            problems.append("in neither compile list: %s" % f)
+            problems.append(f"in neither compile list: {f}")
     return problems
 
 
-def cmd_cover(args):
+def cmd_cover(args: list[str]) -> int:
     root, dbs = args[0], args[1:]
     tracked = set(subprocess.run(["git", "-C", root, "ls-files", "*.c"], check=True,
                                  capture_output=True, text=True).stdout.split())
@@ -389,14 +408,13 @@ def cmd_cover(args):
         built |= {f[len(SRC):] for f, _, _ in load_db(db) if f.startswith(SRC)}
     problems = check_cover(tracked, built)
     for p in problems:
-        print("[ FAILED: %s ]" % p)
+        print(f"[ FAILED: {p} ]")
     unused = {f for f in tracked if f.startswith(UNUSED)}
-    print("[ %d tracked .c, %d in a compile list, %d under %s ]"
-          % (len(tracked), len(tracked & built), len(unused), UNUSED))
+    print(f"[ {len(tracked)} tracked .c, {len(tracked & built)} in a compile list, {len(unused)} under {UNUSED} ]")
     return 1 if problems else 0
 
 
-def area_of(path, inherited):
+def area_of(path: str, inherited: set[str]) -> str:
     if path.startswith("/"):
         return "system"
     if path.startswith(VENDORED):
@@ -408,7 +426,7 @@ def area_of(path, inherited):
 
 # The findings, the runs not analyzed, whether the analyzer was missing, and the
 # runs analyze-slow.txt skips.
-def parse_log(text):
+def parse_log(text: str) -> tuple[set[Finding], list[str], bool, list[str]]:
     findings, failed, skipped, listed = set(), [], False, []
     tu, rc, seen_error = None, 0, False
     for line in text.splitlines() + ["### end rc=0"]:
@@ -438,7 +456,7 @@ SUPP_RE = re.compile(r"^(\S+):(\d+)\s+(\S+)\s+(\S.*)$")
 
 
 # (path, line, checker) -> reason, and a problem per bad line.
-def parse_supp(text):
+def parse_supp(text: str) -> tuple[dict[SuppKey, str], list[str]]:
     supp, problems = {}, []
     for n, line in enumerate(text.splitlines(), 1):
         line = line.strip()
@@ -446,14 +464,14 @@ def parse_supp(text):
             continue
         m = SUPP_RE.match(line)
         if not m:
-            problems.append("line %d: want <path>:<line> <checker> <reason>" % n)
+            problems.append(f"line {n}: want <path>:<line> <checker> <reason>")
             continue
         key = (m.group(1), int(m.group(2)), m.group(3))
         # Ours and inherited code are suppressed at the line, not here.
         if not key[0].startswith(VENDORED):
-            problems.append("line %d: not vendored: %s" % (n, key[0]))
+            problems.append(f"line {n}: not vendored: {key[0]}")
         elif key in supp:
-            problems.append("line %d: listed twice: %s:%d %s" % ((n,) + key))
+            problems.append(f"line {n}: listed twice: {key[0]}:{key[1]} {key[2]}")
         else:
             supp[key] = m.group(4)
     return supp, problems
@@ -461,7 +479,9 @@ def parse_supp(text):
 
 # Counts per log, the runs not analyzed, the stale entries, the findings left
 # as (log, path, line, checker), and the runs analyze-slow.txt skips.
-def count(logs, inherited, supp=None):
+def count(logs: dict[str, str], inherited: set[str], supp: dict[SuppKey, str] | None = None) -> tuple[
+        dict[str, dict[str, int] | None], dict[str, list[str]], list[SuppKey], list[tuple[str, str, int, str]],
+        dict[str, list[str]]]:
     supp = supp or {}
     table, failed, used, left, listed = {}, {}, set(), set(), {}
     for name, text in logs.items():
@@ -480,7 +500,7 @@ def count(logs, inherited, supp=None):
     return table, failed, sorted(set(supp) - used), sorted(left), listed
 
 
-def cmd_count(args):
+def cmd_count(args: list[str]) -> int:
     supp_file, no_stale = None, False
     while args and args[0] in ("--supp", "--no-stale"):
         if args[0] == "--supp":
@@ -497,7 +517,7 @@ def cmd_count(args):
     with open(supp_file, encoding="utf-8") as f:
         supp, problems = parse_supp(f.read())
     for p in problems:
-        print("[ FAILED: %s: %s ]" % (supp_file, p))
+        print(f"[ FAILED: {supp_file}: {p} ]")
     logs = {}
     for p in paths:
         with open(p, encoding="utf-8", errors="replace") as f:
@@ -505,29 +525,31 @@ def cmd_count(args):
     table, failed, stale, left, listed = count(logs, inherited, supp)
     # The cross-file run reads only clang's logs, so a vendored entry for gcc matches nothing there.
     stale = [] if no_stale else stale
-    print("%-14s %s %7s %10s %9s" % ("log", " ".join("%9s" % a for a in AREAS), "total", "suppressed", "failed"))
+    heads = " ".join(f"{a:>9}" for a in AREAS)
+    print(f"{'log':<14} {heads} {'total':>7} {'suppressed':>10} {'failed':>9}")
     for name, row in table.items():
         if row is None:
-            print("%-14s not run (analyzer missing in its container)" % name)
+            print(f"{name:<14} not run (analyzer missing in its container)")
             continue
-        print("%-14s %s %7d %10d %9d" % (name, " ".join("%9d" % row[a] for a in AREAS), sum(row[a] for a in AREAS),
-                                         row["suppressed"], len(failed[name])))
+        cells = " ".join(f"{row[a]:9d}" for a in AREAS)
+        print(f"{name:<14} {cells} {sum(row[a] for a in AREAS):7d} {row['suppressed']:10d} {len(failed[name]):9d}")
     for name, tus in listed.items():
         for tu in tus:
-            print("skipped per %s (%s): %s" % (os.path.basename(SLOW_FILE), name, tu))
+            print(f"skipped per {os.path.basename(SLOW_FILE)} ({name}): {tu}")
     for name, bad in failed.items():
         for tu in bad:
-            print("[ FAILED: not analyzed (%s): %s ]" % (name, tu))
+            print(f"[ FAILED: not analyzed ({name}): {tu} ]")
     for name, path, line, checker in left:
-        print("[ FAILED: not suppressed (%s): %s:%d %s ]" % (name, path, line, checker))
+        print(f"[ FAILED: not suppressed ({name}): {path}:{line} {checker} ]")
     for path, line, checker in stale:
-        print("[ FAILED: stale suppression: %s:%d %s ]" % (path, line, checker))
+        print(f"[ FAILED: stale suppression: {path}:{line} {checker} ]")
     return 1 if problems or left or stale or any(failed.values()) else 0
 
 
-def self_test():
+def self_test() -> int:
     own = open(__file__, encoding="utf-8").read()
-    print("[ Test %s analyze.py --self-test ]" % re.search(r"(?m)^# Test ID: (\S+)$", own).group(1))
+    test_id = re.search(r"(?m)^# Test ID: (\S+)$", own).group(1)
+    print(f"[ Test {test_id} analyze.py --self-test ]")
     bad = []
     log = "\n".join([
         "### source/src/a.c rc=1",
@@ -544,11 +566,11 @@ def self_test():
     table, failed, _, left, _ = count({"gcc-linux": log}, {"source/libnemo-private/old.c"})
     want = {"vendored": 1, "inherited": 1, "ours": 1, "tests": 1, "system": 1, "suppressed": 0}
     if table["gcc-linux"] != want:
-        bad.append("counts %r, want %r" % (table["gcc-linux"], want))
+        bad.append(f"counts {table['gcc-linux']!r}, want {want!r}")
     if failed["gcc-linux"] != ["source/src/b.c"]:
-        bad.append("not analyzed %r, want b.c only" % failed["gcc-linux"])
+        bad.append(f"not analyzed {failed['gcc-linux']!r}, want b.c only")
     if len(left) != 5 or ("gcc-linux", "source/src/a.c", 3, "analyzer-null-dereference") not in left:
-        bad.append("left %r, want the 5 counted" % left)
+        bad.append(f"left {left!r}, want the 5 counted")
     if count({"x": "### SKIP no clang"}, set())[0]["x"] is not None:
         bad.append("a skipped log counted as clean")
     # The cross-file run's index line heads its log, and isn't a file.
@@ -558,7 +580,7 @@ def self_test():
         if failed["clang-linux"] or table["clang-linux"]["ours"]:
             bad.append("the CTU index line read as a file")
     except ValueError as e:
-        bad.append("the CTU index line read as a file: %s" % e)
+        bad.append(f"the CTU index line read as a file: {e}")
     # The vendored finding is listed; a second entry matches nothing, by line and by checker.
     supp, problems = parse_supp("\n".join([
         "# comment",
@@ -568,47 +590,47 @@ def self_test():
     ]))
     table, _, stale, left, _ = count({"clang-linux": log}, {"source/libnemo-private/old.c"}, supp)
     if problems or (table["clang-linux"]["vendored"], table["clang-linux"]["suppressed"]) != (0, 1):
-        bad.append("suppressed counts %r, problems %r" % (table["clang-linux"], problems))
+        bad.append(f"suppressed counts {table['clang-linux']!r}, problems {problems!r}")
     if stale != [("vendor/x/y.c", 2, "core.NullDereference"), ("vendor/x/y.c", 3, "unix.Malloc")]:
-        bad.append("stale %r" % stale)
+        bad.append(f"stale {stale!r}")
     if ("clang-linux", "vendor/x/y.c", 2, "unix.Malloc") in left:
         bad.append("a listed finding left as unsuppressed")
     _, problems = parse_supp("vendor/x/y.c:2 unix.Malloc\nsource/src/a.c:3 analyzer-null-dereference ours\n"
                              "vendor/x/y.c:4 unix.Malloc a\nvendor/x/y.c:4 unix.Malloc b\n")
     if len(problems) != 3:
-        bad.append("bad list lines %r, want 3 (no reason, not vendored, twice)" % problems)
+        bad.append(f"bad list lines {problems!r}, want 3 (no reason, not vendored, twice)")
     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", SUPP_FILE), encoding="utf-8") as f:
         problems = parse_supp(f.read())[1]
-    bad += ["%s: %s" % (SUPP_FILE, p) for p in problems]
+    bad += [f"{SUPP_FILE}: {p}" for p in problems]
     # A run cut off at the cap isn't analyzed, and fails; one the slow list skips is only named.
-    log = "### vendor/z/slow.c rc=124\ntimed out after 120 s\n### source/src/c.c rc=0\nskipped in this lane, per %s\n" % SLOW_FILE
+    log = f"### vendor/z/slow.c rc=124\ntimed out after 120 s\n### source/src/c.c rc=0\nskipped in this lane, per {SLOW_FILE}\n"
     _, failed, _, left, listed = count({"gcc-linux": log}, set())
     if failed["gcc-linux"] != ["vendor/z/slow.c"] or listed["gcc-linux"] != ["source/src/c.c"] or left:
-        bad.append("cut off %r, skipped %r, want slow.c and c.c" % (failed["gcc-linux"], listed["gcc-linux"]))
+        bad.append(f"cut off {failed['gcc-linux']!r}, skipped {listed['gcc-linux']!r}, want slow.c and c.c")
     slow, problems = parse_slow("# c\ngcc-linux a.c -O1 why\ngcc-win a.c cap=300 why\nclang-linux b.c skip why\n")
     if problems or slow != {"gcc-linux": {"a.c": "-O1"}, "gcc-win": {"a.c": "cap=300"}, "clang-linux": {"b.c": "skip"}}:
-        bad.append("slow list %r, problems %r" % (slow, problems))
+        bad.append(f"slow list {slow!r}, problems {problems!r}")
     if [slow_plan(h) for h in (None, "-O1", "cap=300")] != [(None, (), None), (None, ("-O1",), None), (None, (), 300)] \
             or not slow_plan("skip")[0]:
         bad.append("slow plans")
     _, problems = parse_slow("gcc-linux a.c -O1\ngcc-mac a.c -O1 why\ngcc-linux a.c -O9 why\ngcc-linux b.c skip x\ngcc-linux b.c cap=9 y\n")
     if len(problems) != 4:
-        bad.append("bad slow lines %r, want 4 (no reason, lane, level, twice)" % problems)
+        bad.append(f"bad slow lines {problems!r}, want 4 (no reason, lane, level, twice)")
     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", SLOW_FILE), encoding="utf-8") as f:
         problems = parse_slow(f.read())[1]
-    bad += ["%s: %s" % (SLOW_FILE, p) for p in problems]
+    bad += [f"{SLOW_FILE}: {p}" for p in problems]
     tracked = {"a.c", "b.c", "c.c", UNUSED + "d.c", UNUSED + "e.c"}
     got = check_cover(tracked, {"a.c", "b.c", UNUSED + "e.c"})
-    want_p = ["in neither compile list: c.c", "built from %s: %se.c" % (UNUSED, UNUSED)]
+    want_p = ["in neither compile list: c.c", f"built from {UNUSED}: {UNUSED}e.c"]
     if sorted(got) != sorted(want_p):
-        bad.append("cover %r" % got)
+        bad.append(f"cover {got!r}")
 
     # w.c against 2 header folders runs twice; t.c, whose 3 entries differ only by
     # the target's own folder, runs once.
-    def entry(src, target, *extra):
-        out = "%s.p/%s.o" % (target, os.path.basename(src))
+    def entry(src: str, target: str, *extra: str) -> Entry:
+        out = f"{target}.p/{os.path.basename(src)}.o"
         return {"directory": "/build", "file": "../src/" + src, "output": out,
-                "command": "cc -I%s.p %s -MD -MF %s.d -o %s -c ../src/%s" % (target, " ".join(extra), out, out, src)}
+                "command": f"cc -I{target}.p {' '.join(extra)} -MD -MF {out}.d -o {out} -c ../src/{src}"}
     db = [entry("source/test/w.c", "test/w-1", "-I../src/vendor/old/1"), entry("source/test/w.c", "test/w-2", "-I../src/vendor/old/2"),
           entry("source/test/t.c", "test/a", "-Itest"), entry("source/test/t.c", "test/b", "-Itest"),
           entry("source/test/t.c", "test/c", "-Itest"), entry("source/src/s.c", "src/app")]
@@ -619,7 +641,7 @@ def self_test():
     want_r = [("/src/source/src/s.c", ""), ("/src/source/test/t.c", ""),
               ("/src/source/test/w.c", "test/w-1.p"), ("/src/source/test/w.c", "test/w-2.p")]
     if got != want_r:
-        bad.append("runs %r, want %r" % (got, want_r))
+        bad.append(f"runs {got!r}, want {want_r!r}")
     # A finding both runs report counts once, and a run that didn't compile is named by its target.
     log = "\n".join([
         "### source/test/w.c [test/w-1.p] rc=0",
@@ -631,16 +653,16 @@ def self_test():
     ])
     table, failed, _, _, _ = count({"gcc-linux": log}, set())
     if (table["gcc-linux"]["vendored"], table["gcc-linux"]["tests"]) != (1, 1):
-        bad.append("2 runs counted %r, want vendored 1, tests 1" % table["gcc-linux"])
+        bad.append(f"2 runs counted {table['gcc-linux']!r}, want vendored 1, tests 1")
     if failed["gcc-linux"] != ["source/test/w.c [test/w-2.p]"]:
-        bad.append("not analyzed %r, want the w-2 run" % failed["gcc-linux"])
+        bad.append(f"not analyzed {failed['gcc-linux']!r}, want the w-2 run")
     for b in bad:
-        print("[ FAILED: %s ]" % b)
-    print("[ %s ]" % ("FAILED" if bad else "OK: analyze.py self-test"))
+        print(f"[ FAILED: {b} ]")
+    print(f"[ {'FAILED' if bad else 'OK: analyze.py self-test'} ]")
     return 1 if bad else 0
 
 
-def main():
+def main() -> int:
     args = sys.argv[1:]
     if not args or args[0] in ("-h", "--help"):
         print(open(__file__, encoding="utf-8").read().split("\n\n")[1].replace("# ", "").replace("#", ""))

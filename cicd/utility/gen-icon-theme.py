@@ -28,6 +28,7 @@ Syntax: gen-icon-theme.py [<repo-root>]
 
 import os
 import sys
+from typing import TypedDict
 
 CANVAS = 48
 
@@ -43,7 +44,30 @@ CANVAS = 48
 #
 # folderShape picks the folder drawing: "classic" (XP/7), "metro", "mica".
 
-THEMES = {
+class Theme(TypedDict):
+    style: str
+    folderShape: str
+    comment: str
+    folder: tuple[str, str]
+    folderBack: tuple[str, str]
+    folderLine: str
+    paper: tuple[str, str]
+    paperLine: str
+    fold: str
+    metal: tuple[str, str]
+    metalLine: str
+    glass: tuple[str, str]
+    accent: str
+    warm: str
+    green: str
+    red: str
+    purple: str
+    glyph: str
+    glyphOn: str
+    gloss: float
+
+
+THEMES: dict[str, Theme] = {
     "Luna": {
         "style": "Windows XP",
         "folderShape": "classic",
@@ -135,18 +159,18 @@ THEMES = {
 }
 
 
-def grad(gid, top, bottom, x1=0, y1=0, x2=0, y2=1):
+def grad(gid: str, top: str, bottom: str, x1: float = 0, y1: float = 0, x2: float = 0, y2: float = 1) -> str:
     return (
-        '<linearGradient id="%s" x1="%s" y1="%s" x2="%s" y2="%s">'
-        '<stop offset="0" stop-color="%s"/><stop offset="1" stop-color="%s"/>'
-        "</linearGradient>" % (gid, x1, y1, x2, y2, top, bottom)
+        f'<linearGradient id="{gid}" x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}">'
+        f'<stop offset="0" stop-color="{top}"/><stop offset="1" stop-color="{bottom}"/>'
+        "</linearGradient>"
     )
 
 
 # ---------------------------------------------------------------------------
 # Base shapes. Each returns (defs, body).
 
-def base_folder(t, open_lid=False):
+def base_folder(t: Theme, open_lid: bool = False) -> tuple[str, str]:
     """The folder, drawn the way the theme's era drew it.
 
 	This is the icon a Windows generation is recognized by, so it's the one
@@ -163,40 +187,40 @@ def base_folder(t, open_lid=False):
     return folder_classic(t, open_lid)
 
 
-def folder_classic(t, open_lid):
+def folder_classic(t: Theme, open_lid: bool) -> tuple[str, str]:
     """XP and 7: firm outline, rounded corners, a highlight along the top."""
     defs = grad("gb", *t["folderBack"]) + grad("gf", *t["folder"])
     back = (
         '<path d="M5 7h13l4 4.5h21a3 3 0 0 1 3 3V39a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V10a3 3 0 0 1 3-3z"'
-        ' fill="url(#gb)" stroke="%s" stroke-width="1.2"/>' % t["folderLine"]
+        f' fill="url(#gb)" stroke="{t["folderLine"]}" stroke-width="1.2"/>'
     )
     if open_lid:
         front = (
             '<path d="M9.5 19h38.2a1 1 0 0 1 1 1.3l-4.9 18.4a3 3 0 0 1-2.9 2.3H5a3 3 0 0 1-3-3z"'
-            ' fill="url(#gf)" stroke="%s" stroke-width="1.2"/>' % t["folderLine"]
+            f' fill="url(#gf)" stroke="{t["folderLine"]}" stroke-width="1.2"/>'
         )
-        gloss = '<path d="M10.5 20.4h36.4l-1.5 5.2H9z" fill="#fff" opacity="%s"/>' % t["gloss"]
+        gloss = f'<path d="M10.5 20.4h36.4l-1.5 5.2H9z" fill="#fff" opacity="{t["gloss"]}"/>'
     else:
         front = (
             '<path d="M2 19h44v20a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3z"'
-            ' fill="url(#gf)" stroke="%s" stroke-width="1.2"/>' % t["folderLine"]
+            f' fill="url(#gf)" stroke="{t["folderLine"]}" stroke-width="1.2"/>'
         )
-        gloss = '<path d="M3.5 20.5h41v5.5H3.5z" fill="#fff" opacity="%s"/>' % t["gloss"]
+        gloss = f'<path d="M3.5 20.5h41v5.5H3.5z" fill="#fff" opacity="{t["gloss"]}"/>'
     return defs, back + front + gloss
 
 
-def folder_metro(t, open_lid):
+def folder_metro(t: Theme, open_lid: bool) -> tuple[str, str]:
     """10: square corners, 2 flat tones, no outline, and no highlight."""
     defs = ""
-    back = '<path d="M2 7h15.6l3.4 4H46v31H2z" fill="%s"/>' % t["folderBack"][0]
+    back = f'<path d="M2 7h15.6l3.4 4H46v31H2z" fill="{t["folderBack"][0]}"/>'
     if open_lid:
-        front = '<path d="M8 18h38l-4 24H2V21z" fill="%s"/>' % t["folder"][0]
+        front = f'<path d="M8 18h38l-4 24H2V21z" fill="{t["folder"][0]}"/>'
     else:
-        front = '<path d="M2 18h44v24H2z" fill="%s"/>' % t["folder"][0]
+        front = f'<path d="M2 18h44v24H2z" fill="{t["folder"][0]}"/>'
     return defs, back + front
 
 
-def folder_mica(t, open_lid):
+def folder_mica(t: Theme, open_lid: bool) -> tuple[str, str]:
     """11: rounded throughout, the front panel narrowing as it falls away."""
     defs = grad("gb", *t["folderBack"]) + grad("gf", *t["folder"])
     back = (
@@ -208,150 +232,139 @@ def folder_mica(t, open_lid):
             '<path d="M9.6 17h34.2a2 2 0 0 1 2 2.4l-4 19.4a4 4 0 0 1-3.9 3.2H6a4 4 0 0 1-4-4'
             'V21.6z" fill="url(#gf)"/>'
         )
-        gloss = '<path d="M10.4 18.6h33.2l-.9 4H9.6z" fill="#fff" opacity="%s"/>' % t["gloss"]
+        gloss = f'<path d="M10.4 18.6h33.2l-.9 4H9.6z" fill="#fff" opacity="{t["gloss"]}"/>'
     else:
         front = (
             '<path d="M4.6 17h38.8a2 2 0 0 1 2 2.3l-2.5 19.5a4 4 0 0 1-4 3.2H9.1a4 4 0 0 1-4-3.2'
             'L2.6 19.3a2 2 0 0 1 2-2.3z" fill="url(#gf)"/>'
         )
-        gloss = '<path d="M5.3 18.6h37.4l-.5 4H5.8z" fill="#fff" opacity="%s"/>' % t["gloss"]
+        gloss = f'<path d="M5.3 18.6h37.4l-.5 4H5.8z" fill="#fff" opacity="{t["gloss"]}"/>'
     return defs, back + front + gloss
 
 
-def base_page(t):
+def base_page(t: Theme) -> tuple[str, str]:
     defs = grad("gp", *t["paper"])
     body = (
         '<path d="M11 4h18l9 9v29a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"'
-        ' fill="url(#gp)" stroke="%s" stroke-width="1.2"/>' % t["paperLine"]
+        f' fill="url(#gp)" stroke="{t["paperLine"]}" stroke-width="1.2"/>'
     )
     fold = (
-        '<path d="M29 4l9 9h-7a2 2 0 0 1-2-2z" fill="%s" stroke="%s" stroke-width="1.2"/>'
-        % (t["fold"], t["paperLine"])
+        f'<path d="M29 4l9 9h-7a2 2 0 0 1-2-2z" fill="{t["fold"]}" stroke="{t["paperLine"]}" stroke-width="1.2"/>'
     )
     return defs, body + fold
 
 
-def base_disc(t):
+def base_disc(t: Theme) -> tuple[str, str]:
     defs = grad("gd", *t["metal"], x2=1, y2=1)
     body = (
-        '<circle cx="24" cy="24" r="19" fill="url(#gd)" stroke="%s" stroke-width="1.2"/>'
-        '<path d="M24 5a19 19 0 0 1 15.6 8.2L24 24z" fill="%s" opacity=".55"/>'
-        '<circle cx="24" cy="24" r="5.5" fill="#fff" stroke="%s" stroke-width="1.2"/>'
-        % (t["metalLine"], t["accent"], t["metalLine"])
+        f'<circle cx="24" cy="24" r="19" fill="url(#gd)" stroke="{t["metalLine"]}" stroke-width="1.2"/>'
+        f'<path d="M24 5a19 19 0 0 1 15.6 8.2L24 24z" fill="{t["accent"]}" opacity=".55"/>'
+        f'<circle cx="24" cy="24" r="5.5" fill="#fff" stroke="{t["metalLine"]}" stroke-width="1.2"/>'
     )
     return defs, body
 
 
-def base_drive(t):
+def base_drive(t: Theme) -> tuple[str, str]:
     defs = grad("gm", *t["metal"])
     body = (
         '<path d="M7 15h34a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V18a3 3 0 0 1 3-3z"'
-        ' fill="url(#gm)" stroke="%s" stroke-width="1.2"/>'
-        '<path d="M5.5 16.5h37v6h-37z" fill="#fff" opacity="%s"/>'
-        '<circle cx="38" cy="28" r="2" fill="%s"/>'
-        % (t["metalLine"], t["gloss"], t["green"])
+        f' fill="url(#gm)" stroke="{t["metalLine"]}" stroke-width="1.2"/>'
+        f'<path d="M5.5 16.5h37v6h-37z" fill="#fff" opacity="{t["gloss"]}"/>'
+        f'<circle cx="38" cy="28" r="2" fill="{t["green"]}"/>'
     )
     return defs, body
 
 
-def base_stick(t):
+def base_stick(t: Theme) -> tuple[str, str]:
     defs = grad("gm", *t["metal"])
     body = (
-        '<path d="M17 4h14v9H17z" fill="%s" stroke="%s" stroke-width="1.2"/>'
+        f'<path d="M17 4h14v9H17z" fill="{t["metal"][1]}" stroke="{t["metalLine"]}" stroke-width="1.2"/>'
         '<path d="M13 13h22a2 2 0 0 1 2 2v25a3 3 0 0 1-3 3H14a3 3 0 0 1-3-3V15a2 2 0 0 1 2-2z"'
-        ' fill="url(#gm)" stroke="%s" stroke-width="1.2"/>'
-        '<path d="M14 30h20v3H14z" fill="%s" opacity=".5"/>'
-        % (t["metal"][1], t["metalLine"], t["metalLine"], t["accent"])
+        f' fill="url(#gm)" stroke="{t["metalLine"]}" stroke-width="1.2"/>'
+        f'<path d="M14 30h20v3H14z" fill="{t["accent"]}" opacity=".5"/>'
     )
     return defs, body
 
 
-def base_monitor(t):
+def base_monitor(t: Theme) -> tuple[str, str]:
     defs = grad("gm", *t["metal"]) + grad("gs", *t["glass"])
     body = (
         '<path d="M5 8h38a3 3 0 0 1 3 3v20a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V11a3 3 0 0 1 3-3z"'
-        ' fill="url(#gm)" stroke="%s" stroke-width="1.2"/>'
+        f' fill="url(#gm)" stroke="{t["metalLine"]}" stroke-width="1.2"/>'
         '<rect x="5.5" y="11.5" width="37" height="19" rx="1" fill="url(#gs)"/>'
-        '<path d="M6 12h36v6H6z" fill="#fff" opacity="%s"/>'
-        '<path d="M19 34h10l1.5 7h-13z" fill="%s" stroke="%s" stroke-width="1.2"/>'
-        '<rect x="13" y="41" width="22" height="3.5" rx="1.7" fill="%s" stroke="%s" stroke-width="1.2"/>'
-        % (t["metalLine"], t["gloss"], t["metal"][1], t["metalLine"],
-           t["metal"][1], t["metalLine"])
+        f'<path d="M6 12h36v6H6z" fill="#fff" opacity="{t["gloss"]}"/>'
+        f'<path d="M19 34h10l1.5 7h-13z" fill="{t["metal"][1]}" stroke="{t["metalLine"]}" stroke-width="1.2"/>'
+        f'<rect x="13" y="41" width="22" height="3.5" rx="1.7" fill="{t["metal"][1]}"'
+        f' stroke="{t["metalLine"]}" stroke-width="1.2"/>'
     )
     return defs, body
 
 
-def base_box(t):
+def base_box(t: Theme) -> tuple[str, str]:
     defs = ""
     body = (
-        '<path d="M24 5l19 8.5L24 22 5 13.5z" fill="%s" stroke="%s" stroke-width="1.1"/>'
-        '<path d="M5 13.5L24 22v21L5 34.5z" fill="%s" stroke="%s" stroke-width="1.1"/>'
-        '<path d="M43 13.5L24 22v21l19-8.5z" fill="%s" stroke="%s" stroke-width="1.1"/>'
-        % (t["folder"][0], t["folderLine"], t["folderBack"][1], t["folderLine"],
-           t["folder"][1], t["folderLine"])
+        f'<path d="M24 5l19 8.5L24 22 5 13.5z" fill="{t["folder"][0]}" stroke="{t["folderLine"]}" stroke-width="1.1"/>'
+        f'<path d="M5 13.5L24 22v21L5 34.5z" fill="{t["folderBack"][1]}" stroke="{t["folderLine"]}" stroke-width="1.1"/>'
+        f'<path d="M43 13.5L24 22v21l19-8.5z" fill="{t["folder"][1]}" stroke="{t["folderLine"]}" stroke-width="1.1"/>'
     )
     return defs, body
 
 
-def base_bin(t, full=False):
+def base_bin(t: Theme, full: bool = False) -> tuple[str, str]:
     defs = grad("gg", *t["glass"])
     ## Full is the same bin with paper standing above the rim, so the 2 read
     ## apart at 16px. A tint difference alone doesn't.
     spill = (
         '<path d="M11 13l3.5-8 4.5 4 4-7 4.5 6.5 4.5-3.5 2.5 8z"'
-        ' fill="%s" stroke="%s" stroke-width="1.2"/>'
-        '<path d="M17 8.5l2 3.5M27 6l1.5 6" stroke="%s" stroke-width="1.1" opacity=".5" fill="none"/>'
-        % (t["fold"], t["metalLine"], t["metalLine"])
+        f' fill="{t["fold"]}" stroke="{t["metalLine"]}" stroke-width="1.2"/>'
+        f'<path d="M17 8.5l2 3.5M27 6l1.5 6" stroke="{t["metalLine"]}" stroke-width="1.1" opacity=".5" fill="none"/>'
         if full else ""
     )
     body = (
         ('' if full else
-         '<path d="M20 4h8a2 2 0 0 1 2 2v6H18V6a2 2 0 0 1 2-2z" fill="%s" stroke="%s" stroke-width="1.2"/>'
-         % (t["metal"][1], t["metalLine"]))
+         f'<path d="M20 4h8a2 2 0 0 1 2 2v6H18V6a2 2 0 0 1 2-2z" fill="{t["metal"][1]}"'
+         f' stroke="{t["metalLine"]}" stroke-width="1.2"/>')
         + spill
-        + '<rect x="8" y="12" width="32" height="5" rx="2" fill="%s" stroke="%s" stroke-width="1.2"/>'
+        + f'<rect x="8" y="12" width="32" height="5" rx="2" fill="{t["metal"][0]}"'
+        f' stroke="{t["metalLine"]}" stroke-width="1.2"/>'
         '<path d="M11 18h26l-2.4 23a3 3 0 0 1-3 2.7H16.4a3 3 0 0 1-3-2.7z"'
-        ' fill="url(#gg)" stroke="%s" stroke-width="1.2"/>'
-        '<path d="M17 22l1.3 18M24 22v18M31 22l-1.3 18" stroke="%s" stroke-width="1.6"'
+        f' fill="url(#gg)" stroke="{t["metalLine"]}" stroke-width="1.2"/>'
+        f'<path d="M17 22l1.3 18M24 22v18M31 22l-1.3 18" stroke="{t["accent"]}" stroke-width="1.6"'
         ' opacity=".45" fill="none"/>'
-        % (t["metal"][0], t["metalLine"], t["metalLine"], t["accent"])
     )
     return defs, body
 
 
-def base_window(t):
+def base_window(t: Theme) -> tuple[str, str]:
     defs = grad("gs", *t["glass"]) + grad("gm", *t["metal"])
     body = (
         '<rect x="4" y="8" width="40" height="32" rx="3" fill="url(#gm)"'
-        ' stroke="%s" stroke-width="1.2"/>'
-        '<path d="M4 11a3 3 0 0 1 3-3h34a3 3 0 0 1 3 3v6H4z" fill="%s"/>'
+        f' stroke="{t["metalLine"]}" stroke-width="1.2"/>'
+        f'<path d="M4 11a3 3 0 0 1 3-3h34a3 3 0 0 1 3 3v6H4z" fill="{t["accent"]}"/>'
         '<rect x="7" y="20" width="34" height="17" rx="1" fill="url(#gs)"/>'
         '<circle cx="39" cy="12.5" r="1.8" fill="#fff" opacity=".85"/>'
-        % (t["metalLine"], t["accent"])
     )
     return defs, body
 
 
-def base_camera(t):
+def base_camera(t: Theme) -> tuple[str, str]:
     defs = grad("gm", *t["metal"]) + grad("gs", *t["glass"], x2=1, y2=1)
     body = (
         '<path d="M18 8h12l2.5 5H41a3 3 0 0 1 3 3v20a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V16a3 3 0 0 1 3-3h8.5z"'
-        ' fill="url(#gm)" stroke="%s" stroke-width="1.2"/>'
-        '<circle cx="24" cy="27" r="9" fill="url(#gs)" stroke="%s" stroke-width="1.2"/>'
+        f' fill="url(#gm)" stroke="{t["metalLine"]}" stroke-width="1.2"/>'
+        f'<circle cx="24" cy="27" r="9" fill="url(#gs)" stroke="{t["metalLine"]}" stroke-width="1.2"/>'
         '<circle cx="21" cy="24" r="3" fill="#fff" opacity=".7"/>'
-        % (t["metalLine"], t["metalLine"])
     )
     return defs, body
 
 
-def base_phone(t):
+def base_phone(t: Theme) -> tuple[str, str]:
     defs = grad("gm", *t["metal"]) + grad("gs", *t["glass"])
     body = (
         '<rect x="13" y="3" width="22" height="42" rx="4" fill="url(#gm)"'
-        ' stroke="%s" stroke-width="1.2"/>'
+        f' stroke="{t["metalLine"]}" stroke-width="1.2"/>'
         '<rect x="16" y="9" width="16" height="26" rx="1" fill="url(#gs)"/>'
-        '<circle cx="24" cy="40" r="2.4" fill="%s" opacity=".6"/>'
-        % (t["metalLine"], t["metalLine"])
+        f'<circle cx="24" cy="40" r="2.4" fill="{t["metalLine"]}" opacity=".6"/>'
     )
     return defs, body
 
@@ -414,32 +427,32 @@ STROKE_GLYPHS = {"grid", "calendar"}
 EVENODD_GLYPHS = {"photo", "film", "letterA", "server"}
 
 
-def glyph(name, color, x, y, size, opacity="1"):
+def glyph(name: str, color: str, x: float, y: float, size: float, opacity: str = "1") -> str:
     if name not in GLYPHS:
         return ""
     scale = size / 24.0
     if name in STROKE_GLYPHS:
-        paint = 'fill="none" stroke="%s" stroke-width="1.8"' % color
+        paint = f'fill="none" stroke="{color}" stroke-width="1.8"'
     elif name in EVENODD_GLYPHS:
-        paint = 'fill="%s" fill-rule="evenodd"' % color
+        paint = f'fill="{color}" fill-rule="evenodd"'
     else:
-        paint = 'fill="%s"' % color
+        paint = f'fill="{color}"'
     return (
-        '<g transform="translate(%s %s) scale(%s)" opacity="%s">'
-        '<path d="%s" %s/></g>' % (fmt(x), fmt(y), fmt(scale), opacity, GLYPHS[name], paint)
+        f'<g transform="translate({fmt(x)} {fmt(y)}) scale({fmt(scale)})" opacity="{opacity}">'
+        f'<path d="{GLYPHS[name]}" {paint}/></g>'
     )
 
 
-def fmt(value):
-    text = ("%.3f" % value).rstrip("0").rstrip(".")
+def fmt(value: float) -> str:
+    text = f"{value:.3f}".rstrip("0").rstrip(".")
     return text if text else "0"
 
 
-def band(color):
+def band(color: str) -> str:
     """A color band down the left edge of a page, the way office types read."""
     return (
-        '<path d="M9 30h29v12a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2z" fill="%s"/>'
-        '<path d="M9 30h29v2.5H9z" fill="#000" opacity=".12"/>' % color
+        f'<path d="M9 30h29v12a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2z" fill="{color}"/>'
+        '<path d="M9 30h29v2.5H9z" fill="#000" opacity=".12"/>'
     )
 
 
@@ -532,19 +545,19 @@ ALIASES = {
 }
 
 
-def build(theme_name, theme, out_root):
+def build(theme_name: str, theme: Theme, out_root: str) -> str:
     out_dir = os.path.join(out_root, theme_name)
     written = {}
 
-    def emit(name, context, defs, body):
+    def emit(name: str, context: str, defs: str, body: str) -> None:
         path = os.path.join(out_dir, "scalable", context, name + ".svg")
         os.makedirs(os.path.dirname(path), exist_ok=True)
         svg = (
-            '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" '
-            'viewBox="0 0 %d %d">' % (CANVAS, CANVAS, CANVAS, CANVAS)
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{CANVAS}" height="{CANVAS}" '
+            f'viewBox="0 0 {CANVAS} {CANVAS}">'
         )
         if defs:
-            svg += "<defs>%s</defs>" % defs
+            svg += f"<defs>{defs}</defs>"
         svg += body + "</svg>"
         with open(path, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(svg)
@@ -577,29 +590,29 @@ def build(theme_name, theme, out_root):
     return out_dir
 
 
-def write_index(out_dir, theme_name, theme):
+def write_index(out_dir: str, theme_name: str, theme: Theme) -> None:
     contexts = sorted(os.listdir(os.path.join(out_dir, "scalable")))
     labels = {"places": "Places", "mimetypes": "MimeTypes", "devices": "Devices"}
     lines = [
         "[Icon Theme]",
-        "Name=%s" % theme_name,
-        "Comment=%s" % theme["comment"],
-        "X-Nemo-Style=%s" % theme["style"],
+        f"Name={theme_name}",
+        f"Comment={theme['comment']}",
+        f"X-Nemo-Style={theme['style']}",
         # Colorful art on either background, and the monochrome half comes from
         # Adwaita, which GTK recolors to the foreground either way.
         "X-Nemo-Modes=light;dark",
         "Inherits=Adwaita,hicolor",
         "Example=folder",
-        "Directories=%s" % ",".join("scalable/" + c for c in contexts),
+        "Directories=" + ",".join("scalable/" + c for c in contexts),
         "",
     ]
     for context in contexts:
         lines += [
-            "[scalable/%s]" % context,
+            f"[scalable/{context}]",
             "Size=48",
             "MinSize=8",
             "MaxSize=512",
-            "Context=%s" % labels.get(context, "Applications"),
+            f"Context={labels.get(context, 'Applications')}",
             "Type=Scalable",
             "",
         ]
@@ -607,7 +620,7 @@ def write_index(out_dir, theme_name, theme):
         handle.write("\n".join(lines))
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     root = argv[1] if len(argv) > 1 else os.path.join(os.path.dirname(__file__), "..", "..")
     out_root = os.path.abspath(os.path.join(root, "assets", "icons"))
 
@@ -619,7 +632,7 @@ def main(argv):
             for name in files:
                 total += os.path.getsize(os.path.join(base, name))
                 count += 1
-        print("[ %s (%s): %d files, %d KB ]" % (theme_name, theme["style"], count, total / 1024))
+        print(f"[ {theme_name} ({theme['style']}): {count} files, {total // 1024} KB ]")
 
     return 0
 

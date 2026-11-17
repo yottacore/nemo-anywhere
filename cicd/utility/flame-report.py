@@ -16,6 +16,9 @@
 
 
 import argparse, html, os, re, sys
+from typing import NoReturn
+
+Frame = tuple[str, float, float, float]
 
 STEP      = 16             # flamegraph row height in the SVG, px; a child is at parent_y - STEP
 SELF_TOP  = 22             # self-time leaders to list
@@ -31,14 +34,14 @@ ATTR_RE   = {k: re.compile(re.escape(k) + r'="([\d.]+)"') for k in ("y", "fg:x",
 SAMPLES_RE = re.compile(r"\s*\(\d[\d,]* samples.*$")
 
 
-def skip(msg):
+def skip(msg: str) -> NoReturn:
     ##	2 = environmental skip, such as no dir or an unparseable file. Non-fatal,
     ##	to match the cicd profiler stage, which treats these as a warning.
     sys.stderr.write(f"flame-report: {msg}\n")
     sys.exit(2)
 
 
-def newest_report(pdir):
+def newest_report(pdir: str) -> tuple[str, str] | None:
     ##	Sort on the timestamp rather than the role suffix. GFS rotation retags
     ##	the role, frequent -> latest -> hour/day/..., as time passes, but the
     ##	timestamp in the name is stable.
@@ -50,7 +53,7 @@ def newest_report(pdir):
     return best
 
 
-def parse_flamegraph(path):
+def parse_flamegraph(path: str) -> tuple[int, list[Frame]]:
     text = open(path, encoding="utf-8").read()
     m = re.search(r'total_samples="(\d+)"', text)
     total = int(m.group(1)) if m else 0
@@ -68,24 +71,24 @@ def parse_flamegraph(path):
     return total, frames
 
 
-def report_busy_time(total, frames, top):
+def report_busy_time(total: int, frames: list[Frame], top: int) -> None:
     byY = {}
     for fr in frames:
         byY.setdefault(fr[2], []).append(fr)
     eps = 1e-6
 
-    def kids(fr):
+    def kids(fr: Frame) -> list[Frame]:
         _, x, y, w = fr
         return [c for c in byY.get(y - STEP, []) if c[1] >= x - eps and c[1] + c[3] <= x + w + eps]
 
-    def parent(fr):
+    def parent(fr: Frame) -> Frame | None:
         _, x, y, w = fr
         for p in byY.get(y + STEP, []):
             if p[1] <= x + eps and p[1] + p[3] >= x + w - eps:
                 return p
         return None
 
-    def self_width(fr):
+    def self_width(fr: Frame) -> float:
         return fr[3] - sum(c[3] for c in kids(fr))
 
     ##	Buckets for this app's hot subsystems. Matched on the ancestor chain, so a
@@ -123,7 +126,7 @@ def report_busy_time(total, frames, top):
         else:
             other += s
 
-    def pct(v):
+    def pct(v: float) -> str:
         return f"{v / total * 100:5.1f}%"
 
     ##	Samples are wall-clock, so a GUI app sitting in its main loop reads as
@@ -131,7 +134,7 @@ def report_busy_time(total, frames, top):
     ##	the part worth looking at, so give both denominators.
     busy = total - buckets["waiting"]
 
-    def bpct(v):
+    def bpct(v: float) -> str:
         return f"{v / busy * 100:5.1f}%" if busy > 0 else "    -"
 
     print("attribution (self-time)            of total   of busy")
@@ -170,7 +173,7 @@ def report_busy_time(total, frames, top):
             cur, depth = parent(cur), depth + 1
 
 
-def main():
+def main() -> None:
     here = os.path.dirname(os.path.abspath(__file__))
     default_dir = os.path.normpath(os.path.join(here, "..", "artifacts", "profiling"))
 

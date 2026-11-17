@@ -17,6 +17,8 @@ Syntax: release-table.py <assets.json>
 import json
 import re
 import sys
+from collections.abc import Iterable
+from typing import TypedDict
 
 # Rows in the order the targets are worked on. The installers ask for "bsd" on
 # every BSD, and the one built is FreeBSD.
@@ -32,18 +34,25 @@ BUILD = re.compile(r"^.+-(?P<os>" + "|".join(OS_NAMES) + r")-(?P<arch>[a-z0-9]+(
 CHECKSUM = re.compile(r"sha256|sha512|\.(?:sig|asc)$")
 
 
-def link(text, url):
-    return "[%s](%s)" % (text, url)
+# The fields used here; gh lists more.
+class Asset(TypedDict, total=False):
+    name: str
+    url: str
+    state: str
 
 
-def order(items, preferred):
+def link(text: str, url: str) -> str:
+    return f"[{text}]({url})"
+
+
+def order(items: Iterable[str], preferred: list[str]) -> list[str]:
     return sorted(items, key=lambda x: (preferred.index(x) if x in preferred else len(preferred), x))
 
 
-def section(assets):
-    cells = {}
-    sums = []
-    other = []
+def section(assets: list[Asset]) -> str:
+    cells: dict[tuple[str, str], list[tuple[str, str, str]]] = {}
+    sums: list[str] = []
+    other: list[str] = []
     for asset in sorted(assets, key=lambda a: a["name"]):
         # A file still uploading has no download yet.
         if asset.get("state", "uploaded") != "uploaded":
@@ -76,7 +85,7 @@ def section(assets):
         widths = [max(len(r[i]) for r in rows) for i in range(len(rows[0]))]
         widths = [max(w, 4) for w in widths]
 
-        def line(row):
+        def line(row: list[str]) -> str:
             return ("| " + " | ".join(c.ljust(w) for c, w in zip(row, widths))).rstrip()
 
         out.append(line(rows[0]))
@@ -92,7 +101,7 @@ def section(assets):
     return "\n".join(out).rstrip("\n") + "\n"
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     names_only = argv[1:2] == ["--names"]
     args = argv[2:] if names_only else argv[1:]
     if len(args) != 1:

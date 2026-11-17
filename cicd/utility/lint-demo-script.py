@@ -27,21 +27,21 @@ GUARD_H = ROOT / "source/libnemo-private/nemo-delete-testguard.h"
 SECRET_COLUMNS = {"owner", "owner_name", "owner_and_name", "group", "permissions",
     "octal_permissions"}
 
-problems = []
+problems: list[str] = []
 
-def fail(msg):
+def fail(msg: str) -> None:
     problems.append(msg)
 
-def dict_keys_and_values(node):
-    out = {}
+def dict_keys_and_values(node: ast.Dict) -> dict[str, object]:
+    out: dict[str, object] = {}
     for key, value in zip(node.keys, node.values):
         if isinstance(key, ast.Constant) and isinstance(key.value, str):
             out[key.value] = value.value if isinstance(value, ast.Constant) else None
     return out
 
-def settings_written(tree):
+def settings_written(tree: ast.AST) -> dict[str, object]:
     """Every dotted key the recorder writes: the starting set, plus live changes."""
-    found = {}
+    found: dict[str, object] = {}
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign):
             for target in node.targets:
@@ -55,7 +55,7 @@ def settings_written(tree):
                     found.update(dict_keys_and_values(arg))
     return found
 
-def main():
+def main() -> int:
     if not RECORDER.is_file():
         print("demo lint: no recorder to check")
         return 0

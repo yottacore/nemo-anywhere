@@ -27,6 +27,7 @@
 
 import re
 import sys
+from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -34,11 +35,11 @@ DIGITS = '0123456789abcdefghjkmnpqrstvwxyz'
 EPOCH = datetime(2000, 1, 1, tzinfo=timezone.utc)
 
 
-def minutes(when):
+def minutes(when: datetime) -> int:
     return (when - EPOCH) // timedelta(minutes=1)
 
 
-def encode(count):
+def encode(count: int) -> str:
     if count < 0:
         sys.exit('test-id: that is before 2000')
     out = ''
@@ -48,14 +49,14 @@ def encode(count):
     return out.rjust(5, '0')
 
 
-def decode(text):
+def decode(text: str) -> int:
     count = 0
     for ch in text:
         count = count * 32 + DIGITS.index(ch)
     return count
 
 
-def found_ids(root):
+def found_ids(root: Path) -> Iterator[tuple[str | None, str]]:
     # (id or None, where) for every test that should have one. Paths with
     # forward slashes, so --list matches them on Windows too.
     for build in sorted((root / 'source').rglob('meson.build')):
@@ -120,7 +121,7 @@ def found_ids(root):
             yield (m.group(1)[:-1] if m.group(1) else None), f'{fuzz.relative_to(root).as_posix()}:{num}'
 
 
-def check(root):
+def check(root: Path) -> None:
     # A new test made in a taken minute gets a later one, so allow a little
     # past now.
     now = minutes(datetime.now(timezone.utc)) + 60
@@ -145,7 +146,7 @@ def check(root):
 SCRIPT_REF = re.compile(r'(?:[\w.-]+/)*[\w.-]+\.(?:bash|ps1|py)\b')
 
 
-def code_lines(path):
+def code_lines(path: Path) -> list[str]:
     # A file's lines less its comments, so a script a comment only mentions
     # doesn't count as run.
     try:
@@ -170,7 +171,7 @@ RUN_WORD = re.compile(r'(?:^|[\s;&|("\'])(?:bash|sh|pwsh|python3?|source|exec|fT
                       r'|^\s*(?:local\s+)?\$?\w+\s*=')
 
 
-def run_refs(lines):
+def run_refs(lines: list[str]) -> Iterator[str]:
     # The scripts a file runs: a name with a run word before it in its own
     # command, or one put in a variable. Not one an echo or a lint's file list
     # names.
@@ -180,7 +181,7 @@ def run_refs(lines):
                 yield m.group(0)
 
 
-def script_index(root):
+def script_index(root: Path) -> dict[str, list[str]]:
     index = {}
     for path in (root / 'cicd').rglob('*'):
         if path.suffix in ('.bash', '.ps1', '.py') and path.is_file() \
@@ -189,7 +190,7 @@ def script_index(root):
     return index
 
 
-def resolve(ref, index, near):
+def resolve(ref: str, index: dict[str, list[str]], near: str) -> list[str]:
     # A path as written, such as ${here}/../bsd/test-lane.bash, to the file
     # it names. A bare name with twins is the one beside the file naming it.
     parts = [p for p in ref.split('/') if p not in ('', '.', '..')]
@@ -199,7 +200,7 @@ def resolve(ref, index, near):
     return found if len(found) == 1 else []
 
 
-def listing(root, steps):
+def listing(root: Path, steps: list[tuple[str, str]]) -> None:
     # Steps on stdin, as "<name><TAB><command>". A step runs the tests its
     # command names, those the scripts it names run, and so on 5 levels down,
     # along with the IDs those scripts contain, such as the lint checks and the
