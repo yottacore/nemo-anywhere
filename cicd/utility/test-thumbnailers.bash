@@ -108,7 +108,7 @@ fStageThumbnailers "${scratch}/none" "${scratch}/dest2" || fFail "a missing sour
 ## fetch-sysroot.bash runs alone in the image build, so it has its own copy of
 ## the rules. Its block runs here on descriptors as the sysroot has them.
 fetch="${root}/cicd/win/fetch-sysroot.bash"
-block="$(awk '/^thumbDir="\$SYSROOT/ { on = 1 } on && /^#/ { exit } on' "${fetch}")"
+block="$(awk '/^thumbDir="\$\{?SYSROOT/ { on = 1 } on && /^#/ { exit } on' "${fetch}")"
 if [[ -z "${block}" ]]; then
 	fFail "fetch-sysroot.bash has no thumbnailer block"
 else

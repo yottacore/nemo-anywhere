@@ -41,7 +41,7 @@ unhashed="$(grep -E "^[[:space:]]*'[A-Za-z_]+==" <<<"${text}" | grep -v -- '--ha
 
 lint="$(cat "${here}/lint.bash")"
 for c in lint-c lint-bash lint-python lint-powershell; do
-	grep -qF "fLintRun \"\$root\" \"\$img\" bash \"\${here}/${c}.bash\"" <<<"${lint}" || fFail "lint.bash: ${c} not run through fLintRun"
+	grep -qF "fLintRun \"\${root}\" \"\${img}\" bash \"\${here}/${c}.bash\"" <<<"${lint}" || fFail "lint.bash: ${c} not run through fLintRun"
 done
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/test_lint-image_$(date +%Y%m%d-%H%M%S%2N).XXXXXX")"
