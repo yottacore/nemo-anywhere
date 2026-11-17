@@ -33,163 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- The native gate on b29w sometimes fails on test-nemo-office's leftover folder.
-	- ID: 2026103116203164
-	- Type: Bug
-	- Status: Can't reproduce
-	- Priority|Severity: Avg
-	- Opened: 20261031-162031
-	- Opened by: 2026103114202730
-	- Target OS: Windows
-	- Steps to reproduce: the native gate on b29w over ssh, `-Gate -Yes -NoSync -NoFmt`.
-	- Incorrect behavior: every test passes, 191 OK and 22 skipped, then the gate fails with "tests left these behind in ...\nemo-suite-...: test-nemo-office.kbj53Z".
-	- Expected behavior: the office tests remove their scratch folder every time.
-	- Reproduced: 20261031 on b29w at round1031a, 1 run of 3.
-		- 20261104: not again in 876 runs of test-nemo-office on b29w, 8 or 10 at a time, each in a cell laid out as `jail.bash` makes one, under the ssh user's temp folder and under `%ProgramData%`. It wasn't seen in 96 runs each of test-nemo-office-ole and test-nemo-search-helpers either.
-	- Possible cause: something, such as the virus scanner, held a file open for a moment after the test deleted it. On 20261031 nothing tried again. In 1 of the 876 runs a folder in the test's scratch didn't go on the first try, and went on the next, 100 ms later. Since 20261101 (075e7d8a) the test's own cleanup and `jail.bash` try again for 5 s on Windows, which covers that.
-		- Ruled out: a helper outliving the test. The stand-in thumbnailer and search helper are waited for, and a file was never still held once the test had exited. The cell's temp folder didn't have any thumbnailer temp file left in it either.
-	- Progress log:
-		- 20261104: b29w's native gate has passed with nothing left behind since the retry went in. That's 2 gates on 20261102 (2026103117575073), the full run of 20261103 (2026110315184983), and the plain run of 20261104.
-		- 20261117: closed. My best guess is still the virus scanner or the search indexer opening a file just after the test wrote it, and letting go a moment later. That needs a busy box and the right timing, which is why hundreds of quiet runs didn't catch it. The 5 s retry would cover it now even if it came back.
-	- Decisions:
-		- Can't reproduce rather than Done, since what held the folder was never named. A recurrence now prints the cell's `left` list, which names what stayed.
-	- Test case: ddq92, ddqhc and dbxj2 on Windows, with the suite's leftover check. dedme covers the retry on a held file.
-	- Acceptance signoff: Self-closed: nothing left behind in 876 runs, or in any native gate since the retry went in.
-	- Closed: 20261117-095337
-
-- On Windows, a mapped drive that stops responding while connected may stall the window, and the trash icon leaves out removable drives.
-	- ID: 2026100613231440
-	- Type: Bug
-	- Status: Can't reproduce
-	- Needs external testing: done 20261007 on vm925w, as in Reproduced.
-	- Priority|Severity: Low
-	- Opened: 20261006-132314
-	- Opened by: signoff of 2026100512334934
-	- Related IDs: 2026100512334934, 2026093010493450
-	- Target OS: Windows
-	- Steps to reproduce:
-		- Map a drive to a live share and open the app. Stop the share's server, or drop the network, with the app still open. Rebuild the side pane, open a new window, and watch the trash icon.
-		- Delete a file on a USB stick, so that its bin is the only one with anything in it.
-	- Incorrect behavior: not seen. In 2026100512334934 the drive was already dead at logon, and nothing waited. A drive that dies while connected may behave differently in the shell. The trash icon shows empty when only a removable drive's bin has items, since the trash state reads fixed drives only.
-	- Expected behavior: no wait on the window's thread for a share that stops responding. The trash icon shows full when any local bin has items, with no prompt to insert a disk for an empty card reader.
-	- Reproduced: no, for the stall. There were 3 runs on vm925w on 20261007, in the desktop session. W: was mapped to `\\b23\root` and live, the app was open on a local folder, and then a firewall rule blocked b23 port 445 both ways. After that a plain `dir W:\` waited 33 s and failed, while the open window responded to every check over 90 s, the slowest in 52 ms. In that time there were 20 s of trash polls, a bookmark was added, which rebuilt the side pane with W: in it, and a second window showed in 1.1 s against 1.7 s for the first with the share live. The box's own Q: and R:, mapped to b23 too, were also dead then. The rule was removed after each run.
-	- Possible cause: removable drives were left out of the trash state on purpose in 2026100512334934, so an empty card reader can't bring up the shell's insert-disk prompt. A check for media first might let them back in.
-	- Note: the removable drive half is split out as 2026100708294146.
-	- Progress log:
-		- 20261117: closed. The first report was a drive already dead at logon, and the window didn't wait even then. With the share cut and the window open, Windows took 33 s to give up on a plain `dir`, but the window never asks the drive anything on its own thread, so it had nothing to wait on. I don't think there's a stall here to find. The removable drive half was fixed on its own in 2026100708294146.
-	- Test case: ddj38 checks that the drive list and the trash state ask nothing of a mapped drive. A share that dies while connected needs a second host and a firewall rule, so it was timed by hand.
-	- Acceptance signoff: Self-closed: no stall in 3 timed runs with the share cut, and ddj38 passes.
-	- Closed: 20261117-095337
-
-- On the arm64 box the keyboard menu test's icon view step can time out beside other tests.
-	- ID: 2026100708355547
-	- Type: Bug
-	- Status: Can't reproduce
-	- Priority|Severity: Low
-	- Opened: 20261007-083555
-	- Opened by: 2026100611482306
-	- Related IDs: 2026100520071435
-	- Target OS: Linux arm64
-	- Steps to reproduce: run the full suite on the arm64 debug build in the jammy image, 4 at once.
-	- Incorrect behavior: ddg88's icon view case timed out at step 5, waiting for the menu the Menu key opens. Seen once. It passed 3 runs of 3 alone.
-	- Expected behavior: passes.
-	- Reproduced: 20261007, once, in the full suite.
-	- Possible cause: the suite shares one display, and a menu whose grab goes to another test's window stays down. The Places focus probe doesn't wait for its menu to show, for that reason. It wasn't shown here.
-	- Note: 20261007, it passed in the full suite on a fresh arm64 release build at 585f825, in 29.7 s. It had passed 3 runs of 3 alone before that.
-	- Note: 20261007, the probe and test were read. At step 5 the probe looks for a menu on screen every 100 ms for 10 s, so it does wait for the menu to show. The test runs on an X server of its own rather than the suite's. When 2 tests pick the same display number at once, they don't end up sharing it, because the one whose server fails tries the next number. So the possible cause above doesn't apply.
-	- Note: 20261007, one thing isn't ruled out. Once, on a loaded box, the Menu key didn't open any menu at all. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
-	- Progress log:
-		- 20261117: closed. The arm64 build runs under emulation, and it was sharing the box with 3 other tests, so everything was slow. The one thing not ruled out is a pointer grab that failed once, so the Menu key opened nothing. That needs a loaded box and unlucky timing, and nothing points at it.
-	- Test case: ddg88 itself.
-	- Acceptance signoff: Self-closed: ddg88 passed in the next arm64 full suite, 3 of 3 alone, and in every run log here since.
-	- Closed: 20261117-095337
-
-- A cicd run prints the last step's PASS line twice.
-	- ID: 2026102520100000
-	- Type: Bug
-	- Status: Can't reproduce
-	- Priority|Severity: Low
-	- Opened: 20261025-201000
-	- Opened by: t00mietum
-	- Related IDs: 2026102517333367
-	- Target OS: Linux
-	- Steps to reproduce: `cicd/cicd.bash --backlog-run-full --no-sanitize --no-bsd` to the end.
-	- Incorrect behavior: "Step 10 of 10; PASS Private runner" shows twice, the second time right after the first, before the closing rule.
-	- Expected behavior: each step closes once.
-	- Reproduced: 20261025 on round1025b at a61c4f91.
-	- Possible cause: the EXIT trap closes the open step again after the last step already closed it.
-	- Progress log:
-		- 20261026: not seen again. A stand-in `--backlog-run-full` with the private runner last, its output to a file and through the lint log's tee, closed every step once. The lint log of the reported run, `run_20261025-183802.log`, has the line once, followed by the rule. The EXIT trap closes a step only on a failed exit, and `fStep_Close` clears the open step, so a passing run has no second path to that line. The doubled line may have come from how that run's output was watched.
-		- 20261117: closed. The saved log has the line once, and a passing run has no second way to print it. My guess is it was doubled on screen, from watching the output and the lint log's tee at the same time, or from a terminal redraw. Every run log since has each step's PASS line once.
-	- Test case: de54r, counting each step's closing line. A second close of the same step fails it as "closed a step that wasn't open".
-	- Acceptance signoff: Self-closed: the run's own log has the line once, and de54r passes.
-	- Closed: 20261117-095337
-
-- dder1 failed once in a quick gate on b23.
-	- ID: 2026110620022021
-	- Type: Bug
-	- Status: Can't reproduce
-	- Priority|Severity: Low
-	- Opened: 20261106-200220
-	- Opened by:
-	- Steps to reproduce: `cicd/cicd.bash --backlog-run-quick` on round1107a at 4d07380d, on a loaded b23.
-	- Incorrect behavior: the Tests step failed on dder1, the stopped tar.gz leak test. The failing output wasn't kept.
-	- Expected behavior: passes every time.
-	- Reproduced: once in 3 runs. It passed in the next 2 quick gates, at b617843c, with no change to its code.
-	- Progress log:
-		- 20261107: filed as a flake. Next time it fails, keep the log's dder1 lines and the box's load.
-		- 20261108: not reproduced. It passed 32 runs 8 at a time, then 64 runs 16 at a time at load about 12, at 4752a95e. The 4 run logs since it was filed don't have any failure.
-		- 20261117: closed. The failing output wasn't kept, so there's nothing to go on. dder1 stops a tar.gz job partway, so how far the job got when the stop came depends on timing, and the box was loaded. If it comes back, keep the log this time.
-	- Test case: dder1.
-	- Acceptance signoff: Self-closed: 96 runs under load and every run log since have passed.
-	- Closed: 20261117-095337
-
-- de8dm times out at step 11 once in a while in the sanitizer lane on a loaded box.
-	- ID: 2026102507531587
-	- Type: Bug
-	- Status: Can't reproduce
-	- Priority|Severity: Low
-	- Opened: 20261025-075315
-	- Opened by: 2026102413432024
-	- Related IDs: 2026102413432024, 2026102507531487
-	- Target OS: Linux
-	- Steps to reproduce: de8dm in a sanitizer build, many at once, with the cores and the disk loaded.
-	- Incorrect behavior: "list-view: FAIL timed out at step 11" and "14 results, expected 72". Step 11 waits for the menu from the right-click on an item at step 10.
-	- Expected behavior: the menu opens, and the test goes on.
-	- Reproduced: 20261025, once in 20 runs at load about 58, after the fix in 2026102413432024. Before that fix, 3 of 36 views of dec8w timed out there too, most with the right-click itself lost.
-	- Possible cause: not known. In 36 views checked after the fix, the right-click had always selected the item and opened the menu by the time it was sent.
-	- Progress log:
-		- 20261025: not reproduced in 120 more runs at load 50 to 84, with each grab logged. Every menu took 2 grabs at the server's current time, and both were granted every time. The test's own event times run about 14 s ahead of the clock, from its 1 s jumps before each right-click, but the menu grabs don't use them. It's still not known whether the failing run's menu grab was refused.
-		- 20261025: read only, not run. The press pops the menu up at once, with the press's own time. So the release 20 ms later can't close it through GTK's rule that a release more than 500 ms after the popup closes the menu.
-		- 20261025: ddy5f failed the same way once in 72 loaded runs, before the fix in 2026102507531487: "list-view: FAIL timed out at step 9" under Nemo Anywhere v1, waiting for the menu from the right-click at steps 7 and 8.
-		- 20261028: not worked. Grouped with 2026102516081782 and 2026102518200000, which were fixed, and left for a job of its own, since it hasn't come back in 120 runs.
-		- 20261108: the 12 run logs from 20261031 to 20261108 don't have any failure, in the plain or the sanitizer lane.
-		- 20261117: closed. At load 58 the X server can be slow enough that a right-click gets lost or a menu misses its grab, which is what the fix in 2026102413432024 was about. This looks like the last bit of that same race, and it hasn't shown since.
-	- Test case: de8dm itself, in the sanitizer lane with the cores loaded.
-	- Acceptance signoff: Self-closed: not seen in 120 loaded runs, or in any run log since.
-	- Closed: 20261117-095337
-
-- de7aj leaked 48 bytes once in the sanitizer lane.
-	- ID: 2026102413432124
-	- Type: Bug
-	- Status: Can't reproduce
-	- Priority|Severity: Low
-	- Opened: 20261024-134321
-	- Opened by: 2026102411433800
-	- Related IDs: 2026102411433800
-	- Target OS: Linux
-	- Steps to reproduce: the sanitizer suite at 16 jobs at load about 15.
-	- Incorrect behavior: the test printed OK, then LeakSanitizer found a direct leak of 48 bytes in 1 object from `g_malloc0`. The lane's short stacks cut it at 2 frames, so the caller isn't known.
-	- Expected behavior: no leak.
-	- Reproduced: once on 20261024 at c7194950. It passed 3 of 3 alone right after, and in the other sanitizer runs that day.
-	- Possible cause: not known. A rerun with `ASAN_OPTIONS=fast_unwind_on_malloc=0` gives the whole stack.
-	- Progress log:
-		- 20261108: the 12 run logs from 20261031 to 20261108 don't have any failure, in the plain or the sanitizer lane.
-		- 20261117: closed. With the stack cut at 2 frames, the caller can't be known now. A 48 byte leak seen once at 16 jobs and never again looks more like something in GLib or GTK caught mid-flight at exit than a leak of ours. df30s did the same once on 20261109, 5 bytes from `g_malloc`, and passed every run after. Its stderr shows it tried another test's accessibility bus and failed, so that one may be GTK's accessibility bridge on its error path. The lane keeps short stacks on purpose, so a repeat still needs a rerun with full stacks.
-	- Test case: de7aj itself, in the sanitizer lane.
-	- Acceptance signoff: Self-closed: passed alone right after, and in every sanitizer run log since.
-	- Closed: 20261117-095337
-
 - CICD step output: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102819522603
 	- Type: Task
@@ -12805,6 +12648,170 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: all 45 items under it are Done.
 	- Closed: 20261006-165500
 
+- The native gate on b29w sometimes fails on test-nemo-office's leftover folder.
+	- ID: 2026103116203164
+	- Type: Bug
+	- Status: Closed
+	- Closed reason: Can't reproduce
+	- Priority|Severity: Avg
+	- Opened: 20261031-162031
+	- Opened by: 2026103114202730
+	- Target OS: Windows
+	- Steps to reproduce: the native gate on b29w over ssh, `-Gate -Yes -NoSync -NoFmt`.
+	- Incorrect behavior: every test passes, 191 OK and 22 skipped, then the gate fails with "tests left these behind in ...\nemo-suite-...: test-nemo-office.kbj53Z".
+	- Expected behavior: the office tests remove their scratch folder every time.
+	- Reproduced: 20261031 on b29w at round1031a, 1 run of 3.
+		- 20261104: not again in 876 runs of test-nemo-office on b29w, 8 or 10 at a time, each in a cell laid out as `jail.bash` makes one, under the ssh user's temp folder and under `%ProgramData%`. It wasn't seen in 96 runs each of test-nemo-office-ole and test-nemo-search-helpers either.
+	- Possible cause: something, such as the virus scanner, held a file open for a moment after the test deleted it. On 20261031 nothing tried again. In 1 of the 876 runs a folder in the test's scratch didn't go on the first try, and went on the next, 100 ms later. Since 20261101 (075e7d8a) the test's own cleanup and `jail.bash` try again for 5 s on Windows, which covers that.
+		- Ruled out: a helper outliving the test. The stand-in thumbnailer and search helper are waited for, and a file was never still held once the test had exited. The cell's temp folder didn't have any thumbnailer temp file left in it either.
+	- Progress log:
+		- 20261104: b29w's native gate has passed with nothing left behind since the retry went in. That's 2 gates on 20261102 (2026103117575073), the full run of 20261103 (2026110315184983), and the plain run of 20261104.
+		- 20261117: closed. My best guess is still the virus scanner or the search indexer opening a file just after the test wrote it, and letting go a moment later. That needs a busy box and the right timing, which is why hundreds of quiet runs didn't catch it. The 5 s retry would cover it now even if it came back.
+	- Decisions:
+		- Can't reproduce rather than Done, since what held the folder was never named. A recurrence now prints the cell's `left` list, which names what stayed.
+	- Test case: ddq92, ddqhc and dbxj2 on Windows, with the suite's leftover check. dedme covers the retry on a held file.
+	- Acceptance signoff: Self-closed: nothing left behind in 876 runs, or in any native gate since the retry went in.
+	- Closed: 20261117-095337
+
+- On Windows, a mapped drive that stops responding while connected may stall the window, and the trash icon leaves out removable drives.
+	- ID: 2026100613231440
+	- Type: Bug
+	- Status: Closed
+	- Closed reason: Can't reproduce
+	- Needs external testing: done 20261007 on vm925w, as in Reproduced.
+	- Priority|Severity: Low
+	- Opened: 20261006-132314
+	- Opened by: signoff of 2026100512334934
+	- Related IDs: 2026100512334934, 2026093010493450
+	- Target OS: Windows
+	- Steps to reproduce:
+		- Map a drive to a live share and open the app. Stop the share's server, or drop the network, with the app still open. Rebuild the side pane, open a new window, and watch the trash icon.
+		- Delete a file on a USB stick, so that its bin is the only one with anything in it.
+	- Incorrect behavior: not seen. In 2026100512334934 the drive was already dead at logon, and nothing waited. A drive that dies while connected may behave differently in the shell. The trash icon shows empty when only a removable drive's bin has items, since the trash state reads fixed drives only.
+	- Expected behavior: no wait on the window's thread for a share that stops responding. The trash icon shows full when any local bin has items, with no prompt to insert a disk for an empty card reader.
+	- Reproduced: no, for the stall. There were 3 runs on vm925w on 20261007, in the desktop session. W: was mapped to `\\b23\root` and live, the app was open on a local folder, and then a firewall rule blocked b23 port 445 both ways. After that a plain `dir W:\` waited 33 s and failed, while the open window responded to every check over 90 s, the slowest in 52 ms. In that time there were 20 s of trash polls, a bookmark was added, which rebuilt the side pane with W: in it, and a second window showed in 1.1 s against 1.7 s for the first with the share live. The box's own Q: and R:, mapped to b23 too, were also dead then. The rule was removed after each run.
+	- Possible cause: removable drives were left out of the trash state on purpose in 2026100512334934, so an empty card reader can't bring up the shell's insert-disk prompt. A check for media first might let them back in.
+	- Note: the removable drive half is split out as 2026100708294146.
+	- Progress log:
+		- 20261117: closed. The first report was a drive already dead at logon, and the window didn't wait even then. With the share cut and the window open, Windows took 33 s to give up on a plain `dir`, but the window never asks the drive anything on its own thread, so it had nothing to wait on. I don't think there's a stall here to find. The removable drive half was fixed on its own in 2026100708294146.
+	- Test case: ddj38 checks that the drive list and the trash state ask nothing of a mapped drive. A share that dies while connected needs a second host and a firewall rule, so it was timed by hand.
+	- Acceptance signoff: Self-closed: no stall in 3 timed runs with the share cut, and ddj38 passes.
+	- Closed: 20261117-095337
+
+- On the arm64 box the keyboard menu test's icon view step can time out beside other tests.
+	- ID: 2026100708355547
+	- Type: Bug
+	- Status: Closed
+	- Closed reason: Can't reproduce
+	- Priority|Severity: Low
+	- Opened: 20261007-083555
+	- Opened by: 2026100611482306
+	- Related IDs: 2026100520071435
+	- Target OS: Linux arm64
+	- Steps to reproduce: run the full suite on the arm64 debug build in the jammy image, 4 at once.
+	- Incorrect behavior: ddg88's icon view case timed out at step 5, waiting for the menu the Menu key opens. Seen once. It passed 3 runs of 3 alone.
+	- Expected behavior: passes.
+	- Reproduced: 20261007, once, in the full suite.
+	- Possible cause: the suite shares one display, and a menu whose grab goes to another test's window stays down. The Places focus probe doesn't wait for its menu to show, for that reason. It wasn't shown here.
+	- Note: 20261007, it passed in the full suite on a fresh arm64 release build at 585f825, in 29.7 s. It had passed 3 runs of 3 alone before that.
+	- Note: 20261007, the probe and test were read. At step 5 the probe looks for a menu on screen every 100 ms for 10 s, so it does wait for the menu to show. The test runs on an X server of its own rather than the suite's. When 2 tests pick the same display number at once, they don't end up sharing it, because the one whose server fails tries the next number. So the possible cause above doesn't apply.
+	- Note: 20261007, one thing isn't ruled out. Once, on a loaded box, the Menu key didn't open any menu at all. GTK 3 doesn't show a menu whose pointer grab fails, and the probe presses the key only once. Nothing points at that, and pressing again would hide it rather than explain it.
+	- Progress log:
+		- 20261117: closed. The arm64 build runs under emulation, and it was sharing the box with 3 other tests, so everything was slow. The one thing not ruled out is a pointer grab that failed once, so the Menu key opened nothing. That needs a loaded box and unlucky timing, and nothing points at it.
+	- Test case: ddg88 itself.
+	- Acceptance signoff: Self-closed: ddg88 passed in the next arm64 full suite, 3 of 3 alone, and in every run log here since.
+	- Closed: 20261117-095337
+
+- A cicd run prints the last step's PASS line twice.
+	- ID: 2026102520100000
+	- Type: Bug
+	- Status: Closed
+	- Closed reason: Can't reproduce
+	- Priority|Severity: Low
+	- Opened: 20261025-201000
+	- Opened by: t00mietum
+	- Related IDs: 2026102517333367
+	- Target OS: Linux
+	- Steps to reproduce: `cicd/cicd.bash --backlog-run-full --no-sanitize --no-bsd` to the end.
+	- Incorrect behavior: "Step 10 of 10; PASS Private runner" shows twice, the second time right after the first, before the closing rule.
+	- Expected behavior: each step closes once.
+	- Reproduced: 20261025 on round1025b at a61c4f91.
+	- Possible cause: the EXIT trap closes the open step again after the last step already closed it.
+	- Progress log:
+		- 20261026: not seen again. A stand-in `--backlog-run-full` with the private runner last, its output to a file and through the lint log's tee, closed every step once. The lint log of the reported run, `run_20261025-183802.log`, has the line once, followed by the rule. The EXIT trap closes a step only on a failed exit, and `fStep_Close` clears the open step, so a passing run has no second path to that line. The doubled line may have come from how that run's output was watched.
+		- 20261117: closed. The saved log has the line once, and a passing run has no second way to print it. My guess is it was doubled on screen, from watching the output and the lint log's tee at the same time, or from a terminal redraw. Every run log since has each step's PASS line once.
+	- Test case: de54r, counting each step's closing line. A second close of the same step fails it as "closed a step that wasn't open".
+	- Acceptance signoff: Self-closed: the run's own log has the line once, and de54r passes.
+	- Closed: 20261117-095337
+
+- dder1 failed once in a quick gate on b23.
+	- ID: 2026110620022021
+	- Type: Bug
+	- Status: Closed
+	- Closed reason: Can't reproduce
+	- Priority|Severity: Low
+	- Opened: 20261106-200220
+	- Opened by:
+	- Steps to reproduce: `cicd/cicd.bash --backlog-run-quick` on round1107a at 4d07380d, on a loaded b23.
+	- Incorrect behavior: the Tests step failed on dder1, the stopped tar.gz leak test. The failing output wasn't kept.
+	- Expected behavior: passes every time.
+	- Reproduced: once in 3 runs. It passed in the next 2 quick gates, at b617843c, with no change to its code.
+	- Progress log:
+		- 20261107: filed as a flake. Next time it fails, keep the log's dder1 lines and the box's load.
+		- 20261108: not reproduced. It passed 32 runs 8 at a time, then 64 runs 16 at a time at load about 12, at 4752a95e. The 4 run logs since it was filed don't have any failure.
+		- 20261117: closed. The failing output wasn't kept, so there's nothing to go on. dder1 stops a tar.gz job partway, so how far the job got when the stop came depends on timing, and the box was loaded. If it comes back, keep the log this time.
+	- Test case: dder1.
+	- Acceptance signoff: Self-closed: 96 runs under load and every run log since have passed.
+	- Closed: 20261117-095337
+
+- de8dm times out at step 11 once in a while in the sanitizer lane on a loaded box.
+	- ID: 2026102507531587
+	- Type: Bug
+	- Status: Closed
+	- Closed reason: Can't reproduce
+	- Priority|Severity: Low
+	- Opened: 20261025-075315
+	- Opened by: 2026102413432024
+	- Related IDs: 2026102413432024, 2026102507531487
+	- Target OS: Linux
+	- Steps to reproduce: de8dm in a sanitizer build, many at once, with the cores and the disk loaded.
+	- Incorrect behavior: "list-view: FAIL timed out at step 11" and "14 results, expected 72". Step 11 waits for the menu from the right-click on an item at step 10.
+	- Expected behavior: the menu opens, and the test goes on.
+	- Reproduced: 20261025, once in 20 runs at load about 58, after the fix in 2026102413432024. Before that fix, 3 of 36 views of dec8w timed out there too, most with the right-click itself lost.
+	- Possible cause: not known. In 36 views checked after the fix, the right-click had always selected the item and opened the menu by the time it was sent.
+	- Progress log:
+		- 20261025: not reproduced in 120 more runs at load 50 to 84, with each grab logged. Every menu took 2 grabs at the server's current time, and both were granted every time. The test's own event times run about 14 s ahead of the clock, from its 1 s jumps before each right-click, but the menu grabs don't use them. It's still not known whether the failing run's menu grab was refused.
+		- 20261025: read only, not run. The press pops the menu up at once, with the press's own time. So the release 20 ms later can't close it through GTK's rule that a release more than 500 ms after the popup closes the menu.
+		- 20261025: ddy5f failed the same way once in 72 loaded runs, before the fix in 2026102507531487: "list-view: FAIL timed out at step 9" under Nemo Anywhere v1, waiting for the menu from the right-click at steps 7 and 8.
+		- 20261028: not worked. Grouped with 2026102516081782 and 2026102518200000, which were fixed, and left for a job of its own, since it hasn't come back in 120 runs.
+		- 20261108: the 12 run logs from 20261031 to 20261108 don't have any failure, in the plain or the sanitizer lane.
+		- 20261117: closed. At load 58 the X server can be slow enough that a right-click gets lost or a menu misses its grab, which is what the fix in 2026102413432024 was about. This looks like the last bit of that same race, and it hasn't shown since.
+	- Test case: de8dm itself, in the sanitizer lane with the cores loaded.
+	- Acceptance signoff: Self-closed: not seen in 120 loaded runs, or in any run log since.
+	- Closed: 20261117-095337
+
+- de7aj leaked 48 bytes once in the sanitizer lane.
+	- ID: 2026102413432124
+	- Type: Bug
+	- Status: Closed
+	- Closed reason: Can't reproduce
+	- Priority|Severity: Low
+	- Opened: 20261024-134321
+	- Opened by: 2026102411433800
+	- Related IDs: 2026102411433800
+	- Target OS: Linux
+	- Steps to reproduce: the sanitizer suite at 16 jobs at load about 15.
+	- Incorrect behavior: the test printed OK, then LeakSanitizer found a direct leak of 48 bytes in 1 object from `g_malloc0`. The lane's short stacks cut it at 2 frames, so the caller isn't known.
+	- Expected behavior: no leak.
+	- Reproduced: once on 20261024 at c7194950. It passed 3 of 3 alone right after, and in the other sanitizer runs that day.
+	- Possible cause: not known. A rerun with `ASAN_OPTIONS=fast_unwind_on_malloc=0` gives the whole stack.
+	- Progress log:
+		- 20261108: the 12 run logs from 20261031 to 20261108 don't have any failure, in the plain or the sanitizer lane.
+		- 20261117: closed. With the stack cut at 2 frames, the caller can't be known now. A 48 byte leak seen once at 16 jobs and never again looks more like something in GLib or GTK caught mid-flight at exit than a leak of ours. df30s did the same once on 20261109, 5 bytes from `g_malloc`, and passed every run after. Its stderr shows it tried another test's accessibility bus and failed, so that one may be GTK's accessibility bridge on its error path. The lane keeps short stacks on purpose, so a repeat still needs a rerun with full stacks.
+	- Test case: de7aj itself, in the sanitizer lane.
+	- Acceptance signoff: Self-closed: passed alone right after, and in every sanitizer run log since.
+	- Closed: 20261117-095337
+
 - Settings: sub-tabs don't list on the left until the parent tab is activated.
 	- ID: 2026101417352262
 	- Type: Enhancement
@@ -17541,10 +17548,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 	- The ID is the local time to the hundredth of a second. Opened is when it was written down, which may differ. (Use a keyboard macro and possibly something like project 'zuid' to generate.)
 
-	- Status values meaning: Testing means the fix is in and checks are running or still to run. Waiting on signoff means automated testing passed. Moot means something else changed that made it irrelevant. Canceled means it still applies but was decided against. Waiting for testing is split four ways, and items still carrying it get one of the four when next touched. Waiting on automated testing means a test is written or running and no person is needed. Waiting on a full CICD run means the fix is in and waits on the whole pipeline, started by a person or by a round. Waiting on a partial CICD run means it waits on one stage or box, such as native Windows or the FreeBSD lane, started by a person or by a round. Waiting on UAT means only a person can check it. Can't reproduce means a real attempt to reproduce it failed.
+	- Status values meaning: Testing means the fix is in and checks are running or still to run. Waiting on signoff means automated testing passed. Moot means something else changed that made it irrelevant. Canceled means it still applies but was decided against. Waiting for testing is split four ways, and items still carrying it get one of the four when next touched. Waiting on automated testing means a test is written or running and no person is needed. Waiting on a full CICD run means the fix is in and waits on the whole pipeline, started by a person or by a round. Waiting on a partial CICD run means it waits on one stage or box, such as native Windows or the FreeBSD lane, started by a person or by a round. Waiting on UAT means only a person can check it. Can't reproduce means a real attempt to reproduce it failed. Closed means it ended for the reason in its Closed reason row, such as Can't reproduce.
 
 	- As issues are worked, and statuses change, place them in correct sorting order within the list:
-		- First by status: Waiting for answers, Waiting on signoff, Testing, Waiting on UAT, Waiting on a full CICD run, Waiting on a partial CICD run, Waiting on automated testing, Waiting for testing (old), Can't reproduce, Stalled, Started, Queued, Done, Deferred, Canceled, Moot
+		- First by status: Waiting for answers, Waiting on signoff, Testing, Waiting on UAT, Waiting on a full CICD run, Waiting on a partial CICD run, Waiting on automated testing, Waiting for testing (old), Can't reproduce, Stalled, Started, Queued, Done, Closed, Deferred, Canceled, Moot
 		- Then by severity|priority: Critical, High, Avg, Low
 		- Then by type: Bugs, [not bugs together]
 
@@ -17555,7 +17562,8 @@ Template:
 - Title
 	- ID: YYYYmmDDHHMMSSNN
 	- Type: [Bug|Feature|Enhancement|Task]
-	- Status: [Queued|Waiting for answers|Waiting on signoff|Waiting on automated testing|Waiting on a full CICD run|Waiting on a partial CICD run|Waiting on UAT|Waiting for testing|Started|Testing|Stalled|Can't reproduce|Moot|Canceled|Deferred|Done]
+	- Status: [Queued|Waiting for answers|Waiting on signoff|Waiting on automated testing|Waiting on a full CICD run|Waiting on a partial CICD run|Waiting on UAT|Waiting for testing|Started|Testing|Stalled|Can't reproduce|Moot|Canceled|Deferred|Done|Closed]
+	- Closed reason: [Can't reproduce]
 	- Needs local test suite run?:
 	- Needs external testing:
 	- Priority [Feature|Enhancement] | Severity [Bug]: [Critical|High|Avg|Low]
