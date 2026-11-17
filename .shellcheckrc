@@ -7,6 +7,9 @@
 # setting, and the style findings are the ones that catch a stale variable.
 severity=style
 
+# "${var}", never $var, so a name never runs into the text after it.
+enable=require-variable-braces
+
 # Follow `source` of a sibling script, and resolve its path against the
 # sourcing script rather than the working directory. Without the second one,
 # every sibling source reports SC1091, which was half the first run's findings.

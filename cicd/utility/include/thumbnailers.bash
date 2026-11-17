@@ -36,13 +36,13 @@ fStageThumbnailers(){
 	local src="$1" dest="$2"
 	local -a descriptors=()
 	local d
-	[[ -d "$src" ]] || return 0
-	mkdir -p "$dest"
-	for d in "$src"/*.thumbnailer; do
-		[[ -f "$d" ]] || continue
-		if fIsPixbufThumbnailer "$d" || fIsOfficeThumbnailer "$d"; then continue; fi
-		cp "$d" "$dest/"
-		descriptors+=("$dest/${d##*/}")
+	[[ -d "${src}" ]] || return 0
+	mkdir -p "${dest}"
+	for d in "${src}"/*.thumbnailer; do
+		[[ -f "${d}" ]] || continue
+		if fIsPixbufThumbnailer "${d}" || fIsOfficeThumbnailer "${d}"; then continue; fi
+		cp "${d}" "${dest}/"
+		descriptors+=("${dest}/${d##*/}")
 	done
 	((${#descriptors[@]})) || return 0
 	## The program is found beside the app or on PATH, the same as a bare name

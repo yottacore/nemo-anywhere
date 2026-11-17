@@ -169,13 +169,13 @@ EOF
 fBundles(){
 	local dir="$1" ver="$2" kind f; shift 2
 	for kind in "$@"; do
-		case "$kind" in
+		case "${kind}" in
 			linux-x86_64|linux-arm64)
-				for f in "${dir}/${slug}-${ver}-${kind}".{tar.gz,deb,rpm}; do [[ -f "$f" ]] && echo "$f"; done ;;
+				for f in "${dir}/${slug}-${ver}-${kind}".{tar.gz,deb,rpm}; do [[ -f "${f}" ]] && echo "${f}"; done ;;
 			windows)
-				f="${dir}/${slug}-${ver}-windows-x86_64.zip"; [[ -f "$f" ]] && echo "$f" ;;
+				f="${dir}/${slug}-${ver}-windows-x86_64.zip"; [[ -f "${f}" ]] && echo "${f}" ;;
 			bsd)
-				for f in "${dir}/${slug}-${ver}-bsd-"*.{pkg,tar.gz}; do [[ -f "$f" ]] && echo "$f"; done ;;
+				for f in "${dir}/${slug}-${ver}-bsd-"*.{pkg,tar.gz}; do [[ -f "${f}" ]] && echo "${f}"; done ;;
 			*) echo "unknown kind: ${kind}" >&2; return 2 ;;
 		esac
 	done
@@ -197,10 +197,10 @@ fSelfTest(){
 	## $1 good|bad, $2 bundle
 	fExpect(){
 		local want="$1" file="$2" rc=0 out
-		out="$(fChecker "$file" 2>&1)" || rc=$?
-		case "$want" in
-			good) [[ "$rc" == 0 ]] || fFail "${file##*/} was refused: ${out}" ;;
-			bad)  [[ "$rc" == 1 && "$out" == *"FAILED: "* ]] || fFail "${file##*/} was let through (exit ${rc}): ${out}" ;;
+		out="$(fChecker "${file}" 2>&1)" || rc=$?
+		case "${want}" in
+			good) [[ "${rc}" == 0 ]] || fFail "${file##*/} was refused: ${out}" ;;
+			bad)  [[ "${rc}" == 1 && "${out}" == *"FAILED: "* ]] || fFail "${file##*/} was let through (exit ${rc}): ${out}" ;;
 		esac
 		return 0
 	}
@@ -244,11 +244,11 @@ fSelfTest(){
 		local pkgroot="${scratch}/deb"
 		mkdir -p "${pkgroot}/DEBIAN" "${pkgroot}/opt/${slug}/bin"
 		touch "${pkgroot}/opt/${slug}/bin/${slug}"
-		printf 'Package: %s\nVersion: 1\nArchitecture: all\nMaintainer: x <x@example.com>\nDepends: libc6, libgtk-3-0\nDescription: x\n' "$slug" >"${pkgroot}/DEBIAN/control"
-		dpkg-deb --root-owner-group -b "$pkgroot" "${scratch}/good.deb" >/dev/null
+		printf 'Package: %s\nVersion: 1\nArchitecture: all\nMaintainer: x <x@example.com>\nDepends: libc6, libgtk-3-0\nDescription: x\n' "${slug}" >"${pkgroot}/DEBIAN/control"
+		dpkg-deb --root-owner-group -b "${pkgroot}" "${scratch}/good.deb" >/dev/null
 		fExpect good "${scratch}/good.deb"
 		sed -i 's/^Depends: .*/Depends: libc6, libgsf-1-114 (>= 1.14)/' "${pkgroot}/DEBIAN/control"
-		dpkg-deb --root-owner-group -b "$pkgroot" "${scratch}/bad.deb" >/dev/null
+		dpkg-deb --root-owner-group -b "${pkgroot}" "${scratch}/bad.deb" >/dev/null
 		fExpect bad "${scratch}/bad.deb"
 	else
 		fEcho "no dpkg-deb; the .deb cases not run"
@@ -258,11 +258,11 @@ fSelfTest(){
 	local bsd="${scratch}/bsd"
 	mkdir -p "${bsd}/usr/local/${slug}/bin"
 	touch "${bsd}/usr/local/${slug}/bin/${slug}"
-	printf '{"name":"%s","deps":{"gtk3":{"origin":"x11-toolkits/gtk30","version":"3"}}}' "$slug" >"${bsd}/+COMPACT_MANIFEST"
-	tar -C "$bsd" -cf "${scratch}/good.pkg" +COMPACT_MANIFEST usr
+	printf '{"name":"%s","deps":{"gtk3":{"origin":"x11-toolkits/gtk30","version":"3"}}}' "${slug}" >"${bsd}/+COMPACT_MANIFEST"
+	tar -C "${bsd}" -cf "${scratch}/good.pkg" +COMPACT_MANIFEST usr
 	fExpect good "${scratch}/good.pkg"
-	printf '{"name":"%s","deps":{"libgsf":{"origin":"devel/libgsf","version":"1"}}}' "$slug" >"${bsd}/+COMPACT_MANIFEST"
-	tar -C "$bsd" -cf "${scratch}/bad.pkg" +COMPACT_MANIFEST usr
+	printf '{"name":"%s","deps":{"libgsf":{"origin":"devel/libgsf","version":"1"}}}' "${slug}" >"${bsd}/+COMPACT_MANIFEST"
+	tar -C "${bsd}" -cf "${scratch}/bad.pkg" +COMPACT_MANIFEST usr
 	fExpect bad "${scratch}/bad.pkg"
 
 	if ((failures)); then
@@ -289,7 +289,7 @@ fi
 
 ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "${root}/source/meson.build" | head -1 || true)"
 bundles=()
-while IFS= read -r f; do bundles+=("$f"); done < <(fBundles "$dir" "$ver" "$@")
+while IFS= read -r f; do bundles+=("${f}"); done < <(fBundles "${dir}" "${ver}" "$@")
 if ((! ${#bundles[@]})); then
 	fEcho "bundle check skipped: no ${slug}-${ver} bundle for $* in ${dir}"
 	exit 77

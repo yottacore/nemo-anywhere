@@ -28,7 +28,7 @@ image="${NEMO_RELEASE_IMAGE:-nemo-build-jammy:latest}"
 build=/build-release
 prefix=/opt/nemo-anywhere
 
-if [[ "${CICD_NO_CONTAINER:-}" == "1" ]] || ! command -v docker >/dev/null 2>&1 || ! timeout 10 docker image inspect "$image" >/dev/null 2>&1; then
+if [[ "${CICD_NO_CONTAINER:-}" == "1" ]] || ! command -v docker >/dev/null 2>&1 || ! timeout 10 docker image inspect "${image}" >/dev/null 2>&1; then
 	fEcho "release setup check skipped: no ${image} image"
 	exit 77
 fi
@@ -38,10 +38,10 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 box="nemo-release-setup-test-$$"
 trap 'docker rm -f "${box}" >/dev/null 2>&1 || true' EXIT
-docker run -d --rm --init --name "$box" --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" -v "${root}:/src:ro" "$image" sleep infinity >/dev/null
+docker run -d --rm --init --name "${box}" --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" -v "${root}:/src:ro" "${image}" sleep infinity >/dev/null
 
 fOptions(){
-	docker exec "$box" meson introspect --buildoptions "$build" | python3 -c '
+	docker exec "${box}" meson introspect --buildoptions "${build}" | python3 -c '
 import json, sys
 opts = {o["name"]: o["value"] for o in json.load(sys.stdin)}
 print(" ".join(f"{n}={opts.get(n)}" for n in ("buildtype", "strip", "b_lto", "b_lto_threads", "werror")))
@@ -49,27 +49,27 @@ print(" ".join(f"{n}={opts.get(n)}" for n in ("buildtype", "strip", "b_lto", "b_
 }
 
 ## The dir as the old image and container had it.
-docker exec "$box" meson setup --buildtype=release "$build" /src/source >/dev/null
+docker exec "${box}" meson setup --buildtype=release "${build}" /src/source >/dev/null
 seeded="$(fOptions)"
-[[ "$seeded" == *"b_lto=False"*"werror=False" ]] || fFail "couldn't set up a dir without link-time optimization and fatal warnings: ${seeded}"
+[[ "${seeded}" == *"b_lto=False"*"werror=False" ]] || fFail "couldn't set up a dir without link-time optimization and fatal warnings: ${seeded}"
 
 rc=0
-out="$(docker exec -e SOURCE_DATE_EPOCH=946684800 "$box" bash /src/cicd/linux/release-setup.bash "$build" /src/source "$prefix" 2>&1)" || rc=$?
-[[ "$rc" == 0 ]] || fFail "release-setup.bash failed over an old dir (exit ${rc}): ${out}"
+out="$(docker exec -e SOURCE_DATE_EPOCH=946684800 "${box}" bash /src/cicd/linux/release-setup.bash "${build}" /src/source "${prefix}" 2>&1)" || rc=$?
+[[ "${rc}" == 0 ]] || fFail "release-setup.bash failed over an old dir (exit ${rc}): ${out}"
 got="$(fOptions)"
 want="buildtype=release strip=True b_lto=True b_lto_threads=4 werror=True"
-if [[ "$got" == "$want" ]]; then
+if [[ "${got}" == "${want}" ]]; then
 	fEcho "OK: an old dir comes out with ${got}"
 else
 	fFail "an old dir comes out with ${got}, want ${want}"
 fi
-docker exec "$box" grep -q -F -e '-flto' "${build}/build.ninja" || fFail "${build}/build.ninja has no -flto"
+docker exec "${box}" grep -q -F -e '-flto' "${build}/build.ninja" || fFail "${build}/build.ninja has no -flto"
 
 ## Not a meson dir, so not the script's to clear.
-docker exec "$box" sh -c 'mkdir -p /tmp/not-a-build && touch /tmp/not-a-build/keep'
+docker exec "${box}" sh -c 'mkdir -p /tmp/not-a-build && touch /tmp/not-a-build/keep'
 rc=0
-out="$(docker exec "$box" bash /src/cicd/linux/release-setup.bash /tmp/not-a-build /src/source "$prefix" 2>&1)" || rc=$?
-if [[ "$rc" == 0 ]] || ! docker exec "$box" test -f /tmp/not-a-build/keep; then
+out="$(docker exec "${box}" bash /src/cicd/linux/release-setup.bash /tmp/not-a-build /src/source "${prefix}" 2>&1)" || rc=$?
+if [[ "${rc}" == 0 ]] || ! docker exec "${box}" test -f /tmp/not-a-build/keep; then
 	fFail "release-setup.bash cleared a dir that wasn't a build dir (exit ${rc}): ${out}"
 else
 	fEcho "OK: a dir that is not a build dir is left alone"

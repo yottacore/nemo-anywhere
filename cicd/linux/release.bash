@@ -51,11 +51,11 @@ case "${1:-}" in
 esac
 
 ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "${ROOT}/source/meson.build" | head -1)"
-[[ -n "$ver" ]] || fDie "no version in source/meson.build"
+[[ -n "${ver}" ]] || fDie "no version in source/meson.build"
 
 ## Every timestamp the build and the archive would otherwise take from the clock.
-fSetSourceDate "$ROOT"
-fWarnIfSourceDateIsAGuess "$ROOT"
+fSetSourceDate "${ROOT}"
+fWarnIfSourceDateIsAGuess "${ROOT}"
 
 ## The pipeline's job count, from cicd.bash, or worked out the same way when run
 ## alone. A release build shouldn't make the box unusable either.
@@ -70,27 +70,27 @@ fEcho_Clean ""
 fEcho "Release build box"
 docker info >/dev/null 2>&1 || fDie "docker daemon is not reachable"
 
-if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
 	fEcho_Clean "building image ${IMAGE}"
-	docker build --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" -t "$IMAGE" "${ROOT}/cicd/linux/" >/dev/null
+	docker build --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" -t "${IMAGE}" "${ROOT}/cicd/linux/" >/dev/null
 fi
 ## -j alone doesn't limit the build to that many cores, since every LTO link runs 4
 ## jobs of its own, and ninja runs several links at once. So the container
 ## gets the cap too. The --security-opt pair lets the test's jail start (jail.bash).
 trap 'fStepBox_Stop' EXIT
-fStepBox_Start "release build" "$IMAGE" \
+fStepBox_Start "release build" "${IMAGE}" \
 	--security-opt seccomp=unconfined --security-opt apparmor=unconfined \
 	-v "${ROOT}:/src" \
 	|| fDie "could not start a container from ${IMAGE}"
 CONTAINER="${stepBox}"
 ## Before the build, since on the arm64 box that's an hour.
-docker exec "$CONTAINER" bash /src/cicd/linux/jail.bash --check >/dev/null \
+docker exec "${CONTAINER}" bash /src/cicd/linux/jail.bash --check >/dev/null \
 	|| fDie "the test jail can't start in a container from ${IMAGE}. Rebuild it from cicd/linux/Dockerfile if it has no bwrap"
-fEcho_Clean "$(docker exec "$CONTAINER" sh -c '. /etc/os-release; printf "%s, glibc %s, gtk %s" "$PRETTY_NAME" "$(ldd --version | head -1 | grep -oE "[0-9]+\.[0-9]+$")" "$(pkg-config --modversion gtk+-3.0)"')"
+fEcho_Clean "$(docker exec "${CONTAINER}" sh -c '. /etc/os-release; printf "%s, glibc %s, gtk %s" "$PRETTY_NAME" "$(ldd --version | head -1 | grep -oE "[0-9]+\.[0-9]+$")" "$(pkg-config --modversion gtk+-3.0)"')"
 
 ## The asset name says arm64 where the kernel says aarch64.
-machine="$(docker exec "$CONTAINER" uname -m)"
-arch="$(fReleaseArch "$machine")" || fDie "no release name for a ${machine} build"
+machine="$(docker exec "${CONTAINER}" uname -m)"
+arch="$(fReleaseArch "${machine}")" || fDie "no release name for a ${machine} build"
 
 
 #••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
@@ -98,25 +98,25 @@ arch="$(fReleaseArch "$machine")" || fDie "no release name for a ${machine} buil
 
 fEcho_Clean ""
 fEcho "Building ${SLUG} ${ver} (linux-${arch})"
-docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" bash /src/cicd/linux/release-setup.bash "$BUILD" /src/source "/opt/${SLUG}" \
+docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "${CONTAINER}" bash /src/cicd/linux/release-setup.bash "${BUILD}" /src/source "/opt/${SLUG}" \
 	|| fDie "couldn't set up ${BUILD} in ${CONTAINER}"
-docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" nice -n 19 ninja -C "$BUILD" -j "$jobs" | tail -1
+docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "${CONTAINER}" nice -n 19 ninja -C "${BUILD}" -j "${jobs}" | tail -1
 
 fEcho_Clean ""
 fEcho "Smoke test"
-smoke="$(docker exec "$CONTAINER" xvfb-run -a "${BUILD}/src/${SLUG}" --version)"
+smoke="$(docker exec "${CONTAINER}" xvfb-run -a "${BUILD}/src/${SLUG}" --version)"
 ## Prefix match, not equality, since the version string has a build number that moves
 ## on every reconfigure. An exact match here silently failed every release for a week.
-[[ "$smoke" == "${SLUG} v${ver} build "* ]] || fDie "smoke test said '${smoke}', expected '${SLUG} v${ver} build <n>'"
-fEcho_Clean "$smoke"
+[[ "${smoke}" == "${SLUG} v${ver} build "* ]] || fDie "smoke test said '${smoke}', expected '${SLUG} v${ver} build <n>'"
+fEcho_Clean "${smoke}"
 ## The extension API is in the exe in this build, and nothing else in the
 ## lane would notice if an extension could no longer link to it.
-docker exec "$CONTAINER" meson test -C "$BUILD" --no-rebuild --wrapper "bash /src/cicd/linux/jail.bash" "dcsvh Extension load test" >/dev/null \
+docker exec "${CONTAINER}" meson test -C "${BUILD}" --no-rebuild --wrapper "bash /src/cicd/linux/jail.bash" "dcsvh Extension load test" >/dev/null \
 	|| fDie "extension load test failed; see ${BUILD}/meson-logs/testlog-bash.txt in ${CONTAINER} (kept with --keep-temp)"
 
 fEcho_Clean ""
 fEcho "Staging prefix"
-docker exec "$CONTAINER" bash "/src/cicd/linux/stage-prefix.bash" "$BUILD" "$STAGE"
+docker exec "${CONTAINER}" bash "/src/cicd/linux/stage-prefix.bash" "${BUILD}" "${STAGE}"
 
 
 #••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
@@ -125,7 +125,7 @@ docker exec "$CONTAINER" bash "/src/cicd/linux/stage-prefix.bash" "$BUILD" "$STA
 name="${SLUG}-${ver}-linux-${arch}"
 fEcho_Clean ""
 fEcho "Packing ${name}.tar.gz"
-mkdir -p "$OUT"
+mkdir -p "${OUT}"
 fSafeRm_Under "${OUT}" "${OUT}/${name}" "${OUT}/${name}.tar.gz"
 ## /build* isn't host-mounted, so docker cp is the only way out of the container.
 docker cp "${CONTAINER}:${STAGE}" "${OUT}/${name}" >/dev/null
@@ -133,7 +133,7 @@ docker cp "${CONTAINER}:${STAGE}" "${OUT}/${name}" >/dev/null
 ## archive on any box. Without --sort the entries come out in readdir order, which
 ## differs between filesystems. The gzip layer needs nothing: tar feeds it on a
 ## pipe, and gzip writes a zero mtime when it has no input file to read one from.
-tar -czf "${OUT}/${name}.tar.gz" -C "$OUT" \
+tar -czf "${OUT}/${name}.tar.gz" -C "${OUT}" \
 	--owner=0 --group=0 --numeric-owner --sort=name --mtime="@${SOURCE_DATE_EPOCH}" \
 	"${name}"
 
@@ -148,11 +148,11 @@ fEcho_Clean "staged prefix kept at cicd/artifacts/dogfood/${SLUG}"
 fSafeRm_Under "${OUT}" "${OUT}/${name}"
 
 sums="${SLUG}-${ver}-sha256sums.txt"
-fWriteReleaseSums "$OUT" "$SLUG" "$ver"
+fWriteReleaseSums "${OUT}" "${SLUG}" "${ver}"
 
 fEcho_Clean ""
 fEcho "Artifacts in cicd/artifacts/release"
-( cd "$OUT" && find . -maxdepth 1 -type f -name "${SLUG}-${ver}-*" -printf '  %-52f %10s bytes\n' | sort )
+( cd "${OUT}" && find . -maxdepth 1 -type f -name "${SLUG}-${ver}-*" -printf '  %-52f %10s bytes\n' | sort )
 fEcho_Clean ""
 fEcho_Clean "$(cat "${OUT}/${sums}")"
 fEcho_Clean ""

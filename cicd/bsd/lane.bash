@@ -76,9 +76,9 @@ remoteDir=""
 fOnExit(){
 	local rc=$?
 	trap - EXIT INT TERM HUP
-	fLaneStep_OnExit "$rc"
-	fBoxWrap_RunDirDone "$bsdHost" "${sshOpts[@]}" || true
-	exit "$rc"
+	fLaneStep_OnExit "${rc}"
+	fBoxWrap_RunDirDone "${bsdHost}" "${sshOpts[@]}" || true
+	exit "${rc}"
 }
 
 ## Every remote command is put together on this side.
@@ -88,23 +88,23 @@ fSend(){
 	fLaneStep "Box ready"
 	## Runs there.
 	# shellcheck disable=SC2016
-	fBoxWrap_WaitReady "$bsdHost" "$readyWaitSec" 'test "$(uname -s)" = FreeBSD || exit 3' "${sshOpts[@]}" || rc=$?
-	case "$rc" in
+	fBoxWrap_WaitReady "${bsdHost}" "${readyWaitSec}" 'test "$(uname -s)" = FreeBSD || exit 3' "${sshOpts[@]}" || rc=$?
+	case "${rc}" in
 		0) ;;
 		3) fDie "${bsdHost} is not a FreeBSD box" ;;
 		*) fDie "${bsdHost} did not answer as that user in ${readyWaitSec}s" ;;
 	esac
-	fBoxWrap_ClockReady "$bsdHost" "${sshOpts[@]}" || fDie "${bsdHost} has the wrong time, and meson would stop on it"
+	fBoxWrap_ClockReady "${bsdHost}" "${sshOpts[@]}" || fDie "${bsdHost} has the wrong time, and meson would stop on it"
 	fLaneStep "Send"
-	fBoxWrap_RunDir "$SLUG" "$bsdHost" "${sshOpts[@]}" || fDie "couldn't make a run folder on ${bsdHost}"
+	fBoxWrap_RunDir "${SLUG}" "${bsdHost}" "${sshOpts[@]}" || fDie "couldn't make a run folder on ${bsdHost}"
 	remoteDir="${boxRunDir}/src"
-	ssh "${sshOpts[@]}" "$bsdHost" "mkdir ${remoteDir}"
+	ssh "${sshOpts[@]}" "${bsdHost}" "mkdir ${remoteDir}"
 	## --ignore-failed-read: a file deleted in the tree but not yet in git is
 	## still listed, and the Linux build wouldn't see it either.
-	( cd "$ROOT" && git ls-files -z --cached --others --exclude-standard \
+	( cd "${ROOT}" && git ls-files -z --cached --others --exclude-standard \
 		| tar --null -T - --ignore-failed-read -cf - ) \
-		| ssh "${sshOpts[@]}" "$bsdHost" "tar -xf - -C ${remoteDir}"
-	fEcho_Clean "sent $(cd "$ROOT" && git ls-files --cached --others --exclude-standard | wc -l) files to ${bsdHost}:${remoteDir}"
+		| ssh "${sshOpts[@]}" "${bsdHost}" "tar -xf - -C ${remoteDir}"
+	fEcho_Clean "sent $(cd "${ROOT}" && git ls-files --cached --others --exclude-standard | wc -l) files to ${bsdHost}:${remoteDir}"
 }
 
 # shellcheck disable=SC2029
@@ -114,8 +114,8 @@ fTests(){
 	fLaneStep_Plan FreeBSD "Box ready" "Send" "Build and suite"
 	fSend
 	fLaneStep "Build and suite"
-	fBoxWrap_Jobs "$jobsPin" "$bsdHost" "${sshOpts[@]}" || fDie "couldn't read the CPU count and load on ${bsdHost}"
-	ssh "${sshOpts[@]}" "$bsdHost" "$(fBoxWrap_RunCmd) BUILD_DIR=${boxRunDir}/build NEMO_TEST_JOBS=${boxJobs} ${remoteNice} bash cicd/linux/run-tests.bash"
+	fBoxWrap_Jobs "${jobsPin}" "${bsdHost}" "${sshOpts[@]}" || fDie "couldn't read the CPU count and load on ${bsdHost}"
+	ssh "${sshOpts[@]}" "${bsdHost}" "$(fBoxWrap_RunCmd) BUILD_DIR=${boxRunDir}/build NEMO_TEST_JOBS=${boxJobs} ${remoteNice} bash cicd/linux/run-tests.bash"
 }
 
 # shellcheck disable=SC2029
@@ -123,41 +123,41 @@ fRelease(){
 	local ver name started secs
 
 	ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "${ROOT}/source/meson.build" | head -1)"
-	[[ -n "$ver" ]] || fDie "no version in source/meson.build"
-	fSetSourceDate "$ROOT"
-	fWarnIfSourceDateIsAGuess "$ROOT"
+	[[ -n "${ver}" ]] || fDie "no version in source/meson.build"
+	fSetSourceDate "${ROOT}"
+	fWarnIfSourceDateIsAGuess "${ROOT}"
 
 	fEcho_Clean ""
 	fEcho "FreeBSD release build on ${bsdHost}"
 	fLaneStep_Plan FreeBSD "Box ready" "Send" "Release build" "Bring back"
 	fSend
 	fLaneStep "Release build"
-	fBoxWrap_Jobs "$jobsPin" "$bsdHost" "${sshOpts[@]}" || fDie "couldn't read the CPU count and load on ${bsdHost}"
+	fBoxWrap_Jobs "${jobsPin}" "${bsdHost}" "${sshOpts[@]}" || fDie "couldn't read the CPU count and load on ${bsdHost}"
 	started="$(date +%s)"
-	ssh "${sshOpts[@]}" "$bsdHost" "$(fBoxWrap_RunCmd) SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH} CICD_MAX_JOBS=${boxJobs} ${remoteNice} bash cicd/bsd/release.bash"
+	ssh "${sshOpts[@]}" "${bsdHost}" "$(fBoxWrap_RunCmd) SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH} CICD_MAX_JOBS=${boxJobs} ${remoteNice} bash cicd/bsd/release.bash"
 	secs=$(( $(date +%s) - started ))
 
 	fLaneStep "Bring back"
 
 	## The arch is whatever the box built for.
-	name="$(ssh "${sshOpts[@]}" "$bsdHost" "cd ${remoteDir}/cicd/artifacts/release && ls -d ${SLUG}-${ver}-bsd-*.pkg" | sed 's/\.pkg$//' | head -1)"
-	[[ "$name" == "${SLUG}-${ver}-bsd-"* ]] || fDie "no ${SLUG}-${ver}-bsd-*.pkg on ${bsdHost}"
+	name="$(ssh "${sshOpts[@]}" "${bsdHost}" "cd ${remoteDir}/cicd/artifacts/release && ls -d ${SLUG}-${ver}-bsd-*.pkg" | sed 's/\.pkg$//' | head -1)"
+	[[ "${name}" == "${SLUG}-${ver}-bsd-"* ]] || fDie "no ${SLUG}-${ver}-bsd-*.pkg on ${bsdHost}"
 
-	mkdir -p "$OUT"
+	mkdir -p "${OUT}"
 	fSafeRm_Under "${OUT}" "${OUT}/${name}" "${OUT}/${name}.tar.gz" "${OUT}/${name}.pkg"
 	scp -q "${sshOpts[@]}" "${bsdHost}:${remoteDir}/cicd/artifacts/release/${name}.pkg" "${OUT}/${name}.pkg"
-	ssh "${sshOpts[@]}" "$bsdHost" "tar -cf - -C ${remoteDir}/cicd/artifacts/release ${name}" | tar -xf - -C "$OUT"
+	ssh "${sshOpts[@]}" "${bsdHost}" "tar -cf - -C ${remoteDir}/cicd/artifacts/release ${name}" | tar -xf - -C "${OUT}"
 	[[ -x "${OUT}/${name}/bin/${SLUG}" ]] || fDie "the prefix that came back has no bin/${SLUG}"
 	## Same flags as linux/release.bash, so the same commit packs to the same bytes.
-	tar -czf "${OUT}/${name}.tar.gz" -C "$OUT" \
+	tar -czf "${OUT}/${name}.tar.gz" -C "${OUT}" \
 		--owner=0 --group=0 --numeric-owner --sort=name --mtime="@${SOURCE_DATE_EPOCH}" \
 		"${name}"
 	fSafeRm_Under "${OUT}" "${OUT}/${name}"
 
-	fWriteReleaseSums "$OUT" "$SLUG" "$ver"
+	fWriteReleaseSums "${OUT}" "${SLUG}" "${ver}"
 
 	fEcho_Clean "FreeBSD build took $(( secs / 60 ))m $(( secs % 60 ))s on ${bsdHost}"
-	fEcho_Clean "$(cd "$OUT" && sha256sum "${name}.tar.gz" "${name}.pkg")"
+	fEcho_Clean "$(cd "${OUT}" && sha256sum "${name}.tar.gz" "${name}.pkg")"
 }
 
 fMain(){
@@ -167,20 +167,20 @@ fMain(){
 		-h|--help) sed -n '/^##	- Purpose:/,/^##	Copyright/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##	\{0,1\}//'; return 0 ;;
 		*) fDie "need --tests or --release (try --help)" ;;
 	esac
-	if [[ "${2:-}" != "--locked" ]] && ! fBoxWrap_IsThere "$lockName" "$bsdHost" "$lockTool" "${sshOpts[@]}"; then
+	if [[ "${2:-}" != "--locked" ]] && ! fBoxWrap_IsThere "${lockName}" "${bsdHost}" "${lockTool}" "${sshOpts[@]}"; then
 		fEcho "SKIP: ${bsdHost} isn't there"
 		exit 77
 	fi
-	if [[ "${2:-}" == "--locked" || ! -f "$lockTool" ]]; then
+	if [[ "${2:-}" == "--locked" || ! -f "${lockTool}" ]]; then
 		trap fOnExit EXIT
 		trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 129' HUP
-		case "$mode" in
+		case "${mode}" in
 			--tests)   fTests ;;
 			--release) fRelease ;;
 		esac
 		return
 	fi
-	bash "$lockTool" wrap "$lockName" --wait "$lockWaitSec" -- bash "${BASH_SOURCE[0]}" "$mode" --locked
+	bash "${lockTool}" wrap "${lockName}" --wait "${lockWaitSec}" -- bash "${BASH_SOURCE[0]}" "${mode}" --locked
 }
 
 fMain "${@}"

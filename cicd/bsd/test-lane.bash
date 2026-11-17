@@ -49,7 +49,7 @@ source "${root}/cicd/utility/include/run-temp.bash"
 
 if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then fEcho "FreeBSD lane check skipped: Linux only"; exit 77; fi
 for tool in git python3; do
-	if ! command -v "$tool" >/dev/null 2>&1; then fEcho "FreeBSD lane check skipped: no ${tool}"; exit 77; fi
+	if ! command -v "${tool}" >/dev/null 2>&1; then fEcho "FreeBSD lane check skipped: no ${tool}"; exit 77; fi
 done
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/bsd-lane-check.XXXXXX")"
@@ -71,7 +71,7 @@ printf "project('nemo-anywhere', 'c', version : '9.9.9-rc1')\n" > "${repo}/sourc
 printf 'cicd/artifacts/\nignored.txt\n' > "${repo}/.gitignore"
 printf 'tracked\n' > "${repo}/tracked.txt"
 commitDate=1790000000
-fGit(){ git -C "$repo" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@"; }
+fGit(){ git -C "${repo}" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@"; }
 fGit init -q -b dev
 fGit add -A
 GIT_AUTHOR_DATE="@${commitDate}" GIT_COMMITTER_DATE="@${commitDate}" fGit commit -q -m base
@@ -82,7 +82,7 @@ printf 'ignored\n' > "${repo}/ignored.txt"
 ## the lane runs there swapped for stand-ins.
 box="${scratch}/box"
 shim="${scratch}/shim"
-mkdir -p "$box" "$shim" "${scratch}/boxbin"
+mkdir -p "${box}" "${shim}" "${scratch}/boxbin"
 cat > "${scratch}/boxbin/uname" <<'EOF'
 #!/usr/bin/env bash
 case "${1:-}" in -s) echo "${FAKE_OS:-FreeBSD}" ;; -m) echo amd64 ;; *) echo "${FAKE_OS:-FreeBSD}" ;; esac
@@ -186,7 +186,7 @@ exit 2
 EOF
 chmod +x "${shim}/ssh" "${shim}/scp" "${scratch}/boxbin/"*
 
-fLane(){ (cd "$repo" && env -u SOURCE_DATE_EPOCH PATH="${shim}:${PATH}" WINDOWS_HOST_LOCK="${shim}/lock.bash" bash cicd/bsd/lane.bash "$@") >"${scratch}/lane.log" 2>&1; }
+fLane(){ (cd "${repo}" && env -u SOURCE_DATE_EPOCH PATH="${shim}:${PATH}" WINDOWS_HOST_LOCK="${shim}/lock.bash" bash cicd/bsd/lane.bash "$@") >"${scratch}/lane.log" 2>&1; }
 
 ## The box's temp root, with run folders left from earlier runs: an old one
 ## whose run is gone, a young one, and an old one no run made.
@@ -195,7 +195,7 @@ mkdir -p "${boxTemp}/20200101-000000_001" "${boxTemp}/20200101-000000_002" "${bo
 printf '999999999\n' | tee "${boxTemp}/20200101-000000_001/run.pid" > "${boxTemp}/$(date +%Y%m%d-%H%M%S)_009/run.pid"
 ## The run folder the last run named, and none left under the temp root but those above.
 fRunDir(){ sed -n 's/^work folder bsdtest@vmFreeBSD://p' "${scratch}/lane.log" | tail -1; }
-fNoneLeft(){ local left; left="$(find "${boxTemp}" -mindepth 1 -maxdepth 1 ! -name '20200101-000000_002' ! -name '*_009' | sort)"; [[ -z "$left" ]] || { fFail "$1: left ${left}"; return 1; }; }
+fNoneLeft(){ local left; left="$(find "${boxTemp}" -mindepth 1 -maxdepth 1 ! -name '20200101-000000_002' ! -name '*_009' | sort)"; [[ -z "${left}" ]] || { fFail "$1: left ${left}"; return 1; }; }
 
 ## The sent tree, looked at from the suite's stand-in before the folder goes.
 if FAKE_PEEK="${scratch}/sent" fLane --tests; then fEcho "OK: --tests ran"; else fFail "--tests failed: $(tail -3 "${scratch}/lane.log")"; fi
@@ -203,8 +203,8 @@ runDir="$(fRunDir)"
 src="${scratch}/sent"
 [[ -f "${src}/tracked.txt" && -f "${src}/untracked.txt" ]] || fFail "tracked or untracked file not sent"
 [[ ! -e "${src}/ignored.txt" ]] || fFail "an ignored file was sent"
-if [[ "$runDir" =~ ^${boxTemp}/[0-9]{8}-[0-9]{6}_001$ ]]; then fEcho "OK: the lane worked in a run folder under the box's temp root"; else fFail "run folder '${runDir}'"; fi
-[[ ! -e "$runDir" ]] || fFail "the run folder was left after a pass"
+if [[ "${runDir}" =~ ^${boxTemp}/[0-9]{8}-[0-9]{6}_001$ ]]; then fEcho "OK: the lane worked in a run folder under the box's temp root"; else fFail "run folder '${runDir}'"; fi
+[[ ! -e "${runDir}" ]] || fFail "the run folder was left after a pass"
 [[ "$(cat "${box}/run-tests-where.log" 2>/dev/null || true)" == "pwd=${runDir}/src tmp=${runDir},${runDir},${runDir} pid=ok" ]] \
 	|| fFail "the suite ran with '$(cat "${box}/run-tests-where.log" 2>/dev/null || true)'"
 [[ ! -e "${boxTemp}/20200101-000000_001" ]] || fFail "an old run folder whose run is gone wasn't swept"
@@ -227,11 +227,11 @@ rule="$(printf '•%.0s' {1..79})"
 stamp='[0-9]{8}-[0-9]{6}\.[0-9]{2}'
 fSteps(){
 	local want="$1" log="$2" got opens rules
-	got="$(grep -E -o "^\[ ${stamp}: FreeBSD [0-9]+ of [0-9]+; (Starting|PASS|FAIL) [^]]*\]\$" "$log" | sed -E "s/^\[ ${stamp}: //; s/ \]\$//" | paste -sd '|' -)"
-	[[ "$got" == "$want" ]] || { fFail "step lines: got '${got}', want '${want}'"; return 1; }
-	opens="$(grep -c -E "^\[ ${stamp}: FreeBSD [0-9]+ of [0-9]+; Starting " "$log")"
-	rules="$(grep -A1 -x -F "$rule" "$log" | grep -c -E "^\[ ${stamp}: FreeBSD [0-9]+ of [0-9]+; Starting " || true)"
-	[[ "$rules" == "$opens" ]] || { fFail "${opens} steps, ${rules} of them under a 79-dot rule"; return 1; }
+	got="$(grep -E -o "^\[ ${stamp}: FreeBSD [0-9]+ of [0-9]+; (Starting|PASS|FAIL) [^]]*\]\$" "${log}" | sed -E "s/^\[ ${stamp}: //; s/ \]\$//" | paste -sd '|' -)"
+	[[ "${got}" == "${want}" ]] || { fFail "step lines: got '${got}', want '${want}'"; return 1; }
+	opens="$(grep -c -E "^\[ ${stamp}: FreeBSD [0-9]+ of [0-9]+; Starting " "${log}")"
+	rules="$(grep -A1 -x -F "${rule}" "${log}" | grep -c -E "^\[ ${stamp}: FreeBSD [0-9]+ of [0-9]+; Starting " || true)"
+	[[ "${rules}" == "${opens}" ]] || { fFail "${opens} steps, ${rules} of them under a 79-dot rule"; return 1; }
 }
 fSteps "FreeBSD 1 of 3; Starting Box ready|FreeBSD 1 of 3; PASS Box ready|FreeBSD 2 of 3; Starting Send|FreeBSD 2 of 3; PASS Send|FreeBSD 3 of 3; Starting Build and suite|FreeBSD 3 of 3; PASS Build and suite" \
 	"${scratch}/lane.log" && fEcho "OK: --tests prints its steps"
@@ -256,10 +256,10 @@ grep -q -E -- '^wrap vmFreeBSD .*-- bash .*lane\.bash --tests --locked$' "${scra
 ## With both tools on the box and neither named, the VM state helper is the one
 ## used, since only it starts a VM that is off.
 toolDir="${scratch}/home/synced/0-0/common/exec/util/linux/bash"
-mkdir -p "$toolDir"
+mkdir -p "${toolDir}"
 cp "${shim}/x_vm-state.bash" "${toolDir}/x_vm-state.bash"
 sed "s|lock\.log|host-lock.log|" "${shim}/lock.bash" > "${toolDir}/x_windows-host-lock.bash"
-if (cd "$repo" && env -u SOURCE_DATE_EPOCH -u WINDOWS_HOST_LOCK -u BOX_WRAP_TOOL HOME="${scratch}/home" PATH="${shim}:${PATH}" \
+if (cd "${repo}" && env -u SOURCE_DATE_EPOCH -u WINDOWS_HOST_LOCK -u BOX_WRAP_TOOL HOME="${scratch}/home" PATH="${shim}:${PATH}" \
 	bash cicd/bsd/lane.bash --tests) >"${scratch}/lane.log" 2>&1; then
 	if grep -q -E -- '^wrap vmFreeBSD ' "${scratch}/vm-state.log" 2>/dev/null && [[ ! -e "${scratch}/host-lock.log" ]]; then
 		fEcho "OK: the VM state helper is picked over the bare host lock"
@@ -273,7 +273,7 @@ fi
 ## A VM booting, then up: the lane waits rather than failing on the first try.
 vmTool="${shim}/x_vm-state.bash"
 rm -f "${scratch}/ssh-tries"
-if BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=off FAKE_SSH_DOWN=2 BOX_READY_POLL=0 fLane --tests; then
+if BOX_WRAP_TOOL="${vmTool}" FAKE_VM_STATE=off FAKE_SSH_DOWN=2 BOX_READY_POLL=0 fLane --tests; then
 	if grep -q 'answered after' "${scratch}/lane.log"; then fEcho "OK: a box still booting is waited for"; else fFail "no line saying the box was waited for"; fi
 else
 	fFail "--tests failed on a box that came up on the third try: $(tail -3 "${scratch}/lane.log")"
@@ -281,12 +281,12 @@ fi
 
 ## Never responds, or isn't FreeBSD: both fail before the send.
 rm -f "${scratch}/ssh-tries"
-if BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=off FAKE_SSH_DOWN=99 BOX_READY_POLL=1 NEMO_BSD_READY_WAIT=1 fLane --tests; then fFail "--tests passed on a box that never answered"
+if BOX_WRAP_TOOL="${vmTool}" FAKE_VM_STATE=off FAKE_SSH_DOWN=99 BOX_READY_POLL=1 NEMO_BSD_READY_WAIT=1 fLane --tests; then fFail "--tests passed on a box that never answered"
 elif ! grep -q 'did not answer' "${scratch}/lane.log"; then fFail "no reason for a box that never answered: $(tail -3 "${scratch}/lane.log")"
 else fEcho "OK: a box that never answers fails"
 fi
 rm -f "${scratch}/ssh-tries"
-startedAt=$SECONDS
+startedAt=${SECONDS}
 if FAKE_OS=Linux BOX_READY_POLL=5 NEMO_BSD_READY_WAIT=30 fLane --tests; then fFail "--tests passed on a box that isn't FreeBSD"
 elif ! grep -q 'is not a FreeBSD box' "${scratch}/lane.log"; then fFail "no reason for a box that isn't FreeBSD: $(tail -3 "${scratch}/lane.log")"
 elif ((SECONDS - startedAt >= 5)); then fFail "a box that isn't FreeBSD was waited on"
@@ -299,7 +299,7 @@ fNoneLeft "a run folder on a box that failed the check"
 ## meson stopping on clock skew there. Ahead fails the same way.
 for behind in 60941 -3600; do
 	rm -f "${scratch}/clock-reads"
-	if BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=paused FAKE_CLOCK_BEHIND="$behind" BOX_CLOCK_WAIT=1 BOX_READY_POLL=1 fLane --tests; then fFail "--tests passed on a box ${behind}s off"
+	if BOX_WRAP_TOOL="${vmTool}" FAKE_VM_STATE=paused FAKE_CLOCK_BEHIND="${behind}" BOX_CLOCK_WAIT=1 BOX_READY_POLL=1 fLane --tests; then fFail "--tests passed on a box ${behind}s off"
 	elif ! grep -q 'has the wrong time' "${scratch}/lane.log" || ! grep -q -E 's (behind|ahead), still after' "${scratch}/lane.log"; then fFail "no reason for a box ${behind}s off: $(tail -3 "${scratch}/lane.log")"
 	else fEcho "OK: a box ${behind}s off fails"
 	fi
@@ -309,7 +309,7 @@ fNoneLeft "a run folder on a box with the wrong time"
 ## Its clock set a moment after the resume: waited for, then the suite runs.
 rm -f "${scratch}/clock-reads" "${box}/run-tests.log"
 : > "${scratch}/vm-state.log"
-if BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=paused FAKE_CLOCK_BEHIND=60941 FAKE_CLOCK_READS=2 BOX_READY_POLL=0 fLane --tests; then
+if BOX_WRAP_TOOL="${vmTool}" FAKE_VM_STATE=paused FAKE_CLOCK_BEHIND=60941 FAKE_CLOCK_READS=2 BOX_READY_POLL=0 fLane --tests; then
 	if ! grep -q 'clock is right after' "${scratch}/lane.log"; then fFail "no line saying the clock was waited for"
 	elif ! grep -q -E -- '^wrap vmFreeBSD ' "${scratch}/vm-state.log" || [[ ! -f "${box}/run-tests.log" ]]; then fFail "the suite didn't run inside the VM state helper's wrap"
 	else fEcho "OK: a clock set after the resume is waited for"
@@ -322,9 +322,9 @@ fi
 rm -f "${scratch}/ssh-tries"
 locks="$(wc -l < "${scratch}/lock.log")"
 rc=0; FAKE_SSH_DOWN=99 fLane --tests || rc=$?
-if [[ "$rc" != 77 ]]; then fFail "a box that isn't there gave exit ${rc}, not 77: $(tail -3 "${scratch}/lane.log")"
+if [[ "${rc}" != 77 ]]; then fFail "a box that isn't there gave exit ${rc}, not 77: $(tail -3 "${scratch}/lane.log")"
 elif ! grep -q "SKIP: bsdtest@vmFreeBSD isn't there" "${scratch}/lane.log"; then fFail "no SKIP line for a box that isn't there"
-elif [[ "$(wc -l < "${scratch}/lock.log")" != "$locks" ]]; then fFail "the lock was taken for a box that isn't there"
+elif [[ "$(wc -l < "${scratch}/lock.log")" != "${locks}" ]]; then fFail "the lock was taken for a box that isn't there"
 else fEcho "OK: a box that isn't there is a skip"
 fi
 fNoneLeft "a run folder on a box that isn't there"
@@ -333,17 +333,17 @@ fNoneLeft "a run folder on a box that isn't there"
 ## seconds, rather than the helper's boot wait.
 rm -f "${scratch}/ssh-tries"
 : > "${scratch}/vm-state.log"
-startedAt=$SECONDS
-rc=0; BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=running FAKE_SSH_DOWN=99 BOX_READY_POLL=1 NEMO_BSD_READY_WAIT=2 fLane --tests || rc=$?
-if [[ "$rc" != 77 ]]; then fFail "a running VM with no answer gave exit ${rc}, not 77: $(tail -3 "${scratch}/lane.log")"
+startedAt=${SECONDS}
+rc=0; BOX_WRAP_TOOL="${vmTool}" FAKE_VM_STATE=running FAKE_SSH_DOWN=99 BOX_READY_POLL=1 NEMO_BSD_READY_WAIT=2 fLane --tests || rc=$?
+if [[ "${rc}" != 77 ]]; then fFail "a running VM with no answer gave exit ${rc}, not 77: $(tail -3 "${scratch}/lane.log")"
 elif [[ -s "${scratch}/vm-state.log" ]]; then fFail "the helper's wrap ran for a running VM with no answer"
 elif ((SECONDS - startedAt >= 5)); then fFail "a running VM with no answer was waited on"
 else fEcho "OK: a running VM with no answer is a skip"
 fi
 ## The same, held by another session: may be mid-reboot there, so it waits its turn.
 rm -f "${scratch}/ssh-tries"
-rc=0; BOX_WRAP_TOOL="$vmTool" FAKE_VM_STATE=running FAKE_HELD=1 FAKE_SSH_DOWN=99 BOX_READY_POLL=1 NEMO_BSD_READY_WAIT=1 fLane --tests || rc=$?
-if [[ "$rc" == 77 ]]; then fFail "a running VM held elsewhere was skipped"
+rc=0; BOX_WRAP_TOOL="${vmTool}" FAKE_VM_STATE=running FAKE_HELD=1 FAKE_SSH_DOWN=99 BOX_READY_POLL=1 NEMO_BSD_READY_WAIT=1 fLane --tests || rc=$?
+if [[ "${rc}" == 77 ]]; then fFail "a running VM held elsewhere was skipped"
 elif ! grep -q -E -- '^wrap vmFreeBSD ' "${scratch}/vm-state.log"; then fFail "a running VM held elsewhere didn't go to the helper's wrap"
 else fEcho "OK: a running VM held elsewhere isn't skipped"
 fi
@@ -353,14 +353,14 @@ if FAKE_TESTS_RC=1 fLane --tests; then fFail "--tests passed with a failing suit
 fSteps "FreeBSD 1 of 3; Starting Box ready|FreeBSD 1 of 3; PASS Box ready|FreeBSD 2 of 3; Starting Send|FreeBSD 2 of 3; PASS Send|FreeBSD 3 of 3; Starting Build and suite|FreeBSD 3 of 3; FAIL Build and suite" \
 	"${scratch}/lane.log" && fEcho "OK: a failing suite closes its step as FAIL"
 runDir="$(fRunDir)"
-[[ -n "$runDir" && ! -e "$runDir" ]] || fFail "the run folder '${runDir}' was left after a failing suite"
+[[ -n "${runDir}" && ! -e "${runDir}" ]] || fFail "the run folder '${runDir}' was left after a failing suite"
 fNoneLeft "after a failing suite" && fEcho "OK: the run folder is gone after a failing suite"
 if CICD_KEEP_TEMP=1 fLane --tests && runDir="$(fRunDir)" && [[ -d "${runDir}/src" ]] && grep -q -F "[ kept the run folder: bsdtest@vmFreeBSD:${runDir} ]" "${scratch}/lane.log"; then
 	fEcho "OK: CICD_KEEP_TEMP=1 keeps the run folder and names it"
 else
 	fFail "CICD_KEEP_TEMP=1: $(tail -3 "${scratch}/lane.log")"
 fi
-[[ -n "$runDir" && -d "$runDir" ]] && fSafeRm "$runDir" > /dev/null
+[[ -n "${runDir}" && -d "${runDir}" ]] && fSafeRm "${runDir}" > /dev/null
 
 art="${repo}/cicd/artifacts/release"
 name="nemo-anywhere-9.9.9-rc1-bsd-x86_64"
@@ -374,13 +374,13 @@ grep -q -F 'CICD_MAX_JOBS=6 nice -n 19 bash cicd/bsd/release.bash' "${scratch}/s
 fSteps "FreeBSD 1 of 4; Starting Box ready|FreeBSD 1 of 4; PASS Box ready|FreeBSD 2 of 4; Starting Send|FreeBSD 2 of 4; PASS Send|FreeBSD 3 of 4; Starting Release build|FreeBSD 3 of 4; PASS Release build|FreeBSD 4 of 4; Starting Bring back|FreeBSD 4 of 4; PASS Bring back" \
 	"${scratch}/lane.log" && fEcho "OK: --release prints its steps"
 fNoneLeft "after --release" && fEcho "OK: --release leaves no run folder"
-[[ "$(cat "${box}/release-sde.log" 2>/dev/null || true)" == "$commitDate" ]] || fFail "the box was not handed the commit's stamp"
+[[ "$(cat "${box}/release-sde.log" 2>/dev/null || true)" == "${commitDate}" ]] || fFail "the box was not handed the commit's stamp"
 [[ -f "${art}/${name}.pkg" ]] || fFail "no pkg brought back"
 [[ ! -e "${art}/${name}" ]] || fFail "the prefix that came back was left in the release dir"
 if [[ "${#sums[@]}" == 2 && "${sums[0]}" == "${sums[1]}" ]]; then fEcho "OK: two release runs give the same tarball"
 else fFail "the tarball differs between runs: ${sums[*]}"
 fi
-python3 - "${art}/${name}.tar.gz" "$name" "$commitDate" <<'EOF' || fFail "tarball contents"
+python3 - "${art}/${name}.tar.gz" "${name}" "${commitDate}" <<'EOF' || fFail "tarball contents"
 import sys, tarfile
 path, top, stamp = sys.argv[1], sys.argv[2], int(sys.argv[3])
 with tarfile.open(path) as tar:
@@ -402,9 +402,9 @@ sys.exit(1 if problems else 0)
 EOF
 sumsFile="${art}/nemo-anywhere-9.9.9-rc1-sha256sums.txt"
 for f in "${name}.tar.gz" "${name}.pkg"; do
-	grep -q -F "  ${f}" "$sumsFile" 2>/dev/null || fFail "no sums line for ${f}"
+	grep -q -F "  ${f}" "${sumsFile}" 2>/dev/null || fFail "no sums line for ${f}"
 done
-if (cd "$art" && sha256sum -c --quiet "${sumsFile##*/}"); then fEcho "OK: sums file verifies"; else fFail "sums file doesn't verify"; fi
+if (cd "${art}" && sha256sum -c --quiet "${sumsFile##*/}"); then fEcho "OK: sums file verifies"; else fFail "sums file doesn't verify"; fi
 
 if ((failures)); then fEcho "${failures} FreeBSD lane check(s) failed"; exit 1; fi
 fEcho "FreeBSD lane checks passed"

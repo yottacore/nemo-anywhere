@@ -55,49 +55,49 @@ fRun(){
 	bundle="${scratch}/${bundleName}"
 
 	## Send only what the box lacks, when it is on a commit this repo knows.
-	haveSha="$(ssh "${sshOpts[@]}" "$sshHost" "cd /d ${clone} && git rev-parse HEAD" 2>/dev/null | tr -d '\r' || true)"
-	if [[ "$haveSha" == "$sha" ]]; then
+	haveSha="$(ssh "${sshOpts[@]}" "${sshHost}" "cd /d ${clone} && git rev-parse HEAD" 2>/dev/null | tr -d '\r' || true)"
+	if [[ "${haveSha}" == "${sha}" ]]; then
 		fEcho_Clean "${sshHost} clone already at ${sha:0:7}"
-	elif [[ -n "$haveSha" ]] && git merge-base --is-ancestor "$haveSha" HEAD 2>/dev/null; then
-		git bundle create -q "$bundle" HEAD "^${haveSha}"
+	elif [[ -n "${haveSha}" ]] && git merge-base --is-ancestor "${haveSha}" HEAD 2>/dev/null; then
+		git bundle create -q "${bundle}" HEAD "^${haveSha}"
 	else
-		git bundle create -q "$bundle" HEAD
+		git bundle create -q "${bundle}" HEAD
 	fi
 
-	if [[ -f "$bundle" ]]; then
-		scp -q "${sshOpts[@]}" "$bundle" "${sshHost}:${bundleName}"
+	if [[ -f "${bundle}" ]]; then
+		scp -q "${sshOpts[@]}" "${bundle}" "${sshHost}:${bundleName}"
 		## checkout -B refuses to run over an edit someone left in that clone,
 		## which is right: it stops here rather than losing the edit.
-		ssh "${sshOpts[@]}" "$sshHost" "cd /d ${clone} && git fetch -q %USERPROFILE%\\${bundleName} HEAD && git checkout -q -B dogfood FETCH_HEAD && del %USERPROFILE%\\${bundleName}"
+		ssh "${sshOpts[@]}" "${sshHost}" "cd /d ${clone} && git fetch -q %USERPROFILE%\\${bundleName} HEAD && git checkout -q -B dogfood FETCH_HEAD && del %USERPROFILE%\\${bundleName}"
 	fi
-	rm -f "$bundle"
-	rmdir "$scratch"
+	rm -f "${bundle}"
+	rmdir "${scratch}"
 
 	## Lint ran here already, and the box can't get to the remote to sync or
 	## publish.
 	fEcho_Clean "building and packing on ${sshHost} at ${sha:0:7} ..."
-	ssh "${sshOpts[@]}" "$sshHost" "cd /d ${clone} && pwsh -NoProfile -File cicd\\cicd-win.ps1 -Yes -NoSync -NoFmt -NoPublish"
+	ssh "${sshOpts[@]}" "${sshHost}" "cd /d ${clone} && pwsh -NoProfile -File cicd\\cicd-win.ps1 -Yes -NoSync -NoFmt -NoPublish"
 }
 
 fMain(){
 	local entry lockName sshHost
 
 	if [[ "${1:-}" == "--locked" ]]; then
-		fBoxWrap_WaitReady "$2" "$readyWaitSec" exit "${sshOpts[@]}" || { fEcho "${2} did not answer in ${readyWaitSec}s"; return 1; }
+		fBoxWrap_WaitReady "$2" "${readyWaitSec}" exit "${sshOpts[@]}" || { fEcho "${2} did not answer in ${readyWaitSec}s"; return 1; }
 		fRun "$2"
 		return
 	fi
 
-	if [[ ! -f "$lockTool" ]]; then
+	if [[ ! -f "${lockTool}" ]]; then
 		fEcho "no Windows host lock here (${lockTool}); Windows dogfood skipped"
 		return 0
 	fi
 
 	for entry in "${boxes[@]}"; do
-		lockName="$entry"; sshHost="$entry"
-		if fBoxWrap_IsThere "$lockName" "$sshHost" "$lockTool" "${sshOpts[@]}" > /dev/null; then
+		lockName="${entry}"; sshHost="${entry}"
+		if fBoxWrap_IsThere "${lockName}" "${sshHost}" "${lockTool}" "${sshOpts[@]}" > /dev/null; then
 			fEcho_Clean "Windows dogfood on ${sshHost}"
-			bash "$lockTool" wrap "$lockName" --wait "$lockWaitSec" -- bash "${BASH_SOURCE[0]}" --locked "$sshHost"
+			bash "${lockTool}" wrap "${lockName}" --wait "${lockWaitSec}" -- bash "${BASH_SOURCE[0]}" --locked "${sshHost}"
 			return
 		fi
 	done

@@ -71,8 +71,8 @@ while read -r repo file sha extra; do
 	[[ "${sha}" =~ ^[0-9a-f]{64}$ && -z "${extra}" ]] || fFail "bad line: ${repo} ${file} ${sha} ${extra}"
 	if [[ ! "${file}" =~ ^([A-Za-z0-9@._+-]+)-[^-/]+-[^-/]+-(any|x86_64)\.pkg\.tar\.(zst|xz)$ ]]; then fFail "bad file name: ${file}"; continue; fi
 	n="${BASH_REMATCH[1]}"
-	[[ -z "${names[$n]:-}" ]] || fFail "${n} pinned twice"
-	names[$n]=1
+	[[ -z "${names[${n}]:-}" ]] || fFail "${n} pinned twice"
+	names[${n}]=1
 done < "${pins}"
 [[ ${count} -gt 50 ]] || fFail "only ${count} pins"
 for r in "${MINGW_ROOTS[@]}"; do [[ -n "${names[mingw-w64-x86_64-${r}]:-}" ]] || fFail "root ${r} not pinned"; done

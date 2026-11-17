@@ -38,9 +38,9 @@ source "${ROOT}/cicd/win/win-box.bash"
 restage=0
 uri=""
 for arg in "$@"; do
-	case "$arg" in
+	case "${arg}" in
 		--restage) restage=1 ;;
-		*) uri="$arg" ;;
+		*) uri="${arg}" ;;
 	esac
 done
 
@@ -57,8 +57,8 @@ fWinBox_Start "wine run" && boxUp=1
 
 if [[ ! -x "${DEST}/app/nemo-anywhere.exe" ]] || (( restage )); then
 	(( boxUp )) || { fEcho "FAILED: no staged copy, and no cross-build container to stage it from"; exit 1; }
-	fEcho "Staging wine runtime from $CONTAINER"
-	docker exec "$CONTAINER" bash -c '
+	fEcho "Staging wine runtime from ${CONTAINER}"
+	docker exec "${CONTAINER}" bash -c '
 		set -e
 		D=/src/cicd/artifacts/win-run
 		. /src/cicd/utility/include/run-temp.bash
@@ -78,19 +78,19 @@ if [[ ! -x "${DEST}/app/nemo-anywhere.exe" ]] || (( restage )); then
 		cp -r share/themes "$D/mingw64/share/"
 		cp -r etc "$D/mingw64/"
 		cp -r /src/cicd/win/bundle-etc/. "$D/mingw64/etc/"'
-	docker exec "$CONTAINER" bash -c 'source /src/cicd/utility/include/thumbnailers.bash &&
+	docker exec "${CONTAINER}" bash -c 'source /src/cicd/utility/include/thumbnailers.bash &&
 		fStageThumbnailers /opt/win-sysroot/mingw64/share/thumbnailers /src/cicd/artifacts/win-run/mingw64/share/thumbnailers'
-	docker exec "$CONTAINER" chown -R "$(id -u):$(id -g)" /src/cicd/artifacts/win-run
+	docker exec "${CONTAINER}" chown -R "$(id -u):$(id -g)" /src/cicd/artifacts/win-run
 fi
 
 # fresh build -> fresh exe, every run docker is up
 if (( boxUp )); then
-	docker exec "$CONTAINER" sh -c '
+	docker exec "${CONTAINER}" sh -c '
 		cp /build-win/src/nemo-anywhere.exe /src/cicd/artifacts/win-run/app/
 		# Nothing starts a session bus on Windows; a snapshot staged before that
 		# still has one.
 		rm -f /src/cicd/artifacts/win-run/mingw64/bin/gdbus.exe'
-	docker exec "$CONTAINER" chown -R "$(id -u):$(id -g)" /src/cicd/artifacts/win-run/app /src/cicd/artifacts/win-run/mingw64/bin
+	docker exec "${CONTAINER}" chown -R "$(id -u):$(id -g)" /src/cicd/artifacts/win-run/app /src/cicd/artifacts/win-run/mingw64/bin
 	fStepBox_Stop
 else
 	fEcho "WARNING: no cross-build container - using the staged snapshot as-is"
@@ -109,7 +109,7 @@ export DISPLAY="${DISPLAY:-:0.0}"
 # doesn't start in an invalid dir. Z: maps to the unix root, so probe the
 # host path behind the candidate. %USERNAME% under wine defaults to the unix
 # login name, so Z:\home\<user> == /home/<user>.
-if [[ -z "$uri" ]]; then
+if [[ -z "${uri}" ]]; then
 	winuser="${USER:-$(id -un)}"
 	if [[ -d "/home/${winuser}" ]]; then
 		uri="file:///Z:/home/${winuser}"
@@ -119,12 +119,12 @@ if [[ -z "$uri" ]]; then
 fi
 
 logfile="${DEST}/wine-run.log"
-fEcho "Launching nemo-anywhere.exe under wine (DISPLAY=$DISPLAY, start=$uri)"
+fEcho "Launching nemo-anywhere.exe under wine (DISPLAY=${DISPLAY}, start=${uri})"
 
 # Detach: new session, no controlling tty, own fds -> the script returns at once
 # and the app outlives it. Log path rides an env var to keep quotes off argv.
 # shellcheck disable=SC2016  # $@/$WINE_LOG must expand in the inner sh, not here
-WINE_LOG="$logfile" setsid /bin/sh -c \
+WINE_LOG="${logfile}" setsid /bin/sh -c \
 	'exec "$@" </dev/null >>"$WINE_LOG" 2>&1' \
-	sh wine "${DEST}/app/nemo-anywhere.exe" "$uri" &
+	sh wine "${DEST}/app/nemo-anywhere.exe" "${uri}" &
 disown 2>/dev/null || true

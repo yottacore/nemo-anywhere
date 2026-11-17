@@ -74,29 +74,29 @@ cat > "${scratch}/cicd/config.bash" <<-CFG
 	DOGFOOD_REMOTE=(); GIT_PUBLISH=(); PUBLISH_AUTO_MESSAGE="unused"
 CFG
 
-fCicd(){ (cd "$scratch" && env -u CICD_CPU_CAPPED PATH="${scratch}/bin:${PATH}" SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash "$@" 2>&1 </dev/null); }
+fCicd(){ (cd "${scratch}" && env -u CICD_CPU_CAPPED PATH="${scratch}/bin:${PATH}" SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash "$@" 2>&1 </dev/null); }
 ## The IDs listed under a step, one a line.
 fUnder(){ awk -v s="$1" '/^Step / { on = (substr($0, index($0, "; ") + 2) == s); next } on && /^    / { print $1 }' <<< "$2"; }
-fMarks(){ find "$mark" -mindepth 1 -printf '%f\n' | sort | tr '\n' ' '; }
+fMarks(){ find "${mark}" -mindepth 1 -printf '%f\n' | sort | tr '\n' ' '; }
 
 rc=0; out="$(fCicd --list --no-sync)" || rc=$?
 ((rc == 0)) || fFail "--list exited ${rc}"
-[[ "$(fUnder "Tests" "$out" | tr '\n' ' ')" == "d0001 d0006 " ]] || fFail "Tests should list d0001 d0006, got: $(fUnder "Tests" "$out" | tr '\n' ' ')"
-[[ "$(fUnder "Lints" "$out" | tr '\n' ' ')" == "d0002 d0004 " ]] || fFail "Lints should list d0002 d0004 and not the echoed d0003, got: $(fUnder "Lints" "$out" | tr '\n' ' ')"
-[[ "$(fUnder "Fuzzing" "$out")" == "d0005" ]] || fFail "Fuzzing should list d0005"
-[[ "$(fUnder "Release build (native)" "$out")" == "d0001" ]] || fFail "the release smoke should list only the meson test it names"
-[[ "$(fUnder "Packages" "$out")" == "d0003" ]] || fFail "Packages should list d0003"
-grep -q '^    the 2 meson tests, as in Tests$' <<< "$out" || fFail "the sanitizer suite should point back to the meson tests under Tests"
-grep -q '^Step 1 of 7; Build (debug)$' <<< "$out" || fFail "the plan's steps should be numbered as a run numbers them"
-grep -q '^    - Remote sync (--no-sync)$' <<< "$out" || fFail "the steps turned off should be listed"
+[[ "$(fUnder "Tests" "${out}" | tr '\n' ' ')" == "d0001 d0006 " ]] || fFail "Tests should list d0001 d0006, got: $(fUnder "Tests" "${out}" | tr '\n' ' ')"
+[[ "$(fUnder "Lints" "${out}" | tr '\n' ' ')" == "d0002 d0004 " ]] || fFail "Lints should list d0002 d0004 and not the echoed d0003, got: $(fUnder "Lints" "${out}" | tr '\n' ' ')"
+[[ "$(fUnder "Fuzzing" "${out}")" == "d0005" ]] || fFail "Fuzzing should list d0005"
+[[ "$(fUnder "Release build (native)" "${out}")" == "d0001" ]] || fFail "the release smoke should list only the meson test it names"
+[[ "$(fUnder "Packages" "${out}")" == "d0003" ]] || fFail "Packages should list d0003"
+grep -q '^    the 2 meson tests, as in Tests$' <<< "${out}" || fFail "the sanitizer suite should point back to the meson tests under Tests"
+grep -q '^Step 1 of 7; Build (debug)$' <<< "${out}" || fFail "the plan's steps should be numbered as a run numbers them"
+grep -q '^    - Remote sync (--no-sync)$' <<< "${out}" || fFail "the steps turned off should be listed"
 [[ -z "$(fMarks)" ]] || fFail "--list ran something: $(fMarks)"
 [[ -z "$(ls -A "${HOST_TEMP}")" ]] || fFail "--list made a run folder"
 [[ ! -e "${scratch}/logs" ]] || fFail "--list started a run log"
 
 out="$(fCicd --backlog-run-quick lint --list)" || fFail "--backlog-run-quick lint --list exited non-zero"
-grep -q '^Step 1 of 1; Lints$' <<< "$out" || fFail "--backlog-run-quick lint --list should list only Lints"
+grep -q '^Step 1 of 1; Lints$' <<< "${out}" || fFail "--backlog-run-quick lint --list should list only Lints"
 out="$(fCicd --list --no-container --no-sync)" || fFail "--list --no-container exited non-zero"
-grep -q '^Step 1 of 1; Lints$' <<< "$out" || fFail "--list --no-container should list only the lints"
+grep -q '^Step 1 of 1; Lints$' <<< "${out}" || fFail "--list --no-container should list only the lints"
 [[ -z "$(fMarks)" ]] || fFail "--list ran something: $(fMarks)"
 
 ## The control: a plain run of the same copy leaves every mark the list must not.

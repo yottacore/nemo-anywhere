@@ -17,7 +17,7 @@ mkdir -p "${hooksDir}"
 hooks=(pre-push)
 for hook in "${hooks[@]}"; do
 	src="${here}/${hook}"
-	[[ -f "$src" ]] || continue
-	install -m 0755 "$src" "${hooksDir}/${hook}"
+	[[ -f "${src}" ]] || continue
+	install -m 0755 "${src}" "${hooksDir}/${hook}"
 	echo "installed ${hook} -> ${hooksDir}/${hook}"
 done

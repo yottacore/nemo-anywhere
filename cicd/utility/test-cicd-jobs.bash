@@ -29,9 +29,9 @@ source "${here}/include/jobs.bash"
 
 ## cpus load hard -> want
 while read -r cpus load hard want; do
-	[[ "$hard" == - ]] && hard=""
-	got="$(fJobs_Count "$cpus" "$load" "$hard")"
-	[[ "$got" == "$want" ]] || fFail "fJobs_Count ${cpus} ${load} ${hard:-(not hard)}: ${got}, want ${want}"
+	[[ "${hard}" == - ]] && hard=""
+	got="$(fJobs_Count "${cpus}" "${load}" "${hard}")"
+	[[ "${got}" == "${want}" ]] || fFail "fJobs_Count ${cpus} ${load} ${hard:-(not hard)}: ${got}, want ${want}"
 done <<-'EOF'
 	32 0.00   -    16
 	32 16.00  -    16
@@ -52,8 +52,8 @@ EOF
 ## Another box's numbers, read off FreeBSD's vm.loadavg or Linux's
 ## /proc/loadavg: cpus|load line -> cpus load busy.
 while IFS='|' read -r cpus line want; do
-	fJobs_Read "$cpus" "$line"
-	[[ "${jobsCpus} ${jobsLoad} ${jobsBusy}" == "$want" ]] || fFail "fJobs_Read '${cpus}' '${line}': ${jobsCpus} ${jobsLoad} ${jobsBusy}, want ${want}"
+	fJobs_Read "${cpus}" "${line}"
+	[[ "${jobsCpus} ${jobsLoad} ${jobsBusy}" == "${want}" ]] || fFail "fJobs_Read '${cpus}' '${line}': ${jobsCpus} ${jobsLoad} ${jobsBusy}, want ${want}"
 done <<-'EOF'
 	12|{ 7.00 0.50 0.40 }|12 7.00 1
 	12|{ 6.00 0.50 0.40 }|12 6.00 0
@@ -63,29 +63,29 @@ done <<-'EOF'
 	4||4 0.00 0
 EOF
 # shellcheck disable=SC2154  ## jobsProbe is set in jobs.bash.
-[[ "$(bash -c "$jobsProbe" 2>/dev/null | wc -l)" == 2 ]] || fFail "jobsProbe didn't print two lines here"
+[[ "$(bash -c "${jobsProbe}" 2>/dev/null | wc -l)" == 2 ]] || fFail "jobsProbe didn't print two lines here"
 
 ## fJobs reads the box, and a pin wins over it.
 unset CICD_MAX_JOBS CICD_JOBS_PIN
 fJobs
-[[ "$CICD_MAX_JOBS" =~ ^[1-9][0-9]*$ ]] || fFail "fJobs gave '${CICD_MAX_JOBS}'"
+[[ "${CICD_MAX_JOBS}" =~ ^[1-9][0-9]*$ ]] || fFail "fJobs gave '${CICD_MAX_JOBS}'"
 (( CICD_MAX_JOBS <= (jobsCpus / 2 > 1 ? jobsCpus / 2 : 1) )) || fFail "fJobs gave ${CICD_MAX_JOBS} on ${jobsCpus} cpus"
 CICD_JOBS_PIN=3 fJobs hard
-[[ "$CICD_MAX_JOBS" == 3 ]] || fFail "CICD_JOBS_PIN=3 gave ${CICD_MAX_JOBS}"
+[[ "${CICD_MAX_JOBS}" == 3 ]] || fFail "CICD_JOBS_PIN=3 gave ${CICD_MAX_JOBS}"
 unset CICD_JOBS_PIN
 CICD_MAX_JOBS=5; fJobs_Default
-[[ "$CICD_MAX_JOBS" == 5 ]] || fFail "fJobs_Default changed a count it was given"
+[[ "${CICD_MAX_JOBS}" == 5 ]] || fFail "fJobs_Default changed a count it was given"
 
 ## Nothing under cicd/ works out its own count. cicd.bash keeps nproc for the
 ## run's CPU quota only.
 while IFS= read -r hit; do
 	# shellcheck disable=SC2016  ## the cicd.bash pattern matches literal text.
-	case "$hit" in
+	case "${hit}" in
 		cicd/utility/include/jobs.bash:*|cicd/utility/test-cicd-jobs.bash:*) ;;
 		'cicd/cicd.bash:'*'cores="$(nproc'*) ;;
 		*) fFail "works out its own job count: ${hit}" ;;
 	esac
-done < <(cd "$root" && git ls-files -co --exclude-standard -- 'cicd/*.bash' 'cicd/**/*.bash' | sort -u \
+done < <(cd "${root}" && git ls-files -co --exclude-standard -- 'cicd/*.bash' 'cicd/**/*.bash' | sort -u \
 	| xargs grep -n -E 'nproc|_NPROCESSORS|hw\.ncpu' 2>/dev/null || true)
 
 ## The container commands in config.bash read the count when they run.
@@ -96,8 +96,8 @@ done < <(grep -n -E '(^|[^\\])\$\{?CICD_MAX_JOBS' "${root}/cicd/config.bash" | g
 ## docker-run.bash hands the count across and runs the command under nice.
 lastExec="$(sed -n '/^exec docker run/,/[^\\]$/p' "${root}/cicd/utility/docker-run.bash")"
 # shellcheck disable=SC2016  ## matches the literal text.
-[[ "$lastExec" == *'-e "CICD_MAX_JOBS=${CICD_MAX_JOBS}"'* ]] || fFail "docker-run.bash doesn't pass CICD_MAX_JOBS into the container"
-[[ "$lastExec" == *'nice -n 19'* ]] || fFail "docker-run.bash does not run the command under nice"
+[[ "${lastExec}" == *'-e "CICD_MAX_JOBS=${CICD_MAX_JOBS}"'* ]] || fFail "docker-run.bash doesn't pass CICD_MAX_JOBS into the container"
+[[ "${lastExec}" == *'nice -n 19'* ]] || fFail "docker-run.bash does not run the command under nice"
 
 if ((failures)); then
 	fEcho "FAILED: job counts, ${failures} problem(s)"

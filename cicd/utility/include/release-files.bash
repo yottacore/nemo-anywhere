@@ -47,8 +47,8 @@ fWriteReleaseSums(){
 	## -0/-r: without them an empty dir still runs sha256sum, which then reads stdin
 	## and writes a bogus "-" line into the file the installers verify against, and a
 	## name with a space would be split into 2 arguments.
-	( cd "$dir" && find . -maxdepth 1 -type f -name "${slug}-${ver}-*" -printf '%P\0' | sort -z | xargs -0 -r sha256sum ) > "$tmpsums"
-	mv "$tmpsums" "${dir}/${sums}"
+	( cd "${dir}" && find . -maxdepth 1 -type f -name "${slug}-${ver}-*" -printf '%P\0' | sort -z | xargs -0 -r sha256sum ) > "${tmpsums}"
+	mv "${tmpsums}" "${dir}/${sums}"
 	chmod 644 "${dir}/${sums}"	# mktemp makes it 0600
 }
 

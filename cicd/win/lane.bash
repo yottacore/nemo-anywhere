@@ -80,7 +80,7 @@ box=""; dirW=""; dirS=""; scratch=""; sent=0; ended=0
 
 ## Every command here is put together on this side, for cmd.exe on the box.
 # shellcheck disable=SC2029
-fOnBox(){ ssh "${sshOpts[@]}" "$box" "$@" < /dev/null; }
+fOnBox(){ ssh "${sshOpts[@]}" "${box}" "$@" < /dev/null; }
 fBoxPs(){ fOnBox "pwsh -NoProfile -ExecutionPolicy Bypass -File ${dirW}\\lane-box.ps1 -Dir ${dirW} $*" | tr -d '\r'; }
 
 ## The failed run's meson test logs, which go with the folder otherwise. The
@@ -88,13 +88,13 @@ fBoxPs(){ fOnBox "pwsh -NoProfile -ExecutionPolicy Bypass -File ${dirW}\\lane-bo
 fKeepTestLogs(){
 	local dest="${ROOT}/cicd/artifacts/build-win" names name kept=0
 	names="$(fOnBox "dir /b ${dirW}\\repo\\cicd\\artifacts\\build-win\\meson-logs\\testlog*.txt" 2> /dev/null | tr -d '\r' || true)"
-	mkdir -p -- "$dest" || return 0
+	mkdir -p -- "${dest}" || return 0
 	while read -r name; do
-		[[ "$name" =~ ^testlog[A-Za-z0-9._-]*\.txt$ ]] || continue
+		[[ "${name}" =~ ^testlog[A-Za-z0-9._-]*\.txt$ ]] || continue
 		if scp -q "${sshOpts[@]}" "${box}:${dirS}/repo/cicd/artifacts/build-win/meson-logs/${name}" "${dest}/${box}_${dirW##*\\}_${name}" < /dev/null; then
 			fSay "kept ${dest}/${box}_${dirW##*\\}_${name}"; kept=1
 		fi
-	done <<< "$names"
+	done <<< "${names}"
 	((kept)) || fSay "no meson test log to keep from ${box}"
 }
 
@@ -102,23 +102,23 @@ fCleanUp(){
 	local rc=$?
 	trap - EXIT INT TERM HUP
 	## Not after a pass, 75 included, nor a stop from outside, which wants to be quick.
-	case "$rc" in 0|75|129|130|143) ;; *) if ((sent && ended)); then fKeepTestLogs || true; fi ;; esac
+	case "${rc}" in 0|75|129|130|143) ;; *) if ((sent && ended)); then fKeepTestLogs || true; fi ;; esac
 	## Before lane-box.ps1 is there, the folder is still empty.
 	if ((sent)); then
 		fBoxPs -Remove || fSay "could not remove ${box}:${dirW}"
-	elif [[ -n "$dirW" ]]; then
+	elif [[ -n "${dirW}" ]]; then
 		fOnBox "rmdir ${dirW}" || fSay "could not remove ${box}:${dirW}"
 	fi
-	if [[ -n "$scratch" ]]; then rm -f -- "${scratch}/round.bundle" "${scratch}/gate.log" "${scratch}/desktop.log" "${scratch}/desktop.txt"; rmdir -- "$scratch"; fi
-	fLaneStep_OnExit "$rc"
-	exit "$rc"
+	if [[ -n "${scratch}" ]]; then rm -f -- "${scratch}/round.bundle" "${scratch}/gate.log" "${scratch}/desktop.log" "${scratch}/desktop.txt"; rmdir -- "${scratch}"; fi
+	fLaneStep_OnExit "${rc}"
+	exit "${rc}"
 }
 
 ## The folder name is made with a plain mkdir, counting up when it's taken.
 fMakeBoxDir(){
 	local rootW stamp n
 	rootW="$(fOnBox 'echo %ProgramData%' | tr -d '\r' | head -n 1)"
-	[[ "$rootW" =~ ^[A-Za-z]:\\ && "$rootW" != *%* ]] || fDieW "${box} gave an odd ProgramData folder: ${rootW}"
+	[[ "${rootW}" =~ ^[A-Za-z]:\\ && "${rootW}" != *%* ]] || fDieW "${box} gave an odd ProgramData folder: ${rootW}"
 	fOnBox "if not exist ${rootW}\\${SLUG} mkdir ${rootW}\\${SLUG}" || fDieW "could not make ${rootW}\\${SLUG} on ${box}"
 	stamp="$(date +%Y%m%d-%H%M%S)"
 	for n in 001 002 003 004 005 006 007 008 009; do
@@ -135,11 +135,11 @@ fMakeBoxDir(){
 ## lane-box.ps1 takes "-BacklogRunQuick -Yes" as BacklogRunQuick,Yes.
 fGateArgList(){
 	local a out=""
-	for a in $gateArgs; do
-		[[ "$a" =~ ^-[A-Za-z]+$ ]] || fDie "NEMO_WIN_GATE_ARGS takes only switches, such as -Yes: ${a}"
+	for a in ${gateArgs}; do
+		[[ "${a}" =~ ^-[A-Za-z]+$ ]] || fDie "NEMO_WIN_GATE_ARGS takes only switches, such as -Yes: ${a}"
 		out+="${out:+,}${a#-}"
 	done
-	printf '%s' "$out"
+	printf '%s' "${out}"
 }
 
 ## Prints the lines of the box's log $1 (default gate.log) past the first
@@ -148,11 +148,11 @@ logLines=0
 fShowLog(){
 	local name="${1:-gate.log}" log n
 	log="${scratch}/${name}"
-	scp -q "${sshOpts[@]}" "${box}:${dirS}/${name}" "$log" 2> /dev/null < /dev/null || return 0
-	n="$(wc -l < "$log")"
+	scp -q "${sshOpts[@]}" "${box}:${dirS}/${name}" "${log}" 2> /dev/null < /dev/null || return 0
+	n="$(wc -l < "${log}")"
 	((n > logLines)) || return 0
-	tail -n "+$((logLines + 1))" "$log" | head -n "$((n - logLines))" | tr -d '\r'
-	logLines="$n"
+	tail -n "+$((logLines + 1))" "${log}" | head -n "$((n - logLines))" | tr -d '\r'
+	logLines="${n}"
 }
 
 ## The meson tests the gate's Tests step skipped, by meson's name, one a line.
@@ -171,13 +171,13 @@ fWaitRc(){
 	local rcFile="$1" task="$2"
 	waitRc=""
 	while :; do
-		sleep "$pollSec"
+		sleep "${pollSec}"
 		fShowLog desktop.log
 		waitRc="$(fOnBox "if exist ${dirW}\\${rcFile} type ${dirW}\\${rcFile}" 2> /dev/null | tr -d '\r' || true)"
-		[[ -z "$waitRc" ]] || break
+		[[ -z "${waitRc}" ]] || break
 		if ! grep -q 'Running' <<< "$(fOnBox "schtasks /query /tn ${task} /fo list" 2> /dev/null || true)"; then
 			waitRc="$(fOnBox "if exist ${dirW}\\${rcFile} type ${dirW}\\${rcFile}" 2> /dev/null | tr -d '\r' || true)"
-			[[ -n "$waitRc" ]] || fDie "the task ${task} on ${box} ended with no exit code"
+			[[ -n "${waitRc}" ]] || fDie "the task ${task} on ${box} ended with no exit code"
 			break
 		fi
 	done
@@ -188,42 +188,42 @@ fWaitRc(){
 fDesktop(){
 	local names out task rc code list="${NEMO_WIN_DESKTOP_LIST:-}" elsewhere="${NEMO_WIN_DESKTOP_ELSEWHERE:-0}"
 	fLaneStep "Desktop tests"
-	if [[ -n "$list" && "$elsewhere" != 1 ]]; then
-		names="$(grep -v '^[[:space:]]*$' "$list" 2> /dev/null || true)"
-		[[ -n "$names" ]] || fDie "no tests named in ${list}"
-		fEcho_Clean "$(wc -l <<< "$names") tests the first box left, from ${list}"
+	if [[ -n "${list}" && "${elsewhere}" != 1 ]]; then
+		names="$(grep -v '^[[:space:]]*$' "${list}" 2> /dev/null || true)"
+		[[ -n "${names}" ]] || fDie "no tests named in ${list}"
+		fEcho_Clean "$(wc -l <<< "${names}") tests the first box left, from ${list}"
 	else
 		names="$(fSkippedTests)"
 	fi
-	if [[ -z "$names" ]]; then fEcho_Clean "the gate skipped no tests"; return 0; fi
-	if [[ "$elsewhere" == 1 ]]; then
-		if [[ -n "$list" ]]; then printf '%s\n' "$names" > "$list" || fDie "couldn't write the test list to ${list}"; fi
-		fEcho_Clean "$(wc -l <<< "$names") skipped tests are left for the next box"
+	if [[ -z "${names}" ]]; then fEcho_Clean "the gate skipped no tests"; return 0; fi
+	if [[ "${elsewhere}" == 1 ]]; then
+		if [[ -n "${list}" ]]; then printf '%s\n' "${names}" > "${list}" || fDie "couldn't write the test list to ${list}"; fi
+		fEcho_Clean "$(wc -l <<< "${names}") skipped tests are left for the next box"
 		fLaneStep_Close SKIP
 		return 75
 	fi
-	printf '%s\n' "$names" > "${scratch}/desktop.txt"
+	printf '%s\n' "${names}" > "${scratch}/desktop.txt"
 	fEcho_Clean "$(wc -l < "${scratch}/desktop.txt") skipped tests, again as ${testUser} in a desktop session on ${box}"
 	scp -q "${sshOpts[@]}" "${scratch}/desktop.txt" "${box}:${dirS}/" < /dev/null || fDie "could not send the test list to ${box}"
-	out="$(fBoxPs -Desktop -TestUser "$testUser")"
-	if [[ "$out" == *nosession* ]]; then
+	out="$(fBoxPs -Desktop -TestUser "${testUser}")"
+	if [[ "${out}" == *nosession* ]]; then
 		fEcho "WARNING: ${testUser} has no session on ${box}, so its windowed tests did not run"
 		return 0
 	fi
-	if [[ "$out" == *locked* ]]; then
+	if [[ "${out}" == *locked* ]]; then
 		fEcho "WARNING: ${testUser}'s session on ${box} is locked, so its windowed tests did not run"
 		return 0
 	fi
-	task="$(sed -n 's/^task=\([A-Za-z0-9_-]*\)$/\1/p' <<< "$out" | head -n 1)"
-	[[ -n "$task" ]] || fDie "the desktop tests did not start on ${box}: ${out}"
+	task="$(sed -n 's/^task=\([A-Za-z0-9_-]*\)$/\1/p' <<< "${out}" | head -n 1)"
+	[[ -n "${task}" ]] || fDie "the desktop tests did not start on ${box}: ${out}"
 	logLines=0
-	fWaitRc desktop.rc "$task"
-	rc="$waitRc"
-	code="$(sed -n 's/^rc=\(-\{0,1\}[0-9][0-9]*\).*/\1/p' <<< "$rc" | head -n 1)"
-	[[ -n "$code" ]] || fDie "the desktop tests on ${box} left an unreadable exit code: ${rc}"
+	fWaitRc desktop.rc "${task}"
+	rc="${waitRc}"
+	code="$(sed -n 's/^rc=\(-\{0,1\}[0-9][0-9]*\).*/\1/p' <<< "${rc}" | head -n 1)"
+	[[ -n "${code}" ]] || fDie "the desktop tests on ${box} left an unreadable exit code: ${rc}"
 	fEcho_Clean "the desktop tests on ${box} exited ${code} (${rc#* })"
 	((code != 77)) || code=1
-	return "$code"
+	return "${code}"
 }
 
 fGate(){
@@ -233,46 +233,46 @@ fGate(){
 	trap 'exit 143' TERM; trap 'exit 130' INT; trap 'exit 129' HUP
 	fEcho_Clean ""
 	fEcho "Native Windows gate on ${box}"
-	if [[ "$desktopOn" == 0 ]]; then fLaneStep_Plan Windows "Box ready" "Send" "Gate"
+	if [[ "${desktopOn}" == 0 ]]; then fLaneStep_Plan Windows "Box ready" "Send" "Gate"
 	else fLaneStep_Plan Windows "Box ready" "Send" "Gate" "Desktop tests"; fi
 
 	fLaneStep "Box ready"
-	fBoxWrap_WaitReady "$box" "$readyWaitSec" exit "${sshOpts[@]}" || fDie "${box} did not answer in ${readyWaitSec}s"
+	fBoxWrap_WaitReady "${box}" "${readyWaitSec}" exit "${sshOpts[@]}" || fDie "${box} did not answer in ${readyWaitSec}s"
 
 	fLaneStep "Send"
 	fMakeBoxDir
 	scratch="$(mktemp -d)"
-	sha="$(git -C "$ROOT" rev-parse HEAD)"
-	git -C "$ROOT" bundle create -q "${scratch}/round.bundle" HEAD
-	[[ -z "$(git -C "$ROOT" status --porcelain --untracked-files=no)" ]] || fEcho "WARNING: uncommitted edits here are not in the native Windows gate, which runs ${sha:0:8}"
+	sha="$(git -C "${ROOT}" rev-parse HEAD)"
+	git -C "${ROOT}" bundle create -q "${scratch}/round.bundle" HEAD
+	[[ -z "$(git -C "${ROOT}" status --porcelain --untracked-files=no)" ]] || fEcho "WARNING: uncommitted edits here are not in the native Windows gate, which runs ${sha:0:8}"
 	sent=1
 	scp -q "${sshOpts[@]}" "${scratch}/round.bundle" "${ROOT}/cicd/win/lane-box.ps1" "${ROOT}/cicd/utility/include/run-temp.ps1" "${box}:${dirS}/" < /dev/null || fDie "could not send the bundle to ${box}"
 	pidW="$(fBoxPs -Start -GateArgs "$(fGateArgList)" | sed -n 's/^pid=\([0-9][0-9]*\)$/\1/p')"
-	[[ -n "$pidW" ]] || fDie "the gate did not start on ${box}"
+	[[ -n "${pidW}" ]] || fDie "the gate did not start on ${box}"
 	fEcho_Clean "cicd-win.ps1 ${gateArgs} at ${sha:0:8}, pid ${pidW} on ${box}"
 
 	fLaneStep "Gate"
 	while :; do
-		sleep "$pollSec"
+		sleep "${pollSec}"
 		fShowLog
 		rc="$(fOnBox "if exist ${dirW}\\run.rc type ${dirW}\\run.rc" 2> /dev/null | tr -d '\r' || true)"
-		[[ -z "$rc" ]] || break
+		[[ -z "${rc}" ]] || break
 		## Gone with no rc: it died.
-		if ! grep -qw "$pidW" <<< "$(fOnBox "tasklist /fi \"PID eq ${pidW}\" /nh" 2> /dev/null || true)"; then
+		if ! grep -qw "${pidW}" <<< "$(fOnBox "tasklist /fi \"PID eq ${pidW}\" /nh" 2> /dev/null || true)"; then
 			rc="$(fOnBox "if exist ${dirW}\\run.rc type ${dirW}\\run.rc" 2> /dev/null | tr -d '\r' || true)"
-			[[ -n "$rc" ]] || fDie "the gate on ${box} ended with no exit code"
+			[[ -n "${rc}" ]] || fDie "the gate on ${box} ended with no exit code"
 			break
 		fi
 	done
 	fShowLog
 	ended=1
-	code="$(sed -n 's/^rc=\(-\{0,1\}[0-9][0-9]*\).*/\1/p' <<< "$rc" | head -n 1)"
-	[[ -n "$code" ]] || fDie "the gate on ${box} left an unreadable exit code: ${rc}"
+	code="$(sed -n 's/^rc=\(-\{0,1\}[0-9][0-9]*\).*/\1/p' <<< "${rc}" | head -n 1)"
+	[[ -n "${code}" ]] || fDie "the gate on ${box} left an unreadable exit code: ${rc}"
 	fEcho_Clean "the gate on ${box} exited ${code} (${rc#* })"
 	## 77 is this lane's skip, so a gate that says so is a failure here.
 	((code != 77)) || code=1
-	((code == 0)) || return "$code"
-	[[ "$desktopOn" == 0 ]] || fDesktop
+	((code == 0)) || return "${code}"
+	[[ "${desktopOn}" == 0 ]] || fDesktop
 }
 
 fMain(){
@@ -282,14 +282,14 @@ fMain(){
 		--locked) fGate "$2"; return ;;
 	esac
 	((${#boxes[@]})) || boxes=(b29w vm925w)
-	if [[ ! -f "$lockTool" ]]; then
+	if [[ ! -f "${lockTool}" ]]; then
 		fEcho "SKIP: no host lock here (${lockTool})"
 		exit 77
 	fi
 	for name in "${boxes[@]}"; do
-		if fBoxWrap_IsThere "$name" "$name" "$lockTool" "${sshOpts[@]}"; then
+		if fBoxWrap_IsThere "${name}" "${name}" "${lockTool}" "${sshOpts[@]}"; then
 			## exec, so a TERM to this pid goes to the wrap, which waits for the lane's cleanup.
-			exec bash "$lockTool" wrap "$name" --wait "$lockWaitSec" -- bash "${BASH_SOURCE[0]}" --locked "$name"
+			exec bash "${lockTool}" wrap "${name}" --wait "${lockWaitSec}" -- bash "${BASH_SOURCE[0]}" --locked "${name}"
 		fi
 		fEcho_Clean "${name} isn't there"
 	done

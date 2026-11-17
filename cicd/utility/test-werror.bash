@@ -29,15 +29,15 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 for lane in cicd/config.bash cicd/linux/run-tests.bash cicd/linux/fuzz.bash cicd/win/build-cross.bash cicd/cicd-win.ps1; do
 	text="$(cat "${root}/${lane}")"
-	[[ "$text" == *"-Dwerror=true"* ]] || fFail "${lane} doesn't pass -Dwerror=true"
-	[[ "$text" == *"check-werror.bash"* ]] || fFail "${lane} doesn't read werror back"
+	[[ "${text}" == *"-Dwerror=true"* ]] || fFail "${lane} doesn't pass -Dwerror=true"
+	[[ "${text}" == *"check-werror.bash"* ]] || fFail "${lane} doesn't read werror back"
 done
 ## The release lane reads its options back itself.
 text="$(cat "${root}/cicd/linux/release-setup.bash")"
-[[ "$text" == *"-Dwerror=true"* && "$text" == *"werror=True"* ]] || fFail "cicd/linux/release-setup.bash does not set and read back werror"
+[[ "${text}" == *"-Dwerror=true"* && "${text}" == *"werror=True"* ]] || fFail "cicd/linux/release-setup.bash does not set and read back werror"
 
 project="$(sed -n '/^project(/,/)/p' "${root}/source/meson.build")"
-[[ "$project" != *werror* ]] || fFail "source/meson.build makes werror a default"
+[[ "${project}" != *werror* ]] || fFail "source/meson.build makes werror a default"
 [[ "$(cat "${root}/.github/workflows/release-win.yml")" != *werror* ]] || fFail "release-win.yml builds with werror on a compiler it does not pin"
 
 scratch="$(mktemp -d)"
@@ -59,16 +59,16 @@ printf '%s\n' 'build a.o: c_COMPILER a.c' ' DEPFILE = a.o.d' ' ARGS = -Wall -Wex
 printf '%s\n' 'build a.c.obj: c_COMPILER ../a.c' ' ARGS = "-Wall" "-Werror"' \
 	'build libv.a.p/v.c.obj: c_COMPILER ../vendor/v.c' ' ARGS = "-Wall" "-Werror=address"' > "${scratch}/winonelib/build.ninja"
 
-bash "$checker" "${scratch}/on" 2>/dev/null || fFail "check-werror.bash refused a dir with -Werror"
-if bash "$checker" "${scratch}/off" 2>/dev/null; then fFail "check-werror.bash passed a dir with only -Werror=address"; fi
-bash "$checker" "${scratch}/winon" 2>/dev/null || fFail "check-werror.bash refused a Windows dir with \"-Werror\""
-if bash "$checker" "${scratch}/winoff" 2>/dev/null; then fFail "check-werror.bash passed a Windows dir with only \"-Werror=address\""; fi
-if bash "$checker" "${scratch}/winhalf" 2>/dev/null; then fFail "check-werror.bash passed -Werror inside a quoted argument"; fi
-if bash "$checker" "${scratch}/empty" 2>/dev/null; then fFail "check-werror.bash passed a dir with no build.ninja"; fi
-if bash "$checker" "${scratch}/onelib" 2>/dev/null; then fFail "check-werror.bash passed a library built without -Werror"; fi
-if bash "$checker" "${scratch}/winonelib" 2>/dev/null; then fFail "check-werror.bash passed a Windows library built without \"-Werror\""; fi
-said="$(bash "$checker" "${scratch}/onelib" 2>&1 || true)"
-[[ "$said" == *"../vendor/v.c"* && "$said" != *" a.c"* ]] || fFail "check-werror.bash did not name just the library built without -Werror"
+bash "${checker}" "${scratch}/on" 2>/dev/null || fFail "check-werror.bash refused a dir with -Werror"
+if bash "${checker}" "${scratch}/off" 2>/dev/null; then fFail "check-werror.bash passed a dir with only -Werror=address"; fi
+bash "${checker}" "${scratch}/winon" 2>/dev/null || fFail "check-werror.bash refused a Windows dir with \"-Werror\""
+if bash "${checker}" "${scratch}/winoff" 2>/dev/null; then fFail "check-werror.bash passed a Windows dir with only \"-Werror=address\""; fi
+if bash "${checker}" "${scratch}/winhalf" 2>/dev/null; then fFail "check-werror.bash passed -Werror inside a quoted argument"; fi
+if bash "${checker}" "${scratch}/empty" 2>/dev/null; then fFail "check-werror.bash passed a dir with no build.ninja"; fi
+if bash "${checker}" "${scratch}/onelib" 2>/dev/null; then fFail "check-werror.bash passed a library built without -Werror"; fi
+if bash "${checker}" "${scratch}/winonelib" 2>/dev/null; then fFail "check-werror.bash passed a Windows library built without \"-Werror\""; fi
+said="$(bash "${checker}" "${scratch}/onelib" 2>&1 || true)"
+[[ "${said}" == *"../vendor/v.c"* && "${said}" != *" a.c"* ]] || fFail "check-werror.bash did not name just the library built without -Werror"
 
 if ((failures)); then fEcho "FAILED: werror check, ${failures} problem(s)"; exit 1; fi
 fEcho "OK: warnings are fatal in every pipeline build"

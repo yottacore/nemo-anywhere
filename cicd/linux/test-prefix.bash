@@ -26,7 +26,7 @@ echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURC
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=../utility/include/run-temp.bash
 source "${root}/cicd/utility/include/run-temp.bash"
-cd "$root"
+cd "${root}"
 
 fEcho_Clean(){ echo "${@}"; }
 fEcho(){       if [[ -n "${*}" ]]; then fEcho_Clean "[ ${*} ]"; else fEcho_Clean ""; fi; }
@@ -39,7 +39,7 @@ if [[ "${1:-}" == --arch ]]; then
 else
 	tarball="${1:-${root}/cicd/artifacts/release/${slug}-${ver}-linux-x86_64.tar.gz}"
 fi
-if [[ ! -f "$tarball" ]]; then
+if [[ ! -f "${tarball}" ]]; then
 	fEcho "prefix check skipped: no ${tarball##*/} (run the release lane first)"
 	exit 77
 fi
@@ -58,12 +58,12 @@ fCheckNames(){
 	local -a parts
 	while IFS= read -r path; do
 		path="${path#./}"; path="${path#/}"
-		[[ -n "$path" ]] || continue
+		[[ -n "${path}" ]] || continue
 		count=$((count + 1))
 		named=0
-		IFS=/ read -r -a parts <<<"$path"
+		IFS=/ read -r -a parts <<<"${path}"
 		for part in "${parts[@]}"; do
-			case "$part" in
+			case "${part}" in
 				"${slug}"*|"lib${slug}"*|org.NemoAnywhere*) named=1; break ;;
 			esac
 		done
@@ -77,23 +77,23 @@ fCheckNames(){
 fEcho "Prefix check against ${tarball##*/}"
 
 mkdir -p "${scratch}/unpacked"
-tar -xzf "$tarball" -C "${scratch}/unpacked"
+tar -xzf "${tarball}" -C "${scratch}/unpacked"
 prefix="$(find "${scratch}/unpacked" -mindepth 1 -maxdepth 1 -type d -print -quit)"
-[[ -n "$prefix" ]] || { fEcho "FAILED: ${tarball##*/} has no top-level folder"; exit 1; }
+[[ -n "${prefix}" ]] || { fEcho "FAILED: ${tarball##*/} has no top-level folder"; exit 1; }
 
-fCheckNames "tarball" < <(cd "$prefix" && find . ! -type d)
+fCheckNames "tarball" < <(cd "${prefix}" && find . ! -type d)
 
 deb="${tarball%.tar.gz}.deb"
-if [[ -f "$deb" ]] && command -v dpkg-deb >/dev/null 2>&1; then
-	fCheckNames "deb" < <(dpkg-deb --fsys-tarfile "$deb" | tar -t | { grep -v '/$' || true; })
+if [[ -f "${deb}" ]] && command -v dpkg-deb >/dev/null 2>&1; then
+	fCheckNames "deb" < <(dpkg-deb --fsys-tarfile "${deb}" | tar -t | { grep -v '/$' || true; })
 else
 	fEcho_Clean "no .deb or no dpkg-deb; the .deb not checked"
 fi
 
 rpm_file="${tarball%.tar.gz}.rpm"
-if [[ -f "$rpm_file" ]] && command -v rpm >/dev/null 2>&1; then
+if [[ -f "${rpm_file}" ]] && command -v rpm >/dev/null 2>&1; then
 	## Directories the package owns are listed too, and are left out by mode.
-	fCheckNames "rpm" < <(rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "$rpm_file" 2>/dev/null | { grep -v '^d' || true; } | cut -d' ' -f2-)
+	fCheckNames "rpm" < <(rpm -qp --qf '[%{FILEMODES:perms} %{FILENAMES}\n]' "${rpm_file}" 2>/dev/null | { grep -v '^d' || true; } | cut -d' ' -f2-)
 else
 	fEcho_Clean "no .rpm or no rpm; the .rpm not checked"
 fi
@@ -101,13 +101,13 @@ fi
 ## The office programs the app no longer includes, and libgsf (2026100909260549).
 kind="${tarball##*/}"; kind="${kind%.tar.gz}"; kind="linux-${kind##*-linux-}"
 rc=0
-bash "${root}/cicd/utility/test-bundle-left-out.bash" --dir "$(dirname "$tarball")" "$kind" || rc=$?
-[[ "$rc" == 0 || "$rc" == 77 ]] || fFail "bundle check on ${kind} (exit ${rc})"
+bash "${root}/cicd/utility/test-bundle-left-out.bash" --dir "$(dirname "${tarball}")" "${kind}" || rc=$?
+[[ "${rc}" == 0 || "${rc}" == 77 ]] || fFail "bundle check on ${kind} (exit ${rc})"
 
 ## The program spawns the editor by this name out of its own bin folder, so
 ## the name has to be in the program and on the file.
 [[ -x "${prefix}/bin/${editor}" ]] || fFail "no bin/${editor}"
-LC_ALL=C grep -q -a -F -- "$editor" "${prefix}/bin/${slug}" || fFail "bin/${slug} doesn't name ${editor}"
+LC_ALL=C grep -q -a -F -- "${editor}" "${prefix}/bin/${slug}" || fFail "bin/${slug} doesn't name ${editor}"
 
 ## A prefix somewhere it was never configured for, with a space in the path,
 ## and the editor swapped for a stub that says where it is.
@@ -116,21 +116,21 @@ mkdir -p "${moved}/bin" "${moved}/share/${slug}"
 cp "${prefix}/bin/${editor}" "${moved}/bin/"
 cp -R "${prefix}/share/${slug}/layout-editor" "${moved}/share/${slug}/"
 stub="${moved}/share/${slug}/layout-editor/nemo_action_layout_editor.py"
-cat >"$stub" <<'STUB'
+cat >"${stub}" <<'STUB'
 #!/bin/sh
 echo "$0"
 STUB
-chmod +x "$stub"
-want="$(realpath "$stub")"
+chmod +x "${stub}"
+want="$(realpath "${stub}")"
 
 ## No display, in case a wrong turn starts a real editor installed on the box.
 ran="$(env -u DISPLAY -u WAYLAND_DISPLAY "${moved}/bin/${editor}" 2>&1 || true)"
-[[ "$(realpath -m "$ran")" == "$want" ]] || fFail "the moved launcher ran ${ran:-nothing}, not ${want}"
+[[ "$(realpath -m "${ran}")" == "${want}" ]] || fFail "the moved launcher ran ${ran:-nothing}, not ${want}"
 
 ## Run through a link, as it is from a folder on PATH.
 ln -s "${moved}/bin/${editor}" "${scratch}/${editor}"
 ran="$(env -u DISPLAY -u WAYLAND_DISPLAY "${scratch}/${editor}" 2>&1 || true)"
-[[ "$(realpath -m "$ran")" == "$want" ]] || fFail "the launcher through a link ran ${ran:-nothing}, not ${want}"
+[[ "$(realpath -m "${ran}")" == "${want}" ]] || fFail "the launcher through a link ran ${ran:-nothing}, not ${want}"
 
 if ((failures)); then
 	fEcho "FAILED: prefix check, ${failures} problem(s)"

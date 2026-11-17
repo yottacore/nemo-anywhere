@@ -78,11 +78,11 @@ for ((num = 150; num < 170; num++)); do
 		if [[ "$(lockPid "${num}")" == "${foreignPid}" ]] && DISPLAY=":${num}" xdpyinfo >/dev/null 2>&1; then foreignNum="${num}"; break; fi
 		sleep 0.1
 	done
-	[[ -n $foreignNum ]] && break
+	[[ -n ${foreignNum} ]] && break
 	kill "${foreignPid}" 2>/dev/null || true
 	foreignPid=""
 done
-if [[ -z $foreignNum ]]; then
+if [[ -z ${foreignNum} ]]; then
 	fEcho "gui-smoke check skipped: no free display from :150 for the stand-in server"
 	exit 77
 fi

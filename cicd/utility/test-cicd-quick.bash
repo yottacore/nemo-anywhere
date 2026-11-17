@@ -57,11 +57,11 @@ printf "project('app', 'c', version: '1.2.3')\n" > "${scratch}/meson.build"
 ## Every step drops a file named for itself in out/.
 mark(){ printf 'mkdir -p out && touch out/%s' "$1"; }
 for stub in private publish scroll; do
-	printf '#!/usr/bin/env bash\nmkdir -p "%s/out" && touch "%s/out/%s"\n' "$scratch" "$scratch" "$stub" > "${scratch}/${stub}.bash"
+	printf '#!/usr/bin/env bash\nmkdir -p "%s/out" && touch "%s/out/%s"\n' "${scratch}" "${scratch}" "${stub}" > "${scratch}/${stub}.bash"
 	chmod +x "${scratch}/${stub}.bash"
 done
 ## Screenshots and the demo video are found by path, not by setting.
-printf '#!/usr/bin/env bash\nmkdir -p "%s/out" && touch "%s/out/shots"\n' "$scratch" "$scratch" > "${scratch}/cicd/utility/screenshots.bash"
+printf '#!/usr/bin/env bash\nmkdir -p "%s/out" && touch "%s/out/shots"\n' "${scratch}" "${scratch}" > "${scratch}/cicd/utility/screenshots.bash"
 chmod +x "${scratch}/cicd/utility/screenshots.bash"
 ## The demo hook is run with python3, a native Windows one under MSYS2, which
 ## would read an MSYS2 path such as /tmp/... as a folder on the current drive.
@@ -131,9 +131,9 @@ EOF
 ## A repo with no upstream, so the sync stage runs and finds nothing to do, and
 ## a clean tree, so publish goes ahead.
 printf '/out/\n/native.bin\n/host-temp/\n' > "${scratch}/.gitignore"
-git -C "$scratch" init -q
-git -C "$scratch" add -A
-git -C "$scratch" -c user.name=check -c user.email=check@example.invalid -c commit.gpgsign=false commit -q -m init
+git -C "${scratch}" init -q
+git -C "${scratch}" add -A
+git -C "${scratch}" -c user.name=check -c user.email=check@example.invalid -c commit.gpgsign=false commit -q -m init
 
 allSteps=(fmt fmt-check build tests lint fuzz fuzz-short sanitize scroll bsd-tests profile native windows arm64 bsd-release analyze analyze-long soak packages package-check private dogfood dogfood-hook remote-dogfood shots demo publish)
 
@@ -146,31 +146,31 @@ fSteps(){
 	local out="$1" want="$2" failed="${3:-0}" label="$4" line n=0 total="" state="" name="" re
 	re='^\[ ([0-9]{8}-[0-9]{6}\.[0-9]{2}): Step ([0-9]+) of ([0-9]+); (Starting|PASS|FAIL) (.+) \]$'
 	while IFS= read -r line; do
-		if [[ "$line" == •* ]]; then
-			[[ "$line" == "$rule" ]] || { fFail "[${label}]: a rule that isn't 79 dots: ${line}"; return 0; }
+		if [[ "${line}" == •* ]]; then
+			[[ "${line}" == "${rule}" ]] || { fFail "[${label}]: a rule that isn't 79 dots: ${line}"; return 0; }
 			continue
 		fi
-		[[ "$line" =~ $re ]] || continue
+		[[ "${line}" =~ ${re} ]] || continue
 		total="${total:-${BASH_REMATCH[3]}}"
-		[[ "${BASH_REMATCH[3]}" == "$total" ]] || { fFail "[${label}]: step totals differ: ${line}"; return 0; }
+		[[ "${BASH_REMATCH[3]}" == "${total}" ]] || { fFail "[${label}]: step totals differ: ${line}"; return 0; }
 		case "${BASH_REMATCH[4]}" in
 			Starting)
-				[[ "$state" != open ]] || { fFail "[${label}]: step ${n} never closed"; return 0; }
+				[[ "${state}" != open ]] || { fFail "[${label}]: step ${n} never closed"; return 0; }
 				n=$((n + 1)); name="${BASH_REMATCH[5]}"; state=open
-				[[ "${BASH_REMATCH[2]}" == "$n" ]] || { fFail "[${label}]: step ${BASH_REMATCH[2]} where ${n} was due"; return 0; } ;;
+				[[ "${BASH_REMATCH[2]}" == "${n}" ]] || { fFail "[${label}]: step ${BASH_REMATCH[2]} where ${n} was due"; return 0; } ;;
 			*)
-				[[ "$state" == open && "${BASH_REMATCH[2]}" == "$n" && "${BASH_REMATCH[5]}" == "$name" ]] \
+				[[ "${state}" == open && "${BASH_REMATCH[2]}" == "${n}" && "${BASH_REMATCH[5]}" == "${name}" ]] \
 					|| { fFail "[${label}]: closed a step that wasn't open: ${line}"; return 0; }
 				state="${BASH_REMATCH[4]}" ;;
 		esac
-	done <<< "$out"
+	done <<< "${out}"
 	if ((failed)); then
-		[[ "$state" == FAIL ]] || fFail "[${label}]: the failed step didn't close as FAIL (${state:-none})"
+		[[ "${state}" == FAIL ]] || fFail "[${label}]: the failed step didn't close as FAIL (${state:-none})"
 	else
-		[[ "$state" == PASS && "$n" == "$total" ]] || fFail "[${label}]: ran ${n} of ${total:-?} steps, last ${state:-none}"
-		[[ "$total" == "$want" ]] || fFail "[${label}]: counted ${total:-no} steps, want ${want}"
+		[[ "${state}" == PASS && "${n}" == "${total}" ]] || fFail "[${label}]: ran ${n} of ${total:-?} steps, last ${state:-none}"
+		[[ "${total}" == "${want}" ]] || fFail "[${label}]: counted ${total:-no} steps, want ${want}"
 	fi
-	! grep -q -E 'Step [0-9]+ of [0-9]+; FAIL' <<< "$out" || ((failed)) || fFail "[${label}]: a step failed"
+	! grep -q -E 'Step [0-9]+ of [0-9]+; FAIL' <<< "${out}" || ((failed)) || fFail "[${label}]: a step failed"
 }
 
 ## $1 the steps that must run, space separated, rest the options. Every other
@@ -180,35 +180,35 @@ fRun(){
 	shift
 	fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
 	mkdir -p "${scratch}/out"
-	out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 env -u CICD_MAX_JOBS bash cicd/cicd.bash -y "$@" 2>&1 </dev/null)" || rc=$?
-	lastOut="$out"
-	if [[ "$rc" != "${wantRc:-0}" ]]; then
-		fFail "[$*]: exit ${rc}, not ${wantRc:-0}: $(tail -5 <<< "$out")"
+	out="$(cd "${scratch}" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 env -u CICD_MAX_JOBS bash cicd/cicd.bash -y "$@" 2>&1 </dev/null)" || rc=$?
+	lastOut="${out}"
+	if [[ "${rc}" != "${wantRc:-0}" ]]; then
+		fFail "[$*]: exit ${rc}, not ${wantRc:-0}: $(tail -5 <<< "${out}")"
 		return 0
 	fi
 	## A step per marker, less the ones that share a step: the package check
 	## with packages, the hook with dogfood, the short fuzz and the long
 	## analyzers with their own, and sync, which leaves no marker.
 	local steps=0 w
-	for w in $want; do case "$w" in package-check|dogfood-hook|fuzz-short|analyze-long) ;; *) steps=$((steps + 1)) ;; esac; done
-	fSteps "$out" "$steps" 0 "${*:-no options}"
+	for w in ${want}; do case "${w}" in package-check|dogfood-hook|fuzz-short|analyze-long) ;; *) steps=$((steps + 1)) ;; esac; done
+	fSteps "${out}" "${steps}" 0 "${*:-no options}"
 	for step in "${allSteps[@]}"; do
 		ran=0
-		case "$step" in
+		case "${step}" in
 			dogfood) [[ -f "${scratch}/out/app" ]] && ran=1 ;;
 			*)       [[ -f "${scratch}/out/${step}" ]] && ran=1 ;;
 		esac
-		if [[ "$want" == *" ${step} "* ]]; then
+		if [[ "${want}" == *" ${step} "* ]]; then
 			((ran)) || fFail "[${*:-no options}]: ${step} didn't run"
 		else
 			((! ran)) || fFail "[${*:-no options}]: ${step} ran"
 		fi
 	done
-	[[ -z "$(git -C "$scratch" status --porcelain)" ]] || fFail "[${*:-no options}]: the run changed the tree"
-	if [[ "$want" == *" sync "* ]]; then
-		[[ "$out" == *"nothing to sync"* ]] || fFail "[${*:-no options}]: remote sync didn't run"
+	[[ -z "$(git -C "${scratch}" status --porcelain)" ]] || fFail "[${*:-no options}]: the run changed the tree"
+	if [[ "${want}" == *" sync "* ]]; then
+		[[ "${out}" == *"nothing to sync"* ]] || fFail "[${*:-no options}]: remote sync didn't run"
 	else
-		[[ "$out" != *"nothing to sync"* ]] || fFail "[${*:-no options}]: remote sync ran"
+		[[ "${out}" != *"nothing to sync"* ]] || fFail "[${*:-no options}]: remote sync ran"
 	fi
 }
 
@@ -228,14 +228,14 @@ fRun "${quickSteps} bsd-tests bsd-release" --quick --include-bsd
 fRun "${quickSteps} soak"                --quick --leakcheck
 noSoak="${fullSteps/ arm64 / }"
 fRun "sync ${noSoak/ soak / }"           --no-leakcheck
-grep -q -x -F -- "    - Heap soak (--no-leakcheck)" <<< "$lastOut" || fFail "[--no-leakcheck]: the plan doesn't list the heap soak as turned off"
+grep -q -x -F -- "    - Heap soak (--no-leakcheck)" <<< "${lastOut}" || fFail "[--no-leakcheck]: the plan doesn't list the heap soak as turned off"
 ## A config with no short fuzz command leaves fuzzing out of --quick.
 CHECK_NO_QUICK_FUZZ=1 fRun "${quickSteps/ fuzz fuzz-short / }" --quick
-grep -q -x -F -- "    - Fuzzing (--quick)" <<< "$lastOut" || fFail "[--quick, no short fuzz]: the plan doesn't list Fuzzing as turned off"
+grep -q -x -F -- "    - Fuzzing (--quick)" <<< "${lastOut}" || fFail "[--quick, no short fuzz]: the plan doesn't list Fuzzing as turned off"
 ## --no-remote: nothing on another box, whatever else is named.
 remoteSteps=" arm64 bsd-tests bsd-release private remote-dogfood "
 localSteps=" ${fullSteps} "
-for step in $remoteSteps; do localSteps="${localSteps/ ${step} / }"; done
+for step in ${remoteSteps}; do localSteps="${localSteps/ ${step} / }"; done
 fRun "sync ${localSteps}"                --no-remote
 fRun "sync ${localSteps} analyze-long"   --long --include-arm --include-bsd --no-remote
 fRun "sync ${localSteps}"                --no-remote --include-arm --include-bsd
@@ -243,11 +243,11 @@ fRun "sync ${localSteps}"                --no-remote --include-arm --include-bsd
 ## $1 the other name, or empty: the run says so in one line, and only then.
 fNote(){
 	local n
-	n="$(grep -c 'is another name for' <<< "$lastOut" || true)"
+	n="$(grep -c 'is another name for' <<< "${lastOut}" || true)"
 	if [[ -n "$1" ]]; then
-		[[ "$n" == 1 && "$lastOut" == *"[ $1 is another name for $2 ]"* ]] || fFail "[$1]: no one-line note that it is another name for $2"
+		[[ "${n}" == 1 && "${lastOut}" == *"[ $1 is another name for $2 ]"* ]] || fFail "[$1]: no one-line note that it is another name for $2"
 	else
-		[[ "$n" == 0 ]] || fFail "[$2]: says it is another name"
+		[[ "${n}" == 0 ]] || fFail "[$2]: says it is another name"
 	fi
 }
 fRun "fmt-check tests lint"              --backlog-run-quick;       fNote "" --backlog-run-quick
@@ -267,11 +267,11 @@ fRun "${checkSteps}"                     --merge-gate --shots --demo --allow-dir
 fRun "${checkSteps}"                     --gate --merge-gate
 fRun "fmt-check tests lint"              --backlog-run-full --backlog-run-quick
 rc=0
-out="$(cd "$scratch" && CICD_CPU_CAPPED=1 bash cicd/cicd.bash --backlog-run-quick lint nosuch 2>&1 </dev/null)" || rc=$?
-[[ "$rc" == 2 && "$out" == *"unknown area: nosuch"* && "$out" == *"format lint tests"* ]] || fFail "[--backlog-run-quick lint nosuch]: exit ${rc}, not 2 with the areas listed: ${out}"
+out="$(cd "${scratch}" && CICD_CPU_CAPPED=1 bash cicd/cicd.bash --backlog-run-quick lint nosuch 2>&1 </dev/null)" || rc=$?
+[[ "${rc}" == 2 && "${out}" == *"unknown area: nosuch"* && "${out}" == *"format lint tests"* ]] || fFail "[--backlog-run-quick lint nosuch]: exit ${rc}, not 2 with the areas listed: ${out}"
 help="$(bash "${root}/cicd/cicd.bash" --help)"
 for name in --backlog-run-quick --backlog-run-full --merge-gate --gate --ci --no-remote --no-container "format, lint, tests"; do
-	grep -q -F -- "$name" <<< "$help" || fFail "--help doesn't name ${name}"
+	grep -q -F -- "${name}" <<< "${help}" || fFail "--help doesn't name ${name}"
 done
 
 ## --no-container: the lints on the host, with the host's tools, then a stop
@@ -279,76 +279,76 @@ done
 ## when the areas named need none.
 wantRc=1
 for mode in "" --backlog-run-quick --merge-gate; do
-	case "$mode" in
+	case "${mode}" in
 		"")                  want="sync fmt lint"; stop="Build (debug)" ;;
 		--backlog-run-quick) want="fmt-check lint"; stop="Tests" ;;
 		*)                   want="fmt-check lint"; stop="Build (debug)" ;;
 	esac
-	fRun "$want" ${mode:+"$mode"} --no-container
+	fRun "${want}" ${mode:+"${mode}"} --no-container
 	label="${mode:-plain} --no-container"
-	[[ "$(grep -c '^\[ STOPPED' <<< "$lastOut")" == 1 && "$lastOut" == *"[ STOPPED at ${stop}: it needs a container, and --no-container runs on the host ]"* ]] \
+	[[ "$(grep -c '^\[ STOPPED' <<< "${lastOut}")" == 1 && "${lastOut}" == *"[ STOPPED at ${stop}: it needs a container, and --no-container runs on the host ]"* ]] \
 		|| fFail "[${label}]: no one stop line at ${stop}"
-	grep -q -x -F -- "    - ${stop} (--no-container${mode:+, the run stops there})" <<< "$lastOut" \
-		|| [[ -z "$mode" || "$mode" == --merge-gate ]] || fFail "[${label}]: the plan doesn't list ${stop} as turned off"
+	grep -q -x -F -- "    - ${stop} (--no-container${mode:+, the run stops there})" <<< "${lastOut}" \
+		|| [[ -z "${mode}" || "${mode}" == --merge-gate ]] || fFail "[${label}]: the plan doesn't list ${stop} as turned off"
 	[[ "$(cat "${scratch}/out/lint-host" 2>/dev/null)" == 1 ]] || fFail "[${label}]: the lints didn't get NEMO_LINT_HOST=1"
 done
-grep -q -x -F -- "    - Build (debug) (--no-container)" <<< "$lastOut" || fFail "[--merge-gate --no-container]: the plan doesn't list the build as turned off"
+grep -q -x -F -- "    - Build (debug) (--no-container)" <<< "${lastOut}" || fFail "[--merge-gate --no-container]: the plan doesn't list the build as turned off"
 wantRc=0
 fRun "lint" --backlog-run-quick lint --no-container
-[[ "$lastOut" != *"STOPPED"* ]] || fFail "[--backlog-run-quick lint --no-container]: stopped with nothing left that needs a container"
+[[ "${lastOut}" != *"STOPPED"* ]] || fFail "[--backlog-run-quick lint --no-container]: stopped with nothing left that needs a container"
 
 ## A failed step closes as FAIL, and the plan lists what's turned off with why.
 rc=0
-out="$(cd "$scratch" && CHECK_FAIL_TESTS=1 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 env -u CICD_MAX_JOBS bash cicd/cicd.bash -y --quick 2>&1 </dev/null)" || rc=$?
-[[ "$rc" != 0 ]] || fFail "[failing tests]: the run passed"
-fSteps "$out" 0 1 "failing tests"
-grep -q -E '; FAIL Tests \]$' <<< "$out" || fFail "[failing tests]: no FAIL line for Tests"
+out="$(cd "${scratch}" && CHECK_FAIL_TESTS=1 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 env -u CICD_MAX_JOBS bash cicd/cicd.bash -y --quick 2>&1 </dev/null)" || rc=$?
+[[ "${rc}" != 0 ]] || fFail "[failing tests]: the run passed"
+fSteps "${out}" 0 1 "failing tests"
+grep -q -E '; FAIL Tests \]$' <<< "${out}" || fFail "[failing tests]: no FAIL line for Tests"
 for off in "Static analyzers (--quick)" "Heap soak (--quick)" "Release build: Linux arm64 (stand-in) (--quick)" "Packages (--quick)"; do
-	grep -q -x -F -- "    - ${off}" <<< "$out" || fFail "[--quick]: the plan doesn't list ${off} as turned off"
+	grep -q -x -F -- "    - ${off}" <<< "${out}" || fFail "[--quick]: the plan doesn't list ${off} as turned off"
 done
 ## The cross target in CROSS_ALONGSIDE starts with the debug build: the tests
 ## stand-in waits for it to start, and fails without it. Its step, in the same
 ## place, shows its log. Without CROSS_ALONGSIDE it runs in its step as before.
 CHECK_ALONGSIDE=1 fRun "${quickSteps}" --quick
-[[ "$lastOut" == *"Windows x86_64 (stand-in) started alongside, pid "* ]] || fFail "[--quick]: the Windows cross build didn't start alongside"
-crossStep="$(sed -n '/Starting Release build: Windows x86_64 (stand-in) ]$/,/PASS Release build: Windows x86_64 (stand-in) ]$/p' <<< "$lastOut")"
-grep -q -x -F 'stand-in cross log' <<< "$crossStep" || fFail "[--quick]: the Windows cross build's step doesn't show its log"
+[[ "${lastOut}" == *"Windows x86_64 (stand-in) started alongside, pid "* ]] || fFail "[--quick]: the Windows cross build didn't start alongside"
+crossStep="$(sed -n '/Starting Release build: Windows x86_64 (stand-in) ]$/,/PASS Release build: Windows x86_64 (stand-in) ]$/p' <<< "${lastOut}")"
+grep -q -x -F 'stand-in cross log' <<< "${crossStep}" || fFail "[--quick]: the Windows cross build's step doesn't show its log"
 CHECK_INLINE_CROSS=1 fRun "${quickSteps}" --quick
-[[ "$lastOut" != *"started alongside"* ]] || fFail "[--quick, nothing alongside]: a cross build started alongside"
-[[ "$lastOut" == *"stand-in cross log"* ]] || fFail "[--quick, nothing alongside]: no cross build log"
+[[ "${lastOut}" != *"started alongside"* ]] || fFail "[--quick, nothing alongside]: a cross build started alongside"
+[[ "${lastOut}" == *"stand-in cross log"* ]] || fFail "[--quick, nothing alongside]: no cross build log"
 ## A side build that fails fails its own step, once the steps before it passed.
 rc=0
-out="$(cd "$scratch" && CHECK_FAIL_CROSS=1 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 env -u CICD_MAX_JOBS bash cicd/cicd.bash -y --quick 2>&1 </dev/null)" || rc=$?
-[[ "$rc" != 0 ]] || fFail "[failing side build]: the run passed"
-fSteps "$out" 0 1 "failing side build"
-grep -q -E '; FAIL Release build: Windows x86_64 \(stand-in\) \]$' <<< "$out" || fFail "[failing side build]: no FAIL line for its step"
+out="$(cd "${scratch}" && CHECK_FAIL_CROSS=1 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 env -u CICD_MAX_JOBS bash cicd/cicd.bash -y --quick 2>&1 </dev/null)" || rc=$?
+[[ "${rc}" != 0 ]] || fFail "[failing side build]: the run passed"
+fSteps "${out}" 0 1 "failing side build"
+grep -q -E '; FAIL Release build: Windows x86_64 \(stand-in\) \]$' <<< "${out}" || fFail "[failing side build]: no FAIL line for its step"
 [[ -f "${scratch}/out/native" ]] || fFail "[failing side build]: the native release before it didn't run"
 ## A run that stops early stops the side build too, rather than leaving it.
 fSafeRm_IfThere "${scratch}/out"; mkdir -p "${scratch}/out"
 rc=0; t0=${SECONDS}
-out="$(cd "$scratch" && CHECK_ALONGSIDE=1 CHECK_SLOW_CROSS=1 CHECK_FAIL_TESTS=1 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 env -u CICD_MAX_JOBS bash cicd/cicd.bash -y --quick 2>&1 </dev/null)" || rc=$?
-[[ "$rc" != 0 ]] || fFail "[failing tests, slow side build]: the run passed"
+out="$(cd "${scratch}" && CHECK_ALONGSIDE=1 CHECK_SLOW_CROSS=1 CHECK_FAIL_TESTS=1 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 env -u CICD_MAX_JOBS bash cicd/cicd.bash -y --quick 2>&1 </dev/null)" || rc=$?
+[[ "${rc}" != 0 ]] || fFail "[failing tests, slow side build]: the run passed"
 ((SECONDS - t0 < 25)) || fFail "[failing tests, slow side build]: the run waited for the side build"
 sidePid="$(cat "${scratch}/out/windows-pid" 2>/dev/null || true)"
-if [[ -z "$sidePid" ]]; then fFail "[failing tests, slow side build]: the side build never started"
-elif kill -0 "$sidePid" 2>/dev/null; then fFail "[failing tests, slow side build]: the side build is still running"; kill -TERM -- "-${sidePid}" 2>/dev/null || kill -TERM "$sidePid" 2>/dev/null || true; fi
-[[ "$out" == *"stopping Windows x86_64 (stand-in)"* ]] || fFail "[failing tests, slow side build]: no line saying it stopped the side build"
+if [[ -z "${sidePid}" ]]; then fFail "[failing tests, slow side build]: the side build never started"
+elif kill -0 "${sidePid}" 2>/dev/null; then fFail "[failing tests, slow side build]: the side build is still running"; kill -TERM -- "-${sidePid}" 2>/dev/null || kill -TERM "${sidePid}" 2>/dev/null || true; fi
+[[ "${out}" == *"stopping Windows x86_64 (stand-in)"* ]] || fFail "[failing tests, slow side build]: no line saying it stopped the side build"
 [[ ! -f "${scratch}/out/windows" ]] || fFail "[failing tests, slow side build]: the side build ran to the end"
 ## A hard step gets a quarter of the cpus, busy or not.
 # shellcheck source=include/jobs.bash
 source "${here}/include/jobs.bash"
 quarter="$(unset CICD_MAX_JOBS CICD_JOBS_PIN; fJobs hard; echo "${CICD_MAX_JOBS}")"
 fRun "${quickSteps}" --quick
-sanJobs="$(grep -A1 -F 'Starting Sanitizer suite' <<< "$lastOut" | tail -1)"
-[[ "$sanJobs" == "jobs ${quarter} (hard step,"* ]] || fFail "[--quick]: the sanitizer suite didn't get ${quarter} jobs as a hard step"
+sanJobs="$(grep -A1 -F 'Starting Sanitizer suite' <<< "${lastOut}" | tail -1)"
+[[ "${sanJobs}" == "jobs ${quarter} (hard step,"* ]] || fFail "[--quick]: the sanitizer suite didn't get ${quarter} jobs as a hard step"
 fRun "fmt-check tests lint" --gate
-grep -q -x -F -- "    - Format check (area not named)" <<< "$(cd "$scratch" && CICD_CPU_CAPPED=1 bash cicd/cicd.bash --gate lint 2>&1 </dev/null)" \
+grep -q -x -F -- "    - Format check (area not named)" <<< "$(cd "${scratch}" && CICD_CPU_CAPPED=1 bash cicd/cicd.bash --gate lint 2>&1 </dev/null)" \
 	|| fFail "[--gate lint]: the plan doesn't list the format check as turned off"
 
 ## Each run removed its run folder, and a plain run's plan names it.
 [[ -z "$(ls -A "${HOST_TEMP}/app" 2>/dev/null)" ]] || fFail "runs left these behind: $(ls -A "${HOST_TEMP}/app")"
-out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --quick --no-publish 2>&1 </dev/null)" || true
-grep -q -E "^Run folder \.+: ${HOST_TEMP}/app/[0-9]{8}-[0-9]{6}_[0-9]{3}$" <<< "$out" || fFail "the plan doesn't name the run folder"
+out="$(cd "${scratch}" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --quick --no-publish 2>&1 </dev/null)" || true
+grep -q -E "^Run folder \.+: ${HOST_TEMP}/app/[0-9]{8}-[0-9]{6}_[0-9]{3}$" <<< "${out}" || fFail "the plan doesn't name the run folder"
 
 if ((failures)); then
 	fEcho "FAILED: step selection, ${failures} problem(s)"

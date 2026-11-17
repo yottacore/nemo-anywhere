@@ -32,7 +32,7 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 scratch="$(mktemp -d)"
 trap 'fSafeRm_IfThere "${scratch}"' EXIT
 src="${scratch}/src"
-mkdir -p "$src"
+mkdir -p "${src}"
 
 cat > "${src}/gdk-pixbuf-thumbnailer.thumbnailer" <<'END'
 [Thumbnailer Entry]
@@ -78,25 +78,25 @@ MimeType=x/z;
 END
 
 dest="${scratch}/dest"
-if ! out="$(fStageThumbnailers "$src" "$dest" 2>&1)"; then
+if ! out="$(fStageThumbnailers "${src}" "${dest}" 2>&1)"; then
 	fFail "fStageThumbnailers refused the MSYS2 descriptors: ${out}"
 fi
 
 fWant(){
 	local file="$1" line="$2"
-	grep -qxF "$line" "${dest}/${file}" || fFail "${file}: no line '${line}'; has: $(tr '\n' '|' < "${dest}/${file}" 2>/dev/null || true)"
+	grep -qxF "${line}" "${dest}/${file}" || fFail "${file}: no line '${line}'; has: $(tr '\n' '|' < "${dest}/${file}" 2>/dev/null || true)"
 }
 fGone(){
 	[[ ! -e "${1}/${2}" ]] || fFail "${3}: ${2} was not left out"
 }
-fGone "$dest" gdk-pixbuf-thumbnailer.thumbnailer fStageThumbnailers
-fGone "$dest" librsvg.thumbnailer fStageThumbnailers
-fGone "$dest" webp.thumbnailer fStageThumbnailers
+fGone "${dest}" gdk-pixbuf-thumbnailer.thumbnailer fStageThumbnailers
+fGone "${dest}" librsvg.thumbnailer fStageThumbnailers
+fGone "${dest}" webp.thumbnailer fStageThumbnailers
 ## Kept with a bare name until 2026100909260549, which leaves it out.
 # fWant gsf-office.thumbnailer "TryExec=gsf-office-thumbnailer"
 # fWant gsf-office.thumbnailer "Exec=gsf-office-thumbnailer -i %i -o %o -s %s"
-fGone "$dest" gsf-office.thumbnailer fStageThumbnailers
-fGone "$dest" gsf-office-msys.thumbnailer fStageThumbnailers
+fGone "${dest}" gsf-office.thumbnailer fStageThumbnailers
+fGone "${dest}" gsf-office-msys.thumbnailer fStageThumbnailers
 ## Only the program loses its folder, not an argument.
 fWant other.thumbnailer "Exec=some-thumbnailer --in /tmp/x/%i %o"
 fWant other.thumbnailer "MimeType=x/y;"
@@ -108,20 +108,20 @@ fStageThumbnailers "${scratch}/none" "${scratch}/dest2" || fFail "a missing sour
 ## fetch-sysroot.bash runs alone in the image build, so it has its own copy of
 ## the rules. Its block runs here on descriptors as the sysroot has them.
 fetch="${root}/cicd/win/fetch-sysroot.bash"
-block="$(awk '/^thumbDir="\$SYSROOT/ { on = 1 } on && /^#/ { exit } on' "$fetch")"
-if [[ -z "$block" ]]; then
+block="$(awk '/^thumbDir="\$SYSROOT/ { on = 1 } on && /^#/ { exit } on' "${fetch}")"
+if [[ -z "${block}" ]]; then
 	fFail "fetch-sysroot.bash has no thumbnailer block"
 else
 	thumbs="${scratch}/sysroot/mingw64/share/thumbnailers"
-	mkdir -p "$thumbs"
+	mkdir -p "${thumbs}"
 	cp "${src}/gdk-pixbuf-thumbnailer.thumbnailer" "${src}/librsvg.thumbnailer" \
-		"${src}/gsf-office.thumbnailer" "${src}/lookalike.thumbnailer" "$thumbs/"
-	if ! out="$(SYSROOT="${scratch}/sysroot" bash -c 'set -euo pipefail; fEcho(){ :; }; eval "$1"' _ "$block" 2>&1)"; then
+		"${src}/gsf-office.thumbnailer" "${src}/lookalike.thumbnailer" "${thumbs}/"
+	if ! out="$(SYSROOT="${scratch}/sysroot" bash -c 'set -euo pipefail; fEcho(){ :; }; eval "$1"' _ "${block}" 2>&1)"; then
 		fFail "fetch-sysroot.bash's thumbnailer block failed: ${out}"
 	fi
-	fGone "$thumbs" gdk-pixbuf-thumbnailer.thumbnailer fetch-sysroot.bash
-	fGone "$thumbs" librsvg.thumbnailer fetch-sysroot.bash
-	fGone "$thumbs" gsf-office.thumbnailer fetch-sysroot.bash
+	fGone "${thumbs}" gdk-pixbuf-thumbnailer.thumbnailer fetch-sysroot.bash
+	fGone "${thumbs}" librsvg.thumbnailer fetch-sysroot.bash
+	fGone "${thumbs}" gsf-office.thumbnailer fetch-sysroot.bash
 	## gsf-office.thumbnailer was compared here too until 2026100909260549.
 	cmp -s "${thumbs}/lookalike.thumbnailer" "${dest}/lookalike.thumbnailer" \
 		|| fFail "fetch-sysroot.bash and fStageThumbnailers differ on lookalike.thumbnailer"
@@ -132,14 +132,14 @@ fi
 ## nothing would start.
 fUses(){
 	local script="$1" pattern="$2" rel="${1#"${root}"/}"
-	grep -qE "$pattern" "$script" || fFail "${rel} doesn't stage descriptors through fStageThumbnailers"
-	if grep -nE 'cp .*share/(\$\{d\}|thumbnailers)' "$script" | grep -v fStageThumbnailers; then
+	grep -qE "${pattern}" "${script}" || fFail "${rel} doesn't stage descriptors through fStageThumbnailers"
+	if grep -nE 'cp .*share/(\$\{d\}|thumbnailers)' "${script}" | grep -v fStageThumbnailers; then
 		fFail "${rel} still copies share/thumbnailers as is"
 	fi
-	if grep -nF 'gdk-pixbuf-thumbnailer.exe' "$script"; then
+	if grep -nF 'gdk-pixbuf-thumbnailer.exe' "${script}"; then
 		fFail "${rel} still bundles gdk-pixbuf-thumbnailer.exe"
 	fi
-	if grep -nF 'gsf-office-thumbnailer.exe' "$script"; then
+	if grep -nF 'gsf-office-thumbnailer.exe' "${script}"; then
 		fFail "${rel} still bundles gsf-office-thumbnailer.exe"
 	fi
 }

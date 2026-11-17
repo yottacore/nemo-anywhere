@@ -27,7 +27,7 @@
 declare -i _wasLastEchoBlank=0
 
 fEcho_ResetBlankCounter(){ _wasLastEchoBlank=0; }
-fEcho_Clean(){ if [[ -n "${1:-}" ]]; then echo -e "$*"; _wasLastEchoBlank=0; elif [[ $_wasLastEchoBlank -eq 0 ]] && echo; then _wasLastEchoBlank=1; fi; }
+fEcho_Clean(){ if [[ -n "${1:-}" ]]; then echo -e "$*"; _wasLastEchoBlank=0; elif [[ ${_wasLastEchoBlank} -eq 0 ]] && echo; then _wasLastEchoBlank=1; fi; }
 fEcho(){       if [[ -n "$*"     ]]; then fEcho_Clean "[ $* ]"; else fEcho_Clean ""; fi; }
 fEcho_Force(){ fEcho_ResetBlankCounter; fEcho "$*"; }
 
@@ -37,7 +37,7 @@ fDie(){ { fEcho_Force "FAILED: $*"; } >&2; exit 1; }
 
 fEcho_Stamp(){
 	local t="${EPOCHREALTIME:-}" frac
-	if [[ -n "$t" ]]; then
+	if [[ -n "${t}" ]]; then
 		t="${t/,/.}"; frac="${t#*.}"
 		printf '%(%Y%m%d-%H%M%S)T.%s' "${t%.*}" "${frac:0:2}"
 	else
@@ -48,7 +48,7 @@ fEcho_Stamp(){
 _laneLabel=""; _laneSteps=(); _laneNow=0; _laneOpen=""
 fLaneStep_Plan(){ _laneLabel="$1"; shift; _laneSteps=("$@"); _laneNow=0; _laneOpen=""; }
 fLaneStep_Close(){
-	[[ -n "$_laneOpen" ]] || return 0
+	[[ -n "${_laneOpen}" ]] || return 0
 	fEcho_Force "$(fEcho_Stamp): ${_laneLabel} ${_laneNow} of ${#_laneSteps[@]}; $1 ${_laneOpen}"
 	_laneOpen=""
 }
@@ -60,7 +60,7 @@ fLaneStep(){
 	[[ "${_laneSteps[_laneNow - 1]:-}" == "$1" ]] || fEcho "WARNING: the plan has ${_laneLabel} step ${_laneNow} as '${_laneSteps[_laneNow - 1]:-none}'"
 }
 fLaneStep_OnExit(){
-	[[ -n "$_laneOpen" ]] || return 0
+	[[ -n "${_laneOpen}" ]] || return 0
 	if [[ "${1:-1}" == 0 ]]; then fLaneStep_Close PASS; else fLaneStep_Close FAIL; fi
 	fEcho_Clean
 }

@@ -23,7 +23,7 @@ cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fEcho(){ echo "[ $* ]"; }
 
 fSkip(){
-	if [[ "$strict" == "1" ]]; then
+	if [[ "${strict}" == "1" ]]; then
 		fEcho "FAILED: PowerShell lint: $1" >&2
 		exit 1
 	fi
@@ -35,8 +35,8 @@ fSkip(){
 ## Runs ahead of the pwsh check, so a box without pwsh still gets it.
 ## Test ID: ddkm6
 nonAscii="$(git ls-files -z '*.ps1' '*.psm1' '*.psd1' | xargs -0 -r grep -nP '[^\x00-\x7F]' || true)"
-if [[ -n "$nonAscii" ]]; then
-	printf '%s\n' "$nonAscii"
+if [[ -n "${nonAscii}" ]]; then
+	printf '%s\n' "${nonAscii}"
 	fEcho "FAILED: PowerShell lint: non-ASCII bytes in a PowerShell file" >&2
 	exit 1
 fi

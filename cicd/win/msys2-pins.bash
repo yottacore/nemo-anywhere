@@ -58,11 +58,11 @@ fMsys2Pins_Closure(){
 	local -A fileOf=() depsOf=() provider=() shaOf=() inBase=() seen=()
 	local kind a b pkg real d name
 	while IFS='|' read -r kind a b; do
-		case "$kind" in
-			F) fileOf[$a]=$b ;;
-			D) depsOf[$a]=$b ;;
-			V) provider[$a]=$b ;;
-			S) shaOf[$a]=$b ;;
+		case "${kind}" in
+			F) fileOf[${a}]=${b} ;;
+			D) depsOf[${a}]=${b} ;;
+			V) provider[${a}]=${b} ;;
+			S) shaOf[${a}]=${b} ;;
 		esac
 	done < <(gawk '
 		BEGINFILE { name=""; file=""; deps=""; provs=""; sha=""; sec="" }
@@ -87,23 +87,23 @@ fMsys2Pins_Closure(){
 		}
 	' "${descDir}"/*/desc)
 	if [[ -n "${baseList}" ]]; then
-		while read -r name _; do [[ -n "${name}" ]] && inBase[$name]=1; done < "${baseList}"
+		while read -r name _; do [[ -n "${name}" ]] && inBase[${name}]=1; done < "${baseList}"
 	fi
 
 	local queue=("$@") out=()
 	while [[ ${#queue[@]} -gt 0 ]]; do
 		pkg="${queue[0]}"; queue=("${queue[@]:1}")
-		[[ -n "${seen[$pkg]:-}" ]] && continue
-		seen[$pkg]=1
+		[[ -n "${seen[${pkg}]:-}" ]] && continue
+		seen[${pkg}]=1
 		real="${pkg}"
-		[[ -z "${fileOf[$real]:-}" && -z "${inBase[$real]:-}" && -n "${provider[$pkg]:-}" ]] && real="${provider[$pkg]}"
-		[[ -n "${inBase[$real]:-}" ]] && continue
-		[[ -n "${fileOf[$real]:-}" ]] || fDie "${repo}: nothing provides ${pkg}"
-		[[ -n "${shaOf[$real]:-}" ]] || fDie "${repo}: no sha256 for ${real}"
-		[[ "${real}" != "${pkg}" && -n "${seen[$real]:-}" ]] && continue
-		seen[$real]=1
-		out+=("${repo} ${fileOf[$real]} ${shaOf[$real]}")
-		for d in ${depsOf[$real]:-}; do [[ -n "${seen[$d]:-}" ]] || queue+=("${d}"); done
+		[[ -z "${fileOf[${real}]:-}" && -z "${inBase[${real}]:-}" && -n "${provider[${pkg}]:-}" ]] && real="${provider[${pkg}]}"
+		[[ -n "${inBase[${real}]:-}" ]] && continue
+		[[ -n "${fileOf[${real}]:-}" ]] || fDie "${repo}: nothing provides ${pkg}"
+		[[ -n "${shaOf[${real}]:-}" ]] || fDie "${repo}: no sha256 for ${real}"
+		[[ "${real}" != "${pkg}" && -n "${seen[${real}]:-}" ]] && continue
+		seen[${real}]=1
+		out+=("${repo} ${fileOf[${real}]} ${shaOf[${real}]}")
+		for d in ${depsOf[${real}]:-}; do [[ -n "${seen[${d}]:-}" ]] || queue+=("${d}"); done
 	done
 	printf '%s\n' "${out[@]}" | LC_ALL=C sort
 }

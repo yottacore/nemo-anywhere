@@ -52,7 +52,7 @@ cp "${root}/cicd/cicd.bash" "${scratch}/cicd/"
 for inc in gfs-rotate source-date run-temp docker-sweep jobs; do
 	cp "${root}/cicd/utility/include/${inc}.bash" "${scratch}/cicd/utility/include/"
 done
-printf "project('app', 'c', version: '%s')\n" "$ver" > "${scratch}/meson.build"
+printf "project('app', 'c', version: '%s')\n" "${ver}" > "${scratch}/meson.build"
 cat > "${scratch}/cicd/config.bash" <<-EOF
 	APP_NAME="App"
 	EXE_NAME="app"
@@ -110,17 +110,17 @@ fPipeline(){
 	local want="$1" text="$2"; shift 2
 	local out rc=0
 	fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
-	out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync "$@" 2>&1 </dev/null)" || rc=$?
-	if [[ "$rc" != 0 ]]; then
-		fFail "[$*]: the run failed (exit ${rc}): $(tail -5 <<< "$out")"
+	out="$(cd "${scratch}" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync "$@" 2>&1 </dev/null)" || rc=$?
+	if [[ "${rc}" != 0 ]]; then
+		fFail "[$*]: the run failed (exit ${rc}): $(tail -5 <<< "${out}")"
 		return 0
 	fi
 	[[ -f "${scratch}/out/app.exe" ]] || fFail "[$*]: the other cross target didn't run"
 	[[ -f "${scratch}/out/pkg-other" && -f "${scratch}/out/check-other" ]] || fFail "[$*]: the other packager or check didn't run"
-	case "$want" in
+	case "${want}" in
 		arm)
 			[[ -f "${scratch}/out/app-${ver}-linux-arm64.tar.gz" ]] || fFail "[$*]: the arm64 build didn't run"
-			[[ "$out" == *"OK: Linux arm64 (stand-in): out/app-${ver}-linux-arm64.tar.gz"* ]] || fFail "[$*]: the arm64 artifact wasn't found under its versioned name"
+			[[ "${out}" == *"OK: Linux arm64 (stand-in): out/app-${ver}-linux-arm64.tar.gz"* ]] || fFail "[$*]: the arm64 artifact wasn't found under its versioned name"
 			[[ -f "${scratch}/out/pkg-arm64" ]] || fFail "[$*]: the arm64 packages weren't made"
 			[[ -f "${scratch}/out/check-arm64" ]] || fFail "[$*]: the arm64 check didn't run"
 			;;
@@ -128,10 +128,10 @@ fPipeline(){
 			[[ ! -e "${scratch}/out/app-${ver}-linux-arm64.tar.gz" ]] || fFail "[$*]: the arm64 build ran"
 			[[ ! -e "${scratch}/out/pkg-arm64" ]] || fFail "[$*]: arm64 packages were made with no arm64 build"
 			[[ ! -e "${scratch}/out/check-arm64" ]] || fFail "[$*]: the arm64 check ran with no arm64 build"
-			[[ "$out" != *"Linux arm64 packages"* ]] || fFail "[$*]: the plan lists the arm64 packages"
+			[[ "${out}" != *"Linux arm64 packages"* ]] || fFail "[$*]: the plan lists the arm64 packages"
 			;;
 	esac
-	[[ -z "$text" || "$out" == *"$text"* ]] || fFail "[$*]: no '${text}' in the plan"
+	[[ -z "${text}" || "${out}" == *"${text}"* ]] || fFail "[$*]: no '${text}' in the plan"
 }
 
 ## A plain run leaves arm64 out since 2026-10-24, to stay near an hour.
@@ -146,29 +146,29 @@ fPipeline "no arm" "(no arm64, --no-arm)"               --no-arm
 
 ## --no-cross leaves out every cross target, arm64 too.
 fSafeRm_IfThere "${scratch}/out"
-out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync --include-arm --no-cross 2>&1 </dev/null)" || fFail "--include-arm --no-cross failed"
+out="$(cd "${scratch}" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync --include-arm --no-cross 2>&1 </dev/null)" || fFail "--include-arm --no-cross failed"
 [[ ! -e "${scratch}/out/app.exe" && ! -e "${scratch}/out/app-${ver}-linux-arm64.tar.gz" ]] || fFail "--no-cross still ran a cross target"
 [[ ! -e "${scratch}/out/pkg-arm64" && ! -e "${scratch}/out/check-arm64" ]] || fFail "--include-arm --no-cross still made or checked arm64 packages"
 [[ -f "${scratch}/out/pkg-other" ]] || fFail "--include-arm --no-cross left out the other packages"
-[[ "$out" == *"(skipped, arm64 too)"* ]] || fFail "--include-arm --no-cross doesn't say arm64 is skipped"
+[[ "${out}" == *"(skipped, arm64 too)"* ]] || fFail "--include-arm --no-cross doesn't say arm64 is skipped"
 
 ## $1 "bsd" or "no bsd", $2 text the plan must have, rest the options.
 fBsd(){
 	local want="$1" text="$2"; shift 2
 	local out rc=0 ran=0
 	fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
-	out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync "$@" 2>&1 </dev/null)" || rc=$?
-	if [[ "$rc" != 0 ]]; then
-		fFail "[$*]: the run failed (exit ${rc}): $(tail -5 <<< "$out")"
+	out="$(cd "${scratch}" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync "$@" 2>&1 </dev/null)" || rc=$?
+	if [[ "${rc}" != 0 ]]; then
+		fFail "[$*]: the run failed (exit ${rc}): $(tail -5 <<< "${out}")"
 		return 0
 	fi
 	[[ -f "${scratch}/out/bsd-tests" && -f "${scratch}/out/bsd-release" ]] && ran=1
-	if [[ "$want" == bsd ]]; then
+	if [[ "${want}" == bsd ]]; then
 		((ran)) || fFail "[$*]: the FreeBSD lane didn't run both steps"
 	else
 		[[ ! -e "${scratch}/out/bsd-tests" && ! -e "${scratch}/out/bsd-release" ]] || fFail "[$*]: the FreeBSD lane ran"
 	fi
-	[[ -z "$text" || "$out" == *"$text"* ]] || fFail "[$*]: no '${text}' in the plan"
+	[[ -z "${text}" || "${out}" == *"${text}"* ]] || fFail "[$*]: no '${text}' in the plan"
 }
 
 fBsd bsd      ""
@@ -180,13 +180,13 @@ fBsd bsd      ""                                       --quick --include-bsd
 
 ## The FreeBSD and arm64 boxes aren't there: SKIP, and the run goes on.
 fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
-rc=0; out="$(cd "$scratch" && FAKE_BOX_GONE=1 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync --long 2>&1 </dev/null)" || rc=$?
-if [[ "$rc" != 0 ]]; then
-	fFail "a run with no FreeBSD or arm64 box failed (exit ${rc}): $(tail -5 <<< "$out")"
+rc=0; out="$(cd "${scratch}" && FAKE_BOX_GONE=1 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync --long 2>&1 </dev/null)" || rc=$?
+if [[ "${rc}" != 0 ]]; then
+	fFail "a run with no FreeBSD or arm64 box failed (exit ${rc}): $(tail -5 <<< "${out}")"
 else
 	for step in "FreeBSD suite" "Release build: Linux arm64 (stand-in)" "Release build: FreeBSD" "Native Windows gate"; do
-		grep -qF "; SKIP ${step} ]" <<< "$out" || fFail "no SKIP line for ${step}"
-		grep -qxF "    - ${step}" <<< "$out" || fFail "${step} isn't in the list of skipped steps at the end"
+		grep -qF "; SKIP ${step} ]" <<< "${out}" || fFail "no SKIP line for ${step}"
+		grep -qxF "    - ${step}" <<< "${out}" || fFail "${step} isn't in the list of skipped steps at the end"
 	done
 	[[ ! -e "${scratch}/out/pkg-arm64" && ! -e "${scratch}/out/check-arm64" ]] || fFail "arm64 packages or their check ran with the arm64 build skipped"
 	[[ -f "${scratch}/out/pkg-other" && -f "${scratch}/out/check-other" && -f "${scratch}/out/app.exe" ]] || fFail "a step after the skips didn't run"
@@ -201,15 +201,15 @@ fWin(){
 	while (($#)) && [[ "$1" != -- ]]; do envs+=("$1"); shift; done
 	shift
 	fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
-	out="$(cd "$scratch" && env "${envs[@]}" CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync "$@" 2>&1 </dev/null)" || rc=$?
-	if [[ "$rc" != 0 ]]; then
-		fFail "[${envs[*]} $*]: the run failed (exit ${rc}): $(tail -5 <<< "$out")"
+	out="$(cd "${scratch}" && env "${envs[@]}" CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync "$@" 2>&1 </dev/null)" || rc=$?
+	if [[ "${rc}" != 0 ]]; then
+		fFail "[${envs[*]} $*]: the run failed (exit ${rc}): $(tail -5 <<< "${out}")"
 		return 0
 	fi
 	[[ -e "${scratch}/out/win-side" ]] && got=side
 	[[ -e "${scratch}/out/win-gate" ]] && got="${got/none/}other"
-	[[ "$got" == "$want" ]] || fFail "[${envs[*]} $*]: wanted the ${want} gate command, ran: ${got}"
-	[[ -z "$text" || "$out" == *"$text"* ]] || fFail "[${envs[*]} $*]: no '${text}' in the output"
+	[[ "${got}" == "${want}" ]] || fFail "[${envs[*]} $*]: wanted the ${want} gate command, ran: ${got}"
+	[[ -z "${text}" || "${out}" == *"${text}"* ]] || fFail "[${envs[*]} $*]: no '${text}' in the output"
 }
 fWin side  "side gate ran"                                --
 fWin side  "OK: native Windows gate"                      -- --backlog-run-full
@@ -218,35 +218,35 @@ fWin none  "Native Windows ......: (skipped --no-win)"    -- --no-win
 fWin none  "Native Windows ......: (skipped --no-remote)" -- --no-remote
 fWin none  "Native Windows ......: (skipped --quick)"     -- --quick
 fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
-out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync 2>&1 </dev/null)" || fFail "the run with a side gate failed"
+out="$(cd "${scratch}" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync 2>&1 </dev/null)" || fFail "the run with a side gate failed"
 [[ "$(cat "${scratch}/out/win-side" 2> /dev/null)" == 1 ]] || fFail "the side gate was not told it may leave its windowed tests to the other box"
 fWin sideother "its windowed tests go to"                    FAKE_WIN_RC=75 --
 [[ "$(cat "${scratch}/out/win-gate" 2> /dev/null)" == "-BacklogRunQuick -Yes -NoSync -NoFmt -NoTests" ]] || fFail "the other gate didn't get -NoFmt -NoTests after a 75: $(cat "${scratch}/out/win-gate" 2> /dev/null)"
 deskList="$(cat "${scratch}/out/win-side-list" 2> /dev/null)"
-[[ -n "$deskList" && "$deskList" == "$(cat "${scratch}/out/win-gate-list" 2> /dev/null)" ]] || fFail "the two gates were not given the same test list file: '${deskList}', '$(cat "${scratch}/out/win-gate-list" 2> /dev/null)'"
+[[ -n "${deskList}" && "${deskList}" == "$(cat "${scratch}/out/win-gate-list" 2> /dev/null)" ]] || fFail "the two gates were not given the same test list file: '${deskList}', '$(cat "${scratch}/out/win-gate-list" 2> /dev/null)'"
 fWin side "WARNING: no box there for the windowed tests"     FAKE_WIN_RC=75 FAKE_WIN_OTHER_GONE=1 --
 fSafeRm_IfThere "${scratch}/out" "${scratch}/native.bin"
-rc=0; out="$(cd "$scratch" && FAKE_WIN_RC=3 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync 2>&1 </dev/null)" || rc=$?
+rc=0; out="$(cd "${scratch}" && FAKE_WIN_RC=3 CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync 2>&1 </dev/null)" || rc=$?
 ((rc != 0)) || fFail "a failing native Windows gate didn't fail the run"
-[[ "$out" == *"native Windows gate (exit 3)"* ]] || fFail "a failing native Windows gate wasn't named: $(tail -3 <<< "$out")"
+[[ "${out}" == *"native Windows gate (exit 3)"* ]] || fFail "a failing native Windows gate wasn't named: $(tail -3 <<< "${out}")"
 [[ ! -e "${scratch}/out/pkg-other" ]] || fFail "the packages ran after the native Windows gate failed"
 
 ## --quick leaves arm64 out. Since 2026-10-19 --include-arm brings it back under
 ## --quick, the way --include-bsd does, so that case moved to test-cicd-quick.bash.
 fSafeRm_IfThere "${scratch}/out"
-out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync --quick 2>&1 </dev/null)" || fFail "--quick failed"
+out="$(cd "${scratch}" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync --quick 2>&1 </dev/null)" || fFail "--quick failed"
 [[ ! -e "${scratch}/out/app-${ver}-linux-arm64.tar.gz" && ! -e "${scratch}/out/pkg-arm64" ]] || fFail "--quick built arm64"
 
 help="$(bash "${root}/cicd/cicd.bash" --help)"
 for opt in --include-arm --no-arm --include-bsd --no-bsd --no-win --long --slow; do
-	grep -qE "^ +${opt} " <<< "$help" || fFail "--help has no ${opt}"
+	grep -qE "^ +${opt} " <<< "${help}" || fFail "--help has no ${opt}"
 done
 
 ## The real entry: only the arm64 one may match the engine's arm64 filter, and
 ## it has to point at the file release-arm64.bash writes.
-entries="$(bash -c 'root="$1"; source "$1/cicd/config.bash"; printf "%s\n" "${CROSS_TARGETS[@]}"' _ "$root")"
-armEntries="$(grep -E 'arm64|aarch64' <<< "$entries" || true)"
-if [[ "$(grep -c . <<< "$armEntries")" != 1 || -z "$armEntries" ]]; then
+entries="$(bash -c 'root="$1"; source "$1/cicd/config.bash"; printf "%s\n" "${CROSS_TARGETS[@]}"' _ "${root}")"
+armEntries="$(grep -E 'arm64|aarch64' <<< "${entries}" || true)"
+if [[ "$(grep -c . <<< "${armEntries}")" != 1 || -z "${armEntries}" ]]; then
 	fFail "config.bash should have one arm64 cross target, has: ${armEntries:-none}"
 else
 	rest="${armEntries#*|}"; osarch="${rest%%|*}"; rest="${rest#*|}"; art="${rest%%|*}"; cmd="${rest#*|}"
@@ -254,17 +254,17 @@ else
 	# shellcheck source=include/release-files.bash
 	source "${root}/cicd/utility/include/release-files.bash"
 	wantArt="cicd/artifacts/release/nemo-anywhere-${realVer}-linux-$(fReleaseArch aarch64).tar.gz"
-	[[ "${art//@VER@/${realVer}}" == "$wantArt" ]] || fFail "the arm64 entry looks for ${art}, the lane writes ${wantArt}"
-	[[ "$osarch" == "linux-arm64" ]] || fFail "the arm64 entry is for ${osarch}"
-	[[ "$cmd" == "bash cicd/linux/release-arm64.bash" ]] || fFail "the arm64 entry runs '${cmd}'"
+	[[ "${art//@VER@/${realVer}}" == "${wantArt}" ]] || fFail "the arm64 entry looks for ${art}, the lane writes ${wantArt}"
+	[[ "${osarch}" == "linux-arm64" ]] || fFail "the arm64 entry is for ${osarch}"
+	[[ "${cmd}" == "bash cicd/linux/release-arm64.bash" ]] || fFail "the arm64 entry runs '${cmd}'"
 	grep -qF "\"\${SLUG}-\${ver}-linux-arm64.tar.gz\"" "${root}/cicd/linux/release-arm64.bash" || fFail "release-arm64.bash no longer names its tarball the way this check expects"
 fi
 
 ## The real packagers and checks: one arm64 entry each, asking for arm64.
 for list in PACKAGE_CMDS PACKAGE_CHECKS; do
-	entries="$(bash -c 'root="$1"; source "$1/cicd/config.bash"; declare -n l="$2"; printf "%s\n" "${l[@]}"' _ "$root" "$list")"
-	armEntries="$(grep -E 'arm64|aarch64' <<< "$entries" || true)"
-	if [[ "$(grep -c . <<< "$armEntries")" != 1 || -z "$armEntries" ]]; then
+	entries="$(bash -c 'root="$1"; source "$1/cicd/config.bash"; declare -n l="$2"; printf "%s\n" "${l[@]}"' _ "${root}" "${list}")"
+	armEntries="$(grep -E 'arm64|aarch64' <<< "${entries}" || true)"
+	if [[ "$(grep -c . <<< "${armEntries}")" != 1 || -z "${armEntries}" ]]; then
 		fFail "${list} should have one arm64 entry, has: ${armEntries:-none}"
 	elif [[ "${armEntries#*|}" != *" --arch arm64" ]]; then
 		fFail "the arm64 entry in ${list} runs '${armEntries#*|}'"

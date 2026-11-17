@@ -79,30 +79,30 @@ EOF
 fRun(){
 	local what="$1" want="$2" rc=0
 	shift 2
-	rm -f "$log" "${log}.df"
-	lastOut="$(cd "$repo" && PATH="${scratch}/bin:${PATH}" DOCKER_LOG="$log" HOST_TEMP="${scratch}/host-temp" \
-		STEP_DO="$what" CICD_CPU_CAPPED=1 bash cicd/cicd.bash --backlog-run-quick tests "$@" 2>&1 </dev/null)" || rc=$?
-	[[ "$rc" == "$want" ]] || fFail "[${what:-ok} $*]: exit ${rc}, not ${want}: $(tail -3 <<< "$lastOut")"
-	touch "$log"
+	rm -f "${log}" "${log}.df"
+	lastOut="$(cd "${repo}" && PATH="${scratch}/bin:${PATH}" DOCKER_LOG="${log}" HOST_TEMP="${scratch}/host-temp" \
+		STEP_DO="${what}" CICD_CPU_CAPPED=1 bash cicd/cicd.bash --backlog-run-quick tests "$@" 2>&1 </dev/null)" || rc=$?
+	[[ "${rc}" == "${want}" ]] || fFail "[${what:-ok} $*]: exit ${rc}, not ${want}: $(tail -3 <<< "${lastOut}")"
+	touch "${log}"
 }
-fHas(){ grep -q -x -E -- "$2" "$log" || fFail "[$1]: no docker call like: $2"; }
-fNot(){ ! grep -q -E -- "$2" "$log" || fFail "[$1]: a docker call like: $2"; }
+fHas(){ grep -q -x -E -- "$2" "${log}" || fFail "[$1]: no docker call like: $2"; }
+fNot(){ ! grep -q -E -- "$2" "${log}" || fFail "[$1]: a docker call like: $2"; }
 fSwept(){
 	local tag="$1"
-	fHas "$tag" "ps -a --filter label=dev\.project=app --filter label=dev\.run=[0-9]{8}-[0-9]{6}_[0-9]{3} .*"
-	fHas "$tag" "rm -f c1"
-	fNot "$tag" "^rm .*c2"
-	fHas "$tag" "rmi d1"
-	fHas "$tag" "rmi app-x:old"
-	fHas "$tag" "rmi app-x:older"
-	fNot "$tag" "^rmi (app-x:new|app-x:prev|app-y:only)$"
-	fNot "$tag" "^rmi .*-f|prune"
-	fNot "$tag" "^(builder|buildx) "
-	fHas "$tag" "volume ls --filter label=dev\.project=app .*"
-	fHas "$tag" "volume rm app-build"
-	fNot "$tag" "^volume rm (app-live|app-bare)"
-	[[ "$lastOut" == *"[ docker: removed 1 container(s), 3 image(s) and 1 volume(s); about 1.3 GB freed ]"* ]] \
-		|| fFail "[${tag}]: no summary line: $(tail -3 <<< "$lastOut")"
+	fHas "${tag}" "ps -a --filter label=dev\.project=app --filter label=dev\.run=[0-9]{8}-[0-9]{6}_[0-9]{3} .*"
+	fHas "${tag}" "rm -f c1"
+	fNot "${tag}" "^rm .*c2"
+	fHas "${tag}" "rmi d1"
+	fHas "${tag}" "rmi app-x:old"
+	fHas "${tag}" "rmi app-x:older"
+	fNot "${tag}" "^rmi (app-x:new|app-x:prev|app-y:only)$"
+	fNot "${tag}" "^rmi .*-f|prune"
+	fNot "${tag}" "^(builder|buildx) "
+	fHas "${tag}" "volume ls --filter label=dev\.project=app .*"
+	fHas "${tag}" "volume rm app-build"
+	fNot "${tag}" "^volume rm (app-live|app-bare)"
+	[[ "${lastOut}" == *"[ docker: removed 1 container(s), 3 image(s) and 1 volume(s); about 1.3 GB freed ]"* ]] \
+		|| fFail "[${tag}]: no summary line: $(tail -3 <<< "${lastOut}")"
 }
 
 fRun "" 0;      fSwept ok
@@ -111,20 +111,20 @@ fRun term 143;  fSwept term
 fRun "" 0 --keep-temp
 fNot keep "^rm "
 fHas keep "rmi d1"
-[[ "$lastOut" == *"[ kept the run's containers: app-run-step ]"* ]] || fFail "[keep]: didn't name the kept container: $(tail -3 <<< "$lastOut")"
-[[ "$lastOut" != *"app-box"* ]] || fFail "[keep]: named a long-lived box as the run's"
+[[ "${lastOut}" == *"[ kept the run's containers: app-run-step ]"* ]] || fFail "[keep]: didn't name the kept container: $(tail -3 <<< "${lastOut}")"
+[[ "${lastOut}" != *"app-box"* ]] || fFail "[keep]: named a long-lived box as the run's"
 STUB_SWEEP=0 fRun "" 0
 fNot off "^(system|ps|rm|rmi|images|builder) "
 DOCKER_DOWN=1 fRun "" 0
 fNot down "^(system|ps|rm|rmi|images|builder) "
-[[ "$lastOut" != *"[ docker:"* ]] || fFail "[down]: printed a summary"
+[[ "${lastOut}" != *"[ docker:"* ]] || fFail "[down]: printed a summary"
 ## A df the daemon refuses leaves the size unknown, and the rest goes ahead.
 DF_FAIL=1 fRun "" 0
 fHas df "rm -f c1"
-[[ "$lastOut" == *"[ docker: removed 1 container(s), 3 image(s) and 1 volume(s); size not known ]"* ]] \
-	|| fFail "[df]: no summary line with the size not known: $(tail -3 <<< "$lastOut")"
-runName="$(sed -n 's/.*label=dev\.run=\([^ ]*\).*/\1/p' "$log" | head -1)"
-[[ -n "$runName" && ! -e "${scratch}/host-temp/app/${runName}" ]] || fFail "[df]: the run folder ${runName} is still there"
+[[ "${lastOut}" == *"[ docker: removed 1 container(s), 3 image(s) and 1 volume(s); size not known ]"* ]] \
+	|| fFail "[df]: no summary line with the size not known: $(tail -3 <<< "${lastOut}")"
+runName="$(sed -n 's/.*label=dev\.run=\([^ ]*\).*/\1/p' "${log}" | head -1)"
+[[ -n "${runName}" && ! -e "${scratch}/host-temp/app/${runName}" ]] || fFail "[df]: the run folder ${runName} is still there"
 
 if ((failures)); then
 	fEcho "FAILED: docker cleanup, ${failures} problem(s)"

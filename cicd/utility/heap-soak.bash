@@ -66,26 +66,26 @@ fInner(){
 	printf 'text\n' > "${work}/tree/note.txt"
 
 	fXvfbStart :120 1280x900x24 "${work}/xvfb.log" >&2 || { echo "no headless display" >&2; exit 1; }
-	disp="$XVFB_DISPLAY"
+	disp="${XVFB_DISPLAY}"
 
-	DISPLAY="$disp" HOME="${work}/home" XDG_CONFIG_HOME="${work}/home/.config" \
+	DISPLAY="${disp}" HOME="${work}/home" XDG_CONFIG_HOME="${work}/home/.config" \
 		XDG_CACHE_HOME="${work}/home/.cache" XDG_DATA_HOME="${work}/home/.local/share" \
 		DBUS_SESSION_BUS_ADDRESS="disabled:" NEMO_TESTGUARD_ALL_DELETES=0 \
 		GLIBC_TUNABLES="glibc.malloc.tcache_count=0:glibc.malloc.arena_max=1" \
 		G_SLICE=always-malloc G_DEBUG=gc-friendly \
-		NEMO_SOAK_OUT="${work}/out/soak.txt" NEMO_SOAK_ROUNDS="$rounds" NEMO_SOAK_PLANT="$plantBytes" \
-		LD_PRELOAD="$probe" \
-		timeout 900 nice -n 19 heaptrack -o "${work}/out/heaptrack" "$app" --geometry=900x700 "${work}/tree/pics" \
+		NEMO_SOAK_OUT="${work}/out/soak.txt" NEMO_SOAK_ROUNDS="${rounds}" NEMO_SOAK_PLANT="${plantBytes}" \
+		LD_PRELOAD="${probe}" \
+		timeout 900 nice -n 19 heaptrack -o "${work}/out/heaptrack" "${app}" --geometry=900x700 "${work}/tree/pics" \
 		> "${work}/out/app.log" 2>&1 || rc=$?
-	kill "$XVFB_PID" 2>/dev/null || true
+	kill "${XVFB_PID}" 2>/dev/null || true
 	echo "exit ${rc}" >> "${work}/out/soak.txt"
 	local data
 	for data in "${work}/out/heaptrack.zst" "${work}/out/heaptrack.gz" ""; do
-		[[ ! -f "$data" ]] || break
+		[[ ! -f "${data}" ]] || break
 	done
-	if [[ -n "$data" ]]; then
+	if [[ -n "${data}" ]]; then
 		heaptrack_print --print-leaks 1 --peak-limit 20 --print-allocators 0 --print-temporary 0 \
-			"$data" > "${work}/out/report.txt" 2>&1 || true
+			"${data}" > "${work}/out/report.txt" 2>&1 || true
 	fi
 	tar -C "${work}/out" -cf - .
 }
@@ -100,24 +100,24 @@ esac
 
 out="${root}/cicd/artifacts/heap-soak"
 last="${out}/last"
-mkdir -p "$out"
+mkdir -p "${out}"
 
 ## Prints the growth from round N to 2N, or fails with why.
 fRun(){
 	local name="$1" plantBytes="$2" dir="${last}/$1" n a b
-	fSafeRm_Under "${root}/cicd/artifacts" "$dir"; mkdir -p "$dir"
+	fSafeRm_Under "${root}/cicd/artifacts" "${dir}"; mkdir -p "${dir}"
 	# shellcheck disable=SC2016  ## expanded in the step's container
 	bash "${here}/docker-run.bash" "heap soak ${name}" \
-		"bash /src/cicd/utility/heap-soak.bash --inner ${plantBytes} ${rounds}" | tar -C "$dir" -xf - \
+		"bash /src/cicd/utility/heap-soak.bash --inner ${plantBytes} ${rounds}" | tar -C "${dir}" -xf - \
 		|| { fEcho "FAILED: ${name}: the soak run itself failed" >&2; return 2; }
 	grep -q '^done$' "${dir}/soak.txt" 2>/dev/null \
 		|| { fEcho "FAILED: ${name}: the probe didn't finish; last lines of the app:" >&2; tail -5 "${dir}/app.log" >&2; return 2; }
-	n="$(awk -v r="$rounds" '$1 == "heap" && $2 == r { print $3 }' "${dir}/soak.txt")"
+	n="$(awk -v r="${rounds}" '$1 == "heap" && $2 == r { print $3 }' "${dir}/soak.txt")"
 	a="$(awk -v r="$((2 * rounds))" '$1 == "heap" && $2 == r { print $3 }' "${dir}/soak.txt")"
-	[[ -n "$n" && -n "$a" ]] || { fEcho "FAILED: ${name}: no heap readings" >&2; return 2; }
+	[[ -n "${n}" && -n "${a}" ]] || { fEcho "FAILED: ${name}: no heap readings" >&2; return 2; }
 	b=$((a - n))
 	fEcho_Clean "${name}: the heap grew ${b} bytes from round ${rounds} to $((2 * rounds)) (margin ${margin})" >&2
-	echo "$b"
+	echo "${b}"
 }
 
 echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURCE[0]}") ${BASH_SOURCE[0]##*/} ]"
@@ -125,7 +125,7 @@ failed=0
 
 if [[ "${1:-}" != "--soak-only" ]]; then
 	fSection "Heap soak: planted growth of ${plant} bytes a round"
-	grew="$(fRun planted "$plant")" || failed=1
+	grew="$(fRun planted "${plant}")" || failed=1
 	if ((! failed)) && ((grew <= margin)); then
 		fEcho "FAILED: the soak missed a planted growth of ${plant} bytes a round"
 		failed=1

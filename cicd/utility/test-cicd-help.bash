@@ -27,9 +27,9 @@ failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 ## The --quick entry and its continuation lines, joined into one.
-help="$(bash "$cicd" --help)"
-quickHelp="$(awk '/^ +--quick / { on = 1; print; next } on && /^ +--/ { exit } on { print }' <<< "$help" | tr -s ' \n' '  ')"
-if [[ -z "$quickHelp" ]]; then
+help="$(bash "${cicd}" --help)"
+quickHelp="$(awk '/^ +--quick / { on = 1; print; next } on && /^ +--/ { exit } on { print }' <<< "${help}" | tr -s ' \n' '  ')"
+if [[ -z "${quickHelp}" ]]; then
 	fEcho "FAILED: no --quick entry in cicd.bash --help"
 	exit 1
 fi
@@ -43,7 +43,7 @@ scratch="$(mktemp -d "${TMPDIR:-/tmp}/cicd-help-check.XXXXXX")"
 trap 'fSafeRm_IfThere "${scratch}"' EXIT
 export HOST_TEMP="${scratch}/host-temp"
 mkdir -p "${HOST_TEMP}" "${scratch}/cicd/utility/include" "${scratch}/cicd/utility/demo-video"
-cp "$cicd" "${scratch}/cicd/"
+cp "${cicd}" "${scratch}/cicd/"
 for inc in gfs-rotate source-date run-temp docker-sweep jobs; do
 	cp "${here}/include/${inc}.bash" "${scratch}/cicd/utility/include/"
 done
@@ -64,22 +64,22 @@ cat > "${scratch}/cicd/config.bash" <<-CFG
 	DOGFOOD_FIXED_DESTS=("${scratch}"); DOGFOOD_ROTATING_DESTS=(); DOGFOOD_CROSS_DESTS=(); DOGFOOD_HOOK=(true)
 	DOGFOOD_REMOTE=(true); GIT_PUBLISH=(true); PUBLISH_AUTO_MESSAGE="unused"
 CFG
-plan="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --quick --no-sync 2>&1 </dev/null || true)"
+plan="$(cd "${scratch}" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --quick --no-sync 2>&1 </dev/null || true)"
 ## Plan names that the help calls something else.
 declare -A helpNames=(["FreeBSD suite"]="FreeBSD" ["Release build: FreeBSD"]="FreeBSD" ["Dogfood (remote)"]="remote dogfood" ["Release build: Linux arm64 (stand-in)"]="arm64")
 skipped=()
 while IFS= read -r what; do
-	[[ -n "$what" ]] && skipped+=("${helpNames[$what]:-${what}}")
-done < <(sed -n 's/^    - \(.*\) (--quick)$/\1/p' <<< "$plan" | sort -u)
-optLine="$(grep -E '^[[:space:]]+--quick\)' "$cicd" || true)"
+	[[ -n "${what}" ]] && skipped+=("${helpNames[${what}]:-${what}}")
+done < <(sed -n 's/^    - \(.*\) (--quick)$/\1/p' <<< "${plan}" | sort -u)
+optLine="$(grep -E '^[[:space:]]+--quick\)' "${cicd}" || true)"
 while IFS= read -r var; do
-	[[ -n "$var" ]] || continue
-	if [[ -z "${switchNames[$var]+x}" ]]; then
+	[[ -n "${var}" ]] || continue
+	if [[ -z "${switchNames[${var}]+x}" ]]; then
 		fFail "--quick turns off ${var}; add its help name to switchNames"
 		continue
 	fi
-	skipped+=("${switchNames[$var]}")
-done < <(grep -o -E '[A-Z_]+=0' <<< "$optLine" | sed 's/=0$//')
+	skipped+=("${switchNames[${var}]}")
+done < <(grep -o -E '[A-Z_]+=0' <<< "${optLine}" | sed 's/=0$//')
 
 if ((${#skipped[@]} < 3)); then
 	fEcho "FAILED: found only ${#skipped[@]} stages skipped by --quick; the patterns no longer match cicd.bash"
@@ -87,7 +87,7 @@ if ((${#skipped[@]} < 3)); then
 fi
 
 for what in "${skipped[@]}"; do
-	if ! grep -q -i -F -- "$what" <<< "$quickHelp"; then
+	if ! grep -q -i -F -- "${what}" <<< "${quickHelp}"; then
 		fFail "--quick skips ${what}, but --help doesn't say so"
 	fi
 done

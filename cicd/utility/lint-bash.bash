@@ -26,7 +26,7 @@ cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fEcho(){ echo "[ $* ]"; }
 
 if ! command -v shellcheck >/dev/null 2>&1; then
-	if [[ "$strict" == "1" ]]; then
+	if [[ "${strict}" == "1" ]]; then
 		fEcho "FAILED: Bash lint: shellcheck not installed" >&2
 		exit 1
 	fi
@@ -48,15 +48,15 @@ files+=(cicd/hooks/pre-push utility/runfm)
 ## variables. config.bash keeps its one: every name in it is read by
 ## cicd.bash, so the whole file reads as write-only.
 fileWide="$(for f in "${files[@]}"; do
-	[[ "$f" == 'cicd/config.bash' ]] && continue
+	[[ "${f}" == 'cicd/config.bash' ]] && continue
 	awk '
 		/^[[:space:]]*#[[:space:]]*shellcheck[[:space:]]+disable=/ { if (!cmd) print FILENAME ":" FNR ": " $0; next }
 		/^[[:space:]]*($|#)/ { next }
 		{ cmd = 1 }
-	' "$f"
+	' "${f}"
 done)"
-if [[ -n "$fileWide" ]]; then
-	printf '%s\n' "$fileWide"
+if [[ -n "${fileWide}" ]]; then
+	printf '%s\n' "${fileWide}"
 	fEcho "FAILED: Bash lint: a shellcheck disable= covers a whole file - put it at the line that needs it"
 	exit 1
 fi
@@ -66,8 +66,8 @@ fi
 ## which read as no window in the GUI smoke check. Give them a here-string.
 ## Test ID: ddf3e
 earlyExit="$(grep -nE '(^|[^|])[|][[:space:]]*grep([[:space:]]+-[^[:space:]]+)*[[:space:]]+-[a-zA-Z]*[qm]' "${files[@]}" || true)"
-if [[ -n "$earlyExit" ]]; then
-	printf '%s\n' "$earlyExit"
+if [[ -n "${earlyExit}" ]]; then
+	printf '%s\n' "${earlyExit}"
 	fEcho "FAILED: Bash lint: grep -q or -m reading a pipe - feed it a here-string"
 	exit 1
 fi

@@ -55,7 +55,7 @@ failures=0
 
 fEcho(){ echo "[ $* ]"; }
 fFail(){ fEcho "FAIL: $*"; failures=$(( failures + 1 )); }
-fSkip(){ if [[ "$strict" == 1 ]]; then fFail "$*"; else fEcho "SKIP: $*"; fi ;}
+fSkip(){ if [[ "${strict}" == 1 ]]; then fFail "$*"; else fEcho "SKIP: $*"; fi ;}
 
 ## Pull the meson setup line out of a lane and check it has every flag. The
 ## lanes are written by hand in 2 different languages, so matching the command
@@ -64,15 +64,15 @@ fCheckLane(){
 	local file="$1"; shift
 	local line flag
 
-	[[ -f "$file" ]] || { fFail "${file}: not found"; return; }
+	[[ -f "${file}" ]] || { fFail "${file}: not found"; return; }
 
 	## meson-setup.bash is our wrapper; the flags still sit on its line.
-	line="$(grep -n -E '(^|[^#])(meson setup|meson-setup\.bash) ' "$file" | grep -v -E '^[0-9]+:[[:space:]]*#' | head -1 || true)"
-	[[ -n "$line" ]] || { fFail "${file}: no meson setup line"; return; }
+	line="$(grep -n -E '(^|[^#])(meson setup|meson-setup\.bash) ' "${file}" | grep -v -E '^[0-9]+:[[:space:]]*#' | head -1 || true)"
+	[[ -n "${line}" ]] || { fFail "${file}: no meson setup line"; return; }
 
 	for flag in "$@"; do
-		case "$line" in
-			*"$flag"*) ;;
+		case "${line}" in
+			*"${flag}"*) ;;
 			*) fFail "${file}:${line%%:*}: meson setup is missing ${flag}" ;;
 		esac
 	done
@@ -86,27 +86,27 @@ fCheckResources(){
 	local windres="" candidate rc manifest ver
 
 	for candidate in x86_64-w64-mingw32-windres windres; do
-		if command -v "$candidate" >/dev/null 2>&1; then windres="$candidate"; break; fi
+		if command -v "${candidate}" >/dev/null 2>&1; then windres="${candidate}"; break; fi
 	done
-	if [[ -z "$windres" ]]; then
+	if [[ -z "${windres}" ]]; then
 		fSkip "windres not found, so the resources in ${path} were not read"
 		return 0
 	fi
 
-	rc="$("$windres" -i "$path" -O rc 2>/dev/null || true)"
+	rc="$("${windres}" -i "${path}" -O rc 2>/dev/null || true)"
 	## Resource 1 of type 24 is the only manifest Windows reads from an exe.
-	manifest="$(awk '/^1 24 /{ inside = 1 } inside { print } inside && /^END/{ exit }' <<<"$rc")"
-	if [[ -z "$manifest" ]]; then
+	manifest="$(awk '/^1 24 /{ inside = 1 } inside { print } inside && /^END/{ exit }' <<<"${rc}")"
+	if [[ -z "${manifest}" ]]; then
 		fFail "${path}: no application manifest (resource 1, type 24)"
 	else
-		[[ "$manifest" == *'>true</longPathAware>'* ]] || fFail "${path}: manifest does not declare longPathAware"
-		[[ "$manifest" == *'>UTF-8</activeCodePage>'* ]] || fFail "${path}: manifest does not set the UTF-8 code page"
+		[[ "${manifest}" == *'>true</longPathAware>'* ]] || fFail "${path}: manifest does not declare longPathAware"
+		[[ "${manifest}" == *'>UTF-8</activeCodePage>'* ]] || fFail "${path}: manifest does not set the UTF-8 code page"
 	fi
 
 	ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" source/meson.build | head -1 || true)"
-	grep -q -F "VALUE \"FileVersion\", \"${ver}\"" <<<"$rc" \
+	grep -q -F "VALUE \"FileVersion\", \"${ver}\"" <<<"${rc}" \
 		|| fFail "${path}: version resource has no FileVersion ${ver}"
-	grep -q -E 'VALUE "CompanyName", L?"[^"]+"' <<<"$rc" \
+	grep -q -E 'VALUE "CompanyName", L?"[^"]+"' <<<"${rc}" \
 		|| fFail "${path}: version resource has no CompanyName"
 	return 0
 }
@@ -120,28 +120,28 @@ fCheckExe(){
 		return
 	fi
 
-	bytes="$(stat -c %s "$path" 2>/dev/null || wc -c < "$path")"
+	bytes="$(stat -c %s "${path}" 2>/dev/null || wc -c < "${path}")"
 	if (( bytes > maxBytes )); then
 		fFail "${path}: ${bytes} bytes, over the ${maxBytes} ceiling - this is a debug link"
 	fi
 
-	headers="$(objdump -p "$path" 2>/dev/null || true)"
-	subsystem="$(awk '$1 == "Subsystem" { print $2 }' <<<"$headers")"
-	[[ "$subsystem" == "00000002" ]] || fFail "${path}: PE subsystem is ${subsystem:-unreadable}, expected 00000002 (Windows GUI)"
+	headers="$(objdump -p "${path}" 2>/dev/null || true)"
+	subsystem="$(awk '$1 == "Subsystem" { print $2 }' <<<"${headers}")"
+	[[ "${subsystem}" == "00000002" ]] || fFail "${path}: PE subsystem is ${subsystem:-unreadable}, expected 00000002 (Windows GUI)"
 
 	## Content of nemo-shell-ui.xml, which only the bundle has. Its resource
 	## path is no proof: the code that looks it up names it too.
-	LC_ALL=C grep -a -q -F '<menubar name="MenuBar">' "$path" \
+	LC_ALL=C grep -a -q -F '<menubar name="MenuBar">' "${path}" \
 		|| fFail "${path}: the compiled-in resource bundle is missing (no nemo-shell-ui.xml content)"
 
-	fCheckResources "$path"
+	fCheckResources "${path}"
 
 	(( shipped )) || return 0
 
-	sections="$(objdump -h "$path" 2>/dev/null | grep -c '\.debug_' || true)"
-	if [[ "$sections" != 0 ]]; then
+	sections="$(objdump -h "${path}" 2>/dev/null | grep -c '\.debug_' || true)"
+	if [[ "${sections}" != 0 ]]; then
 		fFail "${path}: ${sections} debug sections, expected none in a shipped exe"
-		objdump -h "$path" 2>/dev/null | grep '\.debug_' || true
+		objdump -h "${path}" 2>/dev/null | grep '\.debug_' || true
 	fi
 }
 
@@ -150,9 +150,9 @@ fCheckLane '.github/workflows/release-win.yml' '--buildtype=release' '-Dstrip=tr
 ## The Linux lane has always passed the first 2. Checked here so all 3 stay together.
 fCheckLane 'cicd/linux/release-setup.bash' '--buildtype=release' '-Dstrip=true' '-Db_lto=true' '-Drelease=true'
 
-if [[ -n "$exe" && -f "$exe" ]]; then
-	fCheckExe "$exe"
-elif [[ -n "$exe" ]]; then
+if [[ -n "${exe}" && -f "${exe}" ]]; then
+	fCheckExe "${exe}"
+elif [[ -n "${exe}" ]]; then
 	fFail "${exe}: not found"
 else
 	fSkip "no built exe to read"

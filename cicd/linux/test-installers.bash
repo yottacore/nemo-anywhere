@@ -19,7 +19,7 @@ echo "[ Test $(sed -n 's/^##[[:space:]]*\(- \)\{0,1\}Test ID: //p' "${BASH_SOURC
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=../utility/include/run-temp.bash
 source "${root}/cicd/utility/include/run-temp.bash"
-cd "$root"
+cd "${root}"
 
 fEcho_Clean(){ echo "${@}"; }
 fEcho(){       if [[ -n "${*}" ]]; then fEcho_Clean "[ ${*} ]"; else fEcho_Clean ""; fi; }
@@ -27,7 +27,7 @@ fEcho(){       if [[ -n "${*}" ]]; then fEcho_Clean "[ ${*} ]"; else fEcho_Clean
 readonly exeName="nemo-anywhere"
 ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" source/meson.build | head -1 || true)"
 readonly tarball="${root}/cicd/artifacts/release/${exeName}-${ver}-linux-x86_64.tar.gz"
-if [[ -z "$ver" || ! -f "$tarball" ]]; then
+if [[ -z "${ver}" || ! -f "${tarball}" ]]; then
 	fEcho "installer check skipped: no ${tarball##*/} (run the release lane first)"
 	exit 77
 fi
@@ -47,27 +47,27 @@ fRound(){
 	local launcher="${home}/.local/share/applications/${exeName}.desktop"
 	local symlink="${home}/.local/bin/${exeName}"
 	local pass leftovers
-	mkdir -p "$home"
+	mkdir -p "${home}"
 
 	for pass in install reinstall; do
-		if ! env -u DISPLAY HOME="$home" XDG_DATA_HOME="${home}/.local/share" "$@" >"${home}/${pass}.log" 2>&1; then
+		if ! env -u DISPLAY HOME="${home}" XDG_DATA_HOME="${home}/.local/share" "$@" >"${home}/${pass}.log" 2>&1; then
 			fFail "${label} ${pass} exited non-zero; last lines:"
 			tail -5 "${home}/${pass}.log"
 			return 0
 		fi
 		[[ -x "${prefix}/bin/${exeName}" ]] || fFail "${label} ${pass}: no ${prefix}/bin/${exeName}"
-		[[ -f "$launcher" ]] || fFail "${label} ${pass}: no launcher"
-		[[ "$(readlink "$symlink" || true)" == "${prefix}/bin/${exeName}" ]] || fFail "${label} ${pass}: symlink doesn't point into the prefix"
+		[[ -f "${launcher}" ]] || fFail "${label} ${pass}: no launcher"
+		[[ "$(readlink "${symlink}" || true)" == "${prefix}/bin/${exeName}" ]] || fFail "${label} ${pass}: symlink doesn't point into the prefix"
 		leftovers="$(find "${home}/.local/share" -maxdepth 1 \( -name ".${exeName}-install.*" -o -name "${exeName}.old.*" -o -name "${exeName}.new.*" \) || true)"
-		[[ -z "$leftovers" ]] || fFail "${label} ${pass}: staging left behind: ${leftovers}"
+		[[ -z "${leftovers}" ]] || fFail "${label} ${pass}: staging left behind: ${leftovers}"
 	done
 
-	if ! env -u DISPLAY HOME="$home" XDG_DATA_HOME="${home}/.local/share" "$@" --uninstall >"${home}/uninstall.log" 2>&1; then
+	if ! env -u DISPLAY HOME="${home}" XDG_DATA_HOME="${home}/.local/share" "$@" --uninstall >"${home}/uninstall.log" 2>&1; then
 		fFail "${label} uninstall exited non-zero"
 		tail -5 "${home}/uninstall.log"
 		return 0
 	fi
-	[[ ! -e "$prefix" && ! -e "$launcher" && ! -L "$symlink" ]] || fFail "${label} uninstall left files behind"
+	[[ ! -e "${prefix}" && ! -e "${launcher}" && ! -L "${symlink}" ]] || fFail "${label} uninstall left files behind"
 	fEcho_Clean "${label}: install, reinstall and uninstall OK"
 	return 0
 }
@@ -83,41 +83,41 @@ fRoundLinked(){
 	local launcher="${home}/.local/share/applications/${exeName}.desktop"
 	local symlink="${home}/.local/bin/${exeName}"
 	local pass leftovers
-	mkdir -p "${home}/.local/share" "$real"
-	ln -s "$real" "$prefix"
+	mkdir -p "${home}/.local/share" "${real}"
+	ln -s "${real}" "${prefix}"
 
 	for pass in install reinstall; do
-		if ! env -u DISPLAY HOME="$home" XDG_DATA_HOME="${home}/.local/share" "$@" >"${home}/${pass}.log" 2>&1; then
+		if ! env -u DISPLAY HOME="${home}" XDG_DATA_HOME="${home}/.local/share" "$@" >"${home}/${pass}.log" 2>&1; then
 			fFail "${label} ${pass} exited non-zero; last lines:"
 			tail -5 "${home}/${pass}.log"
 			return 0
 		fi
-		[[ -L "$prefix" && "$(readlink "$prefix")" == "$real" ]] || fFail "${label} ${pass}: the prefix isn't the link it was"
+		[[ -L "${prefix}" && "$(readlink "${prefix}")" == "${real}" ]] || fFail "${label} ${pass}: the prefix isn't the link it was"
 		[[ -x "${real}/bin/${exeName}" ]] || fFail "${label} ${pass}: no ${real}/bin/${exeName}"
 		leftovers="$(find "${home}/.local/share" "${home}/disk2" -maxdepth 1 \( -name ".${exeName}-install.*" -o -name "${exeName}.old.*" -o -name "${exeName}.new.*" \) || true)"
-		[[ -z "$leftovers" ]] || fFail "${label} ${pass}: staging left behind: ${leftovers}"
+		[[ -z "${leftovers}" ]] || fFail "${label} ${pass}: staging left behind: ${leftovers}"
 	done
 
-	if ! env -u DISPLAY HOME="$home" XDG_DATA_HOME="${home}/.local/share" "$@" --uninstall >"${home}/uninstall.log" 2>&1; then
+	if ! env -u DISPLAY HOME="${home}" XDG_DATA_HOME="${home}/.local/share" "$@" --uninstall >"${home}/uninstall.log" 2>&1; then
 		fFail "${label} uninstall exited non-zero"
 		tail -5 "${home}/uninstall.log"
 		return 0
 	fi
-	[[ -L "$prefix" && -d "$real" && -z "$(ls -A "$real")" ]] || fFail "${label} uninstall: didn't empty where the prefix points and leave the link"
-	[[ ! -e "$launcher" && ! -L "$symlink" ]] || fFail "${label} uninstall left the launcher or symlink behind"
+	[[ -L "${prefix}" && -d "${real}" && -z "$(ls -A "${real}")" ]] || fFail "${label} uninstall: didn't empty where the prefix points and leave the link"
+	[[ ! -e "${launcher}" && ! -L "${symlink}" ]] || fFail "${label} uninstall left the launcher or symlink behind"
 	fEcho_Clean "${label}: install, reinstall and uninstall through a prefix that's a link OK"
 	return 0
 }
 
 fEcho "Installer check against ${tarball##*/}"
-fRound bash bash install.bash --from "$tarball" --yes
-fRoundLinked bash-linked bash install.bash --from "$tarball" --yes
+fRound bash bash install.bash --from "${tarball}" --yes
+fRoundLinked bash-linked bash install.bash --from "${tarball}" --yes
 ran=1
 if command -v pwsh >/dev/null 2>&1; then
 	## pwsh takes -Uninstall; the helper appends the bash spelling, which pwsh's
 	## parameter binding accepts as the same switch.
-	fRound pwsh pwsh -NoProfile -File install.ps1 -From "$tarball" -Yes
-	fRoundLinked pwsh-linked pwsh -NoProfile -File install.ps1 -From "$tarball" -Yes
+	fRound pwsh pwsh -NoProfile -File install.ps1 -From "${tarball}" -Yes
+	fRoundLinked pwsh-linked pwsh -NoProfile -File install.ps1 -From "${tarball}" -Yes
 	ran=2
 else
 	fEcho_Clean "pwsh not installed; install.ps1 not checked"

@@ -30,11 +30,11 @@ source "${here}/include/result-line.bash"
 root="$(cd "${here}/../.." && pwd)"
 # shellcheck source=include/lint-image.bash
 source "${here}/include/lint-image.bash"
-img="$(fLintImage "$root")"
-fLintRun "$root" "$img" bash "${here}/lint-c.bash" "$@"
-fLintRun "$root" "$img" bash "${here}/lint-bash.bash"
-fLintRun "$root" "$img" bash "${here}/lint-python.bash"
-fLintRun "$root" "$img" bash "${here}/lint-powershell.bash"
+img="$(fLintImage "${root}")"
+fLintRun "${root}" "${img}" bash "${here}/lint-c.bash" "$@"
+fLintRun "${root}" "${img}" bash "${here}/lint-bash.bash"
+fLintRun "${root}" "${img}" bash "${here}/lint-python.bash"
+fLintRun "${root}" "${img}" bash "${here}/lint-powershell.bash"
 bash "${here}/lint-identity.bash"
 bash "${here}/lint-prose.bash"
 ## Its fixture is full of symlinks, which MSYS2 can't make without the symlink
@@ -86,18 +86,18 @@ fTest bash "${here}/test-win-dogfood.bash"
 fTest bash "${here}/../win/test-lane.bash"
 py=""
 for cand in python3 python; do
-	if command -v "$cand" >/dev/null 2>&1; then py="$cand"; break; fi
+	if command -v "${cand}" >/dev/null 2>&1; then py="${cand}"; break; fi
 done
-if [[ -n "$py" ]]; then
-	fTest "$py" "${here}/svg-min.py" --self-test
-	fTest "$py" "${here}/analyze.py" --self-test
-	fTest "$py" "${here}/lint-report.py" --self-test
-	if "$py" -c 'import numpy, scipy, PIL' >/dev/null 2>&1; then
-		fTest "$py" "${here}/demo-video/demo-video.py" --self-test
+if [[ -n "${py}" ]]; then
+	fTest "${py}" "${here}/svg-min.py" --self-test
+	fTest "${py}" "${here}/analyze.py" --self-test
+	fTest "${py}" "${here}/lint-report.py" --self-test
+	if "${py}" -c 'import numpy, scipy, PIL' >/dev/null 2>&1; then
+		fTest "${py}" "${here}/demo-video/demo-video.py" --self-test
 	else
 		echo "[ demo-video self-test skipped: no numpy, scipy or Pillow ]"
 	fi
-	"$py" "${here}/test-id.py" --check
+	"${py}" "${here}/test-id.py" --check
 else
 	echo "[ svg-min self-test and test ID check skipped: no python ]"
 fi
@@ -139,6 +139,6 @@ fi
 ## The content scrub is kept outside the repo, so a fresh clone without the
 ## private tree still lints.
 scrub="$(cd "${here}/../.." && pwd)/../private/hooks/scrub.bash"
-[[ -x "$scrub" ]] && bash "$scrub"
+[[ -x "${scrub}" ]] && bash "${scrub}"
 
 exit 0

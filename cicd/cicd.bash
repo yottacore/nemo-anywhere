@@ -122,7 +122,7 @@ set -Eeuo pipefail
 ## --list too, which leaves the CPU scope and the container caps alone.
 unset CICD_NO_CONTAINER
 listOnly=0
-for arg in "$@"; do case "$arg" in
+for arg in "$@"; do case "${arg}" in
 	-h|--help) sed -n '/^##	- Purpose:/,/^##	History:/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##	\{0,1\}//'; exit 0 ;;
 	--no-container) export CICD_NO_CONTAINER=1 NEMO_LINT_HOST=1 ;;
 	--list) listOnly=1 ;;
@@ -175,7 +175,7 @@ fCapContainers(){
 	ctrJobs="${CICD_MAX_JOBS}"
 	local ctr
 	for ctr in "${CICD_CONTAINERS[@]}"; do
-		docker update --cpus "${CICD_MAX_JOBS}" --cpu-shares 256 "$ctr" >/dev/null 2>&1 || true
+		docker update --cpus "${CICD_MAX_JOBS}" --cpu-shares 256 "${ctr}" >/dev/null 2>&1 || true
 	done
 }
 ((listOnly)) || fCapContainers
@@ -186,7 +186,7 @@ source "${here}/utility/include/docker-sweep.bash"                ## fDockerSwee
 declare -p FMT_CMD &>/dev/null || FMT_CMD=()                      ## tolerate a config without the fmt stage
 declare -p FMT_CHECK_CMD &>/dev/null || FMT_CHECK_CMD=()
 for v in LINT_CMD FUZZ_CMD FUZZ_QUICK_CMD SANITIZE_CMD ANALYZE_CMD ANALYZE_LONG_CMD DENY_CMD SCROLL_HARNESS; do
-	declare -p "$v" &>/dev/null || declare -a "$v=()"
+	declare -p "${v}" &>/dev/null || declare -a "${v}=()"
 done
 ## NOT-READY (Rust origin): the source pipeline also exported CARGO_BUILD_JOBS and
 ## RUST_TEST_THREADS here to bound cargo's jobserver and the test run. No cargo in a
@@ -254,7 +254,7 @@ while (($#)); do case "$1" in
 	-h|--help)                sed -n '/^##	- Purpose:/,/^##	History:/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##	\{0,1\}//'; exit 0 ;;
 	*) echo "unknown option: $1 (try --help)" >&2; exit 2 ;;
 esac; done
-[[ -z "$alias_note" ]] || echo "[ ${alias_note} ]"
+[[ -z "${alias_note}" ]] || echo "[ ${alias_note} ]"
 
 ## Checks only: a round or the pre-push hook runs these, so nothing may change
 ## the tree, the box, or the remote, and nobody is there to answer a prompt.
@@ -277,17 +277,17 @@ declare -p WIN_GATE_CMD &>/dev/null || WIN_GATE_CMD=()
 
 ## FreeBSD runs unless --quick, and arm64 only with --long, since its emulated box
 ## takes about 98 of a plain run's 152 minutes. Naming either one beats both flags.
-[[ -n "$include_arm" ]] || include_arm=$((long))
-leak_why="--no-leakcheck"; [[ -n "$leakcheck" ]] || leak_why="--quick"
-leak_asked=0; [[ "$leakcheck" != 1 ]] || leak_asked=1
-[[ -n "$leakcheck" ]] || leakcheck=$((! quick))
+[[ -n "${include_arm}" ]] || include_arm=$((long))
+leak_why="--no-leakcheck"; [[ -n "${leakcheck}" ]] || leak_why="--quick"
+leak_asked=0; [[ "${leakcheck}" != 1 ]] || leak_asked=1
+[[ -n "${leakcheck}" ]] || leakcheck=$((! quick))
 declare -p HEAP_SOAK_CMD &>/dev/null || HEAP_SOAK_CMD=()           ## a config with no soak
 declare -p ANALYZE_CTU_CMD &>/dev/null || ANALYZE_CTU_CMD=()
 ## The analyzer across files would add about 20 min to a plain run, which has
 ## the leak checks on by default, so there it waits for --long or --leakcheck.
 run_ctu=$((leakcheck && (long || leak_asked)))
-ctu_why="$leak_why"; ((! leakcheck)) || ctu_why="--long or --leakcheck adds it"
-[[ -n "$include_bsd" ]] || include_bsd=$((! quick))
+ctu_why="${leak_why}"; ((! leakcheck)) || ctu_why="--long or --leakcheck adds it"
+[[ -n "${include_bsd}" ]] || include_bsd=$((! quick))
 ((! no_bsd)) || include_bsd=0
 declare -p BSD_TEST_CMD &>/dev/null || BSD_TEST_CMD=()           ## a config with no FreeBSD box
 declare -p BSD_RELEASE_CMD &>/dev/null || BSD_RELEASE_CMD=()
@@ -303,31 +303,31 @@ if ((long && ${#ANALYZE_LONG_CMD[@]})); then ANALYZE_CMD=("${ANALYZE_LONG_CMD[@]
 arm_note=""; arm_label=""; arm_why=""
 if ((! include_arm || no_arm)) && declare -p CROSS_TARGETS &>/dev/null; then
 	kept=()
-	for t in "${CROSS_TARGETS[@]}"; do case "$t" in *arm64*|*aarch64*) arm_label="${t%%|*}" ;; *) kept+=("$t") ;; esac; done
+	for t in "${CROSS_TARGETS[@]}"; do case "${t}" in *arm64*|*aarch64*) arm_label="${t%%|*}" ;; *) kept+=("${t}") ;; esac; done
 	CROSS_TARGETS=("${kept[@]}")
-	if   [[ -z "$arm_label" ]]; then :
+	if   [[ -z "${arm_label}" ]]; then :
 	elif ((no_remote));         then arm_why="--no-remote"
 	elif ((no_arm));            then arm_why="--no-arm"
 	elif ((quick));             then arm_why="--quick"
 	else                             arm_why="--long adds it"; fi
-	[[ -z "$arm_why" ]] || arm_note=" (no arm64, ${arm_why})"
+	[[ -z "${arm_why}" ]] || arm_note=" (no arm64, ${arm_why})"
 fi
 ## arm64 packages and their checks are made from this run's arm64 build, so they
 ## go wherever it goes.
 arm_built=0
 if ((BUILD_CROSS)) && declare -p CROSS_TARGETS &>/dev/null; then
-	for t in "${CROSS_TARGETS[@]}"; do case "$t" in *arm64*|*aarch64*) arm_built=1 ;; esac; done
+	for t in "${CROSS_TARGETS[@]}"; do case "${t}" in *arm64*|*aarch64*) arm_built=1 ;; esac; done
 fi
 ## Also when the arm64 box turns out not to be there.
 fDropArmPackages(){
 	local t kept=()
 	if declare -p PACKAGE_CMDS &>/dev/null; then
-		for t in "${PACKAGE_CMDS[@]}"; do case "$t" in *arm64*|*aarch64*) ;; *) kept+=("$t") ;; esac; done
+		for t in "${PACKAGE_CMDS[@]}"; do case "${t}" in *arm64*|*aarch64*) ;; *) kept+=("${t}") ;; esac; done
 		PACKAGE_CMDS=("${kept[@]}")
 	fi
 	kept=()
 	if declare -p PACKAGE_CHECKS &>/dev/null; then
-		for t in "${PACKAGE_CHECKS[@]}"; do case "$t" in *arm64*|*aarch64*) ;; *) kept+=("$t") ;; esac; done
+		for t in "${PACKAGE_CHECKS[@]}"; do case "${t}" in *arm64*|*aarch64*) ;; *) kept+=("${t}") ;; esac; done
 		PACKAGE_CHECKS=("${kept[@]}")
 	fi
 }
@@ -340,7 +340,7 @@ declare -p CROSS_ALONGSIDE &>/dev/null || CROSS_ALONGSIDE=()           ## ditto,
 ## True when the cross target labeled $1 starts alongside the local steps.
 fCross_Alongside(){
 	local x
-	for x in "${CROSS_ALONGSIDE[@]}"; do [[ "$x" == "$1" ]] && return 0; done
+	for x in "${CROSS_ALONGSIDE[@]}"; do [[ "${x}" == "$1" ]] && return 0; done
 	return 1
 }
 
@@ -350,8 +350,8 @@ fCross_Alongside(){
 ## Empty -> publish interactively, and git commit opens an editor. When
 ## interactive, the preflight prompt below offers to take a message.
 publish_msg=""
-if   [[ -n "$cli_message" ]];              then publish_msg="$cli_message"
-elif [[ -n "${PUBLISH_AUTO_MESSAGE:-}" ]]; then publish_msg="$PUBLISH_AUTO_MESSAGE"
+if   [[ -n "${cli_message}" ]];              then publish_msg="${cli_message}"
+elif [[ -n "${PUBLISH_AUTO_MESSAGE:-}" ]]; then publish_msg="${PUBLISH_AUTO_MESSAGE}"
 elif ((assume_yes && ! listOnly));         then publish_msg="$(bash "${here}/utility/git-auto-msg.bash" --suggest)"
 fi
 
@@ -361,7 +361,7 @@ fi
 ## letterbox before a major stage header; fDie prints a fatal line and exits.
 declare -i _wasLastEchoBlank=0
 fEcho_ResetBlankCounter(){ _wasLastEchoBlank=0; }
-fEcho_Clean(){ if [[ -n "${1:-}" ]]; then echo -e "$*"; _wasLastEchoBlank=0; elif [[ $_wasLastEchoBlank -eq 0 ]] && echo; then _wasLastEchoBlank=1; fi; }
+fEcho_Clean(){ if [[ -n "${1:-}" ]]; then echo -e "$*"; _wasLastEchoBlank=0; elif [[ ${_wasLastEchoBlank} -eq 0 ]] && echo; then _wasLastEchoBlank=1; fi; }
 fEcho(){       if [[ -n "$*"     ]]; then fEcho_Clean "[ $* ]"; else fEcho_Clean ""; fi; }
 fEcho_Force(){ fEcho_ResetBlankCounter; fEcho "$*"; }
 _letterbox="•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
@@ -386,7 +386,7 @@ fNoContainerStop(){
 ## Local time to the hundredth, as YYYYmmDD-HHMMSS.NN.
 fStamp(){
 	local t="${EPOCHREALTIME:-}" frac
-	if [[ -n "$t" ]]; then
+	if [[ -n "${t}" ]]; then
 		t="${t/,/.}"; frac="${t#*.}"
 		printf '%(%Y%m%d-%H%M%S)T.%s' "${t%.*}" "${frac:0:2}"
 	else
@@ -402,11 +402,11 @@ fStamp(){
 stepList=(); stepOff=(); stepSkipped=(); stepNow=0; stepOpen=""
 fPlan(){ if (($1)); then stepList+=("$2"); else stepOff+=("$2 (${3})"); fi; }
 fStep_Close(){
-	[[ -n "$stepOpen" ]] || return 0
+	[[ -n "${stepOpen}" ]] || return 0
 	fEcho_Force "$(fStamp): Step ${stepNow} of ${#stepList[@]}; $1 ${stepOpen}"
 	stepOpen=""
 }
-fStep_Skip(){ stepSkipped+=("$stepOpen"); fStep_Close SKIP; }
+fStep_Skip(){ stepSkipped+=("${stepOpen}"); fStep_Close SKIP; }
 fStep(){
 	local why=""
 	fStep_Close PASS
@@ -418,7 +418,7 @@ fStep(){
 	if   [[ -n "${CICD_JOBS_PIN:-}" ]]; then why="pinned"
 	elif [[ -n "${2:-}" ]];             then why="hard step"
 	elif ((jobsBusy));                  then why="busy box"; fi
-	[[ -z "$why" ]] || why="${why}, "
+	[[ -z "${why}" ]] || why="${why}, "
 	fEcho_Clean "jobs ${CICD_MAX_JOBS} (${why}load ${jobsLoad} on ${jobsCpus} cpus)"
 }
 fPlan_Show(){
@@ -467,8 +467,8 @@ fList(){
 	fPlan_Show
 	fEcho_Clean
 	for x in "${stepList[@]}"; do
-		cmd="$(fStep_Cmd "$x")"
-		printf '%s\t%s\n' "$x" "${cmd//[$'\t\n']/ }"
+		cmd="$(fStep_Cmd "${x}")"
+		printf '%s\t%s\n' "${x}" "${cmd//[$'\t\n']/ }"
 	done | python3 "${here}/utility/test-id.py" --list "${root}" || fDie "couldn't list the steps' test IDs"
 	fEcho_Clean
 	exit 0
@@ -481,18 +481,18 @@ fGit(){ if command -v gitsby >/dev/null 2>&1; then gitsby raw git "$@"; else git
 ## substring match), so an in-use dogfood copy isn't pruned. Checks /proc/*/exe.
 in_use(){
 	local -r bin="$(realpath -e "$1" 2>/dev/null || true)"
-	[[ -n "$bin" ]] || return 1
+	[[ -n "${bin}" ]] || return 1
 	## A prefix is in use when a running image sits anywhere inside it; a single
 	## binary, only when it is the image.
 	local inside=""
-	[[ -d "$bin" ]] && inside="${bin}/"
+	[[ -d "${bin}" ]] && inside="${bin}/"
 	local exe
 	## readlink is a builtin-cheap single syscall; realpath here forked a process
 	## per running pid per candidate. /proc/*/exe is already fully resolved.
 	for e in /proc/[0-9]*/exe; do
-		exe="$(readlink "$e" 2>/dev/null || true)"
-		[[ "$exe" == "$bin" ]] && return 0
-		[[ -n "$inside" && "$exe" == "${inside}"* ]] && return 0
+		exe="$(readlink "${e}" 2>/dev/null || true)"
+		[[ "${exe}" == "${bin}" ]] && return 0
+		[[ -n "${inside}" && "${exe}" == "${inside}"* ]] && return 0
 	done
 	return 1
 }
@@ -507,10 +507,10 @@ in_use(){
 ## without it returns '>=0.56.0'.
 read_version(){
 	local file="${root}/${VERSION_MANIFEST}" v
-	[[ -f "$file" ]] || return 0
-	v="$(sed -n 's/^[[:space:]]*version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$file" | head -1)"
-	[[ -n "$v" ]] || v="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "$file" | head -1)"
-	printf '%s' "$v"
+	[[ -f "${file}" ]] || return 0
+	v="$(sed -n 's/^[[:space:]]*version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "${file}" | head -1)"
+	[[ -n "${v}" ]] || v="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "${file}" | head -1)"
+	printf '%s' "${v}"
 }
 
 ## (Re)write the sha256sums file over every artifact in the release dir except the
@@ -520,7 +520,7 @@ write_sums(){
 	[[ -n "${art_dir:-}" && -d "${art_dir:-/nonexist}" ]] || return 0
 	( cd "${art_dir}"
 	  shopt -s nullglob
-	  files=(); for x in "${EXE_NAME}-${ver}-"*; do [[ "$x" == "$sums" || ! -f "$x" ]] && continue; files+=("$x"); done
+	  files=(); for x in "${EXE_NAME}-${ver}-"*; do [[ "${x}" == "${sums}" || ! -f "${x}" ]] && continue; files+=("${x}"); done
 	  ((${#files[@]})) && sha256sum "${files[@]}" > "${sums}"
 	  true )
 }
@@ -534,7 +534,7 @@ require_clean_tree_for_publish(){
 	((allow_dirty)) && return 0
 	local dirty
 	dirty="$(git -C "${root}" status --porcelain 2>/dev/null)"
-	[[ -n "$dirty" ]] || return 0
+	[[ -n "${dirty}" ]] || return 0
 	fEcho_Clean
 	fEcho_Clean "${dirty}"
 	fEcho_Clean
@@ -610,12 +610,12 @@ fi
 ## it, which stop the gate and clear the box.
 winSidePid=""; winSideLog=""; winDeskList=""
 fWinSide_Stop(){
-	[[ -n "$winSidePid" ]] || return 0
-	if kill -0 "$winSidePid" 2>/dev/null; then
+	[[ -n "${winSidePid}" ]] || return 0
+	if kill -0 "${winSidePid}" 2>/dev/null; then
 		fEcho_Clean "stopping the native Windows gate"
-		kill -TERM -- "-${winSidePid}" 2>/dev/null || kill -TERM "$winSidePid" 2>/dev/null || true
+		kill -TERM -- "-${winSidePid}" 2>/dev/null || kill -TERM "${winSidePid}" 2>/dev/null || true
 	fi
-	wait "$winSidePid" 2>/dev/null || true
+	wait "${winSidePid}" 2>/dev/null || true
 	winSidePid=""
 }
 ## The cross targets in CROSS_ALONGSIDE start with the debug build too, since
@@ -627,15 +627,15 @@ fCrossSide_Start(){
 	local t label cmd log
 	for t in "${CROSS_TARGETS[@]}"; do
 		label="${t%%|*}"; cmd="${t#*|}"; cmd="${cmd#*|}"; cmd="${cmd#*|}"
-		fCross_Alongside "$label" || continue
+		fCross_Alongside "${label}" || continue
 		log="${runTempDir}/cross-${#sideLogs[@]}.log"
 		## The subshell's fJobs leaves the run's own count alone.
 		if command -v setsid >/dev/null 2>&1; then
-			(fJobs hard; echo "jobs ${CICD_MAX_JOBS} (alongside, load ${jobsLoad} on ${jobsCpus} cpus)"; exec setsid bash -c "$cmd") > "$log" 2>&1 < /dev/null &
+			(fJobs hard; echo "jobs ${CICD_MAX_JOBS} (alongside, load ${jobsLoad} on ${jobsCpus} cpus)"; exec setsid bash -c "${cmd}") > "${log}" 2>&1 < /dev/null &
 		else
-			(fJobs hard; echo "jobs ${CICD_MAX_JOBS} (alongside, load ${jobsLoad} on ${jobsCpus} cpus)"; exec bash -c "$cmd") > "$log" 2>&1 < /dev/null &
+			(fJobs hard; echo "jobs ${CICD_MAX_JOBS} (alongside, load ${jobsLoad} on ${jobsCpus} cpus)"; exec bash -c "${cmd}") > "${log}" 2>&1 < /dev/null &
 		fi
-		sideLabels+=("$label"); sidePids+=("$!"); sideLogs+=("$log")
+		sideLabels+=("${label}"); sidePids+=("$!"); sideLogs+=("${log}")
 		fEcho_Clean "${label} started alongside, pid ${!}, log ${log}"
 	done
 }
@@ -653,7 +653,7 @@ fCrossSide_Stop(){
 }
 fRunEnd(){
 	local rc=$?
-	if ((rc)) && [[ -n "$stepOpen" ]]; then fStep_Close FAIL; fEcho_Clean; fi
+	if ((rc)) && [[ -n "${stepOpen}" ]]; then fStep_Close FAIL; fEcho_Clean; fi
 	fWinSide_Stop || true
 	fCrossSide_Stop || true
 	## || true: a docker hiccup here must not keep the folder from going.
@@ -673,9 +673,9 @@ if ((! listOnly)) && declare -p TOOL_PINS &>/dev/null; then
 	for pin in "${TOOL_PINS[@]}"; do
 		pin_name="${pin%%|*}"; pin_rest="${pin#*|}"; pin_ver="${pin_rest%%|*}"; pin_cmd="${pin_rest#*|}"
 		have="$(bash -c "${pin_cmd}" </dev/null 2>/dev/null | head -1 | sed 's/[^0-9.]*\([0-9][0-9.]*\).*/\1/')" || have=""
-		if [[ -z "$have" ]]; then
+		if [[ -z "${have}" ]]; then
 			fEcho "WARNING: ${pin_name} not found (pinned ${pin_ver})"
-		elif [[ "$have" != "$pin_ver" ]]; then
+		elif [[ "${have}" != "${pin_ver}" ]]; then
 			fEcho "WARNING: ${pin_name} is ${have}, pinned ${pin_ver} (install that version, or update the pin in config.bash)"
 		fi
 	done
@@ -693,10 +693,10 @@ if ((gate)); then
 	gate_lint=0; gate_lint_why="area not named"
 	if fArea lint; then gate_lint=$((${#LINT_CMD[@]} > 0)); gate_lint_why="no lint stage set up"; fi
 	gate_tests=0; fArea tests && gate_tests=1
-	fPlan "$gate_fmt"   "Format check" "$gate_fmt_why"
-	fPlan "$gate_lint"  "Lints"        "$gate_lint_why"
+	fPlan "${gate_fmt}"   "Format check" "${gate_fmt_why}"
+	fPlan "${gate_lint}"  "Lints"        "${gate_lint_why}"
 	if ((no_container && gate_tests)); then fPlan 0 "Tests" "--no-container, the run stops there"
-	else fPlan "$gate_tests" "Tests" "area not named"; fi
+	else fPlan "${gate_tests}" "Tests" "area not named"; fi
 	((! listOnly)) || fList
 	fSection "${APP_NAME} backlog-run-quick${areas[*]:+ ${areas[*]}}"
 	fPlan_Show
@@ -724,7 +724,7 @@ fi
 ver="$(read_version)"
 art_dir=""; sums=""
 if [[ -n "${RELEASE_ARTIFACT_DIR:-}" ]]; then
-	[[ -n "$ver" ]] || fDie "no version found in ${VERSION_MANIFEST}"
+	[[ -n "${ver}" ]] || fDie "no version found in ${VERSION_MANIFEST}"
 	art_dir="${root}/${RELEASE_ARTIFACT_DIR}"
 	sums="${EXE_NAME}-${ver}-sha256sums.txt"
 fi
@@ -758,42 +758,42 @@ shots_hook="${root}/cicd/utility/screenshots.bash"
 demo_hook="${root}/cicd/utility/demo-video/demo-video.py"
 
 fPlan "$((! no_sync))"                  "Remote sync"           "${sync_why}"
-fPlan "$run_fmt"                        "$fmt_step"             "$fmt_why"
+fPlan "${run_fmt}"                        "${fmt_step}"             "${fmt_why}"
 fPlan 1                                 "Build (debug)"         ""
 fPlan 1                                 "Tests"                 ""
 fPlan "$((${#LINT_CMD[@]} > 0))"        "Lints"                 "no lint stage set up"
-((${#FUZZ_CMD[@]})) && fPlan "$run_fuzz" "Fuzzing"               "--quick"
+((${#FUZZ_CMD[@]})) && fPlan "${run_fuzz}" "Fuzzing"               "--quick"
 fPlan "$((${#SANITIZE_CMD[@]} > 0))"    "Sanitizer suite"       "--no-sanitize"
-((${#BSD_TEST_CMD[@]})) && fPlan "$run_bsd_tests" "FreeBSD suite" "$bsd_why"
+((${#BSD_TEST_CMD[@]})) && fPlan "${run_bsd_tests}" "FreeBSD suite" "${bsd_why}"
 ((${#DENY_CMD[@]})) && fPlan 1          "Dependency check"      ""
 ((${#SCROLL_HARNESS[@]})) && fPlan "$((! quick))" "Scroll harness" "--quick"
 fPlan "$((PROFILE_ENABLE))"             "Profiler"              "--no-profile"
-fPlan "$run_release"                    "Release build (native)" "RELEASE_ENABLE=0"
+fPlan "${run_release}"                    "Release build (native)" "RELEASE_ENABLE=0"
 if ((run_cross)); then
 	for t in "${CROSS_TARGETS[@]}"; do fPlan 1 "Release build: ${t%%|*}" ""; done
 elif ((run_release)) && ((! BUILD_CROSS)); then
 	fPlan 0 "Release builds (cross)" "--no-cross"
 fi
-[[ -z "$arm_why" ]] || ((! (run_release && BUILD_CROSS) )) || fPlan 0 "Release build: ${arm_label}" "$arm_why"
-((${#BSD_RELEASE_CMD[@]})) && fPlan "$run_bsd_release" "Release build: FreeBSD" "$bsd_why"
+[[ -z "${arm_why}" ]] || ((! (run_release && BUILD_CROSS) )) || fPlan 0 "Release build: ${arm_label}" "${arm_why}"
+((${#BSD_RELEASE_CMD[@]})) && fPlan "${run_bsd_release}" "Release build: FreeBSD" "${bsd_why}"
 ((${#ANALYZE_CMD[@]})) && fPlan "$((! quick))" "Static analyzers" "--quick"
-((${#HEAP_SOAK_CMD[@]})) && fPlan "$leakcheck" "Heap soak" "$leak_why"
-((${#ANALYZE_CTU_CMD[@]})) && fPlan "$run_ctu" "Cross-file analyzer" "$ctu_why"
-((${#WIN_GATE_SIDE_CMD[@]} + ${#WIN_GATE_CMD[@]})) && fPlan "$run_win" "Native Windows gate" "$win_why"
+((${#HEAP_SOAK_CMD[@]})) && fPlan "${leakcheck}" "Heap soak" "${leak_why}"
+((${#ANALYZE_CTU_CMD[@]})) && fPlan "${run_ctu}" "Cross-file analyzer" "${ctu_why}"
+((${#WIN_GATE_SIDE_CMD[@]} + ${#WIN_GATE_CMD[@]})) && fPlan "${run_win}" "Native Windows gate" "${win_why}"
 pkg_why="--no-package"; ((quick)) && pkg_why="--quick"
-fPlan "$((PACKAGE_ENABLE && ! quick))"  "Packages"              "$pkg_why"
-fPlan "$run_private"                    "Private runner"        "$priv_why"
-fPlan "$run_dogfood"                    "Dogfood"               "$dogfood_why"
-((had_remote_df)) && fPlan "$run_remote_df" "Dogfood (remote)" "$(remote_why "$(mode_or --no-dogfood)")"
-[[ ! -x "$shots_hook" ]] || fPlan "$((SHOTS_ENABLE && ! quick))" "Screenshots" "$(quick_or "--shots turns it on")"
-[[ ! -f "$demo_hook" ]] || fPlan "$((${DEMO_ENABLE:-0} && ! quick))" "Demo video" "$(quick_or "--demo turns it on")"
+fPlan "$((PACKAGE_ENABLE && ! quick))"  "Packages"              "${pkg_why}"
+fPlan "${run_private}"                    "Private runner"        "${priv_why}"
+fPlan "${run_dogfood}"                    "Dogfood"               "${dogfood_why}"
+((had_remote_df)) && fPlan "${run_remote_df}" "Dogfood (remote)" "$(remote_why "$(mode_or --no-dogfood)")"
+[[ ! -x "${shots_hook}" ]] || fPlan "$((SHOTS_ENABLE && ! quick))" "Screenshots" "$(quick_or "--shots turns it on")"
+[[ ! -f "${demo_hook}" ]] || fPlan "$((${DEMO_ENABLE:-0} && ! quick))" "Demo video" "$(quick_or "--demo turns it on")"
 fPlan "$((${#GIT_PUBLISH[@]} > 0))"     "Publish"               "$(mode_or --no-publish)"
 ## On the host nothing runs past the lints, which go before the build.
 if ((no_container)); then
 	kept=(); stopAt=""
-	for x in "${stepList[@]}"; do case "$x" in
-		"Remote sync"|"$fmt_step"|Lints) kept+=("$x") ;;
-		*) [[ -n "$stopAt" ]] || stopAt="$x"; stepOff+=("${x} (--no-container)") ;;
+	for x in "${stepList[@]}"; do case "${x}" in
+		"Remote sync"|"${fmt_step}"|Lints) kept+=("${x}") ;;
+		*) [[ -n "${stopAt}" ]] || stopAt="${x}"; stepOff+=("${x} (--no-container)") ;;
 	esac; done
 	stepList=("${kept[@]}")
 fi
@@ -801,8 +801,8 @@ fi
 
 ## Preflight: show the plan with resolved paths, then confirm.
 profile_dir="$(cd "${root}" && mkdir -p "${PROFILE_OUT_DIR}" 2>/dev/null; cd "${PROFILE_OUT_DIR}" 2>/dev/null && pwd || echo "${root}/${PROFILE_OUT_DIR}")"
-fixed_dest=""; for d in "${DOGFOOD_FIXED_DESTS[@]:-}"; do [[ -d "$d" && -w "$d" ]] && { fixed_dest="$d"; break; }; done
-rot_dest="";   for d in "${DOGFOOD_ROTATING_DESTS[@]:-}"; do [[ -d "$d" && -w "$d" ]] && { rot_dest="$d"; break; }; done
+fixed_dest=""; for d in "${DOGFOOD_FIXED_DESTS[@]:-}"; do [[ -d "${d}" && -w "${d}" ]] && { fixed_dest="${d}"; break; }; done
+rot_dest="";   for d in "${DOGFOOD_ROTATING_DESTS[@]:-}"; do [[ -d "${d}" && -w "${d}" ]] && { rot_dest="${d}"; break; }; done
 rot_target="${rot_dest:-${DOGFOOD_ROTATING_DESTS[0]:-}}"  # created in stage 6 if it doesn't exist yet
 df_pattern="${DOGFOOD_PREFIX:-}_<build date>${DOGFOOD_TAG:+_${DOGFOOD_TAG}}"
 
@@ -870,8 +870,8 @@ else
 fi
 if ((PACKAGE_ENABLE)) && ((! quick)); then
 	fEcho_Clean "Packages ............:"
-	for entry in "${PACKAGE_CMDS[@]:-}"; do [[ -n "$entry" ]] && fEcho_Clean "    - ${entry%%|*}"; done
-	for entry in "${PACKAGE_CHECKS[@]:-}"; do [[ -n "$entry" ]] && fEcho_Clean "    - ${entry%%|*} (stops the run on failure)"; done
+	for entry in "${PACKAGE_CMDS[@]:-}"; do [[ -n "${entry}" ]] && fEcho_Clean "    - ${entry%%|*}"; done
+	for entry in "${PACKAGE_CHECKS[@]:-}"; do [[ -n "${entry}" ]] && fEcho_Clean "    - ${entry%%|*} (stops the run on failure)"; done
 	fEcho_Clean "  deferred ..........: macOS, AppImage, Flatpak - no toolchain on this box"
 else
 	fEcho_Clean "Packages ............: $( ((quick)) && echo '(skipped --quick)' || echo '(disabled)')"
@@ -886,7 +886,7 @@ else
 	fEcho_Clean "Private runner ......: (not checked out)"
 fi
 if ((${#DOGFOOD_FIXED_DESTS[@]})); then
-	if [[ -n "$fixed_dest" ]]; then
+	if [[ -n "${fixed_dest}" ]]; then
 		if [[ -n "${DOGFOOD_PREFIX_SRC:-}" ]]; then
 			fEcho_Clean "Dogfood, fixed name .: ${fixed_dest}/${EXE_NAME}/  (the whole prefix)"
 		else
@@ -905,14 +905,14 @@ if ((${#DOGFOOD_CROSS_DESTS[@]})); then
 	fEcho_Clean "Dogfood, cross ......:"
 	for xd in "${DOGFOOD_CROSS_DESTS[@]}"; do
 		xrest="${xd#*|}"; xname="${xrest%%|*}"; xdest="${xrest#*|}"
-		fEcho_Clean "    - ${xd%%|*} -> ${xdest}/${xname}$( [[ -d "$xdest" ]] || echo '  <dest missing - will skip>' )"
+		fEcho_Clean "    - ${xd%%|*} -> ${xdest}/${xname}$( [[ -d "${xdest}" ]] || echo '  <dest missing - will skip>' )"
 	done
 else
 	fEcho_Clean "Dogfood, cross ......: (disabled)"
 fi
 if ((${#GIT_PUBLISH[@]} == 0)); then
 	fEcho_Clean "Publish (last) ......: (disabled)"
-elif [[ -n "$publish_msg" ]]; then
+elif [[ -n "${publish_msg}" ]]; then
 	fEcho_Clean "Publish (last) ......: ${GIT_PUBLISH[*]} (hands-off: \"${publish_msg}\")"
 else
 	fEcho_Clean "Publish (last) ......: ${GIT_PUBLISH[*]} (will prompt for message; blank = editor)"
@@ -932,13 +932,13 @@ if ((! assume_yes)); then
 	## Take the commit message up front so the run can finish unattended. On the
 	## usual publish path, Ctrl+C here aborts. There's no separate "Proceed? [y/N]"
 	## any more.
-	if ((${#GIT_PUBLISH[@]})) && [[ -z "$publish_msg" ]]; then
+	if ((${#GIT_PUBLISH[@]})) && [[ -z "${publish_msg}" ]]; then
 		## No terminal, as with ssh and a command, cron, or a piped run. Nobody can
 		## answer, and a bare `read` under set -e aborts the whole run with no message.
 		if [[ -t 0 ]]; then
 			read -r -p "Publish commit message (blank = editor; Ctrl+C aborts): " m
 			fEcho_ResetBlankCounter
-			[[ -n "$m" ]] && publish_msg="$m"
+			[[ -n "${m}" ]] && publish_msg="${m}"
 		else
 			fEcho_Clean "no terminal: the publish stage will fill in its own commit message"
 		fi
@@ -960,11 +960,11 @@ fi
 
 ## Stage 1: format.
 if ((run_fmt)) && ((checks_only)); then
-	fStep "$fmt_step"
+	fStep "${fmt_step}"
 	"${FMT_CHECK_CMD[@]}" || fDie "format check failed"
 	fEcho "OK: formatting clean"
 elif ((run_fmt)); then
-	fStep "$fmt_step"
+	fStep "${fmt_step}"
 	"${FMT_CMD[@]}"
 	fEcho "OK: formatted (${FMT_CMD[*]})"
 fi
@@ -983,9 +983,9 @@ if ((run_win && ! no_container && ${#WIN_GATE_SIDE_CMD[@]})); then
 	## it and exits 75, since b29w's only screen is the laptop's own.
 	winElsewhere=$((${#WIN_GATE_CMD[@]} > 0))
 	if command -v setsid >/dev/null 2>&1; then
-		NEMO_WIN_DESKTOP_ELSEWHERE="$winElsewhere" NEMO_WIN_DESKTOP_LIST="$winDeskList" setsid "${WIN_GATE_SIDE_CMD[@]}" > "$winSideLog" 2>&1 < /dev/null &
+		NEMO_WIN_DESKTOP_ELSEWHERE="${winElsewhere}" NEMO_WIN_DESKTOP_LIST="${winDeskList}" setsid "${WIN_GATE_SIDE_CMD[@]}" > "${winSideLog}" 2>&1 < /dev/null &
 	else
-		NEMO_WIN_DESKTOP_ELSEWHERE="$winElsewhere" NEMO_WIN_DESKTOP_LIST="$winDeskList" "${WIN_GATE_SIDE_CMD[@]}" > "$winSideLog" 2>&1 < /dev/null &
+		NEMO_WIN_DESKTOP_ELSEWHERE="${winElsewhere}" NEMO_WIN_DESKTOP_LIST="${winDeskList}" "${WIN_GATE_SIDE_CMD[@]}" > "${winSideLog}" 2>&1 < /dev/null &
 	fi
 	winSidePid=$!
 	fEcho_Clean "Native Windows gate started alongside, pid ${winSidePid}, log ${winSideLog}"
@@ -1025,7 +1025,7 @@ if ((run_bsd_tests)); then
 	fStep "FreeBSD suite"
 	## 77: the box isn't there.
 	lane_rc=0; "${BSD_TEST_CMD[@]}" || lane_rc=$?
-	case "$lane_rc" in
+	case "${lane_rc}" in
 		0)  fEcho "OK: FreeBSD suite" ;;
 		77) fStep_Skip ;;
 		*)  fDie "FreeBSD suite (exit ${lane_rc})" ;;
@@ -1073,14 +1073,14 @@ run_profiler(){
 	## go on, unless PROFILE_STRICT is set. A failure of the run itself still aborts.
 	local skip="" why=""
 	command -v python3 >/dev/null 2>&1 || skip="python3 not found"
-	if [[ -z "$skip" ]] && declare -p PROFILE_PROBE &>/dev/null && ((${#PROFILE_PROBE[@]})); then
+	if [[ -z "${skip}" ]] && declare -p PROFILE_PROBE &>/dev/null && ((${#PROFILE_PROBE[@]})); then
 		## Keep what the probe said, since naming the missing tool saves a dig.
 		if ! why="$("${PROFILE_PROBE[@]}" 2>&1)"; then
-			why="$(printf '%s' "$why" | tail -1 | sed 's/^\[ *//; s/ *\]$//; s/^FAILED: //')"
+			why="$(printf '%s' "${why}" | tail -1 | sed 's/^\[ *//; s/ *\]$//; s/^FAILED: //')"
 			skip="${why:-profiling tools missing}"
 		fi
 	fi
-	if [[ -n "$skip" ]]; then
+	if [[ -n "${skip}" ]]; then
 		((PROFILE_STRICT)) && fDie "profiler: ${skip}"
 		fEcho "WARNING: profiler skipped: ${skip}"; return 0
 	fi
@@ -1093,7 +1093,7 @@ run_profiler(){
 	fEcho_Clean "profiling ${PROFILE_SECS}s ..."
 	"${PROFILE_CMD[@]}" "${out}" --secs "${PROFILE_SECS}" || prc=$?
 	((prc == 0)) || fDie "profiler run failed (exit ${prc})"
-	[[ -s "$out" ]] || fDie "profiler produced no SVG: ${out}"
+	[[ -s "${out}" ]] || fDie "profiler produced no SVG: ${out}"
 	gfs_rotate "${profile_dir}" flame svg
 	## Rotation retags this run's file with whatever role it earned, so find it by
 	## its timestamp rather than assuming which one that was.
@@ -1101,16 +1101,16 @@ run_profiler(){
 	shopt -s nullglob
 	retagged=("${profile_dir}/flame_${stamp}_"*.svg)
 	shopt -u nullglob
-	latest="${retagged[0]:-$out}"
+	latest="${retagged[0]:-${out}}"
 	fEcho "OK: flamegraph: ${latest}"
 	fEcho_Clean "open: ${latest}  (in a browser)"
 
 	## Hot-spot summary into the log. Non-fatal, and no marker, since the marker is
 	## for the per-session --check gate rather than the pipeline.
 	local report="${here}/utility/flame-report.py"
-	if [[ -f "$report" ]]; then
+	if [[ -f "${report}" ]]; then
 		fEcho_Clean ""
-		python3 "$report" --dir "${profile_dir}" 2>/dev/null || fEcho_Clean "hot spots: (report unavailable)"
+		python3 "${report}" --dir "${profile_dir}" 2>/dev/null || fEcho_Clean "hot spots: (report unavailable)"
 	fi
 }
 if ((PROFILE_ENABLE)); then
@@ -1133,8 +1133,8 @@ if ((run_cross)); then
 		art="${art//@VER@/${ver}}"   ## for a lane that puts the version in the file name
 		fStep "Release build: ${local_label}"
 		lane_rc=0; side=""
-		for i in "${!sideLabels[@]}"; do [[ "${sideLabels[i]}" != "$local_label" ]] || side="$i"; done
-		if [[ -n "$side" ]]; then
+		for i in "${!sideLabels[@]}"; do [[ "${sideLabels[i]}" != "${local_label}" ]] || side="${i}"; done
+		if [[ -n "${side}" ]]; then
 			tail -n +1 -f --pid="${sidePids[side]}" "${sideLogs[side]}" || true
 			wait "${sidePids[side]}" || lane_rc=$?
 			sidePids[side]=""
@@ -1143,7 +1143,7 @@ if ((run_cross)); then
 		fi
 		if ((lane_rc == 77)); then
 			fStep_Skip
-			case "$osarch" in *arm64*|*aarch64*) fDropArmPackages ;; esac
+			case "${osarch}" in *arm64*|*aarch64*) fDropArmPackages ;; esac
 			continue
 		fi
 		((lane_rc == 0)) || fDie "${local_label} (exit ${lane_rc})"
@@ -1156,7 +1156,7 @@ fi
 if ((run_bsd_release)); then
 	fStep "Release build: FreeBSD"
 	lane_rc=0; "${BSD_RELEASE_CMD[@]}" || lane_rc=$?
-	case "$lane_rc" in
+	case "${lane_rc}" in
 		0)  fEcho "OK: FreeBSD tarball and pkg" ;;
 		77) fStep_Skip ;;
 		*)  fDie "FreeBSD release build (exit ${lane_rc})" ;;
@@ -1170,7 +1170,7 @@ if [[ -n "${RELEASE_ARTIFACT_DIR:-}" ]] && ((${RELEASE_COLLECT:-1})); then
 	fSafeRm_Under "${root}" "${art_dir}"; mkdir -p "${art_dir}"
 	for pair in "${built_arts[@]}"; do
 		osarch="${pair%%|*}"; src="${pair#*|}"
-		ext=""; [[ "$src" == *.exe ]] && ext=".exe"
+		ext=""; [[ "${src}" == *.exe ]] && ext=".exe"
 		cp -f "${src}" "${art_dir}/${EXE_NAME}-${ver}-${osarch}${ext}"
 	done
 	write_sums
@@ -1238,7 +1238,7 @@ run_package_checks(){
 		rc=0; eval "${cmd}" || rc=$?
 		id=''; script="$(grep -oE "cicd/[^ '\"]*/test-[^ '\"]*\.(bash|ps1)" <<< "${cmd}" | tail -n 1 || true)"
 		[[ -n "${script}" && -f "${script}" ]] && id="$(sed -n -E 's/^##[[:space:]]+(- )?Test ID: ([0-9a-z]+)$/\2/p' "${script}" | head -n 1)"
-		case "$rc" in
+		case "${rc}" in
 			0)  echo "PASS ${id:-?} ${label}" ;;
 			77) echo "SKIP ${id:-?} ${label}"; fEcho "WARNING: ${label} skipped" ;;
 			*)  echo "FAIL ${id:-?} ${label}"; fDie "${label} (exit ${rc})" ;;
@@ -1251,9 +1251,9 @@ run_package_checks(){
 if ((run_win)); then
 	fStep "Native Windows gate"
 	win_rc=77
-	if [[ -n "$winSidePid" ]]; then
-		tail -n +1 -f --pid="$winSidePid" "$winSideLog" || true
-		win_rc=0; wait "$winSidePid" || win_rc=$?
+	if [[ -n "${winSidePid}" ]]; then
+		tail -n +1 -f --pid="${winSidePid}" "${winSideLog}" || true
+		win_rc=0; wait "${winSidePid}" || win_rc=$?
 		winSidePid=""
 	fi
 	if ((win_rc == 77 && ${#WIN_GATE_CMD[@]})); then
@@ -1263,13 +1263,13 @@ if ((run_win)); then
 		## builds, since the suite and smokes passed on the side one, then runs
 		## those tests in its desktop session.
 		fEcho_Clean "the side gate passed, and its windowed tests go to: ${WIN_GATE_CMD[*]}"
-		win_rc=0; NEMO_WIN_GATE_ARGS="-BacklogRunQuick -Yes -NoSync -NoFmt -NoTests" NEMO_WIN_DESKTOP_LIST="$winDeskList" "${WIN_GATE_CMD[@]}" || win_rc=$?
+		win_rc=0; NEMO_WIN_GATE_ARGS="-BacklogRunQuick -Yes -NoSync -NoFmt -NoTests" NEMO_WIN_DESKTOP_LIST="${winDeskList}" "${WIN_GATE_CMD[@]}" || win_rc=$?
 		if ((win_rc == 77)); then
 			fEcho "WARNING: no box there for the windowed tests, so the side gate's pass stands"
 			win_rc=0
 		fi
 	fi
-	case "$win_rc" in
+	case "${win_rc}" in
 		0)  fEcho "OK: native Windows gate" ;;
 		77) fStep_Skip ;;
 		*)  fDie "native Windows gate (exit ${win_rc})" ;;
@@ -1295,14 +1295,14 @@ if ((run_private)); then
 	## A build joins this run's dogfood only if the runner made it this run. One
 	## left from an earlier run of the same version must not be published again.
 	for entry in "${PRIVATE_DOGFOOD[@]:-}"; do
-		[[ -n "$entry" ]] || continue
+		[[ -n "${entry}" ]] || continue
 		pd_src="${PRIVATE_RUNNER%/cicd/*}/${entry%%|*}"
 		pd_src="${pd_src//@VER@/${ver}}"
-		if [[ -d "$pd_src" && "$pd_src" -nt "$priv_start" ]]; then
+		if [[ -d "${pd_src}" && "${pd_src}" -nt "${priv_start}" ]]; then
 			priv_dogfood+=("${pd_src}|${entry#*|}")
 		fi
 	done
-	rm -f "$priv_start"
+	rm -f "${priv_start}"
 fi
 
 ## Stage 7: dogfood, as 3 separate installs. A fixed name, a rotating dated copy,
@@ -1326,16 +1326,16 @@ fi
 
 ## 7a. Fixed name: the stable path you launch by hand.
 if ((${#DOGFOOD_FIXED_DESTS[@]})); then
-	if [[ -n "$fixed_dest" ]]; then
+	if [[ -n "${fixed_dest}" ]]; then
 		if [[ -n "${DOGFOOD_PREFIX_SRC:-}" ]]; then
 			## Copied alongside and swapped in rather than rebuilt in place, because
 			## a launcher on another box reads this dir at any time, and a half-copied
 			## tree there looks like a good build.
 			df_app="${fixed_dest}/${EXE_NAME}"
-			[[ "$df_app" == /*/"${EXE_NAME}" ]] || fDie "refusing to replace ${df_app}"
+			[[ "${df_app}" == /*/"${EXE_NAME}" ]] || fDie "refusing to replace ${df_app}"
 			## The launcher runs its own local copy, but someone may have started
 			## this one directly.
-			if in_use "$df_app"; then
+			if in_use "${df_app}"; then
 				fEcho "WARNING: ${df_app} is running; left as is"
 			else
 				fSafeRm_Under "${fixed_dest}" "${df_app}.new"
@@ -1356,8 +1356,8 @@ fi
 
 ## 7b. Rotating name: dated copy so builds coexist; prune older ones not running.
 if ((${#DOGFOOD_ROTATING_DESTS[@]})) && [[ -n "${DOGFOOD_PREFIX:-}" ]]; then
-	[[ -z "$rot_dest" && -n "$rot_target" ]] && mkdir -p "$rot_target" 2>/dev/null && rot_dest="$rot_target"
-	if [[ -n "$rot_dest" && -w "$rot_dest" ]]; then
+	[[ -z "${rot_dest}" && -n "${rot_target}" ]] && mkdir -p "${rot_target}" 2>/dev/null && rot_dest="${rot_target}"
+	if [[ -n "${rot_dest}" && -w "${rot_dest}" ]]; then
 		df_name="${DOGFOOD_PREFIX}_$(date -r "${df_stamp_from}" +%Y%m%d-%H%M%S)${DOGFOOD_TAG:+_${DOGFOOD_TAG}}"
 		fSafeRm_Under "${rot_dest}" "${rot_dest}/${df_name}"
 		if [[ -n "${DOGFOOD_PREFIX_SRC:-}" ]]; then
@@ -1369,12 +1369,12 @@ if ((${#DOGFOOD_ROTATING_DESTS[@]})) && [[ -n "${DOGFOOD_PREFIX:-}" ]]; then
 		fEcho "OK: installed (rotating) -> ${rot_dest}/${df_name}"
 		pruned=0
 		for old in "${rot_dest}/${DOGFOOD_PREFIX}_"*; do
-			[[ -e "$old" ]] || continue                  # no-match glob (nullglob is off)
-			[[ "$(basename "$old")" == "$df_name" ]] && continue
-			if in_use "$old"; then
-				fEcho_Clean "kept (running): $(basename "$old")"
+			[[ -e "${old}" ]] || continue                  # no-match glob (nullglob is off)
+			[[ "$(basename "${old}")" == "${df_name}" ]] && continue
+			if in_use "${old}"; then
+				fEcho_Clean "kept (running): $(basename "${old}")"
 			else
-				fSafeRm_Under "${rot_dest}" "$old" && pruned=$((pruned + 1))
+				fSafeRm_Under "${rot_dest}" "${old}" && pruned=$((pruned + 1))
 			fi
 		done
 		if ((pruned)); then fEcho_Clean "pruned ${pruned} old copy(ies) not in use"; fi
@@ -1391,12 +1391,12 @@ if ((${#DOGFOOD_CROSS_DESTS[@]})); then
 		xosarch="${xd%%|*}"; xrest="${xd#*|}"; xname="${xrest%%|*}"; xdest="${xrest#*|}"
 		xsrc=""
 		for pair in "${built_arts[@]:-}"; do
-			[[ "${pair%%|*}" == "$xosarch" ]] && { xsrc="${pair#*|}"; break; }
+			[[ "${pair%%|*}" == "${xosarch}" ]] && { xsrc="${pair#*|}"; break; }
 		done
-		if [[ -z "$xsrc" ]]; then
+		if [[ -z "${xsrc}" ]]; then
 			fEcho_Clean "no ${xosarch} build this run; cross dogfood skipped"
-		elif [[ -d "$xdest" && -w "$xdest" ]]; then
-			cp -pf "$xsrc" "${xdest}/${xname}"
+		elif [[ -d "${xdest}" && -w "${xdest}" ]]; then
+			cp -pf "${xsrc}" "${xdest}/${xname}"
 			fEcho "OK: installed (cross ${xosarch}) -> ${xdest}/${xname}"
 			df_did=1
 		else
@@ -1409,18 +1409,18 @@ fi
 ## can't build, swapped in whole the same way as 7a. Not under --no-dogfood.
 if ((${#DOGFOOD_FIXED_DESTS[@]})); then
 	for entry in "${priv_dogfood[@]:-}"; do
-		[[ -n "$entry" ]] || continue
+		[[ -n "${entry}" ]] || continue
 		pd_src="${entry%%|*}"
 		declare -n pd_dests="${entry#*|}"
 		pd_dest=""
-		for d in "${pd_dests[@]}"; do [[ -d "$d" && -w "$d" ]] && { pd_dest="$d"; break; }; done
+		for d in "${pd_dests[@]}"; do [[ -d "${d}" && -w "${d}" ]] && { pd_dest="${d}"; break; }; done
 		unset -n pd_dests
-		if [[ -z "$pd_dest" ]]; then
+		if [[ -z "${pd_dest}" ]]; then
 			fEcho "WARNING: no dogfood dest for ${pd_src##*/dist/}; skipping"
 			continue
 		fi
 		pd_app="${pd_dest}/${EXE_NAME}"
-		[[ "$pd_app" == /*/"${EXE_NAME}" ]] || fDie "refusing to replace ${pd_app}"
+		[[ "${pd_app}" == /*/"${EXE_NAME}" ]] || fDie "refusing to replace ${pd_app}"
 		fSafeRm_Under "${pd_dest}" "${pd_app}.new"
 		cp -a "${pd_src}" "${pd_app}.new"
 		fSafeRm_Under "${pd_dest}" "${pd_app}"
@@ -1450,9 +1450,9 @@ fi
 ## Refresh README screenshots. Skipped under --quick, and a miss never aborts.
 ## Runs before publish so changed images get committed. Rendering needs a
 ## headless X and magick, so a failure only warns.
-if ((SHOTS_ENABLE && ! quick)) && [[ -x "$shots_hook" ]]; then
+if ((SHOTS_ENABLE && ! quick)) && [[ -x "${shots_hook}" ]]; then
 	fStep "Screenshots"
-	if NEMO_BIN="${root}/${DOGFOOD_PREFIX_SRC}/bin/${EXE_NAME}" "$shots_hook" "${root}"; then
+	if NEMO_BIN="${root}/${DOGFOOD_PREFIX_SRC}/bin/${EXE_NAME}" "${shots_hook}" "${root}"; then
 		fEcho "OK: screenshots"
 	else
 		fEcho "WARNING: screenshot hook failed (non-fatal)"
@@ -1465,9 +1465,9 @@ fi
 ## assets/demo.gif. It runs on a private Xvfb, so nothing shows up on whatever
 ## display this was started from. It needs the release build, so it goes after
 ## stage 5.
-if ((${DEMO_ENABLE:-0} && ! quick)) && [[ -f "$demo_hook" ]]; then
+if ((${DEMO_ENABLE:-0} && ! quick)) && [[ -f "${demo_hook}" ]]; then
 	fStep "Demo video"
-	if NEMO_BIN="${root}/${RELEASE_NATIVE_BIN}" python3 "$demo_hook"; then
+	if NEMO_BIN="${root}/${RELEASE_NATIVE_BIN}" python3 "${demo_hook}"; then
 		fEcho "OK: demo video"
 	else
 		fEcho "WARNING: demo video hook failed (non-fatal)"
@@ -1484,7 +1484,7 @@ require_clean_tree_for_publish
 pub_flags=(--quiet)
 if ((${#GIT_PUBLISH[@]} == 0)); then
 	:
-elif [[ -n "$publish_msg" ]]; then
+elif [[ -n "${publish_msg}" ]]; then
 	## Hands-off: quiet env skips the script's continue-prompt; the GIT_EDITOR
 	## helper fills the empty commit message so `git commit` won't open an editor.
 	fEcho_Clean "hands-off publish (commit message: \"${publish_msg}\")"

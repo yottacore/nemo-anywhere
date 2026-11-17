@@ -74,35 +74,35 @@ fRun(){
 	local what="$1" want="$2" rc=0 out dir
 	local -a got
 	shift 2
-	rm -f "$seen"
-	out="$(cd "$repo" && HOST_TEMP="$hostTemp" SEEN="$seen" STEP_DO="$what" CICD_CPU_CAPPED=1 \
+	rm -f "${seen}"
+	out="$(cd "${repo}" && HOST_TEMP="${hostTemp}" SEEN="${seen}" STEP_DO="${what}" CICD_CPU_CAPPED=1 \
 		bash cicd/cicd.bash --backlog-run-quick tests "$@" 2>&1 </dev/null)" || rc=$?
-	lastOut="$out"
-	[[ "$rc" == "$want" ]] || fFail "[${what:-ok} $*]: exit ${rc}, not ${want}: $(tail -3 <<< "$out")"
-	if [[ ! -s "$seen" ]]; then
+	lastOut="${out}"
+	[[ "${rc}" == "${want}" ]] || fFail "[${what:-ok} $*]: exit ${rc}, not ${want}: $(tail -3 <<< "${out}")"
+	if [[ ! -s "${seen}" ]]; then
 		fFail "[${what:-ok} $*]: the step didn't run"
 		return 0
 	fi
-	mapfile -t got < "$seen"
+	mapfile -t got < "${seen}"
 	dir="${got[0]}"
-	lastDir="$dir"
-	[[ "$dir" =~ ^${hostTemp}/app/[0-9]{8}-[0-9]{6}_[0-9]{3}$ ]] || fFail "[${what:-ok} $*]: TMPDIR is ${dir}"
-	[[ "${got[1]}" == "$dir" && "${got[2]}" == "$dir" ]] || fFail "[${what:-ok} $*]: TEMP ${got[1]} and TMP ${got[2]}, not ${dir}"
+	lastDir="${dir}"
+	[[ "${dir}" =~ ^${hostTemp}/app/[0-9]{8}-[0-9]{6}_[0-9]{3}$ ]] || fFail "[${what:-ok} $*]: TMPDIR is ${dir}"
+	[[ "${got[1]}" == "${dir}" && "${got[2]}" == "${dir}" ]] || fFail "[${what:-ok} $*]: TEMP ${got[1]} and TMP ${got[2]}, not ${dir}"
 	[[ "${got[4]}" == "${got[3]}" ]] || fFail "[${what:-ok} $*]: run.pid holds ${got[4]}, the run is ${got[3]}"
 }
 
 fRun ""   0
-[[ ! -e "$lastDir" ]] || fFail "[ok]: the run folder is still there"
+[[ ! -e "${lastDir}" ]] || fFail "[ok]: the run folder is still there"
 fRun fail 1
-[[ ! -e "$lastDir" ]] || fFail "[fail]: the run folder is still there"
+[[ ! -e "${lastDir}" ]] || fFail "[fail]: the run folder is still there"
 fRun int  130
-[[ ! -e "$lastDir" ]] || fFail "[int]: the run folder is still there"
+[[ ! -e "${lastDir}" ]] || fFail "[int]: the run folder is still there"
 fRun term 143
-[[ ! -e "$lastDir" ]] || fFail "[term]: the run folder is still there"
+[[ ! -e "${lastDir}" ]] || fFail "[term]: the run folder is still there"
 fRun ""   0 --keep-temp
 if [[ -f "${lastDir}/left/deeper/file" ]]; then
-	[[ "$lastOut" == *"[ kept the run folder: ${lastDir} ]"* ]] || fFail "[--keep-temp]: doesn't say where the run folder is"
-	HOST_TEMP="$hostTemp" projectName=app fSafeRm "$lastDir" > /dev/null
+	[[ "${lastOut}" == *"[ kept the run folder: ${lastDir} ]"* ]] || fFail "[--keep-temp]: doesn't say where the run folder is"
+	HOST_TEMP="${hostTemp}" projectName=app fSafeRm "${lastDir}" > /dev/null
 else
 	fFail "[--keep-temp]: the run folder is gone"
 fi
@@ -119,7 +119,7 @@ echo 999999999 > "${app}/${recent}_001/run.pid"
 echo 999999999 > "${scratch}/outside/run.pid"
 ((! haveLinks)) || ln -s "${scratch}/outside" "${app}/${old}_004"
 # shellcheck disable=SC2016  ## the substitution must stay unexpanded
-printf 'x[$(touch %s/pwned)]\n' "$scratch" > "${app}/${old}_005/run.pid"
+printf 'x[$(touch %s/pwned)]\n' "${scratch}" > "${app}/${old}_005/run.pid"
 fRun "" 0
 [[ ! -e "${app}/${old}_001" ]]   || fFail "sweep: kept an old folder whose pid is gone"
 [[ -d "${app}/${old}_002" ]]     || fFail "sweep: removed an old folder whose pid is live"
@@ -134,25 +134,25 @@ fi
 ## Each of 2 runs in one second gets its own folder. With no HOST_TEMP, TMPDIR.
 mk="${scratch}/mk"
 mkdir -p "${mk}" "${scratch}/real-temp"
-made="$(HOST_TEMP="$mk"; for _ in 1 2; do fRunTemp_Make unit 20200202-020202 && echo "${runTempDir} $(cat "${runTempDir}/run.pid") ${TMPDIR}"; done)"
+made="$(HOST_TEMP="${mk}"; for _ in 1 2; do fRunTemp_Make unit 20200202-020202 && echo "${runTempDir} $(cat "${runTempDir}/run.pid") ${TMPDIR}"; done)"
 want="${mk}/unit/20200202-020202_001 $$ ${mk}/unit/20200202-020202_001
 ${mk}/unit/20200202-020202_002 $$ ${mk}/unit/20200202-020202_002"
-[[ "$made" == "$want" ]] || fFail "fRunTemp_Make twice in one second gave: ${made}"
+[[ "${made}" == "${want}" ]] || fFail "fRunTemp_Make twice in one second gave: ${made}"
 if ((haveLinks)); then
 	ln -s "${scratch}/real-temp" "${scratch}/link-temp"
-	made="$(unset HOST_TEMP; TMPDIR="${scratch}/link-temp"; fRunTemp_Make unit 20200202-020202 && echo "$runTempDir")"
-	[[ "$made" == "${scratch}/real-temp/unit/20200202-020202_001" ]] || fFail "fRunTemp_Make with TMPDIR through a link gave: ${made}"
+	made="$(unset HOST_TEMP; TMPDIR="${scratch}/link-temp"; fRunTemp_Make unit 20200202-020202 && echo "${runTempDir}")"
+	[[ "${made}" == "${scratch}/real-temp/unit/20200202-020202_001" ]] || fFail "fRunTemp_Make with TMPDIR through a link gave: ${made}"
 else
-	made="$(unset HOST_TEMP; TMPDIR="${scratch}/real-temp"; fRunTemp_Make unit 20200202-020202 && echo "$runTempDir")"
-	[[ "$made" == "${scratch}/real-temp/unit/20200202-020202_001" ]] || fFail "fRunTemp_Make with TMPDIR gave: ${made}"
+	made="$(unset HOST_TEMP; TMPDIR="${scratch}/real-temp"; fRunTemp_Make unit 20200202-020202 && echo "${runTempDir}")"
+	[[ "${made}" == "${scratch}/real-temp/unit/20200202-020202_001" ]] || fFail "fRunTemp_Make with TMPDIR gave: ${made}"
 fi
 
 ## The guard.
 fRefused(){
 	local why="$1" rc=0 msg
 	shift
-	msg="$(HOST_TEMP="$hostTemp" projectName=app fSafeRm "$@" 2>&1)" || rc=$?
-	[[ "$rc" != 0 && "$msg" == *"refused, ${why}"* ]] || fFail "fSafeRm $*: not refused as ${why}: exit ${rc}, ${msg}"
+	msg="$(HOST_TEMP="${hostTemp}" projectName=app fSafeRm "$@" 2>&1)" || rc=$?
+	[[ "${rc}" != 0 && "${msg}" == *"refused, ${why}"* ]] || fFail "fSafeRm $*: not refused as ${why}: exit ${rc}, ${msg}"
 }
 mkdir -p "${app}/victim/sub" "${scratch}/elsewhere/sub"
 if ((haveLinks)); then
@@ -171,7 +171,7 @@ if ((haveLinks)); then
 fi
 fRefused "not there"               "${app}/nosuch"
 [[ -d "${scratch}/elsewhere/sub" && -d "${app}/victim/sub" ]] || fFail "fSafeRm removed something it refused"
-HOST_TEMP="$hostTemp" projectName=app fSafeRm "${app}/victim/" > /dev/null || fFail "fSafeRm refused a plain folder"
+HOST_TEMP="${hostTemp}" projectName=app fSafeRm "${app}/victim/" > /dev/null || fFail "fSafeRm refused a plain folder"
 [[ ! -e "${app}/victim" ]] || fFail "fSafeRm left a plain folder"
 
 ## Never the temp root or a project's whole folder in it, even under a folder
@@ -179,22 +179,22 @@ HOST_TEMP="$hostTemp" projectName=app fSafeRm "${app}/victim/" > /dev/null || fF
 fRefusedWhole(){
 	local ht="$1" rc=0 msg
 	shift
-	msg="$(HOST_TEMP="$ht" projectName=proj fSafeRm "$@" 2>&1)" || rc=$?
-	[[ "$rc" != 0 && "$msg" == *"refused, the temp root or a project's whole folder"* ]] || fFail "fSafeRm $* with HOST_TEMP ${ht}: not refused as a whole folder: exit ${rc}, ${msg}"
+	msg="$(HOST_TEMP="${ht}" projectName=proj fSafeRm "$@" 2>&1)" || rc=$?
+	[[ "${rc}" != 0 && "${msg}" == *"refused, the temp root or a project's whole folder"* ]] || fFail "fSafeRm $* with HOST_TEMP ${ht}: not refused as a whole folder: exit ${rc}, ${msg}"
 }
 ht="${scratch}/tmp/ht"
 mkdir -p "${ht}/proj/run" "${ht}/other"
-fRefusedWhole "$ht"  "${ht}/proj"
-fRefusedWhole "$ht"  "${ht}/proj/"
-fRefusedWhole "$ht"  "${ht}/other"
-fRefusedWhole "$ht"  "$ht"
-fRefusedWhole "$ht/" "${ht}/proj"
+fRefusedWhole "${ht}"  "${ht}/proj"
+fRefusedWhole "${ht}"  "${ht}/proj/"
+fRefusedWhole "${ht}"  "${ht}/other"
+fRefusedWhole "${ht}"  "${ht}"
+fRefusedWhole "${ht}/" "${ht}/proj"
 if ((haveLinks)); then
-	ln -s "$ht" "${scratch}/ht-link"
+	ln -s "${ht}" "${scratch}/ht-link"
 	fRefusedWhole "${scratch}/ht-link" "${ht}/proj"
 fi
 [[ -d "${ht}/proj/run" && -d "${ht}/other" ]] || fFail "fSafeRm removed a whole folder it refused"
-HOST_TEMP="$ht" projectName=proj fSafeRm "${ht}/proj/run" > /dev/null || fFail "fSafeRm refused a run folder under HOST_TEMP"
+HOST_TEMP="${ht}" projectName=proj fSafeRm "${ht}/proj/run" > /dev/null || fFail "fSafeRm refused a run folder under HOST_TEMP"
 [[ ! -e "${ht}/proj/run" ]] || fFail "fSafeRm left a run folder under HOST_TEMP"
 
 if ((failures)); then

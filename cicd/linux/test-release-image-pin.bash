@@ -24,14 +24,14 @@ dockerfile="${here}/Dockerfile"
 failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
-text="$(cat "$dockerfile")"
+text="$(cat "${dockerfile}")"
 
-froms="$(grep -E '^FROM[[:space:]]' <<<"$text" || true)"
-[[ -n "$froms" ]] || fFail "no FROM line in ${dockerfile}"
+froms="$(grep -E '^FROM[[:space:]]' <<<"${text}" || true)"
+[[ -n "${froms}" ]] || fFail "no FROM line in ${dockerfile}"
 while IFS= read -r line; do
-	[[ -z "$line" ]] && continue
-	if [[ ! "$line" =~ @sha256:[0-9a-f]{64}([[:space:]]|$) ]]; then fFail "base not pinned by digest: ${line}"; fi
-done <<<"$froms"
+	[[ -z "${line}" ]] && continue
+	if [[ ! "${line}" =~ @sha256:[0-9a-f]{64}([[:space:]]|$) ]]; then fFail "base not pinned by digest: ${line}"; fi
+done <<<"${froms}"
 
 ## The sources list as it comes in the jammy base image, amd64 then arm64.
 stock='deb http://archive.ubuntu.com/ubuntu/ jammy main restricted
@@ -57,22 +57,22 @@ deb http://ports.ubuntu.com/ubuntu-ports/ jammy-security multiverse'
 
 ## Drop comments and join continuation lines so each RUN is one line, then take
 ## the sed that rewrites the sources and run it here.
-joined="$(grep -v '^[[:space:]]*#' <<<"$text" | sed -e ':a' -e '/\\$/{N;s/\\\n//;ba' -e '}')"
-expr="$(grep -oE "sed -i -E '[^']+' /etc/apt/sources.list" <<<"$joined" | head -1 || true)"
-if [[ -z "$expr" ]]; then
+joined="$(grep -v '^[[:space:]]*#' <<<"${text}" | sed -e ':a' -e '/\\$/{N;s/\\\n//;ba' -e '}')"
+expr="$(grep -oE "sed -i -E '[^']+' /etc/apt/sources.list" <<<"${joined}" | head -1 || true)"
+if [[ -z "${expr}" ]]; then
 	fFail "nothing rewrites /etc/apt/sources.list"
 else
 	expr="${expr#sed -i -E \'}"; expr="${expr%\' /etc/apt/sources.list}"
-	rewritten="$(sed -E "$expr" <<<"$stock")"
-	snaps="$(grep -oE 'https?://snapshot\.ubuntu\.com/ubuntu/[0-9]{8}T[0-9]{6}Z/' <<<"$rewritten" | sort -u || true)"
+	rewritten="$(sed -E "${expr}" <<<"${stock}")"
+	snaps="$(grep -oE 'https?://snapshot\.ubuntu\.com/ubuntu/[0-9]{8}T[0-9]{6}Z/' <<<"${rewritten}" | sort -u || true)"
 	while IFS= read -r line; do
-		[[ "$line" =~ snapshot\.ubuntu\.com/ubuntu/[0-9]{8}T[0-9]{6}Z/ ]] || fFail "source not on a dated snapshot: ${line}"
-	done <<<"$rewritten"
-	if [[ "$(grep -c . <<<"$snaps")" != 1 ]]; then fFail "sources don't share one snapshot: $(tr '\n' ' ' <<<"$snaps")"; fi
+		[[ "${line}" =~ snapshot\.ubuntu\.com/ubuntu/[0-9]{8}T[0-9]{6}Z/ ]] || fFail "source not on a dated snapshot: ${line}"
+	done <<<"${rewritten}"
+	if [[ "$(grep -c . <<<"${snaps}")" != 1 ]]; then fFail "sources don't share one snapshot: $(tr '\n' ' ' <<<"${snaps}")"; fi
 
 	## apt must not read the live archive first.
 	before="${joined%%sources.list*}"
-	if [[ "$before" == *apt-get* || "$before" == *"apt "* ]]; then fFail "apt runs before the sources are moved to the snapshot"; fi
+	if [[ "${before}" == *apt-get* || "${before}" == *"apt "* ]]; then fFail "apt runs before the sources are moved to the snapshot"; fi
 fi
 
 if ((failures)); then fEcho "${failures} release image pin check(s) failed"; exit 1; fi

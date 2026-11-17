@@ -26,26 +26,26 @@ mapfile -t files < <(git ls-files source cicd utility ':!:cicd/utility/lint-iden
 ## The account names these boxes use. A placeholder such as somebody
 ## or someone is what a fixture is supposed to say instead.
 bad="$(printf '%s\n' "${files[@]}" | xargs -d '\n' grep -niE 'collierjr|jimcollier|/home/jim\b|/home/jim/' 2>/dev/null || true)"
-if [[ -n "$bad" ]]; then
+if [[ -n "${bad}" ]]; then
 	fEcho "FAIL: a real account name or home path is baked into the code"
-	printf '%s\n' "$bad"
+	printf '%s\n' "${bad}"
 	exit 2
 fi
 
 ## The Bubbles marker belongs to the shared helper scripts, which move between
 ## 2 accounts. Anything under source/ is this project's own.
 bad="$(printf '%s\n' "${files[@]}" | grep '^source/' | xargs -d '\n' grep -ln 'Bubbles' 2>/dev/null || true)"
-if [[ -n "$bad" ]]; then
+if [[ -n "${bad}" ]]; then
 	fEcho "FAIL: the shared-helper copyright marker is on an application source"
-	printf '%s\n' "$bad"
+	printf '%s\n' "${bad}"
 	exit 2
 fi
 
 ## Retired markers. Anything that still has one was copied from an old file.
 bad="$(printf '%s\n' "${files[@]}" | xargs -d '\n' grep -nE '\(ID: |\(CryptogID: [A-Za-z0-9+/=]+\)' 2>/dev/null || true)"
-if [[ -n "$bad" ]]; then
+if [[ -n "${bad}" ]]; then
 	fEcho "FAIL: a retired copyright marker is still in the tree"
-	printf '%s\n' "$bad"
+	printf '%s\n' "${bad}"
 	exit 2
 fi
 
@@ -54,9 +54,9 @@ fi
 ## a quoted string is looked at - that is text the program shows. The extension
 ## library is LGPL and keeps its own wording.
 bad="$(printf '%s\n' "${files[@]}" | grep '^source/' | grep -v '^source/libnemo-extension/' | xargs -d '\n' grep -nE '"[^"]*any later version' 2>/dev/null || true)"
-if [[ -n "$bad" ]]; then
+if [[ -n "${bad}" ]]; then
 	fEcho "FAIL: text shown to the user offers a later GPL version"
-	printf '%s\n' "$bad"
+	printf '%s\n' "${bad}"
 	exit 2
 fi
 
@@ -67,9 +67,9 @@ if [[ "$(grep -m1 '^Name=' source/data/nemo.desktop.in || true)" != 'Name=Nemo A
 	exit 2
 fi
 bad="$(grep -niE 'cinnamon' source/docs/nemo-anywhere.1 || true)"
-if [[ -n "$bad" ]]; then
+if [[ -n "${bad}" ]]; then
 	fEcho "FAIL: the man page names Cinnamon"
-	printf '%s\n' "$bad"
+	printf '%s\n' "${bad}"
 	exit 2
 fi
 

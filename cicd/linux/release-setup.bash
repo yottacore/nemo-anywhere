@@ -27,31 +27,31 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../utility/include/run-tem
 
 ## Only ever clear a meson build dir. Anything else at that path was put there by
 ## someone else.
-if [[ -e "$build" ]]; then
-	[[ "$build" == /* && "$build" != / ]] || fDie "build dir must be an absolute path: ${build}"
+if [[ -e "${build}" ]]; then
+	[[ "${build}" == /* && "${build}" != / ]] || fDie "build dir must be an absolute path: ${build}"
 	[[ -d "${build}/meson-private" ]] || fDie "${build} isn't a meson build dir; not clearing it"
 	## Emptied rather than removed, since a top-level dir has no parent the
 	## guard would take, and meson sets up an empty dir the same as a new one.
 	shopt -s dotglob nullglob
-	fSafeRm_Under "$build" "$build"/*
+	fSafeRm_Under "${build}" "${build}"/*
 	shopt -u dotglob nullglob
 fi
 
 ## meson 0.61 gives b_lto_threads to the compile only and links with a bare
 ## -flto, which gcc 11 runs on one core. Hand the link the same count.
-meson setup --buildtype=release -Dstrip=true -Db_lto=true -Db_lto_threads=4 -Dc_link_args=-flto=4 -Dextension_library=static -Dwerror=true -Drelease=true "-Dprefix=${prefix}" "$build" "$src" >/dev/null
+meson setup --buildtype=release -Dstrip=true -Db_lto=true -Db_lto_threads=4 -Dc_link_args=-flto=4 -Dextension_library=static -Dwerror=true -Drelease=true "-Dprefix=${prefix}" "${build}" "${src}" >/dev/null
 
 want="buildtype=release strip=True b_lto=True b_lto_threads=4 extension_library=static werror=True release=True prefix=${prefix}"
-got="$(meson introspect --buildoptions "$build" | python3 -c '
+got="$(meson introspect --buildoptions "${build}" | python3 -c '
 import json, sys
 opts = {o["name"]: o["value"] for o in json.load(sys.stdin)}
 print(" ".join(f"{n}={opts.get(n)}" for n in sys.argv[1:]))
 ' buildtype strip b_lto b_lto_threads extension_library werror release prefix)"
-[[ "$got" == "$want" ]] || fDie "${build} has ${got}, asked for ${want}"
+[[ "${got}" == "${want}" ]] || fDie "${build} has ${got}, asked for ${want}"
 grep -q -F -e '-flto' "${build}/build.ninja" || fDie "${build}/build.ninja has no -flto"
 ltoLinks="$(grep -E '^ LINK_ARGS = .*-flto' "${build}/build.ninja" || true)"
-[[ -n "$ltoLinks" ]] || fDie "${build}/build.ninja has no link with -flto"
-if grep -q -v -F -e '-flto=4' <<<"$ltoLinks"; then fDie "${build} has a link without -flto=4"; fi
+[[ -n "${ltoLinks}" ]] || fDie "${build}/build.ninja has no link with -flto"
+if grep -q -v -F -e '-flto=4' <<<"${ltoLinks}"; then fDie "${build} has a link without -flto=4"; fi
 
 ##	History:
 ##		- 2026-10-03: Created, out of release.bash, which reconfigured an old dir.

@@ -62,10 +62,10 @@ mkdir -p "${repo}/cicd/win" "${repo}/cicd/utility/include" "${scratch}/bin" "${s
 cp "${root}/cicd/win/lane.bash" "${root}/cicd/win/lane-box.ps1" "${repo}/cicd/win/"
 for inc in echo box-wrap jobs; do cp "${root}/cicd/utility/include/${inc}.bash" "${repo}/cicd/utility/include/"; done
 cp "${root}/cicd/utility/include/run-temp.ps1" "${repo}/cicd/utility/include/"
-git -C "$repo" -c user.name=test -c user.email=test@example.invalid init -q
-git -C "$repo" add -A
-git -C "$repo" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m base
-head="$(git -C "$repo" rev-parse HEAD)"
+git -C "${repo}" -c user.name=test -c user.email=test@example.invalid init -q
+git -C "${repo}" add -A
+git -C "${repo}" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m base
+head="$(git -C "${repo}" rev-parse HEAD)"
 
 ## FAKE_GONE: the hosts that never reply. FAKE_TAKEN: folder names already
 ## there. FAKE_RC: what's in run.rc, none while the gate runs. FAKE_DRC: the
@@ -142,10 +142,10 @@ fLane(){
 	shift
 	while (($#)) && [[ "$1" != -- ]]; do envs+=("$1"); shift; done
 	shift
-	rm -f "$log" "${scratch}/sent/"* "${repo}/cicd/artifacts/build-win/"*; touch "$log"
+	rm -f "${log}" "${scratch}/sent/"* "${repo}/cicd/artifacts/build-win/"*; touch "${log}"
 	laneRc=0
 	## A home of its own, so the real lock tools are never found.
-	(cd "$repo" && env -u WINDOWS_HOST_LOCK "${envs[@]}" HOME="${scratch}/home" PATH="${scratch}/bin:${PATH}" BOX_WRAP_TOOL="$tool" BOX_READY_POLL=0 NEMO_WIN_POLL=0 \
+	(cd "${repo}" && env -u WINDOWS_HOST_LOCK "${envs[@]}" HOME="${scratch}/home" PATH="${scratch}/bin:${PATH}" BOX_WRAP_TOOL="${tool}" BOX_READY_POLL=0 NEMO_WIN_POLL=0 \
 		bash cicd/win/lane.bash "$@") > "${scratch}/out.log" 2>&1 || laneRc=$?
 }
 dirRe='C:\\ProgramData\\nemo-anywhere\\[0-9]{8}-[0-9]{6}_'
@@ -156,39 +156,39 @@ fKept(){ [[ -d "${repo}/cicd/artifacts/build-win" ]] || return 0; find "${repo}/
 fCheckKept(){
 	local kept leaf
 	kept="$(fKept)"
-	leaf="$(grep -oE "[0-9]{8}-[0-9]{6}_${1}\$" <<< "$(grep '^ssh b29w mkdir ' "$log")" | head -n 1)"
-	[[ "$kept" == "cicd/artifacts/build-win/b29w_${leaf}_testlog.txt" ]] || { fFail "$2: the kept test log isn't b29w_${leaf}_testlog.txt: ${kept:-none}"; return; }
+	leaf="$(grep -oE "[0-9]{8}-[0-9]{6}_${1}\$" <<< "$(grep '^ssh b29w mkdir ' "${log}")" | head -n 1)"
+	[[ "${kept}" == "cicd/artifacts/build-win/b29w_${leaf}_testlog.txt" ]] || { fFail "$2: the kept test log isn't b29w_${leaf}_testlog.txt: ${kept:-none}"; return; }
 	[[ "$(tr -d '\r' < "${repo}/${kept}")" == 'the box meson log' ]] || fFail "$2: the kept test log is not the box's"
-	grep -q ' -Remove$' <<< "$(sed -n '/meson-logs.testlog/,$p' "$log")" || fFail "$2: the test log was asked for after the folder went"
+	grep -q ' -Remove$' <<< "$(sed -n '/meson-logs.testlog/,$p' "${log}")" || fFail "$2: the test log was asked for after the folder went"
 	grep -qF "kept ${repo}/${kept}" "${scratch}/out.log" || fFail "$2: the kept test log wasn't named"
 }
 
 fLane "${scratch}/x_vm-state.bash" FAKE_VMS=vm925w FAKE_RC=0 FAKE_DRC=0 -- b29w vm925w
 if ((laneRc == 0)); then
-	grep -q '^lock wrap b29w ' "$log" || fFail "b29w wasn't taken through the wrap: $(cat "$log")"
-	! grep -q 'b29w-wif\|vm925w' "$log" || fFail "another box was touched while b29w was there"
-	grep -qE "^ssh b29w mkdir ${dirRe}001\$" "$log" || fFail "no work folder _001 under the box's ProgramData"
+	grep -q '^lock wrap b29w ' "${log}" || fFail "b29w wasn't taken through the wrap: $(cat "${log}")"
+	! grep -q 'b29w-wif\|vm925w' "${log}" || fFail "another box was touched while b29w was there"
+	grep -qE "^ssh b29w mkdir ${dirRe}001\$" "${log}" || fFail "no work folder _001 under the box's ProgramData"
 	# shellcheck disable=SC1003  ## a Windows folder, trailing backslash and all
 	grep -qF 'work folder b29w:C:\ProgramData\nemo-anywhere\' "${scratch}/out.log" || fFail "the work folder's path wasn't printed as it is"
 	if [[ -f "${scratch}/sent/round.bundle" ]]; then
-		git -C "$repo" bundle verify -q "${scratch}/sent/round.bundle" > /dev/null 2>&1 || fFail "what was sent is not a bundle of this repo"
+		git -C "${repo}" bundle verify -q "${scratch}/sent/round.bundle" > /dev/null 2>&1 || fFail "what was sent is not a bundle of this repo"
 		grep -q "^${head} HEAD\$" <<< "$(git bundle list-heads "${scratch}/sent/round.bundle")" || fFail "the bundle isn't of HEAD"
 	else
 		fFail "no bundle was sent"
 	fi
 	cmp -s "${scratch}/sent/lane-box.ps1" "${repo}/cicd/win/lane-box.ps1" || fFail "lane-box.ps1 wasn't sent"
 	cmp -s "${scratch}/sent/run-temp.ps1" "${repo}/cicd/utility/include/run-temp.ps1" || fFail "run-temp.ps1 wasn't sent"
-	grep -qE "^ssh b29w pwsh .*lane-box\\.ps1 -Dir ${dirRe}001 -Start -GateArgs BacklogRunQuick,Yes,NoSync\$" "$log" || fFail "the gate wasn't started with -BacklogRunQuick -Yes -NoSync"
+	grep -qE "^ssh b29w pwsh .*lane-box\\.ps1 -Dir ${dirRe}001 -Start -GateArgs BacklogRunQuick,Yes,NoSync\$" "${log}" || fFail "the gate wasn't started with -BacklogRunQuick -Yes -NoSync"
 	grep -q '^PASS ddzzz a test on the box  0.10s$' "${scratch}/out.log" || fFail "the gate's log wasn't printed"
-	grep -qE "^ssh b29w pwsh .*lane-box\\.ps1 -Dir ${dirRe}001 -Remove\$" "$log" || fFail "the work folder wasn't removed"
+	grep -qE "^ssh b29w pwsh .*lane-box\\.ps1 -Dir ${dirRe}001 -Remove\$" "${log}" || fFail "the work folder wasn't removed"
 	grep -q 'Windows 3 of 4; PASS Gate ]' "${scratch}/out.log" || fFail "no PASS line for the gate"
 	[[ "$(cat "${scratch}/sent/desktop.txt" 2> /dev/null)" == 'ddzzw a windowed test' ]] || fFail "the desktop list is not the one test the Tests step skipped: $(cat "${scratch}/sent/desktop.txt" 2> /dev/null)"
-	grep -qE "^ssh b29w pwsh .*lane-box\\.ps1 -Dir ${dirRe}001 -Desktop -TestUser wintest\$" "$log" || fFail "the desktop tests weren't started as wintest"
+	grep -qE "^ssh b29w pwsh .*lane-box\\.ps1 -Dir ${dirRe}001 -Desktop -TestUser wintest\$" "${log}" || fFail "the desktop tests weren't started as wintest"
 	grep -q '^PASS ddzzw a windowed test  1.20s$' "${scratch}/out.log" || fFail "the desktop log wasn't printed"
 	grep -q 'Windows 4 of 4; PASS Desktop tests ]' "${scratch}/out.log" || fFail "no PASS line for the desktop tests"
-	grep -qE "^ssh b29w pwsh .*-Desktop .*" <<< "$(sed -n '/-Remove$/,$p' "$log")" && fFail "the desktop tests ran after the folder was removed"
+	grep -qE "^ssh b29w pwsh .*-Desktop .*" <<< "$(sed -n '/-Remove$/,$p' "${log}")" && fFail "the desktop tests ran after the folder was removed"
 	! grep -q 'uncommitted' "${scratch}/out.log" || fFail "a clean tree was said to have uncommitted edits"
-	! grep -q 'meson-logs' "$log" || fFail "a passing gate asked for its test log"
+	! grep -q 'meson-logs' "${log}" || fFail "a passing gate asked for its test log"
 	[[ -z "$(fKept)" ]] || fFail "a passing gate kept a test log: $(fKept)"
 	fEcho "OK: b29w runs the gate in its own folder, removed after"
 else
@@ -197,10 +197,10 @@ fi
 
 fLane "${scratch}/x_vm-state.bash" FAKE_RC=1 FAKE_TAKEN="001 002" -- b29w
 if ((laneRc == 1)); then
-	grep -qE "^ssh b29w mkdir ${dirRe}003\$" "$log" || fFail "a taken folder name wasn't counted past"
-	grep -qE "^ssh b29w pwsh .*-Dir ${dirRe}003 -Remove\$" "$log" || fFail "the work folder wasn't removed after a failure"
+	grep -qE "^ssh b29w mkdir ${dirRe}003\$" "${log}" || fFail "a taken folder name wasn't counted past"
+	grep -qE "^ssh b29w pwsh .*-Dir ${dirRe}003 -Remove\$" "${log}" || fFail "the work folder wasn't removed after a failure"
 	grep -q 'Windows 3 of 4; FAIL Gate ]' "${scratch}/out.log" || fFail "no FAIL line for the gate"
-	! grep -q ' -Desktop ' "$log" || fFail "the desktop tests ran after a failing gate"
+	! grep -q ' -Desktop ' "${log}" || fFail "the desktop tests ran after a failing gate"
 	fCheckKept 003 "a failing gate"
 	fEcho "OK: a failing gate fails the lane, keeps its test log here, and its folder still goes"
 else
@@ -209,10 +209,10 @@ fi
 
 fLane "${scratch}/x_vm-state.bash" FAKE_VMS=vm925w FAKE_GONE=b29w FAKE_RC=0 FAKE_DRC=0 -- b29w vm925w
 if ((laneRc == 0)); then
-	grep -q '^lock wrap vm925w ' "$log" || fFail "vm925w, off, wasn't taken through the VM state helper: $(cat "$log")"
-	! grep -q '^lock wrap b29w' "$log" || fFail "b29w was taken while gone"
-	grep -q '^ssh vm925w pwsh .* -Start ' "$log" || fFail "the gate didn't start on vm925w"
-	grep -q '^ssh vm925w pwsh .* -Desktop -TestUser wintest$' "$log" || fFail "the desktop tests didn't run as wintest on vm925w"
+	grep -q '^lock wrap vm925w ' "${log}" || fFail "vm925w, off, wasn't taken through the VM state helper: $(cat "${log}")"
+	! grep -q '^lock wrap b29w' "${log}" || fFail "b29w was taken while gone"
+	grep -q '^ssh vm925w pwsh .* -Start ' "${log}" || fFail "the gate didn't start on vm925w"
+	grep -q '^ssh vm925w pwsh .* -Desktop -TestUser wintest$' "${log}" || fFail "the desktop tests didn't run as wintest on vm925w"
 	fEcho "OK: with b29w gone, vm925w is started through the VM state helper"
 else
 	fFail "the lane failed with vm925w off (exit ${laneRc}): $(tail -3 "${scratch}/out.log")"
@@ -220,8 +220,8 @@ fi
 
 fLane "${scratch}/x_windows-host-lock.bash" FAKE_GONE="b29w vm925w" FAKE_RC=0 --
 if ((laneRc == 77)); then
-	! grep -q '^lock ' "$log" || fFail "a box was taken with none there"
-	! grep -qv ' exit$' "$log" || fFail "more than the probe went to a box that isn't there: $(cat "$log")"
+	! grep -q '^lock ' "${log}" || fFail "a box was taken with none there"
+	! grep -qv ' exit$' "${log}" || fFail "more than the probe went to a box that isn't there: $(cat "${log}")"
 	grep -q 'SKIP: no Windows box there (b29w vm925w)' "${scratch}/out.log" || fFail "no line saying the gate was skipped"
 	fEcho "OK: no box there exits 77, before the lock"
 else
@@ -231,7 +231,7 @@ fi
 fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 FAKE_DRC=1 -- b29w
 if ((laneRc == 1)); then
 	grep -q 'Windows 4 of 4; FAIL Desktop tests ]' "${scratch}/out.log" || fFail "no FAIL line for the desktop tests"
-	grep -qE "^ssh b29w pwsh .*-Dir ${dirRe}001 -Remove\$" "$log" || fFail "the work folder wasn't removed after the desktop tests failed"
+	grep -qE "^ssh b29w pwsh .*-Dir ${dirRe}001 -Remove\$" "${log}" || fFail "the work folder wasn't removed after the desktop tests failed"
 	fCheckKept 001 "a failing desktop step"
 	fEcho "OK: a failing desktop test fails the lane"
 else
@@ -241,7 +241,7 @@ fi
 fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 FAKE_NOSESSION=1 -- b29w
 if ((laneRc == 0)); then
 	grep -q 'WARNING: wintest has no session on b29w' "${scratch}/out.log" || fFail "no warning for wintest with no session"
-	! grep -q 'if exist .*desktop.rc' "$log" || fFail "desktop.rc was waited for with no session"
+	! grep -q 'if exist .*desktop.rc' "${log}" || fFail "desktop.rc was waited for with no session"
 	fEcho "OK: with no wintest session, a warning and the gate's pass"
 else
 	fFail "no wintest session gave exit ${laneRc}, not 0: $(tail -3 "${scratch}/out.log")"
@@ -250,7 +250,7 @@ fi
 fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 FAKE_LOCKED=1 -- b29w
 if ((laneRc == 0)); then
 	grep -q "WARNING: wintest's session on b29w is locked" "${scratch}/out.log" || fFail "no warning for a locked wintest session"
-	! grep -q 'if exist .*desktop.rc' "$log" || fFail "desktop.rc was waited for in a locked session"
+	! grep -q 'if exist .*desktop.rc' "${log}" || fFail "desktop.rc was waited for in a locked session"
 	fEcho "OK: with wintest's session locked, a warning and the gate's pass"
 else
 	fFail "a locked wintest session gave exit ${laneRc}, not 0: $(tail -3 "${scratch}/out.log")"
@@ -258,43 +258,43 @@ fi
 
 fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 FAKE_DRC=0 NEMO_WIN_DESKTOP_ELSEWHERE=1 -- b29w
 if ((laneRc == 75)); then
-	! grep -q ' -Desktop ' "$log" || fFail "NEMO_WIN_DESKTOP_ELSEWHERE=1 still ran the desktop tests on b29w"
+	! grep -q ' -Desktop ' "${log}" || fFail "NEMO_WIN_DESKTOP_ELSEWHERE=1 still ran the desktop tests on b29w"
 	grep -q '1 skipped tests are left for the next box' "${scratch}/out.log" || fFail "no line saying the windowed tests go to the next box"
 	grep -q 'Windows 4 of 4; SKIP Desktop tests ]' "${scratch}/out.log" || fFail "no SKIP line for the desktop tests"
 	! grep -q 'FAIL Desktop tests' "${scratch}/out.log" || fFail "the desktop tests were called failed"
-	grep -qE "^ssh b29w pwsh .*-Dir ${dirRe}001 -Remove\$" "$log" || fFail "the work folder wasn't removed"
+	grep -qE "^ssh b29w pwsh .*-Dir ${dirRe}001 -Remove\$" "${log}" || fFail "the work folder wasn't removed"
 	fEcho "OK: NEMO_WIN_DESKTOP_ELSEWHERE=1 leaves the windowed tests to the next box, exit 75"
 else
 	fFail "NEMO_WIN_DESKTOP_ELSEWHERE=1 gave exit ${laneRc}, not 75: $(tail -3 "${scratch}/out.log")"
 fi
 
 handList="${scratch}/hand-on.txt"
-fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 NEMO_WIN_DESKTOP_ELSEWHERE=1 NEMO_WIN_DESKTOP_LIST="$handList" -- b29w
+fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 NEMO_WIN_DESKTOP_ELSEWHERE=1 NEMO_WIN_DESKTOP_LIST="${handList}" -- b29w
 if ((laneRc == 75)); then
-	[[ "$(cat "$handList" 2> /dev/null)" == 'ddzzw a windowed test' ]] || fFail "the tests left for the next box weren't written to NEMO_WIN_DESKTOP_LIST: $(cat "$handList" 2> /dev/null)"
-	! grep -q ' -Desktop ' "$log" || fFail "NEMO_WIN_DESKTOP_LIST with NEMO_WIN_DESKTOP_ELSEWHERE=1 ran the desktop tests"
+	[[ "$(cat "${handList}" 2> /dev/null)" == 'ddzzw a windowed test' ]] || fFail "the tests left for the next box weren't written to NEMO_WIN_DESKTOP_LIST: $(cat "${handList}" 2> /dev/null)"
+	! grep -q ' -Desktop ' "${log}" || fFail "NEMO_WIN_DESKTOP_LIST with NEMO_WIN_DESKTOP_ELSEWHERE=1 ran the desktop tests"
 	fEcho "OK: the tests left for the next box go to the NEMO_WIN_DESKTOP_LIST file"
 else
 	fFail "NEMO_WIN_DESKTOP_ELSEWHERE=1 with a list file gave exit ${laneRc}, not 75: $(tail -3 "${scratch}/out.log")"
 fi
 
-printf 'ddzzq one handed on\n\nddzzr another\n' > "$handList"
-fLane "${scratch}/x_vm-state.bash" FAKE_VMS=vm925w FAKE_RC=0 FAKE_DRC=0 NEMO_WIN_DESKTOP_LIST="$handList" NEMO_WIN_GATE_ARGS="-BacklogRunQuick -Yes -NoSync -NoFmt -NoTests" -- vm925w
+printf 'ddzzq one handed on\n\nddzzr another\n' > "${handList}"
+fLane "${scratch}/x_vm-state.bash" FAKE_VMS=vm925w FAKE_RC=0 FAKE_DRC=0 NEMO_WIN_DESKTOP_LIST="${handList}" NEMO_WIN_GATE_ARGS="-BacklogRunQuick -Yes -NoSync -NoFmt -NoTests" -- vm925w
 if ((laneRc == 0)); then
-	grep -qE "^ssh vm925w pwsh .*lane-box\.ps1 -Dir ${dirRe}001 -Start -GateArgs BacklogRunQuick,Yes,NoSync,NoFmt,NoTests\$" "$log" || fFail "the next box's gate didn't get -NoTests: $(grep -- '-Start' "$log")"
+	grep -qE "^ssh vm925w pwsh .*lane-box\.ps1 -Dir ${dirRe}001 -Start -GateArgs BacklogRunQuick,Yes,NoSync,NoFmt,NoTests\$" "${log}" || fFail "the next box's gate didn't get -NoTests: $(grep -- '-Start' "${log}")"
 	[[ "$(cat "${scratch}/sent/desktop.txt" 2> /dev/null)" == $'ddzzq one handed on\nddzzr another' ]] || fFail "the desktop list is not the one handed on: $(cat "${scratch}/sent/desktop.txt" 2> /dev/null)"
-	grep -q '^ssh vm925w pwsh .* -Desktop -TestUser wintest$' "$log" || fFail "the handed-on tests didn't run as wintest"
+	grep -q '^ssh vm925w pwsh .* -Desktop -TestUser wintest$' "${log}" || fFail "the handed-on tests didn't run as wintest"
 	grep -q 'Windows 4 of 4; PASS Desktop tests ]' "${scratch}/out.log" || fFail "no PASS line for the handed-on tests"
 	fEcho "OK: given NEMO_WIN_DESKTOP_LIST, the next box runs the tests named there"
 else
 	fFail "a lane given NEMO_WIN_DESKTOP_LIST gave exit ${laneRc}: $(tail -3 "${scratch}/out.log")"
 fi
 
-: > "$handList"
-fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 FAKE_DRC=0 NEMO_WIN_DESKTOP_LIST="$handList" -- b29w
+: > "${handList}"
+fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 FAKE_DRC=0 NEMO_WIN_DESKTOP_LIST="${handList}" -- b29w
 if ((laneRc == 1)); then
-	! grep -q ' -Desktop ' "$log" || fFail "an empty NEMO_WIN_DESKTOP_LIST still ran the desktop tests"
-	grep -qE "^ssh b29w pwsh .*-Dir ${dirRe}001 -Remove\$" "$log" || fFail "the work folder wasn't removed after an empty list"
+	! grep -q ' -Desktop ' "${log}" || fFail "an empty NEMO_WIN_DESKTOP_LIST still ran the desktop tests"
+	grep -qE "^ssh b29w pwsh .*-Dir ${dirRe}001 -Remove\$" "${log}" || fFail "the work folder wasn't removed after an empty list"
 	fEcho "OK: an empty NEMO_WIN_DESKTOP_LIST fails the lane"
 else
 	fFail "an empty NEMO_WIN_DESKTOP_LIST gave exit ${laneRc}, not 1: $(tail -3 "${scratch}/out.log")"
@@ -305,7 +305,7 @@ fLane "${scratch}/x_vm-state.bash" FAKE_RC=1 NEMO_WIN_DESKTOP_ELSEWHERE=1 -- b29
 
 fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 NEMO_WIN_DESKTOP=0 -- b29w
 if ((laneRc == 0)); then
-	! grep -q ' -Desktop ' "$log" || fFail "NEMO_WIN_DESKTOP=0 still ran the desktop tests"
+	! grep -q ' -Desktop ' "${log}" || fFail "NEMO_WIN_DESKTOP=0 still ran the desktop tests"
 	grep -q 'Windows 3 of 3; PASS Gate ]' "${scratch}/out.log" || fFail "NEMO_WIN_DESKTOP=0 still planned 4 steps"
 	fEcho "OK: NEMO_WIN_DESKTOP=0 leaves the desktop tests out"
 else
@@ -314,16 +314,16 @@ fi
 
 ## A gate that never ends, stopped from here, the way cicd.bash stops it.
 if command -v setsid > /dev/null 2>&1; then
-	rm -f "$log" "${repo}/cicd/artifacts/build-win/"*; touch "$log"
-	(cd "$repo" && exec env -u WINDOWS_HOST_LOCK HOME="${scratch}/home" PATH="${scratch}/bin:${PATH}" BOX_WRAP_TOOL="${scratch}/x_vm-state.bash" BOX_READY_POLL=0 NEMO_WIN_POLL=1 \
+	rm -f "${log}" "${repo}/cicd/artifacts/build-win/"*; touch "${log}"
+	(cd "${repo}" && exec env -u WINDOWS_HOST_LOCK HOME="${scratch}/home" PATH="${scratch}/bin:${PATH}" BOX_WRAP_TOOL="${scratch}/x_vm-state.bash" BOX_READY_POLL=0 NEMO_WIN_POLL=1 \
 		setsid bash cicd/win/lane.bash b29w) > "${scratch}/out.log" 2>&1 &
 	lanePid=$!
-	for _ in $(seq 1 100); do grep -q ' -Start ' "$log" && break; sleep 0.1; done
+	for _ in $(seq 1 100); do grep -q ' -Start ' "${log}" && break; sleep 0.1; done
 	sleep 0.5
 	kill -TERM -- "-${lanePid}" 2> /dev/null || true
-	laneRc=0; wait "$lanePid" || laneRc=$?
+	laneRc=0; wait "${lanePid}" || laneRc=$?
 	((laneRc != 0)) || fFail "a TERM mid-gate gave exit 0"
-	grep -qE "^ssh b29w pwsh .*-Dir ${dirRe}001 -Remove\$" "$log" || fFail "a TERM mid-gate left the work folder: $(tail -3 "${scratch}/out.log")"
+	grep -qE "^ssh b29w pwsh .*-Dir ${dirRe}001 -Remove\$" "${log}" || fFail "a TERM mid-gate left the work folder: $(tail -3 "${scratch}/out.log")"
 	[[ -z "$(fKept)" ]] || fFail "a TERM mid-gate kept a test log: $(fKept)"
 	fEcho "OK: a TERM mid-gate removes the work folder"
 fi

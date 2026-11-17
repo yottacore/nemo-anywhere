@@ -35,7 +35,7 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
 ## Not followed: the hook ends in an exit, which would mark all below unreachable.
 # shellcheck source=/dev/null
-source "$hook"
+source "${hook}"
 
 ## old new expected: 0 newer, 1 equal, 2 lower.
 cases=(
@@ -56,10 +56,10 @@ cases=(
 	"1.0.0 0.9.9 2"
 )
 for entry in "${cases[@]}"; do
-	read -r old new want <<<"$entry"
+	read -r old new want <<<"${entry}"
 	got=0
-	fVersionOrder "$old" "$new" || got=$?
-	[[ "$got" == "$want" ]] || fFail "fVersionOrder ${old} -> ${new}: returned ${got}, expected ${want}"
+	fVersionOrder "${old}" "${new}" || got=$?
+	[[ "${got}" == "${want}" ]] || fFail "fVersionOrder ${old} -> ${new}: returned ${got}, expected ${want}"
 done
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/pre-push-test.XXXXXX")"
@@ -68,7 +68,7 @@ trap 'fSafeRm_IfThere "${scratch}"' EXIT
 ## meson_version sits first on the line, so a match on it would read >=0.56.0.
 printf "project('x', 'c', meson_version : '>=0.56.0', version : '2.1.0-rc.3')\n" > "${scratch}/meson.build"
 got="$(_ver_from "${scratch}/meson.build" || true)"
-[[ "$got" == "2.1.0-rc.3" ]] || fFail "_ver_from read '${got}', expected 2.1.0-rc.3"
+[[ "${got}" == "2.1.0-rc.3" ]] || fFail "_ver_from read '${got}', expected 2.1.0-rc.3"
 
 ## A repo whose gate always passes, so only the version guard can refuse. The
 ## hook picks the PowerShell gate on a Windows checkout, so both gates log
@@ -77,29 +77,29 @@ repo="${scratch}/repo"
 mkdir -p "${repo}/source" "${repo}/cicd/hooks"
 cp "${here}/gate-skip-paths.txt" "${repo}/cicd/hooks/"
 calls="${scratch}/gate-calls"
-printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "%s"\n' "$calls" > "${repo}/cicd/cicd.bash"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "%s"\n' "${calls}" > "${repo}/cicd/cicd.bash"
 chmod +x "${repo}/cicd/cicd.bash"
 printf 'exit 0\n' > "${repo}/cicd/cicd-win.ps1"
 ## The lint stage runs under MSYS2 on Windows, where pwsh isn't on PATH. The
 ## gate is a stand-in anyway, so pwsh can be one too.
 mkdir -p "${scratch}/bin"
-printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "%s"\n' "$calls" > "${scratch}/bin/pwsh"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "%s"\n' "${calls}" > "${scratch}/bin/pwsh"
 chmod +x "${scratch}/bin/pwsh"
 PATH="${scratch}/bin:${PATH}"
 case "$(uname -s)" in
 	MINGW*|MSYS*|CYGWIN*) gateWant='*/cicd/cicd-win.ps1 -MergeGate' ;;
 	*)                    gateWant='--merge-gate' ;;
 esac
-git -C "$repo" init -q
-git -C "$repo" config user.name test
-git -C "$repo" config user.email test@example.invalid
-git -C "$repo" config commit.gpgsign false
+git -C "${repo}" init -q
+git -C "${repo}" config user.name test
+git -C "${repo}" config user.email test@example.invalid
+git -C "${repo}" config commit.gpgsign false
 
 fCommitVersion(){
 	printf "project('nemo-anywhere', 'c', version : '%s', meson_version : '>=0.56.0')\n" "$1" > "${repo}/source/meson.build"
-	git -C "$repo" add -A
-	git -C "$repo" commit -q --allow-empty -m "$1"
-	git -C "$repo" rev-parse HEAD
+	git -C "${repo}" add -A
+	git -C "${repo}" commit -q --allow-empty -m "$1"
+	git -C "${repo}" rev-parse HEAD
 }
 
 ## old new expected-exit expected-text. The hook reads the new version from the
@@ -112,34 +112,34 @@ hookCases=(
 	"1.0.0-alpha.2|1.0.0|0|"
 )
 for entry in "${hookCases[@]}"; do
-	IFS='|' read -r old new want text <<<"$entry"
-	oldsha="$(fCommitVersion "$old")"
-	newsha="$(fCommitVersion "$new")"
+	IFS='|' read -r old new want text <<<"${entry}"
+	oldsha="$(fCommitVersion "${old}")"
+	newsha="$(fCommitVersion "${new}")"
 	rc=0
-	out="$(cd "$repo" && printf 'refs/heads/main %s refs/heads/main %s\n' "$newsha" "$oldsha" \
-		| bash "$hook" origin example.invalid 2>&1)" || rc=$?
-	if [[ "$rc" != "$want" ]]; then
+	out="$(cd "${repo}" && printf 'refs/heads/main %s refs/heads/main %s\n' "${newsha}" "${oldsha}" \
+		| bash "${hook}" origin example.invalid 2>&1)" || rc=$?
+	if [[ "${rc}" != "${want}" ]]; then
 		fFail "hook ${old} -> ${new}: exit ${rc}, expected ${want}; said: ${out}"
-	elif [[ -n "$text" && "$out" != *"$text"* ]]; then
+	elif [[ -n "${text}" && "${out}" != *"${text}"* ]]; then
 		fFail "hook ${old} -> ${new}: refused without '${text}'; said: ${out}"
 	fi
 done
 
 ## Anything but main isn't guarded, whatever the versions.
 rc=0
-out="$(cd "$repo" && printf 'refs/heads/dev %s refs/heads/dev %s\n' "$newsha" "$oldsha" \
-	| bash "$hook" origin example.invalid 2>&1)" || rc=$?
-[[ "$rc" == "0" ]] || fFail "hook refused a push to dev: ${out}"
+out="$(cd "${repo}" && printf 'refs/heads/dev %s refs/heads/dev %s\n' "${newsha}" "${oldsha}" \
+	| bash "${hook}" origin example.invalid 2>&1)" || rc=$?
+[[ "${rc}" == "0" ]] || fFail "hook refused a push to dev: ${out}"
 
 ## $1 label, $2 expected exit, $3 expected text; pushes $newsha over $oldsha to
 ## main from whatever state the repo is in.
 fPushMain(){
 	local rc=0 out
-	out="$(cd "$repo" && printf 'refs/heads/main %s refs/heads/main %s\n' "$newsha" "$oldsha" \
-		| bash "$hook" origin example.invalid 2>&1)" || rc=$?
-	if [[ "$rc" != "$2" ]]; then
+	out="$(cd "${repo}" && printf 'refs/heads/main %s refs/heads/main %s\n' "${newsha}" "${oldsha}" \
+		| bash "${hook}" origin example.invalid 2>&1)" || rc=$?
+	if [[ "${rc}" != "$2" ]]; then
 		fFail "hook, ${1}: exit ${rc}, expected ${2}; said: ${out}"
-	elif [[ -n "$3" && "$out" != *"$3"* ]]; then
+	elif [[ -n "$3" && "${out}" != *"$3"* ]]; then
 		fFail "hook, ${1}: no '${3}'; said: ${out}"
 	fi
 }
@@ -150,61 +150,61 @@ echo x >> "${repo}/notes"
 newsha="$(fCommitVersion 2.0.0)"
 printf "project('nemo-anywhere', 'c', version : '2.0.1', meson_version : '>=0.56.0')\n" > "${repo}/source/meson.build"
 fPushMain "bump only uncommitted" 1 "does not bump"
-git -C "$repo" checkout -q -- source/meson.build
+git -C "${repo}" checkout -q -- source/meson.build
 
 ## A real bump pushed while another branch, still on the old version, is checked out.
 newsha="$(fCommitVersion 2.0.1)"
-git -C "$repo" checkout -q "$oldsha"
+git -C "${repo}" checkout -q "${oldsha}"
 fPushMain "other commit checked out" 1 "isn't the commit pushed"
-git -C "$repo" checkout -q "$newsha"
+git -C "${repo}" checkout -q "${newsha}"
 fPushMain "the pushed commit checked out" 0 ""
 
 ## Uncommitted edits are refused too, but untracked files aren't.
 echo y >> "${repo}/notes"
 fPushMain "uncommitted edit" 1 "isn't the commit pushed"
-git -C "$repo" checkout -q -- notes
+git -C "${repo}" checkout -q -- notes
 echo z > "${repo}/untracked"
 fPushMain "untracked file" 0 ""
 rm -f "${repo}/untracked"
 
 ## The badge is read from the pushed commit: wrong there, right only in the tree.
-oldsha="$newsha"
+oldsha="${newsha}"
 printf '![Release](https://img.shields.io/badge/Release-2.0.1-blue)\n' > "${repo}/README.md"
 newsha="$(fCommitVersion 2.0.2)"
 printf '![Release](https://img.shields.io/badge/Release-2.0.2-blue)\n' > "${repo}/README.md"
 fPushMain "badge right only in the tree" 1 "README release badge"
-git -C "$repo" checkout -q -- README.md
+git -C "${repo}" checkout -q -- README.md
 
 ## A release push runs the merge gate.
-git -C "$repo" rm -q README.md
+git -C "${repo}" rm -q README.md
 oldsha="$(fCommitVersion 3.0.0)"
 newsha="$(fCommitVersion 3.0.1)"
-rm -f "$calls"
+rm -f "${calls}"
 fPushMain "release push" 0 ""
 # shellcheck disable=SC2053  ## gateWant is a glob on purpose.
-[[ "$(cat "$calls" 2>/dev/null)" == $gateWant ]] || fFail "hook, release push: gate called as '$(cat "$calls" 2>/dev/null)', not '${gateWant}'"
+[[ "$(cat "${calls}" 2>/dev/null)" == ${gateWant} ]] || fFail "hook, release push: gate called as '$(cat "${calls}" 2>/dev/null)', not '${gateWant}'"
 
 ## $1 label, then files to write; commits them with no version bump.
 fCommitFiles(){
 	local f
 	shift
-	for f in "$@"; do mkdir -p "$(dirname "${repo}/${f}")"; echo "$RANDOM" >> "${repo}/${f}"; done
-	git -C "$repo" add -A
-	git -C "$repo" commit -q -m files
-	git -C "$repo" rev-parse HEAD
+	for f in "$@"; do mkdir -p "$(dirname "${repo}/${f}")"; echo "${RANDOM}" >> "${repo}/${f}"; done
+	git -C "${repo}" add -A
+	git -C "${repo}" commit -q -m files
+	git -C "${repo}" rev-parse HEAD
 }
 
 ## Docs only: no bump and another commit checked out, and still nothing runs.
-oldsha="$newsha"
+oldsha="${newsha}"
 newsha="$(fCommitFiles docs guide.md project/notes.txt source/readme.md)"
-git -C "$repo" checkout -q "$oldsha"
-rm -f "$calls"
+git -C "${repo}" checkout -q "${oldsha}"
+rm -f "${calls}"
 fPushMain "docs only" 0 "only paths no build reads"
-[[ ! -e "$calls" ]] || fFail "hook, docs only: the gate ran"
-git -C "$repo" checkout -q "$newsha"
+[[ ! -e "${calls}" ]] || fFail "hook, docs only: the gate ran"
+git -C "${repo}" checkout -q "${newsha}"
 
 ## Docs plus one file a build reads: the guards and the gate are back.
-oldsha="$newsha"
+oldsha="${newsha}"
 newsha="$(fCommitFiles mixed guide.md source/x.c)"
 fPushMain "docs and source" 1 "does not bump"
 
@@ -215,10 +215,10 @@ fPushMain "skip list changed" 1 "does not bump"
 ## A first push can't be compared, so the gate runs.
 oldsha="0000000000000000000000000000000000000000"
 newsha="$(fCommitFiles first guide.md)"
-rm -f "$calls"
+rm -f "${calls}"
 fPushMain "first push, docs only" 0 ""
 # shellcheck disable=SC2053  ## gateWant is a glob on purpose.
-[[ "$(cat "$calls" 2>/dev/null)" == $gateWant ]] || fFail "hook, first push: the gate didn't run"
+[[ "$(cat "${calls}" 2>/dev/null)" == ${gateWant} ]] || fFail "hook, first push: the gate didn't run"
 
 if ((failures)); then
 	fEcho "FAILED: pre-push version guard, ${failures} problem(s)"

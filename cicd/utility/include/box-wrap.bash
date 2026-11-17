@@ -62,37 +62,37 @@ __boxWrapHere="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 fBoxWrap_Tool(){
 	local dir="${HOME}/synced/0-0/common/exec/util/linux/bash" tool
-	if [[ -n "${BOX_WRAP_TOOL:-}" ]]; then echo "$BOX_WRAP_TOOL"; return; fi
-	if [[ -n "${WINDOWS_HOST_LOCK:-}" ]]; then echo "$WINDOWS_HOST_LOCK"; return; fi
-	for tool in "$dir"/*vm-state.bash "$dir"/*windows-host-lock.bash; do
-		if [[ -f "$tool" ]]; then echo "$tool"; return; fi
+	if [[ -n "${BOX_WRAP_TOOL:-}" ]]; then echo "${BOX_WRAP_TOOL}"; return; fi
+	if [[ -n "${WINDOWS_HOST_LOCK:-}" ]]; then echo "${WINDOWS_HOST_LOCK}"; return; fi
+	for tool in "${dir}"/*vm-state.bash "${dir}"/*windows-host-lock.bash; do
+		if [[ -f "${tool}" ]]; then echo "${tool}"; return; fi
 	done
-	echo "$tool"
+	echo "${tool}"
 }
 
 ## Held by some other session. A box mid-reboot under someone else is waited for, not skipped.
 fBoxWrap_HeldElsewhere(){
 	local name="$1" tool="$2" lock='' st=''
-	if [[ "$tool" == *windows-host-lock.bash ]]; then lock="$tool"
+	if [[ "${tool}" == *windows-host-lock.bash ]]; then lock="${tool}"
 	else for lock in "${tool%/*}"/*windows-host-lock.bash; do break; done; fi
-	[[ -f "$lock" ]] || return 1
-	bash "$lock" check "$name" > /dev/null 2>&1 && return 1
-	st="$(bash "$lock" status 2> /dev/null | awk -v h="$name" '$1 == h {print $2; exit}')" || true
-	[[ "$st" == held ]]
+	[[ -f "${lock}" ]] || return 1
+	bash "${lock}" check "${name}" > /dev/null 2>&1 && return 1
+	st="$(bash "${lock}" status 2> /dev/null | awk -v h="${name}" '$1 == h {print $2; exit}')" || true
+	[[ "${st}" == held ]]
 }
 
 fBoxWrap_IsThere(){
 	local name="$1" target="$2" tool="$3" err='' st=''
 	shift 3
-	if [[ "$tool" == *vm-state.bash && -f "$tool" ]]; then
-		st="$(bash "$tool" status "$name" 2> /dev/null | awk -v h="$name" '$1 == h {print $3}')" || true
+	if [[ "${tool}" == *vm-state.bash && -f "${tool}" ]]; then
+		st="$(bash "${tool}" status "${name}" 2> /dev/null | awk -v h="${name}" '$1 == h {print $3}')" || true
 		## Paused or off gets woken by the helper. Running has to reply now.
-		[[ -z "$st" || "$st" == - || "$st" == running ]] || return 0
+		[[ -z "${st}" || "${st}" == - || "${st}" == running ]] || return 0
 	fi
-	fBoxWrap_HeldElsewhere "$name" "$tool" && return 0
+	fBoxWrap_HeldElsewhere "${name}" "${tool}" && return 0
 	## The first ConnectTimeout given wins, so a paused box isn't waited on long.
-	err="$(ssh -o ConnectTimeout=8 "$@" "$target" exit 2>&1 > /dev/null < /dev/null)" && return 0
-	case "$err" in
+	err="$(ssh -o ConnectTimeout=8 "$@" "${target}" exit 2>&1 > /dev/null < /dev/null)" && return 0
+	case "${err}" in
 		*"Could not resolve hostname"*|*"timed out"*|*"No route to host"*|*"Connection refused"*|*"Network is unreachable"*)
 			fEcho_Clean "${err}"; return 1 ;;
 	esac
@@ -103,32 +103,32 @@ fBoxWrap_IsThere(){
 # shellcheck disable=SC2029
 fBoxWrap_WaitReady(){
 	local target="$1" probe="$3" err='' rc=0
-	local -i waitSec="$2" started=$SECONDS poll="${BOX_READY_POLL:-5}" said=0
+	local -i waitSec="$2" started=${SECONDS} poll="${BOX_READY_POLL:-5}" said=0
 	shift 3
 	while :; do
-		rc=0; err="$(ssh "$@" "$target" "$probe" 2>&1 > /dev/null < /dev/null)" || rc=$?
-		case "$rc" in
+		rc=0; err="$(ssh "$@" "${target}" "${probe}" 2>&1 > /dev/null < /dev/null)" || rc=$?
+		case "${rc}" in
 			0) ((said)) && fEcho_Clean "${target} answered after $((SECONDS - started))s"; return 0 ;;
 			3) return 3 ;;
 		esac
-		if [[ "$err" == *"Could not resolve hostname"* ]] || ((SECONDS - started + poll > waitSec)); then
-			[[ -z "$err" ]] || fEcho_Clean "${err}"
+		if [[ "${err}" == *"Could not resolve hostname"* ]] || ((SECONDS - started + poll > waitSec)); then
+			[[ -z "${err}" ]] || fEcho_Clean "${err}"
 			return 1
 		fi
 		((said)) || fEcho_Clean "waiting up to ${waitSec}s for ${target} to answer"
 		said=1
-		sleep "$poll"
+		sleep "${poll}"
 	done
 }
 
 fBoxWrap_ClockReady(){
 	local target="$1" theirs='' how=''
-	local -i maxSkew="${BOX_CLOCK_MAX_SKEW:-5}" waitSec="${BOX_CLOCK_WAIT:-60}" poll="${BOX_READY_POLL:-5}" started=$SECONDS said=0 t0 skew=0
+	local -i maxSkew="${BOX_CLOCK_MAX_SKEW:-5}" waitSec="${BOX_CLOCK_WAIT:-60}" poll="${BOX_READY_POLL:-5}" started=${SECONDS} said=0 t0 skew=0
 	shift
 	while :; do
 		t0="$(date +%s)"
-		theirs="$(ssh "$@" "$target" 'date +%s' 2> /dev/null < /dev/null)" || theirs=''
-		if [[ "$theirs" =~ ^[0-9]+$ ]]; then
+		theirs="$(ssh "$@" "${target}" 'date +%s' 2> /dev/null < /dev/null)" || theirs=''
+		if [[ "${theirs}" =~ ^[0-9]+$ ]]; then
 			## Against the middle of the round trip, since a cold ssh takes a second or two.
 			skew=$(( (2 * theirs - t0 - $(date +%s)) / 2 ))
 			if (( skew <= maxSkew && skew >= -maxSkew )); then
@@ -145,7 +145,7 @@ fBoxWrap_ClockReady(){
 		fi
 		((said)) || fEcho_Clean "${target} clock is ${how}, waiting up to ${waitSec}s for it"
 		said=1
-		sleep "$poll"
+		sleep "${poll}"
 	done
 }
 
@@ -155,7 +155,7 @@ fBoxWrap_Jobs(){
 	local pin="$1" target="$2" out='' cpus='' line='' why=''
 	shift 2
 	[[ -z "${pin}" || "${pin}" =~ ^[1-9][0-9]*$ ]] || { fEcho_Clean "the jobs pin for ${target} is not a count: ${pin}"; return 1; }
-	out="$(ssh "$@" "$target" "${jobsProbe}" 2> /dev/null < /dev/null)" || out=''
+	out="$(ssh "$@" "${target}" "${jobsProbe}" 2> /dev/null < /dev/null)" || out=''
 	{ read -r cpus; read -r line; } <<< "${out}" || true
 	[[ "${cpus}" =~ ^[1-9][0-9]*$ && -n "${line}" ]] || { fEcho_Clean "${target} did not say its CPU count and load"; return 1; }
 	fJobs_Read "${cpus}" "${line}"
@@ -174,7 +174,7 @@ fBoxWrap_RunDir(){
 		## The box's own clock names it, since its sweep reads the name by that clock.
 		printf 'fRunTemp_Make %q "$(date +%%Y%%m%%d-%%H%%M%%S)" > /dev/null || exit 1\n' "${project}"
 		printf 'fRunTemp_Sweep\nprintf "dir=%%s\\n" "${runTempDir}"\n'
-	} | ssh "$@" "$target" 'bash -s' 2>&1)" || { [[ -z "${out}" ]] || fEcho_Clean "${out}"; return 1; }
+	} | ssh "$@" "${target}" 'bash -s' 2>&1)" || { [[ -z "${out}" ]] || fEcho_Clean "${out}"; return 1; }
 	while IFS= read -r line; do
 		case "${line}" in
 			dir=*) boxRunDir="${line#dir=}" ;;
@@ -199,7 +199,7 @@ fBoxWrap_RunDirDone(){
 	base="${dir%/*}"
 	if { cat -- "${__boxWrapHere}/run-temp.bash"
 		printf 'HOST_TEMP=%q projectName=%q\nfSafeRm %q > /dev/null\n' "${base%/*}" "${base##*/}" "${dir}"
-	} | ssh "$@" "$target" 'bash -s'; then
+	} | ssh "$@" "${target}" 'bash -s'; then
 		return 0
 	fi
 	fEcho_Clean "[ WARNING: could not remove the run folder ${target}:${dir} ]"
@@ -208,7 +208,7 @@ fBoxWrap_RunDirDone(){
 
 fBoxWrap_RunCmd(){
 	local d="${boxRunDir:?}"
-	printf 'cd %s/src && echo $$ > %s/run.pid && exec env TMPDIR=%s TEMP=%s TMP=%s' "$d" "$d" "$d" "$d" "$d"
+	printf 'cd %s/src && echo $$ > %s/run.pid && exec env TMPDIR=%s TEMP=%s TMP=%s' "${d}" "${d}" "${d}" "${d}" "${d}"
 }
 
 

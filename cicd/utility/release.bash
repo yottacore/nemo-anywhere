@@ -50,13 +50,13 @@ die(){ echo "FAILED: $*" >&2; exit 1; }
 ## 1. Preconditions: releases only cut from a clean main, with the version
 ## already bumped on dev, so nothing is ever committed directly on main here.
 branch="$(git rev-parse --abbrev-ref HEAD)"
-[[ "$branch" == "main" ]] || die "not on main (on ${branch}); merge dev --no-ff into main first"
+[[ "${branch}" == "main" ]] || die "not on main (on ${branch}); merge dev --no-ff into main first"
 if ! git diff --quiet || ! git diff --cached --quiet; then die "working tree not clean"; fi
 
 ## meson.build form: project('nemo-anywhere', 'c', version : '6.6.4', ...). Grab the
 ## first `version : '...'` (the project version; dep version checks use `>=`, not this).
 ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "${VERSION_MANIFEST}" | head -1)"
-[[ -n "$ver" ]] || die "no version in ${VERSION_MANIFEST}"
+[[ -n "${ver}" ]] || die "no version in ${VERSION_MANIFEST}"
 tag="v${ver}"
 resume=0
 if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
@@ -82,7 +82,7 @@ fi
 if ((do_publish)) && [[ -n "${RELEASE_GH_LOGIN:-}" ]]; then
 	command -v gh >/dev/null 2>&1 || die "gh CLI not found"
 	gh_login="$(gh api user --jq .login 2>/dev/null || true)"
-	[[ "$gh_login" == "$RELEASE_GH_LOGIN" ]] \
+	[[ "${gh_login}" == "${RELEASE_GH_LOGIN}" ]] \
 		|| die "gh is signed in as '${gh_login:-nobody}', not ${RELEASE_GH_LOGIN}; switch first (gh auth switch -u ${RELEASE_GH_LOGIN}, or GH_TOKEN for this run) and rerun"
 fi
 
@@ -92,10 +92,10 @@ fi
 ## the tag, and --publish fetches it from there.
 have_artifacts=0
 art_dir="${RELEASE_ARTIFACT_DIR:-}"
-if [[ -n "$art_dir" ]]; then
+if [[ -n "${art_dir}" ]]; then
 	have_artifacts=1
 	sums="${art_dir}/${EXE_NAME}-${ver}-sha256sums.txt"
-	[[ -s "$sums" ]] || die "no ${sums} - run cicd/cicd.bash (full, not --quick) first"
+	[[ -s "${sums}" ]] || die "no ${sums} - run cicd/cicd.bash (full, not --quick) first"
 	( cd "${art_dir}" && sha256sum -c "${EXE_NAME}-${ver}-sha256sums.txt" >/dev/null ) || die "artifact checksums do not verify"
 	## The tag goes on HEAD, so the artifacts have to be HEAD's build. Built on dev
 	## before the merge, they have dev's commit date: a rebuild of the tag would
@@ -105,7 +105,7 @@ if [[ -n "$art_dir" ]]; then
 	shopt -u nullglob
 	head_ct="$(git log -1 --format=%ct)"
 	if ! stamps="$(python3 "${here}/release-stamps.py" --expect "${head_ct}" --exe "${EXE_NAME}.exe" "${arts[@]}")"; then
-		printf '%s\n' "$stamps" >&2
+		printf '%s\n' "${stamps}" >&2
 		die "artifacts aren't stamped ${head_ct}, HEAD's commit date - rebuild them here with cicd/cicd.bash --no-publish (not --quick) first"
 	fi
 fi
@@ -118,7 +118,7 @@ else
 	echo "Artifacts: (none - tag-only release; artifact stage not wired yet)"
 fi
 echo "Push: ${do_push}  Publish (gh): ${do_publish}"
-if ((! assume_yes)); then read -r -p "Proceed? [y/N] " a; [[ "$a" == [yY]* ]] || exit 1; fi
+if ((! assume_yes)); then read -r -p "Proceed? [y/N] " a; [[ "${a}" == [yY]* ]] || exit 1; fi
 
 ## 3. Tag the merge.
 if ((resume)); then
@@ -142,7 +142,7 @@ if ((do_publish)); then
 	trap 'fSafeRm_IfThere "${pub_dir}"' EXIT
 	## gh leaves a draft when an upload fails part way.
 	if is_draft="$(gh release view "${tag}" --json isDraft --jq .isDraft 2>/dev/null)"; then
-		[[ "$is_draft" == true ]] || die "release ${tag} is published already"
+		[[ "${is_draft}" == true ]] || die "release ${tag} is published already"
 		die "a draft release for ${tag} is left from a failed publish; delete it (gh release delete ${tag} -y) and rerun"
 	fi
 	sums_out="${pub_dir}/${EXE_NAME}-${ver}-sha256sums.txt"
@@ -150,7 +150,7 @@ if ((do_publish)); then
 	files=()
 	if ((have_artifacts)); then
 		cp "${sums}" "${sums_out}"
-		for f in "${arts[@]}"; do [[ "$f" == "$sums" ]] || files+=("$f"); done
+		for f in "${arts[@]}"; do [[ "${f}" == "${sums}" ]] || files+=("${f}"); done
 	fi
 	## Each hosted build hands over its files as a release-files artifact,
 	## already named for the release. All of them come down first, so the
@@ -161,18 +161,18 @@ if ((do_publish)); then
 		for _ in $(seq 1 "${RELEASE_RUN_LOOKS:-20}"); do
 			run="$(gh run list --workflow "${wf}" --commit "${head_sha}" --event push --json databaseId,headBranch \
 				--jq "[.[] | select(.headBranch == \"${tag}\")][0].databaseId // empty" 2>/dev/null || true)"
-			[[ -z "$run" ]] || break
+			[[ -z "${run}" ]] || break
 			sleep "${RELEASE_POLL_SECS:-15}"
 		done
-		[[ -n "$run" ]] || die "no ${wf} run for ${tag} turned up; start one, then rerun: cicd/utility/release.bash --publish"
+		[[ -n "${run}" ]] || die "no ${wf} run for ${tag} turned up; start one, then rerun: cicd/utility/release.bash --publish"
 		echo "waiting for ${wf} run ${run}"
 		state=""
 		for _ in $(seq 1 120); do
 			state="$(gh run view "${run}" --json status,conclusion --jq '.status + " " + .conclusion' 2>/dev/null || true)"
-			[[ "$state" != completed* ]] || break
+			[[ "${state}" != completed* ]] || break
 			sleep "${RELEASE_POLL_SECS:-30}"
 		done
-		[[ "$state" == "completed success" ]] || die "${wf} run ${run} ended '${state:-still running}'; once it passes (gh run rerun ${run}), rerun: cicd/utility/release.bash --publish"
+		[[ "${state}" == "completed success" ]] || die "${wf} run ${run} ended '${state:-still running}'; once it passes (gh run rerun ${run}), rerun: cicd/utility/release.bash --publish"
 		got_dir="${pub_dir}/from-${wf%.*}"
 		gh run download "${run}" --name release-files --dir "${got_dir}" || die "couldn't download release-files from ${wf} run ${run}"
 		shopt -s nullglob
@@ -181,10 +181,10 @@ if ((do_publish)); then
 		((${#got[@]})) || die "${wf} run ${run} handed over no files"
 		for f in "${got[@]}"; do
 			name="${f##*/}"
-			[[ -f "$f" && "$name" == "${EXE_NAME}-${ver}-"* ]] || die "${wf} handed over '${name}', not a ${EXE_NAME}-${ver}-* file"
-			for have in "${files[@]}"; do [[ "${have##*/}" != "$name" ]] || die "${wf} handed over ${name}, which is here already"; done
+			[[ -f "${f}" && "${name}" == "${EXE_NAME}-${ver}-"* ]] || die "${wf} handed over '${name}', not a ${EXE_NAME}-${ver}-* file"
+			for have in "${files[@]}"; do [[ "${have##*/}" != "${name}" ]] || die "${wf} handed over ${name}, which is here already"; done
 			( cd "${got_dir}" && sha256sum "${name}" ) >>"${sums_out}"
-			files+=("$f")
+			files+=("${f}")
 		done
 	done
 	## Every file has its line, so the sums file is never one lane's half.
@@ -203,7 +203,7 @@ print(json.dumps({"assets": [{"name": n, "state": "uploaded", "url": base + "/" 
 	bash "${here}/release-notes.bash" "${ver}" "${pub_dir}/assets.json" >"${notes_file}"
 	## A prerelease is anything with a pre-release part.
 	pre_arg=()
-	if [[ "$ver" == *-* ]]; then pre_arg=(--prerelease); fi
+	if [[ "${ver}" == *-* ]]; then pre_arg=(--prerelease); fi
 	## With files given, gh makes a draft, uploads, then publishes.
 	gh release create "${tag}" --verify-tag --title "${APP_NAME} ${ver}" --notes-file "${notes_file}" "${pre_arg[@]}" "${files[@]}" \
 		|| die "gh release create ${tag} failed"

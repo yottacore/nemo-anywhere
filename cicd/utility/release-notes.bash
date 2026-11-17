@@ -40,25 +40,25 @@ esac; done
 ## A Windows runner may start the store stub for python3, which runs nothing.
 py=""
 for cand in python3 python; do
-	if "$cand" -c '' >/dev/null 2>&1; then py="$cand"; break; fi
+	if "${cand}" -c '' >/dev/null 2>&1; then py="${cand}"; break; fi
 done
-[[ -n "$py" ]] || { fEcho "FAILED: release notes need python" >&2; exit 1; }
+[[ -n "${py}" ]] || { fEcho "FAILED: release notes need python" >&2; exit 1; }
 
 ## $1 version, $2 assets file or empty.
 fNotes(){
 	local ver="${1#v}" body table build
-	if ! body="$(bash "${here}/changelog-notes.bash" "$ver" ${changelog:+"$changelog"})"; then
+	if ! body="$(bash "${here}/changelog-notes.bash" "${ver}" ${changelog:+"${changelog}"})"; then
 		echo "no changelog section for ${ver} - notes get a placeholder" >&2
 		body="See the changelog for details."
 	fi
 	table=""
-	[[ -z "${2:-}" ]] || table="$("$py" "${here}/release-table.py" "$2")"
+	[[ -z "${2:-}" ]] || table="$("${py}" "${here}/release-table.py" "$2")"
 	## Same number the binaries have: both read it off HEAD's commit date.
 	build="$( source "${here}/include/source-date.bash"; fSetSourceDate "${here}/../.."
-		"$py" "${here}/../../source/build-number.py" )"
-	printf '%s\n' "$body"
-	[[ -z "$table" ]] || printf '\n%s\n' "$table"
-	printf '\n---\n\nBuild %s\n' "$build"
+		"${py}" "${here}/../../source/build-number.py" )"
+	printf '%s\n' "${body}"
+	[[ -z "${table}" ]] || printf '\n%s\n' "${table}"
+	printf '\n---\n\nBuild %s\n' "${build}"
 }
 
 if ((! update)); then
@@ -69,13 +69,13 @@ fi
 tag="$1"
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/release-notes.XXXXXX")"
 trap 'fSafeRm_IfThere "${scratch}"' EXIT
-gh release view "$tag" --json assets > "${scratch}/assets.json"
+gh release view "${tag}" --json assets > "${scratch}/assets.json"
 for try in 1 2 3 4 5; do
-	"$py" "${here}/release-table.py" --names "${scratch}/assets.json" > "${scratch}/before.txt"
-	fNotes "$tag" "${scratch}/assets.json" > "${scratch}/notes.md"
-	gh release edit "$tag" --notes-file "${scratch}/notes.md" >/dev/null
-	gh release view "$tag" --json assets > "${scratch}/assets.json"
-	"$py" "${here}/release-table.py" --names "${scratch}/assets.json" > "${scratch}/after.txt"
+	"${py}" "${here}/release-table.py" --names "${scratch}/assets.json" > "${scratch}/before.txt"
+	fNotes "${tag}" "${scratch}/assets.json" > "${scratch}/notes.md"
+	gh release edit "${tag}" --notes-file "${scratch}/notes.md" >/dev/null
+	gh release view "${tag}" --json assets > "${scratch}/assets.json"
+	"${py}" "${here}/release-table.py" --names "${scratch}/assets.json" > "${scratch}/after.txt"
 	if cmp -s "${scratch}/before.txt" "${scratch}/after.txt"; then
 		fEcho "OK: ${tag} notes list $(wc -l < "${scratch}/after.txt" | tr -d ' ') file(s)"
 		exit 0

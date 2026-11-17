@@ -29,25 +29,25 @@
 set -Eeuo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-root="$(cd "$here/../.." && pwd)"			# repo: .../repo
+root="$(cd "${here}/../.." && pwd)"			# repo: .../repo
 # shellcheck source=include/run-temp.bash
 source "${here}/include/run-temp.bash"
-vendor="$root/vendor"
-nameList="$here/theme-icon-names.txt"
-svgMin="$here/svg-min.py"
+vendor="${root}/vendor"
+nameList="${here}/theme-icon-names.txt"
+svgMin="${here}/svg-min.py"
 
 ## git-for-windows isn't on the mingw64 login PATH on this box.
-if [[ -d "/c/Program Files/Git/bin" ]]; then export PATH="/c/Program Files/Git/bin:$PATH"; fi
+if [[ -d "/c/Program Files/Git/bin" ]]; then export PATH="/c/Program Files/Git/bin:${PATH}"; fi
 command -v git >/dev/null || { echo "[ FAILED: git not found ]"; exit 1; }
 
 ## python3 is the Store shim on Windows and runs nothing useful; test, don't assume.
 python=""
 for candidate in python3 python py; do
-	if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; sys.exit(0)' >/dev/null 2>&1; then
-		python="$candidate"; break
+	if command -v "${candidate}" >/dev/null 2>&1 && "${candidate}" -c 'import sys; sys.exit(0)' >/dev/null 2>&1; then
+		python="${candidate}"; break
 	fi
 done
-[[ -n "$python" ]] || { echo "[ FAILED: no working python found (needed for svg-min.py) ]"; exit 1; }
+[[ -n "${python}" ]] || { echo "[ FAILED: no working python found (needed for svg-min.py) ]"; exit 1; }
 
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/nemo-themes.XXXXXX")"
 trap 'fSafeRm_IfThere "$tmp"' EXIT
@@ -137,7 +137,7 @@ wanted=("$@")
 fWanted(){
 	local id="$1" w
 	(( ${#wanted[@]} == 0 )) && return 0
-	for w in "${wanted[@]}"; do [[ "$w" == "$id" ]] && return 0; done
+	for w in "${wanted[@]}"; do [[ "${w}" == "${id}" ]] && return 0; done
 	return 1
 }
 
@@ -156,40 +156,40 @@ fClone(){
 	local url="$1" ref="$2" roots="${3:-}" fetch="${4:-full}" key dest
 	## Keyed on the ref as well as the url: rtl88-Themes keeps one theme family
 	## per branch, so the same repo is cloned once per branch we want.
-	key="$(printf '%s@%s' "$url" "$ref" | tr -c 'A-Za-z0-9' '_')"
-	dest="$tmp/$key"
+	key="$(printf '%s@%s' "${url}" "${ref}" | tr -c 'A-Za-z0-9' '_')"
+	dest="${tmp}/${key}"
 
-	if [[ -d "$dest/.git" ]]; then
+	if [[ -d "${dest}/.git" ]]; then
 		## Several themes can come out of one sparse checkout, as the 6 Simply
 		## Circles colors do, and each names only its own directory. So widen
 		## the checkout rather than reusing one that's missing the others.
-		if [[ "$fetch" == "sparse" && -n "$roots" && "$roots" != "." ]]; then
+		if [[ "${fetch}" == "sparse" && -n "${roots}" && "${roots}" != "." ]]; then
 			# shellcheck disable=SC2086  ## roots is a space-separated list; the split is the point.
-			git -C "$dest" sparse-checkout add $roots >/dev/null 2>&1 || true
+			git -C "${dest}" sparse-checkout add ${roots} >/dev/null 2>&1 || true
 		fi
-		printf '%s' "$dest"; return 0
+		printf '%s' "${dest}"; return 0
 	fi
 
 	## Every one of these repos has case-only filename pairs, so a checkout here
 	## prints a screenful of "paths have collided" that says nothing we don't
 	## already handle. Log the output and show it only if the clone fails.
-	local log="$tmp/clone-$key.log"
+	local log="${tmp}/clone-${key}.log"
 
-	if [[ "$fetch" != "sparse" || -z "$roots" || "$roots" == "." ]]; then
-		git clone --depth 1 -q "$url" "$dest" > "$log" 2>&1 || { cat "$log" >&2; return 1; }
+	if [[ "${fetch}" != "sparse" || -z "${roots}" || "${roots}" == "." ]]; then
+		git clone --depth 1 -q "${url}" "${dest}" > "${log}" 2>&1 || { cat "${log}" >&2; return 1; }
 	else
-		git clone --depth 1 --filter=blob:none --sparse -q "$url" "$dest" > "$log" 2>&1 \
-			|| { cat "$log" >&2; return 1; }
+		git clone --depth 1 --filter=blob:none --sparse -q "${url}" "${dest}" > "${log}" 2>&1 \
+			|| { cat "${log}" >&2; return 1; }
 		## Cone mode, deliberately: --no-cone's gitignore-style patterns place
 		## nothing here, and cone mode brings the top-level license files along
 		## with the named directories, which is exactly what we want.
 		# shellcheck disable=SC2086  ## same list, same reason.
-		git -C "$dest" sparse-checkout set $roots > "$log" 2>&1 || { cat "$log" >&2; return 1; }
+		git -C "${dest}" sparse-checkout set ${roots} > "${log}" 2>&1 || { cat "${log}" >&2; return 1; }
 	fi
 
-	if [[ "$ref" != "HEAD" ]]; then
-		git -C "$dest" fetch --depth 1 -q origin "$ref" > "$log" 2>&1 || { cat "$log" >&2; return 1; }
-		git -C "$dest" checkout -q FETCH_HEAD > "$log" 2>&1 || { cat "$log" >&2; return 1; }
+	if [[ "${ref}" != "HEAD" ]]; then
+		git -C "${dest}" fetch --depth 1 -q origin "${ref}" > "${log}" 2>&1 || { cat "${log}" >&2; return 1; }
+		git -C "${dest}" checkout -q FETCH_HEAD > "${log}" 2>&1 || { cat "${log}" >&2; return 1; }
 	fi
 
 	## A couple of upstreams commit the icon set as a tar rather than as files.
@@ -197,11 +197,11 @@ fClone(){
 	## screenshots. Extracting it in place turns it back into an ordinary
 	## checkout, which is all the indexer downstream wants.
 	while IFS= read -r archive; do
-		[[ -n "$archive" ]] || continue
-		tar -xf "$archive" -C "$(dirname "$archive")" 2>/dev/null || true
-	done < <( find "$dest" -name '*.tar' -type f )
+		[[ -n "${archive}" ]] || continue
+		tar -xf "${archive}" -C "$(dirname "${archive}")" 2>/dev/null || true
+	done < <( find "${dest}" -name '*.tar' -type f )
 
-	printf '%s' "$dest"
+	printf '%s' "${dest}"
 }
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
@@ -231,19 +231,19 @@ fBuildIndex(){
 	local -n target="${3:-iconIndex}"
 
 	target=()
-	for r in $roots; do
-		[[ -d "$repo/$r" ]] || continue
+	for r in ${roots}; do
+		[[ -d "${repo}/${r}" ]] || continue
 		while IFS= read -r path; do
 			base="${path##*/}"
 			# shellcheck disable=SC2004  ## target is a nameref to an associative array, so $base is a key, not arithmetic.
-			target[$base]="${target[$base]:-}${path}"$'\n'
+			target[${base}]="${target[${base}]:-}${path}"$'\n'
 		## Symlinks are candidates too. An alias under links/ is a real symlink
 		## on a POSIX checkout, so -type f skips it; and most of them point at a
 		## sibling name that only exists under src/, so they read as dangling
 		## and -xtype f skips them as well. Neither is a reason to drop one:
 		## what fResolve wants from an alias is the name it points at, which
 		## readlink gives whether or not the target sits where it says.
-		done < <( cd "$repo" && find "$r" \( -type f -o -type l \) \( -name '*.svg' -o -name '*.png' \) -printf '%p\n' )
+		done < <( cd "${repo}" && find "${r}" \( -type f -o -type l \) \( -name '*.svg' -o -name '*.png' \) -printf '%p\n' )
 	done
 }
 
@@ -280,18 +280,18 @@ fScore(){
 	## hard enough that a 24px line variant of the same name won, so Fluent, Tela,
 	## and Qogir all bundled outline folders instead of their real ones. An alias
 	## still loses a tie to real art in the same directory, and nothing more.
-	[[ "$path" == *.svg ]] && scored=$(( scored + 2000 ))
-	[[ "$path" == */scalable/* ]] && scored=$(( scored + 1000 ))
-	[[ "$path" == */symbolic/* ]] && scored=$(( scored + 1000 ))
-	[[ "$path" == links/* ]] && scored=$(( scored - 20 ))
+	[[ "${path}" == *.svg ]] && scored=$(( scored + 2000 ))
+	[[ "${path}" == */scalable/* ]] && scored=$(( scored + 1000 ))
+	[[ "${path}" == */symbolic/* ]] && scored=$(( scored + 1000 ))
+	[[ "${path}" == links/* ]] && scored=$(( scored - 20 ))
 
 	## A path component that is a bare number is a fixed icon size. Normally the
 	## largest wins; the monochrome fallback below wants the smallest instead,
 	## because a 16px glyph is what a toolbar icon was drawn as.
-	if [[ "$path" =~ /([0-9]+)(x[0-9]+)?/ ]]; then
+	if [[ "${path}" =~ /([0-9]+)(x[0-9]+)?/ ]]; then
 		size="${BASH_REMATCH[1]}"
 		(( size > 512 )) && size=512
-		if [[ "$scoreBias" == "small" ]]; then
+		if [[ "${scoreBias}" == "small" ]]; then
 			(( size > 32 )) && scored=$(( scored - 200 ))
 			scored=$(( scored + (512 - size) / 8 ))
 		else
@@ -312,53 +312,53 @@ fResolve(){
 
 	scoreBias="${5:-large}"
 
-	fContextPattern "$ctx"
-	pattern="$context_pattern"
+	fContextPattern "${ctx}"
+	pattern="${context_pattern}"
 
 	while :; do
 		best=""; bestScore=-9999
 		while IFS= read -r path; do
-			[[ -n "$path" ]] || continue
+			[[ -n "${path}" ]] || continue
 			## A monochrome glyph is one in a symbolic/ directory or named
 			## <name>-symbolic. Matching "symbolic" anywhere in the path threw
 			## away emblem-symbolic-link, which is a color emblem for a
 			## symlink and the one every symlinked file in the view shows.
 			isSymbolic=0
-			[[ "$path" == */symbolic/* || "${path##*/}" == *-symbolic.* ]] && isSymbolic=1
-			[[ "$isSymbolic" == "$wantSymbolic" ]] || continue
-			[[ -z "$pattern" ]] || [[ "$path" =~ /($pattern)/ ]] || continue
-			fScore "$path"
-			if (( scored > bestScore )); then bestScore=$scored; best="$path"; fi
-		done <<< "${idx[$file]:-}"
+			[[ "${path}" == */symbolic/* || "${path##*/}" == *-symbolic.* ]] && isSymbolic=1
+			[[ "${isSymbolic}" == "${wantSymbolic}" ]] || continue
+			[[ -z "${pattern}" ]] || [[ "${path}" =~ /(${pattern})/ ]] || continue
+			fScore "${path}"
+			if (( scored > bestScore )); then bestScore=${scored}; best="${path}"; fi
+		done <<< "${idx[${file}]:-}"
 
-		[[ -n "$best" ]] || return 1
+		[[ -n "${best}" ]] || return 1
 
 		## An alias: a real symlink, or the text file a Windows checkout leaves.
-		if [[ -L "$repo/$best" ]] || fIsLinkStub "$repo/$best"; then
+		if [[ -L "${repo}/${best}" ]] || fIsLinkStub "${repo}/${best}"; then
 			hops=$(( hops + 1 ))
 			(( hops > 6 )) && return 1
-			if [[ -L "$repo/$best" ]]; then
+			if [[ -L "${repo}/${best}" ]]; then
 				## A link that finds a file where it says is the result, and
 				## the copy downstream reads through it. Otherwise take the
 				## name it points at and look that up instead - upstream writes
 				## these relative to links/ while the art lives under src/, so
 				## most of them point at nothing until the theme is installed.
-				if [[ -f "$repo/$best" ]]; then resolved_path="$repo/$best"; return 0; fi
-				file="$(readlink "$repo/$best")"
+				if [[ -f "${repo}/${best}" ]]; then resolved_path="${repo}/${best}"; return 0; fi
+				file="$(readlink "${repo}/${best}")"
 				file="${file##*/}"
-				[[ -n "$file" ]] || return 1
+				[[ -n "${file}" ]] || return 1
 				continue
 			fi
 			file=""
-			while IFS= read -r line || [[ -n "$line" ]]; do
+			while IFS= read -r line || [[ -n "${line}" ]]; do
 				file+="${line//[[:space:]]/}"
-			done < "$repo/$best"
+			done < "${repo}/${best}"
 			file="${file##*/}"
-			[[ -n "$file" ]] || return 1
+			[[ -n "${file}" ]] || return 1
 			continue
 		fi
 
-		resolved_path="$repo/$best"
+		resolved_path="${repo}/${best}"
 		return 0
 	done
 }
@@ -369,12 +369,12 @@ fResolve(){
 ## caps the size and gives the content to test.
 fIsLinkStub(){
 	local f="$1" head=""
-	[[ -f "$f" ]] || return 1
-	IFS= read -r -N 256 head < "$f" || true
+	[[ -f "${f}" ]] || return 1
+	IFS= read -r -N 256 head < "${f}" || true
 	(( ${#head} > 0 && ${#head} < 256 )) || return 1
-	[[ "$head" == *'<'* ]] && return 1
+	[[ "${head}" == *'<'* ]] && return 1
 	head="${head//[[:space:]]/}"
-	[[ "$head" == *.svg || "$head" == *.png ]]
+	[[ "${head}" == *.svg || "${head}" == *.png ]]
 }
 
 ## One line of theme-icon-names.txt: resolve it, stage the file, and the dark
@@ -385,7 +385,7 @@ fStageIcon(){
 	local ctx="$1" name="$2"
 	local symbolic=0 bucket=scalable src="" out darkSrc darkOut
 
-	if [[ "$name" == *-symbolic ]]; then symbolic=1; bucket=symbolic; fi
+	if [[ "${name}" == *-symbolic ]]; then symbolic=1; bucket=symbolic; fi
 
 	## Themes disagree about which context an icon belongs to - Adwaita
 	## files folder-open under status, inode-directory under mimetypes and
@@ -394,10 +394,10 @@ fStageIcon(){
 	##
 	## Some names were never redrawn as vector - Adwaita's emblems and the
 	## whole legacy set are bitmap only. Better a bitmap than a hole.
-	if   fResolve "$repo" "$ctx" "$name.svg" "$symbolic"; then src="$resolved_path"
-	elif fResolve "$repo" any    "$name.svg" "$symbolic"; then src="$resolved_path"
-	elif fResolve "$repo" "$ctx" "$name.png" "$symbolic"; then src="$resolved_path"
-	elif fResolve "$repo" any    "$name.png" "$symbolic"; then src="$resolved_path"
+	if   fResolve "${repo}" "${ctx}" "${name}.svg" "${symbolic}"; then src="${resolved_path}"
+	elif fResolve "${repo}" any    "${name}.svg" "${symbolic}"; then src="${resolved_path}"
+	elif fResolve "${repo}" "${ctx}" "${name}.png" "${symbolic}"; then src="${resolved_path}"
+	elif fResolve "${repo}" any    "${name}.png" "${symbolic}"; then src="${resolved_path}"
 	fi
 
 	## Not every theme has a symbolic set - Papirus has none at all, only
@@ -405,35 +405,35 @@ fStageIcon(){
 	## GTK still treats the installed file as symbolic because of how it is
 	## named, and a flat 16px glyph in the theme's own colors beats
 	## dropping the whole toolbar back to Adwaita.
-	if [[ -z "$src" && "$symbolic" == "1" ]]; then
-		if fResolve "$repo" "$ctx" "${name%-symbolic}.svg" 0 small; then
-			src="$resolved_path"
+	if [[ -z "${src}" && "${symbolic}" == "1" ]]; then
+		if fResolve "${repo}" "${ctx}" "${name%-symbolic}.svg" 0 small; then
+			src="${resolved_path}"
 			borrowed=$(( borrowed + 1 ))
 		fi
 	fi
 
-	if [[ -z "$src" ]]; then missing=$(( missing + 1 )); return 0; fi
+	if [[ -z "${src}" ]]; then missing=$(( missing + 1 )); return 0; fi
 
 	## Keep the source extension: a handful of names exist only as bitmaps
 	## upstream, and a png under an .svg name renders as nothing.
-	out="$staged/$bucket/$ctx/$name.${src##*.}"
+	out="${staged}/${bucket}/${ctx}/${name}.${src##*.}"
 
 	mkdir -p "${out%/*}"
-	cp -f "$src" "$out"
+	cp -f "${src}" "${out}"
 	found=$(( found + 1 ))
 
 	## The dark half takes only what upstream drew differently.
-	if [[ -n "$darkFrom" && -n "$counterpart" ]]; then
+	if [[ -n "${darkFrom}" && -n "${counterpart}" ]]; then
 		darkSrc=""
-		if [[ "$darkFrom" == roots:* ]]; then
-			fResolve "$repo" any "$name.svg" "$symbolic" large darkIndex && darkSrc="$resolved_path"
+		if [[ "${darkFrom}" == roots:* ]]; then
+			fResolve "${repo}" any "${name}.svg" "${symbolic}" large darkIndex && darkSrc="${resolved_path}"
 		else
-			fResolve "$repo" "$ctx" "$name${darkFrom#suffix:}.svg" "$symbolic" && darkSrc="$resolved_path"
+			fResolve "${repo}" "${ctx}" "${name}${darkFrom#suffix:}.svg" "${symbolic}" && darkSrc="${resolved_path}"
 		fi
-		if [[ -n "$darkSrc" ]]; then
-			darkOut="$darkStaged/$bucket/$ctx/$name.${darkSrc##*.}"
+		if [[ -n "${darkSrc}" ]]; then
+			darkOut="${darkStaged}/${bucket}/${ctx}/${name}.${darkSrc##*.}"
 			mkdir -p "${darkOut%/*}"
-			cp -f "$darkSrc" "$darkOut"
+			cp -f "${darkSrc}" "${darkOut}"
 			darkFound=$(( darkFound + 1 ))
 		fi
 	fi
@@ -450,99 +450,99 @@ fStageIcon(){
 fSelfTestTree(){
 	local repo="$1"
 
-	mkdir -p "$repo"/{scalable/{places,actions},symbolic/places,links/places,16x16/places}
-	printf '<svg/>\n' > "$repo/scalable/places/folder.svg"
-	printf '<svg/>\n' > "$repo/scalable/actions/eject.svg"
-	printf '<svg/>\n' > "$repo/symbolic/places/folder-symbolic.svg"
-	printf '<svg/>\n' > "$repo/16x16/places/bitmap.png"
+	mkdir -p "${repo}"/{scalable/{places,actions},symbolic/places,links/places,16x16/places}
+	printf '<svg/>\n' > "${repo}/scalable/places/folder.svg"
+	printf '<svg/>\n' > "${repo}/scalable/actions/eject.svg"
+	printf '<svg/>\n' > "${repo}/symbolic/places/folder-symbolic.svg"
+	printf '<svg/>\n' > "${repo}/16x16/places/bitmap.png"
 	## An alias the Windows way: a text file with the relative path its
 	## symlink had, which is what git leaves on a checkout with no symlinks.
-	printf '../../scalable/places/folder.svg\n' > "$repo/links/places/alias.svg"
+	printf '../../scalable/places/folder.svg\n' > "${repo}/links/places/alias.svg"
 	## An alias the POSIX way.
-	ln -sf ../../scalable/places/folder.svg "$repo/links/places/reallink.svg"
+	ln -sf ../../scalable/places/folder.svg "${repo}/links/places/reallink.svg"
 	## The form upstream uses: an alias written relative to links/,
 	## naming art that only exists under the real source directory. It dangles
 	## where it sits, so it has to be followed by name rather than by path.
-	printf '<svg/>\n' > "$repo/scalable/places/default-folder-docs.svg"
-	ln -sf default-folder-docs.svg "$repo/links/places/folder-docs.svg"
+	printf '<svg/>\n' > "${repo}/scalable/places/default-folder-docs.svg"
+	ln -sf default-folder-docs.svg "${repo}/links/places/folder-docs.svg"
 	## A link naming something that is nowhere in the tree.
-	ln -sf ../../scalable/places/gone.svg "$repo/links/places/dangling.svg"
+	ln -sf ../../scalable/places/gone.svg "${repo}/links/places/dangling.svg"
 	## A pair of stubs naming each other. Without the hop limit this never returns.
-	printf 'loop2.svg\n' > "$repo/links/places/loop1.svg"
-	printf 'loop1.svg\n' > "$repo/links/places/loop2.svg"
+	printf 'loop2.svg\n' > "${repo}/links/places/loop1.svg"
+	printf 'loop1.svg\n' > "${repo}/links/places/loop2.svg"
 
-	fBuildIndex "$repo" "scalable symbolic links 16x16"
+	fBuildIndex "${repo}" "scalable symbolic links 16x16"
 }
 
 fSelfTest(){
-	local repo="$tmp/selftest" fails=0
+	local repo="${tmp}/selftest" fails=0
 	fEcho "Test $(sed -n 's/^## Test ID: //p' "${BASH_SOURCE[0]}") vendor-themes.bash --self-test"
 
 	fCheck(){
 		local what="$1" want="$2" got="$3"
-		if [[ "$want" == "$got" ]]; then return 0; fi
+		if [[ "${want}" == "${got}" ]]; then return 0; fi
 		fEcho "FAIL: ${what}: wanted '${want}', got '${got}'"
 		fails=$(( fails + 1 ))
 	}
 
-	fSelfTestTree "$repo"
+	fSelfTestTree "${repo}"
 
-	fResolve "$repo" places "folder.svg" 0 || true
-	fCheck "plain name" "$repo/scalable/places/folder.svg" "$resolved_path"
+	fResolve "${repo}" places "folder.svg" 0 || true
+	fCheck "plain name" "${repo}/scalable/places/folder.svg" "${resolved_path}"
 
-	fResolve "$repo" places "folder-symbolic.svg" 1 || true
-	fCheck "symbolic name" "$repo/symbolic/places/folder-symbolic.svg" "$resolved_path"
+	fResolve "${repo}" places "folder-symbolic.svg" 1 || true
+	fCheck "symbolic name" "${repo}/symbolic/places/folder-symbolic.svg" "${resolved_path}"
 
 	## The context filter filters: eject is under actions, not places.
-	if fResolve "$repo" places "eject.svg" 0; then
-		fCheck "wrong context" "(no answer)" "$resolved_path"
+	if fResolve "${repo}" places "eject.svg" 0; then
+		fCheck "wrong context" "(no answer)" "${resolved_path}"
 	fi
-	fResolve "$repo" any "eject.svg" 0 || true
-	fCheck "any context" "$repo/scalable/actions/eject.svg" "$resolved_path"
+	fResolve "${repo}" any "eject.svg" 0 || true
+	fCheck "any context" "${repo}/scalable/actions/eject.svg" "${resolved_path}"
 
-	fResolve "$repo" places "alias.svg" 0 || true
-	fCheck "text stub followed" "$repo/scalable/places/folder.svg" "$resolved_path"
+	fResolve "${repo}" places "alias.svg" 0 || true
+	fCheck "text stub followed" "${repo}/scalable/places/folder.svg" "${resolved_path}"
 
 	## A name that exists only as a real symlink. fResolve hands back the link
 	## itself, not its target - the copy that follows reads through it.
-	fResolve "$repo" places "reallink.svg" 0 || true
-	fCheck "symlink alias followed" "$repo/links/places/reallink.svg" "$resolved_path"
+	fResolve "${repo}" places "reallink.svg" 0 || true
+	fCheck "symlink alias followed" "${repo}/links/places/reallink.svg" "${resolved_path}"
 
 	## An alias that dangles where it sits still has to find the real art.
 	## This is the case the whole links/ layer turns on: every one of Qogir's
 	## 17,202 aliases is written this way.
-	fResolve "$repo" places "folder-docs.svg" 0 || true
-	fCheck "dangling alias followed by name" "$repo/scalable/places/default-folder-docs.svg" "$resolved_path"
+	fResolve "${repo}" places "folder-docs.svg" 0 || true
+	fCheck "dangling alias followed by name" "${repo}/scalable/places/default-folder-docs.svg" "${resolved_path}"
 
 	## Named nothing that exists, so still no result. But it was a candidate,
 	## which the index says and the resolver can't.
 	fCheck "link to nothing is indexed" "links/places/dangling.svg"$'\n' "${iconIndex[dangling.svg]:-}"
-	if fResolve "$repo" places "dangling.svg" 0; then
-		fCheck "link to nothing" "(no answer)" "$resolved_path"
+	if fResolve "${repo}" places "dangling.svg" 0; then
+		fCheck "link to nothing" "(no answer)" "${resolved_path}"
 	fi
 
-	if fResolve "$repo" places "loop1.svg" 0; then
-		fCheck "stub chain stops" "(no answer)" "$resolved_path"
+	if fResolve "${repo}" places "loop1.svg" 0; then
+		fCheck "stub chain stops" "(no answer)" "${resolved_path}"
 	fi
 
-	if fResolve "$repo" places "nothing.svg" 0; then
-		fCheck "missing name" "(no answer)" "$resolved_path"
+	if fResolve "${repo}" places "nothing.svg" 0; then
+		fCheck "missing name" "(no answer)" "${resolved_path}"
 	fi
-	fCheck "missing name clears the answer" "" "$resolved_path"
+	fCheck "missing name clears the answer" "" "${resolved_path}"
 
-	fResolve "$repo" places "bitmap.png" 0 || true
-	fCheck "bitmap" "$repo/16x16/places/bitmap.png" "$resolved_path"
+	fResolve "${repo}" places "bitmap.png" 0 || true
+	fCheck "bitmap" "${repo}/16x16/places/bitmap.png" "${resolved_path}"
 
 	## fIsLinkStub's own edges: real art isn't a stub, and neither is a long line.
-	if fIsLinkStub "$repo/scalable/places/folder.svg"; then
+	if fIsLinkStub "${repo}/scalable/places/folder.svg"; then
 		fCheck "svg is not a stub" "no" "yes"
 	fi
-	printf '%0.sx' {1..300} > "$repo/links/places/toolong.svg"
-	printf '.svg\n' >> "$repo/links/places/toolong.svg"
-	if fIsLinkStub "$repo/links/places/toolong.svg"; then
+	printf '%0.sx' {1..300} > "${repo}/links/places/toolong.svg"
+	printf '.svg\n' >> "${repo}/links/places/toolong.svg"
+	if fIsLinkStub "${repo}/links/places/toolong.svg"; then
 		fCheck "long file is not a stub" "no" "yes"
 	fi
-	if ! fIsLinkStub "$repo/links/places/alias.svg"; then
+	if ! fIsLinkStub "${repo}/links/places/alias.svg"; then
 		fCheck "text stub is a stub" "yes" "no"
 	fi
 
@@ -559,7 +559,7 @@ fSelfTest(){
 ## run take minutes. The count is only exact in a PID namespace of its own,
 ## where nothing else takes a pid, which is how test-vendor-forks.bash runs it.
 fCountForks(){
-	local repo="$tmp/selftest" staged="$tmp/stage-forks" darkStaged="$tmp/stage-forks-dark"
+	local repo="${tmp}/selftest" staged="${tmp}/stage-forks" darkStaged="${tmp}/stage-forks-dark"
 	local darkFrom="" counterpart="" found=0 missing=0 darkFound=0 borrowed=0
 	local pair before after
 	## Every branch of the lookup chain: a first-try hit, symbolic, a context
@@ -570,7 +570,7 @@ fCountForks(){
 		places/folder-docs places/bitmap places/nothing actions/eject-symbolic
 	)
 
-	fSelfTestTree "$repo"
+	fSelfTestTree "${repo}"
 
 	read -r _ _ _ _ before < /proc/loadavg
 	for pair in "${names[@]}"; do
@@ -592,8 +592,8 @@ fWriteIconIndex(){
 	local dir="$1" name="$2" style="$3" modes="$4" counterpart="$5" inheritExtra="$6"
 	local sub dirs=() inherits
 
-	while IFS= read -r sub; do dirs+=("$sub"); done < <(
-		cd "$dir" && find . -mindepth 2 -maxdepth 2 -type d -printf '%P\n' | sort
+	while IFS= read -r sub; do dirs+=("${sub}"); done < <(
+		cd "${dir}" && find . -mindepth 2 -maxdepth 2 -type d -printf '%P\n' | sort
 	)
 	(( ${#dirs[@]} )) || return 0
 
@@ -601,22 +601,22 @@ fWriteIconIndex(){
 
 	{
 		printf '[Icon Theme]\n'
-		printf 'Name=%s\n' "$name"
-		printf 'Comment=%s style, trimmed for nemo-anywhere\n' "$style"
-		printf 'X-Nemo-Style=%s\n' "$style"
-		printf 'X-Nemo-Modes=%s\n' "$modes"
-		[[ -n "$counterpart" ]] && printf 'X-Nemo-Counterpart=%s\n' "$counterpart"
-		printf 'Inherits=%s\n' "$inherits"
+		printf 'Name=%s\n' "${name}"
+		printf 'Comment=%s style, trimmed for nemo-anywhere\n' "${style}"
+		printf 'X-Nemo-Style=%s\n' "${style}"
+		printf 'X-Nemo-Modes=%s\n' "${modes}"
+		[[ -n "${counterpart}" ]] && printf 'X-Nemo-Counterpart=%s\n' "${counterpart}"
+		printf 'Inherits=%s\n' "${inherits}"
 		printf 'Example=folder\n'
 		printf 'Directories=%s\n\n' "$(IFS=,; printf '%s' "${dirs[*]}")"
 		for sub in "${dirs[@]}"; do
-			printf '[%s]\n' "$sub"
-			printf 'Size=%s\n' "$([[ "$sub" == symbolic/* ]] && echo 16 || echo 48)"
+			printf '[%s]\n' "${sub}"
+			printf 'Size=%s\n' "$([[ "${sub}" == symbolic/* ]] && echo 16 || echo 48)"
 			printf 'MinSize=8\nMaxSize=512\n'
 			printf 'Context=%s\n' "$(fIconContext "${sub##*/}")"
 			printf 'Type=Scalable\n\n'
 		done
-	} > "$dir/index.theme"
+	} > "${dir}/index.theme"
 }
 
 fIconContext(){
@@ -637,63 +637,63 @@ fIconContext(){
 fBuildIconTheme(){
 	local record="$1"
 	local id outName style modes counterpart url ref roots darkFrom fetch inherits
-	IFS='|' read -r id outName style modes counterpart url ref roots darkFrom fetch inherits <<< "$record"
+	IFS='|' read -r id outName style modes counterpart url ref roots darkFrom fetch inherits <<< "${record}"
 
-	fWanted "$id" || return 0
+	fWanted "${id}" || return 0
 
 	fEcho_Clean ""
-	fEcho "Icon theme: $outName ($style)"
+	fEcho "Icon theme: ${outName} (${style})"
 
 	local repo staged darkStaged ctx name
-	repo="$(fClone "$url" "$ref" "$roots" "$fetch")"
+	repo="$(fClone "${url}" "${ref}" "${roots}" "${fetch}")"
 
-	fBuildIndex "$repo" "$roots"
-	if [[ "$darkFrom" == roots:* ]]; then
-		fBuildIndex "$repo" "${darkFrom#roots:}" darkIndex
+	fBuildIndex "${repo}" "${roots}"
+	if [[ "${darkFrom}" == roots:* ]]; then
+		fBuildIndex "${repo}" "${darkFrom#roots:}" darkIndex
 	else
 		## Read back through the fResolve nameref, so shellcheck sees no use.
 		# shellcheck disable=SC2034
 		darkIndex=()
 	fi
 
-	staged="$tmp/stage-$id"
-	darkStaged="$tmp/stage-$id-dark"
-	fSafeRm_IfThere "$staged" "$darkStaged"
+	staged="${tmp}/stage-${id}"
+	darkStaged="${tmp}/stage-${id}-dark"
+	fSafeRm_IfThere "${staged}" "${darkStaged}"
 
 	local found=0 missing=0 darkFound=0 borrowed=0
 	while read -r ctx name; do
-		[[ -z "$ctx" || "$ctx" == \#* ]] && continue
-		fStageIcon "$ctx" "$name"
-	done < <(grep -vE '^\s*(#|$)' "$nameList")
+		[[ -z "${ctx}" || "${ctx}" == \#* ]] && continue
+		fStageIcon "${ctx}" "${name}"
+	done < <(grep -vE '^\s*(#|$)' "${nameList}")
 
-	(( found > 0 )) || { fEcho "SKIPPED: $outName resolved nothing"; return 0; }
+	(( found > 0 )) || { fEcho "SKIPPED: ${outName} resolved nothing"; return 0; }
 
-	local dest="$vendor/icons/$outName"
-	fSafeRm_Under "$vendor/icons" "$dest"; mkdir -p "$dest"
-	"$python" "$svgMin" --tree "$staged" "$dest" >/dev/null
-	fCopyLicense "$repo" "$dest"
-	fWriteIconIndex "$dest" "$outName" "$style" "$modes" "$counterpart" "$inherits"
+	local dest="${vendor}/icons/${outName}"
+	fSafeRm_Under "${vendor}/icons" "${dest}"; mkdir -p "${dest}"
+	"${python}" "${svgMin}" --tree "${staged}" "${dest}" >/dev/null
+	fCopyLicense "${repo}" "${dest}"
+	fWriteIconIndex "${dest}" "${outName}" "${style}" "${modes}" "${counterpart}" "${inherits}"
 
-	fEcho_Clean "    $found icons ($borrowed borrowed for a missing symbolic set), $missing left to the fallback chain, $(fSize "$dest")"
+	fEcho_Clean "    ${found} icons (${borrowed} borrowed for a missing symbolic set), ${missing} left to the fallback chain, $(fSize "${dest}")"
 
 	if (( darkFound > 0 )); then
-		local darkDest="$vendor/icons/$counterpart"
-		fSafeRm_Under "$vendor/icons" "$darkDest"; mkdir -p "$darkDest"
-		"$python" "$svgMin" --tree "$darkStaged" "$darkDest" >/dev/null
-		fCopyLicense "$repo" "$darkDest"
-		fWriteIconIndex "$darkDest" "$counterpart" "$style" "dark" "$outName" "$outName,Adwaita,hicolor"
-		fEcho_Clean "    $counterpart: $darkFound tuned icons over $outName, $(fSize "$darkDest")"
-	elif [[ -n "$counterpart" ]]; then
+		local darkDest="${vendor}/icons/${counterpart}"
+		fSafeRm_Under "${vendor}/icons" "${darkDest}"; mkdir -p "${darkDest}"
+		"${python}" "${svgMin}" --tree "${darkStaged}" "${darkDest}" >/dev/null
+		fCopyLicense "${repo}" "${darkDest}"
+		fWriteIconIndex "${darkDest}" "${counterpart}" "${style}" "dark" "${outName}" "${outName},Adwaita,hicolor"
+		fEcho_Clean "    ${counterpart}: ${darkFound} tuned icons over ${outName}, $(fSize "${darkDest}")"
+	elif [[ -n "${counterpart}" ]]; then
 		## Nothing was drawn for dark, so the one theme is used for both after all.
-		fWriteIconIndex "$dest" "$outName" "$style" "light;dark" "" "$inherits"
-		fEcho_Clean "    no dark art upstream - $outName covers both modes"
+		fWriteIconIndex "${dest}" "${outName}" "${style}" "light;dark" "" "${inherits}"
+		fEcho_Clean "    no dark art upstream - ${outName} covers both modes"
 	fi
 }
 
 fCopyLicense(){
 	local repo="$1" dest="$2" f
 	for f in COPYING LICENSE LICENSE.md LICENSE.txt COPYING.md; do
-		[[ -f "$repo/$f" ]] && { cp -f "$repo/$f" "$dest/COPYING"; return 0; }
+		[[ -f "${repo}/${f}" ]] && { cp -f "${repo}/${f}" "${dest}/COPYING"; return 0; }
 	done
 	return 0
 }
@@ -704,24 +704,24 @@ fRecordFor(){
 	local kind="$1" name="$2" record id outName style modes cp url ref
 	local arr=()
 
-	if [[ "$kind" == "themes" ]]; then arr=("${widgetThemes[@]}"); else arr=("${iconThemes[@]}"); fi
+	if [[ "${kind}" == "themes" ]]; then arr=("${widgetThemes[@]}"); else arr=("${iconThemes[@]}"); fi
 
 	## There are 2 passes, and the order matters: a dark half that has a record of its
 	## own must be credited to its own upstream, not to the repo its light half
 	## happens to name it as a counterpart in. Getting this backwards credited
 	## macOS-dark and Windows-10-dark to the wrong repositories.
 	for record in "${arr[@]}"; do
-		IFS='|' read -r id outName style modes cp url ref _rest <<< "$record"
-		if [[ "$outName" == "$name" ]]; then
-			printf '%s|%s|%s' "$style" "$url" "$ref"
+		IFS='|' read -r id outName style modes cp url ref _rest <<< "${record}"
+		if [[ "${outName}" == "${name}" ]]; then
+			printf '%s|%s|%s' "${style}" "${url}" "${ref}"
 			return 0
 		fi
 	done
 
 	for record in "${arr[@]}"; do
-		IFS='|' read -r id outName style modes cp url ref _rest <<< "$record"
-		if [[ "$cp" == "$name" ]]; then
-			printf '%s|%s|%s' "$style" "$url" "$ref"
+		IFS='|' read -r id outName style modes cp url ref _rest <<< "${record}"
+		if [[ "${cp}" == "${name}" ]]; then
+			printf '%s|%s|%s' "${style}" "${url}" "${ref}"
 			return 0
 		fi
 	done
@@ -739,80 +739,80 @@ fSize(){
 fBuildWidgetTheme(){
 	local record="$1"
 	local id outName style modes counterpart url ref subdir layout
-	IFS='|' read -r id outName style modes counterpart url ref subdir layout <<< "$record"
+	IFS='|' read -r id outName style modes counterpart url ref subdir layout <<< "${record}"
 
-	fWanted "$id" || return 0
+	fWanted "${id}" || return 0
 
 	fEcho_Clean ""
-	fEcho "Widget theme: $outName ($style)"
+	fEcho "Widget theme: ${outName} (${style})"
 
 	local repo base src dest d
-	repo="$(fClone "$url" "$ref")"
-	base="$repo/$subdir"
-	[[ -d "$base" ]] || { fEcho "SKIPPED: $subdir not in $url"; return 0; }
+	repo="$(fClone "${url}" "${ref}")"
+	base="${repo}/${subdir}"
+	[[ -d "${base}" ]] || { fEcho "SKIPPED: ${subdir} not in ${url}"; return 0; }
 
-	dest="$vendor/themes/$outName"
-	fSafeRm_Under "$vendor/themes" "$dest"; mkdir -p "$dest/gtk-3.0"
+	dest="${vendor}/themes/${outName}"
+	fSafeRm_Under "${vendor}/themes" "${dest}"; mkdir -p "${dest}/gtk-3.0"
 
-	if [[ "$layout" == "fluent" ]]; then
+	if [[ "${layout}" == "fluent" ]]; then
 		## 44 rules reference assets/, 14 more assets/scalable/.
-		cp -r "$base/assets"   "$dest/gtk-3.0/assets"
-		cp -r "$base/scalable" "$dest/gtk-3.0/assets/scalable"
-		cp -f "$base/3.0/gtk-Light.css" "$dest/gtk-3.0/gtk.css"
-		cp -f "$base/3.0/gtk-Dark.css"  "$dest/gtk-3.0/gtk-dark.css"
+		cp -r "${base}/assets"   "${dest}/gtk-3.0/assets"
+		cp -r "${base}/scalable" "${dest}/gtk-3.0/assets/scalable"
+		cp -f "${base}/3.0/gtk-Light.css" "${dest}/gtk-3.0/gtk.css"
+		cp -f "${base}/3.0/gtk-Dark.css"  "${dest}/gtk-3.0/gtk-dark.css"
 	else
 		## Prefer the newest gtk-3.x sheet upstream has; normalize it to gtk-3.0.
 		src=""
 		for d in gtk-3.24 gtk-3.22 gtk-3.20 gtk-3.0 3.0; do
-			if [[ -f "$base/$d/gtk.css" ]]; then src="$base/$d"; break; fi
+			if [[ -f "${base}/${d}/gtk.css" ]]; then src="${base}/${d}"; break; fi
 		done
-		[[ -n "$src" ]] || { fEcho "SKIPPED: no gtk.css under $subdir"; fSafeRm_Under "$vendor/themes" "$dest"; return 0; }
+		[[ -n "${src}" ]] || { fEcho "SKIPPED: no gtk.css under ${subdir}"; fSafeRm_Under "${vendor}/themes" "${dest}"; return 0; }
 
 		## Everything the sheet can reference, and nothing else. That leaves out
 		## the gtk-2.0, metacity, xfwm4, gnome-shell, and cinnamon parts, which
 		## we never load.
-		( cd "$src" && find . -maxdepth 1 -mindepth 1 \
-			! -name 'gtk-3.*' ! -name 'thumbnail.png' -exec cp -r {} "$dest/gtk-3.0/" \; )
+		( cd "${src}" && find . -maxdepth 1 -mindepth 1 \
+			! -name 'gtk-3.*' ! -name 'thumbnail.png' -exec cp -r {} "${dest}/gtk-3.0/" \; )
 	fi
 
-	[[ -f "$dest/gtk-3.0/gtk.css" ]] || { fEcho "SKIPPED: $outName produced no gtk.css"; fSafeRm_Under "$vendor/themes" "$dest"; return 0; }
+	[[ -f "${dest}/gtk-3.0/gtk.css" ]] || { fEcho "SKIPPED: ${outName} produced no gtk.css"; fSafeRm_Under "${vendor}/themes" "${dest}"; return 0; }
 
 	## A theme with its own dark sheet needs no counterpart - GTK swaps for it.
 	## Where the catalog names one anyway the pair wins, because that dark half
 	## is a theme upstream drew in its own right rather than the light one's
 	## variant sheet - and the redundant sheet goes, or both halves claim dark
 	## and the picker lists the style twice.
-	if [[ -f "$dest/gtk-3.0/gtk-dark.css" ]]; then
-		if [[ -n "$counterpart" ]]; then
-			rm -f "$dest/gtk-3.0/gtk-dark.css"
+	if [[ -f "${dest}/gtk-3.0/gtk-dark.css" ]]; then
+		if [[ -n "${counterpart}" ]]; then
+			rm -f "${dest}/gtk-3.0/gtk-dark.css"
 		else
 			modes="light;dark"
 		fi
 	fi
 
-	fCopyLicense "$repo" "$dest"
+	fCopyLicense "${repo}" "${dest}"
 
 	{
 		printf '[Desktop Entry]\n'
 		printf 'Type=X-GNOME-Metatheme\n'
-		printf 'Name=%s\n' "$outName"
-		printf 'Comment=%s style\n' "$style"
-		printf 'X-Nemo-Style=%s\n' "$style"
-		printf 'X-Nemo-Modes=%s\n' "$modes"
-		[[ -n "$counterpart" ]] && printf 'X-Nemo-Counterpart=%s\n' "$counterpart"
+		printf 'Name=%s\n' "${outName}"
+		printf 'Comment=%s style\n' "${style}"
+		printf 'X-Nemo-Style=%s\n' "${style}"
+		printf 'X-Nemo-Modes=%s\n' "${modes}"
+		[[ -n "${counterpart}" ]] && printf 'X-Nemo-Counterpart=%s\n' "${counterpart}"
 		printf '\n[X-GNOME-Metatheme]\n'
-		printf 'GtkTheme=%s\n' "$outName"
-	} > "$dest/index.theme"
+		printf 'GtkTheme=%s\n' "${outName}"
+	} > "${dest}/index.theme"
 
-	fEcho_Clean "    $(fSize "$dest")"
+	fEcho_Clean "    $(fSize "${dest}")"
 }
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
-fEcho "Vendoring bundled themes into $vendor"
+fEcho "Vendoring bundled themes into ${vendor}"
 
-for record in "${widgetThemes[@]}"; do fBuildWidgetTheme "$record"; done
-for record in "${iconThemes[@]}";   do fBuildIconTheme   "$record"; done
+for record in "${widgetThemes[@]}"; do fBuildWidgetTheme "${record}"; done
+for record in "${iconThemes[@]}";   do fBuildIconTheme   "${record}"; done
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 ## Tab-separated rows in, the first one the header, a markdown table out.
@@ -844,10 +844,10 @@ if (( ${#wanted[@]} == 0 )); then
 	## Anything from the first ### under Themes on is written by hand, such as the
 	## license notes, and is copied over rather than dropped.
 	handTail=""
-	[[ -f "$vendor/README.md" ]] && handTail="$(sed -n '/^## Themes/,$p' "$vendor/README.md" | sed -n '/^### /,$p')"
+	[[ -f "${vendor}/README.md" ]] && handTail="$(sed -n '/^## Themes/,$p' "${vendor}/README.md" | sed -n '/^### /,$p')"
 	{
-		if [[ -f "$vendor/README.md" ]] && grep -q '^## Themes' "$vendor/README.md"; then
-			sed '/^## Themes/,$d' "$vendor/README.md"
+		if [[ -f "${vendor}/README.md" ]] && grep -q '^## Themes' "${vendor}/README.md"; then
+			sed '/^## Themes/,$d' "${vendor}/README.md"
 		else
 			printf '# Vendored\n\n'
 		fi
@@ -863,25 +863,25 @@ if (( ${#wanted[@]} == 0 )); then
 		{
 			printf 'Theme\tKind\tStyle\tUpstream\tCommit\n'
 			for kind in themes icons; do
-				for dir in "$vendor/$kind"/*/; do
-					[[ -d "$dir" ]] || continue
-					name="$(basename "$dir")"
-					meta="$(fRecordFor "$kind" "$name" || true)"
-					[[ -n "$meta" ]] || continue
-					IFS='|' read -r style url ref <<< "$meta"
-					key="$(printf '%s' "$url" | tr -c 'A-Za-z0-9' '_')"
-					sha="$(git -C "$tmp/$key" rev-parse HEAD 2>/dev/null || echo "$ref")"
+				for dir in "${vendor}/${kind}"/*/; do
+					[[ -d "${dir}" ]] || continue
+					name="$(basename "${dir}")"
+					meta="$(fRecordFor "${kind}" "${name}" || true)"
+					[[ -n "${meta}" ]] || continue
+					IFS='|' read -r style url ref <<< "${meta}"
+					key="$(printf '%s' "${url}" | tr -c 'A-Za-z0-9' '_')"
+					sha="$(git -C "${tmp}/${key}" rev-parse HEAD 2>/dev/null || echo "${ref}")"
 					# shellcheck disable=SC2016  ## same, in the row format.
 					printf '`%s`\t%s\t%s\t%s\t`%s`\n' \
-						"$name" "$([[ "$kind" == themes ]] && echo Widget || echo Icon)" \
-						"$style" "$url" "$sha"
+						"${name}" "$([[ "${kind}" == themes ]] && echo Widget || echo Icon)" \
+						"${style}" "${url}" "${sha}"
 				done
 			done
 		} | fMdTable
 
-		[[ -z "$handTail" ]] || printf '\n%s\n' "$handTail"
-	} > "$vendor/README.md.new"
-	mv -f "$vendor/README.md.new" "$vendor/README.md"
+		[[ -z "${handTail}" ]] || printf '\n%s\n' "${handTail}"
+	} > "${vendor}/README.md.new"
+	mv -f "${vendor}/README.md.new" "${vendor}/README.md"
 fi
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
@@ -890,8 +890,8 @@ fi
 ## missing from the build with nothing to say so.
 
 fEcho_Clean ""
-"$python" "$here/gen-theme-resources.py" "$root" | while read -r line; do fEcho_Clean "    $line"; done
+"${python}" "${here}/gen-theme-resources.py" "${root}" | while read -r line; do fEcho_Clean "    ${line}"; done
 
 fEcho_Clean ""
-fEcho "Totals: icons $(fSize "$vendor/icons"), widgets $(fSize "$vendor/themes")"
-fEcho "OK -> $vendor"
+fEcho "Totals: icons $(fSize "${vendor}/icons"), widgets $(fSize "${vendor}/themes")"
+fEcho "OK -> ${vendor}"

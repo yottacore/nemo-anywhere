@@ -29,7 +29,7 @@ source "${here}/include/run-temp.bash"
 ## Releases are cut on Linux, and a Windows box may only have the python3 stub.
 if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then fEcho "release stamp check skipped: Linux only"; exit 77; fi
 for tool in git python3; do
-	if ! command -v "$tool" >/dev/null 2>&1; then fEcho "release stamp check skipped: no ${tool}"; exit 77; fi
+	if ! command -v "${tool}" >/dev/null 2>&1; then fEcho "release stamp check skipped: no ${tool}"; exit 77; fi
 done
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/release-stamp-check.XXXXXX")"
@@ -53,7 +53,7 @@ printf 'cicd/artifacts/\n' > "${repo}/.gitignore"
 
 devDate=1790000000
 mergeDate=1790086400
-fGit(){ git -C "$repo" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false -c tag.gpgsign=false -c core.hooksPath=/dev/null "$@"; }
+fGit(){ git -C "${repo}" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false -c tag.gpgsign=false -c core.hooksPath=/dev/null "$@"; }
 fGit init -q -b main
 fGit add -A
 GIT_AUTHOR_DATE="@$((devDate - 86400))" GIT_COMMITTER_DATE="@$((devDate - 86400))" fGit commit -q -m base
@@ -62,7 +62,7 @@ printf 'dev change\n' >> "${repo}/README.md"
 GIT_AUTHOR_DATE="@${devDate}" GIT_COMMITTER_DATE="@${devDate}" fGit commit -q -am change
 fGit checkout -q main
 GIT_AUTHOR_DATE="@${mergeDate}" GIT_COMMITTER_DATE="@${mergeDate}" fGit merge -q --no-ff -m "Merge dev" dev
-[[ "$(fGit log -1 --format=%ct)" == "$mergeDate" ]] || { fEcho "FAILED: scratch merge has the wrong date"; exit 1; }
+[[ "$(fGit log -1 --format=%ct)" == "${mergeDate}" ]] || { fEcho "FAILED: scratch merge has the wrong date"; exit 1; }
 
 art="${repo}/cicd/artifacts/release"
 ver="9.9.9"
@@ -70,7 +70,7 @@ ver="9.9.9"
 ## $1 tarball stamp, $2 zip exe stamp, $3 .deb stamp or empty for none, $4
 ## FreeBSD pkg stamp or empty for none.
 fArtifacts(){
-	fSafeRm_IfThere "$art"; mkdir -p "$art" "${scratch}/pfx/nemo-anywhere-${ver}-linux-x86_64/bin"
+	fSafeRm_IfThere "${art}"; mkdir -p "${art}" "${scratch}/pfx/nemo-anywhere-${ver}-linux-x86_64/bin"
 	printf 'x\n' > "${scratch}/pfx/nemo-anywhere-${ver}-linux-x86_64/bin/nemo-anywhere"
 	tar -czf "${art}/nemo-anywhere-${ver}-linux-x86_64.tar.gz" -C "${scratch}/pfx" \
 		--owner=0 --group=0 --numeric-owner --sort=name --mtime="@$1" "nemo-anywhere-${ver}-linux-x86_64"
@@ -91,7 +91,7 @@ fArtifacts(){
 	if [[ -n "${3:-}" ]]; then
 		fSafeRm_IfThere "${scratch}/deb"; mkdir -p "${scratch}/deb/DEBIAN" "${scratch}/deb/opt"
 		printf 'x\n' > "${scratch}/deb/opt/f"
-		printf 'Package: nemo-anywhere\nVersion: %s\nArchitecture: amd64\nMaintainer: x <x@example.invalid>\nDescription: x\n' "$ver" > "${scratch}/deb/DEBIAN/control"
+		printf 'Package: nemo-anywhere\nVersion: %s\nArchitecture: amd64\nMaintainer: x <x@example.invalid>\nDescription: x\n' "${ver}" > "${scratch}/deb/DEBIAN/control"
 		SOURCE_DATE_EPOCH="$3" dpkg-deb --build --root-owner-group "${scratch}/deb" "${art}/nemo-anywhere-${ver}-linux-x86_64.deb" >/dev/null
 	fi
 	## A pkg is a tar.zst with its manifest first. pkg create dates the files
@@ -106,48 +106,48 @@ fArtifacts(){
 	fi
 	## Named .pkg too, but no tar: the check has no reader for it and must not fail it.
 	printf 'xar!stand-in\n' > "${art}/nemo-anywhere-${ver}-macos-x86_64.pkg"
-	( cd "$art" && sha256sum nemo-anywhere-${ver}-* > "nemo-anywhere-${ver}-sha256sums.txt" )
+	( cd "${art}" && sha256sum nemo-anywhere-${ver}-* > "nemo-anywhere-${ver}-sha256sums.txt" )
 }
 
 ## $1 "refuses" or "tags", $2 what the case is.
 fRelease(){
 	local out rc=0
-	out="$(cd "$repo" && bash cicd/utility/release.bash -y 2>&1)" || rc=$?
+	out="$(cd "${repo}" && bash cicd/utility/release.bash -y 2>&1)" || rc=$?
 	if [[ "$1" == refuses ]]; then
-		if [[ "$rc" == 0 ]]; then fFail "${2}: tagged anyway; said: ${out}"
+		if [[ "${rc}" == 0 ]]; then fFail "${2}: tagged anyway; said: ${out}"
 		elif fGit rev-parse -q --verify "refs/tags/v${ver}" >/dev/null; then fFail "${2}: failed but left a tag"
-		elif [[ "$out" != *"aren't stamped ${mergeDate}"* ]]; then fFail "${2}: failed for another reason: ${out}"
+		elif [[ "${out}" != *"aren't stamped ${mergeDate}"* ]]; then fFail "${2}: failed for another reason: ${out}"
 		else fEcho "OK: ${2}: refused"
 		fi
 	else
-		if [[ "$rc" != 0 ]]; then fFail "${2}: refused (exit ${rc}): ${out}"
+		if [[ "${rc}" != 0 ]]; then fFail "${2}: refused (exit ${rc}): ${out}"
 		elif ! fGit rev-parse -q --verify "refs/tags/v${ver}" >/dev/null; then fFail "${2}: no tag made"
 		else fEcho "OK: ${2}: tagged"
 		fi
 	fi
 }
 
-fArtifacts "$devDate" "$devDate"
+fArtifacts "${devDate}" "${devDate}"
 fRelease refuses "built on dev before the merge"
-fArtifacts "$mergeDate" "$devDate"
+fArtifacts "${mergeDate}" "${devDate}"
 fRelease refuses "Windows exe from dev, tarball from main"
 haveDeb=""
 if command -v dpkg-deb >/dev/null 2>&1; then
-	haveDeb="$mergeDate"
-	fArtifacts "$mergeDate" "$mergeDate" "$devDate"
+	haveDeb="${mergeDate}"
+	fArtifacts "${mergeDate}" "${mergeDate}" "${devDate}"
 	fRelease refuses ".deb from dev, the rest from main"
 else
 	fEcho ".deb case skipped: no dpkg-deb"
 fi
 havePkg=""
 if command -v zstd >/dev/null 2>&1; then
-	havePkg="$mergeDate"
-	fArtifacts "$mergeDate" "$mergeDate" "$haveDeb" "$devDate"
+	havePkg="${mergeDate}"
+	fArtifacts "${mergeDate}" "${mergeDate}" "${haveDeb}" "${devDate}"
 	fRelease refuses "FreeBSD pkg from dev, the rest from main"
 else
 	fEcho "FreeBSD pkg case skipped: no zstd"
 fi
-fArtifacts "$mergeDate" "$mergeDate" "$haveDeb" "$havePkg"
+fArtifacts "${mergeDate}" "${mergeDate}" "${haveDeb}" "${havePkg}"
 fRelease tags "all built from the merge"
 
 if ((failures)); then fEcho "${failures} release stamp check(s) failed"; exit 1; fi

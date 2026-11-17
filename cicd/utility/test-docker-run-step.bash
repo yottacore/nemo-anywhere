@@ -64,80 +64,80 @@ chmod +x "${scratch}/bin/"*
 out=""; rc=0; runLine=""
 fRun(){
 	local label="$1"; shift
-	: > "$log"
+	: > "${log}"
 	rc=0
 	out="$(env -u CICD_NO_CONTAINER -u CICD_KEEP_TEMP -u CICD_RUN -u CICD_PROJECT -u NEMO_IMAGE -u CICD_VOLUME_PREFIX -u CICD_MEM_CAP -u STUB_VOL_SRC -u STUB_NAMES -u STUB_BUILD_OK \
-		PATH="${scratch}/bin:${PATH}" DOCKER_LOG="$log" SOURCE_DATE_EPOCH=946684800 CICD_MAX_JOBS=1 STUB_IMAGES="${tag}" "$@" \
-		bash "${repo}/cicd/utility/docker-run.bash" "$label" 'echo the-step' 2>&1 < /dev/null)" || rc=$?
-	runLine="$(grep '^run ' "$log" || true)"
+		PATH="${scratch}/bin:${PATH}" DOCKER_LOG="${log}" SOURCE_DATE_EPOCH=946684800 CICD_MAX_JOBS=1 STUB_IMAGES="${tag}" "$@" \
+		bash "${repo}/cicd/utility/docker-run.bash" "${label}" 'echo the-step' 2>&1 < /dev/null)" || rc=$?
+	runLine="$(grep '^run ' "${log}" || true)"
 }
-inRun=(CICD_PROJECT=nemo-anywhere CICD_RUN=20261026-120000_001 STUB_VOL_SRC="$realRepo")
+inRun=(CICD_PROJECT=nemo-anywhere CICD_RUN=20261026-120000_001 STUB_VOL_SRC="${realRepo}")
 
 fRun "debug build" "${inRun[@]}"
-[[ "$rc" == 0 ]] || fFail "[run]: exit ${rc}, said: ${out}"
-[[ "$runLine" == "run --rm "* ]] || fFail "[run]: not docker run --rm: ${runLine:-no run}"
-[[ "$runLine" == *" --name nemo-anywhere-20261026-120000_001-debug-build "* ]] || fFail "[run]: wrong name: ${runLine}"
-[[ "$runLine" == *" --label dev.project=nemo-anywhere --label dev.run=20261026-120000_001 "* ]] || fFail "[run]: labels: ${runLine}"
-[[ "$runLine" == *" -v nemo-anywhere-build:/build -v nemo-anywhere-build-fuzz:/build-fuzz "* ]] || fFail "[run]: cache volumes: ${runLine}"
-[[ "$runLine" == *" -v ${repo}:/src "* ]] || fFail "[run]: the clone isn't /src: ${runLine}"
-[[ "$runLine" == *" ${tag} nice -n 19 sh -c "* ]] || fFail "[run]: image or nice: ${runLine}"
-grep -q '^build ' "$log" && fFail "[run]: built an image that was there"
-[[ "$runLine" == *"cache-cap.bash /build /build-fuzz || true; echo the-step" ]] || fFail "[run]: cache cap not before the step: ${runLine}"
-[[ "$runLine" == *" -i "* ]] || fFail "[run]: stdin from a file not passed in: ${runLine}"
-grep -q '^volume create' "$log" && fFail "[run]: made a volume that was there"
-[[ "$runLine" =~ " --cpu-shares 256 --memory "([0-9]+)g" --memory-swap "([0-9]+)g" --oom-score-adj 1000 --name " \
+[[ "${rc}" == 0 ]] || fFail "[run]: exit ${rc}, said: ${out}"
+[[ "${runLine}" == "run --rm "* ]] || fFail "[run]: not docker run --rm: ${runLine:-no run}"
+[[ "${runLine}" == *" --name nemo-anywhere-20261026-120000_001-debug-build "* ]] || fFail "[run]: wrong name: ${runLine}"
+[[ "${runLine}" == *" --label dev.project=nemo-anywhere --label dev.run=20261026-120000_001 "* ]] || fFail "[run]: labels: ${runLine}"
+[[ "${runLine}" == *" -v nemo-anywhere-build:/build -v nemo-anywhere-build-fuzz:/build-fuzz "* ]] || fFail "[run]: cache volumes: ${runLine}"
+[[ "${runLine}" == *" -v ${repo}:/src "* ]] || fFail "[run]: the clone isn't /src: ${runLine}"
+[[ "${runLine}" == *" ${tag} nice -n 19 sh -c "* ]] || fFail "[run]: image or nice: ${runLine}"
+grep -q '^build ' "${log}" && fFail "[run]: built an image that was there"
+[[ "${runLine}" == *"cache-cap.bash /build /build-fuzz || true; echo the-step" ]] || fFail "[run]: cache cap not before the step: ${runLine}"
+[[ "${runLine}" == *" -i "* ]] || fFail "[run]: stdin from a file not passed in: ${runLine}"
+grep -q '^volume create' "${log}" && fFail "[run]: made a volume that was there"
+[[ "${runLine}" =~ " --cpu-shares 256 --memory "([0-9]+)g" --memory-swap "([0-9]+)g" --oom-score-adj 1000 --name " \
 	&& "${BASH_REMATCH[1]}" == "${BASH_REMATCH[2]}" && "${BASH_REMATCH[1]}" -ge 4 && "${BASH_REMATCH[1]}" -le 32 ]] \
 	|| fFail "[run]: no memory cap of 4g to 32g with no swap: ${runLine}"
 
 fRun "tests" "${inRun[@]}" CICD_MEM_CAP=7g
-[[ "$runLine" == *" --memory 7g --memory-swap 7g --oom-score-adj 1000 "* ]] || fFail "[CICD_MEM_CAP]: ${runLine:-no run}"
+[[ "${runLine}" == *" --memory 7g --memory-swap 7g --oom-score-adj 1000 "* ]] || fFail "[CICD_MEM_CAP]: ${runLine:-no run}"
 fRun "tests" "${inRun[@]}" CICD_MEM_CAP=none
-[[ "$rc" == 0 && "$runLine" == *" --cpu-shares 256 --name "* ]] || fFail "[CICD_MEM_CAP=none]: exit ${rc}: ${runLine:-no run}"
+[[ "${rc}" == 0 && "${runLine}" == *" --cpu-shares 256 --name "* ]] || fFail "[CICD_MEM_CAP=none]: exit ${rc}: ${runLine:-no run}"
 # shellcheck disable=SC2016  ## a cap that would run code if read as a number.
 fRun "tests" "${inRun[@]}" CICD_MEM_CAP='x[$(echo 1)]'
-[[ "$rc" == 1 && "$out" == *"FAILED: CICD_MEM_CAP 'x[\$(echo 1)]' isn't a size"* && -z "$runLine" ]] || fFail "[CICD_MEM_CAP bad]: exit ${rc}, said: ${out}"
+[[ "${rc}" == 1 && "${out}" == *"FAILED: CICD_MEM_CAP 'x[\$(echo 1)]' isn't a size"* && -z "${runLine}" ]] || fFail "[CICD_MEM_CAP bad]: exit ${rc}, said: ${out}"
 
 fRun "tests" "${inRun[@]}" CICD_KEEP_TEMP=1
-[[ "$rc" == 0 && "$runLine" == "run "* && "$runLine" != *"--rm"* ]] || fFail "[--keep-temp]: kept no container: ${runLine:-no run}"
+[[ "${rc}" == 0 && "${runLine}" == "run "* && "${runLine}" != *"--rm"* ]] || fFail "[--keep-temp]: kept no container: ${runLine:-no run}"
 
 fRun "tests" "${inRun[@]}" STUB_NAMES="nemo-anywhere-20261026-120000_001-tests other-box"
-[[ "$runLine" == *" --name nemo-anywhere-20261026-120000_001-tests-2 "* ]] || fFail "[name taken]: ${runLine:-no run}"
+[[ "${runLine}" == *" --name nemo-anywhere-20261026-120000_001-tests-2 "* ]] || fFail "[name taken]: ${runLine:-no run}"
 
 fRun "check" CICD_PROJECT=nemo-anywhere CICD_RUN=20261026-120000_001
-[[ "$rc" == 0 ]] || fFail "[no volumes]: exit ${rc}, said: ${out}"
+[[ "${rc}" == 0 ]] || fFail "[no volumes]: exit ${rc}, said: ${out}"
 for vol in nemo-anywhere-build nemo-anywhere-build-fuzz; do
-	grep -qxF "volume create --label dev.project=nemo-anywhere --label dev.run=20261026-120000_001 --label dev.src=${realRepo} ${vol}" "$log" \
-		|| fFail "[no volumes]: ${vol} not made for this clone: $(grep '^volume' "$log" | tr '\n' ' ')"
+	grep -qxF "volume create --label dev.project=nemo-anywhere --label dev.run=20261026-120000_001 --label dev.src=${realRepo} ${vol}" "${log}" \
+		|| fFail "[no volumes]: ${vol} not made for this clone: $(grep '^volume' "${log}" | tr '\n' ' ')"
 done
 
 fRun "check" "${inRun[@]}" STUB_VOL_SRC=/some/other/clone
-[[ "$rc" == 1 && "$out" == *"FAILED: check: nemo-anywhere-build builds /some/other/clone, not ${realRepo}"* ]] || fFail "[other clone]: exit ${rc}, said: ${out}"
-[[ -z "$runLine" ]] || fFail "[other clone]: ran anyway"
+[[ "${rc}" == 1 && "${out}" == *"FAILED: check: nemo-anywhere-build builds /some/other/clone, not ${realRepo}"* ]] || fFail "[other clone]: exit ${rc}, said: ${out}"
+[[ -z "${runLine}" ]] || fFail "[other clone]: ran anyway"
 
-fRun "check" STUB_VOL_SRC="$realRepo"
-[[ "$runLine" == *" --name nemo-anywhere-none-check-"[0-9]*" --label dev.project=nemo-anywhere --label dev.run=none "* ]] || fFail "[no run]: ${runLine:-no run}"
+fRun "check" STUB_VOL_SRC="${realRepo}"
+[[ "${runLine}" == *" --name nemo-anywhere-none-check-"[0-9]*" --label dev.project=nemo-anywhere --label dev.run=none "* ]] || fFail "[no run]: ${runLine:-no run}"
 
 fRun "check" "${inRun[@]}" CICD_VOLUME_PREFIX=pick
-[[ "$runLine" == *" -v pick-build:/build -v pick-build-fuzz:/build-fuzz "* ]] || fFail "[CICD_VOLUME_PREFIX]: ${runLine:-no run}"
+[[ "${runLine}" == *" -v pick-build:/build -v pick-build-fuzz:/build-fuzz "* ]] || fFail "[CICD_VOLUME_PREFIX]: ${runLine:-no run}"
 
 ## A linked worktree's .git is a file.
 printf 'gitdir: /elsewhere\n' > "${repo}/.git"
 fRun "check" "${inRun[@]}"
-[[ "$runLine" == *" -v nemo-anywhere-wt-repo-build:/build -v nemo-anywhere-wt-repo-build-fuzz:/build-fuzz "* ]] || fFail "[worktree]: ${runLine:-no run}"
+[[ "${runLine}" == *" -v nemo-anywhere-wt-repo-build:/build -v nemo-anywhere-wt-repo-build-fuzz:/build-fuzz "* ]] || fFail "[worktree]: ${runLine:-no run}"
 rm -f "${repo}/.git"
 
 fRun "check" "${inRun[@]}" STUB_IMAGES="nemo-build-deps:init nemo-build-deps:latest" STUB_BUILD_OK=1
-grep -qxF "build --label dev.project=nemo-anywhere --label dev.run=20261026-120000_001 -t ${tag} -f ${repo}/cicd/linux/Dockerfile.dev ${repo}/cicd/linux/" "$log" \
-	|| fFail "[fresh clone]: not built from Dockerfile.dev: $(grep '^build' "$log" || echo no build)"
-[[ "$runLine" == *" ${tag} nice "* ]] || fFail "[fresh clone]: not the Dockerfile.dev image: ${runLine:-no run}"
+grep -qxF "build --label dev.project=nemo-anywhere --label dev.run=20261026-120000_001 -t ${tag} -f ${repo}/cicd/linux/Dockerfile.dev ${repo}/cicd/linux/" "${log}" \
+	|| fFail "[fresh clone]: not built from Dockerfile.dev: $(grep '^build' "${log}" || echo no build)"
+[[ "${runLine}" == *" ${tag} nice "* ]] || fFail "[fresh clone]: not the Dockerfile.dev image: ${runLine:-no run}"
 
 printf '\n# moved on\n' >> "${repo}/cicd/linux/Dockerfile.dev"
 fRun "check" "${inRun[@]}" STUB_BUILD_OK=1
-[[ "$runLine" != *" ${tag} "* && "$runLine" == *" nemo-build-deps:"????????????" nice "* ]] || fFail "[recipe edit]: the old tag still runs: ${runLine:-no run}"
-grep -q "^build .* -t nemo-build-deps:" "$log" || fFail "[recipe edit]: no new image built"
+[[ "${runLine}" != *" ${tag} "* && "${runLine}" == *" nemo-build-deps:"????????????" nice "* ]] || fFail "[recipe edit]: the old tag still runs: ${runLine:-no run}"
+grep -q "^build .* -t nemo-build-deps:" "${log}" || fFail "[recipe edit]: no new image built"
 
 fRun "check" "${inRun[@]}" NEMO_IMAGE=nemo-build-deps:init STUB_IMAGES=nemo-build-deps:init
-[[ "$runLine" == *" nemo-build-deps:init nice "* ]] || fFail "[NEMO_IMAGE]: not the image named: ${runLine:-no run}"
+[[ "${runLine}" == *" nemo-build-deps:init nice "* ]] || fFail "[NEMO_IMAGE]: not the image named: ${runLine:-no run}"
 
 ## The cap, on the host, at 1 MB.
 cache="${scratch}/cache"
@@ -156,15 +156,15 @@ if [[ ! -L "${cache}/link" ]]; then
 fi
 rc=0
 out="$(cd "${scratch}" && CICD_CACHE_CAP_KB=1024 bash "${here}/../linux/cache-cap.bash" "${capArgs[@]}" 2>&1)" || rc=$?
-[[ "$rc" == 0 ]] || fFail "[cap]: exit ${rc}, said: ${out}"
+[[ "${rc}" == 0 ]] || fFail "[cap]: exit ${rc}, said: ${out}"
 [[ -d "${cache}/big" && -z "$(ls -A "${cache}/big")" ]] || fFail "[cap]: the dir past its cap wasn't emptied, or went itself"
-[[ "$out" == *"${cache}/big cache was 2 MB, past its 1 MB cap, so it starts empty"* ]] || fFail "[cap]: said: ${out}"
-[[ "$(grep -c 'starts empty' <<< "$out")" == 1 ]] || fFail "[cap]: not one line for the one dir: ${out}"
+[[ "${out}" == *"${cache}/big cache was 2 MB, past its 1 MB cap, so it starts empty"* ]] || fFail "[cap]: said: ${out}"
+[[ "$(grep -c 'starts empty' <<< "${out}")" == 1 ]] || fFail "[cap]: not one line for the one dir: ${out}"
 [[ -f "${cache}/small/file" ]] || fFail "[cap]: emptied a dir under its cap"
 [[ -f "${cache}/linked-to/blob" ]] || fFail "[cap]: followed a link"
 [[ -f "${scratch}/rel/keep/blob" ]] || fFail "[cap]: took a relative path"
 rc=0; CICD_CACHE_CAP_KB='x[$(echo 1)]' bash "${here}/../linux/cache-cap.bash" "${cache}/small" > /dev/null 2>&1 || rc=$?
-[[ "$rc" == 1 && -f "${cache}/small/file" ]] || fFail "[cap]: took a cap that isn't a number"
+[[ "${rc}" == 1 && -f "${cache}/small/file" ]] || fFail "[cap]: took a cap that isn't a number"
 
 if ((failures)); then
 	fEcho "FAILED: docker-run step containers, ${failures} problem(s)"

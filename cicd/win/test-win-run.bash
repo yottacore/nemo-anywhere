@@ -71,75 +71,75 @@ chmod +x "${scratch}/bin/docker"
 out=""; rc=0; runLine=""; execLine=""
 fRun(){
 	local args="$1"; shift
-	: > "$log"
+	: > "${log}"
 	rc=0
 	# shellcheck disable=SC2086  ## args split on purpose
 	out="$(env -u CICD_NO_CONTAINER -u CICD_KEEP_TEMP -u CICD_RUN -u CICD_PROJECT -u NEMO_WIN_IMAGE -u CICD_MEM_CAP -u STUB_VOL_SRC -u STUB_NAMES -u STUB_DOWN -u STUB_EXEC_RC -u STUB_BUILD_RC \
-		PATH="${scratch}/bin:${PATH}" DOCKER_LOG="$log" SOURCE_DATE_EPOCH=946684800 CICD_MAX_JOBS=1 STUB_IMAGES="${tag}" "$@" \
+		PATH="${scratch}/bin:${PATH}" DOCKER_LOG="${log}" SOURCE_DATE_EPOCH=946684800 CICD_MAX_JOBS=1 STUB_IMAGES="${tag}" "$@" \
 		bash "${repo}/cicd/win/win-run.bash" ${args} 'echo the-step' 2>&1 < /dev/null)" || rc=$?
-	runLine="$(grep '^run ' "$log" || true)"
-	execLine="$(grep '^exec ' "$log" || true)"
+	runLine="$(grep '^run ' "${log}" || true)"
+	execLine="$(grep '^exec ' "${log}" || true)"
 }
 ## The line number of the first call that starts with $1, or 0.
-fAt(){ local n; n="$(grep -n "^$1" "$log" | head -1 | cut -d: -f1)"; printf '%s' "${n:-0}"; }
-inRun=(CICD_PROJECT=nemo-anywhere CICD_RUN=20261026-120000_001 STUB_VOL_SRC="$realRepo")
+fAt(){ local n; n="$(grep -n "^$1" "${log}" | head -1 | cut -d: -f1)"; printf '%s' "${n:-0}"; }
+inRun=(CICD_PROJECT=nemo-anywhere CICD_RUN=20261026-120000_001 STUB_VOL_SRC="${realRepo}")
 box="nemo-anywhere-20261026-120000_001-gui-smoke"
 
 fRun "gui-smoke" "${inRun[@]}"
-[[ "$rc" == 0 ]] || fFail "[run]: exit ${rc}, said: ${out}"
-[[ "$runLine" == "run -d --rm "* ]] || fFail "[run]: not docker run -d --rm: ${runLine:-no run}"
-[[ "$runLine" == *" --name ${box} "* ]] || fFail "[run]: wrong name: ${runLine}"
-[[ "$runLine" == *" --label dev.project=nemo-anywhere --label dev.run=20261026-120000_001 "* ]] || fFail "[run]: labels: ${runLine}"
-[[ "$runLine" == *" --cpus 1 --cpu-shares 256 "* ]] || fFail "[run]: CPU cap: ${runLine}"
-[[ "$runLine" =~ " --cpu-shares 256 --memory "([0-9]+)g" --memory-swap "([0-9]+)g" --oom-score-adj 1000 --name " \
+[[ "${rc}" == 0 ]] || fFail "[run]: exit ${rc}, said: ${out}"
+[[ "${runLine}" == "run -d --rm "* ]] || fFail "[run]: not docker run -d --rm: ${runLine:-no run}"
+[[ "${runLine}" == *" --name ${box} "* ]] || fFail "[run]: wrong name: ${runLine}"
+[[ "${runLine}" == *" --label dev.project=nemo-anywhere --label dev.run=20261026-120000_001 "* ]] || fFail "[run]: labels: ${runLine}"
+[[ "${runLine}" == *" --cpus 1 --cpu-shares 256 "* ]] || fFail "[run]: CPU cap: ${runLine}"
+[[ "${runLine}" =~ " --cpu-shares 256 --memory "([0-9]+)g" --memory-swap "([0-9]+)g" --oom-score-adj 1000 --name " \
 	&& "${BASH_REMATCH[1]}" == "${BASH_REMATCH[2]}" ]] || fFail "[run]: memory cap: ${runLine}"
-[[ "$runLine" == *" -v ${repo}:/src -v nemo-anywhere-build-win:/build-win -w /src ${tag} sleep infinity" ]] || fFail "[run]: mounts or image: ${runLine}"
-[[ "$execLine" == "exec -i -e SOURCE_DATE_EPOCH=946684800 -e CICD_MAX_JOBS=1 ${box} nice -n 19 sh -c "*"; echo the-step" ]] || fFail "[run]: the step: ${execLine:-no exec}"
-grep -q '^volume create' "$log" && fFail "[run]: made a volume that was there"
-(( $(fAt "stop -t 2 ${box}") > $(fAt "exec ") )) || fFail "[run]: not stopped after the step: $(tr '\n' '|' < "$log")"
+[[ "${runLine}" == *" -v ${repo}:/src -v nemo-anywhere-build-win:/build-win -w /src ${tag} sleep infinity" ]] || fFail "[run]: mounts or image: ${runLine}"
+[[ "${execLine}" == "exec -i -e SOURCE_DATE_EPOCH=946684800 -e CICD_MAX_JOBS=1 ${box} nice -n 19 sh -c "*"; echo the-step" ]] || fFail "[run]: the step: ${execLine:-no exec}"
+grep -q '^volume create' "${log}" && fFail "[run]: made a volume that was there"
+(( $(fAt "stop -t 2 ${box}") > $(fAt "exec ") )) || fFail "[run]: not stopped after the step: $(tr '\n' '|' < "${log}")"
 
 fRun "gui-smoke" "${inRun[@]}" CICD_MEM_CAP=7g
-[[ "$runLine" == *" --memory 7g --memory-swap 7g --oom-score-adj 1000 "* ]] || fFail "[CICD_MEM_CAP]: ${runLine:-no run}"
+[[ "${runLine}" == *" --memory 7g --memory-swap 7g --oom-score-adj 1000 "* ]] || fFail "[CICD_MEM_CAP]: ${runLine:-no run}"
 fRun "gui-smoke" "${inRun[@]}" CICD_MEM_CAP=lots
-[[ "$rc" == 1 && "$out" == *"FAILED: CICD_MEM_CAP 'lots' isn't a size"* && -z "$runLine" ]] || fFail "[CICD_MEM_CAP bad]: exit ${rc}, said: ${out}"
+[[ "${rc}" == 1 && "${out}" == *"FAILED: CICD_MEM_CAP 'lots' isn't a size"* && -z "${runLine}" ]] || fFail "[CICD_MEM_CAP bad]: exit ${rc}, said: ${out}"
 
 fRun "gui-smoke" "${inRun[@]}" CICD_KEEP_TEMP=1
-[[ "$rc" == 0 && "$runLine" == "run -d "* && "$runLine" != *"--rm"* ]] || fFail "[--keep-temp]: kept no container: ${runLine:-no run}"
+[[ "${rc}" == 0 && "${runLine}" == "run -d "* && "${runLine}" != *"--rm"* ]] || fFail "[--keep-temp]: kept no container: ${runLine:-no run}"
 
 fRun "gui-smoke" "${inRun[@]}" STUB_NAMES="${box} other-box"
-[[ "$runLine" == *" --name ${box}-2 "* ]] || fFail "[name taken]: ${runLine:-no run}"
+[[ "${runLine}" == *" --name ${box}-2 "* ]] || fFail "[name taken]: ${runLine:-no run}"
 
 fRun "--no-build-win setup-check" CICD_PROJECT=nemo-anywhere CICD_RUN=20261026-120000_001
-[[ "$rc" == 0 && "$runLine" == *" -v ${repo}:/src -w /src ${tag} "* ]] || fFail "[--no-build-win]: exit ${rc}: ${runLine:-no run}"
-grep -q '^volume' "$log" && fFail "[--no-build-win]: looked at the volume"
+[[ "${rc}" == 0 && "${runLine}" == *" -v ${repo}:/src -w /src ${tag} "* ]] || fFail "[--no-build-win]: exit ${rc}: ${runLine:-no run}"
+grep -q '^volume' "${log}" && fFail "[--no-build-win]: looked at the volume"
 
 fRun "check" CICD_PROJECT=nemo-anywhere CICD_RUN=20261026-120000_001
-grep -qxF "volume create --label dev.project=nemo-anywhere --label dev.run=20261026-120000_001 --label dev.src=${realRepo} nemo-anywhere-build-win" "$log" \
-	|| fFail "[no volume]: not made for this clone: $(grep '^volume' "$log" | tr '\n' ' ')"
+grep -qxF "volume create --label dev.project=nemo-anywhere --label dev.run=20261026-120000_001 --label dev.src=${realRepo} nemo-anywhere-build-win" "${log}" \
+	|| fFail "[no volume]: not made for this clone: $(grep '^volume' "${log}" | tr '\n' ' ')"
 
 fRun "check" "${inRun[@]}" STUB_VOL_SRC=/some/other/clone
-[[ "$rc" == 1 && "$out" == *"FAILED: check: nemo-anywhere-build-win builds /some/other/clone, not ${realRepo}"* && -z "$runLine" ]] || fFail "[other clone]: exit ${rc}, said: ${out}"
+[[ "${rc}" == 1 && "${out}" == *"FAILED: check: nemo-anywhere-build-win builds /some/other/clone, not ${realRepo}"* && -z "${runLine}" ]] || fFail "[other clone]: exit ${rc}, said: ${out}"
 
 fRun "gui-smoke" "${inRun[@]}" STUB_EXEC_RC=77
-[[ "$rc" == 77 ]] || fFail "[exit code]: 77 came back as ${rc}"
+[[ "${rc}" == 77 ]] || fFail "[exit code]: 77 came back as ${rc}"
 (( $(fAt "stop -t 2 ${box}") > 0 )) || fFail "[exit code]: not stopped after a failed step"
 
 fRun "check" "${inRun[@]}" STUB_IMAGES="nemo-winbuild:init" STUB_BUILD_RC=0
-buildLine="$(grep '^build ' "$log" || true)"
-[[ "$buildLine" == "build --label dev.project=nemo-anywhere --label dev.run=20261026-120000_001 -t ${tag} -f ${repo}/cicd/win/Dockerfile ${repo}/cicd/" ]] \
+buildLine="$(grep '^build ' "${log}" || true)"
+[[ "${buildLine}" == "build --label dev.project=nemo-anywhere --label dev.run=20261026-120000_001 -t ${tag} -f ${repo}/cicd/win/Dockerfile ${repo}/cicd/" ]] \
 	|| fFail "[not built yet]: not built from the recipe: ${buildLine:-no build}"
-[[ "$runLine" == *" ${tag} sleep infinity" ]] || fFail "[not built yet]: not the recipe's image: ${runLine:-no run}"
+[[ "${runLine}" == *" ${tag} sleep infinity" ]] || fFail "[not built yet]: not the recipe's image: ${runLine:-no run}"
 
 fRun "check" "${inRun[@]}" STUB_IMAGES=""
-[[ "$rc" == 1 && "$out" == *"FAILED: check: could not build image ${tag}"* && -z "$runLine" ]] || fFail "[no image]: exit ${rc}, said: ${out}"
+[[ "${rc}" == 1 && "${out}" == *"FAILED: check: could not build image ${tag}"* && -z "${runLine}" ]] || fFail "[no image]: exit ${rc}, said: ${out}"
 
 fRun "check" "${inRun[@]}" STUB_IMAGES="nemo-winbuild:init" NEMO_WIN_IMAGE=nemo-winbuild:init
-[[ "$runLine" == *" nemo-winbuild:init sleep infinity" ]] || fFail "[NEMO_WIN_IMAGE]: not the named image: ${runLine:-no run}"
-grep -q '^build ' "$log" && fFail "[NEMO_WIN_IMAGE]: built the recipe's image"
+[[ "${runLine}" == *" nemo-winbuild:init sleep infinity" ]] || fFail "[NEMO_WIN_IMAGE]: not the named image: ${runLine:-no run}"
+grep -q '^build ' "${log}" && fFail "[NEMO_WIN_IMAGE]: built the recipe's image"
 
 fRun "check" "${inRun[@]}" NEMO_WIN_IMAGE=nemo-winbuild:gone
-[[ "$rc" == 1 && "$out" == *"FAILED: check: image 'nemo-winbuild:gone' not found"* && -z "$runLine" ]] || fFail "[NEMO_WIN_IMAGE missing]: exit ${rc}, said: ${out}"
-grep -q '^build ' "$log" && fFail "[NEMO_WIN_IMAGE missing]: built the recipe's image"
+[[ "${rc}" == 1 && "${out}" == *"FAILED: check: image 'nemo-winbuild:gone' not found"* && -z "${runLine}" ]] || fFail "[NEMO_WIN_IMAGE missing]: exit ${rc}, said: ${out}"
+grep -q '^build ' "${log}" && fFail "[NEMO_WIN_IMAGE missing]: built the recipe's image"
 
 ## Each file the recipe copies in moves the tag.
 for f in "${recipe[@]}"; do
@@ -147,15 +147,15 @@ for f in "${recipe[@]}"; do
 	echo '# edited' >> "${repo}/${f}"
 	fRun "check" "${inRun[@]}" STUB_BUILD_RC=0
 	moved="$(fTagOf)"
-	[[ "${moved}" != "${tag}" && "$runLine" == *" ${moved} sleep infinity" ]] || fFail "[recipe edited]: ${f} left the tag at ${tag}: ${runLine:-no run}"
+	[[ "${moved}" != "${tag}" && "${runLine}" == *" ${moved} sleep infinity" ]] || fFail "[recipe edited]: ${f} left the tag at ${tag}: ${runLine:-no run}"
 	cp "${scratch}/keep" "${repo}/${f}"
 done
 
 fRun "check" "${inRun[@]}" STUB_DOWN=1
-[[ "$rc" == 1 && "$out" == *"FAILED: check: docker daemon is not reachable"* && -z "$runLine" ]] || fFail "[daemon down]: exit ${rc}, said: ${out}"
+[[ "${rc}" == 1 && "${out}" == *"FAILED: check: docker daemon is not reachable"* && -z "${runLine}" ]] || fFail "[daemon down]: exit ${rc}, said: ${out}"
 
 fRun "check" "${inRun[@]}" CICD_NO_CONTAINER=1
-[[ "$rc" == 1 && "$out" == *"FAILED: check needs a container"* && ! -s "$log" ]] || fFail "[--no-container]: exit ${rc}, said: ${out}"
+[[ "${rc}" == 1 && "${out}" == *"FAILED: check needs a container"* && ! -s "${log}" ]] || fFail "[--no-container]: exit ${rc}, said: ${out}"
 
 ## Comments aside, no docker call names a long-lived box, and no override
 ## points at one.
@@ -164,7 +164,7 @@ uses="$(cd "${root}" && git ls-files -co --exclude-standard -- '*.bash' '*.sh' '
 	| grep -v -x 'cicd/win/test-win-run.bash' \
 	| xargs grep -nE "docker +(exec|cp|start|stop|update|inspect|rm)( +-[a-z]+)* +\"?${boxes}(\"|:/| |$)|NEMO_(WIN|RELEASE)_CONTAINER|CICD_CONTAINERS=\(.*${boxes}" 2> /dev/null \
 	| grep -vE '^[^:]+:[0-9]+:[[:space:]]*#' || true)"
-[[ -z "$uses" ]] || fFail "[long-lived boxes]: still used: ${uses}"
+[[ -z "${uses}" ]] || fFail "[long-lived boxes]: still used: ${uses}"
 
 if ((failures)); then
 	fEcho "FAILED: Windows step containers, ${failures} problem(s)"
