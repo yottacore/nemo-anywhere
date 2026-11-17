@@ -459,6 +459,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102019174440
 	- Related IDs: 2026102019174514
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- The code-level tunable for the affirmative switch, which the setting reads. It's off, and nothing turns it on yet. The checkbox under the dropdown isn't shown.
@@ -524,6 +525,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: High
 	- Opened: 20261014-173522
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Like SilkTerm's.
@@ -542,6 +544,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026102407515573, 2026101405542891
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: select something, then start any valid drag mode with Ctrl held (Cmd on macOS).
 	- Incorrect behavior: it replaces the existing selection.
 	- Expected behavior: it adds to the selection.
@@ -557,6 +560,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261110-220951
 	- Opened by:
 	- Related IDs: 2026102019174440, 2026102407515575
+	- Target version: rc.1
 	- Progress log:
 		- The selection model work has no changelog entry yet: the model as the default, its checkmarks, focus and keys, Select none, Ctrl+I inverting and Properties on Alt+Enter, and the status bar line.
 		- Test case: the docs checks.
@@ -570,6 +574,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Parent ID: 2026101619020505
 	- Prereq IDs: 2026101911105600
+	- Target version: rc.1
 	- Requirements:
 		- The parent's CodeQL and cross-file clang requirements, over the same 2 compile lists.
 		- Each is pinned, in a container, and fails on a planted leak and null dereference first.
@@ -588,6 +593,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026102114400592
 	- Prereq IDs: 2026101911105600
 	- Target OS: Linux
+	- Target version: rc.1
 	- Requirements:
 		- The parent's CodeQL requirements, over the same 2 compile lists, the Python included.
 		- A pinned CLI and query packs, run locally in a container, with no hosted service. It fails on a planted leak and null dereference first.
@@ -607,6 +613,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026102114400592
 	- Prereq IDs: 2026110920250275
 	- Target OS: Linux
+	- Target version: rc.1
 	- Requirements:
 		- Every finding the cross-file run adds over the per-file one is fixed, or suppressed at the line with a one-line reason, or for vendored code in `analyze-vendored.txt`.
 		- Then a finding left, or a file cut off at the cap, fails the step, as in the per-file stage.
@@ -626,6 +633,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026110920251244
 	- Prereq IDs: 2026111022134952
 	- Target OS: Linux
+	- Target version: rc.1
 	- Requirements:
 		- Every finding the cross-file run has in inherited code, and in vendored code, in either lane, is fixed, or suppressed at the line with a one-line reason, or for vendored code in `analyze-vendored.txt`.
 		- Then a finding left, or a file cut off at the cap, fails the step, as in the per-file stage.
@@ -643,6 +651,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261107-092000
 	- Opened by: t00mietum
 	- Related IDs: 2026101816495200, 2026102113540918
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut, as the design task asked.
 		- The dropdown on Advanced under the selection model one, and the Nemo Anywhere, Nemo Classic and macOS/Dolphin rules from the design doc's table, with a test per row and model.
@@ -676,6 +685,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Avg
 	- Opened: 20261016-130536
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Test case: none yet.
@@ -687,6 +697,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Avg
 	- Opened: 20261016-130536
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Can enter common standard cross-platform variables, e.g.:
@@ -716,6 +727,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261020-182349
 	- Opened by: t00mietum
 	- Related IDs: 2026102018234905, 2026101009150764
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- The new view is first-class in menus and settings.
@@ -739,6 +751,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261020-182349
 	- Opened by: t00mietum
 	- Related IDs: 2026102018234904, 2026102018234906, 2026102018234907, 2026101816495205, 2026101417352262
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Window title: "Settings - Nemo Anywhere".
@@ -764,6 +777,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261020-182349
 	- Opened by: t00mietum
 	- Parent ID: 2026102018234905
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Under Advanced, after Cache.
@@ -779,6 +793,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261020-182349
 	- Opened by: t00mietum
 	- Parent ID: 2026102018234905
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- A "Blake3 checksum" section under Advanced, Cache, after "Thumbnail cache".
@@ -798,6 +813,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261117-075937
 	- Opened by: t00mietum
 	- Related IDs: 2026102218380001, 2026102218380002
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Label: "Swap behavior of F2 and Shift+F2".
@@ -12946,6 +12962,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - 🔘 Cut 1.0.0-rc.1.
 	- Opened: 20260925-122815
+	- Target version: rc.1
 	- Design: [20260930-150859_delete_guard.md](design_docs/20260930-150859_delete_guard.md), for the test guard.
 	- The delete test guard stays in as a preference setting. (But off in code.) The changelog and the release notes point it out, and say where to turn it off.
 	- Note: at rc.2 the setting's default goes to off. The test guard stays in the code.
