@@ -1448,6 +1448,7 @@ static void nemo_favorite_vfs_file_init (G_GNUC_UNUSED NemoFavoriteVfsFile *self
 {
 }
 
+/* Returns: (transfer full): free with g_object_unref */
 GFile *_nemo_favorite_vfs_file_new_for_info (NemoFavoriteInfo *info)
 {
     NemoFavoriteVfsFile *new_file;
