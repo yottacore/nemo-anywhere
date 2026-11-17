@@ -303,7 +303,7 @@ test('de5he Settings save and reload leak test', leaks, args: [ 'settings' ],
 test('de5hf File checksum leak test', leaks, args: [ 'checksum' ],
   timeout: leakTimeout)
 test('de5hg Multi-row drag leak test', leaks, args: [ 'drag' ],
-  timeout: 180)       # every round waits out GDK's snap-back, about half a second
+  timeout: is_windows ? 420 : 180)       # every round waits out GDK's snap-back, about half a second; 125 s alone on vm925w
 
 if not is_windows
   # The sanitizer lane's suppressions, limited to what they name. Whole stacks,
