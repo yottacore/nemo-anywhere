@@ -36,8 +36,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD step output: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102819522603
 	- Type: Task
-	- Status: Stalled
-		- Held for its child 2026102820110989.
+	- Status: Done
 	- Needs local test suite run?: none left. Closes with its child 2026102820110989, the private runner.
 	- Priority|Severity: High
 	- Opened: 20261028-195226
@@ -61,14 +60,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddmn7 and ddmmv (the steps of a passing run, a failing step closing as `FAIL`, and the rule above each step).
 	- Verified: 20261028, ddmn7 and ddmmv pass, and fail on the lanes before the change, with a 78-dot rule, and with no `FAIL` close on a failure.
 	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed. The FreeBSD suite (FreeBSD 1 to 3 of 3), the FreeBSD release (1 to 4 of 4), and the arm64 release (arm64 1 to 4 of 4) each printed their own steps inside the run's step, under the rule, with `Starting` and `PASS`.
+	- Closed: 20261117-135150
 	- 20261102: the full run at fdce4acd passed every step, `--long` included. The FreeBSD suite (1 to 3 of 3), the FreeBSD release (1 to 4 of 4), and the arm64 release (1 to 4 of 4) printed their steps the same way. The private runner passed but didn't print any step lines of its own, so this item waits on 2026102820110989.
 	- 20261103: the full run at 92fc2c77 passed the private runner, still without any step lines of its own. The lanes' steps printed as before at d9733893.
 
 - CICD CPU: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102517333362
 	- Type: Task
-	- Status: Stalled
-		- Held for its child 2026102820110967.
+	- Status: Done
 	- Needs local test suite run?: none left. Closes with its child 2026102820110967, the private runner.
 	- Priority|Severity: High
 	- Opened: 20261025-173333
@@ -93,14 +92,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddmn7 (FreeBSD lane: half the box's CPUs, a quarter when busy, the pin, a bad pin, nice 19 there), ddmmv (arm64: the same under nice and ionice, and the container's cap), dee7t (reading both kinds of load line).
 	- Verified: 20261028, ddmn7, ddmmv and dee7t pass. ddmn7 and ddmmv fail on the lanes before the change, which had a fixed 4, no nice, and no jobs line.
 	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed. The FreeBSD suite and release printed "jobs 4 (load 1.65 on 8 cpus on bsdtest@vmFreeBSD)" and "jobs 4 (load 0.85 ...)", and the arm64 release "jobs 4 (load 1.31 on 8 cpus on tester@vmDebARM64)". nice and the container caps there are checked by ddmn7 and ddmmv, which passed in the same run.
+	- Closed: 20261117-135150
 	- 20261102: the full run at fdce4acd passed every step. The lanes printed "jobs 4 (load 1.40 on 8 cpus on bsdtest@vmFreeBSD)" and "jobs 4 (load 3.07 on 8 cpus on tester@vmDebARM64)". The private runner printed only this box's jobs line and not one for b26, so this item waits on 2026102820110967.
 	- 20261103: the full run at 92fc2c77 was the same, with only this box's jobs line before the private runner and not one for b26. The FreeBSD lanes printed "jobs 4 (load 3.18 on 8 cpus on bsdtest@vmFreeBSD)" and "jobs 4 (load 1.06 ...)" at d9733893.
 
 - CICD step output: `cicd-win.ps1` and the lanes on other boxes.
 	- ID: 2026102517333373
 	- Type: Task
-	- Status: Stalled
-		- Held for its child 2026102819522603.
+	- Status: Done
 	- Needs local test suite run?: no
 	- Needs external testing: none left. Closes with its child 2026102819522603.
 	- Priority|Severity: High
@@ -127,12 +126,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: dejjt (`cicd/utility/test-cicd-win.ps1`, lint stage: the gate and the full run with every step on, with steps turned off by each flag, a missing toolchain with and without `-BuildStrict`, no Enigma Virtual Box, and a step that fails, each checked for the rule, numbering, open and close lines and the turned-off list).
 	- Verified: 20261028, dejjt passes, and fails with a 78-dot rule, with no `FAIL` close on a failure, with a step left out of the plan, and with the last step left open. `cicd/cicd.bash --backlog-run-quick format lint` passes.
 	- Verified: 20261028, native gate on b29w at 2964120b. The plan gave the step count and listed each step turned off with its flag, each step opened under a 79-character rule with `Starting`, and the failing Lints and Tests steps closed as `FAIL`. The rule's bullets come out as 0x07 in a piped log, which predates the round and is 2026102822580287.
+	- Closed: 20261117-135150
 
 - CICD step output: the private runner.
 	- ID: 2026102820110989
 	- Type: Task
-	- Status: Stalled
-		- Held for the private repo's round. Its backlog has no step output item for the runner yet.
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261028-201109
 	- Opened by: 2026102819522603
@@ -143,13 +142,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261028: split from 2026102819522603, whose lanes part is done.
 		- The runner isn't in this repo, so the work is done there.
-	- Test case: none yet.
+	- Test case: none here. The private repo's own test covers the runner.
+	- Verified: 20261117, the private runner's run printed its own steps, 1 to 4 of 4, each opened with `Starting` and closed `PASS` under the 79-dot rule, in local time to the hundredth.
+	- Closed: 20261117-135100
 
 - CICD CPU: the private runner.
 	- ID: 2026102820110967
 	- Type: Task
-	- Status: Stalled
-		- Held for the private repo's round, where nemo-anywhere-private:2026102416350001 covers the runner's CPU rules.
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261028-201109
 	- Opened by: 2026102517333362
@@ -160,7 +160,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261028: split from 2026102517333362, whose lanes part is done.
 		- The runner isn't in this repo, so the work is done there.
-	- Test case: none yet.
+	- Test case: none here. The private repo's own test covers the runner.
+	- Verified: 20261117, the private runner's run printed a jobs line for its box, a quarter of that box's CPUs at its load, and the build ran under nice.
+	- Closed: 20261117-135100
 
 - Move every Windows lane from MSYS2's MINGW64 to UCRT64.
 	- ID: 2026110920004210
