@@ -857,7 +857,7 @@ on_menu_focus_out (GtkMenuShell *widget,
     return GDK_EVENT_PROPAGATE;
 }
 
-void
+static void
 on_menu_selection_done (G_GNUC_UNUSED GtkMenuShell *menushell,
                         gpointer      user_data)
 {
@@ -1956,7 +1956,7 @@ nemo_window_sync_bookmark_action (NemoWindow *window)
     g_object_unref (location);
 }
 
-void
+static void
 sync_thumbnail_action_callback (NemoFile *file,
                        gpointer callback_data)
 {

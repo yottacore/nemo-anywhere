@@ -312,7 +312,7 @@ viewed_file_changed_callback (NemoFile *file,
         */
         if (slot->viewed_file_seen) {
             /* auto-show existing parent. */
-            GFile *go_to_file, *parent, *location;
+            GFile *go_to_file, *parent_location, *location;
 
             /* Detecting a file is gone may happen in the
             * middle of a pending location change, we
@@ -331,12 +331,12 @@ viewed_file_changed_callback (NemoFile *file,
 
             go_to_file = NULL;
             location =  nemo_file_get_location (file);
-            parent = g_file_get_parent (location);
+            parent_location = g_file_get_parent (location);
             g_object_unref (location);
 
-            if (parent) {
-                go_to_file = nemo_find_existing_uri_in_hierarchy (parent);
-                g_object_unref (parent);
+            if (parent_location) {
+                go_to_file = nemo_find_existing_uri_in_hierarchy (parent_location);
+                g_object_unref (parent_location);
             }
 
             if (go_to_file != NULL) {

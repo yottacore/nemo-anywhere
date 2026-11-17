@@ -936,7 +936,7 @@ nemo_window_pane_dispose (GObject *object)
 	G_OBJECT_CLASS (nemo_window_pane_parent_class)->dispose (object);
 }
 
-gboolean
+static gboolean
 only_show_active_pane_toolbar_mapping (GValue                *value,
                                        const NemoConfigValue *config_value,
                                        gpointer               user_data)

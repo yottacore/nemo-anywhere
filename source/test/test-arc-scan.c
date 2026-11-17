@@ -311,6 +311,7 @@ typedef struct {
 } Blind;
 typedef GFileEnumeratorClass BlindClass;
 
+GType blind_get_type (void);
 G_DEFINE_TYPE (Blind, blind, G_TYPE_FILE_ENUMERATOR)
 
 static GFileInfo *
@@ -931,15 +932,15 @@ list_of (ArcLinkChoice symlinks,
 {
 	char *sel = at ("sel");
 	const char *paths[] = { sel, NULL };
-	ArcLinkOptions links;
+	ArcLinkOptions link_opts;
 	ArcScanList *list;
 
-	arc_link_options_init (&links);
-	links.symlinks = symlinks;
-	links.follow_nested = filesystems;
-	links.follow_other = filesystems;
+	arc_link_options_init (&link_opts);
+	link_opts.symlinks = symlinks;
+	link_opts.follow_nested = filesystems;
+	link_opts.follow_other = filesystems;
 	fake_reset (NULL);
-	list = arc_scan_list (&fake_host, root, paths, &links, stores, made_up_mounts (), NULL, NULL, NULL);
+	list = arc_scan_list (&fake_host, root, paths, &link_opts, stores, made_up_mounts (), NULL, NULL, NULL);
 	g_free (sel);
 	/* NULL only when canceled, and nothing can cancel this. Every check
 	   after it reads the list. */
@@ -968,7 +969,7 @@ check_list (void)
 	GCancellable *stopped;
 	char *sel;
 	const char *paths[2] = { NULL, NULL };
-	ArcLinkOptions links;
+	ArcLinkOptions link_opts;
 	gsize i;
 
 	list = list_of (ARC_LINK_IGNORE, FALSE, library);
@@ -1058,8 +1059,8 @@ check_list (void)
 	g_cancellable_cancel (stopped);
 	sel = at ("sel");
 	paths[0] = sel;
-	arc_link_options_init (&links);
-	check (arc_scan_list (&fake_host, root, paths, &links, 0, made_up_mounts (), stopped, NULL, NULL) == NULL);
+	arc_link_options_init (&link_opts);
+	check (arc_scan_list (&fake_host, root, paths, &link_opts, 0, made_up_mounts (), stopped, NULL, NULL) == NULL);
 	g_object_unref (stopped);
 	g_free (sel);
 }

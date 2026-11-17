@@ -39,7 +39,6 @@ struct NemoQueryDetails {
     gboolean file_use_regex;
     gboolean content_case_sensitive;
     gboolean content_use_regex;
-    gboolean count_hits;
     gboolean recurse;
 };
 
@@ -275,21 +274,6 @@ nemo_query_set_use_content_regex (NemoQuery *query, gboolean content_use_regex)
     g_return_if_fail (NEMO_IS_QUERY (query));
 
     query->details->content_use_regex = content_use_regex;
-}
-
-gboolean
-nemo_query_get_count_hits (NemoQuery *query)
-{
-    g_return_val_if_fail (NEMO_IS_QUERY (query), FALSE);
-    return query->details->count_hits;
-}
-
-void
-nemo_query_set_count_hits (NemoQuery *query, gboolean count_hits)
-{
-    g_return_if_fail (NEMO_IS_QUERY (query));
-
-    query->details->count_hits = count_hits;
 }
 
 gboolean

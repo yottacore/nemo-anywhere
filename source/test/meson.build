@@ -884,6 +884,15 @@ make_link_job = executable('test-nemo-make-link-job',
   c_args: nemo_definitions,
 )
 
+mark_trusted = executable('test-nemo-mark-trusted',
+  [ 'test-nemo-mark-trusted.c', 'test.c' ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private, test_scratch ],
+  c_args: nemo_definitions,
+)
+
+test('dfegg Mark launcher trusted', mark_trusted)
+
 new_folder_path = executable('test-nemo-new-folder-path',
   [ 'test-nemo-new-folder-path.c', 'test.c' ],
   include_directories: [ rootInclude, ],

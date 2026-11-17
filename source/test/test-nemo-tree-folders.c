@@ -329,15 +329,15 @@ main (int argc, char *argv[])
 	make_dir ("reprobe/child");
 	{
 		char *path = g_build_filename (root_dir, "reprobe", NULL);
-		char *uri = g_filename_to_uri (path, NULL, NULL);
-		NemoFile *folder = nemo_file_get_by_uri (uri);
+		char *folder_uri = g_filename_to_uri (path, NULL, NULL);
+		NemoFile *folder = nemo_file_get_by_uri (folder_uri);
 
 		/* What the tree is told. The copy itself invalidates the folder's
 		   item count, and the re-read of it comes out here. */
 		nemo_file_changed (folder);
 
 		nemo_file_unref (folder);
-		g_free (uri);
+		g_free (folder_uri);
 		g_free (path);
 	}
 	check (wait_for (reprobe_back));

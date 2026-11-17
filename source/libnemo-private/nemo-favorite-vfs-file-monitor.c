@@ -34,8 +34,6 @@ G_DEFINE_TYPE_WITH_PRIVATE(NemoFavoriteVfsFileMonitor, \
                            nemo_favorite_vfs_file_monitor, \
                            G_TYPE_FILE_MONITOR)
 
-GFile *_nemo_favorite_vfs_file_new_for_info (NemoFavoriteInfo *info);
-
 // static void
 // rename_favorite (GFile *old_file,
 //                  GFile *new_file)

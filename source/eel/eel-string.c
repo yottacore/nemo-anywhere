@@ -234,12 +234,10 @@ eel_str_middle_truncate (const char *string,
 	num_left_chars = (truncate_length - delimter_length) / 2;
 	num_right_chars = truncate_length - num_left_chars - delimter_length;
 
-	truncated = g_new (char, strlen (string) + 1);
+	const char *left_end = g_utf8_offset_to_pointer (string, num_left_chars);
+	const char *right = g_utf8_offset_to_pointer (string, length - num_right_chars);
 
-	g_utf8_strncpy (truncated, string, num_left_chars);
-	strcat (truncated, delimter);
-	strcat (truncated, g_utf8_offset_to_pointer  (string, length - num_right_chars));
-
+	truncated = g_strdup_printf ("%.*s%s%s", (int) (left_end - string), string, delimter, right);
 	return truncated;
 }
 

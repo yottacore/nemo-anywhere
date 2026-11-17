@@ -6928,7 +6928,7 @@ nemo_icon_container_reveal (NemoIconContainer *container, NemoIconData *data)
 	}
 }
 
-GList *
+static GList *
 nemo_icon_container_get_real_selection (NemoIconContainer *container)
 {
     GList *list, *p;

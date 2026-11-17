@@ -23,6 +23,7 @@ G_DECLARE_FINAL_TYPE (NemoFavoriteVfsFile, nemo_favorite_vfs_file, \
 void nemo_favorite_vfs_register (void);
 
 GFile *nemo_favorite_vfs_file_new_for_uri (const char *uri);
+GFile *_nemo_favorite_vfs_file_new_for_info (NemoFavoriteInfo *info);
 gchar *nemo_favorite_vfs_file_get_real_uri (GFile *file);
 
 #define URI_SCHEME "favorites"

@@ -420,7 +420,7 @@ nemo_action_manager_init (G_GNUC_UNUSED NemoActionManager *action_manager)
 {
 }
 
-void
+static void
 nemo_action_manager_constructed (GObject *object)
 {
     G_OBJECT_CLASS (nemo_action_manager_parent_class)->constructed (object);

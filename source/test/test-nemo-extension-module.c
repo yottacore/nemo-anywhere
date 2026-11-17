@@ -9,6 +9,7 @@ typedef struct { GObject parent; } TestExt;
 typedef struct { GObjectClass parent_class; } TestExtClass;
 
 static void test_ext_menu_iface_init (NemoMenuProviderIface *iface);
+GType test_ext_get_type (void);
 
 G_DEFINE_TYPE_WITH_CODE (TestExt, test_ext, G_TYPE_OBJECT,
 			 G_IMPLEMENT_INTERFACE (NEMO_TYPE_MENU_PROVIDER,
