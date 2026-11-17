@@ -515,6 +515,38 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261025: split into children 2026102517333367 (`cicd.bash`, the gate included) and 2026102517333373 (`cicd-win.ps1` and the other boxes).
 	- Test case: none yet.
 
+- Settings: search.
+	- ID: 2026101417352263
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261014-173522
+	- Opened by: t00mietum
+	- Requirements:
+		- Before the next cut.
+		- Like SilkTerm's.
+		- Search bar in an unscrollable top area.
+	- Design: [Search](design_docs/20261020-121842_settings.md#search). Match order, aliases, fuzzy matching, and how a match is shown are there.
+	- Progress log:
+		- 20261117: raised to High.
+	- Test case: none yet.
+
+- Any valid drag mode with Ctrl held (or Cmd on macOS) is not in "add to selection" mode. It should be.
+	- ID: 2026111707591589
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261117-075915
+	- Opened by: t00mietum
+	- Related IDs: 2026102407515573, 2026101405542891
+	- Target OS: All
+	- Steps to reproduce: select something, then start any valid drag mode with Ctrl held (Cmd on macOS).
+	- Incorrect behavior: it replaces the existing selection.
+	- Expected behavior: it adds to the selection.
+	- Requirements:
+		- Before the next cut.
+	- Test case: none yet.
+
 - Changelog: the Nemo Anywhere selection model, for rc.1.
 	- ID: 2026111022095190
 	- Type: Task
@@ -600,19 +632,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Notes:
 		- 20261110: after `...4952`, 14 unique findings are left across both lanes: `arc-path-list.c:162` (ours, moved here, since archive-core doesn't use eel), `eel-gtk-extensions.c:267`, `nemo-directory-async.c:5037`, `nemo-file-operations.c:5783` and `:6413`, `nemo-file-undo-manager.c:177`, `nemo-icon-container.c:399`, `:773` and `:9119`, `nemo-search-engine-advanced.c:923`, `nemo-tree-view-drag-dest.c:427`, `nemo-icon-view-container.c:1360`, `nemo-icon-view-grid-container.c:768` and `nemo-query-editor.c:609`. No vendored ones, and none cut off.
 		- A few files can be rerun across files without the whole 13 min run with private `tools/analyze-ctu-files.py`.
-
-- Settings: search.
-	- ID: 2026101417352263
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261014-173522
-	- Opened by: t00mietum
-	- Requirements:
-		- Before the next cut.
-		- Search bar in an unscrollable top area.
-	- Design: [Search](design_docs/20261020-121842_settings.md#search). Match order, aliases, fuzzy matching, and how a match is shown are there.
-	- Test case: none yet.
 
 - Build the "Where pasted and new items go" setting and its 3 target models.
 	- ID: 2026110709200000
@@ -767,6 +786,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261020: the tooltips were moved to the settings design doc.
 		- 20261020: the xattrs checkbox is today's "Save checksums onto the files", moved and relabeled.
+	- Test case: none yet.
+
+- Reenable the option to rename the whole file with F2. But label it "Swap behavior of F2 and Shift+F2".
+	- ID: 2026111707593766
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261117-075937
+	- Opened by: t00mietum
+	- Related IDs: 2026102218380001, 2026102218380002
+	- Requirements:
+		- Before the next cut.
+		- Label: "Swap behavior of F2 and Shift+F2".
+	- Notes:
+		- Today the "Include the extension when a rename starts" box is grayed under Nemo Anywhere, per 2026102218380001.
 	- Test case: none yet.
 
 - Folder tree model: the number of top-level rows is always 1.
