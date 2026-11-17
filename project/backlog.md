@@ -387,6 +387,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261016-190205
 	- Opened by: t00mietum
 	- Target OS: Linux
+	- Target version: rc.1
 	- Requirements:
 		- The sanitizer stage stays as it is. ASan, LSan and UBSan already run the whole suite on every full run.
 			- Any report fails the test that made it.
@@ -432,6 +433,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Prereq IDs: 2026101816495208
 	- Related IDs: 2026102018234900
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- When in "Checkmark selection" mode:
@@ -1032,6 +1034,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026100816170921, 2026093010493450
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- On Windows, both `\\host\share` and `smb://host/share` are taken.
@@ -1078,6 +1081,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026102407515573
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Steps to reproduce: list view under the Nemo Anywhere model, left drag starting in the checkmark column.
@@ -1118,6 +1122,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by:
 	- Target OS: Linux
 	- Test environment: a round worktree beside repo/, while the build volumes nemo-anywhere-build and nemo-anywhere-build-fuzz belong to the main clone.
+	- Target version: rc.1
 	- Steps to reproduce: cicd/cicd.bash --backlog-run-quick format lint, from a worktree made by git worktree add.
 	- Incorrect behavior: ddagc (test-docker-run.bash) fails, and the lint stage stops there, so the 17 tests after it in lint.bash never run. Every worker gate and the gate step of a worktree round lose them.
 	- Expected behavior: a worktree gate runs every lint-stage test. A test that needs the clone-owned volumes uses its own scratch volume, or skips with 77 and a reason.
@@ -1146,6 +1151,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261103-112919
 	- Opened by: JC
 	- Related IDs: common 2026110311291900
+	- Target version: rc.1
 	- Incorrect behavior: The pipeline runs `docker builder prune` after a run, in `cicd/utility/include/docker-sweep.bash` and `cicd/utility/test-cicd-docker-sweep.bash`. That prunes docker's default builder, which every project shares, so a run here drops any other project's cache once it's a week unused. common's `Cleanup after a run` rule said to do it.
 	- Expected behavior: The pipeline doesn't prune docker's build cache at all. Docker trims the cache itself on b23, through `builder.gc` in `/etc/docker/daemon.json`. Cache unused for a week goes first, then the rest is cut to 120 GB, or further when the disk is under 10% free, but never below 20 GB. The label cleanup of this project's containers, dangling images and old tags stays.
 		- Do it once b23's `/etc/docker/daemon.json` has the `builder.gc` block. `grep -q '"gc"' /etc/docker/daemon.json` checks. Until then the prune stays.
@@ -1172,6 +1178,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026103114202730
 	- Target OS: Windows
 	- Test environment: b29w, the native lane's desktop step, as wintest in session 2 with 1 monitor.
+	- Target version: rc.1
 	- Steps to reproduce: `NEMO_WIN_GATE_ARGS='-Gate -Yes -NoSync -NoFmt' cicd/win/lane.bash b29w` at 1fb45b42.
 	- Incorrect behavior: debgn, "the focus never came back". dcd70, "no context menu" with the caret in the entry, over a word and over the whole path. ddqdq, the window titles show the folder path cut short with `...` where the whole path is wanted, after "can't write" and "can't read" of the settings file and "Nemo is already running".
 	- Expected behavior: all 3 pass there, as debgn does on vm925w in its desktop session.
@@ -1205,6 +1212,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261028-080843
 	- Opened by: t00mietum
 	- Target OS: FreeBSD, Linux
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Incorrect behavior: need to wait longer after powering up VMs, to connect via SSH. Especially ARM64, which takes forever. It looks like it didn't wait long enough for vmFreeBSD to boot.
@@ -1234,6 +1242,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026103114202710
 	- Related IDs: 2026102822580302, 2026103116284963
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: the native gate on b29w, with `$RYRVCYC.txt`, a `nemoverify-samecount-small` item from 2026-08-27, in the ssh user's Recycle Bin.
 	- Incorrect behavior: da8rb exits 3 when the delete fence refuses `C:\$Recycle.Bin\<sid>\$IYRVCYC.txt`, outside the test's folders. The case's own item stays in the bin, `$RZIAQBU.txt` on 20261031.
 	- Expected behavior: the same-count case purges only the item it recycled, whatever the bin already holds.
@@ -1262,6 +1271,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026103114202730, 2026110216323705
 	- Target OS: Windows
 	- Test environment: b29w, the lane from b23, the desktop step as wintest in session 2.
+	- Target version: rc.1
 	- Progress log:
 		- 20261031: tried in 2026103114202730, code on `wip/round1031a-2026103114202730` (84161052). The gate passed (191 OK, 22 skipped), the 22 went to a `schtasks /it /ru wintest` task, and `cicd-win.ps1` stopped at `Set-Location -LiteralPath $Root` with access denied on `C:\Users\collierjr\AppData`. wintest has Modify on the run folder, but PowerShell reads each folder above it.
 		- Options: a run folder both users can reach, outside collierjr's profile, or pass whole paths and `-WorkingDirectory` so nothing does a `Set-Location` there. Granting wintest list rights on the profile changes its permissions, so leave that out.
@@ -1290,6 +1300,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261028-230731
 	- Opened by: 2026102416300007
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: the lint step of `pwsh cicd/cicd-win.ps1` on b29w, past defmw (2026102822580271).
 	- Incorrect behavior: `lint-report.py --self-test` stops with "UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d" at `open(__file__).read()`, and the lint step fails.
 	- Expected behavior: passes.
@@ -1319,6 +1330,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261028-225802
 	- Opened by: 2026102517333373
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes -NoFmt` on b29w, started as an admin outside any desktop session, the way a detached run over ssh starts.
 	- Incorrect behavior: de5kb, Delete fence test, times out at 60 s. debgn says "the focus never came back". dbxkh exits 3 after the fence refuses a move of Explorer's `iconcache_idx.db` in the user's profile. ddqdq times out waiting for the alpha and beta window titles. The window tests that fail print "gdk_monitor_get_geometry: assertion 'GDK_IS_MONITOR (monitor)' failed".
 	- Expected behavior: each passes, or skips with 77 when there's no desktop to draw on, as 19 other window tests in the same run did.
@@ -1351,6 +1363,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261028-225802
 	- Opened by: 2026102517333373
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes` on b29w.
 	- Incorrect behavior: the lint step stops at defmw, `test-docker-run-step.bash`: "[cap]: not one line for the one dir", with a line for both `cache/big` and `cache/link`, each "2 MB, past its 1 MB cap".
 	- Expected behavior: passes, or skips the link case where MSYS2 can't make a link.
@@ -1378,6 +1391,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261028-104705
 	- Opened by: t00mietum
 	- Target OS: FreeBSD
+	- Target version: rc.1
 	- Steps to reproduce: pause vmFreeBSD for some hours, then start a full run.
 	- Incorrect behavior: meson says 'Clock skew detected', a source file 60941 s in the future, and the FreeBSD suite fails.
 	- Expected behavior: the lane sets the guest clock after it wakes the box, or waits for it to be right, before building.
@@ -1409,6 +1423,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026102820195801
 	- Related IDs: 2026102821124143
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: `NEMO_IMAGE=<image> bash cicd/utility/docker-run.bash seltest 'bash /src/cicd/linux/run-tests.bash "de8bd Selection rules test"'`, with an image built from `cicd/linux/Dockerfile.dev`.
 	- Incorrect behavior: de8bd, de8dm and dec8w fail, each on "Enter opens the selected folder" and "a double-click opens the folder", in the list, icon and compact views. The other 231 tests pass.
 	- Expected behavior: they pass, as they do in the hand-made `nemo-build-deps:init`.
@@ -1436,6 +1451,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026102416300007
 	- Target OS: FreeBSD, Windows
+	- Target version: rc.1
 	- Incorrect behavior: the FreeBSD suite's lines read `PASS nemo-anywhere:ddepg Stopped zip leak test  0.08s`, so a search for `PASS ddepg` misses them. All 236 lines of the 20261028 FreeBSD suite had it. The Linux suite's lines don't.
 	- Expected behavior: `PASS ddepg Stopped zip leak test  0.08s` on every platform, as in the testing rules.
 	- Reproduced: 20261028, the FreeBSD suite in a full run at 4be04125 and the lane run alone after it.
@@ -1455,6 +1471,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026102412254358
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: a full run's native release build stage, `cicd/linux/release.bash`, at dev 88eb2f9d or later.
 	- Incorrect behavior: `eel-canvas.c` fails to compile in `nemo-build-jammy`, "eel-analyzer.h:41:35: error: unknown option after '#pragma GCC diagnostic' kind [-Werror=pragmas]", at line 2250, `EEL_ANALYZER_SKIP ("infinite-loop")`. The stage stops the full run, and nothing after it runs.
 	- Expected behavior: the release build compiles on every gcc the lanes use. A suppression for a warning an older gcc lacks does nothing there.
@@ -1481,6 +1498,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026102516165475, 2026102516403466
 	- Target OS: Windows
 	- Test environment: vm925w, as wintest in the desktop session.
+	- Target version: rc.1
 	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes` from a bundle of round1025b at a61c4f91.
 	- Incorrect behavior: lint stops after 4 minutes at dd5ft with "hook, first push: the gate did not run" and "pre-push version guard, 1 problem(s)". No test runs.
 	- Expected behavior: dd5ft passes under MSYS2, as on Linux.
@@ -1506,6 +1524,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026102516403466
 	- Target OS: Windows
 	- Test environment: vm925w, as wintest in the desktop session, MSYS2 MINGW64.
+	- Target version: rc.1
 	- Steps to reproduce: `bash cicd/utility/test-cicd-quick.bash` from a bundle of round1025b at a61c4f91.
 	- Incorrect behavior: "[--shots --demo]: demo did not run", then "step selection, 1 problem(s)". The native lint runs it right after dd5ft, so it stops the gate there once that's fixed.
 	- Expected behavior: de54r passes under MSYS2, as on Linux.
@@ -1529,6 +1548,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026102416300004
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: `cicd/cicd.bash --gate` on dev at 88eb2f9d.
 	- Incorrect behavior: the lint stage stops at ddmmw, `test-cicd-arm.bash`, with "the arm64 build did not run" and 3 more problems. With that one left out, de54r, `test-cicd-quick.bash`, fails on "[no options]: arm64 did not run". So every gate and every full run stops in lint, and the stages after it never run.
 	- Expected behavior: both tests match the new default, where a plain run leaves arm64 out and `--long` or `--slow` brings it back.
@@ -1553,6 +1573,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261014-191046
 	- Opened by: 2026101416533917
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: move `a.txt` to a folder on another drive that already has an `a.txt` and a `b`. In the conflict dialog type `b` and pick Rename. When it asks about `b`, pick Replace.
 	- Incorrect behavior: the moved file replaces the `a.txt` that was there, without any question about it, and `b` stays as it was. With Skip in place of Replace, nothing is lost. With a new name that nothing has, the dialog asks about `a.txt` again.
 	- Expected behavior: the file ends up as `b`, replacing it only after the second answer.
@@ -1581,6 +1602,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026101715030680
 	- Target OS: Windows
 	- Test environment: vm925w, a fresh clone of round1022, as wintest.
+	- Target version: rc.1
 	- Steps to reproduce: run `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
 	- Incorrect behavior: every test fails at once with "Windows Subsystem for Linux has no installed distributions", 209 of 209. In the desktop session the run stopped after the first test, without a summary.
 	- Expected behavior: the suite runs inside the jail, as on Linux.
@@ -1604,6 +1626,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101715252256
 	- Related IDs: 2026101715252256, 2026101715252257
 	- Target OS: Linux arm64
+	- Target version: rc.1
 	- Steps to reproduce: `bash cicd/linux/release-arm64.bash`.
 	- Incorrect behavior: `blake3_dispatch.c:115: 'get_cpu_features' defined but not used [-Werror=unused-function]`, under jammy's gcc 11 on aarch64, with every x86 path and NEON turned off. The build stops on its second step, so there's no arm64 tarball and no arm64 packages.
 	- Expected behavior: the arm64 build is clean with -Werror.
@@ -1629,6 +1652,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101009150764
 	- Related IDs: 2026101009150764, 2026102220565281
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: open a folder of `IMG_1001.JPG` style files, as cameras name them.
 	- Incorrect behavior: plain picture icons, still no thumbnail after 40 seconds. The same file named `.jpg` gets its thumbnail in a second or two. EXIF has nothing to do with it.
 	- Expected behavior: thumbnails whatever the case of the extension.
@@ -1651,6 +1675,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101715030680
 	- Related IDs: 2026101715030680
 	- Target OS: All
+	- Target version: rc.1
 	- Incorrect behavior: 3 cases, all 20261022.
 		- Windows: a move into the Recycle Bin (`C:\$Recycle.Bin\<sid>\$R...`) is refused, so da8rb (Trash win32 test) and dd42v fail natively.
 		- Full run, fuzz stage: fuzz-lnk-edit has the fence in it, and the fence ended it when libFuzzer replaced a file in its own corpus folder (`/build-fuzz/work/lnk-edit/`). It counts as a crash finding, so the run stops there, before the static analyzers, arm64, packages and the rest.
@@ -1686,6 +1711,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: native gate run for 2026092813381434
 	- Related IDs: 2026092813381434
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: run `pwsh cicd/cicd-win.ps1 -Gate -Yes` on a Windows box with a fresh build dir.
 	- Incorrect behavior: `check-werror: cicd/artifacts/build-win does not build with -Werror`, exit 4, before anything compiles. It stops the gate, the pre-push hook on Windows and the Windows dogfood stage.
 	- Expected behavior: the check passes when the build dir was set up with `-Dwerror=true`.
@@ -1710,6 +1736,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Steps to reproduce [Bug]:
 		- Show the tree sidebar, click a folder in it, press Shift+F10.
 	- Reproduced: yes, 20260928, Linux.
@@ -1737,6 +1764,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: the picture stays blurry at the larger size until the file is edited or the cache is cleared.
 	- Expected behavior: per design.md, a thumbnail is made again bigger when a draw wants more than is stored.
 	- Reproduced: yes, 20260928, Linux.
@@ -1765,6 +1793,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102016594100, 2026102016594200
 	- Related IDs: 2026102019174477, 2026102019174514
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Its own entry in the selection model dropdown, in the same conditionals as Nemo Anywhere v1 and Nemo Classic, tree view and content view.
@@ -1797,6 +1826,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026102019174440
 	- Prereq IDs: 2026102407515571, 2026102407515572, 2026102407515573, 2026102407515574
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- The Edit menu has Select all, Select none and Invert selection, the "Switch off" column of the wording table.
@@ -1838,6 +1868,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102407515572, 2026102407515573
 	- Related IDs: 2026102018234903
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- The tree's own focus and anchor, under the mouse and keyboard rules of the content view.
@@ -1863,6 +1894,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Parent ID: 2026102407515574
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Only under Nemo Anywhere, and single-select, per the parent.
@@ -1901,6 +1933,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026102407515571
 	- Prereq IDs: 2026102411133409
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Only under Nemo Anywhere. A dim checkmark on every selected icon, and none on the rest. The text doesn't change.
@@ -1939,6 +1972,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026102019174440
 	- Prereq IDs: 2026102407515570
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Only under Nemo Anywhere. A dim checkmark on every selected object, and none on the rest. The text doesn't change.
@@ -1969,6 +2003,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026102407515571
 	- Prereq IDs: 2026102411133414
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Only under Nemo Anywhere. A dim checkmark on every selected item, and none on the rest. The text doesn't change.
@@ -2009,6 +2044,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026102019174440
 	- Prereq IDs: 2026102407515570
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- No focus outline, except while a Ctrl+arrow move has put the focus on an object that isn't selected.
@@ -2035,6 +2071,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026102407515572
 	- Prereq IDs: 2026102412041969
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- The icon view's rules, in the compact view's layout, where Up and Down run down a column and Left and Right go across.
@@ -2067,6 +2104,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026102019174440
 	- Prereq IDs: 2026102407515570, 2026102407515571
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- List view: a plain drag bands only from the checkmark column or the blank space below the rows. A plain drag from a row is a file drag.
@@ -2104,6 +2142,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Parent ID: 2026102407515574
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Only under Nemo Anywhere. A thin column left of the tree, with no header, holding a dim checkmark on the selected row and none on the rest. It takes the row's highlight.
@@ -2134,6 +2173,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Parent ID: 2026102407515574
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Only under Nemo Anywhere. While the tree has the keyboard focus and its selected row is the viewed folder, every object in the content view draws the dim mark, in all 3 views. The content view's selection itself doesn't change.
@@ -2171,6 +2211,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026102407515572
 	- Prereq IDs: 2026102412041967
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Only under Nemo Anywhere. No focus outline, except while a Ctrl+arrow move has put the focus on an icon that isn't selected.
@@ -2205,6 +2246,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261024-163000
 	- Opened by: t00mietum
 	- Related IDs: 2026101911105600
+	- Target version: rc.1
 	- Requirements:
 		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
 		- Per the flags in the shared CICD style guide, and its merge gate section. What's left:
@@ -2235,6 +2277,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102416300004
 	- Parent ID: 2026102416300004
 	- Prereq IDs: 2026102416300000, 2026102416300002
+	- Target version: rc.1
 	- Requirements:
 		- Per the shared CICD style guide: `--no-container` runs on the host, `--no-remote` skips the other hosts and VMs, `--keep-temp` keeps the run's temp folder and containers and prints where they are, and `--list` prints the steps and test IDs the other flags would run, and runs nothing.
 	- Progress log:
@@ -2263,6 +2306,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102416300004
 	- Parent ID: 2026102416300004
 	- Prereq IDs: 2026102516165473, 2026102516165477
+	- Target version: rc.1
 	- Requirements:
 		- `cicd-win.ps1` takes the same flags as `cicd.bash`, in its own form where PowerShell needs one.
 	- Progress log:
@@ -2294,6 +2338,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: High
 	- Opened: 20261105-202342
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- A settings file from any SHCL release or pre-release before format 3 still loads, and is converted.
@@ -2323,6 +2368,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261025-161654
 	- Opened by: 2026102416300004
 	- Parent ID: 2026102416300004
+	- Target version: rc.1
 	- Requirements:
 		- The default run fits in about an hour. Time it, and move the slowest steps to `--long` if it doesn't.
 		- `--quick` keeps to about 10 minutes, with fuzzing at a short budget in it.
@@ -2369,6 +2415,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Overrides: running the native Windows step by hand. The rule sending windowed checks to vm925w stays.
 	- Test case: the children's: ddmmw, ddmn7 and ddmmv (2026102808250949, 2026102808084300, 2026102516403481), dehyb (2026102808250954), depg0 and ddmmw (2026102808250959).
 	- Prereq IDs: 2026102516403481
+	- Target version: rc.1
 	- 2026-10-26, round1026a full run: vmFreeBSD was off. The lane started it, then failed at once with 'bsdtest@vmFreeBSD is not a FreeBSD box reachable as that user', before ssh was up, and stopped the run. The lane should wait for ssh after a start.
 	- 2026-10-27: the same at step 7 of a full run, with ssh timing out on the VM that was off. The FreeBSD lane and the arm64 release now take their box through the VM state helper when it's here, so a VM that's off or paused is started, waited for and put back. The bare host lock is still the fallback. What's left is the `SKIP` for a box that isn't there, and the Windows dogfood, which still only tries boxes that already respond.
 	- 20261028: split into children. The `SKIP` is 2026102808250949, the Windows dogfood's box and name 2026102808250954, the native Windows gate 2026102808250959. The FreeBSD and arm64 work folders are 2026102516403481. A lane that starts its VM now also waits for its own login (2026102808084300).
@@ -2385,6 +2432,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261028-082509
 	- Opened by: 2026102416300001
 	- Parent ID: 2026102416300001
+	- Target version: rc.1
 	- Requirements:
 		- The dogfood refresh names `b29w`, never `b29w-wif`.
 		- vm925w is started when it's off or paused, and put back after, the way the FreeBSD lane does it. b29w goes first.
@@ -2413,6 +2461,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102416300001
 	- Parent ID: 2026102416300001
 	- Prereq IDs: 2026102808250949
+	- Target version: rc.1
 	- Requirements:
 		- The native Windows gate is part of the default run. It favors b29w, and goes to vm925w for GPU or timed work, and for a check that puts a window on screen. b29w can still run a windowed check unattended under its test account. `--no-remote` skips every box.
 		- Each Windows box gets the project's own work folder under its temp root, removed at the end.
@@ -2431,6 +2480,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261103-140931
 	- Opened by: 2026102516165479
 	- Parent ID: 2026102516165479
+	- Target version: rc.1
 	- Requirements:
 		- `--quick` takes about 10 minutes, with fuzzing at a short budget still in it.
 	- Progress log:
@@ -2460,6 +2510,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102808250959
 	- Parent ID: 2026102808250959
 	- Prereq IDs: 2026110216492601
+	- Target version: rc.1
 	- Requirements:
 		- The gate on b29w runs over ssh without a desktop, so its windowed tests skip. Those run again in a desktop session on vm925w, as its test user, and on b29w under its test account when vm925w isn't there.
 		- The VM is put back the way it was found. Neither box there is a `SKIP`.
@@ -2498,6 +2549,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Parent ID: 2026102407515571
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Only under Nemo Anywhere. A dim checkmark on every selected row, and none on the rest. The text doesn't change.
 		- A thin new column left of Name, with nothing else in it. It can't be hidden or moved, and isn't in the column chooser.
@@ -2533,6 +2585,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261031-142027
 	- Opened by: 2026102808250959
 	- Parent ID: 2026102808250959
+	- Target version: rc.1
 	- Requirements:
 		- A plain run and `--backlog-run-full` run `cicd-win.ps1 -Gate -Yes` on b29w, from a bundle of the commit the run is on. With b29w not there, it runs on vm925w, which is started and put back through the VM state helper. When neither is there, it's a `SKIP`. `--quick` and `--no-remote` leave it out.
 		- It runs in its own folder under the box's temp root, removed at the end, and stale ones of its own are removed too.
@@ -2563,6 +2616,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102820195917
 	- Parent ID: 2026102820195917
 	- Prereq IDs: 2026103113501526
+	- Target version: rc.1
 	- Requirements:
 		- `win-box.bash` runs each step from `nemo-winbuild:<hash>`, the hash taken over the recipe's files, and builds it the first time that hash is seen, the way `docker-run.bash` does for `nemo-build-deps`.
 		- The cross build, packing, the setup exe check, the GUI smoke check, ddf31 and the Windows analyzer lane pass from it, as they do from `nemo-winbuild:init`.
@@ -2588,6 +2642,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261031-135015
 	- Opened by: 2026102820195917
 	- Parent ID: 2026102820195917
+	- Target version: rc.1
 	- Requirements:
 		- `cicd/win/Dockerfile` pins the base by digest and reads apt from one dated snapshot.
 		- The sysroot comes from MSYS2 package files pinned by name and sha256 rather than from the day's package database.
@@ -2641,6 +2696,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261028, native Windows on b29w at 2964120b. All 217 of meson's result lines through awk under MSYS2 read `PASS`, `FAIL` or `SKIP`, then the ID and name. The lint step's 92 script test lines did too, with defmw and dehzr left out of the list (2026102822580271, 2026102823073182). The Tests step stopped on 4 failures already on dev (2026102822580302) before the Windows-only script tests.
 	- Verified: 20261031, native gate on b29w at a406610f. The Tests step passed and printed PASS dd5hz test-install-holders.ps1, PASS ddc6v test-install-acl.ps1 and PASS ddgch test-install-staging.ps1.
 	- Prereq IDs: 2026102822580302
+	- Target version: rc.1
 	- Acceptance signoff: Self-closed: the 3 lines in the native gate on b29w.
 	- Closed: 20261031-175750
 
@@ -2653,6 +2709,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102617145788
 	- Parent ID: 2026102617145788
 	- Prereq IDs: 2026102820195801
+	- Target version: rc.1
 	- Requirements:
 		- `nemo-winbuild` comes from `cicd/win/Dockerfile`, with the base by digest, apt from a dated snapshot and the MSYS2 sysroot by version.
 		- It passes the cross build, packing and wine runs that `nemo-winbuild:init` passes, and the pipeline uses it in place of the snapshot.
@@ -2670,6 +2727,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261019-100754
 	- Opened by: t00mietum
 	- Related IDs: 2026102416300000, 2026102416300002
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Verify or ensure that builds clean up stale artifacts and side-effects when done: caches, container cruft, tmp files, etc.
@@ -2698,6 +2756,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026101910075400
 	- Prereq IDs: 2026102516403487
 	- Related IDs: 2026102416300000
+	- Target version: rc.1
 	- Requirements:
 		- Containers are named `<project>-<run folder>-<step>` and run with `--rm`, unless `--keep-temp`. Today the build and test steps run in the long-lived `nemo-build`, `nemo-winbuild` and `nemo-build-jammy`.
 		- Cache volumes stay under 2 GB.
@@ -2715,6 +2774,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261024-163000
 	- Opened by: t00mietum
 	- Related IDs: 2026101910075400
+	- Target version: rc.1
 	- Requirements:
 		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
 		- Per the containers section of the shared CICD rules. Build and test already run in containers. What's left:
@@ -2738,6 +2798,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261026-171457
 	- Opened by: 2026102416300000
 	- Parent ID: 2026102416300000
+	- Target version: rc.1
 	- Requirements:
 		- Every image comes from a pinned recipe in the repo, base by digest and tools by version.
 		- `nemo-build-deps:init` and `nemo-winbuild:init` are hand-made snapshots today. Their recipes have to make images that pass the same runs.
@@ -2758,6 +2819,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102416300001
 	- Parent ID: 2026102416300001
 	- Related IDs: 2026102808084300
+	- Target version: rc.1
 	- Requirements:
 		- The FreeBSD lane and the arm64 release. A box that doesn't respond, and isn't a VM this box can start, shows as `SKIP` in its step line and in the summary at the end, and the run goes on.
 		- When arm64 is skipped, its packages and their check are left out too.
@@ -2784,6 +2846,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102516403492
 	- Parent ID: 2026102516403492
 	- Prereq IDs: 2026102617253209
+	- Target version: rc.1
 	- Requirements:
 		- `release.bash` and the package step's dependency check run in containers of their own rather than in the long-lived `nemo-build-jammy`, on this box and on vmDebARM64.
 		- Whether the release build dir is kept between runs, in a cache volume, or starts cold each time, is still to be decided.
@@ -2811,6 +2874,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102617145788
 	- Parent ID: 2026102617145788
 	- Prereq IDs: 2026102820481713
+	- Target version: rc.1
 	- Requirements:
 		- `nemo-build-deps` comes from `cicd/linux/Dockerfile.dev`, with the base by digest and apt from a dated snapshot.
 		- It passes the runs that `nemo-build-deps:init` passes, and the pipeline uses it in place of the snapshot.
@@ -2847,6 +2911,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261025-173333
 	- Opened by: 2026102416300003
 	- Parent ID: 2026102416300003
+	- Target version: rc.1
 	- Requirements:
 		- `BelowNormal` priority at the top of `cicd-win.ps1`, or `Idle` for the hard steps, set on its own process so its children get it.
 		- Half the logical CPUs, a quarter when busy or for a hard step, worked out once and passed to every tool that runs in parallel. Busy needs a load figure Windows doesn't have. The processor queue length or CPU use over a short sample are the options.
@@ -2872,6 +2937,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: High
 	- Opened: 20261024-163000
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
 		- Per the regression bullet in the testing section of the shared CICD rules. Every item in the new format has a test case row. What's left:
@@ -2902,6 +2968,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Parent ID: 2026102407515572
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Only under Nemo Anywhere. No focus outline, except while a Ctrl+arrow move has put the focus on a row that isn't selected.
 		- Up, Down, Page Up and Page Down count from the range ends. After a Ctrl+arrow move they count from the focus.
@@ -2938,6 +3005,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261025-173333
 	- Opened by: 2026102416300003
 	- Parent ID: 2026102416300003
+	- Target version: rc.1
 	- Requirements:
 		- Half the cores, a quarter on a busy box or for a hard step, checked at the start and before each step. They're worked out in one place and passed to every tool that runs in parallel.
 		- `nice -n 19` and `ionice -c 3` for the run. Each container gets `--cpus <jobs>`, `--cpu-shares 256` and `nice` inside it.
@@ -2965,6 +3033,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261025-173333
 	- Opened by: 2026102416300005
 	- Parent ID: 2026102416300005
+	- Target version: rc.1
 	- Requirements:
 		- Each step opens with `[ YYYYmmDD-HHMMSS.NN: Step N of M; Starting <name> ]` and closes the same way with `PASS` or `FAIL`, in local time, under a rule of 79 dots.
 		- A step that's turned off isn't counted, and the first section lists those with the flag or reason for each. It's the same in `--backlog-run-quick`.
@@ -2992,6 +3061,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261025-161654
 	- Opened by: 2026102416300004
 	- Parent ID: 2026102416300004
+	- Target version: rc.1
 	- Requirements:
 		- `cicd.bash` takes `--backlog-run-quick [<area>...]`, `--backlog-run-full` and `--merge-gate`. `--help` lists the areas.
 		- `--gate` and `--ci` become other names for `--backlog-run-quick` and `--merge-gate`, and say so in one line when used.
@@ -3019,6 +3089,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101910075400
 	- Parent ID: 2026101910075400
 	- Prereq IDs: 2026102516403466
+	- Target version: rc.1
 	- Requirements:
 		- Every container, image and volume the pipeline makes gets `dev.project` and `dev.run` labels. `dev.run` is the run folder's name.
 		- At the end of a run, on failure and Ctrl+C too, from the run folder's trap: the run's containers by label, then the project's dangling images and its older tags past the current one and the one before, then `docker builder prune -f --filter until=168h`.
@@ -3047,6 +3118,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261026-172532
 	- Opened by: 2026102516403492
 	- Parent ID: 2026102516403492
+	- Target version: rc.1
 	- Requirements:
 		- The debug build, the tests, fuzzing and the sanitizer suite each run in a container of their own, named `nemo-anywhere-<run folder>-<step>`, with `--rm` unless `--keep-temp`. Today they run in the long-lived `nemo-build`.
 		- So do the steps that read that build: the profiler's prefix, the Linux analyzer lane and the fuzz exit check.
@@ -3079,6 +3151,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102516403492
 	- Parent ID: 2026102516403492
 	- Prereq IDs: 2026102617253209
+	- Target version: rc.1
 	- Requirements:
 		- The cross build, and everything that reads it, runs in containers of its own, named and removed the same way, rather than in the long-lived `nemo-winbuild`: `build-cross.bash`, `pack-zip.bash`, `pack-setup.bash`, `test-setup.bash`, the GUI smoke check, the Windows analyzer lane and `utility/run-windows-build-via-wine.bash`.
 		- `/build-win` was 587 MB on 20261026, so it fits a cache volume under 2 GB.
@@ -3108,6 +3181,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101910075400
 	- Parent ID: 2026101910075400
 	- Prereq IDs: 2026102516403487
+	- Target version: rc.1
 	- Requirements:
 		- What the pipeline made before it had labels gets one cleanup pass by hand, by ID. Images still in use stay.
 	- Progress log:
@@ -3130,6 +3204,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102516165477
 	- Parent ID: 2026102416300004
 	- Related IDs: 2026102416300000, 2026102617145688
+	- Target version: rc.1
 	- Requirements:
 		- `--no-container` runs on the host, per the shared CICD style guide.
 		- The GTK dev stack never goes on the host here, so the build and test steps can't run there.
@@ -3157,6 +3232,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102416300000
 	- Parent ID: 2026102416300000
 	- Related IDs: 2026102516295605
+	- Target version: rc.1
 	- Requirements:
 		- Fall back to the host, with one line saying so, when docker is missing or the image can't be built. Today the step is skipped instead.
 	- Progress log:
@@ -3182,6 +3258,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102416300004
 	- Parent ID: 2026102416300004
 	- Prereq IDs: 2026102516165473
+	- Target version: rc.1
 	- Requirements:
 		- The pre-push hook runs `--merge-gate` on a push to main, and skips it when the commits change only docs and other paths no build reads, listed in one place. A push to dev stays ungated.
 	- Decisions:
@@ -3208,6 +3285,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026102019174440
 	- Related IDs: 2026102016594100, 2026102016594200
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- `nemo-anywhere` as a value of `preferences.selection-model`, in the config keys, the enum and the schema.
 		- Its own set in each rules table: the icon container, the icon view, the list view, the tree pane, and the view's Select all and Invert. Each starts as v1's, so the later children change one table each.
@@ -3239,6 +3317,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101816495208, 2026102019174440, 2026102016594200, 2026102113191977
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- A "File and folder selection model" dropdown on the Advanced tab. Only the entries whose model is built are shown.
 		- Every selection and focus rule in the tree view and the content view, all 3 views, goes behind a conditional on the setting. Nothing changes in how the app behaves.
@@ -3273,6 +3352,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Parent ID: 2026101619020505
 	- Target OS: Linux
+	- Target version: rc.1
 	- Requirements:
 		- The parent's first half, without the gate: every full run runs gcc's `-fanalyzer` and the clang analyzer over both compile lists, `nemo-build`'s `/build` and `nemo-winbuild`'s `/build-win`.
 		- Findings are counted per area (vendored, inherited, ours, tests) and kept with the run's artifacts. They don't fail the run yet.
@@ -3307,6 +3387,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
 	- Prereq IDs: 2026102219444112, 2026102219444222
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut. Do next.
 		- `--ci`: Rename to `--gate`.
@@ -3344,6 +3425,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261017-150306
 	- Opened by: t00mietum
 	- Prereq IDs: 2026102219444002, 2026102219444112, 2026102219444222
+	- Target version: rc.1
 	- Decisions:
 		- Each test gets a jail. On Linux each test runs under bubblewrap inside the container, with the repo and system read-only and a fresh HOME and scratch folder as the only places it can write. The other boxes run tests as their throwaway test user with a fake HOME, and the test library refuses a delete outside the test's scratch folder.
 		- `cicd/linux/jail.bash` is meson's `--wrapper` for every suite run: the gate, stage 3, the sanitizer lane, both release lanes, the FreeBSD lane and the Windows suite. Off Linux it gives the fresh HOME and temp folder only.
@@ -3378,6 +3460,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102016594100
 	- Related IDs: 2026101816495208, 2026102019174440, 2026102113191977
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Re-implemented from upstream source at the fork point, since our selection code has moved too far to pass for it.
 		- Behind the same conditionals as Nemo Anywhere v1, tree view and content view.
@@ -3423,6 +3506,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026102407515573, 2026111012592994
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: list view, Nemo Anywhere or v1. Click row 6, Ctrl+click row 2, then Shift+click row 4.
 	- Incorrect behavior: the run likely goes from row 6, the last row put back, rather than from row 2. Ctrl+Shift with an arrow key may move the anchor the same way.
 	- Expected behavior: a Ctrl+click moves the anchor to the row clicked, per the design doc's "Mouse".
@@ -3452,6 +3536,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261108-175023
 	- Opened by:
 	- Target OS: macOS
+	- Target version: rc.1
 	- Steps to reproduce: sign in as another user on b26's console, then run the private runner step of a full run.
 	- Incorrect behavior: dd5ca, dd5dk and der9s fail every time, on the clipboard, a tab's width and a drop, and the step fails as if the code broke.
 	- Expected behavior: the step warns that b26's console isn't collierjr's and skips the GUI tests, the way the native Windows lane warns on a locked session, or the tests run in the session that has the console.
@@ -3472,6 +3557,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026103114202730
 	- Related IDs: 2026101913541101
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: the native gate on b29w over ssh, `-Gate -Yes -NoSync -NoFmt`.
 	- Incorrect behavior: ddepv fails at `test-nemo-leaks.c:1187`, "the heap grew 4368 bytes over 64 rounds", after 3 readings were taken again. The run also shows "gdk_monitor_get_geometry: assertion 'GDK_IS_MONITOR (monitor)' failed".
 	- Expected behavior: ddepv passes every time, as on vm925w after 2026101913541101.
@@ -3506,6 +3592,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Avg
 	- Opened: 20261106-183224
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Steps to reproduce: Record the video with `cicd/utility/demo-video/demo-video.py`, then compare each click's sound peak to the frame where the screen reacts.
 	- Incorrect behavior: Each click sounds about 0.25 s after the screen changes.
 	- Expected behavior: The sound plays with the press, up to a frame or two before the screen reacts.
@@ -3536,6 +3623,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261104-105932
 	- Opened by: 2026102516403481
 	- Related IDs: 2026102516403466, 2026102516403481, 2026110411135625
+	- Target version: rc.1
 	- Steps to reproduce [Bug]:
 		- Source `cicd/utility/include/run-temp.bash`, set `HOST_TEMP` and `projectName`, and call `fSafeRm "${HOST_TEMP}/${projectName}"`.
 	- Incorrect behavior [Bug]: it removes the folder, every run's folder in it included.
@@ -3566,6 +3654,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026102416300008
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: start `release-win.yml` on any branch.
 	- Incorrect behavior: "error: target not found: mingw-w64-x86_64-desktop-file-utils", and the job ends after about a minute.
 	- Expected behavior: the toolchain installs and the exe builds.
@@ -3594,6 +3683,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026102509133500
 	- Target OS: Windows
 	- Test environment: vm925w, as wintest in the desktop session.
+	- Target version: rc.1
 	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
 	- Incorrect behavior: every test passes, 205 OK and 7 skipped, then the gate fails with "tests left these behind" for test-nemo-command-launch-win32, test-nemo-helper-end-win32 and test-nemo-thumbnail-edited, -future, -hold, -order and -stop.
 		- The 5 thumbnail folders still have the file cache, `files.db` with its `-wal` and `-shm`.
@@ -3632,6 +3722,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101619020505
 	- Target OS: Linux
+	- Target version: rc.1
 	- Incorrect behavior:
 		- `sanitizers.supp` drops every leak in `libfontconfig.so.1`, by library. The Windows bundle has fontconfig in it, and a leak there that grows with use would never show.
 		- `test-sanitizers.bash` turns GTK's animations off for the whole suite, to get past one GTK leak in `gtk_css_value_calc_multiply`. End users have animations on. So nothing on GTK's animated path is leak-checked, and the vendored widget themes' transitions never run in the lane.
@@ -3677,6 +3768,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261010-091507
 	- Opened by: t00mietum
 	- Target OS: all
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Steps to reproduce: in a folder of photos in icon view, select a photo and press F2.
@@ -3727,6 +3819,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100917220603
 	- Related IDs: 2026100917220603, 2026102515500000
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: extract the release zip, or install with `install.ps1`, and start the app. Then start the single exe built from the same commit.
 	- Incorrect behavior: the zip and the installed copy show GTK's plain default look and font. The single exe shows Fluent and Segoe UI 9.
 	- Expected behavior: all 3 forms look the same.
@@ -3759,6 +3852,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102219444332
 	- Related IDs: 2026101319204761
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Steps to reproduce: select a file, open Properties, close it, and press Delete within a second.
@@ -3791,6 +3885,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101619020505, 2026102114400586, 2026102114400591
 	- Target OS: Linux
+	- Target version: rc.1
 	- Incorrect behavior: `load_db` in `cicd/utility/analyze.py` keeps the first compile entry per file. `shcl-old-writer.c` is built once per old SHCL release, against `vendor/shcl-old/1.2.0/` and `2.0.0/`, so 2.0.0 is never analyzed. The Linux list has 24 files more than once and the Windows one 29, most of them app files also built into a test.
 	- Expected behavior: each compile entry with its own flags is analyzed. A finding 2 entries reach still counts once.
 	- Reproduced: 20261024. The 2.0.0 entry run alone had 2 findings the full run's logs don't have.
@@ -3820,6 +3915,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101816495203
 	- Related IDs: 2026101816495203
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: select a file, press Alt+Enter for Windows properties, close it with Escape or the title bar's close button, and press Delete at once.
 	- Incorrect behavior: nothing happens. The second press brings up the delete question.
 	- Expected behavior: the first press does, as it now does after the app's own Properties (Ctrl+Enter).
@@ -3850,6 +3946,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026102219444112, 2026101715030680
 	- Target OS: Windows
 	- Test environment: vm925w, a fresh clone of round1022, as wintest in the desktop session.
+	- Target version: rc.1
 	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
 	- Incorrect behavior: Compress dialog height test ended in a segfault, exit 0xb00, after its last line of output, "frame 787 px tall at 0, work area 0 to 1392". The jail said it left files in its tmp folder.
 	- Expected behavior: passes, as it did in the earlier native run that day.
@@ -3876,6 +3973,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102221362030
 	- Target OS: Windows
 	- Test environment: vm925w, a fresh clone of round1023, native build from `cicd-win.ps1 -Gate`.
+	- Target version: rc.1
 	- Steps to reproduce: `bash cicd/win/stage-native.bash cicd/artifacts/build-win cicd/artifacts/win-run` in MSYS2's mingw64 shell after a native build, or a `cicd-win.ps1` run that gets to stage 4.
 	- Incorrect behavior: dcvpj (`check-win-build-flags.bash --shipped`) fails, "12583016 bytes, over the 12582912 ceiling - this is a debug link", and staging stops. The bundle is all there, so `pack-portable.ps1` run on its own still packs it. A full native run, and the Windows dogfood stage, stop at stage 4.
 	- Expected behavior: a stripped native build stages and packs.
@@ -3903,6 +4001,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100816170921
 	- Related IDs: 2026100816170921
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: drag a file from another program onto the window, with nothing connecting.
 	- Incorrect behavior: a small program written to drag a file in had its drop refused by the window, while the desktop took the same drag.
 	- Expected behavior: the window takes the drop, as on Linux.
@@ -3931,6 +4030,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100615255268
 	- Related IDs: 2026100615255268, 2026100612483725, 2026100714014948, 2026100815215479
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: in the single exe, open a folder with an OpenDocument file that has a thumbnail inside, in the icon view, with 2026100615255268's fix in.
 	- Incorrect behavior: the gsf-office thumbnailer starts, from a temporary copy the packer makes, and shows the packer's message box "Cannot load library libgsf-1-114.dll". It waits there until the thumbnail's 30 second limit ends it, and if the app is closed first, it stays up after the app is gone. The search converters for Word, Excel and PowerPoint files need the same library, so a content search through them likely does the same. That wasn't tried.
 	- Expected behavior: office files get thumbnails, and their text is searched, with no helper program started.
@@ -3976,6 +4076,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
 	- Target OS: Linux, BSD
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Steps to reproduce: start the app with nothing set under `appearance` in the settings file, then change the icon theme on the desktop.
@@ -4008,6 +4109,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101619020505, 2026101715252256
 	- Target OS: All
+	- Target version: rc.1
 	- Incorrect behavior: `lint-c.bash` skips `vendor/` and `source/cut-n-paste-code/`. So blake3, SHCL and libegg never get the C lint, though all 3 are compiled into the app.
 		- SHCL isn't read through `nemo-config.c` either. cppcheck doesn't get any include paths and `missingInclude` is suppressed, so its implementation is never checked.
 		- The sign-bit shift check, dddq8, skips `source/cut-n-paste-code/`. It greps only `source/`, so it never reads `vendor/`.
@@ -4041,6 +4143,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101715252255
 	- Target OS: All
+	- Target version: rc.1
 	- Incorrect behavior: cppcheck doesn't get any include paths, so a macro such as `G_GINT64_FORMAT` or `G_FILE_ATTRIBUTE_STANDARD_TYPE` inside a string is unknown to it. It stops on that file with `unknownMacro` and doesn't check anything else in it. `.cppcheck-suppressions` turns `unknownMacro` off for the whole tree, so the gate passes. That way 34 first-party files are skipped, `nemo-config.c` among them, and 20 of them are tests.
 	- Expected behavior: every C file is checked all the way through, and `unknownMacro` is left on, so a new one fails the gate.
 	- Possible fix: give the missing macros values in `.cppcheck-defines.cfg`. A first try with 13 of them still left 6 files stopped on others, and turned up 17 findings in the rest, most of them leaks in tests.
@@ -4076,6 +4179,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102221362030
 	- Related IDs: 2026101715030680, 2026102219444112
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: run `test-nemo-fence.exe` natively from a folder inside `%TEMP%`, outside the jail.
 	- Incorrect behavior: `test_fence_allows ("\\")` says yes, so de5kb fails at its check that the root isn't the test's own. `resolve_w` takes `C:\x` apart into `C:` and `x`, and `C:` alone means the current folder on C: rather than its root. So a delete of `C:\x` is checked as `<current folder>\x`, and let through when the current folder is the test's own.
 	- Expected behavior: `C:\x` is checked as `C:\x`, wherever the test runs from.
@@ -4100,6 +4204,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102219444222
 	- Related IDs: 2026101715252255
 	- Target OS: All
+	- Target version: rc.1
 	- Incorrect behavior: blake3 and libegg build with `vendorWarnings` in `source/meson.build`, which is `warning_level=1` and `werror=false`. The -Werror lane never sees a warning in either.
 	- Expected behavior: both build at the project's warning level, -Werror included. A warning that's only about upstream's style is turned off for that library alone in meson, with a one-line reason.
 	- Note: SHCL already builds at the full level, since it's compiled inside `nemo-config.c`.
@@ -4128,6 +4233,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Prereq IDs: 2026102219444222
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Incorrect behavior: blake3 picks plain C, SSE2, SSE4.1 or AVX2 at run time, from what the processor reports. dcy00, File checksum test, checks the known answers only through the one the test box picks. That's AVX2 on b23. The arm64 build has plain C only, so that one runs wherever the arm64 suite does. SSE2 and SSE4.1 never run in any test, and an end user on an older x86 processor gets one of them.
 	- Expected behavior: every path in the build gives the known answers, whatever processor the test runs on. A path the processor can't run is skipped, and the test says so.
 	- Possible fix: call each `blake3_hash_many_*` from `blake3_impl.h` directly against the plain C one, or build the test once per path with the others turned off by the `BLAKE3_NO_*` defines.
@@ -4154,6 +4260,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101417352260
 	- Target OS: Windows
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Incorrect behavior: a server without a share, `\\host`, `\\host\` or `//host`, failed with "Input/output error" from the path bar, and the app started on one closed without a window. The dogfood exe on vm925w, from 20261005, predates 2026101417352260, so no `smb://` address was taken there at all.
@@ -4181,6 +4288,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101715252259, 2026101619020505, 2026101913541100, 2026101913541101
 	- Target OS: Windows
+	- Target version: rc.1
 	- Incorrect behavior: the heap growth tests read glibc's heap and exit 77 anywhere else, and the sanitizer lane is Linux only. The Windows bundle runs its own builds of GTK, GLib, fontconfig, libarchive, the pixbuf loaders and the rest of the DLLs `stage-native.bash` copies in. None of that is leak-checked, and neither is any `*-win32.c` file.
 	- Expected behavior: the heap growth tests read the heap on Windows too, through the Win32 heap calls, and run in the native Windows suite.
 	- Estimated effort: High
@@ -4208,6 +4316,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101715252260
 	- Target OS: Linux
+	- Target version: rc.1
 	- Incorrect behavior: the leak tests in `test-nemo-leaks.c` repeat jobs, the clipboard, bookmarks, search and archives. None repeats a settings save and live reload through SHCL, a checksum through blake3, or a multi-row drag through libegg. LeakSanitizer only sees what's still held at exit, so something in any of the 3 that grows with use isn't caught.
 	- Expected behavior: a leak test for each. Change a setting and reload the file, checksum a file, and start and cancel a multi-row drag.
 	- Actual fix: 3 new cases in `test-nemo-leaks.c`.
@@ -4231,6 +4340,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261016-130536
 	- Opened by: t00mietum
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Steps to reproduce: in the list view, sort a folder by Size, largest first. Then open a picture folder inside it, which turns to icons by itself, or switch the folder to icons.
@@ -4263,6 +4373,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261008-161710
 	- Opened by: t00mietum
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: type an `smb://` address in the path bar and press Enter.
 	- Incorrect behavior: the app looks into the address for a while with no sign of it. Then a login prompt, or the share's contents, suddenly show up. In the meantime it looks like nothing happened, so the user may start something else until the share comes back.
 	- Expected behavior: a clear sign that the app is busy with the address, until it is done or stopped.
@@ -4326,6 +4437,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261014-173522
 	- Opened by: t00mietum
 	- Related IDs: 2026101419191454, 2026101419191455
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Incorrect behavior: expanding folders can take too long.
@@ -4371,6 +4483,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101405542816
 	- Related IDs: 2026101405542816
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: search a folder, go Back, then Forward. An empty "Search" page shows. Click the search button, which leaves it on that page. Then search again.
 	- Incorrect behavior: the search runs from the root of the disk, and the path bar and title say "Search in "(null)"".
 	- Expected behavior: Forward shows the search it left, or the folder it was in, and a search never starts without a folder to search in.
@@ -4394,6 +4507,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026100613285826, 2026101406405845
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Steps to reproduce: with "Remember per-folder settings" off, switch a folder to icon view, then search.
@@ -4419,6 +4533,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261014-165341
 	- Opened by: 2026101319265113
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: copy `café?.txt` to a FAT, exFAT or NTFS drive mounted through fuse on Linux.
 	- Incorrect behavior: from reading the code, the copy comes out as `caf__.txt`, not `café_.txt`.
 	- Expected behavior: only the characters the drive refuses are replaced.
@@ -4443,6 +4558,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261010-091507
 	- Opened by: t00mietum
 	- Target OS: all
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Incorrect behavior: a tooltip from the app shows on top of other windows that are in front of it.
@@ -4473,6 +4589,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026100615255231, 2026100616310432, 2026100314515200
 	- Target OS: Windows
+	- Target version: rc.1
 	- Requirements:
 		- Any string a user writes or edits takes a Windows path as is. A backslash there is never an escape.
 		- Covers search helper and thumbnailer files, actions, command lines, and other paths in settings, and any other text file the app reads that a user may write by hand.
@@ -4543,6 +4660,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261007-200311
 	- Opened by: full pipeline run
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: run `cicd/cicd.bash` in full, or `cicd/linux/test-sanitizers.bash` (ddgt8) by itself, on dev at aa50aee.
 	- Incorrect behavior: dczra (`test-nemo-magick`) and ddmb4 (`test-nemo-magick-extras`) say "all checks passed", then fail on the leak check: 73 bytes in 17 blocks and 22 bytes in 5 blocks, from `g_malloc`. The rest gave 166 OK and 12 skipped.
 	- Expected behavior: the sanitizer suite passes, as it did on 20261005.
@@ -4568,6 +4686,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100714014948
 	- Related IDs: 2026100714014948
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: start 2 copies, then run `nemo-anywhere --quit` from a third.
 	- Incorrect behavior: both copies stay open. Asked for the copies queued on `org.NemoAnywhere`, the bus returns an empty list with 2 copies in it. The `--reset` check for a running copy reads the same list, so it likely sees none either. That wasn't tried.
 	- Expected behavior: as in design.md, "One process per window": `--quit` and Close All Windows get to every copy, and `--reset` knows one is running.
@@ -4598,6 +4717,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261005-200714
 	- Opened by: arm64 release build
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: run the suite against a release build from `nemo-build-jammy`, x86_64 or arm64.
 	- Incorrect behavior: ddep7 (move job leak) and dcyh1 (thumbnail hold) fail. The day to day build in `nemo-build` passes both.
 	- Reproduced: 20261005, x86_64 and arm64 jammy release builds.
@@ -4626,6 +4746,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026100613285826
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before rc.1.
 	- Steps to reproduce: search a tree where the same file name turns up in many folders, in list view.
@@ -4660,6 +4781,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100610503901
 	- Related IDs: 2026100610503901, 2026100615255231, 2026100615255268, 2026100615255305
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: with 7-Zip installed, compress a folder to 7z from the native build, then from the packed exe. Do the same for extracting it, and for a content search that reads a Word file.
 	- Incorrect behavior: read only. On the native build each run should open a console window. In the packed exe the job should wait for good.
 	- Expected behavior: no window but the app's own, and the job runs in both.
@@ -4691,6 +4813,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: real-Windows validation, old-format item
 	- Related IDs: old-format items "Real-Windows validation" and the Alt drop that opens Make link
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: in a folder holding a file and a folder, drag the file onto the folder with Ctrl+Shift held. Then do it again with Alt held, and again with the right button.
 	- Incorrect behavior: Ctrl+Shift moves the file, in the list and icon views; the move question of the test guard shows "Move: 1 item". Alt moves it in the list view and does nothing in the icon view, with no drop menu. A right-button drag does nothing. Ctrl alone copies, as it should.
 	- Expected behavior: Ctrl+Shift opens Make link for the drop. Alt, or the right button, opens the drop menu, whose "Link here..." opens Make link, as the Done item for the Alt drop describes.
@@ -4722,6 +4845,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: real-Windows validation, old-format item
 	- Related IDs: old-format item "Real-Windows validation"
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: with ImageMagick 7 installed, open a folder of TGA, PCX, QOI, DDS, JPEG 2000, and SGI pictures in the icon view. Do it once with the native build and once with the packed exe.
 	- Incorrect behavior: the native build makes all 6 thumbnails, but a console window opens and closes for each one. With Windows Terminal as the default terminal that is a Terminal window each time. The packed exe never starts ImageMagick, and the pictures keep their plain icons.
 	- Expected behavior: thumbnails from both, and no window but the app's own.
@@ -4748,6 +4872,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: work on 2026092813381442
 	- Related IDs: 2026092813381442
 	- Target OS: all
+	- Target version: rc.1
 	- Steps to reproduce:
 		- With "Always show tabs" on and 2 windows open, drag the only tab of one window onto the other, or send it there with "Move tab to".
 	- Incorrect behavior: the tab moves. The window it left then logs criticals about a window that is gone as it closes, and sometimes crashes, which leaves a crash report.
@@ -4775,6 +4900,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261004-104311
 	- Opened by: item 2026100312494905
 	- Related IDs: 2026100312494905, 2026092813381404
+	- Target version: rc.1
 	- Incorrect behavior: the rar line has `-r`, and rar then reads each selected name as a pattern for every folder below where the job runs. Picking `a.txt` in a folder that also has `sub/a.txt` puts both in the archive. rar also tries every other name it walks past, so a link that leads nowhere sitting beside the selection, not picked, makes rar warn, and the job fails and deletes the archive.
 	- Expected behavior: the archive has what was selected and nothing else, and names that weren't selected play no part.
 	- Reproduced: rar's side, 20261004, Linux, RAR 7.20. `rar a -r -- x.rar a.txt` took `sub/a.txt` too, and said it couldn't open an unpicked link beside it, with exit 6. The second half was also reproduced on the job's side, on winlinks. The job for a selected file and linked folder, with a link that leads nowhere beside them, failed. The first half on the job's side was only read, and is plausible.
@@ -4802,6 +4928,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261004-085259
 	- Opened by: t00mietum
 	- Target OS: all
+	- Target version: rc.1
 	- Steps to reproduce:
 		- Click a place in "Places".
 		- Press an arrow key or type a letter.
@@ -4833,6 +4960,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Design: [20260929-101432_compression.md](design_docs/20260929-101432_compression.md). Under the reset, "Ignore" leaves these links out too.
 	- Steps to reproduce [Bug]:
 		- Untick "store links", then compress a folder with a link to a missing file as 7z or rar.
@@ -4883,6 +5011,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026093010493389, 2026092813381436
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce:
 		- Go to the Start menu Programs folder, or any folder with many `.lnk` files.
 	- Incorrect behavior: the content pane stays empty until the icons for all the shortcuts are loaded.
@@ -4917,6 +5046,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928 follow-up
 	- Related IDs: 2026092813381408, 2026093010493450
 	- Target OS: Windows
+	- Target version: rc.1
 	- Incorrect behavior: a shortcut with no icon of its own gets one from the Windows shell, on the window's thread. The shell may go to the target for it. On a share that doesn't respond, that's about 20 seconds per shortcut.
 	- Expected behavior: the share is never visited for an icon.
 		- The target path is read from the shortcut file, as the folder check already does.
@@ -4959,6 +5089,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
 	- Target OS: Linux, BSD, macOS.
+	- Target version: rc.1
 	- Incorrect behavior: the symlink is replaced by an edited copy of the shortcut it pointed at, and the real shortcut is left as it was.
 	- Expected behavior: a symlink always gets the symlink editor, whatever its name.
 	- Reproduced: yes, 20260928, Linux.
@@ -4987,6 +5118,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
 	- Target OS: Linux, BSD, macOS for the FIFO. Windows for the share.
+	- Target version: rc.1
 	- Incorrect behavior: listing a folder that has a FIFO named `x.lnk` hangs for good. Every `.lnk` on a slow share is also read on the main thread for its icon and sort place, with no share check.
 	- Expected behavior: only regular files are read, and a per-file read on a share is gated, per the project rule.
 	- Reproduced: yes for the hang, 20260928, Linux. The share case was read only.
@@ -5015,6 +5147,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261003-145152
 	- Opened by: item 2026100314290808
 	- Related IDs: 2026100311512222, 2026100314290808
+	- Target version: rc.1
 	- Steps to reproduce [Bug]:
 		- With a release on SHCL 1.2.0 or 2.0.0, such as v1.0.0-beta2, set a value like `\\server\share\term.exe`, `tools\7z.exe`, a tab, or an association like `log=C:\Tools\view.exe "%1"`. Then start this release on the same settings.
 	- Incorrect behavior [Bug]: the backslashes read doubled and the tab reads as `\t`. Nothing is backed up and no warning is given. The next save writes the wrong values in the current format, so they stay wrong and the old file is gone.
@@ -5048,6 +5181,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928 items 25 to 28
 	- Related IDs: 2026092813381427, 2026092813381428
 	- Target OS: Linux.
+	- Target version: rc.1
 	- Incorrect behavior: release.bash asks for link-time optimization, but the release container's build dir has it off and keeps it off. A clean build of the same commit has it on, so every binary differs from the published ones.
 	- Expected behavior: README says the Linux builds can be rebuilt from their commit to the same bytes.
 	- Reproduced: yes, 20261003, Linux. Dev `f4d2386` built in a new container from the current image, with its old build dir, gave a 2175143 byte tarball. A clean build gave 2195908 bytes. The live release container's build dir also reads link-time optimization off.
@@ -5075,6 +5209,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: a broken installer prints a warning, and the run still goes on to dogfood and publish.
 	- Expected behavior: the check stops the run, as the done item for the installer fixes says it does.
 	- Reproduced: yes, 20260928, Linux.
@@ -5099,6 +5234,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: a picture edited while its thumbnail is queued is stored with its old size and new checksum. Every later store of that content, under any name, then fails, and the file is made again on every visit.
 	- Reproduced: yes at the database level, 20260928, Linux. It was reproduced through the thumbnail queue too, 20260930, Linux, with a picture edited after the view read its size and time, and before its job ran.
 	- Actual cause: a thumbnail job keeps the size and time from when the view last looked, and checksums the contents as they are when it runs. The checksum is unique on its own, but the lookup matches checksum and size.
@@ -5124,6 +5260,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: a batch takes about 1 s at 40k thumbnails, which is near the 3 s busy timeout at the 2 GiB default. Other windows' stores then fail.
 	- Expected behavior: per the file cache item, many processes share the cache without getting in each other's way.
 	- Reproduced: yes for the timing, 20260928, Linux. The failed stores were only read from the code.
@@ -5148,6 +5285,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: a push to `main` with no version bump passes when the bump is only uncommitted, or when another branch is checked out. The gate also runs on the tree rather than the pushed commit.
 	- Expected behavior: the hook header says a push to `main` must raise the version.
 	- Reproduced: yes, 20260928, Linux.
@@ -5173,6 +5311,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: the file list is changes against `dev`, which is empty on `dev` and right after a merge to `main`. The stage prints OK.
 	- Expected behavior: README says every build goes through static analysis, and the pre-push header says nothing gets to the release branch unverified.
 	- Reproduced: yes, 20260928, Linux.
@@ -5199,6 +5338,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: on Windows a junction, symlink, or hardlink comes back as a shortcut. Elsewhere a relative symlink, hardlink, or shortcut comes back as an absolute symlink.
 	- Expected behavior: redo makes what was made the first time.
 	- Reproduced: yes, 20260928, Linux. A hardlink and a folder shortcut came back as absolute symlinks, and relative symlinks as absolute ones.
@@ -5224,6 +5364,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
 	- Target OS: Linux and macOS, on a case-insensitive file system.
+	- Target version: rc.1
 	- Incorrect behavior: renaming "Link" to "link" while changing its target leaves no link. The target isn't touched.
 	- Expected behavior: design.md says the old link is never missing.
 	- Reproduced: yes, 20260928, Linux, on a ZFS dataset that normalizes names. "café" in its 2 Unicode spellings is one entry there, the same way "Link" and "link" are on a case-insensitive one.
@@ -5252,6 +5393,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026092813381400
 	- Related IDs: 2026100112505357
 	- Target OS: Windows.
+	- Target version: rc.1
 	- Incorrect behavior: the installed folder keeps the installing user's temp folder permissions, so another user sees the shortcut and PATH entry but can't start the program.
 	- Reproduced: yes, 20261001, b29w, by the new test. Before the fix none of the 5 installed items let Users read and run.
 	- Actual cause: the unpacked tree is moved, not copied, and a move on one drive keeps the old permissions.
@@ -5272,6 +5414,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: items 11 and 12 were speed fixes with no speed test, and item 21's hoists and dead code have none. The review rules reopen a closed item with neither a test nor a reason.
 	- Expected behavior: a speed fix has a check with a number to fail on.
 	- Origin: code review 20260919. Confirmed.
@@ -5289,6 +5432,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: a 180 KB file took 15 s and a 720 KB one 64 s, and neither can be canceled.
 	- Expected behavior: per the PSD done item, a bad file is refused cleanly and a large one never costs full size.
 	- Reproduced: yes, 20260928, Linux.
@@ -5315,6 +5459,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100909260549
 	- Related IDs: 2026100617051745, 2026100909260549, 2026100912374782
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: in the single exe, in the desktop session on vm925w with MacType running, open a folder in a new window, or move a tab to a new window.
 	- Incorrect behavior: not seen. `nemo-new-process.c` starts the new copy with `g_spawn_async`, not through `nemo-launch-win32.c`. On Windows GLib does that through `gspawn-win64-helper.exe` unless the call asks for nothing the helper is needed for, and this one does, with no inherited input and no left-open handles. That helper is packed in the single exe, so under MacType it likely can't load its libraries, as in 2026100617051745.
 	- Expected behavior: the new window opens, and the single exe starts no packed program.
@@ -5356,6 +5501,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100516274609
 	- Related IDs: 2026100516274609, 2026100516274646
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Steps to reproduce: Compress, Options, tick Split into volumes, type "4,000 MiB" or "lots" as the volume size, then Compress.
 	- Incorrect behavior: the Compress dialog drops a size it can't read, so the job is asked for no volumes and writes one file. Nothing says so.
 	- Expected behavior: Compress is grayed, or the size is marked, until it reads. Splitting is a requirement, per the design's standing rules.
@@ -5388,6 +5534,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026100516274683
 	- Target OS: Windows
 	- Test environment: b29w, the cross-built test run natively, at dev 7d3021a.
+	- Target version: rc.1
 	- Steps to reproduce:
 		- Run dd42v, Archive option combinations, natively on b29w.
 	- Incorrect behavior: the failing rows are 2 rar rows with junctions stored, one archive per item, and delete on fail. In both, `jlink` is still there after the delete. One says "The original files were kept." and that `sub` has no archive. The other says 1 selected file isn't in the archive, and also gets the wrong number of warnings.
@@ -5417,6 +5564,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101319265113
 	- Related IDs: 2026101319265113, 2026101419104655
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: rename a file to `CON`, `nul.txt`, `a.`, or `a ` on Windows.
 	- Incorrect behavior: GLib takes all 4 with no error, on b29w.
 	- Expected behavior: the rename is refused with a message that says why, the same as for `*` and the other bad characters.
@@ -5450,6 +5598,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101417352261
 	- Related IDs: 2026101417352261
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: from the list view, go into a folder of 10 files.
 	- Incorrect behavior: it's listed in about 10 ms and its rows show at about 210 ms.
 	- Expected behavior: a small folder shows at once.
@@ -5498,6 +5647,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026110920251244
 	- Prereq IDs: 2026110920250275
 	- Target OS: Linux
+	- Target version: rc.1
 	- Requirements:
 		- Every finding the cross-file run has in our files and in the tests, in either lane, is fixed, or suppressed at the line with a one-line reason, per the parent.
 	- Estimated effort: Avg
@@ -5524,6 +5674,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026103116284963
 	- Target OS: Windows
+	- Target version: rc.1
 	- Requirements:
 		- On a failed gate, `win/lane.bash` copies the box's `meson-logs/testlog-*.txt` to `cicd/artifacts/build-win/` here before it removes the folder.
 		- The copy's name has the box and the folder's stamp, so a later run doesn't write over it.
@@ -5550,6 +5701,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261109-112519
 	- Opened by: t00mietum
 	- Related IDs: 2026110520234226, 2026110921160616
+	- Target version: rc.1
 	- Requirements:
 		- Every SHCL format the app has written loads and is converted, not only the released ones.
 		- That takes in a file a dev or dogfood build wrote from 20260925 to 20261105. It says format 3 but writes a list bare, as `a, b`, which format 3 refuses with E026, so the list reads as its default.
@@ -5584,6 +5736,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026102114400592
 	- Prereq IDs: 2026101911105600
 	- Target OS: Linux
+	- Target version: rc.1
 	- Requirements:
 		- It runs the clang analyzer over both compile lists, following calls into the other .c files of the same list.
 		- It's pinned, in both build images, and fails when it misses a planted leak or null dereference that needs the other file.
@@ -5615,6 +5768,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261108-145504
 	- Opened by: t00mietum
 	- Related IDs: 2026102114400586, 2026102114400591, 2026110520234226
+	- Target version: rc.1
 	- Requirements:
 		- `analyze-vendored.txt` matches the vendored findings of a full run again, each with why it's safe, and no entry is stale. The gate in `...591` fails on either.
 	- Notes:
@@ -5640,6 +5794,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Avg
 	- Opened: 20261014-173522
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Progress log:
@@ -5665,6 +5820,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261105-202342
 	- Opened by: t00mietum
 	- Related IDs: 2026101405542816
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Split the List columns tab into two sub-tabs:
@@ -5703,6 +5859,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual fix: the Windows recycle bin backend read a NULL path for an item whose URI has a bad escape, such as `trash:///%zz`. Its prefix check crashed in `strncmp`, and its parent came from a NULL folder name. Such an item is now below nothing, and its parent is the root.
 	- Swept: the other 3 callers of `uri_to_real_path`, which already check for NULL. Every `g_error` in our files and the tests was swept, and the 3 in tests that reach a finding were suppressed in `...589`. The other `g_strdup` of a string past a matched prefix that gcc reads past the literal, in `nemo-row-hover.c`, was swept too.
 	- Needs external testing: No
+	- Target version: rc.1
 	- Branch: round1108a
 	- Test case: da8rb (the bad escape case: both prefix checks, and the parent). The rest is the gate in 2026102114400591, once live.
 	- Verified: 20261108, the whole analyzer stage over both lists, then the files changed after it again in both lanes: our files have no findings in any lane, and neither do the GLib header lines they reached. The bad escape case fails on the old `nemo-trash-win32.c`, crashing in `strncmp`, and passes on the new, both in the cross build container. The native run is still to do. `cicd.bash --backlog-run-quick` passed, and the cross build compiles every changed file with no warnings.
@@ -5718,6 +5875,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Parent ID: 2026101619020505
 	- Prereq IDs: 2026102114400584
+	- Target version: rc.1
 	- Requirements:
 		- Each finding under `source/test/` and `source/fuzz/` is fixed, or suppressed at the line with a one-line reason, per the parent.
 	- Estimated effort: Avg
@@ -5748,6 +5906,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026102114400584, 2026102114400586, 2026102114400587, 2026102114400588, 2026102114400589, 2026102408163141, 2026110814550429
 		- `...0429` first too, since its stale `shcl.h` entries would fail the gate.
 		- `...163141` first, since until then the `shcl-old/2.0.0` suppressions read as stale and would fail the gate.
+	- Target version: rc.1
 	- Requirements:
 		- Any finding that isn't suppressed fails the stage, per the parent. No baseline file.
 		- A suppression that no longer matches a finding fails too, so the list can't go stale.
@@ -5777,6 +5936,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261108-151028
 	- Opened by: 2026102114400591
 	- Parent ID: 2026102114400591
+	- Target version: rc.1
 	- Requirements:
 		- The cross-build image (`NEMO_WIN_IMAGE`) gets clang 19, pinned, so the clang-win lane runs.
 		- Each finding it shows is fixed, or suppressed per the parent. Inherited lines inside `G_OS_WIN32` blocks get their first clang look here.
@@ -5808,6 +5968,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261108-151029
 	- Opened by: 2026102114400591
 	- Parent ID: 2026102114400591
+	- Target version: rc.1
 	- Requirements:
 		- gcc analyzes every file on both lists inside the cap, and then a file cut off fails the stage.
 		- At the plain run's 120 s cap, gcc-linux cuts off `nemo-config.c`, `fuzz-shcl.c`, and blake3's AVX2, SSE2, and SSE4.1 files, and gcc-win `nemo-config.c` and `fuzz-shcl.c`. The 2 that build SHCL took about 190 and 200 s on the Windows list on 20261108, since SHCL 3.0.0-beta1, and gcc never sees SHCL 3 in a plain run.
@@ -5838,6 +5999,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Parent ID: 2026101619020505
 	- Prereq IDs: 2026101911105600
+	- Target version: rc.1
 	- Requirements:
 		- The parent's heaptrack soak test, on a plain build, with its report kept with the run's artifacts.
 		- heaptrack goes in the image, pinned. It isn't in `nemo-build` since that container was remade.
@@ -5867,6 +6029,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261020-182349
 	- Opened by: t00mietum
 	- Related IDs: 2026102018234900
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- The horizontal scroll keeps the selected folder(s) and first-level children in view automatically, without being cut off.
@@ -5891,6 +6054,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261020-182349
 	- Opened by: t00mietum
 	- Related IDs: 2026102018234901, 2026102018234902, 2026102018234903
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Right and left arrow should work like they do in content view: expand and collapse the folder.
@@ -5913,6 +6077,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261020-182349
 	- Opened by: t00mietum
 	- Related IDs: 2026102018234900
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Changing to a different folder in tree view clears the selection in the content view.
@@ -5935,6 +6100,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Avg
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Decisions:
@@ -5970,6 +6136,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261021-135409
 	- Opened by: t00mietum
 	- Related IDs: 2026101816495200
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- What it does depends on the target model (2026101816495200). Nemo Anywhere: paste into the viewed folder, whatever is selected. macOS/Dolphin: what the right-click "Paste into folder" does, offered when exactly one folder is selected, and otherwise nothing. Nemo Classic: no key.
@@ -5992,6 +6159,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Avg
 	- Opened: 20261016-130536
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Progress log:
@@ -6009,6 +6177,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261022-183800
 	- Opened by: t00mietum
 	- Related IDs: 2026102218380002
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- For "Nemo Anywhere" only. "Nemo Anywhere v1" keeps the previous behavior, F2 renaming the whole name.
@@ -6030,6 +6199,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261022-183800
 	- Opened by: t00mietum
 	- Related IDs: 2026102218380001
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- For "Nemo Anywhere" only. "Nemo Anywhere v1" keeps the previous behavior.
@@ -6048,6 +6218,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Avg
 	- Opened: 20261016-130536
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Just show one.
@@ -6065,6 +6236,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Avg
 	- Opened: 20261016-130536
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Progress log:
@@ -6083,6 +6255,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Avg
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Design: [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs).
@@ -6101,6 +6274,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
 	- Related IDs: 2026100516274646
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Progress log:
@@ -6117,6 +6291,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Avg
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Progress log:
@@ -6136,6 +6311,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261024-163000
 	- Opened by: t00mietum
 	- Related IDs: 2026101910075400
+	- Target version: rc.1
 	- Requirements:
 		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
 		- Per the temp files and safe removal sections of the shared CICD rules. Not done yet:
@@ -6160,6 +6336,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102416300002
 	- Parent ID: 2026102416300002
 	- Prereq IDs: 2026102516403466
+	- Target version: rc.1
 	- Requirements:
 		- `cicd-win.ps1` gets the same run folder, `run.pid`, removal at the end, keep switch, and stale sweep as `cicd.bash`, on the Windows boxes.
 		- A PowerShell copy of the guard. The 29 `Remove-Item -Recurse` lines in 14 scripts go through it.
@@ -6180,6 +6357,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102516403476
 	- Parent ID: 2026102516403476
 	- Prereq IDs: 2026110315184948
+	- Target version: rc.1
 	- Requirements:
 		- Both run on their own, from a download or the launcher, so they need their own copy, as `install.bash` has. `install.ps1` removes the prefix with a bare `Remove-Item -Recurse` near line 619.
 		- Take each one off detts' list as it moves. One of `install.ps1`'s 7 removes the Settings, Apps registry key, not a folder, so it leaves the list some other way.
@@ -6206,6 +6384,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102416300002
 	- Parent ID: 2026102416300002
 	- Prereq IDs: 2026102516403466
+	- Target version: rc.1
 	- Requirements:
 		- The 93 `rm -r` lines in 47 scripts go through the repo copy of the guard, or a guard of the same kind that names the one parent it may remove under.
 	- Progress log:
@@ -6226,6 +6405,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026102416300002
 	- Prereq IDs: 2026102516403466
 	- Related IDs: 2026102416300001, 2026110410593292
+	- Target version: rc.1
 	- Requirements:
 		- The FreeBSD lane and the arm64 release work in a run folder under that box's temp root, write `run.pid` there, and remove it at the end through the guard, failure included.
 	- Progress log:
@@ -6257,6 +6437,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102516403476
 	- Parent ID: 2026102516403476
 	- Prereq IDs: 2026110315184948
+	- Target version: rc.1
 	- Requirements:
 		- Each `Remove-Item -Recurse` in the scripts under `cicd/` goes through the PowerShell guard.
 		- A test that fails on a new bare `Remove-Item -Recurse`, as defnq does for `rm -r`.
@@ -6284,6 +6465,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102516403476
 	- Parent ID: 2026102516403476
 	- Prereq IDs: 2026102516403466
+	- Target version: rc.1
 	- Requirements:
 		- `cicd-win.ps1` gets the same run folder, `run.pid`, removal at the end, keep switch, and stale sweep as `cicd.bash`.
 		- A PowerShell copy of the guard, in one include the other scripts can dot-source.
@@ -6311,6 +6493,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026103114202730
 	- Parent ID: 2026103114202730
 	- Related IDs: 2026110216492601
+	- Target version: rc.1
 	- Requirements:
 		- When vm925w is there, the tests the b29w gate skipped run as wintest in vm925w's desktop session, rather than on b29w, through the VM state helper. That needs a build on vm925w.
 		- vm925w has autologon off, so after a start from off wintest is logged on first.
@@ -6336,6 +6519,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102516403471
 	- Parent ID: 2026102516403471
 	- Prereq IDs: 2026102618083910
+	- Target version: rc.1
 	- Requirements:
 		- The build, artifact, dogfood, and prefix folders that `cicd.bash`, `bsd/`, `linux/release*.bash`, `stage-prefix.bash`, `jail.bash`, `fuzz.bash`, `profile-run.bash`, `lint-c.bash`, `vendor-themes.bash`, `win/stage-native.bash` and `utility/run-windows-build-via-wine.bash` remove, and test-deb-size's `/dev/shm` folder. The list is in defnq.
 		- A guard of the same kind as `fSafeRm`, which names the one parent it may remove under and refuses the rest.
@@ -6371,6 +6555,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102516403471
 	- Parent ID: 2026102516403471
 	- Prereq IDs: 2026102617555865
+	- Target version: rc.1
 	- Requirements:
 		- `install.bash` runs on its own, from a download, under Bash 3.2, and some of its removals are as root. It needs its own copy of the guard, built on the prefix check it already has.
 		- `docker exec ... rm -rf` in `build-cross.bash`, `pack-zip.bash`, and `pack-setup.bash`, and the `bash -c` strings in test-fuzz-exit and test-gui-smoke, run inside a container, where the repo's include isn't sourced.
@@ -6408,6 +6593,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026103114202730
 	- Target OS: Windows
 	- Test environment: vm925w-iommu, the native lane's desktop step, as wintest.
+	- Target version: rc.1
 	- Requirements:
 		- vm925w-iommu never locks wintest's session.
 		- debgn and dcd70 pass in the lane's desktop step there.
@@ -6428,6 +6614,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261019-111056
 	- Opened by: t00mietum
 	- Parent ID: 2026101619020505
+	- Target version: rc.1
 	- Requirements:
 		- `--leakcheck` turns the slow checks on. It's the way to add them back under `--quick`.
 		- `--no-leakcheck` turns them off. It's the way to leave them out of a default run, or one with `--quiet`.
@@ -6453,6 +6640,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261026-180839
 	- Opened by: 2026102516403471
 	- Parent ID: 2026102516403471
+	- Target version: rc.1
 	- Requirements:
 		- Every `rm -r` of a `mktemp` folder, or of a path in one, goes through `fSafeRm`.
 	- Progress log:
@@ -6481,6 +6669,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261024-163000
 	- Opened by: t00mietum
 	- Related IDs: 2026102618560000
+	- Target version: rc.1
 	- Requirements:
 		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
 		- What else in the shared CICD rules the pipeline doesn't do yet:
@@ -6513,6 +6702,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261025-164035
 	- Opened by: 2026102416300002
 	- Parent ID: 2026102416300002
+	- Target version: rc.1
 	- Requirements:
 		- Every run works in `${HOST_TEMP}/nemo-anywhere/<YYYYmmDD-HHMMSS>_<NNN>/`, points `TMPDIR`, `TEMP`, and `TMP` at it, and writes `run.pid` there.
 		- A trap removes it at the end, on failure and Ctrl+C too. `--keep-temp` keeps it and prints its path.
@@ -6538,6 +6728,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Parent ID: 2026101619020505
 	- Prereq IDs: 2026102114400584
+	- Target version: rc.1
 	- Requirements:
 		- Each finding in a file that came with the 6.6.4 baseline is fixed, or suppressed at the line with a one-line reason, per the parent.
 		- Many are expected to be GLib ref-count false positives. Split this item by folder if it runs long.
@@ -6562,6 +6753,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Parent ID: 2026102114400587
 	- Prereq IDs: 2026102412254358
+	- Target version: rc.1
 	- Requirements:
 		- The parent's requirements, for `source/src/`.
 	- Estimated effort: Avg
@@ -6588,6 +6780,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Parent ID: 2026102114400587
 	- Prereq IDs: 2026102412254358
+	- Target version: rc.1
 	- Requirements:
 		- The parent's requirements, for `source/libnemo-private/`.
 	- Estimated effort: Avg
@@ -6613,6 +6806,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261024-122543
 	- Opened by: t00mietum
 	- Parent ID: 2026102114400587
+	- Target version: rc.1
 	- Requirements:
 		- The parent's requirements, for `source/eel/`, plus gcc's infinite-loop finding in GLib's `g_return_*` macro reached from `eel-canvas.c`.
 		- It sets the in-line suppression form the other children and `...588` and `...589` use.
@@ -6640,6 +6834,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Parent ID: 2026101619020505
 	- Prereq IDs: 2026102114400584
+	- Target version: rc.1
 	- Requirements:
 		- Every finding in `vendor/` and `source/cut-n-paste-code/` gets a line in the list, with a one-line reason, per the parent. The files stay as they came.
 		- A real bug goes to its upstream, with the link beside its line.
@@ -6669,6 +6864,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261018-164952
 	- Opened by: t00mietum
 	- Related IDs: 2026101816495208, 2026102113540918
+	- Target version: rc.1
 	- Problem:
 		- The stock Nemo behavior is inconsistent, when a folder is selected in an expanded nest of folders in the content view.
 	- Requirements:
@@ -6699,6 +6895,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Prereq IDs: 2026102016594100, 2026102016594200, 2026102019174440, 2026102019174477
 	- Related IDs: 2026102019174514
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Progress log:
@@ -6732,6 +6929,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Needs external testing:
 		- Done 20261009 on vm925w, passed: the native suite, the install checks, and a stage and pack of the single exe.
 		- Done 20261010 on vm925w, passed. It was: each of the 3 forms in the desktop session on vm925w with MacType running, the zip, the copy `install.ps1` puts in place, and the single exe. A new window, a tab moved out, both About links and Help, Open With, an action, thumbnails of a picture and an office file, and an archive made and unpacked. No "Cannot load library" box, no `gspawn-` process, and a start made to fail on purpose shows its error.
+	- Target version: rc.1
 	- Estimated effort: Avg
 	- Progress log:
 		- 20261009: done, waiting on the MacType check. The 2 helpers are left out of the native stage, the zip, and the wine runner. A start the user asked for that fails shows the error in a dialog. A helper that won't start, such as a thumbnailer or a search converter, is reported once per program, since a box per file would be worse than none. A new window or a tab moved out that can't get its own process still opens in this one, after the error. Left at signoff after testing, for the new error dialogs.
@@ -6770,6 +6968,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Avg
 	- Opened: 20261010-091507
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Go back to the previous method of letting the tab be activated, but disable all the content.
@@ -6792,6 +6991,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261010-091507
 	- Opened by: t00mietum
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- A new folder name with path separators creates each folder in the path, nested.
@@ -6823,6 +7023,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261010-091507
 	- Opened by: t00mietum
 	- Related IDs: 2026101009150769
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Allow Behavior to overflow with a scrollbar, and size the dialog to the next-longest tab.
@@ -6844,6 +7045,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261010-091507
 	- Opened by: t00mietum
 	- Related IDs: 2026101009150767, 2026101009150770, 2026101009150771
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Sub-tabs, or nested tabs:
@@ -6873,6 +7075,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261014-055430
 	- Opened by: t00mietum
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Actual fix: the label and the entry both have the tip. The entry's old tip is gone: "Leave empty to use whatever the system offers. A program that needs arguments takes them here too; quote a path that contains spaces. The folder is passed as the working directory."
@@ -6893,6 +7096,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101405542928, 2026101405542965
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Current behavior: Sometimes clicking on a row that doesn't have focus, in an empty part of that row, engages "drag-to-select" mode.
@@ -6931,6 +7135,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261014-055430
 	- Opened by: t00mietum
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Use the first match from the "ideal" list below that is installed on the user's system. If none are installed, populate the first "ideal" match from below.
@@ -6977,6 +7182,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101405542891
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- But those views also allow the new methods added for list view.
@@ -7001,6 +7207,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101405542891
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- Left-click and hold for a while. (How long?)
@@ -7038,6 +7245,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026100909260472, 2026100909260511
 	- Related IDs: 2026100914514406
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- No libgsf in the build, the sysroot, the MSYS2 package lists, the deb's Depends, or any bundle.
 		- No `gsf-office-thumbnailer` and no `nemo-anywhere-*-to-txt` programs or their helper definitions in any bundle.
@@ -7071,6 +7279,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261014-055428
 	- Opened by: t00mietum
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Progress log:
@@ -7097,6 +7306,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Closed: 20261014-061714
 	- Opened by: t00mietum
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- With flyover text: "This enables an alternate code path that is hard to accidentally OK, on every such action even if the action isn't triggered by a user. Every pre-release has this enabled by default - by strict release rules, rather than actual need."
@@ -7117,6 +7327,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261010-091507
 	- Opened by: t00mietum
 	- Prereq IDs: 2026101009150769
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- These keys work as normal, except when the active tab has sub-tabs they work on the sub-tabs instead.
@@ -7139,6 +7350,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261010-091507
 	- Opened by: t00mietum
 	- Related IDs: 2026101009150769
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- A tab can be clicked with the mouse, but doesn't get input focus. Otherwise tabs are only indicators of which tab is active.
@@ -7164,6 +7376,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101009150771
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- No keyboard focus for tab buttons, in every window and dialog, the way 2026101009150771 did it for Settings.
 		- A click still switches tabs and never leaves the focus on the tab. Tab skips the tabs. Ctrl+Page Up and Ctrl+Page Down step the pages and wrap.
@@ -7193,6 +7406,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261010-095159
 	- Opened by: t00mietum
 	- Target OS: Linux
+	- Target version: rc.1
 	- Requirements:
 		- cppcheck, shellcheck, ruff, and PSScriptAnalyzer give the same findings on any Linux box with docker.
 		- A small image close to the host, Debian trixie slim.
@@ -7221,6 +7435,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026100617051745
 	- Related IDs: 2026100909260472, 2026100909260549
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- A small OLE2 container reader of our own, in place of libgsf. It finds a stream by name and reads it whole, with the sector chains walked under caps.
 		- The text of `.doc`, `.xls`, and `.ppt` for content search, with the record parsing of the 3 converters moved over as it is.
@@ -7259,6 +7474,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026100714014948, 2026100617051745, 2026100715211104, 2026100907390779
 	- Target OS: Windows
+	- Target version: rc.1
 	- Requirements:
 		- Nothing starts a session bus on Windows, so no `gdbus.exe` is in any Windows bundle.
 		- What the bus does there today still works: the list of other copies behind the tab menu and `--reset`, asking the other copies to quit, and moving a tab into a window of another copy.
@@ -7309,6 +7525,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026100617051745
 	- Related IDs: 2026100909260511, 2026100909260549
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- These are zip files, read through libarchive, which the app already links.
 		- The thumbnail stored in the file: `Thumbnails/thumbnail.png` in OpenDocument, the package's thumbnail part in OOXML, and the cover image in EPUB.
@@ -7343,6 +7560,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026100815215479
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- A change made in one copy applies to every other running copy right away, with no wait for the settings file to be saved and noticed.
 		- Exception, for a randomly picked wallpaper if that gets added. A change in another copy doesn't pick a new one, unless:
@@ -7378,6 +7596,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026100613285789
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before rc.1.
 		- Remember the columns picked, and the order they were dragged into.
@@ -7429,6 +7648,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026092813381402, 2026100408525989
 	- Target OS: all
+	- Target version: rc.1
 	- Requirements:
 		- Shift+F10 or the Menu key opens the menu beside the selected item, in the file list, icon view, tree and places sidebar.
 		- With nothing selected, the menu opens near the pane's top left, as today.
@@ -7459,6 +7679,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Avg
 	- Opened: 20261003-115122
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- When a shcl upgrade breaks compatibility with the application config file(s):
 			- Check if the new shcl version has breaking changes. If so:
@@ -7487,6 +7708,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261003-142908
 	- Opened by: t00mietum
 	- Related IDs: 2026100311512222, 2026100314515200
+	- Target version: rc.1
 	- Requirements:
 		- Before rc.1.
 		- Part of CI/CD. The test makes settings files in each older SHCL format, then checks the app's own conversion, not one done with SHCL's help.
@@ -7510,6 +7732,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026111012592994
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: icon or compact view, Nemo Anywhere. Click icon 2, Ctrl+click icon 4, Ctrl+click icon 2, then Shift+click icon 5.
 	- Incorrect behavior: likely selects icon 5 alone, rather than 2 to 5. The list view runs from row 2 there.
 	- Expected behavior: a Ctrl+click moves the anchor to the object clicked, also when it takes it out, per the design doc's "Mouse".
@@ -7538,6 +7761,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026111012592994
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: list view or an icon view, Nemo Anywhere. Click row 2, Ctrl+click row 6, Ctrl+click row 3, then Ctrl+Shift+click row 6.
 	- Incorrect behavior: likely, a Ctrl+Shift+click on a selected object takes that one out, as a Ctrl+click does.
 	- Expected behavior: it adds the run from the anchor to it, whether it overlaps or not, per the design doc's "Mouse". The focus moves, the anchor stays.
@@ -7568,6 +7792,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026111012335173, 2026111019540307, 2026111019540326
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: list view, Nemo Anywhere. Click row 2, Ctrl+Down twice, then Ctrl+Shift+click row 6.
 	- Incorrect behavior: likely adds rows 4 to 6 from the focus, rather than 2 to 6. The anchor then goes to row 4.
 	- Expected behavior: the run goes from the anchor, and the anchor stays, per the design doc's "Mouse".
@@ -7599,6 +7824,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102822580302
 	- Related IDs: 2026102822580302, 2026103114202730
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: ddqdq on native Windows from ssh, in session 0, with its no-monitor skip taken out.
 	- Incorrect behavior: it times out waiting for the alpha and beta window titles, with "gdk_monitor_get_geometry: assertion 'GDK_IS_MONITOR (monitor)' failed".
 	- Expected behavior: the copies list their windows with titles, as they did at 1694aeb with no monitor. A disconnected session doesn't have a monitor either.
@@ -7629,6 +7855,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101007562511
 	- Related IDs: 2026101007562511
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: extract the release zip and start the app, then start the single exe built from the same commit. Look at a bookmark's folder icon and a text file's icon.
 	- Incorrect behavior: the zip draws the bookmark's folder icon blue and the text file's icon plain.
 	- Expected behavior: the same icons as the single exe, tan and lined.
@@ -7657,6 +7884,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261109-211606
 	- Opened by: item 2026110911251998
 	- Related IDs: 2026110911251998, 2026110520234226
+	- Target version: rc.1
 	- Steps to reproduce [Bug]: with a dev or dogfood build from 20260925 to 20261105, set a value with a tab in it, such as `archive.create-with-rar` to `rar<tab>a`. Then start this build on the same settings.
 	- Incorrect behavior [Bug]: it reads as `rar\ta`, a backslash and a t. The same goes for a newline, and for `\\` and `\"` in a double-quoted value, which those builds wrote for text with a backslash and both kinds of quote.
 	- Expected behavior [Bug]: every value reads as that build read it.
@@ -7686,6 +7914,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026100516274646
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Steps to reproduce: Open Compress on any file and look at the row with Advanced and Reset.
 	- Incorrect behavior: Reset's text sits about 8 px lower than the Advanced label's, grayed and lit alike (Adwaita, at fdce4acd).
 	- Expected behavior: the 2 labels share a baseline, within a pixel or two.
@@ -7712,6 +7941,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026103116284963
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: run `test-nemo-owner-columns.exe` over ssh as collierjr on b29w, with any TEMP.
 	- Incorrect behavior: `check_windows_lookup` fails, "owner_name is '(null)', wanted 'Lumpy Prime'". A file an elevated login makes is owned by `BUILTIN\Administrators`, which has no full name.
 	- Expected behavior: the check makes a file the current user owns, or skips the full name part when the owner isn't the current user.
@@ -7736,6 +7966,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: round1025 test batch
 	- Related IDs: 2026100413510329
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: a full run's sanitizer stage at load 45 to 72.
 	- Incorrect behavior: "FAIL the window whose only tab was closed logged criticals", with `gtk_tree_view_get_visible_rect: assertion 'GTK_IS_TREE_VIEW (tree_view)' failed` and the same for `gtk_tree_view_convert_tree_to_bin_window_coords`, from the copy whose only tab was closed from the tab menu.
 	- Expected behavior: the copy ends cleanly.
@@ -7760,6 +7991,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102413432024
 	- Related IDs: 2026102413432024, 2026102507531487
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: each test below with the X server held up after each menu closes, as for de8ec in 2026102507531487.
 	- Incorrect behavior: not seen. The selection rules and drag select tests lost a click or key sent while GDK still had a closed menu's grab on record. The other tests that close a menu weren't checked: the menu key, tab move, Places focus, long press, find history, entry menu, and eel context menu tests.
 	- Expected behavior: a step after a closed menu waits until no pointer or keyboard grab is on record.
@@ -7782,6 +8014,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102820481713
 	- Related IDs: 2026102820481713
 	- Target OS: All
+	- Target version: rc.1
 	- Incorrect behavior: steps 37 to 43 of de8bd, de8dm, and dec8w open items 2 and 3 of the home folder and expect `data` and the test folder. What else is in that folder depends on the box: `Desktop` is made at start, and a stale system font cache makes `cache`, which moves both down one. The comment there lists cache, config, data, and selrules, where `:init` shows Desktop, config, data, and selrules.
 	- Expected behavior: the folders are found by name, or the harness makes every folder it points the XDG dirs at, so the listing is the same on every box.
 	- Test case: de8bd, de8dm, and dec8w themselves. de8bd also passes with an extra folder put first in the home folder.
@@ -7803,6 +8036,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261104-130330
 	- Opened by: 2026102516165479
 	- Related IDs: 2026102516165479, 2026110216492601
+	- Target version: rc.1
 	- Steps to reproduce: the full run's native gate, where vm925w runs the 22 windowed tests b29w left, 4 at a time, in wintest's session.
 	- Incorrect behavior: `FAIL ../../../source/test/test-nemo-entry-menu.c:179: gtk_widget_get_mapped (menu)`, exit 1 after 2.50s. The menu was there and was a `GtkMenu`, but not mapped when the check ran.
 	- Expected behavior: the test passes every time.
@@ -7830,6 +8064,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261104-125431
 	- Opened by: 2026110315185015
 	- Related IDs: 2026110315185015
+	- Target version: rc.1
 	- Steps to reproduce: run `cicd-win.ps1 -Gate -Yes` on b29w and read its Lints step.
 	- Incorrect behavior: it prints "install.ps1 PATH, n8runfm pool and shortcut, bundle exe and settings, evb project, cicd-win.ps1 and PowerShell guard tests skipped: no pwsh", so dd5fw, dd5fx, ddkd9, ddqv0, ddwhx, the evb project test, dejjt, and detts never run on Windows in a gate. Their Windows-only cases, such as detts' junctions and held files, go unchecked.
 	- Expected behavior: the gate runs them under the box's pwsh 7, or says plainly that it leaves them to another step that does.
@@ -7862,6 +8097,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026110410593292
 	- Related IDs: 2026110410593292
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce [Bug]:
 		- On Windows, set `HOST_TEMP` to the temp folder with a short name in it, such as `C:\Users\RUNNER~1\AppData\Local\Temp`, and call `Remove-SafeTree` on `<long form of it>\nemo-anywhere`.
 	- Incorrect behavior [Bug]: unverified, and from reading only. The temp root rule compares strings, and `Resolve-SafeRmPath` keeps short names as they are, so the 2 forms don't match and the folder goes.
@@ -7889,6 +8125,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261103-151530
 	- Opened by:
 	- Target OS: all
+	- Target version: rc.1
 	- Incorrect behavior: cicd/win/pack-zip.bash has the header line Copyright (c) 2026 Bubbles, which matches neither the project's copyright holder nor its form.
 	- Expected behavior: the project's usual copyright line. Grep the tree for other stray headers like it.
 	- Actual fix: the header of cicd/win/pack-zip.bash, cicd/win/build-cross.bash, cicd/win/stage-native.bash, and cicd/linux/stage-prefix.bash is now the t00mietum form. None of them has a copy in a sister project, and lxqtukz's stage-prefix.bash has the t00mietum form.
@@ -7910,6 +8147,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Low
 	- Opened: 20261102-204108
 	- Opened by:
+	- Target version: rc.1
 	- Steps to reproduce: `python3 cicd/utility/lint-report.py --check` after the 20261102 full run.
 	- Incorrect behavior: it lists depg0's lines `[ OK: with no wintest session, a warning and the gate's pass ]` and `[ OK: with wintest's session locked, a warning and the gate's pass ]` as new warnings.
 	- Expected behavior: an OK, PASS or SKIP line is never a warning line.
@@ -7929,6 +8167,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261031-134317
 	- Opened by: t00mietum
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Steps to reproduce: middle-click a bookmark in "Places", then click the new tab.
@@ -7953,6 +8192,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261028-225802
 	- Opened by: 2026102517333373
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: run `pwsh cicd/cicd-win.ps1 -Gate -Yes` from another pwsh with its output piped to a file.
 	- Incorrect behavior: each rule line is 79 bytes of 0x07 rather than 79 bullets, so a terminal showing the log rings the bell 79 times a step.
 	- Expected behavior: the same rule as `cicd.bash` draws, in any log.
@@ -7979,6 +8219,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Low
 	- Opened: 20261104-164542
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Closed: 20261104-170200
 	- Steps to reproduce: a full run on a busy box, load 73 on 32 CPUs.
 	- Incorrect behavior: the sanitizer suite passes, 221 OK and 15 skipped, then ddgt8 fails with "tests left these behind" for test-nemo-rename-photo-busy. Its temp dir has one `.nemo_desktop_thumbnail.XXXXXX` file.
@@ -7999,6 +8240,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101613310525, 2026101513290717
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: a full run's sanitizer stage while other builds load the cores. On 20261024 the load was 23 to 35 on 32 cores.
 	- Incorrect behavior: all 3 failed in one sanitizer stage, which stopped the full run there. Each passed 3 of 3 alone right after, at load 10.
 		- de025: the quickest varied folder took 327 ms to show all rows and the quickest plain one 490 ms, against a 180 ms bar.
@@ -8042,6 +8284,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261024-125905
 	- Opened by: t00mietum
 	- Related IDs: 2026102412254361
+	- Target version: rc.1
 	- Steps to reproduce [Bug]:
 		- With a screen reader or an accessibility inspector on, delete or move a file out of a folder shown in an icon view.
 	- Incorrect behavior [Bug]: no `children_changed::remove` is sent for the icon.
@@ -8069,6 +8312,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261025-182000
 	- Opened by: t00mietum
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: `cicd/cicd.bash --backlog-run-full --no-sanitize` at load about 30 on 32 cores.
 	- Incorrect behavior: "zip-cancel: the heap grew 1600 bytes over 64 rounds", then "FAIL ../src/source/test/test-nemo-leaks.c:1187: growth < (gint64) COUNTED_ROUNDS * limit". The log also said a thread started or ended, so the reading was taken again.
 	- Expected behavior: the test passes.
@@ -8103,6 +8347,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261025-160817
 	- Opened by: 2026102510323600
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: `cicd/cicd.bash --gate` at load about 10.
 	- Incorrect behavior: "FAIL ../src/source/test/test-nemo-cache-db.c:592: renders == 3", in `check_draws_written_off_window`.
 	- Expected behavior: the test passes.
@@ -8131,6 +8376,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100613231440
 	- Related IDs: 2026100613231440, 2026100512334934
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: turn on the Recycle Bin for removable drives, delete a file on a USB stick, so that its bin is the only one with anything in it.
 	- Incorrect behavior: the trash icon shows empty.
 	- Expected behavior: the trash icon shows full, with no prompt to insert a disk for an empty card reader.
@@ -8158,6 +8404,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102411433800
 	- Related IDs: 2026102411433800
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: the sanitizer suite at 16 jobs while other work loads the cores.
 	- Incorrect behavior:
 		- At load about 15, at c7194950: de8dm and dec8w each had "icon-view: FAIL timed out at step 38" and "icon-view: 67 results, expected 75". Step 38 waits for Enter to open the selected folder.
@@ -8190,6 +8437,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102413432024
 	- Related IDs: 2026102413432024, 2026102508301150
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: ddy5f, de8ec or dec8v on a busy box.
 	- Incorrect behavior: not seen. Its steps after a closed menu wait only on GTK's own grab, as the selection rules test's did, so a click sent before the X server responds to the ungrab can be lost.
 		- 20261025: seen once in ddy5f at load 32 to 60, "list-view: FAIL and bands (selected , want 1,2,3)", the right drag at step 10 just after the menu closed at step 9.
@@ -8224,6 +8472,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102507531487
 	- Related IDs: 2026102507531487, 2026102507531587
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: ddy5f in a sanitizer build, 12 at once, with the cores and the disk loaded.
 	- Incorrect behavior: the bands missed 3 times in 72 runs at load 33 to 100, all under Nemo Anywhere v1.
 		- "list-view: FAIL and bands (selected , want 1,2,3)", the right drag at step 10 just after a menu closed at step 9. That was before the fix in 2026102507531487.
@@ -8260,6 +8509,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026102219444662, 2026102219444332
 	- Target OS: Windows
 	- Test environment: vm925w, a fresh clone of round1023, as wintest in the desktop session.
+	- Target version: rc.1
 	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
 	- Incorrect behavior: Keyboard context menu test, `test-eel-context-menu.c` lines 243 and 246 in the first run, those and 251 and 254 in the second, and 251 and 254 in the third. `pop_up` gets no menu up, with "no trigger event for menu popup" from GTK.
 	- Expected behavior: it passes, as it did in the round1022 native suite.
@@ -8296,6 +8546,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026102322330406
 	- Target OS: Windows
 	- Test environment: vm925w, a bundle of round1024 `6e3974d0`, as wintest in the desktop session.
+	- Target version: rc.1
 	- Steps to reproduce: `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
 	- Incorrect behavior: dd5dc fails lines 243 and 246, the first pop-up, though the 4 tests that bring their window to the front now run alone. Only 6 eel tests that show a plain window ran beside it: dbwjv, ddgdf, dd5db, ddgf5, dd5dd, and ddwjs.
 	- Expected behavior: dd5dc passes in the native suite.
@@ -8326,6 +8577,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102219444442
 	- Related IDs: 2026102219444442, 2026102407113294
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: make a shortcut and give it a name ending in `.LNK`, upper case.
 	- Incorrect behavior: `create_lnk` in `nemo-file-operations.c` checks for `.lnk` case-sensitively, so another `.lnk` goes on the end.
 	- Expected behavior: a name already ending in `.lnk` in any case is kept.
@@ -8353,6 +8605,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026102220565281
 	- Target OS: Windows
 	- Test environment: cross-built, run under wine in `nemo-winbuild`.
+	- Target version: rc.1
 	- Steps to reproduce: run daqzg (Shortcut win32 test) and dd2ds (Make link shortcut) under wine, one at a time.
 	- Incorrect behavior: daqzg fails its by-shell, dead shortcut and relative path checks. dd2ds's shortcuts lead to the wrong target and have no relative path.
 	- Expected behavior: both pass, or skip with 77 where wine's shell can't do what they check. Both pass natively on vm925w.
@@ -8388,6 +8641,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101715030680
 	- Related IDs: 2026102322330406
 	- Target OS: Windows
+	- Target version: rc.1
 	- Incorrect behavior: Tab strip test, `test-nemo-notebook.c` lines 210, 213, and 227: "strip 1200 px: min 120, max 300; tabs asked 120 120(108) 300 340". The medium tab isn't between the limits, and the long front tab isn't 30 percent.
 	- Expected behavior: it passes in a desktop session as it does over ssh, where it passed the same day.
 	- Reproduced: 20261022 on vm925w, in the native suite run in wintest's desktop session.
@@ -8416,6 +8670,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101916300276, 2026101312094706
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: `cicd/cicd.bash -y --no-sync --no-dogfood --no-publish` on dev `4b5a9b75`, load about 8, 20 GB of swap in use.
 	- Incorrect behavior: the long, head and 7z archives couldn't be read, "Header CRC error", so `z.txt` wasn't extracted from any of them. The check added in 2026101916300276 for an archive written short didn't fire.
 	- Expected behavior: passes in the suite, as it does alone.
@@ -8446,6 +8701,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101715252260
 	- Target OS: Windows
+	- Target version: rc.1
 	- Incorrect behavior: while a bookmark loads, the process heap moves by a few 4 KB COM buffers either way. Over a reading, that's more than a leak of one block a round would add, so ddepv fails now and then without any leak. The buffers name an app package, so something asks Windows about apps or folders, but what makes the call wasn't found.
 	- Expected behavior: ddepv runs on Windows and passes every time.
 	- Actual cause: each bookmark's exists check calls `nemo_location_is_network_safe`, which lists the mounts to find the one the bookmark is on. The Windows drive list named every drive as it was made, and naming a local drive goes through the shell's namespace (`SHGetDesktopFolder`, `ParseDisplayName`). That consults the shell's namespace extensions, the WSL one among them, which is a packaged app. That's likely the COM traffic seen, but it wasn't confirmed natively.
@@ -8487,6 +8743,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101912561238
 	- Related IDs: 2026101912561238, 2026101913111713
 	- Target OS: All
+	- Target version: rc.1
 	- Incorrect behavior: `test-nemo-archive-combos.c:2074`, the return value of `g_file_get_contents` isn't used (`ignoredReturnValue`). The whole-tree C lint fails on it with cppcheck 2.21, which the Windows lint uses. The Linux lint is pinned at 2.17.1, and a feature branch lints only the files it changed, so nothing here saw it. It came in with 2026101913111713's change.
 	- Expected behavior: the whole-tree lint is clean on both.
 	- Reproduced: 20261022 on vm925w, `lint-c.bash` over all 800 files.
@@ -8506,6 +8763,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101916044103, 2026102112223038
 	- Target OS: Windows, Linux (Wayland)
+	- Target version: rc.1
 	- Incorrect behavior: not seen. GTK's icon window takes the same stray ref on the drag window whatever the backend, so Windows and Wayland probably keep one per drag as well. The app drops it only on X11, since the check that GDK's done with the window reads GDK's X11 table.
 	- Expected behavior: nothing kept after a drag on any backend.
 	- Reproduced: 20261021. Wayland (sway, GTK 3.24.49): a window GDK makes and then destroys keeps 1 ref and is never freed. The same window on X11 is freed. Windows under wine, GTK 3.24.52: with GTK's own drag protocol each drag's window is freed within 100 ms of its context going, with the hook or without it. With OLE drag on, as the app runs, see 2026102112223038.
@@ -8532,6 +8790,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102016594100
 	- Related IDs: 2026102016594100
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: in the folder tree, press Down, wait a second, then press Up.
 	- Incorrect behavior: `GLib-CRITICAL: Source ID <n> was not found when attempting to remove it`, once per keyboard move after the first.
 	- Expected behavior: no warning.
@@ -8556,6 +8815,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026101416533991
 	- Target OS: Windows
 	- Test environment: wine, in `nemo-winbuild`.
+	- Target version: rc.1
 	- Steps to reproduce: run dc3p6 under wine.
 	- Incorrect behavior: `test-nemo-link-copy.c:185` fails. `nemo_link_kinds_supported` leaves out file symlinks, since `nemo_win32_link_symlinks_allowed` couldn't make one in its own temp folder, but `nemo_link_create` then makes one in the test's folder. dd3y3 says symlinks aren't permitted on the same run. The code page bail-out in 2026101416533991 used to hide this.
 	- Expected behavior: the probe and a real create agree.
@@ -8585,6 +8845,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026102021081038
 	- Target OS: Windows
 	- Test environment: wine, in `nemo-winbuild`.
+	- Target version: rc.1
 	- Steps to reproduce: run dd3y3 under wine.
 	- Incorrect behavior: it reports 0 failures and exits 3, after a GLib warning about the console code page.
 	- Expected behavior: exit 0.
@@ -8607,6 +8868,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101419191454
 	- Related IDs: 2026101419191454
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: go into a folder whose first 150 entries have a sub-folder that's slow to count, then pictures.
 	- Incorrect behavior: a folder's thumbnail lookups queue behind its sub-folders' item counts, so the pictures' rows wait on the slow count.
 	- Expected behavior: the pictures' rows don't wait on a sub-folder count.
@@ -8629,6 +8891,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101715252258
 	- Target OS: All
+	- Target version: rc.1
 	- Incorrect behavior: `gtk_settings_reset_property` in GTK 3.24 never frees the value it reads back, when a settings.ini named that setting. `platform_theme_name` in `nemo-appearance.c` calls it when the theme setting goes back to following the platform. The Windows bundle's settings.ini names its theme, so it should leak a theme name there on each such change. It wasn't tried on Windows. The bug is still there on GTK's `gtk-3-24` branch.
 	- Expected behavior: no leak on a reset, or no reset. Upstream: GNOME's GTK issue tracker, `gtk-3-24` branch.
 	- Reproduced: 20261019, dbes6 in the sanitizer lane, 11 bytes from `_gtk_settings_parse_convert` under `gtk_settings_reset_property`.
@@ -8652,6 +8915,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101914184878
 	- Target OS: Linux, BSD
+	- Target version: rc.1
 	- Incorrect behavior: every drag out of a view keeps its GDK drag window, about 1.5 KB, for the life of the app. `gtk_drag_set_icon_widget_internal` hands GDK's drag window to the icon window with `gtk_window_set_hardcoded_window`, which takes a ref, and `gtk_window_unrealize` sets the pointer to NULL without dropping it. The bug is still there on GTK's `gtk-3-24` branch.
 	- Expected behavior: nothing kept after a drag. Upstream: GNOME's GTK issue tracker, `gtk-3-24` branch.
 	- Reproduced: 20261019, de5hg under heaptrack, 4 sites under `create_drag_window` at 128 calls each, 1 per counted round.
@@ -8674,6 +8938,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101419104655
 	- Related IDs: 2026101419104655
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: with the delete test guard on, move `a.txt` to a folder on another drive that has an `a.txt`, and pick Replace.
 	- Incorrect behavior: from reading the code, the guard is asked once before the rename is tried and again before the copy.
 	- Expected behavior: one question.
@@ -8694,6 +8959,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261014-165341
 	- Opened by: 2026101319265113
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: run dbj6x.
 	- Incorrect behavior: "'never-queue-file-ops' read before the config store was opened" in its log. The test passes.
 	- Expected behavior: no such line. Either the test opens the store first, or the code path reads the setting too early.
@@ -8715,6 +8981,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261014-165341
 	- Opened by: 2026101319265113
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: rename a template in Settings where the rename fails on disk, such as a read-only templates folder.
 	- Incorrect behavior: from reading the code, nothing is shown, since `nemo-template-config-widget.c` renames without a callback.
 	- Expected behavior: the usual rename error.
@@ -8737,6 +9004,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101417352261
 	- Related IDs: 2026101417352261
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: open a folder with a PNG whose modified date is next year.
 	- Incorrect behavior: its row changes every 2 seconds, without end, and no thumbnail is made.
 	- Expected behavior: it gets a thumbnail like any other picture.
@@ -8759,6 +9027,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101417352260
 	- Related IDs: 2026101419352490
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: run the full Linux suite while a Windows cross build loads the cores.
 	- Incorrect behavior: ddc84, file cache at quit, failed once waiting on the app to quit. It passed 3 of 3 alone.
 	- Expected behavior: it passes under load.
@@ -8781,6 +9050,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101417352260
 	- Related IDs: 2026100915055910
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: run the full Linux suite while other builds load the cores.
 	- Incorrect behavior: ddqa7, settings shared between copies, failed once at `test-nemo-config-share.c:623`. It passed 3 of 3 alone.
 	- Expected behavior: it passes under load.
@@ -8803,6 +9073,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101613053692
 	- Related IDs: 2026101613310524, 2026101419352490
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: run the sanitizer suite while a full build runs.
 	- Incorrect behavior: the quickest folder took 349 ms to show all its rows, against a 180 ms bar. Alone it's about 100 ms, 3 of 3.
 	- Expected behavior: it passes under load.
@@ -8825,6 +9096,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101913111713, 2026101715030680
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: run the sanitizer lane, jailed, at load 40 with the host short on memory.
 	- Incorrect behavior: on 20261019, `z.txt` wasn't extracted from the long, head, and 7z archives, and without any program to help, the long link came out without a message. It passed alone right after.
 	- Expected behavior: it passes under load.
@@ -8847,6 +9119,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101715252259
 	- Target OS: Linux
+	- Target version: rc.1
 	- Incorrect behavior: on 20261019, in a container made fresh from `nemo-build-deps:init`, the drag case failed 14 of 17 runs, on dev's tree and on a branch alike, with the heap growing 10 KB to 490 KB over its 64 rounds. The box was loaded.
 	- Actual cause: there were 2 things.
 		- GDK keeps a stopped drag's context, and its windows, until the icon's snap-back is over, some way past drag-end. Each reading caught however many were still going, from -560 KB to +870 KB.
@@ -8867,6 +9140,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: pipeline run 20261016-124714
 	- Related IDs: 2026101416533917, 2026101319265113
 	- Target OS: Linux
+	- Target version: rc.1
 	- Incorrect behavior: the test passes all its checks, then LeakSanitizer finds 314 bytes in 7 allocations and the test fails. The stacks stop at `g_malloc` and `g_malloc0`.
 	- Expected behavior: no leak.
 	- Reproduced: 20261016, once, in the full pipeline's sanitizer stage. It failed every time when run alone from the sanitizer build.
@@ -8887,6 +9161,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: pipeline run 20261016-124714
 	- Related IDs: 2026101419352490, 2026101613310525
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: run 16 copies of ddwk9 at once from the sanitizer build, with the cores loaded.
 	- Incorrect behavior: "a list row shows its tooltip with the window focused" fails. Every other check passes.
 	- Expected behavior: it passes under load.
@@ -8907,6 +9182,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Low
 	- Opened: 20261015-102334
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: set `window-state.start-with-location-bar: false` in `settings.shcl` and open a new window.
 	- Incorrect behavior: the location bar shows anyway. The key is in the schema and the starter list, described as "Show the location bar in new windows".
 	- Expected behavior: a key the user can set does something, or it isn't there.
@@ -8929,6 +9205,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: native gate on b29w at dev 5ca50b7
 	- Related IDs: 2026101009515961
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: run `pwsh cicd/cicd-win.ps1 -Gate -Yes` on b29w.
 	- Incorrect behavior: `test-lint-image.bash` fails 4 checks like "image there: got '', wanted 'nemo-lint:...'". Under MSYS2 `include/lint-image.bash` doesn't give an image, on purpose, so the host tools are used, but the test doesn't have a case for that.
 	- Expected behavior: the test skips or checks the MSYS2 path, and lint goes on.
@@ -8954,6 +9231,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: full pipeline at dev b01d499
 	- Related IDs: 2026101319204761
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: run the sanitizer suite, as the full pipeline does.
 	- Incorrect behavior: LeakSanitizer reports 24 bytes in 1 allocation. The test's own checks all pass.
 	- Expected behavior: no leak.
@@ -8976,6 +9254,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: full pipeline at dev 5ca50b7
 	- Related IDs: 2026100815215479
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: run the sanitizer suite, as the full pipeline does.
 	- Incorrect behavior: LeakSanitizer reports 331 bytes in 11 allocations, 192 bytes direct in 3 objects. The stack stops at `g_malloc`, so where it comes from isn't shown. The test's own checks all pass.
 	- Expected behavior: no leak.
@@ -8999,6 +9278,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100816170921
 	- Related IDs: 2026100816170921
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: run the full Linux suite on a busy box, or several copies of ddq85 at once on one display.
 	- Incorrect behavior: it fails in 2 full suite runs of 20261013, on "with animations off the window looks grayed and stays still while it waits". Another run that day failed on "the fade stops and the window looks as before once stopped". Run alone it passes, 3 of 3.
 	- Expected behavior: it passes however busy the box is.
@@ -9027,6 +9307,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100912374782
 	- Related IDs: 2026100912374782
 	- Target OS: Linux, FreeBSD
+	- Target version: rc.1
 	- Steps to reproduce: from a relocated install, such as the tarball or the user target, open a file with another GLib or GTK program, or run an action.
 	- Incorrect behavior: the app adds its own folders to `XDG_DATA_DIRS`, `PATH` and `GSETTINGS_SCHEMA_DIR` at startup, and every program it starts inherits them. That program can then pick up our schemas, icons or helpers in place of its own.
 	- Expected behavior: a user's program gets the environment it would have had without the app, the same as on Windows since 2026100912374782. The app's own copies and helpers may keep the added folders.
@@ -9062,6 +9343,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261013-105254
 	- Opened by: 2026100516274423
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce:
 		- On b29w, start dd42v's exe from a process started outside the ssh session, with MSYS2's bin first on PATH.
 	- Incorrect behavior: rar doesn't write any links in the archive, so the rows that store links fail their read-back and their delete.
@@ -9089,6 +9371,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100909260549
 	- Related IDs: 2026100907390779, 2026100911403858
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce: run the full Linux suite, 8 at once, with a Windows cross build running beside it.
 	- Incorrect behavior: ddqa7 failed once at 35.6 s, at `test-nemo-config-share.c:557` and `:573`: the second copy didn't have the value the first one set.
 	- Expected behavior: it passes.
@@ -9114,6 +9397,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100907390779
 	- Related IDs: 2026100907390779, 2026100915055910
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: 2 copies set the same key at nearly the same moment, and the message from one gets to the other only after that copy has saved and its file event has come back.
 	- Incorrect behavior: the repair that makes the later change win in both copies is missed, so the 2 copies keep different values until the next change or restart.
 	- Expected behavior: both copies end with the later change.
@@ -9141,6 +9425,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100815215479
 	- Related IDs: 2026100815215479
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: start another GLib program from the app on Windows, as a helper, an Open With, or an action.
 	- Incorrect behavior: it inherits the `DBUS_SESSION_BUS_ADDRESS=disabled:` the app sets for itself at startup, so it can't find or start a session bus. A value the user had set before is lost too.
 	- Expected behavior: a user's program gets the environment it would have had without the app. The app's own copies and helpers may keep the setting.
@@ -9181,6 +9466,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261009-143501
 	- Opened by: 2026100815215479
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: a whole-tree `lint-c.bash` on vm925w, whose MSYS2 has cppcheck 2.21.
 	- Incorrect behavior: `test-nemo-config-share.c:174` and `:176` report leakNoVarFunctionCall for a `g_strdup` handed to `g_idle_add`. `test-nemo-office.c:495` reports ignoredReturnValue for `g_file_set_contents`. Linux has cppcheck 2.17, which doesn't find any of them. Only a push on dev or main lints the whole tree there, so a Windows push of either would stop on these.
 	- Expected behavior: both lints pass the same tree.
@@ -9207,6 +9493,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261007-204818
 	- Opened by: 2026100516274163
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Steps to reproduce: in dcwjb, `test_survives_a_restart` calls `nemo_config_shutdown` then `nemo_config_init`.
 	- Incorrect behavior: init returns at once, since the store is still marked ready, so nothing is read back from the file. Shutdown also drops the file watch, and init doesn't make a new one, so a later hand edit is never seen in that run.
 	- Expected behavior: the values are read back from the file, as the test says.
@@ -9233,6 +9520,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261007-202249
 	- Opened by: native gate run on vm925w
 	- Target OS: Windows
+	- Target version: rc.1
 	- Incorrect behavior: ddmmv looks for 2 spaces before the file name in a checksum line. MSYS2's `sha256sum` writes ` *name`, so the test fails there.
 	- Expected behavior: the arm64 lane only runs from the Linux pipeline, so its test skips on Windows the way its 2 sibling lane tests already do.
 	- Actual fix: ddmmv exits 77 under MSYS2, as "Linux only".
@@ -9253,6 +9541,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100517134118
 	- Related IDs: 2026100517134118
 	- Target OS: FreeBSD, and any box whose system font cache is older than its fonts.
+	- Target version: rc.1
 	- Steps to reproduce: run the suite through `cicd/linux/run-tests.bash` on such a box.
 	- Incorrect behavior: `nemo-emblems-test-*` and `nemo-link-job-home-*` were left in the run's temp dir, each holding only a `fontconfig` folder, so the run failed on its leftover check. Every test passed.
 	- Expected behavior: nothing is left behind.
@@ -9283,6 +9572,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026100617051745
 	- Related IDs: 2026100612483725
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: open a folder with an OpenDocument file that has a thumbnail inside it, in the icon view.
 	- Incorrect behavior: this is from reading the code. The file gets its plain icon, though the gsf-office thumbnailer is in the exe.
 	- Expected behavior: the thumbnail from inside the file, as on Linux.
@@ -9316,6 +9606,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100615255268
 	- Related IDs: 2026100615255268
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: stage a native build with `stage-native.bash`, as the release build does, and read `share/thumbnailers/gdk-pixbuf-thumbnailer.thumbnailer`.
 	- Incorrect behavior: `TryExec` and `Exec` are `/mingw64/bin/gdk-pixbuf-thumbnailer`, so the app skips them with "Ignoring thumbnailer with missing binary". The cross build's sysroot gets them rewritten to a bare name by `fetch-sysroot.bash`. The staging step copies them as MSYS2 has them.
 	- Expected behavior: a bare name, as in the cross build.
@@ -9348,6 +9639,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261005-200714
 	- Opened by: arm64 release build
 	- Target OS: Linux arm64
+	- Target version: rc.1
 	- Incorrect behavior: dcd27 fails, with fewer than 4 frames in the report.
 	- Reproduced: 20261006, arm64 debug build in the jammy image. dcd27 fails alone too.
 	- Possible cause: the stack after a bad jump is only recovered on x86_64, and FreeBSD amd64 since 20261005. On arm64 the return address is in the link register, and nothing reads it.
@@ -9373,6 +9665,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: arm64 release build
 	- Related IDs: 2026100611482306, 2026100611482436
 	- Target OS: Linux arm64
+	- Target version: rc.1
 	- Incorrect behavior: on the emulated arm64 box, dczqq and dddq7 take 0.30 to 0.39 s against a 0.25 s limit, and dd42v gives up on a compress after 60 s. ddg88 fails even run alone. ddg79, dd26k and ddeqt fail only in the parallel run.
 	- Reproduced: 20261006, arm64 debug build in the jammy image, 4 tests at once and alone. dd8dp failed there too.
 	- Possible cause: the box is about 20 times slower than x86_64. That wasn't shown for ddg88.
@@ -9412,6 +9705,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100615255305
 	- Related IDs: 2026100615255305, 2026100612483725
 	- Target OS: Windows
+	- Target version: rc.1
 	- Note: the bulk rename half is done under 2026100702343600, on branch winpaths. Scripts are left.
 	- Steps to reproduce: put a console program or a batch file in the scripts folder and run it from the Scripts menu. Separately, set a bulk rename tool and rename more than one file.
 	- Incorrect behavior: from reading the code, both go through `nemo_launch_application_from_command`, then GLib's app launch, which starts the program through GLib's helper. So a console program should get a console window, and in the single exe it may never start.
@@ -9450,6 +9744,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100616310432
 	- Related IDs: 2026100616310432
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: put `tidy.cmd`, `tidy.ps1` and `TIDY.BAT` in the scripts folder and open the Scripts menu.
 	- Incorrect behavior: from reading the code, none of the 3 is listed.
 	- Expected behavior: anything Windows runs as a program is listed, whatever the case of its extension.
@@ -9482,6 +9777,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100611482306
 	- Related IDs: 2026100702343600
 	- Target OS: Linux arm64, maybe any jammy build
+	- Target version: rc.1
 	- Steps to reproduce: run ddkn3 on the arm64 debug build in the jammy image.
 	- Incorrect behavior: `test-nemo-user-text.c:217`, where a value with a single backslash comes back without an error, and `:222`, the translated name, fail. It wasn't tried on an x86_64 jammy build.
 	- Expected behavior: it passes, as on trixie.
@@ -9514,6 +9810,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100520071435
 	- Related IDs: 2026100520071435, 2026100708355447, 2026100708355547
 	- Target OS: Linux arm64
+	- Target version: rc.1
 	- Incorrect behavior: ddg79 times out at different steps, alone or beside other tests. There were 2 ways seen. A click on the Second place selects its row, but the window stays on First for a minute. Or Rename from the place's menu opens the edit field, and it closes again within 100 ms, with the focus back in the folder.
 	- Reproduced: 20261006, arm64 debug build in the jammy image, 4 runs of 6. Once the window sat on the same step for over 3 minutes with the box idle, so it isn't speed.
 		- 20261007, on the same build, 6 runs of 6 failed alone, all at the click.
@@ -9543,6 +9840,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: old-format item "Target: BSD"
 	- Related IDs: old-format item "Target: BSD", 2026100517134081
 	- Target OS: FreeBSD
+	- Target version: rc.1
 	- Steps to reproduce: open a folder with a BMP in it on FreeBSD 15.1.
 	- Incorrect behavior: from reading the code, the picture keeps its plain icon.
 	- Expected behavior: a thumbnail, as on Linux and Windows.
@@ -9571,6 +9869,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100702343600
 	- Related IDs: 2026100702343600
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: on vm925w, in the MSYS2 shell, run `cicd/utility/lint-c.bash` with a base old enough to take in the files below, such as the box's `dogfood` branch.
 	- Incorrect behavior: cppcheck 2.21 there reports `leakNoVarFunctionCall` at `nemo-archive.c:2657`, `invalidPrintfArgType_sint` at `test-heap.c:253`, and `ignoredReturnValue` twice in `test-nemo-tab-move-probe.c`. cppcheck on Linux doesn't report any of them. The lint on `dev`, which covers the whole tree, should fail there the same way. It wasn't tried.
 	- Expected behavior: a clean lint on both.
@@ -9606,6 +9905,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100613285826
 	- Related IDs: 2026100613285826
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: with "Remember per-folder settings" off, in list view, sort a folder by Size, then View, Reset view to defaults.
 	- Incorrect behavior: the folder stays sorted by Size. Only the direction goes back to the default.
 	- Expected behavior: the folder goes back to the default sort order, Name.
@@ -9632,6 +9932,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: Windows pass for 2026093010493450
 	- Related IDs: 2026093010493450
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: with a fresh settings folder, start the app on a mapped drive such as `Y:\`, or on a UNC path. Look at the first entry under Bookmarks.
 	- Incorrect behavior: the drive root bookmark reads `\` and has the plain outline folder icon. The bookmarks file is written without any labels.
 	- Expected behavior: `C:\` with the blue folder icon, as when the first folder is on local disk. Then the file has `file:///C:/ C:\` and the other labels.
@@ -9657,6 +9958,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100612483725
 	- Related IDs: 2026100612483725, 2026100610503901
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: add a custom action whose command, or whose condition, is a console program, then open the menu it is in. Separately, use the toolbar's terminal button.
 	- Incorrect behavior: from reading the code, an action's console program should open a console window each run, and a condition runs each time the menu is built. In the packed exe the program is started with the packer's hooks. The toolbar's terminal button looks only for Linux terminals, so it does nothing unless one of those, such as alacritty or wezterm, is on the PATH, and then starts it through GLib.
 	- Expected behavior: actions start the way the rest of the app starts programs on Windows, and the toolbar's terminal button opens the same terminal as the view's menu.
@@ -9687,6 +9989,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100612483725
 	- Related IDs: 2026100612483725, 2026100702343600
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: run ddkaz natively on vm925w with the box's full PATH.
 	- Incorrect behavior: the test passes, but its log has `g_strv_length: assertion 'str_array != NULL' failed` once, after the extract step.
 	- Expected behavior: no critical.
@@ -9716,6 +10019,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261006-114824
 	- Opened by: 2026100520071435
 	- Target OS: Linux
+	- Target version: rc.1
 	- Incorrect behavior: in dcb52 the copied program can't load `libnemo-anywhere-extension.so.1`, and every check after that fails. It was seen on the arm64 box in the jammy image with default build options. The release build links the library in, and the trixie build passes.
 	- Possible cause: not looked at. meson 0.61 in the jammy image may set the build's library path differently. It wasn't tried on x86_64 jammy.
 	- Reproduced: 20261006, x86_64 jammy image, default options. It also failed on trixie, when the test is run outside `meson test`.
@@ -9740,6 +10044,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: real-Windows validation, old-format item
 	- Related IDs: old-format item "Real-Windows validation"
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: run `n8runfm.ps1 --no-admin --install-only` with a profile that has no Start Menu folder, where a deployed `runfm` is found and a shortcut to the app doesn't exist yet.
 	- Incorrect behavior: the Desktop step stops on "Cannot index into a null array" at the line that names the new shortcut. The run goes on, but nothing is written.
 	- Expected behavior: it says there is nowhere to put a shortcut, or makes the Start Menu folder, and goes on.
@@ -9769,6 +10074,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: share audit 2026093010493450
 	- Related IDs: 2026093010493450
 	- Target OS: Windows
+	- Target version: rc.1
 	- Incorrect behavior: from reading the code, GLib builds its drive list through the shell, asking for each drive's display name when the list is made and for its icon when the side pane draws it. The trash state asks the recycle bin of every drive. Either may go to a mapped drive's share, on the window's thread.
 	- Expected behavior: a mapped drive is named and drawn from its letter and what Windows keeps locally, and the trash state never asks a share.
 	- Reproduced: no. It's from reading GLib's source and the Windows docs, and wasn't timed. A share that doesn't respond can't be made here, since a UNC path fails at once without a network client.
@@ -9800,6 +10106,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: real-Windows validation, old-format item
 	- Related IDs: 2026100610503901
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: install ImageMagick, so `magick` is on the Windows PATH, then run `pwsh cicd/cicd-win.ps1 -Gate -Yes`.
 	- Incorrect behavior: dczra skips with "no ImageMagick that writes JPEG 2000". The MSYS2 login shell the tests run under drops the Windows PATH.
 	- Expected behavior: the test finds ImageMagick when the box has it. It passes when run with the Windows PATH kept.
@@ -9824,6 +10131,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: backlog work 20261005
 	- Related IDs: 2026092813381434, 2026100316321188
 	- Target OS: Linux.
+	- Target version: rc.1
 	- Incorrect behavior: each release build prints "lto-wrapper: warning: using serial compilation of 9 LTRANS jobs".
 	- Expected behavior: no warning, and the link uses the cores it was given.
 	- Reproduced: yes, 20261005, on every release build.
@@ -9845,6 +10153,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: backlog work 20261005
 	- Related IDs: 2026100219523841
 	- Target OS: Linux
+	- Target version: rc.1
 	- Steps to reproduce [Bug]:
 		- Start without any bookmarks, then change any setting, such as striped rows, by editing settings.shcl while the window is open.
 	- Incorrect behavior [Bug]: a Bookmarks heading with nothing under it appears in Places.
@@ -9874,6 +10183,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026100113372592
 	- Target OS: Windows
 	- Test environment: vm925w, session 0, native suite at 8 jobs.
+	- Target version: rc.1
 	- Incorrect behavior: in ddf62, one of 20 rounds had a copy without a store, after "could not set up the file cache: disk I/O error" at 302 ms.
 	- Expected behavior: every copy gets its store, even with the rest of the suite running beside it.
 	- Reproduced: once, 20261004, vm925w at 0ad01d1, in the full native suite. It passed 5 of 5 run alone right after, and passed in the full suite at bab9a49 earlier the same day.
@@ -9903,6 +10213,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: native test run, 20261004
 	- Target OS: Windows
 	- Test environment: vm925w, console session, 2512 px work area.
+	- Target version: rc.1
 	- Incorrect behavior: dd5dm fails at `test-nemo-archive-dialog.c` line 164. With Options opened, the scroll's max height is 2241, which isn't what `nemo_archive_options_room` gives for that screen. The 3 made-up screen heights pass.
 	- Expected behavior: the test passes, or the test is shown to be wrong and fixed.
 	- Reproduced: yes, twice, 20261004, vm925w console session at bab9a49. Session 0 runs skip it for not having a monitor, so it may never have run on a real Windows screen before.
@@ -9930,6 +10241,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: work on 2026100413510329
 	- Related IDs: 2026100413510329
 	- Target OS: all
+	- Target version: rc.1
 	- Incorrect behavior: each right-click on a tab, or the Menu key on the tab bar, builds a new menu and attaches it to the tab bar. Nothing frees it when it closes, so menus pile up for the life of the window, and each one keeps a ref on its tab.
 	- Expected behavior: a tab menu is freed once it closes.
 	- Reproduced: yes, 20261004, Linux, by ddgh6. Opening the tab menu 5 times left 10 menu windows behind, since its Move tab to submenu is one too.
@@ -9954,6 +10266,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261001-133725
 	- Opened by: code review 20260928 item 20
 	- Related IDs: 2026092813381420, 2026100316054301
+	- Target version: rc.1
 	- Incorrect behavior: while one connection sets up a cache file that didn't exist, another opening it fails at once with "could not set up the file cache: database is locked" and that copy doesn't have a cache until it is started again. The store's own comment says a busy one waits up to 3 s.
 	- Expected behavior: the second one waits its turn and uses the cache.
 	- Reproduced: once, 20261001, Linux, with a second connection opening a new file as a window did, though not on demand. Again 20261003, Linux, in 2 of 200 rounds of 4 processes setting up one new file at once, and every time while another connection held the write lock on a new file.
@@ -9987,6 +10300,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261003-191918
 	- Opened by: work on 2026093010493420
 	- Related IDs: 2026093010493420, 2026092813381436
+	- Target version: rc.1
 	- Incorrect behavior: while the prune hands space back, each step keeps the write lock for only about 40 ms, but the steps follow one another without any gap. A store from another window sleeps up to 100 ms between tries, so it can keep waking while the next step has the lock. It waited 1 to 1.4 s, against the 3 s timeout.
 	- Expected behavior: a waiting store gets its turn within about one step of the prune.
 	- Reproduced: yes, 20261003, Linux, with 40,000 thumbnails of 16 KB and with 5,000 of 128 KB, and a second connection writing every 20 ms during the pass.
@@ -10016,6 +10330,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: work on 2026100412230310
 	- Related IDs: 2026100412230310
 	- Target OS: all
+	- Target version: rc.1
 	- Incorrect behavior: an EelEditableLabel given its size before it is realized logs a critical, since its size code moves its text window, which is only made on realize.
 	- Expected behavior: no critical. The text window takes its size when it is made.
 	- Reproduced: yes, 20261004, Linux, with the field put in a window before the window is shown. A rename in the program puts it in a view already on screen, and wasn't seen logging it.
@@ -10040,6 +10355,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: work on 2026100409554600
 	- Related IDs: 2026100409554600, 2026100412363910
 	- Target OS: all
+	- Target version: rc.1
 	- Incorrect behavior: the rename field's accessible object is built on the do-nothing object, so its text calls fail a type check and don't give any text or position.
 	- Expected behavior: a screen reader can read the rename field and find it on screen.
 	- Reproduced: yes, 20261004, Linux. During a rename in the icon view, the field's accessible object didn't give a name, text, or extents, and logged 4 criticals.
@@ -10065,6 +10381,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: work on 2026100408414402
 	- Related IDs: 2026100412230310
 	- Target OS: all
+	- Target version: rc.1
 	- Incorrect behavior: an icon's accessible object doesn't have a position or size, and asking where its picture is logs a critical warning.
 	- Expected behavior: a screen reader can find each icon on screen.
 	- Reproduced: yes, 20261004, Linux. Asking an icon's accessible object for its extents fails a type check.
@@ -10089,6 +10406,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: review of code review 20260928 item 13
 	- Related IDs: 2026092813381413
 	- Target OS: Windows.
+	- Target version: rc.1
 	- Incorrect behavior: when the copy into the staging folder fails partway, such as on a full disk, the partial `<install folder>.new.<number>` folder stays next to the install. A later install doesn't remove it. The old install is still there and still runs.
 	- Expected behavior: a failed install leaves nothing behind, as install.bash does.
 	- Reproduced: yes, 20261004, b29w, by the new test. All 3 ways out left the staging folder. Worse, when the old folder couldn't be moved aside because a file in it was open, its other files were moved one at a time into `<install folder>.old.<number>`, so the old install no longer ran.
@@ -10113,6 +10431,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: item 2026092813381404
 	- Related IDs: 2026092813381404
 	- Target OS: Windows
+	- Target version: rc.1
 	- Incorrect behavior: the app tells a broken link by GIO returning the link type after following it. On Windows GIO returns the link's own type instead, a file or a folder, whether the link leads anywhere or not. So the broken link checks in `nemo-file.c`, used for emblems, favorites and opening, never fire there.
 	- Expected behavior: a link that leads nowhere is treated as broken on Windows too.
 	- Reproduced: GIO's result yes, 20261003, b29w. The app's side is only from reading the code, so it's plausible.
@@ -10141,6 +10460,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: item 2026092813381404
 	- Related IDs: 2026092813381404
 	- Target OS: Windows
+	- Target version: rc.1
 	- Incorrect behavior: a symlink keeps its target as it was typed. Windows doesn't follow a relative target spelled with /, so the new link opens nothing, though / works almost everywhere else on Windows.
 	- Expected behavior: a symlink made by the app leads where it was pointed.
 	- Reproduced: Windows' side yes, 20261003, b29w, where such a link can't be opened. That the app writes one is only from reading the code, so it's plausible.
@@ -10168,6 +10488,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261003-124949
 	- Opened by: item 2026092813381404
 	- Related IDs: 2026092813381404
+	- Target version: rc.1
 	- Incorrect behavior: a linked folder that isn't followed is left out of a rar with `-x` and its name. For a selected folder named `@x` that is `-x@x`, which rar reads as a list file called `x`, so the folder isn't left out and the run may fail.
 	- Expected behavior: the linked folder is left out, whatever its name.
 	- Reproduced: rar's side yes, 20261003, Linux, where `-x@b` makes rar look for a list file `b`. The job's side is only from reading the code, so it's plausible.
@@ -10192,6 +10513,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: the plan says "UNVERIFIED", and with the yes flag the install goes on.
 	- Expected behavior: per design.md and README, downloads are checked before anything is extracted.
 	- Decisions:
@@ -10218,6 +10540,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260930-104934
 	- Opened by: code review 20260928 follow-up
 	- Related IDs: 2026092813381411, 2026092813381436
+	- Target version: rc.1
 	- Incorrect behavior: a batch is 256 thumbnails whatever their size. With 40,000 of 16 KB, another window's store waited up to about 1.4 s. Bigger thumbnails make each batch longer, toward the 3 s timeout, past which the store is dropped.
 	- Expected behavior: a batch also ends after about 1 MB of thumbnails, so the lock is kept only briefly at any size.
 	- Reproduced: yes for the 1.4 s, 20260930, Linux, under item 11.
@@ -10241,6 +10564,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261003-160543
 	- Opened by: work on 2026100113372592
 	- Related IDs: 2026100113372592
+	- Target version: rc.1
 	- Incorrect behavior: when the version can't be read at open, as when the file stays busy past the wait, the result is taken as a file from another version. The cache files are removed and started over, while other copies may still have them open.
 	- Expected behavior: a failed read leaves the file alone, and that copy runs with the cache off, as for other open errors.
 	- Reproduced: yes, 20261003, Linux, with the version read returning busy on cue. The file was started over and its rows were gone.
@@ -10265,6 +10589,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261003-085632
 	- Opened by: review of item 2026092813381423
 	- Related IDs: 2026092813381423
+	- Target version: rc.1
 	- Incorrect behavior: where a worker thread starts during the counted rounds, the reading is taken again. Memory in use at that time can be given back during the new reading and cancel out a leak of one small block a round, so the test passes. A reading that comes out below zero is reported as a heap that can't be read, and the test skips.
 	- Expected behavior: a leak of one block a round fails every time, and a leak test skips only where the heap can't be read.
 	- Reproduced: yes, 20261003, Linux, under load. With 24 bytes leaked a round, 2 of 48 runs passed. With nothing leaked, the stopped zip and tar.gz tests skipped in about 3 runs of 4 of a suite run repeated in parallel.
@@ -10289,6 +10614,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261003-154702
 	- Opened by: work on 2026100113372562
 	- Related IDs: 2026100113372562
+	- Target version: rc.1
 	- Incorrect behavior: shortcut changes are saved to `~/.gnome2/accels/nemo`, and that folder is never made. Without `~/.gnome2/accels`, nothing is saved, and on Windows it is never there. Where it is there, the file is the one upstream Nemo uses, so the 2 programs read and overwrite each other's shortcuts.
 	- Expected behavior: shortcuts are saved, in a file of the app's own.
 	- Reproduced: yes, 20261003, Linux, with an empty home. There was no file after quit.
@@ -10316,6 +10642,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261002-210727
 	- Opened by: item 2026092813381422
 	- Related IDs: 2026092813381422
+	- Target version: rc.1
 	- Incorrect behavior: the window listens for `path-separator` on the main settings group, but the key is in the windows group, so the handler never runs. A title that shows a path keeps the old separator until something else sets it.
 	- Expected behavior: the title follows the separator at once, as the places pane does.
 	- Reproduced: yes, 20261003, Linux. With a tab open, a change to `windows.path-separator` in the settings file never got to the window.
@@ -10342,6 +10669,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261002-210727
 	- Opened by: item 2026092813381422
 	- Related IDs: 2026092813381422
+	- Target version: rc.1
 	- Incorrect behavior: the icon view container connects 3 settings handlers once per process, without any data, and the first container to be freed removes them. After that, the captions and the label length limits for icon view and desktop no longer follow their settings.
 	- Expected behavior: those settings keep working for every icon view until the program quits.
 	- Reproduced: yes, 20261003, Linux. Closing an icon view tab removed all 3 handlers.
@@ -10369,6 +10697,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261002-212730
 	- Opened by: item 2026092813381422
 	- Related IDs: 2026092813381422
+	- Target version: rc.1
 	- Incorrect behavior: a change made in the program is saved a couple of seconds later, and the save writes the whole file without checking whether it changed on disk since it was read. A hand edit saved right before that, and not yet picked up, is overwritten. The program then takes the event for it as its own write, so the edit is gone without any message.
 	- Expected behavior: a hand edit is never lost to the program's own save.
 	- Reproduced: yes, 20261003, Linux. A hand edit written while a change made in the program waited to be saved was gone after the save, and stayed gone once the monitor caught up. A file removed by hand was put back, and a file in a newer format was saved over, the same way.
@@ -10396,6 +10725,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: a relative symlink hardlinked into another folder ends up dangling.
 	- Expected behavior: the hardlink warning, the same file under a second name.
 	- Reproduced: yes, 20260928, Linux.
@@ -10421,6 +10751,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: a line of the user's own that starts like the info block's lines is taken as part of it and dropped, and so is a bare `##` next to one.
 	- Expected behavior: a comment of the user's own is kept.
 	- Reproduced: yes, 20261003, Linux. A note written as `##    Aligned   like the info block` between 2 `##` lines, at the top of the file, was gone after the next save, `##` lines and all.
@@ -10445,6 +10776,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261001-133725
 	- Opened by: code review 20260928 item 20
 	- Related IDs: 2026092813381420, 2026100315470225
+	- Target version: rc.1
 	- Incorrect behavior: both application classes put their quit work in `quit_mainloop`, which GLib hasn't called since 2.32. So a shortcut map change still waiting out its 30 s is never saved, and the "still unmounting" notice is never taken down. The rest of it frees memory the exit frees anyway.
 	- Expected behavior: a shortcut changed just before quit is there on the next start.
 	- Reproduced: yes for the hook, 20261001, Linux. The lost shortcut and the notice left up were reproduced 20261003, Linux.
@@ -10473,6 +10805,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
 	- Target OS: Linux.
+	- Target version: rc.1
 	- Incorrect behavior: Installed-Size comes from disk blocks, so one tree read 3106 KB on one filesystem and 5176 KB on another.
 	- Expected behavior: per README and design.md, Linux builds can be rebuilt from their commit to the same bytes.
 	- Reproduced: yes, 20260928, Linux. Again 20261003: one tarball packed on ext4, btrfs and tmpfs gave Installed-Size 5520, 5320, and 5316, and 3 different .deb files.
@@ -10495,6 +10828,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: a box without the image builds it from current Ubuntu 22.04 updates, so later compilers give other bytes.
 	- Expected behavior: per design.md, the same bytes on any box on any day, and per README, dependency versions are pinned.
 	- Reproduced: pinned 20261003 by ddf7w, which fails on the old Dockerfile. `ubuntu:22.04` and the live archive both move, and the image on this box was built from them on 20260804.
@@ -10519,6 +10853,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: artifacts built on `dev` are published under the merge commit on `main`, which has another date, and nothing checks that the 2 match.
 	- Reproduced: yes, 20261003, Linux. In a scratch repo, release.bash tagged a `--no-ff` merge with artifacts stamped with the dev commit's date.
 	- Origin: `cicd/utility/release.bash`, before 20260917. Not seen by an earlier review. Plausible.
@@ -10542,6 +10877,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: `grep -q` downstream of the window list can end the pipeline early and read as no window. The display number is fixed and isn't checked first.
 	- Reproduced: yes, 20261003, Linux. A long window list read as no window. With another server already on :99, the app was started on that server.
 	- Actual cause: `grep -q` quits at its first match, so the window list's writer fails and the pipeline reads as failed. The display was always :99, without any check, and when another server already had it the app was started on that one.
@@ -10564,6 +10900,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: a timeout exits with libFuzzer's default code, which the stage reads as neither a find nor a clean run, and the targets after it don't run.
 	- Reproduced: yes, 20261003, Linux. A target that hangs stopped the stage with "exited 70", and the targets after it didn't run.
 	- Actual cause: libFuzzer gives each kind of find its own exit code, and only its own reports used the stage's find code. A hang exits 70, a memory error caught by the address checker exits 1, and running out of memory exits 71.
@@ -10586,6 +10923,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Low
 	- Opened: 20260930-132819
 	- Opened by: code review 20260928 item 15
+	- Target version: rc.1
 	- Incorrect behavior: the lookup asks for its context pattern through a command substitution, one fork per name tried, in a part of the file whose own comment says it is fork-free.
 	- Expected behavior: the lookup returns its result the way the scorer does, without a fork.
 	- Reproduced: yes, 20261003, Linux. The fork count for the test set was 36 processes for 9 icons, 20 of them from the name lookups.
@@ -10608,6 +10946,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260930-135019
 	- Opened by: code review 20260928 item 15
 	- Related IDs: 2026092813381415
+	- Target version: rc.1
 	- Incorrect behavior: code review 20260919 item 21 stopped every settings read from building its key path each time. `ddatz Allocations per read test` reads flags, numbers, strings, and enums, but not a string list, so a string list read that builds the path each time again still passes. Item 21's entry says the test checks the settings reads.
 	- Expected behavior: the test also fails when the string list read builds its path per read, or item 21's entry says why that read doesn't have a check.
 	- Reproduced: yes, 20260930, Linux.
@@ -10631,6 +10970,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: changing row shading while a closed tab's view is still kept, as a rename or unmount does, calls into a freed tree view.
 	- Reproduced: yes, 20261002, Linux. A closed tab's list view, still kept, had 25 handlers on the settings groups, with row shading, its color, and folder expansion among them. No crash was seen.
 	- Origin: f172064, 20260918 (row shading). Same class as code review 20260919 items 3 and 10. Regression of that class. Confirmed.
@@ -10656,6 +10996,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
 	- Related IDs: 2026100307122400, 2026100308563229, 2026100308563234
+	- Target version: rc.1
 	- Incorrect behavior: each move job, each file moved by rename, each job's progress, each drag's clipboard check, and a canceled zip leak a little. There are a few smaller leaks in search, theme, and window setup.
 	- Reproduced: yes, 20261003, Linux. Every site grew the heap on each repeat, and a stopped zip grew it by about a quarter of a megabyte.
 	- Origin: upstream, apart from the zip one from 6c2418f, 20260820. Not seen by an earlier review. Confirmed.
@@ -10680,6 +11021,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
 	- Target OS: Windows.
+	- Target version: rc.1
 	- Incorrect behavior: a link from `\\srv\a\x` to `\\srv\b\y` is written as `..\..\b\y`, which Windows can't follow above a share.
 	- Reproduced: yes, 20260928, in the Windows build under wine, by the relative path it writes. It wasn't tried against a real share.
 	- Actual cause: only the first part of the 2 paths had to match. For a share path that is the server, but the share has to match too.
@@ -10703,6 +11045,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
 	- Target OS: macOS.
+	- Target version: rc.1
 	- Incorrect behavior: Cmd+click on an unselected row skips the view's own add-to-selection code.
 	- Reproduced: there's no Mac to run it on. It's pinned instead by a lint check that fails on the tree before the fix, 20261002.
 	- Actual cause: the Cmd change moved the test that opens the click branch to the primary key, but didn't move the Control test inside it.
@@ -10730,6 +11073,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026092813381400
 	- Design: [20260929-101432_compression.md](design_docs/20260929-101432_compression.md). An edited 7-Zip line gets `-spd` added at run time. Nothing changes until the reset is built.
 	- Target OS: Linux, BSD, macOS.
+	- Target version: rc.1
 	- Incorrect behavior: a linked folder named `a*`, with store and follow both off, also drops a real folder `abc`. With delete-originals off, the job reports success on an archive that is missing it.
 	- Reproduced: yes for 7z, 20260928, Linux.
 	- Origin: b8e1401, 20260925 (linktests). New ground. Confirmed.
@@ -10754,6 +11098,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: the content search test writes 3 bytes past a string, and the raw test's patch helper counts on bytes GLib may clear. The raw test fails 21 checks when GLib clears them.
 	- Reproduced: yes, 20260928, Linux. Again 20261002.
 	- Origin: 4d8f9f7, 20260828, and 4809a54, 20260922 (rawthumbs). New ground. Confirmed.
@@ -10774,6 +11119,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: the Windows preflight says the lint stage is cppcheck on changed files, but it now runs every linter. `cicd.bash --help` leaves out fuzzing from what `--quick` skips.
 	- Reproduced: yes. The texts were checked against the stages, 20260928.
 	- Origin: b21d9cb, 20260920, and 7f65705, 20260916. Not seen by an earlier review. Confirmed.
@@ -10794,6 +11140,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: `1 << 31` on an int is undefined in C. It works under gcc today.
 	- Reproduced: yes, 20260928, Linux. Again 20261002, in the folder settings test.
 	- Origin: upstream macro. One use was added in 5d96d9b, 20260722. Not seen by an earlier review. Confirmed.
@@ -10816,6 +11163,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Incorrect behavior: a 12 KB file took 8.7 s of a thumbnail thread.
 	- Expected behavior: per design.md, a thumbnail takes a few milliseconds.
 	- Reproduced: yes, 20260928, Linux. Again 20261001, 5.9 s.
@@ -10840,6 +11188,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
 	- Related IDs: 2026100113372562, 2026100113372592
+	- Target version: rc.1
 	- Incorrect behavior: up to 30 s of draw counts are lost at every quit, so the age rule counts recent use short. The log is never trimmed at close.
 	- Reproduced: yes, 20260928, Linux. Nothing in the program calls the close. Again 20261001, after each quit the journal had 0.1 to 3 MB, and the draws of the last few seconds weren't counted.
 	- Actual cause: nothing writes the store out at quit. The quit hook the review named is never called by GLib, so nothing put there would run either.
@@ -10860,6 +11209,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261003-071224
 	- Opened by: item 2026092813381423
 	- Related IDs: 2026092813381423
+	- Target version: rc.1
 	- Incorrect behavior: memory in use grows by about 150 bytes for each zip written, and is never given back. It is still reachable from somewhere, so it is something kept rather than lost.
 	- Expected behavior: a zip that has finished leaves memory where it was.
 	- Reproduced: yes, 20261003, Linux. The growth per zip was the same over 64 and 192 zips, and the same for a zip that finished and one stopped partway.
@@ -10880,6 +11230,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261003-171743
 	- Opened by: test run on b29w
 	- Target OS: all, seen on Windows.
+	- Target version: rc.1
 	- Incorrect behavior: dcz6w failed on b29w, on its check that the 2 twin pictures have the same time.
 	- Reproduced: yes, 20261003, b29w natively, and on Linux with a one-second pause put between the 2 pictures.
 	- Actual cause: the test read the clock once for each picture, so a second could tick over between them. Slower saves on Windows make that more likely.
@@ -10899,6 +11250,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261004-152813
 	- Opened by: work on 2026100413051728
 	- Related IDs: 2026100413051728
+	- Target version: rc.1
 	- Incorrect behavior: `release.bash` pushes the tag, then runs `gh release create`. The tag starts the Windows workflow, which makes the release itself when there isn't one yet. If the local step runs late, its create fails.
 	- Expected behavior: only the local cut makes a release. Hosted builds only build, and hand their files back to it, so the release goes up whole in one step. The same holds for any later BSD, macOS or ARM build done elsewhere.
 		- Decided: 2026-10-04, replacing the first fix, where whichever side came second added to the other's release.
@@ -10925,6 +11277,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261005-075207
 	- Opened by: work on 2026100415281302
 	- Related IDs: 2026100415281302
+	- Target version: rc.1
 	- Incorrect behavior: `release.bash --publish` runs gh as whoever is signed in. On a box with more than one account that can be the wrong one, and the release is made in that name.
 	- Expected behavior: the cut stops before the tag when gh is signed in as anyone but the account the project publishes under.
 	- Reproduced: yes. The new case in ddgjr fails with the check taken out.
@@ -10946,6 +11299,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026100516274423
 	- Related IDs: 2026100516274460
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Steps to reproduce:
 		- With 7-Zip installed, compress a folder with a symlink in it as 7z, with a password, Store as symlinks, and Delete originals.
 	- Incorrect behavior: "The original files were kept", and the link is named as not in the archive. The archive is fine, and 7-Zip lists the link.
@@ -10978,6 +11332,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026101310525452
 	- Related IDs: 2026101313374036, 2026100516275399
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Steps to reproduce:
 		- With rar, keep a link whose target is 128 bytes or more, then a file after it, and extract that archive in the app.
 	- Incorrect behavior: libarchive 3.8.9 and older misreads the link's header. With 3.7.4, bsdtar doesn't list anything for an archive with only that link, and stops with "Header CRC error" when a file follows it. With 3.8.9 it says "unsupported structure of file header extra data".
@@ -11011,6 +11366,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Related IDs: 2026100912374782, 2026100916102200
 	- Target OS: Windows
 	- Test environment: b29w, the native suite over ssh, so in session 0 without a desktop.
+	- Target version: rc.1
 	- Steps to reproduce: run ddqm2, Launch environment win32 test, natively on b29w.
 	- Incorrect behavior: `nemo_launch_win32_open_path` on a `.bat` fails at line 232, and "the program never wrote what it saw". The spawn, run, Open With, and copy rows pass. It's the same when run alone.
 	- Expected behavior: it passes, or exits 77 where opening by file type can't work.
@@ -11045,6 +11401,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026101009150766
 	- Target OS: Windows
+	- Target version: rc.1
 	- Steps to reproduce: rename a file or folder to `a*b`, or `a?b`, `a<b`, `a|b`, `a"b`.
 	- Incorrect behavior: GLib returns a plain failure, "Error renaming file <full path>: Input/output error", so the rename error falls to its catch-all, "Sorry, could not rename ..." with that text, and a warning in the log. `a:b` fails the same way, naming the old path.
 	- Expected behavior: the rename error says which character can't be in a name, as it does for `/`.
@@ -11081,6 +11438,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements: the setup step warns "MINGW64 is deprecated. Migrate to UCRT64 or CLANG64." on every run. Options: move every Windows lane to UCRT64, which changes the C runtime the exe links and so affects the dev box, the cross image, and the bundle, or turn the warning off in the workflow and keep MINGW64. The rest of the pipeline is meant to be free of warnings.
 	- Test case: dehzp `cicd/win/test-msys2-pins.bash`, in the lint stage. The workflow acknowledges MINGW64's deprecation warning while it builds on MINGW64, and doesn't acknowledge any other warning. The hosted run is the real test.
 	- Needs external testing: No
+	- Target version: rc.1
 	- Branch: round1110a
 	- Verified: dehzp passes, and fails with the acknowledgment taken out, with a second warning ID added, and with msystem set to UCRT64 under the old one. The quick gate passed, with 242 OK and 1 skipped.
 	- Verified: 20261110, hosted run 42768444473 of release-win.yml on round1110a passed, without any deprecation warning in the MSYS2 base step or warning lines in the log.
@@ -11098,6 +11456,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Low
 	- Opened: 20261031-134318
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 	- Progress log:
@@ -11116,6 +11475,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Low
 	- Opened: 20261022-183800
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
 		- For both "Nemo Anywhere" and "Nemo Anywhere v1".
@@ -11137,6 +11497,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: 2026102416300008
 	- Related IDs: 2026102416300008
 	- Target OS: Windows
+	- Target version: rc.1
 	- Requirements: `fetch-sysroot.bash` takes the current package database, so 2 images built on different days pack different DLLs into the zip. Pin it like the hosted build, maybe from the same list.
 	- Test case: depf5, which checks that every sysroot pin is in the hosted list, by name and sha256.
 	- Closed: 20261031
@@ -11150,6 +11511,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261008-161710
 	- Opened by: t00mietum
 	- Target OS: All
+	- Target version: rc.1
 	- Requirements:
 		- Everywhere the app says Preferences, it says Settings: menus, the dialog's title, and the docs.
 	- Note: the file is already `settings.shcl`.
@@ -11185,6 +11547,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Done: `cicd/bsd/lane.bash --tests` sends the working tree the way `release-arm64.bash` does and runs `run-tests.bash` there, under the host lock's wrap. With `--include-bsd`, stage 3 runs it after the sanitizer suite, and stage 5 runs the release half from 2026100517134081.
 	- Verified: on vmFreeBSD the lane built the tree with `-Dwerror=true` and ran the suite, with 163 OK and 14 skipped, then `--version`. On Linux `run-tests.bash` built and ran 2 tests and `--version` in the build image, with and without the display wrapper. The first FreeBSD run stopped on folders 2 tests left behind, filed as 2026100713082288.
 	- Needs local test suite run?: yes. A full `cicd/cicd.bash --include-bsd --no-publish` on the merged tree. The new stage lines in `cicd.bash` have only been read, without running them.
+	- Target version: rc.1
 	- Branch: bsdpkg
 	- Commit: 6f96777
 	- Test case: ddmn7, FreeBSD lane test, in the lint stage, checks what is sent, what the runner is handed, a failing suite failing the lane, the tarball's stamp and order over 2 runs, the sums file, and the lock's wrap. The suite run on FreeBSD is the test of `run-tests.bash` there.
@@ -11203,6 +11566,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: old-format item "Linux arm64 release build"
 	- Related IDs: old-format item "Linux arm64 release build"
 	- Target OS: Linux arm64
+	- Target version: rc.1
 	- Requirements:
 		- An arm64 `.deb` and `.rpm` from the arm64 release build, beside the x86_64 ones.
 		- The `.deb`'s dependency versions read off the arm64 libraries, on the arm64 box, the way the x86_64 ones are read in its release container.
@@ -11235,6 +11599,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: old-format item "Target: BSD"
 	- Related IDs: old-format item "Target: BSD"
 	- Target OS: FreeBSD
+	- Target version: rc.1
 	- Requirements:
 		- A FreeBSD build from the release cut, handed to the local cut like any build done elsewhere.
 		- Packed so `install.bash` can fetch it on BSD, which it already expects as a `-bsd-` file.
@@ -11267,6 +11632,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20261003-085632
 	- Opened by: review of item 2026092813381423
 	- Related IDs: 2026092813381423
+	- Target version: rc.1
 	- Requirements:
 		- A stop on a 7z written by the built-in writer ends about as fast as a stop on a zip or tar.gz.
 	- Note: the built-in writer is used where the 7-Zip program is missing, or where link storing is off. On a stop it fills the rest of the open entry with zeros through its compressor, into a temporary file of its own, so how the job handles the output doesn't affect it. A 2 GB file stopped near the start took 24 s, the same before and after item 2026092813381423. The progress bar stands still meanwhile, and the next queued job waits.
@@ -11284,6 +11650,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Related IDs: 2026092813381404, 2026092813381416
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Design: [20260929-101432_compression.md](design_docs/20260929-101432_compression.md). The requirements, decisions, and what needs more thought are there.
 	- Requirements:
 		- Deselect and disable options the archiver can't do.
@@ -11317,6 +11684,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026092910143202
 	- Prereq IDs: 2026100516274386
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Design: [Options expander](design_docs/20260929-101432_compression.md#options-expander) and [Options the writer can't do](design_docs/20260929-101432_compression.md#options-the-writer-cant-do).
 	- Requirements:
 		- Options opens when a remembered choice isn't the default, one the format forced off included.
@@ -11362,6 +11730,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026100516274163, 2026100516274275
 	- Related IDs: 2026092813381404
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok) and [Link options](design_docs/20260929-101432_compression.md#link-options).
 	- Requirements:
 		- After OK the job runs its own pre-scan through the core scan, and works from that list. It never reuses the dialog's scan.
@@ -11399,6 +11768,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026092910143202
 	- Prereq IDs: 2026100516274423
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok).
 	- Requirements:
 		- 7-Zip and rar are told what goes in from the pre-scan list, so mixed choices work, such as following symlinks while storing junctions.
@@ -11434,6 +11804,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026092910143202
 	- Prereq IDs: 2026100516274423
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Design: [After OK](design_docs/20260929-101432_compression.md#after-ok).
 	- Requirements:
 		- While the job's pre-scan runs, the progress dialog shows a second bar for it above the regular one.
@@ -11467,6 +11838,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026092910143202
 	- Prereq IDs: 2026100516274423
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Design: [Delete originals after verification](design_docs/20260929-101432_compression.md#delete-originals-after-verification).
 	- Requirements:
 		- The box reads "Delete originals after verification".
@@ -11502,6 +11874,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026092910143202
 	- Prereq IDs: 2026100516274163, 2026100516274312
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Design: [Link handling](design_docs/20260929-101432_compression.md#link-handling).
 	- Requirements:
 		- Symlinks and Junctions radio groups replace the 2 link boxes. They show when the selection has a link or a folder. Junctions is Windows only.
@@ -11536,6 +11909,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026092910143202
 	- Prereq IDs: 2026100516274275, 2026100516274386
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Design: [Total size](design_docs/20260929-101432_compression.md#total-size) and [Background scan](design_docs/20260929-101432_compression.md#background-scan).
 	- Requirements:
 		- The dialog starts the background scan with the options as set, and narrows or restarts it as they change.
@@ -11572,6 +11946,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026100516274349, 2026100516274460, 2026100516274498, 2026100516274535, 2026100516274572, 2026100516274609, 2026100516274646
 	- Related IDs: 2026100516275399, 2026101313374036
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
 	- Requirements:
 		- This goes last, after every other reset item. The rest of the compress code moves behind the interfaces, with no change in what it does.
@@ -11609,6 +11984,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026100516274683
 	- Related IDs: 2026101312094706
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
 	- Requirements:
 		- Extracting and the cleaning of stored paths move to the core, and the conflict dialog to the GTK layer, with no change in what they do.
@@ -11640,6 +12016,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Design: [Volume sizes](design_docs/20260929-101432_compression.md#volume-sizes).
 	- Requirements:
 		- Each preset has its use in parentheses, such as "4,095 MiB (max FAT32 size)".
@@ -11670,6 +12047,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026092910143202
 	- Prereq IDs: 2026100516274163, 2026100516274200, 2026100516274237
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Design: [Background scan](design_docs/20260929-101432_compression.md#background-scan).
 	- Requirements:
 		- The scan walks the selection and everything below it by the 4 follow options, and hands each path to the path list with its flags.
@@ -11733,6 +12111,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every place that read or wrote the old 2 keys, which was only the Compress dialog and the settings test. The only defaults the job takes come through the dialog. Junctions and the filesystem options aren't passed to the job yet.
 	- Verified: 20261007, the Linux build with warnings as errors, the full Linux suite at 181 of 181, the Windows cross build, and lint clean apart from ddagc. ddn29, dcwjb and the schema test pass under wine.
 	- Needs external testing: what rar and the library do with a junction when storing links is from their docs and code, and wasn't seen on Windows. Item 2026100516274423 is where it gets used.
+	- Target version: rc.1
 	- Branch: arclinks2
 	- Commit: 9f5b8c6
 	- Test case: ddn29, Archive core test, for the junction defaults table, the fall back to Ignore, a hand change sticking, and the follow bits. dcwjb, Archive settings test, for the old values mapped over and dropped in each mix, what is and isn't remembered, and the fall back agreeing with each writer's claim for every format.
@@ -11749,6 +12128,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026092910143202
 	- Related IDs: 2026092813381416
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Design: [7-Zip first for 7z](design_docs/20260929-101432_compression.md#7-zip-first-for-7z) and [Wildcards in an edited 7-Zip line](design_docs/20260929-101432_compression.md#wildcards-in-an-edited-7-zip-line).
 	- Requirements:
 		- Where 7-Zip is installed, a 7z job goes to it rather than the library, on as many threads as the settings allow. Its own percent done moves the progress bar.
@@ -11780,6 +12160,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026092910143202
 	- Related IDs: 2026100410431108
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Design: [Recursion in an edited rar line](design_docs/20260929-101432_compression.md#recursion-in-an-edited-rar-line).
 	- Requirements:
 		- `-r0` is added at run time when the compress line runs rar, after anything the line has, so an `-r` left in it no longer takes same-named files from the folders below.
@@ -11811,6 +12192,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026092910143202
 	- Prereq IDs: 2026100516274126
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Design: [Nested and other filesystems](design_docs/20260929-101432_compression.md#nested-and-other-filesystems).
 	- Requirements:
 		- For a folder, or where a link leads, say whether it is on the same filesystem as the folder the selection is in, a nested one, or another one.
@@ -11844,6 +12226,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: compression reset split
 	- Parent ID: 2026092910143202
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Design: [Modularity](design_docs/20260929-101432_compression.md#modularity) and [Roadmap](design_docs/20260929-101432_compression.md#roadmap).
 	- Requirements:
 		- The core gets its own folder and library target, without any GTK or nemo types. Nothing moves into it yet.
@@ -11877,6 +12260,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Parent ID: 2026092910143202
 	- Prereq IDs: 2026100516274126
 	- Target OS: Linux, Windows
+	- Target version: rc.1
 	- Design: [Path list](design_docs/20260929-101432_compression.md#path-list) and [Size totals](design_docs/20260929-101432_compression.md#size-totals).
 	- Requirements:
 		- There's one entry per file, with its path, its bytes, and which of the 16 totals already count it. Adding a path and finding one stay fast at millions of paths.
@@ -11908,6 +12292,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928 follow-up
 	- Related IDs: 2026093010493389, 2026092813381408, 2026100112000535, 2026100512334934
 	- Target OS: Linux, Windows, BSD, macOS
+	- Target version: rc.1
 	- Requirements:
 		- The app must never visit a network share on its own. Only something a person does leads to one, such as going to a share or opening a link or shortcut that points at one.
 		- Find each place that touches a share without such an action behind it, and gate it or work from what is on local disk. Icons, sort places, emblems, thumbnails, link targets, free space and the side pane are the first to check.
@@ -11981,6 +12366,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Requirements:
 		- Directive dated 20260919, new since the last review, so it isn't a regression.
 		- Name the C standard in the build. It isn't named today, so gcc's default applies.
@@ -12015,6 +12401,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Status: Done
 	- Opened: 20261002-195238
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- Show best features first, e.g.
 			- Native compression features
@@ -12051,6 +12438,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The window never waits on the cache, however briefly. Added 20260930. Besides draw counts, the timed flush and the forget behind a thumbnail refresh write on the window's thread today.
 		- First measure whether a window freezes while another prunes. It was found by reading the code only.
 	- Related IDs: 2026092813381411, 2026093010493420
+	- Target version: rc.1
 	- Note: measured 20261004, Linux, before the change. A window drew 2000 pictures, one every 2 ms, with 4 thumbnail threads looking up and storing, while another process pruned a cache of 40,000 thumbnails of 16 KB down to a tenth. Its own thread waited on the cache up to 2.3 s at a time, 55 s out of 60, and 143 waits were over 0.1 s. With 100 pictures drawn instead, it waited up to 0.5 s at a time, 6.7 s out of 60. Without any prune, it waited up to 0.2 s.
 	- Note: measured 20261004, Linux, after the change, the same 3 runs. The longest call on the window's thread took 0.3 ms, under 50 ms in all over 60 s, and its main loop was never more than 20 ms late. The thumbnail threads still wait on the prune, up to 1.7 s, which the window no longer sees.
 	- Actual cause: a draw count took the store's lock, and a thumbnail thread keeps that lock while it waits on another copy, for up to 3 s. The write once 256 files were waiting, and the one on the 30 s timer, ran on the window's thread. A refresh wrote there too, once per file in the folder on Reload.
@@ -12074,6 +12462,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Requirements:
 		- Rows for files that still exist stay after their thumbnails are pruned, and count against the size limit. Add an age rule for rows without a thumbnail.
 	- Decisions:
@@ -12096,6 +12485,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Requirements:
 		- The fuzz target tests only the shortcut reader. Setting paths in a shortcut parses the same untrusted bytes with its own code.
 	- Done: a new fuzz target puts 3 sets of paths in each input, which are the same drive with all 3 paths, a share path alone, and a relative path alone. An edit that works must read back with the new paths and the old name, Start in, arguments and icon. An edit that is refused must leave the file as it was. The item ID list going is a known gap and isn't checked.
@@ -12117,6 +12507,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
 	- Target OS: Windows.
+	- Target version: rc.1
 	- Requirements:
 		- Allow only the receiving window's process.
 	- Origin: the tab move between windows, b096102.
@@ -12139,6 +12530,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Requirements:
 		- Make link always writes all 3 paths since linkdlg, so dropping the relative path and the portable-only case are unused. Remove them, or keep them on purpose for a later "Defaults..." button and say so.
 	- Decisions:
@@ -12161,6 +12553,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Requirements:
 		- There are 4 self-tests that run in the lint stage without an ID, and the ID check can't see them. Give them IDs, or record that they are exempt.
 	- Fixed: the 4 self-tests have IDs, kept in each tool and printed when it runs. The ID check now finds every self-test the lint stage runs, so a new one without an ID fails it. The ID check itself is the gate rather than a test, and doesn't have an ID.
@@ -12179,6 +12572,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Requirements:
 		- Resume only if the guard's own pause did the pausing.
 	- Origin: `7025cca`, 20260924. Confirmed.
@@ -12200,6 +12594,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
 	- Related IDs: 2026100413510329
+	- Target version: rc.1
 	- Requirements:
 		- The tab menu grays out "New window" for the only tab. A drag to empty screen should do nothing there too.
 	- Origin: the tab move between windows, b096102.
@@ -12221,6 +12616,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Requirements:
 		- A move that dropped the view or the selection would still pass. Check both.
 	- Origin: the tab move between windows, b096102.
@@ -12241,6 +12637,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Requirements:
 		- The mark hides a real warning if one of them stops being called. Drop it on all 4.
 	- Done: the mark is gone from the move to trash, delete from trash, empty trash and delete directly confirms. All 4 are still called, and the build doesn't have any warning.
@@ -12259,6 +12656,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Needs external testing: the next real release tag, and the release page looked at then.
 	- Opened: 20261004-130517
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
 		- When a release is made, its downloads are grouped in a table.
 		- CPU architecture in columns, and target OS in rows.
@@ -12287,6 +12685,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260930-130025
 	- Opened by: review of code review 20260928 item 10
 	- Related IDs: 2026092813381410
+	- Target version: rc.1
 	- Requirements:
 		- Leaving a folder drops its queued thumbnails, but one a thread has started is finished. A 42 MB Photoshop file of 30000 by 30000 took about 11 s of a thread. The readers and the thumbnail factory don't take a cancel from the thread.
 		- Stop a started thumbnail once nothing wants it, for every reader.
@@ -12316,6 +12715,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
 	- Parent ID: 2026092813381400
+	- Target version: rc.1
 	- Requirements:
 		- Directive dated 20260919: ASan and UBSan on the test build.
 		- Items 23, 32 and 33 came from one such run. A leak pass needs a suppressions file for GTK's own.
@@ -12347,6 +12747,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Status: Done
 	- Opened: 20260928-133814
 	- Opened by: code review 20260928
+	- Target version: rc.1
 	- Requirements:
 		- Everything changed from 20260917 to 20260927, reviewed or not, plus the ground the 20260919 review didn't get to where it changed since.
 		- Items 1 to 45 below have this ID as their parent.
@@ -12427,6 +12828,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Closed: 20261107-182700
 	- Related IDs: 2026110520234231
+	- Target version: rc.1
 	- Steps to reproduce: a full run at cb54b955. The sanitizer suite runs dd5df.
 	- Incorrect behavior: dd5df passes its own checks, then the leak check reports 197 bytes in 16 blocks, and the Sanitizer suite step stops the run.
 	- Expected behavior: nothing leaks.
@@ -12444,6 +12846,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Priority|Severity: Low
 	- Opened: 20261107-181006
 	- Opened by: t00mietum
+	- Target version: rc.1
 	- Closed: 20261107-182700
 	- Steps to reproduce: run dd5df in the image and read its stderr.
 	- Incorrect behavior: GTK warns "Could not load a pixbuf from /org/gtk/libgtk/theme/Adwaita/assets/bullet-symbolic.svg" when the dialog draws a checked radio button, and any icon a theme has only as SVG is skipped.
@@ -12464,6 +12867,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Opened by: t00mietum
 	- Closed: 20261108-085000
 	- Target OS: macOS
+	- Target version: rc.1
 	- Steps to reproduce: a full run's private runner step, or a clang syntax check of the tests with `__linux__` undefined.
 	- Incorrect behavior: 75 warning lines over 22 tests, for unused parameter `argc` and `argv`, and unused helper functions and tables, in every test whose main skips with 77 off Linux and FreeBSD.
 	- Expected behavior: no warnings at any stage.
@@ -12593,6 +12997,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Take SHCL 3.0.0-beta.1 from its published release, once there is one, and run the config tests against it.
 	- Status: Done
 	- Opened: 20260925-122815
+	- Target version: rc.1
 	- 20261022: there's still no 3.0.0-beta.1 tag, and the newest is v2.0.0.
 	- Done 20261106: under 2026110520234226, from the `v3.0.0-beta1` tag.
 	- Note: until 20261106 the vendored header was from SHCL's `dev` branch, ahead of that tag.
@@ -12605,6 +13010,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ On Windows, 7z with a password and no link options left files out of the archive.
 	- Opened: 20260926-190245
+	- Target version: rc.1
 	- Closed: 20260926-195754
 	- Reproduced: the archive combinations test on vm925w. The archive read back as `a.txt` and `big.bin` only.
 	- Cause: the archive was whole. The test reads it back with libarchive, which can't decrypt a 7z. From 3.8, which Windows has, the header after an entry it couldn't read returns "failed", and the test stopped there. Linux has 3.7.
@@ -12615,6 +13021,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The Preferences dialog and the action layout editor looked up their text in upstream Nemo's translations.
 	- Opened: 20260926-173000
+	- Target version: rc.1
 	- Closed: 20260926-195754
 	- Cause: both .glade files said `domain="nemo"`, which beats the program's own domain.
 	- Fixed: the attribute is gone. The layout editor names the domain on its builder, since Python's gettext domain isn't the one GTK reads.
@@ -12623,6 +13030,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ On Windows, moving a folder junction or a folder symlink ignored the link copy answer in 3 cases.
 	- Opened: 20260926-091948
+	- Target version: rc.1
 	- Closed: 20260926-195754
 	- Cause: a move on one drive is a rename and never asks about links. The test gave an answer that changed each link's kind and expected the change.
 	- Decided: a move on one drive keeps every link as it is and asks nothing, as other file managers do. Only a move to another drive asks. design.md says so now.
@@ -12632,6 +13040,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ On Windows, the archive option combinations test failed.
 	- Opened: 20260926-092051
+	- Target version: rc.1
 	- Closed: 20260926-195754
 	- Reproduced: with links kept, 7z on Windows stored the file link as a plain file and followed the folder link.
 	- Cause: 7z on Windows was never told to keep links, on purpose, but still said it could. 7-Zip there keeps a link as raw Windows data, which libarchive reads back as a file of junk and an empty folder. libarchive is what extracts here.
@@ -12641,41 +13050,48 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ A shortcut made off Windows that points at itself was opened again and again on Windows.
 	- Opened: 20260926-190245. Closed: 20260926-190245.
+	- Target version: rc.1
 	- Cause: the chain of shortcuts ended on the shortcut itself, and that was then opened as if it were the target.
 	- Fixed: a shortcut is never opened as the end of its own chain.
 	- Test case: daqzg `test-nemo-shortcut-win32` (the open decision), Windows only.
 
 - ✅ `install.ps1` didn't give back the PATH it found on uninstall when it had empty entries.
 	- Opened: 20260926-175808. Closed: 20260926-175808.
+	- Target version: rc.1
 	- Cause: an install folded a doubled trailing `;` into one, and an uninstall dropped every empty entry.
 	- Fixed: both keep the value as found, apart from the install folder.
 	- Test case: dd5fw `cicd/utility/test-install-path.ps1`.
 
 - ✅ Extract to a folder failed on a split 7z with "The archive could not be read."
 	- Opened: 20260926-190000. Closed: 20260926-190000.
+	- Target version: rc.1
 	- Cause: making the folder counted as having written something, so the 7z program was never tried after the built-in reader gave up.
 	- Fixed: only files from the archive count.
 	- Test case: dbj6x `test-extract-job` (`check_split_volumes`), skips without 7z.
 
 - ✅ A canceled split 7z left its volumes behind.
 	- Opened: 20260926-190000. Closed: 20260926-190000.
+	- Target version: rc.1
 	- Cause: 7z names the volumes it hasn't finished `<volume>.tmp`, and the cleanup stopped at the first volume it couldn't find.
 	- Fixed: the cleanup also removes the unfinished names.
 	- Test case: dbj83 `test-archive-job` (`check_cancel`).
 
 - ✅ A canceled zip logged a GLib warning about an error set twice.
 	- Opened: 20260926-190000. Closed: 20260926-190000.
+	- Target version: rc.1
 	- Fixed: only the first write error is kept.
 	- Test case: dbj83 `test-archive-job` (`check_cancel`), which fails on any GLib warning.
 
 - ✅ A setting changed from a background job could run its change handlers on that job's thread, where they touch widgets.
 	- Opened: 20260926-150000. Closed: 20260926-160000.
+	- Target version: rc.1
 	- Cause: the hand-off to the main thread ran the handler on the spot whenever the main thread was outside its loop at that moment.
 	- Fixed: the change is always queued for the main thread.
 	- Test case: dav3s `test-nemo-config` (`test_changed_on_main_thread`).
 
 - ✅ Relative symlink bug:
 	- Opened: n/a
+	- Target version: rc.1
 	- Problem: When creating relative symlinks, the entire path is walked back up to root (via '../../' etc.), then back down.
 	- Expected: It should remove all common paths from both, only then substitute '../' for any non-common ancestor folder. (Or './<child>' if the link only points down.)
 	- Closed: 20260925-152642
@@ -12685,6 +13101,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ `install.ps1` never finished an install on Linux. It stopped at the step that clears the download's web mark, which only Windows has.
 	- Opened: 20260925-131500
+	- Target version: rc.1
 	- Closed: 20260925-133000
 	- Cause: pwsh on Linux has the cmdlet, but it throws there whatever it is told to do with errors. The earlier check only read the plan.
 	- Fixed: the step runs on Windows only.
@@ -12693,6 +13110,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The Windows exe on a release had no version in its name and no line in the checksums file.
 	- Opened: 20260925-122815
+	- Target version: rc.1
 	- Closed: 20260925-133000
 	- Fixed: from the next release it is `nemo-anywhere-<version>-windows-x86_64-portable.exe`, and the release workflow adds its line to the sums file.
 	- Note: not run yet. It runs on the next release tag.
@@ -12700,6 +13118,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ "Preparing" dialog appears, when viewing trash/delete/move debug dialog.
 	- Opened: 20260924-140642. Closed: 20260924-184032.
+	- Target version: rc.1
 	- Cause: a job's progress window comes up 2 seconds after the job starts, unless the job is paused. The job's own questions pause it, but the test guard asked without doing so.
 	- Fixed: the guard pauses the progress of the job that asked, while it waits for an answer.
 	- Swept: every other question asked from inside a job already pauses, for conflicts, passwords, links, and errors.
@@ -12707,6 +13126,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ A folder's modified date in the list stays old after a file is moved into it.
 	- Opened: 20260924-083500. Closed: 20260924-093600.
+	- Target version: rc.1
 	- Reproduced: in list view, dragging a file onto a folder row and moving it. The row's item count goes up, but its date doesn't change, even after the folder is opened in place.
 	- Cause: a file added to a folder, taken out or moved in only refreshed the folder's item count. Nothing watching the folder's parent reports its new date.
 	- Fixed: the folder's own details are read again along with the count. A removal from a folder that was never opened now refreshes it too, as an add already did.
@@ -12715,6 +13135,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ After every file in a folder was removed by another program, icon view's status bar still counted 4 items.
 	- Opened: 20260923. Closed: 20260923-161106.
+	- Target version: rc.1
 	- Seen once, with 60 files removed one at a time. The view itself was empty. A delete from inside the app, in list view, counted 0 as it should.
 	- Note: seen on Linux.
 	- Reproduced: in every view, icon view included. With files removed a tenth of a second apart, the count stayed a few too high for good.
@@ -12726,6 +13147,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ After deleting all the contents of a view, the horizontal scrollbar appears.
 	- And it still appears seemingly randomly (when not looking), even though the view has plenty of room in the rules for shrinking content.
 	- Opened: 20260923-144941. Closed: 20260923.
+	- Target version: rc.1
 	- Cause: column widths only ever grew while a folder was open. A file that left took its name with it and nothing else, so a wide size or type from a file already gone still kept its column wide. Enough of that and the least the columns could take was more than the view, so it scrolled with nothing on screen needing it. Emptying a folder is the plain case, and files coming and going in the background is the random one.
 	- Fixed: once files have left, a layout that would scroll measures the folder again from what is there. It only walks the folder in that case, so a big folder pays nothing while it fits.
 	- Still possible: a file whose size or type changes to something narrower keeps its old width until then too. Left alone, since it can only matter once a scrollbar would show, and then the next removal clears it.
@@ -12733,11 +13155,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ With the tab bar set to show for a single tab, closing a tab down to one hid it anyway.
 	- Opened: 20260922. Closed: 20260922.
+	- Target version: rc.1
 	- Found while adding the Preferences checkbox. Closing a tab reset the tab bar from the tab count alone and skipped the setting.
 	- Test case: dd5dk `test-nemo-notebook` (`test_visibility`).
 
 - ✅ Each change of folder logs a GTK critical: `gtk_widget_draw: assertion '!widget->priv->alloc_needed' failed`.
 	- Opened: 20260922-160500
+	- Target version: rc.1
 	- Closed: 20260922-193500
 	- It showed once per folder change, on entering a folder of pictures from the address bar. It was there before the thumbnail jump fix.
 	- The path bar and the address bar faded into each other. The fade paints the bar going out, and the address bar had just asked to be resized for its clear icon, so a paint before the next layout hit the critical. Upstream nemo logs it too.
@@ -12746,6 +13170,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Thumbnails "jump" up, then back down (and also in width), when entering an image folder.
 	- Opened: 20260922
+	- Target version: rc.1
 	- Closed: 20260922.
 	- A picture that came back shorter or wider than the type icon before it kept the old spot until the next full layout. Its name moved up under it, then dropped back down.
 	- An icon whose picture changes size is now laid out again before the next frame is drawn.
@@ -12753,6 +13178,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Scrolling down can still cause the last already cached thumbnails to render (e.g. if you scroll to the bottom soon after entering the folder), while none of the ones above (as judged by scrolling up) aren't yet rendered in the file view.
 	- Opened: 20260922
+	- Target version: rc.1
 	- Closed: 20260922.
 	- ✅ Expected behavior: Render all thumbnails to the view in approximate order of the current sort order. (Only varying by threads that return earlier.)
 	- The pictures were made in order, but one never on screen was only kept in the store and read back once it scrolled in. So scrolling back up showed type icons for a moment.
@@ -12762,6 +13188,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Thumbnail rendering is still trying to follow the thumbnails in the view.
 	- Opened: 20260921
+	- Target version: rc.1
 	- Closed: 20260922.
 	- Observed incorrect behavior:
 		- If you immediately scroll to the bottom of a long list of thumbnails, it starts rendering those, long before the "top-down" would get there.
@@ -12775,6 +13202,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Randomly crashes. (At least on Windows, and before the multiple-process work.) Sometimes just with a focus change.
 	- Opened: 20260903-130431
+	- Target version: rc.1
 	- Closed: 20260921-180912
 	- No repro, and nothing in the report to work from, because a crash left nothing behind at all. A windowed build on Windows has no stderr, so it vanished.
 	- Note: a crash now leaves a report behind. That part is under Done.
@@ -12784,6 +13212,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Startup logs a dozen pairs of "invalid (NULL) pointer instance" / `g_signal_connect_data` criticals on this host. Harmless so far - the window comes up fine - and not tied to the release build; the day-to-day container build does the same thing here.
 	- Opened: 20260804-133646
+	- Target version: rc.1
 	- Closed: 20260921. No longer reproduces.
 	- Note: the Windows half, and a second warning logged once per file, are fixed and filed under Done. Whether the Linux host case has the same cause as the Windows one is untested.
 	- Found: what produces that exact pair is a signal connected to a settings group that isn't open yet. The group handles are NULL until the settings are read, and about 70 places connect to one. It was reproduced on demand by starting with no session bus, which is what leaves the store unopened.
@@ -12797,28 +13226,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Every copy past the first gets refused by the XFCE session manager, which logs a critical ("An object is already exported ... org_NemoAnywhere") and a failed waitpid for each one. All copies register as a session client under the same app id.
 	- Opened: 20260921-180500
+	- Target version: rc.1
 	- Closed: 20260921-182000
 	- Fixed: no copy registers now. It was kept from upstream and nothing used it. Logout is still held off during a copy, since that asks the session manager directly.
 	- Note: a lint check fails if registering comes back.
 	- Test case: dcyf0 `fCheckNoSessionRegister` in the C lint.
 
 - ✅ Bug: When changing to list view after being in an image folder, the zoom level still doesn't reliably change back to defined.
+	- Target version: rc.1
 	- Created 20260921-170804 by JC. Closed: 20260921.
 	- With per-folder settings off, list view and icon view shared one stored size on the window, even though their sizes and defaults differ. Whichever view wrote it first decided what the other one opened at. List view has its own size now.
 	- Test case: dcyap `fCheckHeldIconSize` in the C lint.
 
 - ✅ The Windows test box built with link-time optimization one job at a time, because its MSYS2 had no `make`. `make` is installed there now, and the Windows pipeline stops with the fix named if it is missing.
 	- Opened: 20260921. Closed: 20260921.
+	- Target version: rc.1
 	- Test case: `cicd/cicd-win.ps1` stops when MSYS2 has no `make`. It's a pipeline check, which has no test ID.
 
 - ✅ The Windows dogfood build was 18 days old. Only a run of the Windows pipeline by hand ever updated it.
 	- Opened: 20260921. Closed: 20260921.
+	- Target version: rc.1
 	- A full pipeline run now also builds, tests, and packs on whichever Windows test box is up, and drops the exe into the synced app folder. It takes the shared lock on the box first. A quick run skips it.
 	- The first run found 2 more bugs, which were fixed with it. A Windows build dir couldn't update a library that had lost a source file. And a folder of pictures was never seen as one on Windows, since the type check there never matched an image.
 	- Test case: dcx3q `test-nemo-image-folder` for the picture type check on Windows. The pipeline stage itself is setup.
 
 - ✅ Images view:
 	- Opened: 20260921-152951
+	- Target version: rc.1
 	- Doesn't render at specified %, until the % is changed. (But afterward seems to remember?)
 	- 500% is too big. Let's do 250%
 	- The image % affects list views too. At least, when changing to a list view folder from an image folder.
@@ -12836,6 +13270,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The About box license text says "or (at your option) any later version", but the project is GPL-2.0-only.
 	- Opened: 20260921. Closed: 20260921.
+	- Target version: rc.1
 	- Upstream Nemo is or-later, which can be narrowed to version 2 only. A few files written for the fork are version 2 only, so the whole program has to be. The text now says version 2 only.
 	- The file headers inherited from upstream still say or-later. That's right for those files, so they were left alone.
 	- The lint now fails if text the program shows offers a later version.
@@ -12844,6 +13279,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The "expand" Chevron next to folders should more reliably appear when a formerly empty folder gains content, especially after user-initiated actions (like drag and drop contents into a previously empty folder).
 	- Opened: 20260919-125440. Closed: 20260920.
+	- Target version: rc.1
 	- Both views only ever took the expander away. The list view dropped the placeholder row once a folder's item count came back as zero and had no branch for the count going the other way. The tree pane's look-ahead could mark a folder as having no sub-folders but never unmark one, and nothing sent it back to look.
 	- It's fixed in both views. The list view puts the placeholder back when the count rises off zero, and the tree pane looks again whenever a folder it had written off reports a change.
 	- The tree pane's look-ahead now separates "holds nothing at all" from "holds nothing it would show". The first still takes an expander away, but only the second puts one back, so a folder opened with hidden files off and found empty doesn't have its expander handed back by the next look.
@@ -12854,6 +13290,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ A theme change doesn't send the list back to measure its columns.
 	- Opened: 20260920-234500. Closed: 20260920.
+	- Target version: rc.1
 	- The handler for it only dropped the cached separator and indent sizes. Every width worked out before the change stayed, so a theme with a wider font left values cut off until a zoom or a folder change forced a remeasure.
 	- Fixed: the handler keeps the font and the 2 theme sizes as one string and compares it. Where it moved, every row is measured again. Where it didn't, nothing happens.
 	- The handler has to compare, since that signal also fires for a widget state or a CSS class going on and off, and sending 50,000 rows back on each of those would cost more than the whole cache saves.
@@ -12863,6 +13300,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Half of what's left of a big folder load is measuring text for the column widths.
 	- Opened: 20260920-233000. Closed: 20260920.
+	- Target version: rc.1
 	- Cause: every row asked every column for a full text layout, and most of those layouts were of text the column had already seen. A type, an owner, a group, or a set of permissions is the same string down the whole folder.
 	- Fixed: each column remembers the width it worked out for a piece of text and hands it back rather than laying it out again. Name is left out, since no two files in a folder share a name, and a column stops remembering past a couple of thousand distinct values, which is where a date would otherwise keep one entry per row.
 	- A row drawn in its own weight is measured rather than remembered. Bold and light lay out differently at the same text, and there are never many.
@@ -12874,6 +13312,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Listing a large folder costs about 0.4 ms a file, and nothing in the list view accounts for it.
 	- Opened: 20260920-160000. Closed: 20260920.
+	- Target version: rc.1
 	- The earlier reading was wrong. The cost is in the list view after all. The pass that cut per-row drawing work missed it because the cost is in measuring rather than drawing.
 	- Cause: the tree view was measuring every row to find out how tall it is. It only has to do that when a column is left to size itself, and none of ours are, since the widths are worked out for the whole row and handed over. So it was redundant work the whole time.
 	- Fixed: the list runs in fixed-height mode, one line. For 50,000 empty files, showing went from 11.1 s to 8.4 s, settling from 17.9 s to 8.3 s, and peak memory from 269 MiB to 158 MiB. With varied names and sizes rather than flat ones, 10,000 files went from 3.6 s to 2.0 s of processor time.
@@ -12884,6 +13323,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Re-vendoring the themes would drop 53 icons.
 	- Opened: 20260920-230000. Closed: 20260920.
+	- Target version: rc.1
 	- It wasn't upstream drift, which is what it was filed as. Of the 4 themes, 2 are still at the exact commit they were taken from, so nothing upstream could have moved. The vendoring script had stopped finding the aliases.
 	- Cause: every one of Qogir's 17,202 aliases under `links/` points at a sibling name that only exists under `src/`, so each one dangles where it sits. `-type f` skipped them for being symlinks and `-xtype f` skipped them for dangling. Neither is a reason to drop one. The resolver wants the name an alias points at, and `readlink` gives that whether or not anything is there.
 	- The committed art was right all along. It was taken on a checkout where git wrote the aliases as text files instead of symlinks, which is the one form the old code could read.
@@ -12893,6 +13333,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Horizontal scrollbar frequently shows up when not needed.
 	- Opened: n/a. Closed: 20260920.
+	- Target version: rc.1
 	- Settled first: the scrollbar mustn't appear while anything is left to shrink, so this was a fault rather than the rule being right.
 	- Cause: Name was the tree view's expanding column. The layout hands out widths that come to exactly the row, so there was nothing for GTK to expand into. But GTK kept the share it had worked out while the view was wider, and it hands that back only when some width changes. Name sat 346px over the width it had been given, which is what the scrollbar was for.
 	- Fixed: no column expands. The layout already gives Name the leftover, so the row still ends flush and GTK has nothing to add.
@@ -12904,6 +13345,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ A theme icon that exists only as a symlink is never found.
 	- Opened: 20260920-170000. Closed: 20260920.
+	- Target version: rc.1
 	- `vendor-themes.bash` indexed with `find -type f`, which skips symlinks, so nothing under a theme's `links/` directory was ever a candidate on Linux. The resolver has code to follow an alias and the scorer has code to rank one, but neither could run.
 	- Fixed: the index is built with `-xtype f`, which takes a link pointing at a regular file and leaves a dangling one out. The self-test's pinned case is turned around and a dangling-link case is new.
 	- This was superseded on 20260920. `-xtype f` was only half of it. Nearly every alias upstream writes dangles where it sits, so this left them out too. See the item above.
@@ -12914,6 +13356,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The PowerShell scripts have 14 `catch { }` blocks that swallow whatever went wrong.
 	- Opened: 20260920-190000. Closed: 20260920.
+	- Target version: rc.1
 	- They're in `cicd-win.ps1`, `install.ps1`, `n8runfm.ps1`, and `pack-portable.ps1`. All are best-effort cleanup, and several read better as `-ErrorAction SilentlyContinue` on the one call inside.
 	- Fixed: 13 are gone. Of those, 6 became an `-ErrorAction` or a plain guard on the call that could fail. Another 5 now say what went wrong, which is the part that was missing. They report no transcript for the run, a PATH change that running programs won't see, a packer that had already exited, a message box that couldn't come up, and a log that couldn't be trimmed.
 	- The transcript pair is now a flag rather than a catch each end, so the run no longer tries to stop a transcript that never started.
@@ -12924,6 +13367,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Code review 20260919.
 	- Opened: 20260919-175254. Closed: 20260920.
+	- Target version: rc.1
 	- It was a style, performance, and prose pass over the whole tree, first-party and inherited, aimed at areas the 2 earlier rounds didn't cover. Items are listed worst first. Technical detail is kept out of this file.
 	- Test case: none, since it's a review. Each item under it names its own.
 	- ✅ High.
@@ -13049,6 +13493,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The Windows cross link compiles its LTO jobs one at a time.
 	- Opened: 20260919-203000
+	- Target version: rc.1
 	- Closed: 20260920-223000
 	- The build asks for 4 threads and every step takes them but the final link, which reports serial compilation of 37 jobs. There were 2 attempts to pass the count through, and both failed.
 	- Origin: came in with link-time optimization on the release lanes. Confirmed.
@@ -13059,6 +13504,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The content search helpers have no fuzz target.
 	- Opened: 20260919-203000
+	- Target version: rc.1
 	- Closed: 20260920-213000
 	- They parse the most hostile input in the tree, and the 3 existing targets cover the settings file, the drag payload, and command templates instead.
 	- Origin: raised while fixing the shared-string loop in the xls helper, which is the kind of fault a target would have found. Confirmed.
@@ -13068,6 +13514,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ A release build prints 4 warnings about unused functions and variables.
 	- Opened: 20260919-203000
+	- Target version: rc.1
 	- Closed: 20260920-210000
 	- They come from `nemo-file.c` and `nemo-view.c`. They aren't new, since the Linux release lane has always been a release build. The Windows lane only started showing them once it became one.
 	- All 4 exist only for a debug line, and a release build compiles those out. The first 3 are a window handle the view fetched on every batch of files and on every selection change. That call, and a uri allocation beside it, now happen only when the debug flag is on. The fourth is a small function the compiler is now told may go unused.
@@ -13076,6 +13523,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The archive job and extract job tests remove a tree without the symlink guard.
 	- Opened: 20260920-150000
+	- Target version: rc.1
 	- Closed: 20260920-200000
 	- The `remove_tree` copies in `test-archive-job.c` and `test-extract-job.c` recursed on whatever the enumeration called a folder, and `test-archive-job.c` plants a symlink in the same tree. Its target was missing, so nothing outside had been removed yet.
 	- Another 6 copies turned up beside them, 8 in all, and the one in the delete guard test walked a tree that had a link to the fake home it had just built.
@@ -13086,6 +13534,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ A dozen shellcheck rules are turned off for the whole file in 4 scripts.
 	- Opened: 20260920-150000
+	- Target version: rc.1
 	- Closed: 20260920-190000
 	- `cicd.bash`, `config.bash`, `gui-headless.bash`, and `include/gfs-rotate.bash` had a header block of `disable=` lines from a shared template. Each had a reason, but it applied to a handful of lines and covered every line.
 	- With the blocks taken off, only 2 rules fired at all. So 11 of the 13 were dead suppression, and 4 of them could never have done anything, since they start with `##`, which shellcheck reads as prose.
@@ -13097,6 +13546,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Archiving with rar: When "delete after confirm" was set, got an error message: "The original files were kend. The archive could not be read back."
 	- The archive seems to have been created correctly.
 	- Opened: 20260920-153000
+	- Target version: rc.1
 	- Closed: 20260920-163000
 	- Cause: with "Encrypt the file names too" ticked, rar is run with `-hp` and 7-Zip with `-mhe=on`, and libarchive won't open either. It refuses before it reads a single name, whatever password it is handed. So the check could never pass and the originals were always kept, on an archive that was in fact fine.
 	- Fixed: `nemo_archive_can_verify` is the one place that decides whether an archive can be read back afterwards. The Compress dialog grays the delete box on it, the same way it already did for a split archive, and the job's message says what the trouble is.
@@ -13105,6 +13555,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The settings-handler check can't see one of the config groups.
 	- Opened: 20260919-203000
+	- Target version: rc.1
 	- Closed: 20260920-103000
 	- It matched group names ending in "preferences", so `nemo_window_state` was invisible to it and a mismatched disconnect there would have passed.
 	- It reads the group names out of `nemo-global-preferences.h` now, so a group added later is covered the day it's declared.
@@ -13112,6 +13563,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ "Mount archive" doesn't seem to do anything.
 	- Opened: 20260918-163716
+	- Target version: rc.1
 	- Closed: 20260918-170628
 	- It was a Cinnamon action that ran `gnome-disk-image-mounter`. That only attaches disk images, so a zip or 7z did nothing.
 	- It's now a built-in menu item beside the Extract items. It opens the archive through gvfs, which mounts it and shows its contents. The mount shows under Network with an eject button.
@@ -13120,6 +13572,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The test guard arming test and the tree folders test fail on a native Windows build.
 	- Opened: 20260918-213000
+	- Target version: rc.1
 	- Closed: 20260918-234500
 	- Neither had run on Windows before. Both were added after the last real-Windows pass, and b29w is the first box to run them.
 	- Both were test problems rather than product ones.
@@ -13130,6 +13583,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The search helper for zip-based documents (docx, odt, epub) checks the wrong thing after a read.
 	- Opened: 20260918-112900
+	- Target version: rc.1
 	- Closed: 20260918-113800
 	- `nemo-mso-to-txt.c` tested the buffer it had just read into for NULL, which is never true, instead of what the read returned. The compiler warned about it on a fresh build.
 	- Done: it checks the read and stops at the first failure. The helpers now build with that warning as an error, which fails on the old code.
@@ -13138,6 +13592,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Nothing but a window may trash, delete, move, or empty the trash. Other programs could still ask over the bus.
 	- Opened: 20260917-185500
+	- Target version: rc.1
 	- Closed: 20260917-191500
 	- The bus interface that could copy, move, and empty the trash came from the Nemo desktop. Nothing here uses it. A move to the trash folder over it was a recycle with no window behind it.
 	- Fixed: the interface is removed. Only the freedesktop one is left, and it shows folders and properties. The instances test now checks the bus has no way to copy, move, or empty the trash. Its no-bus test is commented out, since what it tested is gone.
@@ -13147,6 +13602,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Removing a template in Preferences deleted the file outright, with no question and nothing in the log.
 	- Opened: 20260917-185500
+	- Target version: rc.1
 	- Closed: 20260917-191500
 	- Found while checking every delete. It skipped the delete guard entirely.
 	- Fixed: it goes to the trash through the same job as any other, so it asks first and is logged. The lint list above catches a delete like it.
@@ -13154,6 +13610,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ `--version` fails with "Cannot open display" when there's no display.
 	- Opened: 20260917-183048
+	- Target version: rc.1
 	- Closed: 20260917-183306
 	- It was first seen 2026-09-07, and was still the case on 2026-09-17. Printing a version should need nothing but the binary.
 	- Cause: the toolkit's own options open the display while the command line is read, so the read failed before `--version` was looked at. `--about` did the same. `--help` was never affected.
@@ -13162,6 +13619,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Another program could empty the trash with no question, once "Ask before deleting outright or emptying the Trash" was off.
 	- Opened: 20260917-181500
+	- Target version: rc.1
 	- Closed: 20260917-182900
 	- Found while writing the security part of design.md. `EmptyTrash` on the bus went through the same path as the command in a window, so it took the person's preference as its own. Every other trash or delete asks regardless when it wasn't asked for by anybody at a window. It also left no line in the log.
 	- It's masked for now, since the test guard is armed in every build and asks about every delete. It would have shown once the guard's default goes back to 0.
@@ -13171,6 +13629,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Preferences|Views: with "Remember per-folder settings" off, the Current tab still opens on a dead page.
 	- Opened: 20260917-233000
+	- Target version: rc.1
 	- Closed: 20260917-234500
 	- Graying the page out isn't enough. GTK switches the page on a click whatever the page's own state is, so the tab took the click and showed an empty gray pane.
 	- Fixed: the tab label is grayed with the setting, and the notebook refuses the switch, by mouse or by keyboard. Turning the setting off while the Current tab is up drops back to Default.
@@ -13178,6 +13637,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Unselected tabs run together, so one can't be told from the next.
 	- Opened: 20260917-233000
+	- Target version: rc.1
 	- Closed: 20260917-234500
 	- Most themes draw an unselected tab with no edge of any kind, so 3 open tabs read as one strip broken only by the close buttons. Nemo has the same problem.
 	- Fixed: there's a divider between any 2 adjacent tabs that are both unselected. It's part of the rest of the app styling, so it stays whatever theme is in use.
@@ -13185,6 +13645,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Shift+Tab sometimes doesn't leave a notebook page.
 	- Opened: 20260917-143946
+	- Target version: rc.1
 	- Closed: 20260917-150800
 	- The fault was in the test rather than the guard. Nothing in the app was ever wrong and nothing in it changed.
 	- The check needs the test window to have the keyboard focus. When another window has it, GTK re-grabs the widget that already had the focus and calls that a move, so the traversal stops there and the check reads as a failure. No key press can reach that state, since Shift+Tab goes to whichever window does have the keyboard focus.
@@ -13195,6 +13656,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ A split archive that fits in one volume is still named ".001".
 	- Opened: 20260917-213000
+	- Target version: rc.1
 	- Closed: 20260917-220000
 	- 7z numbers every volume it writes, the only one included, so splitting something small produced "name.7z.001" rather than "name.7z". rar does the same in its own naming.
 	- Fixed: a split that came out as one volume is renamed back to the name that was asked for. A real split keeps its numbering, and a run that failed now clears its volumes instead of leaving them.
@@ -13202,12 +13664,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Extract isn't offered on a split archive, since ".001" isn't a suffix anything recognized.
 	- Opened: 20260917-213000
+	- Target version: rc.1
 	- Closed: 20260917-220000
 	- Fixed: a volume number of 3 digits is read past, so the format underneath decides as usual and the folder name comes out the same for every part. Selecting several parts unpacks once, from the first volume, whichever one was clicked.
 	- Test case: dbj6w `test-nemo-extract`, dbj6x `test-extract-job` (`check_split_volumes`), which skips without 7z.
 
 - ✅ Archive options: the default volume size is small, and opening Options walks the dialog down the screen.
 	- Opened: 20260917-213000
+	- Target version: rc.1
 	- Closed: 20260917-220000
 	- Fixed: the default volume size is 2 GiB. The dialog keeps its position on screen when Options opens or closes, and stays inside the work area.
 	- The size list is in binary units now, which is what the numbers always meant, and "GiB" can be typed as well as "GB".
@@ -13215,12 +13679,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Preferences|Views: the Forget and Copy settings buttons sit in the tab header, and the tabs crowd the checkbox above them.
 	- Opened: 20260917-210000
+	- Target version: rc.1
 	- Closed: 20260917-213000
 	- Fixed: each tab now has its own buttons at the top right of its content, with margins. Default has Copy settings to Current. Current has Forget and Copy settings to Default beside the folder path. The label no longer changes with the tab, and Forget no longer appears and disappears. There's more room between Inherit view settings and the tabs.
 	- Test case: none, layout only, judged by eye.
 
 - ✅ The delete test guard never fires on a move, so nothing asks about the original that leaves or the target that gets written over.
 	- Opened: 20260917-200000
+	- Target version: rc.1
 	- Closed: 20260917-204500
 	- A move on one filesystem is a single `g_file_move`, and an overwrite happens inside glib, so neither gets to the delete path the guard is on.
 	- Fixed: a move job asks once up front, naming the destination and every source that is about to leave where it is. An overwrite asks per file, naming the target whose contents are lost and the source replacing it. Both were checked, with Cancel leaving the files alone.
@@ -13229,6 +13695,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ `make_link_copy` deletes without going through the delete guard.
 	- Opened: 20260917-190000
+	- Target version: rc.1
 	- Closed: 20260917-193000
 	- The 2 `g_file_delete` calls in it, one for an overwritten destination and one for a moved-from link, skipped `file_delete_wrapper` and so never reached `nemo_delete_guard_check`. Every other delete in `nemo-file-operations.c` was already guarded. It was found while adding the delete test guard.
 	- Both go through the wrapper now. `lint-c.bash` enforces the rule.
@@ -13236,6 +13703,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Turning hidden files off leaves a "Loading..." row under an open tree folder that has only hidden folders.
 	- Opened: 20260917-060256
+	- Target version: rc.1
 	- Closed: 20260917-072556
 	- The folder closes when its last row goes, so nothing loads it again, and it keeps an expander it shouldn't have.
 	- It was found while testing the folders-only tree.
@@ -13245,6 +13713,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The tree pane keeps its width when the window is resized, instead of sharing the change in proportion.
 	- Opened: 20260916-210500
+	- Target version: rc.1
 	- Closed: 20260916-193258
 	- Places is right, since it keeps the width it was given. The content pane then takes the whole change on its own, so at 800px wide it's a 60px sliver beside a 500px tree.
 	- With one window taken 1278 -> 1500 -> 800 wide, `sidebar-width` stays 240, and `sidebar-tree-width` reads 480, then 498.
@@ -13256,6 +13725,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ On Windows the delete guard didn't know home by its short 8.3 name, or by a path through a junction.
 	- Opened: 20260915-160031
+	- Target version: rc.1
 	- Closed: 20260915-161437
 	- The folder removal behind the guard also went into junctions, so clearing an extract's staging folder could delete what a junction inside it pointed at.
 	- Home and the folders above it are matched by file identity now, as they already were on Linux. A junction counts as a link, and is never walked.
@@ -13263,6 +13733,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ "Focus" can never be on a column, nor a tab.
 	- Opened: 20260914-173549
+	- Target version: rc.1
 	- Closed: 20260915-131006
 	- If focus would have fallen to a column or tab (e.g. as a result of editable path turning into breadcrumb), move it to the main file/folder interface instead.
 	- Clicking a column heading left the keyboard on the heading, and clicking a tab left it on the tab. Closing the path entry left it on a path button. The arrow keys then did nothing to the file list.
@@ -13272,6 +13743,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ A home folder was deleted again, with no dialog, soon after a copy of the app was opened by accident. The guards added after the first time weren't enough.
 	- Opened: 20260914-110000
+	- Target version: rc.1
 	- Closed: 20260914-121200
 	- Nothing in the window was used but About. What removed the files isn't known. The app's own log, which could have said, was in the home folder that went.
 	- Home, any folder above it, and a folder where a drive or share is mounted are never removed now, however the job came about. A delete that finds a mount on its way through a folder stops there.
@@ -13284,18 +13756,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Extracting could delete what a link inside the archive pointed at.
 	- Opened: n/a
+	- Target version: rc.1
 	- Closed: 20260914-121200
 	- Clearing the folder it extracts into, or a file being replaced, followed a link to a folder and emptied the folder at the other end. It asked nothing and logged nothing, so an archive with a link to home in it could have taken home. A link is removed as a link now.
 	- Test case: dcm8y `test-nemo-delete-guard` and dcsz2 `fCheckTreeWalks` in the C lint.
 
 - ✅ The unattended-delete guard reads GTK's current event, so a delete started from inside an unrelated event handler is recorded as one a person asked for.
 	- Opened: 20260914-102940
+	- Target version: rc.1
 	- Closed: 20260914-121200
 	- The caller says so now. Only the trash and delete commands in a window count as asked for, and undo, drops, and anything else always ask. The event is kept for the log.
 	- Test case: dd5b1 `fCheckByUser` in the C lint, dcm8y `test-nemo-delete-guard`, dcrvs `test-nemo-empty-trash`.
 
 - ✅ Windows: When CTRL+L to the editable current path, CTRL+C doesn't copy the path to the clipboard (right-clicking the selected text and picking Copy does), and the context menu key does nothing on selected text.
 	- Opened: 20260903-130431
+	- Target version: rc.1
 	- Closed: 20260909-104658
 	- Fixed 20260905, the copy half: an entry's own cut and copy only advertised the text, the way the toolkit always has, which is the same write that went missing for "Copy path" and file copy. The selected text is now written out as well, for every entry and text box. The regression check goes red with the fix backed out.
 	- The key half works on Windows: with the caret in the entry, with a word selected, and with the whole path selected. The menu that comes up is usable, and Select All picked from it selects the path.
@@ -13305,6 +13780,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ When launching fresh on 'C:\opt\0-0\users\collierjr\0_links' in Windows, the view can't be changed from list to icon (or compact) view. If you change folders, then the view can be changed.
 	- Opened: 20260908-011500
+	- Target version: rc.1
 	- Closed: 20260908-042000
 	- Cause, measured on the box: a view swap waits for the new view to report it has started loading, and that waits on a question asked of every file already listed, about its info, its mount, and its filesystem info. At startup the folder is still empty, so the question is answered at once and the first view gets through. By the time the view button is pressed the folder is full of links, and a link to a share that isn't responding costs about 20 seconds. A folder of them takes minutes.
 	- Fixed: a link to a share is no longer asked for filesystem info, the same way it was already left out of the mount question. It's Windows only. Nothing on another platform changes, since a share there is a mount rather than a native path.
@@ -13315,6 +13791,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The action layout editor doesn't run.
 	- Opened: 20260908-000856
+	- Target version: rc.1
 	- Closed: 20260908-004448
 	- It's reachable from Preferences > Actions, which spawns it, but it dies at startup. Its paths were baked in at configure time and point at an install prefix a portable copy never has.
 	- It also still reads and writes the pre-fork `nemo` config and data directories, so even once it starts, the app wouldn't see what it saved.
@@ -13325,6 +13802,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Bottom scrollbar: missing when the view is tiny, still there after a resize when nothing overflows, flashing at every step of a resize, and now and then strobing along with the vertical one.
 	- Opened: 20260906-110200
+	- Target version: rc.1
 	- Closed: 20260907-195000
 	- Severe visual bugs, possibly related:
 		- Doesn't appear when needed, e.g. when view is tiny.
@@ -13351,6 +13829,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ A running copy on Linux moved everything under the home folder to the trash, without anybody asking it to. The mounts under it can't be trashed, so the "delete immediately?" question came up for each of those, and they went for good.
 	- Opened: 20260906-110342
+	- Target version: rc.1
 	- Closed: 20260907-190000
 	- Cause: it wasn't found. The app wrote nothing about a trash or delete job, and the rollback that brought the home folder back took its own log and every other record under home with it. Every trash path in the code starts from a selection, a drop, an undo, or a menu, and none runs on its own.
 	- The parts that can be fixed are fixed. Every trash and delete job now logs its count, folder, first item, window, and the key, click, or drop that asked for it. A job without an input event behind it, such as one from another program, another copy, or a timer, always asks first, whatever the preference says, and the question says where it came from. A job of `confirm-many-items` or more items asks even with confirmation off. That's 20 by default, and 0 turns it off.
@@ -13360,6 +13839,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Plugins are duplicated.
 	- Opened: 20260905-112901
+	- Target version: rc.1
 	- Closed: 20260905-184500
 	- Cause: the same share folder gets onto the data-dir list more than once. The prefix wrapper puts it on when a launcher already has, and on Windows GLib adds the exe's own share folder on top of the one in the environment. Every action file was then found once per copy.
 	- Fixed: the list is read through one place that drops repeats, and every scan that walks it uses that, for actions, search helpers, themes, and thumbnailers. The wrapper also no longer adds a folder that is already there.
@@ -13368,6 +13848,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows: listing a drive root logs a batch of "GFileInfo created without standard::type" criticals.
 	- Opened: 20260902-190000
+	- Target version: rc.1
 	- Closed: 20260902-191500
 	- Cause: Windows won't stat a few of the files at the root of a drive, such as the page and swap files, so their entry comes back without any type on it. GLib now complains rather than returning a value when something asks for a missing attribute, and 5 places asked.
 	- Fixed: the type is read through one place that returns "unknown" for an entry without one. The listing looks the same as before, but without the noise.
@@ -13376,6 +13857,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows: file copy and paste to another program fails the same way "Copy path" did, and for the same reason.
 	- Opened: 20260830-153000
+	- Target version: rc.1
 	- Closed: 20260831-081500
 	- Found: it was worse than reported. Over a remote desktop session a copy in Nemo Anywhere did nothing at all, for other programs and for Nemo Anywhere's own paste alike. The toolkit only advertises a file cut or copy and hands it over when asked. The redirector asks the moment the clipboard changes, doesn't get an answer in time, and puts the client's own clipboard back.
 	- Found as well: even without a remote session in the way, Nemo Anywhere didn't publish anything Windows understands, so Explorer could never have pasted a copy made in Nemo Anywhere. It failed the other way too, since a copy made anywhere else didn't offer anything Nemo Anywhere was looking for, so Paste did nothing.
@@ -13386,6 +13868,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows network browsing can't be proved to report a missing network or a refused share.
 	- Opened: 20260804-230307
+	- Target version: rc.1
 	- Closed: 20260831-071500
 	- Fixed so far: the address building and the not-found result, both verified against real shares. It came from code review 20260804.
 	- Found: the missing-network half never worked. Asking Windows to list the neighborhood on a machine with no network at all succeeds and hands back an empty list, so Nemo Anywhere showed a blank folder that looked like it had loaded. The branch meant to catch it couldn't fire.
@@ -13397,6 +13880,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows: opening a file from the released build breaks the program it opens in, unless that program is already running.
 	- Opened: 20260830-141048
+	- Target version: rc.1
 	- Closed: 20260830-214500
 	- It was reported against a symlink and VSCodium, which said "The window terminated unexpectedly". The link turned out to have nothing to do with it, and neither did the file, since a plain text file does the same.
 	- Cause: the single-exe packer is set to share its virtual file system with child processes, so every program opened from Nemo Anywhere starts with the packer's hooks inside it. A program that runs its own sandboxed child processes can't start those, and reports a crash. That includes anything built on Chromium, which is a lot of desktop software now. It only shows on a cold start because a second copy of such a program hands the file to the one already running and exits before it gets that far.
@@ -13413,6 +13897,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows: the released build can't open a file whose program is 32-bit. Nothing happens, and nothing is reported.
 	- Opened: 20260830-161500
+	- Target version: rc.1
 	- Closed: 20260830-214500
 	- Cause: the single-exe packer is set to leave programs of the other architecture alone, and in practice it stops them starting rather than letting them run unhooked. The call reports success, so Nemo Anywhere has nothing to report either.
 	- Measured: a 32-bit program started from a packed build never runs, but the same command by hand runs fine. Allowing the other architecture does let it start, but then it gets the packer's hooks like everything else.
@@ -13421,6 +13906,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows: a link pointing at a folder was drawn with a file icon instead of a folder icon.
 	- Opened: 20260830-141048
+	- Target version: rc.1
 	- Closed: 20260830-150000
 	- Cause: Windows doesn't report any type for a link the listing doesn't follow, so the toolkit handed back its plain file icon. The folder icon comes from the type, so a folder link got the document one. Both a directory symlink and a junction were affected.
 	- Fixed: a link that is a folder is given the folder icon whatever the type came back as.
@@ -13429,6 +13915,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ "Copy path as" left the clipboard holding whatever was in it before, instead of the path.
 	- Opened: 20260830-141048
+	- Target version: rc.1
 	- Closed: 20260830-152000
 	- Cause: the toolkit only advertises text on the Windows clipboard and hands it over when somebody asks for it. In a remote desktop session the redirector asks straight away, doesn't get an answer in time, and puts the client's own clipboard back, so the copy read as having done nothing. It affected the plain "Copy path" item too.
 	- Fixed: the text goes onto the clipboard up front, so there is nothing left to ask for.
@@ -13437,6 +13924,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The context-menu key didn't stand in for a right-click.
 	- Opened: 20260830-141048
+	- Target version: rc.1
 	- Closed: 20260830-151000
 	- Cause: the key did open the menu, but the menu placed itself at the mouse pointer. For a key press, that can be anywhere, including another window or another monitor. It read as the key having done nothing.
 	- Fixed: a menu asked for from the keyboard is placed against whatever has the focus. Ctrl+F10 was going the same way and now does too.
@@ -13444,6 +13932,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows: a first start with a fresh roaming profile moved the local data folder into the settings folder.
 	- Opened: 20260829-081500
+	- Target version: rc.1
 	- Closed: 20260829-083500
 	- Cause: the move of an old-style settings folder into its roaming home fired on any folder found at the old place. On Windows that place is also where actions, scripts, and search helpers are kept, so an ordinary data folder was moved off as if it were old settings.
 	- Fixed: only a folder with a settings file in it is moved. The data folder stays where it is.
@@ -13451,6 +13940,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Startup warnings on Windows, and one warning per file in the first listing.
 	- Opened: 20260804-133646
+	- Target version: rc.1
 	- Closed: 20260829-073319
 	- Fixed: the Windows half of the NULL-instance criticals was the missing resource bundle.
 	- Fixed: the second signature is `g_file_get_child: assertion 'name != NULL'`, logged once per file listed. The cause was that a file's name isn't filled in until late in the same update that first applies its info, and the drive-root naming read it early, so every file in the first listing logged one. It also meant a drive root shown as a child kept the bare separator as its name until something refreshed it.
@@ -13460,6 +13950,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Often when right-clicking on the breadcrumb buttons, the menu closes immediately and has to be right-clicked again.
 	- Opened: 20260802-095853
+	- Target version: rc.1
 	- Closed: 20260828-164500
 	- Fixed: the path-button menu work. The menu opens inside the press itself now, rather than after an attribute load that could finish late.
 	- Verified on Windows: 8 right-clicks in a row, and the menu came up and stayed up every time.
@@ -13467,6 +13958,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Dragging a file towards another application crashed the app, before it had even left the window.
 	- Opened: n/a
+	- Target version: rc.1
 	- Closed: 20260828-163000
 	- Reproduced: it had nothing to do with the other application. Any drag that passed over the empty space below the last row did it, which a drag out of the window does on its way.
 	- Cause: the toolkit is asked which row is under the pointer. Past the last row it returns "none" without filling in the row it was handed, and that leftover value was then read and released.
@@ -13475,6 +13967,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Search doesn't fully work.
 	- Opened: 20260826-103001
+	- Target version: rc.1
 	- Closed: 20260828-160000
 	- Note: there were 3 faults, all on Windows. Searching by name already worked, and still does, for substring, wildcards, a regex, and the switch that keeps the search out of subfolders.
 	- Fixed: "Containing:" found nothing at all, ever. Windows calls the extension the file's type, so the test for "is this text" returned no for every file. It converts first now, and where the extension means nothing to Windows it decides from the first few kilobytes instead. A file with no extension is searched, and a binary one is left alone.
@@ -13485,6 +13978,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The settings schema bundled for `shcl check` is kept in step with the key table in the code by hand, and nothing notices when it drifts.
 	- Opened: 20260821-144459
+	- Target version: rc.1
 	- Closed: 20260826-180755
 	- Cause: every new setting means editing 2 files. Miss the second and a hand-edited config validates against a schema that doesn't know the key.
 	- Reproduced: it turned up while adding 2 settings at once.
@@ -13494,6 +13988,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ A leftover helper from the install folder blocks uninstall and in-place upgrade, and the message blames the app.
 	- Opened: 20260818-155550
+	- Target version: rc.1
 	- Closed: 20260828-134500
 	- Cause: the session bus the app autolaunches is in the install folder and outlives the window, so the in-use check still sees the folder busy. It says "Nemo Anywhere is still running", which reads as wrong to someone who just closed it.
 	- Reproduced: uninstall failed on the installer round trip, then succeeded a few seconds later with nothing else changed.
@@ -13508,6 +14003,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The installer leaves the user PATH very slightly different from how it found it.
 	- Opened: 20260818-155550
+	- Target version: rc.1
 	- Closed: 20260826-180755
 	- Cause: adding then removing the entry also drops a pre-existing trailing separator, so an install/uninstall round trip isn't byte-identical. It's harmless, since an empty trailing entry means nothing, but it's a change nobody asked for.
 	- Fixed: both halves keep the trailing separator through, so what an uninstall writes back is what the install found.
@@ -13516,6 +14012,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Listing a folder whose path is past 260 characters quietly lists a different folder instead, the one the program happens to be running from.
 	- Opened: 20260821-150232
+	- Target version: rc.1
 	- Closed: 20260828-114000
 	- It was found while proving the long-path manifest work. The toolkit's own directory walk is what breaks. Every other call on the same path is right, which is why nothing showed up until a folder that deep was opened.
 	- In the window it reads as an empty folder, because each name it hands back is then checked against the folder that was asked for and none of them are in it. That's the harmless case. The one to worry about is search, which walks folders itself and would follow the wrong tree.
@@ -13527,6 +14024,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Switching the path separator to `/` doesn't take effect until the folder is revisited.
 	- Opened: 20260826-103001
+	- Target version: rc.1
 	- Closed: 20260828-124500
 	- Note: the rest of the Paths group on the Display page applies straight away, so this one is the odd man out.
 	- Cause: the title, the location entry and the breadcrumb are only rebuilt on a location or view change, so changing how a path is written never asked for one.
@@ -13537,6 +14035,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ "Show the full path in the title bar and tab bars" does nothing.
 	- Opened: 20260826-103001
+	- Target version: rc.1
 	- Closed: 20260826-180755
 	- Note: on the Display page, under Windows and Tab Titles. Turning it on leaves the window title and the tabs showing the folder name only.
 	- There were 2 causes. The title is only recomputed on a location or view change, so the setting did nothing until the next navigation. And the home folder answered "Home" before the setting was ever read, so in the one place most people would try it, it did nothing at all.
@@ -13545,6 +14044,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The first folder listed after launch is still slow when the start location is full of links.
 	- Opened: 20260828-083458
+	- Target version: rc.1
 	- Closed: 20260828-090000
 	- Note: it's the same folder and symptom as the item below, which fixed only the first of 2 causes. The listing itself now appears in about 3 seconds, and what came after it took about another minute.
 	- Cause: 2 things chased each link off the machine, one at a time, while the folder waited. They were counting a folder's items, and asking what a share is mounted under. One link to a host that isn't responding cost a lot of time per query.
@@ -13555,6 +14055,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The first folder listed after launch takes a very long time when the start location is full of links.
 	- Opened: 20260827-183930
+	- Target version: rc.1
 	- Closed: 20260827-193152
 	- It was seen launching straight into a folder of shortcuts and junctions. Folders opened after that are normal, so it's the first listing that pays.
 	- Measured: one link pointing at a share that isn't responding costs about 20s, and the whole listing waits for it. The folder in question has one, and took over a minute to show anything at all. It's only slow the first time because Windows remembers the failure for a while afterwards.
@@ -13566,6 +14067,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Deleting to the trash puts the progress popup on top of the confirmation prompt.
 	- Opened: 20260827-183930
+	- Target version: rc.1
 	- Closed: 20260827-191128
 	- Note: the yes/no dialog is behind it, so the delete reads as stuck until the popup is dragged out of the way.
 	- Cause: the prompt was the Windows shell's rather than ours. GLib's trash call leaves the shell confirmation switched on, so every file was asked about twice and the second dialog wasn't one we could place.
@@ -13575,6 +14077,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The Win32 argument quoting check depends on what is installed on the machine.
 	- Opened: 20260828-083458
+	- Target version: rc.1
 	- Closed: 20260828-090000
 	- Cause: it split `wt.exe` and expected the name back unchanged, but a box with Windows Terminal installed resolves it to a full path, so the check failed there and nowhere else.
 	- Fixed: it uses a name that can't be on the path. The case where a program is found is still covered, by the check below it that looks one up first.
@@ -13582,6 +14085,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The config schema check goes red on a fresh Windows checkout.
 	- Opened: 20260828-083458
+	- Target version: rc.1
 	- Closed: 20260828-090000
 	- Cause: git checks the schema out with Windows line endings, and the check split it on newlines only, so every field name had a stray carriage return and matched nothing. It then reported all 169 settings as missing from the schema.
 	- Note: the config parser itself was never affected, since it treats a carriage return as whitespace. Only the check's own reader did.
@@ -13589,6 +14093,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ In dark mode the breadcrumb bar and the checked view buttons kept a light background, unreadable against everything around them.
 	- Opened: 20260819-124028
+	- Target version: rc.1
 	- Closed: 20260819-141014
 	- Cause: a bundled theme is loaded as a stylesheet of our own, but the theme name was left pointing at it. GTK can't resolve a name it has never seen on disk, falls back to its packaged sheet, and drops the dark half while doing so. So the layer under ours was the light one. Anything our sheet didn't itself paint showed it through.
 	- Fixed: the name now points at a theme GTK has, so the base follows light/dark while our sheet is on top. Verified against both the light and the dark base.
@@ -13597,6 +14102,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The 3 view buttons at the bottom left drew as broken-image placeholders.
 	- Opened: 20260819-124028
+	- Target version: rc.1
 	- Closed: 20260819-141014
 	- Cause: none of the app's own artwork was in the Windows bundle at all. Only the toolkit's icons were packaged, so every one of our own icon names missed. The location button in the toolbar was the same failure.
 	- Fixed: the app's artwork is now built into the executable, the same way the bundled themes are. It doesn't add any files, so nothing is added to startup time, and it works on every platform, a relocated install included.
@@ -13604,6 +14110,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The theme picker offered "macOS" and "Windows 10" twice in dark mode, and one of each was the light theme.
 	- Opened: n/a
+	- Target version: rc.1
 	- Closed: 20260819-141014
 	- Cause: upstream, those 2 themes have a dark sheet of their own as well as a separately drawn dark half that we also bundle, so both halves claimed dark.
 	- Fixed: where a light/dark pair is named, the pair wins and the redundant sheet is dropped. A theme that states which modes it suits is no longer second-guessed either, so a hand-dropped theme can't bring the fault back.
@@ -13611,6 +14118,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ On Windows a drive root is named `\` everywhere except the sidebar. The window title reads `\` and the breadcrumb reads `(C:) Windows`, while the sidebar has `Windows (C:)`. It was seen on this box browsing `C:\`.
 	- Opened: 20260818-142740
+	- Target version: rc.1
 	- Closed: 20260818-155550
 	- The volume-label work only ever covered the sidebar, and it built its own name there. Everywhere else falls back to what Windows reports for a drive root, which is a bare separator.
 	- There were 3 different sources in play: the basename, which is `\` for every drive alike; the volume monitor, which says `(C:) Windows`; and the sidebar's own string.
@@ -13620,6 +14128,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ "Set as default" in the Open With tab did nothing on Windows, and said nothing either.
 	- Opened: n/a
+	- Target version: rc.1
 	- Closed: 20260818-155550
 	- Cause: Windows keeps the per-user default behind a hash it won't let a program write, so the call fails outright, and the result was thrown away along with the error.
 	- Fixed: the failure is reported. The choice still can't be made on Windows, but the user is told rather than left thinking it worked.
@@ -13628,6 +14137,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The action layout editor never opens. The app spawns it as `nemo-action-layout-editor`, but the binary installs under the app slug as `nemo-anywhere-action-layout-editor`. It's one missed rename from the rebrand.
 	- Opened: 20260804-133646
+	- Target version: rc.1
 	- Closed: 20260818-103142
 	- Fixed: it's spawned under the app slug, out of the folder the app itself was started from, and a failure to start now says so instead of doing nothing.
 	- Also found and fixed alongside: the Restart button in extension settings was quitting and starting whichever upstream Nemo happened to be installed, rather than this app.
@@ -13635,6 +14145,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The Windows build went out without its compiled-in resources, so it had no menu bar at all and every `.ui`, `.glade` and `.css` lookup failed.
 	- Opened: n/a
+	- Target version: rc.1
 	- Closed: 20260818-155550
 	- Cause: the resource bundle is attached to the extension library. On Linux that is a shared library and the whole thing loads, so the resources register themselves. On Windows it is a static one, and the linker keeps only the members that resolve a symbol. The resources register from a constructor nothing calls by name, so the object was dropped.
 	- Nobody noticed because the app still starts and browses. The missing menu bar reads as a design choice, and the fallout was a wall of criticals that had been written off as noise.
@@ -13644,6 +14155,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The Windows executable wasn't marked long-path aware, so anything past the old 260-character limit was out of reach even with long paths switched on.
 	- Opened: 20260818-142740
+	- Target version: rc.1
 	- Closed: 20260826-103001
 	- Cause: the exe had no application manifest, which is where that's declared.
 	- Fixed: the manifest came in with the DPI work. On a 427-character folder with a 462-character file in it, every call failed outright without the manifest. With it, reading the file, asking for its details, testing that it exists, and walking into the folder all work.
@@ -13652,6 +14164,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Code review 20260815.
 	- Opened: 20260815-154746
+	- Target version: rc.1
 	- Closed: 20260817-210917
 	- It was a full code, security, and performance review of the whole tree, first-party and inherited. Everything below was re-checked before it went in, and it's listed worst first. Technical detail is kept out of this file. Numbers are continuous.
 	- Test case: none, since it's a review. Each item under it names its own.
@@ -14156,6 +14669,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Code review 20260804.
 	- Opened: 20260804-230307
+	- Target version: rc.1
 	- Closed: 20260817-210917
 	- It was a full review of everything written or changed since the fork point. Items are ordered roughly most serious first. Technical detail is kept out of this file.
 	- Test case: none, since it's a review. Each item under it names its own.
@@ -14436,6 +14950,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ A fractional display scale is only applied to text, so widgets, icons, and spacing stay at the whole step below it.
 	- Opened: 20260821-150232
+	- Target version: rc.1
 	- Cause: the toolkit scales in whole numbers. At 150% the type is right and everything around it is a third too small.
 	- Probable fix: our own stylesheet, with padding, icon sizes and the like driven from the leftover fraction. Only do it once someone has looked at it on a scaled display.
 	- Verified 20261007: it was checked on a Windows box at 100%, 125%, and 150%, and on Linux at a font DPI of 144. Type is right at every scale. Rows that follow the text come out 8 to 16% short of 150%: list rows 36 pixels against 39, Places rows 31 against 34.5, the menu bar 39 against 46.5. Everything of fixed size stays at its 100% size, a third short: every icon, text fields and buttons at 34, column headings at 25, the toolbar band at 40.
@@ -14452,6 +14967,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ A Windows installer exe that installs, or updates an install already there.
 	- Opened: 20260919-132409
+	- Target version: rc.1
 	- Design: [20260930-145641_windows_exe_packing.md](design_docs/20260930-145641_windows_exe_packing.md).
 	- Note: Windows has the portable exe and the zip today, and `install.ps1` for an install with a menu entry and PATH.
 	- Note: it needs signing first, or it trips the same warnings the exe does.
@@ -14471,6 +14987,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Linux arm64 release build. It needs an arm64 GTK3 build environment. Nothing cross-compiles it today, so the installers' arm64 path has nothing to fetch.
 	- Opened: 20260804-133646
+	- Target version: rc.1
 	- Note: if arm64 builds turn out much slower, they go behind an `--include-arm` flag rather than the `--no-arm` the engine has now.
 	- Done 20261005: `cicd/linux/release-arm64.bash` builds `nemo-anywhere-<version>-linux-arm64.tar.gz` on an arm64 Linux box with docker, and adds it to the sums file. It sends the working tree over and runs `release.bash` there, in an image from the same Dockerfile, so the glibc floor and the library versions match the x86_64 build. The Dockerfile pins the arm64 package sources to the same snapshot.
 	- Done 20261005: `release.bash` names the asset `arm64` where the kernel says `aarch64`, which is the name the installers ask for. `package.bash` now only picks up a tarball for its own box's arch.
@@ -14489,6 +15006,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Target: BSD
 	- Opened: 20260730-185314
+	- Target version: rc.1
 	- Done: 20261005. It builds on FreeBSD 15.1 with clang, without any warnings under `-Werror`. `--version` works, a window comes up, and the suite passes there, with 157 passing, 14 skipped, and none failing. Dependencies and steps are in design.md, "Building on FreeBSD".
 	- Done: 20261005. Fixed for FreeBSD: the program finding its own path, which new windows and the data dirs depend on; the crash reporter taking a sent signal for a fault, and its stack after a bad jump; and translations being switched off at setup.
 	- Done: 20261005. The 7 tests that drive the program through a preloaded library now run on FreeBSD too, and so do the tests that need a display to themselves.
@@ -14500,6 +15018,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Installers: architecture always detected, a version option, and a stable install that still works before any stable release exists.
 	- Opened: 20260919-131209
+	- Target version: rc.1
 	- Done: `--arch` and `-Arch` are gone. `--version`, `-Version`, and `-Help` are new, and the bash one takes `--opt=value` too.
 	- Done: releases are ranked by version rather than by the order the API lists them. Stable takes the newest prerelease while no stable release exists, and the plan says so.
 	- Verified: both installers, bash and PowerShell 7, show the right plan against the live releases on Linux. The ranking was checked against a list with a two-digit minor and beta10 beside beta2.
@@ -14511,6 +15030,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ "Make link" dialog:
 	- Opened: 20260926-094941
+	- Target version: rc.1
 	- ✅ Add some extra space (ideally according to UI guidelines) between the folder & file options, and the "Symlink path" options - to visually indicate the latter is a different kind of decision.
 		- Done: the path row is 12 pixels below the link type rows, which are 6 apart. That's the GNOME spacing between groups and within one.
 	- ✅ Shortcut flyover text: "On Windows, it's limited to programs that use the Windows shell library, such as Explorer.": -> "...such as Explorer (and Nemo Anywhere)."
@@ -14519,6 +15039,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Link copy dialog:
 	- Opened: 20260925-163000
+	- Target version: rc.1
 	- ✅ Row labels and choices are singular or plural to match the count, for file symlinks, folder symlinks, and junctions. "Copy contents" is singular for one file, and plural for folders.
 	- ✅ Shortcuts (.lnk) are always copied as just the shortcut file.
 		- They already were. A shortcut is a plain file to a copy, and alone it doesn't ask anything.
@@ -14530,12 +15051,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Tests for every combination of Make link choices.
 	- Opened: 20260925-163000
+	- Target version: rc.1
 	- Closed: 20260925-175728
 	- Done: every folder and file kind, both paths, every set of shortcut paths, for a file, a folder, or both, made beside the originals and elsewhere.
 	- Test case: dd29z, dd2a0, dd2a1, dd2ds, dd2gv, dd2qg, dec73, dd42t, dd8e1 and dd2a2 `test-nemo-make-link-job` in its `every` mode.
 
 - ✅ Tests for archive creation combinations, including delete after archive.
 	- Opened: 20260925-163000
+	- Target version: rc.1
 	- Closed: 20260925-175728
 	- Done: every option is paired with every other at least once, per format. Delete, one or each, split, password, and hidden names are crossed in full.
 	- Fixed on the way:
@@ -14547,6 +15070,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ New menu item: "Edit link" (for all link types).
 	- Opened: n/a
+	- Target version: rc.1
 	- Allow editing target.
 	- For .lnk files, allow editing all three target fields
 	- Can change link name too.
@@ -14558,6 +15082,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ When copying symlinks, make it clear that the option "Symlink" isn't creating a new one, but copying the existing link, or link's contents. E.g.
 	- Opened: n/a
+	- Target version: rc.1
 	- Currently:
 		File symlinks:  [] Symlink  [] Copy
 		Folder symlinks:  [] Symlink  [] Copy
@@ -14572,6 +15097,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Pipeline pass, 20260925.
 	- Opened: 20260925-122815
+	- Target version: rc.1
 	- Closed: 20260925-130500
 	- Done: `--help` prints before the run starts its CPU cap or touches the containers.
 	- Done: shellcheck, ruff, PSScriptAnalyzer, and Pillow are pinned beside cppcheck, and drift is reported in gate runs too.
@@ -14587,6 +15113,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Move to SHCL 3.
 	- Opened: n/a
+	- Target version: rc.1
 	- Closed: 20260925-112355
 	- Done: the vendored `shcl.h` is SHCL 3, from its `dev` branch ahead of the beta tag. The 3 workarounds for older SHCL are gone: rewriting backslash paths before a save, rebuilding the parser memory past 256 KB, and the exit on out-of-memory.
 	- Keep: a comment is still only added when new, and raw reads still need a fence. SHCL 3 didn't change either.
@@ -14596,6 +15123,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Mouse cursor color change over the row underneath the cursor, needs to be a different color than "different shade of gray". Ideally something theme-based (per-OS), but adjusted to be more subtle if it's not. And not conflicting or confusable with actual current selected row color. And not confusable with alternating row colors. Whether using light or dark mode. And the most subtle-but-visible color difference of all the current row color differences. Possibly even a subtle text-only effect similar to SilkTerm's "scrim"?
 	- Opened: 20260919-125440. Closed: 20260924-195639.
+	- Target version: rc.1
 	- Done: hover takes the theme's selection hue rather than gray, in the list and both sidebars. It's fainter than a shaded row and well short of a selected one, on light and dark themes alike. A theme that selects in gray gets a soft blue.
 	- Near white there is little room for color, so on a white row the tint is also a little darker. It still reads as pale blue.
 	- `row-hover-color` in the settings file overrides it.
@@ -14604,6 +15132,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Dialogs shouldn't have titles in the dialogs themselves. The titles belong on the window decoration.
 	- Opened: 20260924-184213. Closed: 20260924-193625.
+	- Target version: rc.1
 	- Note: every dialog with a heading of its own now has its title in the title bar. What's left are alerts, which by long habit have an empty title bar and a bold first line, usually a question such as "Replace file?". Those stay as they are, and only title-style headings move.
 	- Test case: none, a layout convention with no code change of its own to pin.
 
@@ -14612,12 +15141,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- The icons in icon view are WAY too big for the view. Use smaller thumbnails.
 	- Use real images in the image view. Modern fighter jets, puppies, beautiful green nature at hazy golden hour.
 	- Opened: 20260924-184213. Closed: 20260924-191200.
+	- Target version: rc.1
 	- Done: the ending shows github.com/yottacore/nemo-anywhere. A folder that's mostly pictures opens at 1.5 times instead of 5, so all 9 photos fit. The photos are public domain or CC0, from Wikimedia Commons.
 	- Note: the product default for such folders is still 5 times. That may need its own look.
 	- Test case: none, demo asset. `cicd/utility/lint-demo-script.py` checks its settings.
 
 - ✅ Valid shortcuts to folders sort with folders.
 	- Opened: 20260924-184213. Closed: 20260924-185919.
+	- Target version: rc.1
 	- Done: a shortcut sorts with the folders when it records a folder as its target, which is also what gives it the folder icon. That's on every platform.
 	- Note: "valid" is taken as a shortcut that reads and says folder. The target itself isn't checked, since that can stall on a share that isn't responding, so a shortcut whose folder is gone still sorts as a folder until opened.
 	- Verified: a test sorts a folder shortcut ahead of the files and a file shortcut among them.
@@ -14625,6 +15156,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ New tab: CTRL+Shift+T should work too.
 	- Opened: 20260924-184213. Closed: 20260924-185428.
+	- Target version: rc.1
 	- Done: with no folder selected it opens a new tab. With folders selected it opens them in new tabs, as it did before. A selected file used to open in its program. Now it gets a new tab.
 	- Test case: `cicd/utility/lint-accels.py` (one action per key, NewTabAccel owns Ctrl+Shift+T). It's a lint check, which has no test ID.
 
@@ -14635,6 +15167,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Remove "Shortcut paths" options. That wasn't a good idea. Always create all three.
 	- Symlink path: "Absolute" comes before "Relative".
 	- Opened: 20260924-184213. Closed: 20260924-185000.
+	- Target version: rc.1
 	- Done: the first 4 in the linkdlg chunk, and Absolute now comes before Relative.
 	- Note: the "goes in" line comes back for a drop, which can be onto another folder.
 	- Test case: dc3p6 `test-nemo-link-copy` (`check_link_options`, `check_labels`). The row that keeps its space is look only.
@@ -14645,6 +15178,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Hardlink: "<original name> - hardlink[ 2 etc]"
 		- Shortcut: "<original name> - shortcut[ 2 etc]"
 	- Opened: 20260924-184213. Closed: 20260924-185000.
+	- Target version: rc.1
 	- Done: the kind goes before the extension, "photo - symlink.jpg", so the link still opens as its type. A shortcut follows Explorer, "photo.jpg - shortcut.lnk". A junction is "folder - junction".
 	- Done: a link made in another folder keeps the original's name, with " 2" and on for a clash. It used to be "Link to ...".
 	- Verified: a test makes each kind beside its original, twice for the clash.
@@ -14652,12 +15186,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Dragging one or more files and dropping with "Alt" held, and user selects "Make link" - should open the new links dialog, rather than "Cancel/OK".
 	- Opened: 20260924-184213. Closed: 20260924-185000.
+	- Target version: rc.1
 	- Done: every link drop opens the Make link dialog, from the Alt menu ("Link here...") or with the link keys held, in any view or sidebar. The drop question leaves links out, since the dialog asks.
 	- Verified: both kinds of drop open the dialog, and the link is made in the drop folder.
 	- Test case: dd5ew `test-nemo-drop-cancel` (`check_link`), dc54g `test-nemo-drag-confirm`.
 
 - ✅ Debug delete/move/etc:
 	- Opened: 20260924-170000
+	- Target version: rc.1
 	- Closed: 20260924-170600
 	- ✅ Add a setting in preferences to disable it.
 		- Done: a checkbox at the end of Trash on the Behavior page. It's grayed out in a build with the guard forced on.
@@ -14667,6 +15203,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows `.lnk` file support on macOS and Linux
 	- Opened: 20260924-104933
+	- Target version: rc.1
 	- Closed: 20260924-113840
 	- ✅ They should behave mostly as they do on Windows:
 		- ✅ .lnk to folders, should *change the directory* to that path
@@ -14728,6 +15265,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Allow moving tabs to other nemo-anywhere windows.
 	- Opened: 20260922. Closed: 20260924-095019.
+	- Target version: rc.1
 	- Each window is its own process by default, and GTK can only move a tab within one process. A move between windows has to be handed over as the tab's location instead.
 	- Done: a tab's right-click menu has "Move tab to", which lists every other window by its title, and a new window. A tab dragged off its tab bar and dropped on another window goes to that window. Dropped anywhere else, it gets a new window, as before.
 	- Done: the folder, the view and the selection go with the tab. Back and forward history stays behind, as it does for any new window. The window that takes the tab comes to the front.
@@ -14738,6 +15276,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Copying a tiny file makes a CoW clone of it, where a plain copy would do better.
 	- Opened: 20260923-114627. Closed: 20260924-100500.
+	- Target version: rc.1
 	- A copy tries a clone first at any size, then a plain copy. A clone of a tiny file can cost more than it saves.
 	- Pick a size below which a copy skips the clone. See [20260930-145641_moving_and_copying.md](design_docs/20260930-145641_moving_and_copying.md#clone-copies).
 	- Done: on Linux, a file under 64 KiB is read whole and written out plainly, so it is never cloned. That's 16 blocks of 4 KiB, and a clone saves less than that below it, while the file system keeps track of the shared extent for as long as both copies exist.
@@ -14748,6 +15287,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Put the drag-move scene back in the demo once the delete test guard's compile-time arm is at 0.
 	- Opened: 20260919-161500. Closed: 20260924-083500.
+	- Target version: rc.1
 	- The drag question is one of the better features to show, but while the guard is armed a move on camera brings up its dialog and call stack instead.
 	- The demo lint fails if a drag goes back in while the guard is still at 1, so this can't be forgotten.
 	- Note: unblocked 20260923. The compile-time arm is 0, and the demo turns the setting off. The lint now fails if a drag goes back in while any of the define, the demo's settings or the default would arm it.
@@ -14755,6 +15295,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: none, demo content. `cicd/utility/lint-demo-script.py` fails if a drag goes back in while the guard would arm.
 
 - ✅ RE Delete/move test guard:
+	- Target version: rc.1
 	- ✅ Originally opened 20260917-125536:
 		- `NEMO_TESTGUARD_ALL_DELETES` in `nemo-delete-testguard.h` is 1 while the removal that took home on b23 is still unexplained, so every build asks about every delete and the normal confirmations stay out of the way.
 		- The define only ever arms. At 1 nothing turns it off. At 0 the `NEMO_TESTGUARD_ALL_DELETES` environment variable and the `debug.testguard-all-deletes` setting arm it instead, so a release build can still be armed when needed.
@@ -14785,6 +15326,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ For macOS, many actions that require CTRL+[something] in Linux or Windows, would more naturally be Command+[something] in macOS. (E.g. keyboard mod behavior in Finder.) Account for these combo key differences. But don't go overboard, e.g. don't require "Cmd+down arrow" to enter a folder. Keep the current keyboard behavior, just remap the sensible things from Ctrl to Cmd on macOS where it makes sense.
 	- Opened: 20260919-125440. Closed: 20260922.
+	- Target version: rc.1
 	- Settled 20260920: write it now rather than wait for a macOS target. There's no way to run it here, so it goes in behind a platform check and stays unverified until there is a machine to try it on.
 	- Menu shortcuts use GTK's "Primary" key, which is Cmd on macOS and Control everywhere else. The same key now adds to a selection by click, opens a new tab or window by click, zooms by scroll, and does cut, copy, paste, and select all while renaming.
 	- A few stay on Control on macOS, where Cmd already means something: showing hidden files (Cmd+H hides the app), make symlink (Cmd+M minimizes), the shortcuts window (Cmd+F1), and tab switching. Keyboard moves that keep the selection stay on Control too, as GTK's own lists do.
@@ -14794,6 +15336,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Additional thumbnailer formats:
 	- Opened: 20260922-090733
+	- Target version: rc.1
 	- Raw files including .dng
 	- jp2 (JPEG 2000 in general)
 	- Closed: 20260922.
@@ -14812,6 +15355,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 					- That will at least allow "File count" to populate early.
 	- Remove "Help" button
 	- Opened: 20260922. Closed: 20260922.
+	- Target version: rc.1
 	- "Contents" is now 2 lines, Folders and Files, each with its hidden count beside it, as in "12 (and 3 hidden)". Both count up live while the folder is walked, and so does Size.
 	- Largest first was left out. The size of each file comes with the listing, so the total is final the moment the listing is, and a second pass in size order would only make it later.
 	- With several items selected, a selected folder counts as one of the folders. A lone folder shows only what's inside it.
@@ -14821,6 +15365,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ✅ Change window title to path (with quotes if it has spaces), then "Nemo Anywhere". Formally:
 	`["][preceeding path/][folder]["] - Nemo Anywhere`
 	- Opened: 20260922. Closed: 20260922.
+	- Target version: rc.1
 	- The title now reads `Documents - Nemo Anywhere`, or `"My Documents" - Nemo Anywhere` with a space. With the full path shown, it's the whole path in the same place, quoted if any part of it has a space.
 	- This reverses the order settled on 20260917 ("Nemo Anywhere - 'PATH'"). The folder first is the usual order for a window title, and a narrow taskbar button cuts from the end.
 	- The format test was updated to the new order rather than kept on the old one, and has new checks for the quotes.
@@ -14828,11 +15373,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ New option in Preferences: "Always show at least one tab".
 	- Opened: 20260922. Closed: 20260922.
+	- Target version: rc.1
 	- The setting was already in the settings file. It now has a checkbox under Behavior, "Show the tab bar even with only one tab".
 	- Test case: dbnfq `test-nemo-prefs-widgets` for the checkbox.
 
 - ✅ Anytime a new window is spawned from an existing window (e.g. Ctrl+N or dragging a second tab off the window to open it in a new one), it should be in its own process.
 	- Opened: 20260922. Closed: 20260922.
+	- Target version: rc.1
 	- It's been the case since 20260905, with "Open each new window as its own process" on under Behavior, which is the default. It was checked again for Ctrl+N and for a tab dragged off the window, and each comes up as a new process.
 	- With the setting off, both stay in the one process, as before.
 	- Test case: dc7gq `test-nemo-new-process`, dc7gr `test-nemo-instances`. The choice made by the setting isn't pinned.
@@ -14841,6 +15388,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Currently wrong: The "displayed" bar goes to 100% quickly, based on what is currently shown, and changes upon scrolling.
 	- Fix to be correct: The displayed bar should use the total image count as the denominator, and should never be ahead of the "scanning" progress bar.
 	- Opened: 20260922. Closed: 20260922.
+	- Target version: rc.1
 	- The bottom bar counts every picture in the folder now, on screen or not, and never reads further along than the top one. In list view it follows the top bar.
 	- Test case: dcz99 `test-nemo-thumbnail-jobs` (`test_rendered_never_ahead`).
 
@@ -14850,12 +15398,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Rendering # I.e. painting the thumbnails to the view
 	- Placement: Between the "places|treeview|contents" buttons, and the [item count + other info] info in the middle.
 	- Opened: 20260922. Closed: 20260922.
+	- Target version: rc.1
 	- The top bar is how much of the current run of thumbnails is made. The bottom one is how many of the pictures on screen are drawn, in icon view. Hovering over either gives the counts.
 	- They come up only when a run lasts more than a moment, and go away shortly after it ends. The space stays reserved, so the status text doesn't jump sideways.
 	- Test case: dcz99 `test-nemo-thumbnail-jobs` for the counts. When the bars show is look only.
 
 - ✅ Thumbnails:
 	- Opened: 20260921-172249
+	- Target version: rc.1
 	- ✅ Feature: Show thumbnails for PSD format if possible. IIRC the layers are TIFF format, but maybe a special reader is needed.
 		- It's a small reader of our own. It reads the flattened copy of the picture a .psd or .psb keeps after its layers, so the layers are never read. It handles grayscale, indexed, RGB, and CMYK, 8 or 16 bit. Lab and 32 bit files still show the type icon.
 	- ✅ Bug: When rendering thumbnails, there is often flashing when changing between generic icon, and rendered thumbnail.
@@ -14867,18 +15417,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Add a small "Close" button (alt+C) in the right side of an "always visible" bar at the bottom of the Preferences dialog. (Both Enter and Esc activates.) It should be independent of the scrollbar area.
 	- Opened: 20260921-172249
+	- Target version: rc.1
 	- Created 20260921-170804 by JC. Closed: 20260921.
 	- A bar under every page has Close, outside the scrolling. Close is the default button, so Enter closes unless the focused control uses the key itself, and Escape closes too. On the Context menus page Alt+C also reaches the Copy box, so there it takes a second press.
 	- Test case: dd5df `test-nemo-prefs-dialog` (Close default, Escape), dbnfq `test-nemo-prefs-widgets`.
 
 - ✅ The Compress dialog is taller than a 540px screen once Options is expanded, and its buttons fall off the bottom.
 	- Opened: 20260919-161500. Closed: 20260921.
+	- Target version: rc.1
 	- It was found while writing the demo, at 960x540. The preferences dialog was checked down to 1024x600 and fits, but this one wasn't.
 	- The options scroll when the screen is too short for them, so the buttons stay on screen. On a taller screen nothing changes.
 	- Test case: dd5dm `test-nemo-archive-dialog`.
 
 - ✅ On Linux, the new nemo-anywhere icon isn't shown for the desktop launcher. And the running program shows a generic "Folder" icon.
 	- Opened: 20260921-165228
+	- Target version: rc.1
 	- Closed: 20260921.
 	- The app icons were still the old folder-and-submarine. The logo changed on 20260919 and the icons cut from it were never redone. They're redone now, the Windows exe icon too, and the lint fails if they drift from the logo again.
 	- Every window used to take the icon of the folder it showed, as upstream did. Windows now all show the program's icon.
@@ -14887,6 +15440,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ No step in CICD should consume more than 50% CPU.
 	- Opened: 20260921-165228
+	- Target version: rc.1
 	- Closed: 20260921.
 	- Job counts were already half the cores, but link-time optimization and rar run threads of their own past that. A full run now goes inside a user scope with a CPU quota of half the machine, and the 3 build containers have the same cap.
 	- The Windows pipeline still only caps its job counts.
@@ -14894,24 +15448,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ New default "mostly images" icon size: 320.
 	- Opened: 20260921-165228
+	- Target version: rc.1
 	- Closed: 20260921.
 	- That's 500%, which is 320 pixels.
 	- Test case: dav3s, `test_product_defaults` in the config store test. The size math is in dcx2w `test-nemo-icon-size`.
 
 - ✅ Remove Nemo authors from the actual Help|About|License button-expanded text. That text is only for the license title, link, and text.
 	- Opened: 20260921-153217
+	- Target version: rc.1
 	- Closed: 20260921.
 	- The contributors line is gone. The license text opens with the license and its link, and the upstream credit stays on the copyright line.
 	- Test case: none, wording only.
 
 - ✅ Include uptime for the current nemo-anywhere session, in the Help|About dialog.
 	- Opened: n/a. Closed: 20260921.
+	- Target version: rc.1
 	- The About box says "Running for 2 hours, 5 minutes." under the description. Every window is its own process by default, so this is how long that copy has been up.
 	- It shows days, hours, and minutes, with any zero part left out. Under a minute reads "less than a minute".
 	- Test case: dcy7s `test-nemo-uptime`.
 
 - ✅ Put archive extraction menu items nested into a "Extract ..." item.
 	- Opened: n/a. Closed: 20260921.
+	- Target version: rc.1
 	- The 3 extract items are under one Extract submenu, in the right-click menu and the Edit menu. It shows only when every selected item is an archive, and the menu setting that hid the 3 items hides the submenu.
 	- Mount archive stays beside it rather than inside. It browses an archive rather than unpacking one.
 	- A new test checks that every menu path a setting can hide is in the menu files. A wrong path used to fail without any sign.
@@ -14919,6 +15477,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Create a demo GIF at 50 fps (<60 seconds) and demo video (<3 minutes) at 60 fps. Use creation and script harness from project 'silkterm'.
 	- Opened: 20260804-230307. Closed: 20260919.
+	- Target version: rc.1
 	- The gif is 58 seconds and 1.6 MiB, at the top of the README. The video is the same script at 1080p60 with sound, kept out of the repo.
 	- There are 6 scenes: the window opens with Places alone, then the folder tree opens beside it and closes again; F3 opens a second content pane and closes it; icon view thumbnails; search flat then grouped by folder; and Compress to 7z.
 		- Note: a seventh scene, the drag question on a move, was added 20260924.
@@ -14930,6 +15489,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Add a preference: Auto-switch to image thumbnail view for folders with mostly images.
 	- Opened: 20260921-131506
+	- Target version: rc.1
 	- Store the tunables that define "mostly images" in the config file.
 	- Closed: 20260921.
 	- A folder that's mostly images opens in icon view, at the image size, unless it has a view of its own. It's on by default, with a checkbox under Icon view on the Views page.
@@ -14972,6 +15532,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Use the proper OS-specific cache locations for the database thumbnail cache.
 	- Statically link SQLite3 into all executables. (It will also come in handy for future features.)
 	- Opened: 20260921. Started: 20260921. Closed: 20260921.
+	- Target version: rc.1
 	- Done: the store itself, its tests, the build dependency, drawing from it, pruning, and the settings.
 	- There are 3 tables. A file's contents are one record, the names it is known by are another, and a thumbnail hangs off the contents. So a file that moved keeps its thumbnail, and a file nothing can draw is still a record, which is what a duplicate finder would read.
 	- A checksum settles what 2 records that looked separate really were, and folds them into one. Without one, size and timestamp together are the only guess available.
@@ -15010,6 +15571,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Problem: Currently, thumbnails are made at 256px at the largest, so a big icon size shows one scaled up.
 	- Opened: 20260920-234500. Closed: 20260921.
+	- Target version: rc.1
 	- The file cache solved it. A thumbnail is made at the size it is drawn at, rounded up to a step of 128, up to 640.
 	- `nemo-desktop-thumbnail.c` offers 2 sizes, 128 and 256, which is the older half of what the shared thumbnail spec now names. The spec has gone on to add 512 and 1024.
 	- It's only worth anything alongside the bigger icon sizes, where a folder of images is meant to be shown at 320 or 640. Below that nothing is being lost.
@@ -15019,6 +15581,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Icon view:
 	- Opened: 20260919-083140. Closed: 20260920.
+	- Target version: rc.1
 	- ✅ If folder is mostly images, increase default size to [max height or width = DPI-independent 320px].
 		- Expose a separate adjustment for image thumbnail size. default 320px.
 		- "Mostly images" means at least 2 images and at least half the files, folders not counted (settled 20260920).
@@ -15039,6 +15602,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ If "show full path in tabs and window" is enabled:
 	- Opened: 20260919-184409
+	- Target version: rc.1
 	- Show the entire path of the current tab, if there's enough room.
 	- Show the entire path in all tabs if there's enough room.
 		- If not, show the entire path in the current tab if there's enough room.
@@ -15056,6 +15620,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ✅ Remember previous settings except for "delete" and password, across sessions.
 	- ✅ If "delete" is checked AND password set, show an additional simple dialog to confirm the password.
 	- Opened: 20260920-160000
+	- Target version: rc.1
 	- Closed: 20260920-170000
 	- Done: the Compress dialog writes 12 settings back and starts from them next time. They're the format, compression level, the volume size, and every box in the Options expander except the 2 named above. It also remembers whether items were compressed separately, which is only restored where the selection allows it.
 	- Done: with the delete box ticked and a password set, the password has to be typed a second time before anything starts. A wrong one gets a message and another try. Canceling puts the Compress dialog back with everything still filled in.
@@ -15065,6 +15630,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ design.md regrouped: Overview, Architecture, Features, Quality, Building, Delivery, then Needs more thought.
 	- Opened: 20260919-131209
+	- Target version: rc.1
 	- Closed: 20260919-132409
 	- Done: sections with several topics got sub-sections, such as settings, file operations, the interface, and each platform. No text was dropped.
 	- Done: 2 stale lines are fixed. The Windows gate runs the suite, and the Windows build is native rather than in a container.
@@ -15072,12 +15638,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ README: what's new since Nemo, where the beta stands, and install commands without the option list.
 	- Opened: 20260919-131209
+	- Target version: rc.1
 	- Closed: 20260919-132409
 	- Done: the archive dialogs, column widths, row shading, side panes, tabs, link handling, content search, and the Windows features are listed. The status says the beta is about polish, and names the delete guard and the unsigned exe as the rough edges.
 	- Test case: none, docs only.
 
 - ✅ Pipeline: host lint tool pinned, remote git through gitsby, and build boxes made on first use.
 	- Opened: 20260919-131209
+	- Target version: rc.1
 	- Closed: 20260919-132409
 	- Done: cppcheck is pinned in `config.bash`, and drift warns. Fetch and pull go through `gitsby raw git` where it's installed.
 	- Done: `nemo-build` and `nemo-winbuild` are made from their Dockerfiles when missing. A fresh clone's gate used to skip every stage with a warning.
@@ -15086,6 +15654,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Row visualization enhancement:
 	- Opened: n/a
+	- Target version: rc.1
 	- Closed: 20260919-125416
 	- Currently, there are two visual indicators showing where the cursor is in a list view:
 		- A row highlight for one or more lines.
@@ -15099,6 +15668,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Owner name and Owner - name columns on Windows.
 	- Opened: 20260918-175048
+	- Target version: rc.1
 	- Closed: 20260918-184500
 	- GIO leaves the display name empty there, so both columns are left out on Windows for now. The account's full name would have to be looked up by us.
 	- Done. Both columns are offered on Windows now, off by default. The name is the local account's full name, looked up once per account. A domain account, a service, or a file on a share doesn't show one.
@@ -15106,12 +15676,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Add an option under "Behavior" to include extension on rename (on by default).
 	- Opened: 20260918-181654
+	- Target version: rc.1
 	- Closed: 20260918-182200
 	- The setting was already there, file-only. It now has a checkbox under Behavior, right after the one for click-twice renames. With it off, only the part before the extension is selected.
 	- Test case: dd5c8 `test-eel-rename-region`, dbnfq `test-nemo-prefs-widgets`.
 
 - ✅ Change to username columns (two new columns):
 	- Opened: 20260908-133001
+	- Target version: rc.1
 	- Closed: 20260918-175048
 	- Owner (the short version), with no display name. This is a change to the current column of the same name.
 	- Owner Name (the display version)
@@ -15122,6 +15694,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Optional alternating row shading
 	- Opened: 20260908-133001
+	- Target version: rc.1
 	- Closed: 20260918-175048
 	- Subtle
 	- Complementary to, and non-visually-conflicting with "selected" or "under-mouse highlighted" colors.
@@ -15131,6 +15704,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ When the full path is shown on tabs, and tabs won't all fit in the tab bar:
 	- Opened: 20260918-170700
+	- Target version: rc.1
 	- Closed: 20260918-173500
 	- Condense the pathnames using SilkTerm-like rules.
 	- Folders above the last one drop to their initials first, then an ellipsis replaces the middle. The root and the folder's name always stay, and home reads as ~ on Linux.
@@ -15141,12 +15715,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ If preferences is too small to show everything, make the scrollbar always visible.
 	- Opened: 20260918-163716
+	- Target version: rc.1
 	- Closed: 20260918-170628
 	- Every scrolled area in the dialog, the page list included, now uses a normal scrollbar. It shows whenever something doesn't fit, and not otherwise.
 	- Test case: dd5df `test-nemo-prefs-dialog` (no overlay scrolling).
 
 - ✅ Hi-DPI testing: Make sure preferences dialog box fits on the screen. (Or shrink and use scrollbars if not.)
 	- Opened: 20260918-152452
+	- Target version: rc.1
 	- Closed: 20260918-233500
 	- It was checked on Linux at 9 screen sizes and scales, from 1920x1080 down to 1024x600 at 2x, and with text alone scaled to 125%, 150% and 200%, which is what Windows does.
 	- It already fits every time. The dialog is capped at 90% of the screen, and both the page list and the page scroll once it is that tight.
@@ -15155,6 +15731,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Make extra sure that deleting symlinks, junctions, and [.desktop, and .lnk] files only delete or trash the links, and NEVER the contents inside (e.g. never the contents inside a Windows junction). A strict "Don't follow" policy, no matter where they are encountered in a tree to be deleted, and not a user setting that can be changed.
 	- Opened: 20260908-021923 by JC.
+	- Target version: rc.1
 	- Closed: 20260918-213000
 	- Note: clearing an extract's staging folder on Windows went into a junction and deleted what it pointed at. That's fixed, with a check. The delete job itself hasn't been checked against a junction yet.
 	- Found: Windows calls a junction a plain folder. There were 3 walks that trusted that and would go into one: deleting a folder from the Recycle Bin, replacing a folder on a copy, and a generic empty-trash walk. The first was real. On Windows, taking a recycled folder that had a junction in it out of the bin deleted what the junction pointed at, and so did a junction recycled on its own. It was seen on b29w.
@@ -15166,6 +15743,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Cut the Linux drop down toward a single file.
 	- Opened: 20260908-000856
+	- Target version: rc.1
 	- Closed: 20260918-112900
 	- Note: the first pass, from 102 files down to 44, is under Done.
 	- Done: the release build folds the extension library into the program, which exports the same API to extensions. The `lib/` folder is gone from the drop.
@@ -15175,6 +15753,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Fill the gaps in design.md.
 	- Opened: 20260908-133615
+	- Target version: rc.1
 	- Closed: 20260917-183048
 	- Missing: a status and revision block, the non-functional requirements (startup time, memory, listing speed on a large folder), a security section, what the program logs and how to turn it up, and any diagram at all.
 	- Done: all 5. The speed and memory figures are measured rather than targets, and no budget is set yet. Writing the security part turned up the empty trash bug under Done - Bugs.
@@ -15182,6 +15761,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Write the public UI and UX style guide.
 	- Opened: 20260908-133615
+	- Target version: rc.1
 	- Closed: 20260917-182027
 	- `project/style-guide_code.md` covers the code. Nothing yet covers dialog layout, sentence case, when a prompt is warranted, keyboard behavior, or icon use, all of which the lint gate half-enforces already without saying why.
 	- Done: `project/style-guide_ux.md`. It collects the rules the closed items settled one at a time, with the reason for each, and says which of them a check enforces. The README and the code guide link to it.
@@ -15189,6 +15769,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Archive dialog: Add an option - off by default - to delete what contents were archived, once archive is successfully created, and contents verified by relative pathname and file sizes.
 	- Opened: n/a
+	- Target version: rc.1
 	- Closed: 20260917-233000
 	- The new box is "Delete the originals once the archive checks out", last in the Options expander, off by default. It's grayed for a split archive, since one volume won't open on its own and there's nothing to check.
 	- Verifying reads the archive back with the library and walks the selection again, separately from the walk that wrote it. Every file has to be there under the same relative path at the same size. A folder counts as there when anything inside it is, since a writer may leave the folder entries out.
@@ -15199,6 +15780,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Put in the title, not just the path, but "Nemo Anywhere - 'PATH'".
 	- Opened: n/a
+	- Target version: rc.1
 	- Closed: 20260917-223000
 	- The window title now reads `Nemo Anywhere - 'Documents'`, or the whole path in the quotes when "Show the full path in the title bar and tab bars" is on. The tabs are unchanged, since the window around them already says the program name.
 	- The old title was the folder alone, plus a "- File browser" suffix on the spatial-mode branch. That suffix said what the program name says better, so both branches collapsed into one.
@@ -15207,6 +15789,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Update so (or validate) that List view column widths follow 'design.md's "List view column widths" section. Column width design has been updated several times, and this 'design.md' will be treated as the canonical, precise, complete, conflict-free definition from now on.
 	- Opened: 20260908-133001
+	- Target version: rc.1
 	- Settled 20260916: the design.md section wins over every backlog item, closed ones included. Each backlog item that sets column widths now has a note saying so.
 	- Closed: 20260917-103306
 	- There were 4 places where the code and that section disagreed, each settled 20260917 by JC and now built:
@@ -15225,6 +15808,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Changes to Preferences|Views:
 	- Opened: 20260916-120139
+	- Target version: rc.1
 	- Fine-tuning the requirements:
 		- "Views" section:
 			- Checkbox: "Remember per-folder settings" (default off) [this is a new setting].
@@ -15258,12 +15842,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ State in README.md that Nemo Anywhere is "opinionated" and not trying to be a "solve every problem" tool. It does one thing very very well: Manage files, period. With far more useful "file management" features that Nemo has natively without platform-dependent third-party programs, plugins, and extensions.
 	- Opened: 20260908-111526
+	- Target version: rc.1
 	- Closed: 20260917-073027
 	- It's added as a paragraph under "Why" in the README.
 	- Test case: none, docs only.
 
 - ✅ The tree view shows folders only, and a folder with no sub-folders has no expander. From "Changes to Preferences|Views".
 	- Opened: 20260916-120249
+	- Target version: rc.1
 	- Closed: 20260917-060256
 	- The "Show only folders" setting and its "Tree view defaults" section are gone. A settings file that still has the line isn't harmed, since the line isn't read.
 	- Folders in view are checked in the background, one at a time, for any sub-folder. Shares are skipped and keep their expander until opened.
@@ -15273,6 +15859,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Places and TreeView can both exist at the same time.
 	- Opened: 20260916-113649
+	- Target version: rc.1
 	- Both remember their unique horizontal user sizing.
 	- When the window is resized, "Places" remains fixed size, but the remaining horizontal space is proportionally grown or shrunk among:
 		- TreeView if visible
@@ -15292,6 +15879,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Focus can never remain on the "Places" pane, after clicking on a place. Focus moves to the main content pane after changing to the place.
 	- Opened: n/a
+	- Target version: rc.1
 	- Closed: 20260916-122542
 	- It depended on the folder. A place whose folder wants a different view type lost the focus, and one that reuses the view kept it, since only a new view is connected to the window.
 	- Connecting a content view always grabbed the focus. It now leaves it alone while the sidebar has it, so the keyboard stays on the place that was clicked.
@@ -15300,6 +15888,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Fuzz the parsers that read untrusted input.
 	- Opened: 20260908-133615
+	- Target version: rc.1
 	- Closed: 20260916-104101
 	- There are 3 targets, one for each parser that's ours to fix: the settings file, the drag payload, and the command lines kept in the config.
 	- The item named 4 parsers, and 2 of them turned out not to be ours. The settings parser is vendored and `.desktop` files go through GLib, so a find in either is a report upstream rather than a patch here. `.lnk` files are read by Windows itself, which leaves nothing to fuzz and couldn't run on the Linux host anyway.
@@ -15311,6 +15900,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Make the crash reporter better.
 	- Opened: 20260909-171500
+	- Target version: rc.1
 	- Closed: 20260915-161437
 	- It was filed off a review of the reporter as it went in. None of these stop it doing its job today.
 	- A second crash in the same second from a reused process id loses the second report on Linux and overwrites the first on Windows.
@@ -15331,6 +15921,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Run the test suite in the Windows pipeline.
 	- Opened: 20260909-145927
+	- Target version: rc.1
 	- Closed: 20260915-161437
 	- The Windows gate runs lints, build and the launch smoke, but not the suite. That half of the Linux pipeline item was left open rather than guessed at.
 	- It's blocked on there being nowhere to run it. Neither Windows box has a checkout at all, so nothing can be built or tested there as things stand.
@@ -15341,6 +15932,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The standard .desktop launcher should be titled "Nemo Anywhere", not "File Manager".
 	- Opened: 20260914-173549
+	- Target version: rc.1
 	- Closed: 20260915-152159
 	- The launchers this project installs already say Nemo Anywhere. The man page still named the Cinnamon file manager, and now names this one.
 	- The "File Manager" menu entry on the XFCE box is the desktop's own launcher for whatever file manager is preferred, which is set to the dogfood launcher. It isn't a file from this project, and it's left alone.
@@ -15348,6 +15940,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Searching through a search folder has no test.
 	- Opened: 20260909-152800
+	- Target version: rc.1
 	- Closed: 20260915-150724
 	- Note: the demo that was removed drove one, but it didn't assert anything, so no coverage was lost. Split from "Run the test suite in the Linux pipeline".
 	- A new check runs a search through a search folder the way a window does. It covers the hits, a reload that starts the list over, and hidden files following the preference.
@@ -15355,6 +15948,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Pick one way to leave Windows-only tests out of the Linux build.
 	- Opened: 20260909-154342
+	- Target version: rc.1
 	- Closed: 20260915-150724
 	- Today 18 are left out of the build entirely, 3 are built and report a skip, and 8 have a stub for the other platform, of which 5 are never compiled.
 	- Note: split from "Run the test suite in the Linux pipeline".
@@ -15363,6 +15957,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Tests leave their scratch directories behind.
 	- Opened: 20260909-160500
+	- Target version: rc.1
 	- Closed: 20260915-150724
 	- Every test that reads a preference points the home directory at a throwaway one, and the toolkit then writes its own cache in there. Nothing removes it, so one directory per test per run piles up. The build container has hundreds. It was harmless until the suite started running on every push, which is what turned a slow drip into a steady one.
 	- It needs one shared cleanup the tests can call, rather than a recursive delete copied into each of them.
@@ -15372,12 +15967,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Don't run CICD trigger on commit to dev.
 	- Opened: 20260914-182719
+	- Target version: rc.1
 	- Closed: 20260915-132239
 	- A push to dev no longer runs the gate. Only a push to main does. A chunk is built and tested before it's merged to dev, and a full run's own publish only repeated the checks it had just made.
 	- Test case: none, pipeline setup.
 
 - ✅ Run the test suite in the Linux pipeline.
 	- Opened: 20260909-112701
+	- Target version: rc.1
 	- Closed: 20260909-145927
 	- The Linux gate now builds, runs the whole suite, then the launch smoke. It takes half a minute with nothing to rebuild, longer when there is. A broken check can no longer get into main unnoticed.
 	- The gate had no build step at all, so it had been checking whatever was last left lying around. It builds first now, held to the same job limit as the rest of the pipeline, and so is the suite.
@@ -15392,6 +15989,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ A crash leaves a report behind.
 	- Opened: 20260903-130431
+	- Target version: rc.1
 	- Closed: 20260909-090725
 	- Done: a crash now writes a report next to the settings file, under `crash/`. It has the version, what killed it, and the stack. The same text goes to stderr, which is what a launcher log keeps, and on Windows a message box says where the file is, since a windowed build has no stderr. The next start notes a report was left behind, and the oldest are dropped so the folder can't grow forever.
 	- Note: split from "Randomly crashes", which stays open until a report shows the cause.
@@ -15399,6 +15997,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Menu entries and shortcuts that keep working, and one sync path spelling per platform.
 	- Opened: 20260908-013000
+	- Target version: rc.1
 	- Closed: 20260908-015628
 	- Every list of sync-tree paths has both spellings now, in the source dir, the wrapper the menu entry runs, and the launcher itself. `synced` is a link to the Dropbox folder, and a box without the link found nothing at all.
 	- The app icon is copied out of the newest version and kept beside the pool under a fixed name. A menu entry used to point into a version directory and go blank the moment that version was pruned.
@@ -15415,6 +16014,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Cut the Linux drop from 102 files to 44.
 	- Opened: 20260908-000856
+	- Target version: rc.1
 	- Closed: 20260908-005434
 	- Note: it started at 102 files and 3.8 MB. Of that, 2.6 MB was 3 helper exes, and nothing spawned 2 of them.
 	- Done: the 3 helper exes are gone. The connect and open-with dialogs already ran in-process, so those 2 were dead weight. The extensions lister is now `--extensions-list` on the program itself, which keeps it a separate process without a separate binary.
@@ -15430,6 +16030,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ One dogfood location per platform, and a launcher pool that keeps its history.
 	- Opened: 20260907-203000
+	- Target version: rc.1
 	- Closed: 20260907-224704
 	- Every platform's build now goes to `common/exec/app/<platform>/` under its own name: the whole prefix on Linux, the packed exe on Windows. Both pipelines publish there and nowhere else.
 	- The launcher keeps the local pool: `<name>_versions/` beside a symlink at the fixed name, in `~/.local/bin` on Linux, `%LOCALAPPDATA%\Programs` on Windows and `~/Applications` on macOS.
@@ -15441,6 +16042,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Add default user-tunable settings as comments to config file.
 	- Opened: n/a
+	- Target version: rc.1
 	- Closed: 20260906-085903
 	- Done 20260906. The settings file ends with every key that isn't set, commented out, with the value used instead. Uncommenting a line sets it. Setting a key takes it off the list.
 	- Notes were rewritten to say only what a user would see, and dropped entirely where the key name already says it, which is about half of them. The list in the code and the bundled schema are checked against each other so the two can't drift.
@@ -15450,6 +16052,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Better thumbnail cache management. Database plus background pruning.
 	- Opened: 20260826-103001
+	- Target version: rc.1
 	- Closed: 20260905-192349
 	- Done 20260905. The cache is swept once a day, on a worker thread a minute after startup. A thumbnail whose file is gone goes first, then anything unused past the age allowed, then oldest-first until the rest fit in the size allowed.
 	- There are 2 settings on the Preview page: how long an unused thumbnail is kept, and how big the cache may get. Either can be turned off.
@@ -15459,6 +16062,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Change to search mode column sizing:
 	- Opened: 20260905-133614
+	- Target version: rc.1
 	- Closed: 20260905-184048
 	- In search mode when location column is shown:
 		- Only give 'Name' and 'Location' columns as much space as they need, not more.
@@ -15471,12 +16075,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Need a better icon for "recursive" in search mode. (It currently looks like "press this for enter".)
 	- Opened: 20260905-112901
+	- Target version: rc.1
 	- Closed: 20260905-114812
 	- Done 20260905. The icon is a folder with a branch line down into a smaller folder, the usual "include subfolders" picture, in the same flat style as the group-by-folder toggle beside it. It's mirrored for right-to-left.
 	- Test case: none, icon art.
 
 - ✅ New process for each window. A crash in one shouldn't affect all others. And different versions (e.g. from n8runfm.ps1) should be able to run at once.
 	- Opened: 20260722-172504
+	- Target version: rc.1
 	- Closed: 20260905-102753
 	- Done 20260905. Every launch and, by default, every new window is its own process. A command-line launch never joins a running copy, so 2 versions run side by side. `--quit` and Close All Windows still reach every copy.
 	- A setting under Behavior puts new windows back inside one process. The tradeoff is that a tab can't move to a window in another process, and on Windows a new window takes the packed exe's start-up time.
@@ -15484,6 +16090,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Put the Linux release lane into the pipeline engine itself, rather than leaving it a script to remember to run by hand.
 	- Opened: 20260804-133646
+	- Target version: rc.1
 	- Closed: 20260904-161518
 	- Done: the lane runs as stage 5. `RELEASE_COLLECT=0` keeps the engine's collector out of the artifact dir, since release.bash already writes the tarball and the sums there itself.
 	- The release smoke check had been failing since the version string gained a build number, so every release since then repackaged an older tarball. It matches on a prefix now.
@@ -15491,6 +16098,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Dogfood the Linux build from the pipeline. It had never been set up, so the launcher was serving a build from July.
 	- Opened: 20260904-160000
+	- Target version: rc.1
 	- Closed: 20260904-161518
 	- Stage 7 handles a relocatable prefix as well as a single binary. The fixed install puts the tree beside the bin dir and points the name on PATH into it, and the rotating copy is the whole tree under a dated name.
 	- The dated name has the build's own mtime rather than the run clock, so the pipeline's copy and the launcher's copy of one build agree and neither re-fetches it.
@@ -15499,6 +16107,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Search options: Flat [ ]  Hierarchical [ ]
 	- Opened: 20260819-141014
+	- Target version: rc.1
 	- Closed: 20260903-185727
 	- It's read as a display mode rather than another scope switch, since the search bar already has a toggle for recursing into subfolders.
 	- Done 20260903. A toggle beside the recurse one groups results under the folder holding them, labeled with the path under the folder searched. Flat is still the default.
@@ -15507,6 +16116,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Confirm mouse-movement-based actions that don't already ask for some kind of confirmation. (E.g. drag and drop to a new folder)
 	- Opened: 20260730-112038
+	- Target version: rc.1
 	- Closed: 20260903-174842
 	- Note: a major enhancement to call out in README, e.g.: "Helps prevent one of the biggest pain points with GUI file managers: Accidental file & folder moves, sometimes without realizing it."
 	- Done 20260903. A drop now names what it's about to do and where, and waits for an answer. There are 2 settings under Behavior. Moves ask by default, but copies and links don't.
@@ -15515,6 +16125,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Allow moving tabs to other windows.
 	- Opened: 20260722-172504
+	- Target version: rc.1
 	- Closed: 20260903-160000
 	- It already worked, and was checked rather than written. A tab dragged onto another window's tab strip moves there, and one dropped on the desktop opens a window of its own.
 	- What made it look broken is that a window showing a single tab has no strip to drop onto. Turning the new "always show a tab" option on gives it one.
@@ -15522,12 +16133,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Option to always show a tab.
 	- Opened: 20260722-172504
+	- Target version: rc.1
 	- Closed: 20260903-160000
 	- `preferences.always-show-tabs` in the settings file, off by default. The other tab options are there too rather than in the preferences dialog.
 	- Test case: dd5dk `test-nemo-notebook` (`test_visibility`).
 
 - ✅ Tabs shouldn't take up the whole space, only what's needed for title (and a reasonable minimum width).
 	- Opened: 20260723-133832
+	- Target version: rc.1
 	- Closed: 20260903-160000
 	- A tab is now as wide as its own title, between `preferences.tab-width-min-percent` (10) and `tab-width-max-percent` (25), both percentages of the tab strip.
 	- Tabs used to be set to expand, which is why 3 of them split the width evenly whatever they were called.
@@ -15535,6 +16148,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Use the new program icon (`assets/logo.png`).
 	- Opened: 20260902-193009
+	- Target version: rc.1
 	- Closed: 20260903-140000
 	- Every size is cut from the one logo by `cicd/utility/gen-app-icon.py`, and the output is committed.
 	- ✅ Windows .exe. It had no icon at all before, so it showed the toolkit's default. It now has one, from the file list up to the largest view.
@@ -15547,6 +16161,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Path button bar returns to buttons any time the path defocuses, not just on Escape.
 	- Opened: 20260802-011216
+	- Target version: rc.1
 	- Closed: 20260903-120000
 	- Clicking into the file list, the sidebar or anywhere else puts the buttons back.
 	- Switching to another program doesn't, so a half-typed path survives the trip.
@@ -15555,6 +16170,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Escape in the folder pane clears the selection, and Escape again puts it back.
 	- Opened: 20260802-011216
+	- Target version: rc.1
 	- Closed: 20260903-120000
 	- That's in both the list and the icon views. Reaching the background menu from the keyboard is the point.
 	- A rename or a stretch in progress still gets Escape first.
@@ -15564,12 +16180,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ In find mode the status bar shows the whole path rather than just the name.
 	- Opened: 20260730-112038
+	- Target version: rc.1
 	- Closed: 20260903-120000
 	- It's only for search results, where a name on its own doesn't say which file was found. Ordinary folders still show the name.
 	- Test case: dd5dj `test-nemo-status-name`.
 
 - ✅ A value too long for its column gets a mouseover tooltip with the whole value.
 	- Opened: 20260730-112038
+	- Target version: rc.1
 	- Closed: 20260903-120000
 	- It works for any column, the name included.
 	- It's shown whatever the item tooltip preference says, since it's about reading what's already on screen.
@@ -15577,6 +16195,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Always operate on whole rows in list view.
 	- Opened: 20260826-103001
+	- Target version: rc.1
 	- Closed: 20260903-104500
 	- A click anywhere in a row now belongs to that row. Right-clicking past the end of the name used to clear the selection and give the background menu.
 	- The only background left is the space below every row, which still deselects and gives the background menu.
@@ -15585,12 +16204,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Better program icon, for both file .exe and running program. (All supported platforms.)
 	- Opened: 20260831-164337
+	- Target version: rc.1
 	- Closed: 20260902-195000
 	- The new logo settles it, and "Use the new program icon" puts it in place everywhere. Reopen if the art itself should change again.
 	- Test case: none, icon art.
 
 - ✅ Right-clicking the breadcrumb button for the folder being viewed should offer the same items as right-clicking the empty list background.
 	- Opened: 20260826-103001
+	- Target version: rc.1
 	- Closed: 20260902-194500
 	- It's only that one button. The ancestor buttons keep the shorter menu, which is what they had.
 	- The 2 menus were compared side by side and match item for item. The parent button still gives the shorter one.
@@ -15598,6 +16219,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows: GUI testing in a throwaway sandbox, without touching the live console session.
 	- Opened: 20260829-071437
+	- Target version: rc.1
 	- Closed: 20260902-193949
 	- What works today: a window can be captured without disturbing anything, since it's rendered off-screen, even behind other windows. Most behavior can be driven through the settings file, which is live-reloaded. Clicks and typing reach the app but take the mouse and the focus while they run.
 	- Windows Sandbox is the way. It's a throwaway Windows built from the host's own image, so it doesn't need a second license, and it's started from a small config file with a shared folder. A logon command inside it runs on its own desktop, which is where the driving script has to be. It doesn't keep any state and can't reboot, so anything that spans a reboot still needs a Hyper-V guest. Hyper-V is already on, and the guest would need an Enterprise evaluation image.
@@ -15609,6 +16231,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The "Open with" submenu names programs by their file name.
 	- Opened: 20260902-190000
+	- Target version: rc.1
 	- Closed: 20260902-191500
 	- It read "Code.exe" and "VSCodium.exe" where the menu item above it already said "Open with VSCodium". The list comes from the toolkit, which has no name for a program beyond the file it found.
 	- Fixed: every entry is now named the way the default one already was, from the program's own description, falling back to the file name for a program that doesn't have one. The list sorts by what it shows, so the order matches too.
@@ -15616,6 +16239,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ "Open With": Opening two text files in VSCodium, should open them in the same editor instance. (E.g. as it works when doing so from nemo-anywhere on Linux, or from Explorer on Windows.)
 	- Opened: 20260831-164337
+	- Target version: rc.1
 	- Closed: 20260902-190000
 	- Opening from the file list, or from the first menu item, was already right, since both files go to the running editor.
 	- The Open With submenu wasn't. Everything on that list comes from the toolkit rather than from Nemo Anywhere's own reading of the registry, and those entries were started a different way, directly as a child of Nemo Anywhere.
@@ -15626,6 +16250,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Copying and pasting objects that includes symlinks or junctions, should open up an option dialog. (All OSes.)
 	- Opened: 20260831-164337
+	- Target version: rc.1
 	- Closed: 20260902-170000
 	- Ask whenever the source holds links, on any platform, so a user always knows what they are getting. The dialog names what the source holds, with a row per kind:
 		- File symlinks as: symlinks, or copies.
@@ -15641,6 +16266,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Drag and drop a file to a program should work. (E.g. a '.md' or '.txt' file to VSCodium or Notepad.)
 	- Opened: 20260831-164337
+	- Target version: rc.1
 	- Closed: 20260902-000000
 	- It's Windows only. Linux drags already get to any program, GTK or not.
 	- The toolkit does drive a drag on Windows, but the file formats other programs read were never filled in on its side, and there is no way to add them from outside it. So the drag is ours now, the way the clipboard is.
@@ -15652,6 +16278,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Move all Windows-related options to a "Windows" preferences pane; and in the config file, to a grouped section.
 	- Opened: 20260831-164337
+	- Target version: rc.1
 	- Closed: 20260901-183000
 	- Some can't move. Such as "Owner" in list columns.
 	- The page has Light and dark, Theme, Paths, Hidden files, and Search, and takes the slot Appearance used to have. It's hidden everywhere else, so Linux no longer offers theme or light/dark settings, since those come from the desktop there. The keys still work if hand-edited.
@@ -15662,6 +16289,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ If "Show path in tab" option is enabled, don't show the path twice - shorten it. For example:
 	- Opened: 20260831-164337
+	- Target version: rc.1
 	- Closed: 20260831-201500
 	- Current: "github - C:\opt\0-0\users\collierjr\data\prs\dev\github.com\t00mietum\nemo-anywhere\github"
 	- Better: "C:\opt\0-0\users\collierjr\...\nemo-anywhere\github"
@@ -15671,6 +16299,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ .Lnk folder icons should use the same folder icons as the theme, but with an overlay.
 	- Opened: 20260831-164337
+	- Target version: rc.1
 	- Closed: 20260831-193000
 	- The shell hands back its own folder art for a shortcut to a folder, which looks nothing like the folders around it. The theme's folder icon is used instead, with the shortcut overlay on top.
 	- Whether the target is a folder is read from what the .lnk itself records, rather than by looking at the target. A shortcut to a share that isn't responding would otherwise cost about 20 seconds on the draw path.
@@ -15678,6 +16307,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ All .lnk files should have a .lnk overlay (similar to how Explorer does it).
 	- Opened: 20260831-164337
+	- Target version: rc.1
 	- Closed: 20260831-193000
 	- There's a new overlay, drawn as an arrow in a white box the way the shell does it.
 	- .desktop launchers get the same one, on every platform.
@@ -15685,6 +16315,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ All symlinks and junctions should have an overlay, but different from .lnk.
 	- Opened: 20260831-164337
+	- Target version: rc.1
 	- Closed: 20260831-193000
 	- Ditto for Linux symlinks, and .desktop files.
 		- Like .lnk files, don't show ".desktop" in listings, except when renaming.
@@ -15699,6 +16330,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Preferences|Context menus still has a "Desktop" group with a "Customize" box in it. Nothing is behind it. Remove.
 	- Opened: 20260831-170000
+	- Target version: rc.1
 	- Closed: 20260831-172500
 	- It was found while taking out the desktop tooltip box.
 	- The action it was meant to show never existed in this fork, so the box could only ever hide something that wasn't there. It's gone, along with its setting.
@@ -15706,6 +16338,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Remove bottom-left buttons, and bottom-right zoom bar in list view.
 	- Opened: 20260831-164337
+	- Target version: rc.1
 	- Closed: 20260831-170000
 	- Make bottom bar vertically thinner (since don't need room for the buttons on bottom-left any more; just room for status text, and zoom slider in icon view).
 	- The 4 sidebar buttons are gone from the bottom bar. Switching between places and tree, and hiding the sidebar, are still on the View menu and on F9.
@@ -15716,6 +16349,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Preferences|Preview: "Show tooltips on the desktop" (and related checkboxes) have no meaning. Remove.
 	- Opened: 20260831-164337
+	- Target version: rc.1
 	- Closed: 20260831-170000
 	- It's removed, along with the setting behind it. Nothing read it once the desktop shell went.
 	- The icon-view and list-view tooltip boxes stay, since those still do something. So do the boxes choosing what a tooltip shows.
@@ -15723,18 +16357,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ By default, disable all checkboxes related to Preferences|Behavior|Media handling.
 	- Opened: 20260831-164337
+	- Target version: rc.1
 	- Closed: 20260831-170000
 	- Automount, automatic open of a mounted disk, and content detection all start off now. The fourth box in that group was already off.
 	- Test case: dav3s `test-nemo-config` (`test_product_defaults`).
 
 - ✅ Gray out "Open as Administrator", if already running as such.
 	- Opened: 20260831-164337
+	- Target version: rc.1
 	- Closed: 20260831-170000
 	- Windows has no root account to test for, so the item used to stay live in an already elevated copy and a second prompt bought nothing. The process token is asked instead.
 	- Test case: none, a plain read of the process token. The menu state needs a full window.
 
 - ✅ Windows: show the icon the shell would show for .lnk files (without requiring Explorer to run).
 	- Opened: 20260827-090000
+	- Target version: rc.1
 	- Closed: 20260829-103000
 	- It was split out of the done item for opening a shortcut the way Explorer does. A shortcut showed a generic icon rather than its target's, since the toolkit reports one flat icon for every file on Windows.
 	- Fixed: a shortcut is drawn with the shell's own icon for it, at each of the shell's sizes rather than scaled from one, and cached. No Explorer process is involved.
@@ -15743,12 +16380,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows: edit a `.lnk`'s target from a properties view - the analog of the `.desktop` launcher editor.
 	- Opened: 20260826-103001
+	- Target version: rc.1
 	- Closed: 20260829-100000
 	- Added: Properties on a shortcut shows Target, Arguments, Start in, and Comment below the name, each saved as it's edited. A file dropped on Target or Start in fills it in. A shortcut without a file target still opens for editing.
 	- Test case: daqzg `test-nemo-shortcut-win32` (`test_info_round_trip`), Windows only. Filling a field by drop needs a full window.
 
 - ✅ Windows: no shell coupling for file associations - read them from the registry (system defaults only), layered under an override map of our own.
 	- Opened: 20260730-203115
+	- Target version: rc.1
 	- Closed: 20260829-093000
 	- Overrides launch directly. All settings and overrides live in the settings file, never written to the registry.
 	- Fixed: the default for a type is the override when one is set, else what the shell itself would open it with, asked the way Explorer asks. The toolkit's own answer could be a print command, and its Open With list had print entries too. Those are gone.
@@ -15758,6 +16397,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Bookmarks are kept in the toolkit's own file, not ours.
 	- Opened: 20260828-133604
+	- Target version: rc.1
 	- Closed: 20260829-090000
 	- It's only relevant on Windows. The toolkit's file is in the local profile while the settings are in the roaming one, so a roaming profile took the settings and left the bookmarks behind.
 	- Fixed: on Windows the list is kept beside the settings. A list an older version kept in the toolkit's file is copied across the first time, and a reset clears both so the old list can't come back.
@@ -15765,6 +16405,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows: content search can't read documents, because the search helpers aren't packaged there.
 	- Opened: 20260828-160000
+	- Target version: rc.1
 	- Closed: 20260829-083000
 	- On Linux a helper turned a document into text so "Containing:" could search it. The Windows layout had the executable and the toolkit and nothing else, and 3 of the helpers were a Python script, a shell script, and a LibreOffice call.
 	- Fixed: the converters are plain C and are included on every platform. They cover Word, Excel, and PowerPoint in both the old binary and the newer zip-of-xml forms, OpenDocument, and EPUB. The scripts and their dependencies are gone.
@@ -15775,6 +16416,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows and NTFS: any directory symlink through any mechanism should also allow a junction, preferred over a symlink.
 	- Opened: 20260823-142431
+	- Target version: rc.1
 	- Closed: 20260828-151500
 	- The hidden-files half of this item became "Two kinds of hidden file, two options", now done. It asks for the same thing as 2 switches rather than one.
 	- Note: superseded in part. Make link now asks, and offers a junction or a symlink for a folder. See [20260930-145641_moving_and_copying.md](design_docs/20260930-145641_moving_and_copying.md).
@@ -15785,6 +16427,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ New flag: `--reset`. Clears bookmarks, resets to default state. (Maybe just delete the config file?)
 	- Opened: 20260730-112038
+	- Target version: rc.1
 	- Closed: 20260828-133604
 	- Every stored setting is dropped and the settings file itself is removed, so anything hand-written that Nemo Anywhere doesn't recognize goes too. Bookmarks and their side file go with it.
 	- It refuses while a copy is running, and says so. That copy has the settings in memory and would write them straight back.
@@ -15793,6 +16436,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ If the Windows version has never run before, the bookmarks should be cleared, and populated with only the main Windows defaults. (C:\, Desktop, Documents, Downloads, Pictures, Videos, AppData). Also, all linux-specific settings and bookmarks should be cleared on first startup.
 	- Opened: 20260722-172504
+	- Target version: rc.1
 	- Closed: 20260828-133604
 	- On the first start the drive root and the user's own folders go in, taken from what Windows reports rather than spelled out, so a machine on another drive or in another language gets the right names.
 	- A bookmark that can only be a path from a POSIX machine is dropped, and so is any setting whose value is one. A set someone already curated on Windows is kept rather than replaced. That matters for anyone upgrading from a build without the marker.
@@ -15801,6 +16445,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Allow '~' in bookmarks to specify home dir (only if at the start and unquoted).
 	- Opened: 20260722-201512
+	- Target version: rc.1
 	- Closed: 20260828-133604
 	- It takes `~` at the start, and `%NAME%` or `$NAME` anywhere. Both variable forms work on both platforms, so a path can be moved between them.
 	- The literal text still wins. A folder really named with a `%` in it opens as itself, and only a name that's set in the environment is ever substituted. It was verified both ways.
@@ -15810,6 +16455,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows: an option to leave the `.lnk` off a shortcut's name.
 	- Opened: 20260828-083458
+	- Target version: rc.1
 	- Closed: 20260828-090000
 	- The shell never shows it, so nor do we unless the new switch on the Display page is turned on. It's off by default.
 	- Only the name shown loses the extension. The Ext column still says `lnk`, and a rename typed as the shown name puts the extension back, the same way a renamed `.desktop` file keeps its own. Without that, a rename would quietly turn the shortcut into an ordinary file.
@@ -15817,6 +16463,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Let the Type column take the width it needs when there's room for it.
 	- Opened: 20260828-083458
+	- Target version: rc.1
 	- Closed: 20260828-090000
 	- It was limited to twice the width of the Ext column, so it read "Folde" and "Link t" in a window with plenty of room to spare.
 	- That ceiling is gone. Type still gives its width back first when the window is too narrow, and still stops at a share of Name so one long value can't take the row.
@@ -15825,6 +16472,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The preferences dialog opens too short for the Display page, and doesn't follow a fractional display scale.
 	- Opened: 20260828-083458
+	- Target version: rc.1
 	- Closed: 20260828-090000
 	- It sized itself to the Views page alone, so every longer page opened behind a scrollbar. Measured: Views 690, Display 832, Behavior 1045, against an opening height of 700.
 	- It now measures every page and takes the longest, and the width the widest page needs, both still capped at 90% of the screen.
@@ -15834,6 +16482,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The 2 command fields on the Behavior page crowd their labels and run past the section.
 	- Opened: 20260828-083458
+	- Target version: rc.1
 	- Closed: 20260828-090000
 	- There were 4 pixels between the label and the field, and the field itself went past the right-hand margin every other section keeps.
 	- It's 12 pixels now, the field stops where the rest of the page does, and the 2 fields start at the same place as each other.
@@ -15841,6 +16490,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Move the Ext column between Size and Type in the default order.
 	- Opened: 20260827-183930
+	- Target version: rc.1
 	- Closed: 20260827-194220
 	- It was between Name and Size. It stays on by default either way.
 	- Both platform defaults moved, and the schema with them.
@@ -15848,6 +16498,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Name and Location split the search row evenly.
 	- Opened: 20260827-183930
+	- Target version: rc.1
 	- Closed: 20260827-194220
 	- The default was a third to Name and the rest to Location.
 	- A split dragged by hand still stands from then on.
@@ -15855,6 +16506,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Location is off by default outside search.
 	- Opened: 20260827-183930
+	- Target version: rc.1
 	- Closed: 20260827-194220
 	- It belongs in the search results list and nowhere else, unless it's turned on by hand.
 	- That was already the case. It's in the default column order but not the default visible list, and a run against a clean config confirmed it doesn't appear. Wherever it was seen, it had been turned on for that folder and remembered.
@@ -15862,6 +16514,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ A preference for which terminal "Open in Terminal" runs.
 	- Opened: 20260827-183930
+	- Target version: rc.1
 	- Closed: 20260827-194220
 	- It's one field on the Behavior page, with the command line in it. Anything the program needs beyond its own name is typed in by hand.
 	- Left empty it means the platform default, which is what happened before: the desktop's own choice on Linux, the first of the known shells found on PATH on Windows. Filled in, it wins over both.
@@ -15871,6 +16524,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Make link is on by default, and Windows tells a shortcut from a symlink.
 	- Opened: 20260827-183930
+	- Target version: rc.1
 	- Closed: 20260827-195422
 	- The menu item went out turned off.
 	- Renamed "Make symlink" on every platform, since a symlink is what it makes.
@@ -15882,6 +16536,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Update the vendored SHCL to the current release.
 	- Opened: 20260826-103001
+	- Target version: rc.1
 	- Closed: 20260827-075015
 	- It manages its own file creation and updating now, which is one of the rough edges hit here.
 	- Note: Fetch it from the source.
@@ -15895,6 +16550,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Ask for UTF-8 as the process codepage in the Windows manifest.
 	- Opened: 20260827-075015
+	- Target version: rc.1
 	- Closed: 20260828-142000
 	- Windows 10 1903 and later read `activeCodePage` and make every narrow call UTF-8. Without it a narrow call anywhere in the process is at the mercy of whatever codepage the machine is set to, which is how a non-ASCII user name breaks things that otherwise look fine.
 	- It has a cost. It changes the codepage for everything in the process rather than only our own calls, and it does nothing on the older versions the manifest still claims. It needs a look at what else narrows before it goes in.
@@ -15905,6 +16561,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The whole `desktop` group of settings is dead weight.
 	- Opened: 20260827-075015
+	- Target version: rc.1
 	- Closed: 20260827-081500
 	- There were 15 keys left behind when the desktop shell came out. They are still in the schema and still appear in a generated starter config, so a user can set them and nothing happens.
 	- Of the 15, 2 aren't clearly dead on a quick look, since one leaf name is shared with a live setting in another group. So this needs checking key by key rather than deleting the group.
@@ -15913,6 +16570,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows: open a `.lnk` the way Explorer does, by what it points at.
 	- Opened: 20260826-103001
+	- Target version: rc.1
 	- Closed: 20260827-090000
 	- A shortcut to a file opens in the file's associated program.
 	- A shortcut to a program runs it.
@@ -15927,6 +16585,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Show a build number in `--version`, `--about`, Help > About, the Windows splash screen, and the release notes.
 	- Opened: 20260826-103001
+	- Target version: rc.1
 	- Closed: 20260827-100000
 	- The build number is the minutes elapsed since the start of 2000, Crockford base32 encoded, lower case.
 	- General format: "<program name> v<version> build <build>" [copyright ...]
@@ -15937,6 +16596,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Ctrl+H toggles dot-files and Windows hidden files together.
 	- Opened: 20260826-103001
+	- Target version: rc.1
 	- Closed: 20260827-110000
 	- If the two are out of step, take the Windows hidden setting as the current value and match the other to it.
 	- Ctrl+Shift+H stays as it is, Windows only.
@@ -15946,11 +16606,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Ctrl+, opens Preferences.
 	- Opened: 20260826-103001
+	- Target version: rc.1
 	- Closed: 20260827-110000
 	- Test case: `cicd/utility/lint-accels.py` pins Ctrl+, to Preferences. It's a lint check, which has no test ID.
 
 - ✅ Build timestamps come from the commit being built, not the clock, so a release can be reproduced.
 	- Opened: 20260826-115717
+	- Target version: rc.1
 	- Closed: 20260826-152000
 	- The Windows exe was the one that varied. The linker writes a timestamp into the PE header, and 2 clean builds of the same commit differed in exactly those 4 bytes. Everything else was already close.
 	- Every lane now sets `SOURCE_DATE_EPOCH` to the commit date and hands it to whatever stamps a time. `zip` doesn't know about it, so the staged tree gets the date set on disk and is packed in sorted order. `tar` is told explicitly, and the rpm spec has to ask for it before rpm will read it.
@@ -15961,6 +16623,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows: two kinds of hidden file, two options.
 	- Opened: 20260823-140628
+	- Target version: rc.1
 	- Closed: 20260823-142431
 	- It supersedes the older item that asked for the same thing as one combined switch.
 	- The premise turned out to be worse than described. Windows reports only its own hidden attribute, so dot-files were shown there whatever the setting said. The same goes for names ending in a tilde, which count as backups elsewhere.
@@ -15971,6 +16634,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows: choose which separator paths are shown with.
 	- Opened: 20260823-140628
+	- Target version: rc.1
 	- Closed: 20260823-144331
 	- There's a "Paths" group on the Display page of Preferences, shown only on Windows. "Show separator as" picks `\` or `/`, and a checkbox below it accepts or refuses `/` in a typed location.
 	- The checkbox is ticked and grayed out while `/` is the separator on screen, since refusing what is being shown would make no sense.
@@ -15982,6 +16646,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows: "Copy path as [\|/]".
 	- Opened: 20260823-140628
+	- Target version: rc.1
 	- Closed: 20260823-145852
 	- It's a second clipboard item directly below the existing Copy Path one, using whichever separator the paths aren't currently shown with. It follows the same show/hide setting as the first, so the pair travels together.
 	- It's in all 4 places the first one appears: the Edit menu, the selection menu, the background menu, and the breadcrumb menu. It's hidden on every other platform.
@@ -15990,6 +16655,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows: "Open with Explorer", for a single selected entry.
 	- Opened: 20260823-140628
+	- Target version: rc.1
 	- Closed: 20260823-145852
 	- It's on the selection menu, below Open With. It's shown only when exactly one thing is selected and it has a local path, since a remote location gives Explorer nothing to open.
 	- A folder opens in Explorer. Anything else is revealed and picked out inside its own folder.
@@ -16000,6 +16666,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Column widths and the Ext column, second pass. Overrides the earlier column rules where they disagree.
 	- Opened: 20260823-130540
+	- Target version: rc.1
 	- Closed: 20260823-134341
 	- "File extension" is now just "Ext", and shows the extension without its leading dot. It sits directly right of Name, with Location next along whenever that is switched on.
 	- Location, on an ordinary folder listing, grows with Name rather than stopping at a share of it. The 2 split whatever the other columns leave and Name takes no more than half, so Location is never the narrower of the pair and anything Name doesn't need goes to Location. Dragging Location by hand ends that and pins the width, as it always did.
@@ -16013,24 +16680,28 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The preferences dialog opens larger, and big enough for the Views page to fit without a scrollbar.
 	- Opened: 20260823-130540
+	- Target version: rc.1
 	- Closed: 20260823-134341
 	- The height is measured from the page itself rather than fixed, so a different theme, font size, or translation still fits, up to what the monitor has room for.
 	- Test case: dd5df `test-nemo-prefs-dialog` (`test_size`).
 
 - ✅ Ask before moving files to Trash defaults to on.
 	- Opened: 20260823-130540
+	- Target version: rc.1
 	- Closed: 20260823-134341
 	- It was already the default, so it was confirmed rather than changed.
 	- Test case: dav3s, `test_product_defaults` in the config store test.
 
 - ✅ Right-click properties wording: ours is plain "Properties" and is first. The Windows sheet reads "Windows properties (Alt+Enter)" below it. Shortcuts themselves are unchanged.
 	- Opened: n/a
+	- Target version: rc.1
 	- Closed: 20260822-075741
 	- It was checked in the running app. The breadcrumb menu says "Windows properties" without the hint, since Alt+Enter acts on the selection rather than a path segment.
 	- Test case: none, wording only.
 
 - ✅ New list columns.
 	- Opened: n/a
+	- Target version: rc.1
 	- Closed: 20260822-075741
 	- There's a "File extension" column, on by default, between Name and Type, with the dot included the way Explorer shows it. It's left empty when the tail after a dot isn't really an extension, such as for folders, dot-files, a tail that's too long, all digits, or not letters and digits. The refusals have a test of their own that fails with the checks taken out.
 	- "Owner" now shows on Windows too and is on by default there, since the platform reports the file's real owner, so the old fabricated-values reason to hide it no longer applied.
@@ -16041,6 +16712,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Column widths remember the user's hand. Overrides the earlier auto-sizing rules where they disagree.
 	- Opened: n/a
+	- Target version: rc.1
 	- Closed: 20260822-075741
 	- A column with no natural width limit that the user resizes keeps that width as its ceiling from then on, through any window resizing in either direction, saved in settings.
 	- Name still takes all remaining space, except in find mode. There Name and Location split the row one-third/two-thirds by default, and an adjusted split is remembered forever and kept as the window resizes. This supersedes the find-mode column note, now canceled.
@@ -16050,6 +16722,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Properties on Windows opens the one Windows itself shows, instead of ours.
 	- Opened: 20260821-180950
+	- Target version: rc.1
 	- Closed: 20260821-204030
 	- Alt+Enter, Ctrl+I and every Properties item now hand the selection to the shell's own sheet, the same one Explorer shows, third-party tabs included. It's Windows only, and Linux, BSD, and macOS are untouched.
 	- Ours stays on a second item, "Advanced properties" (Ctrl+Enter), because the Windows sheet has nowhere to put a custom icon, an emblem, an annotation, or the image details page. It's hidden everywhere else, where both items would open the same window.
@@ -16060,6 +16733,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Every piece of text in the interface reads as a sentence, not as a headline - only the first word capitalized, and anything that is a name left alone.
 	- Opened: 20260821-180950
+	- Target version: rc.1
 	- Closed: 20260821-211359
 	- That covers menus, buttons, tab and page titles, dialog titles, column headings, tooltips, preference labels, and the bundled actions. It comes to about 330 labels in all.
 	- A mnemonic stays where it was, so the underlined letter doesn't move. It's lower case now. Keyboard shortcut text is untouched.
@@ -16071,6 +16745,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ One setting for how much of the machine's CPU any compression may use, as a percentage of the cores it finds. Default 50% - the best balance on a hyperthreaded CPU.
 	- Opened: 20260821-140715
+	- Target version: rc.1
 	- Closed: 20260821-144459
 	- It's `performance.cpu-percent`, global rather than per-format, so a later job that can be spread over cores reads the same number instead of inventing one of its own.
 	- It's passed to the 7z and rar create lines through a `{{THREADS}}` marker of their own, and to tar.xz through the library that writes it. Zip, gzip and the built-in 7z have no such option, so they are left alone rather than handed one they would refuse.
@@ -16081,6 +16756,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Per-monitor DPI aware where the platform offers it, and DPI aware at minimum everywhere else.
 	- Opened: 20260821-140715
+	- Target version: rc.1
 	- Closed: 20260821-150232
 	- The Windows executable now has an application manifest, which is where this is declared and where Windows reads it before any of our code runs. It asks for per-monitor v2 where it exists, then per-monitor v1 and system-wide on older builds.
 	- Without it the whole window was stretched as a blurry bitmap on a scaled display, and a second monitor at a different scale couldn't be followed at all.
@@ -16092,6 +16768,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ F2 selects the whole name, extension and all, rather than just the part before the dot. Settings tunable, for anyone who wants it the other way.
 	- Opened: 20260821-140715
+	- Target version: rc.1
 	- Closed: 20260821-150232
 	- That's in both views. A folder was already selected whole, and a file now is too.
 	- The setting is `preferences.rename-selects-whole-name`, a file-only setting without a control in Preferences.
@@ -16100,6 +16777,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ List view columns use the window as it is resized, instead of being pushed off the end of it or leaving a gap.
 	- Opened: 20260821-140715
+	- Target version: rc.1
 	- Closed: 20260821-153301
 	- Widening: columns take the new space until one can show the longest value in it, and then that one stops. Name is the only column that keeps growing without limit, so once everything else has what it needs the rest is Name's.
 	- Narrowing, which is the same thing read backwards: Name gives its surplus back first, having had all of it. When every column is down to the longest value it has and it still doesn't fit, Type gives next, on its own, to about 3 characters, since it's the one least missed that short, where a date or a size that short says nothing. Only then does everything else give ground together, each in proportion to how wide it is, Name included.
@@ -16115,6 +16793,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The picker gets 12 more icon sets, all of them asked for by name: BeautyLine, the 6 Simply Circles colors, Lime Numix 2021, MB Lime Suru GLOW, Material Black Pistachio Suru, Avidity Dusk Mixed Suru, FF-BlackGreen, and FF-Flamengo-RJ-BR. That's 23 sets in the picker now.
 	- Opened: 20260819-124028
+	- Target version: rc.1
 	- Closed: 20260819-160351
 	- They're all SVG, all trimmed to the names a file manager asks for, and all inside the executable. The whole icon payload is 6.6 MB, so nothing needed to be a separate download after all.
 	- The fetch script needed 3 new forms: a repository that keeps one theme family per branch, 6 themes out of one sparse checkout, and 2 that keep the icons as a tar committed inside a repository of something else.
@@ -16124,17 +16803,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ A gallery of every icon set in the README, 4 icons each on a light and a dark background, plus how to drop your own in. It's rendered by `cicd/utility/icon-gallery.py`. Re-run it when the set list changes.
 	- Opened: 20260819-124028
+	- Target version: rc.1
 	- Closed: 20260819-160351
 	- Each icon is rasterized on its own before being placed. Several sets color themselves through a stylesheet keyed on a class name they all write the same way, so pasting their markup into one sheet made 6 differently colored sets come out identical. Renaming the classes apart made them all come out black.
 	- Test case: none, docs only.
 
 - ✅ `filesystem/` is a tree mirroring where things go on disk, so a folder can be copied straight across. It has the icon and widget drop-in folders, what they're called on each platform, and the 2 optional `index.theme` keys that tell the picker which modes a theme suits.
 	- Opened: 20260819-124028
+	- Target version: rc.1
 	- Closed: 20260819-160351
 	- Test case: none, docs only.
 
 - ✅ Windows icon sets: one per Windows generation, all with yellow folders.
 	- Opened: 20260819-124028
+	- Target version: rc.1
 	- Closed: 20260819-145557
 	- Luna (XP) and Aero (7) were already ours. Metro (10) and Mica (11) are new, so every bundled Windows widget theme now has icons drawn to match it. The picker pairs them automatically.
 	- Folders are yellow in all 4. Aero's were blue, which isn't what Windows 7 had, and a yellow folder is the one color that reads on a light background and a dark one alike.
@@ -16145,6 +16827,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Every bundled SVG run through a size pass: 2.1 MB of icon art down to 1.8 MB, and Nemo Anywhere's own artwork from 142 KB to 50 KB.
 	- Opened: 20260819-124028
+	- Target version: rc.1
 	- Closed: 20260819-145557
 	- Numbers in path data are rounded to a step finer than a two-thousandth of the icon, which is under a tenth of a pixel at any size one is drawn. Colors fold to their short form and unreferenced ids go.
 	- Multipliers, such as transform matrices and gradient vectors, are deliberately left alone. Rounding a scale factor moves everything it touches, which is visible where rounding a coordinate isn't.
@@ -16153,11 +16836,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Default settings changed: folder expanders on in list view, binary size prefixes (KiB/MiB), and thumbnail visibility inherited from the parent folder.
 	- Opened: 20260819-124028
+	- Target version: rc.1
 	- Closed: 20260819-141014
 	- Test case: dav3s, `test_product_defaults` in the config store test.
 
 - ✅ List columns trimmed to one row per idea.
 	- Opened: 20260819-124028
+	- Target version: rc.1
 	- Closed: 20260819-141014
 	- There are 3 dates, the same 3 everywhere: Date Created, Date Modified (on by default) and Date Read. The "- Time" twins of the first 2 are gone, since they showed the same instant a second way. The times themselves come from whatever each OS keeps them in, so nothing here is per-platform.
 	- MIME Type and Detailed Type are no longer offered, since neither reads as anything but debug output beside the plain Type column. They're off behind a named switch in the source rather than deleted, because the underlying values are still what the properties window and the sort menu use.
@@ -16165,16 +16850,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Appearance page: picking a Style now moves the Icons choice to match it, so a Windows 11 window frame no longer comes with macOS icons. Where a style has no icon set of its own the icons stay put. The note about drop-in theme folders is further down the page, clear of the 2 pickers.
 	- Opened: 20260819-124028
+	- Target version: rc.1
 	- Closed: 20260819-141014
 	- Test case: dbes6 `test-nemo-appearance` (`test_icons_follow_style`). The bundled-theme half runs only on a bundled-themes build, so on Windows.
 
 - ✅ "System default" in both theme pickers now reads "Nemo Anywhere", since on the bundled targets it's the app's own look rather than the platform's.
 	- Opened: 20260819-124028
+	- Target version: rc.1
 	- Closed: 20260819-141014
 	- Test case: none, wording only.
 
 - ✅ Settings belong where each platform keeps them: `%APPDATA%\nemo-anywhere` on Windows, `~/Library/Application Support/nemo-anywhere` on macOS. Linux and BSD keep `~/.config`. Themes stay where they were.
 	- Opened: 20260819-084600
+	- Target version: rc.1
 	- Closed: 20260819-105607
 	- A folder left in the old place is moved across on first run, so nobody starts from defaults.
 	- A test checks both roots.
@@ -16182,6 +16870,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The Windows executable takes too long to start. 14.2s down to 3.4s, and the executable from 39.8 MB to 33.5 MB.
 	- Opened: 20260819-084600
+	- Target version: rc.1
 	- Closed: 20260819-122828
 	- Measured first, the packed single exe took 14.2s to even print `--version`, against 0.9s for the same build as a plain folder, and all of the difference is spent before our own code runs. The packer charges about 2.8 ms for every file it packs, and the bundled themes were a couple of thousand of them. The packer's own compression and mapping settings were measured and change nothing.
 	- The bundled themes are now inside the executable as one compiled-in resource instead of about 2,200 loose files. The sysroot's full Adwaita and its legacy set are replaced by our own trimmed copies. They were 2,693 files for the roughly 180 names we ask of them, plus 33 X11 cursors that do nothing on Windows. The whole folder went from 4,840 files to 152.
@@ -16200,6 +16889,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Drag and drop onto a path button, and a fuller right-click menu on one.
 	- Opened: 20260802-011216
+	- Target version: rc.1
 	- Closed: 20260826-103001
 	- Dropping onto a path button already worked, and still does.
 	- The right-click menu was the short location one. It gained Open, Open in Terminal, Open as Admin, and New Folder, so a path segment behaves like the folder it names.
@@ -16208,6 +16898,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Include "Copy path(s)" script from current nemo install.
 	- Opened: 20260724-091054
+	- Target version: rc.1
 	- Closed: 20260820-055722
 	- It's built in rather than bundled as a script, so it doesn't need an interpreter, a clipboard helper, or a per-platform install step.
 	- It's on the selection menu, the background menu for the folder being viewed, and a breadcrumb segment. It's also on the Edit menu, with Ctrl+Shift+C.
@@ -16218,6 +16909,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Right-click "Compress...": a cross-platform way to archive the selected files and folders.
 	- Opened: 20260819-170512
+	- Target version: rc.1
 	- Closed: 20260820-153813
 	- Note: superseded in part by 2026092910143202, not built yet. The "store links" and "follow linked folders" boxes become a choice per kind of link. See [20260929-101432_compression.md](design_docs/20260929-101432_compression.md).
 	- It's on the selection menu, the background menu for the folder being viewed, and a breadcrumb segment. It's also on the Edit menu.
@@ -16238,6 +16930,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ The 7z and rar command lines are settings, not code, so a user can edit them.
 	- Opened: 20260821-124844
+	- Target version: rc.1
 	- Closed: 20260821-133318
 	- There are 4 lines in `settings.shcl` under `archive`, for create and extract with each of the 2 programs. Each has `{{PLACEHOLDER}}` markers for the parts the app fills in. One can point at a different build, add a switch we don't offer, or work around a version that writes something its own way.
 	- Every switch the Compress dialog can turn on has a marker of its own, so an edited line keeps the dialog working. Leave one out and the app says which control has gone quiet.
@@ -16248,6 +16941,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Right-click "Extract" for the archive formats we recognize, including shelling out to 7z or rar.
 	- Opened: 20260820-174223
+	- Target version: rc.1
 	- Closed: 20260821-064823
 	- There are 3 items on the selection menu and the Edit menu, shown only when everything selected is an archive: "Extract Here", "Extract Each to Its Own Folder" (singular when one is selected) and "Extract To..." with a folder chooser. They can be shown or hidden in Preferences like the other context-menu items.
 	- "Extract Here" unpacks exactly what the archive stores, so one made from a folder brings that folder with it and ends up in one place. The folder-each item is the answer to an archive that would otherwise scatter its contents over the folder being viewed.
@@ -16261,6 +16955,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Depend on Explorer as little as possible.
 	- Opened: 20260818-144244
+	- Target version: rc.1
 	- Closed: 20260818-155550
 	- Every place the Windows build calls into the shell was audited. The only one that handed work to Explorer was a "show this file in the file manager" call, which asked Windows for the default handler for a folder, which is Explorer by definition.
 	- It was already unreachable, since the only caller is behind a desktop-view check that went permanently false when the desktop shell was removed. On Windows it would also have been asking for a handler that Windows doesn't have, since nothing is registered for a folder as a type.
@@ -16270,6 +16965,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Code review 20260815 - architecture and UX notes.
 	- Opened: 20260815-154746
+	- Target version: rc.1
 	- Closed: 20260817-210917
 	- These are observations and suggestions rather than defects, and weren't individually reproduced.
 	- Test case: none, since it's a review. Each item under it names its own.
@@ -16331,6 +17027,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Windows look: make it feel native even though it isn't Explorer.
 	- Opened: 20260730-203115
+	- Target version: rc.1
 	- Closed: 20260818-201822
 	- ✅ Fix the thin, poorly anti-aliased text - Segoe UI 9 with full hinting and subpixel (generated settings.ini + fontconfig).
 	- ✅ Themes: bundle a curated set of icon and widget styles, light and dark. Permissive licenses only - not Microsoft's own art.
@@ -16372,6 +17069,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Include the app's own icons and data files on Windows.
 	- Opened: 20260725-153058
+	- Target version: rc.1
 	- Closed: 20260826-103001
 	- Cause: the data dir was a compile-time absolute Unix path, so the sort-menu icons, the eject icon, and the emblem art didn't resolve on Windows.
 	- Fixed: the artwork is built into the executable as a compiled-in resource, and the data, translation, and helper-program folders are found relative to the running program, with the built-in path as a fallback.
@@ -16379,6 +17077,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - ✅ Real-Windows validation pass.
 	- Opened: 20260724-140849
+	- Target version: rc.1
 	- Closed: 20260826-103001
 	- Covers: trash, network browsing, single-instance, default-app setting, the Windows half of the installer, elevated relaunch (UAC prompt), keyboard shortcuts.
 	- Note: moving a file to the trash raises a Windows confirmation dialog of its own on this box, on top of ours. Needs more thought: should ours stand down there? The test that hit it now skips that step unless asked for it.
@@ -16829,6 +17528,7 @@ Template:
 	- Target OS:
 	- Test environment:
 	- Version and build:
+	- Target version:
 	- Requirements  [Feature]:
 		- Hierarchical bulleted list.
 	- Steps to reproduce [Bug]:
