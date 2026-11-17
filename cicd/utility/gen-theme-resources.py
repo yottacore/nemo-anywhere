@@ -29,6 +29,7 @@ assets/icons. vendor-themes.bash does it for you.
 
 import os
 import sys
+from typing import TextIO
 from xml.sax.saxutils import escape
 
 # Where each kind of theme is drawn from, repo-relative.
@@ -42,7 +43,7 @@ SKIP_NAMES = {"icon-theme.cache", ".gitignore", "thumbnail.png"}
 COMPRESS_SUFFIXES = (".svg", ".css", ".theme", ".xml", ".txt")
 
 
-def theme_dirs(root, subdirs):
+def theme_dirs(root: str, subdirs: tuple[str, ...]) -> list[tuple[str, str]]:
     """Every immediate subdirectory of @subdirs, as (name, abs path), sorted."""
     found = []
     for sub in subdirs:
@@ -56,7 +57,7 @@ def theme_dirs(root, subdirs):
     return found
 
 
-def walk_files(theme_dir):
+def walk_files(theme_dir: str) -> list[str]:
     """Files under @theme_dir as paths relative to it, sorted, skips excluded."""
     out = []
     for base, _dirs, files in os.walk(theme_dir):
@@ -68,7 +69,7 @@ def walk_files(theme_dir):
     return sorted(out)
 
 
-def icon_alias(rel):
+def icon_alias(rel: str) -> str:
     """Where an icon file goes inside the theme's resource path.
 
 	GTK matches a resource path against hicolor's directory list, which has no
@@ -79,15 +80,13 @@ def icon_alias(rel):
     return rel
 
 
-def emit(handle, alias, source):
+def emit(handle: TextIO, alias: str, source: str) -> None:
     compressed = alias.endswith(COMPRESS_SUFFIXES)
-    handle.write('\t\t<file alias="%s"%s>%s</file>\n' % (
-        escape(alias),
-        ' compressed="true"' if compressed else "",
-        escape(source)))
+    flag = ' compressed="true"' if compressed else ""
+    handle.write(f'\t\t<file alias="{escape(alias)}"{flag}>{escape(source)}</file>\n')
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     if len(argv) < 2:
         sys.stderr.write(__doc__)
         return 2
@@ -113,13 +112,12 @@ def main(argv):
             for rel in walk_files(path):
                 source = os.path.relpath(os.path.join(path, rel), root).replace(os.sep, "/")
                 if rel == "index.theme":
-                    emit(handle, "catalog/icons/%s/index.theme" % name, source)
+                    emit(handle, f"catalog/icons/{name}/index.theme", source)
                     files += 1
                     continue
-                alias = "icontheme/%s/%s" % (name, icon_alias(rel))
+                alias = f"icontheme/{name}/{icon_alias(rel)}"
                 if alias in seen:
-                    clashes.append("%s: %s and %s both resolve to %s" % (
-                        name, seen[alias], rel, alias))
+                    clashes.append(f"{name}: {seen[alias]} and {rel} both resolve to {alias}")
                     continue
                 seen[alias] = rel
                 emit(handle, alias, source)
@@ -129,20 +127,19 @@ def main(argv):
             for rel in walk_files(path):
                 source = os.path.relpath(os.path.join(path, rel), root).replace(os.sep, "/")
                 if rel == "index.theme":
-                    emit(handle, "catalog/themes/%s/index.theme" % name, source)
+                    emit(handle, f"catalog/themes/{name}/index.theme", source)
                     files += 1
                     continue
-                emit(handle, "widgettheme/%s/%s" % (name, rel), source)
+                emit(handle, f"widgettheme/{name}/{rel}", source)
                 files += 1
 
         handle.write("\t</gresource>\n")
         handle.write("</gresources>\n")
 
     for clash in clashes:
-        sys.stderr.write("WARNING %s\n" % clash)
+        sys.stderr.write(f"WARNING {clash}\n")
 
-    print("%d icon themes, %d widget themes, %d files -> %s" % (
-        len(icons), len(widgets), files, out))
+    print(f"{len(icons)} icon themes, {len(widgets)} widget themes, {files} files -> {out}")
     return 1 if clashes else 0
 
 

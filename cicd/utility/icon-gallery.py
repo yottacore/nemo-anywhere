@@ -53,7 +53,7 @@ DARK = "#242424"
 SKIP = {"AdwaitaLegacy"}
 
 
-def find_icon(theme_dir, name):
+def find_icon(theme_dir: str, name: str) -> str | None:
     """The file drawing @name in @theme_dir, or None."""
     for base, _dirs, files in os.walk(theme_dir):
         if name + ".svg" in files:
@@ -61,7 +61,7 @@ def find_icon(theme_dir, name):
     return None
 
 
-def style_of(theme_dir):
+def style_of(theme_dir: str) -> str:
     """The set's own label for its look, falling back to its directory name."""
     index = os.path.join(theme_dir, "index.theme")
     if os.path.isfile(index):
@@ -71,7 +71,7 @@ def style_of(theme_dir):
     return os.path.basename(theme_dir)
 
 
-def rasterise(src, size, scratch):
+def rasterise(src: str, size: int, scratch: str) -> str | None:
     """@src as a data: png of @size square, or None if it won't render."""
     out = os.path.join(scratch, "cell.png")
     try:
@@ -84,7 +84,7 @@ def rasterise(src, size, scratch):
         return "data:image/png;base64," + base64.b64encode(handle.read()).decode("ascii")
 
 
-def collect(root):
+def collect(root: str) -> list[str]:
     """Every set worth offering, ours first, one entry per light/dark pair."""
     found = []
     for parent in (os.path.join(root, "assets", "icons"), os.path.join(root, "vendor", "icons")):
@@ -104,7 +104,7 @@ def collect(root):
     return [paired[key] for key in sorted(paired, key=str.lower)]
 
 
-def build(root, out_svg, scratch):
+def build(root: str, out_svg: str, scratch: str) -> tuple[int, int]:
     sets = collect(root)
     rows = (len(sets) + COLS - 1) // COLS
     width = COLS * CELL_W
@@ -112,17 +112,15 @@ def build(root, out_svg, scratch):
 
     parts = ['<svg xmlns="http://www.w3.org/2000/svg" '
          'xmlns:xlink="http://www.w3.org/1999/xlink" '
-         'width="%d" height="%d" viewBox="0 0 %d %d">' % (width, height, width, height)]
-    parts.append('<rect width="%d" height="%d" fill="%s"/>' % (width, height, LIGHT))
+         f'width="{width}" height="{height}" viewBox="0 0 {width} {height}">']
+    parts.append(f'<rect width="{width}" height="{height}" fill="{LIGHT}"/>')
 
     for slot, theme_dir in enumerate(sets):
         x0 = (slot % COLS) * CELL_W
         y0 = (slot // COLS) * ROW_H
 
-        parts.append('<rect x="%d" y="%d" width="%d" height="%d" fill="%s"/>'
-                 % (x0, y0, HALF, ROW_H, LIGHT))
-        parts.append('<rect x="%d" y="%d" width="%d" height="%d" fill="%s"/>'
-                 % (x0 + HALF, y0, HALF, ROW_H, DARK))
+        parts.append(f'<rect x="{x0}" y="{y0}" width="{HALF}" height="{ROW_H}" fill="{LIGHT}"/>')
+        parts.append(f'<rect x="{x0 + HALF}" y="{y0}" width="{HALF}" height="{ROW_H}" fill="{DARK}"/>')
 
         for n, name in enumerate(NAMES):
             path = find_icon(theme_dir, name)
@@ -132,20 +130,15 @@ def build(root, out_svg, scratch):
             if data is None:
                 continue
             for slice_x in (x0, x0 + HALF):
-                parts.append('<image x="%d" y="%d" width="%d" height="%d" '
-                         'xlink:href="%s"/>'
-                         % (slice_x + GAP + n * (ICON + GAP), y0 + GAP,
-                        ICON, ICON, data))
+                parts.append(f'<image x="{slice_x + GAP + n * (ICON + GAP)}" y="{y0 + GAP}" '
+                         f'width="{ICON}" height="{ICON}" xlink:href="{data}"/>')
 
         # One label per set, centered across the seam, so the 2 halves read as
         # the same set seen twice rather than as 2 different sets.
-        parts.append('<rect x="%d" y="%d" width="1" height="%d" fill="#0000002c"/>'
-                 % (x0 + HALF, y0, ROW_H))
-        parts.append('<rect x="%d" y="%d" width="%d" height="%d" fill="#7f7f7f28"/>'
-                 % (x0, y0 + ROW_H - LABEL, CELL_W, LABEL))
-        parts.append('<text x="%d" y="%d" font-family="Segoe UI,DejaVu Sans,sans-serif" '
-                 'font-size="12" fill="#909090" text-anchor="middle">%s</text>'
-                 % (x0 + CELL_W // 2, y0 + ROW_H - 7, style_of(theme_dir)))
+        parts.append(f'<rect x="{x0 + HALF}" y="{y0}" width="1" height="{ROW_H}" fill="#0000002c"/>')
+        parts.append(f'<rect x="{x0}" y="{y0 + ROW_H - LABEL}" width="{CELL_W}" height="{LABEL}" fill="#7f7f7f28"/>')
+        parts.append(f'<text x="{x0 + CELL_W // 2}" y="{y0 + ROW_H - 7}" font-family="Segoe UI,DejaVu Sans,sans-serif" '
+                 f'font-size="12" fill="#909090" text-anchor="middle">{style_of(theme_dir)}</text>')
 
     parts.append("</svg>")
     with open(out_svg, "w", encoding="utf-8", newline="\n") as handle:
@@ -153,7 +146,7 @@ def build(root, out_svg, scratch):
     return len(sets), width
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     root = os.path.abspath(argv[1] if len(argv) > 1
                    else os.path.join(os.path.dirname(__file__), "..", ".."))
     out_dir = os.path.join(root, "assets")
@@ -170,7 +163,7 @@ def main(argv):
             os.remove(os.path.join(scratch, name))
         os.rmdir(scratch)
 
-    print("[ %d sets -> %s ]" % (count, out_png))
+    print(f"[ {count} sets -> {out_png} ]")
     return 0
 
 

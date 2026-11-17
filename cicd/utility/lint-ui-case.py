@@ -23,11 +23,11 @@
 ##	Licensed under the GNU General Public License, version 2 only.
 ##	SPDX-License-Identifier: GPL-2.0-only
 
-import io
 import os
 import re
 import sys
 import tempfile
+from collections.abc import Iterator
 
 # Names that keep their capital wherever they stand.
 NAMES = set("""
@@ -136,7 +136,7 @@ LITERAL_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
 NGETTEXT_RE = re.compile(r'\bngettext\s*\(')
 
 
-def ngettext_strings(text):
+def ngettext_strings(text: str) -> Iterator[tuple[int, str]]:
     """Every string literal inside an ngettext call, with its line."""
     for m in NGETTEXT_RE.finditer(text):
         depth = 1
@@ -170,7 +170,7 @@ def ngettext_strings(text):
             yield line, body
 
 
-def offenders(text):
+def offenders(text: str) -> list[str]:
     """The words that should have been lower case, in order."""
     bad = []
     sentence_start = True
@@ -195,8 +195,8 @@ def offenders(text):
     return bad
 
 
-def strings_in(path):
-    text = io.open(path, encoding="utf-8", errors="replace").read()
+def strings_in(path: str) -> Iterator[tuple[int, str]]:
+    text = open(path, encoding="utf-8", errors="replace").read()
 
     if path.endswith((".c", ".h")):
         pattern = C_RE
@@ -217,17 +217,17 @@ def strings_in(path):
             yield line, body
 
 
-def retired_words(text):
+def retired_words(text: str) -> list[str]:
     """Retired words in the string, each with its replacement."""
     found = []
     for m in WORD_RE.finditer(text):
         bare = m.group(0).replace("_", "").lower()
         if bare in RETIRED:
-            found.append("%s -> %s" % (m.group(0), RETIRED[bare]))
+            found.append(f"{m.group(0)} -> {RETIRED[bare]}")
     return found
 
 
-def run(root):
+def run(root: str) -> list[str]:
     """Every finding under root, one line each."""
     findings = []
 
@@ -245,14 +245,12 @@ def run(root):
                     continue
                 old = retired_words(body)
                 if old:
-                    findings.append("%s:%d: retired word (%s): %s"
-                                    % (shown, line, ", ".join(old), body))
+                    findings.append(f"{shown}:{line}: retired word ({', '.join(old)}): {body}")
                 if body.replace("_", "") in KEEP:
                     continue
                 bad = offenders(body)
                 if bad:
-                    findings.append("%s:%d: not sentence case (%s): %s"
-                                    % (shown, line, ", ".join(bad), body))
+                    findings.append(f"{shown}:{line}: not sentence case ({', '.join(bad)}): {body}")
 
     return findings
 
@@ -276,24 +274,23 @@ SELF_TEST_EXPECTED = [
 ]
 
 
-def self_test():
-    own = io.open(__file__, encoding="utf-8").read()
-    print("[ Test %s lint-ui-case.py --self-test ]"
-          % re.search(r"(?m)^##\t  Test ID: (\S+)$", own).group(1))
+def self_test() -> int:
+    own = open(__file__, encoding="utf-8").read()
+    test_id = re.search(r"(?m)^##\t  Test ID: (\S+)$", own).group(1)
+    print(f"[ Test {test_id} lint-ui-case.py --self-test ]")
     with tempfile.TemporaryDirectory() as tmp:
-        io.open(os.path.join(tmp, "thing.c"), "w", encoding="utf-8").write(SELF_TEST_C)
-        io.open(os.path.join(tmp, "thing.ui"), "w", encoding="utf-8").write(SELF_TEST_UI)
+        open(os.path.join(tmp, "thing.c"), "w", encoding="utf-8").write(SELF_TEST_C)
+        open(os.path.join(tmp, "thing.ui"), "w", encoding="utf-8").write(SELF_TEST_UI)
         got = [f.split(": ")[0].replace(tmp.replace(os.sep, "/") + "/", "")
                + ": " + f.split(": ")[1] for f in run(tmp)]
     if got != SELF_TEST_EXPECTED:
-        sys.stderr.write("[ FAILED: UI case self-test: reported %s, expected %s ]\n"
-                         % (got, SELF_TEST_EXPECTED))
+        sys.stderr.write(f"[ FAILED: UI case self-test: reported {got}, expected {SELF_TEST_EXPECTED} ]\n")
         return 1
     print("[ OK: UI case self-test ]")
     return 0
 
 
-def main():
+def main() -> int:
     if sys.argv[1:] == ["--self-test"]:
         return self_test()
 
@@ -304,7 +301,7 @@ def main():
         sys.stderr.write(finding + "\n")
 
     if findings:
-        sys.stderr.write("[ FAILED: UI case: %d finding(s) ]\n" % len(findings))
+        sys.stderr.write(f"[ FAILED: UI case: {len(findings)} finding(s) ]\n")
         return 1
 
     print("[ OK: UI case: every translatable string is sentence case, with no retired words ]")

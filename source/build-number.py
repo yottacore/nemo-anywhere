@@ -15,7 +15,7 @@ EPOCH_2000 = 946684800
 DIGITS = "0123456789abcdefghjkmnpqrstvwxyz"
 
 
-def stamp():
+def stamp() -> int:
     source_date = os.environ.get("SOURCE_DATE_EPOCH")
     if source_date:
         try:
@@ -35,7 +35,7 @@ def stamp():
     return int(time.time())
 
 
-def crockford(n):
+def crockford(n: int) -> str:
     if n <= 0:
         return "0"
     out = ""
@@ -48,5 +48,5 @@ def crockford(n):
 minutes = (stamp() - EPOCH_2000 + 30) // 60
 out = crockford(minutes)
 if "--epoch" in sys.argv[1:]:
-    out += " %d" % (EPOCH_2000 + minutes * 60)
+    out += f" {EPOCH_2000 + minutes * 60}"
 sys.stdout.write(out)

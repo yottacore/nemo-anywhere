@@ -34,6 +34,7 @@ import re
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
+from collections.abc import Iterator
 
 SVG_NS = "http://www.w3.org/2000/svg"
 XLINK_NS = "http://www.w3.org/1999/xlink"
@@ -61,14 +62,14 @@ ET.register_namespace("", SVG_NS)
 ET.register_namespace("xlink", XLINK_NS)
 
 
-def _in_dropped_ns(name):
+def _in_dropped_ns(name: str) -> bool:
     if not name.startswith("{"):
         return False
     uri = name[1:name.index("}")] if "}" in name else ""
     return any(fragment in uri for fragment in DROP_NS)
 
 
-def _clean(element):
+def _clean(element: ET.Element) -> None:
     for child in list(element):
         tag = child.tag
         if not isinstance(tag, str):  # comment or processing instruction
@@ -114,13 +115,13 @@ COLOR_ATTRS = ("fill", "stroke", "stop-color", "color", "flood-color",
         "lighting-color", "solid-color", "style")
 
 
-def _round(text, decimals):
+def _round(text: str, decimals: int) -> str:
     """One number, rounded and spelled as short as SVG allows."""
     try:
         value = round(float(text), decimals)
     except ValueError:
         return text
-    out = ("%.*f" % (decimals, value)).rstrip("0").rstrip(".")
+    out = f"{value:.{decimals}f}".rstrip("0").rstrip(".")
     if out in ("", "-", "-0"):
         return "0"
     if out.startswith("0."):
@@ -140,7 +141,7 @@ PATH_ARGS = {"m": 2, "l": 2, "h": 1, "v": 1, "c": 6, "s": 4,
 ARC_FLAGS = (3, 4)
 
 
-def _path_tokens(data):
+def _path_tokens(data: str) -> Iterator[tuple[bool, str]]:
     """(is_command, text) through the path, arc flags read as single digits."""
     position = 0
     command = ""
@@ -179,7 +180,7 @@ def _path_tokens(data):
             argument = 0
 
 
-def _shrink_path(data, decimals):
+def _shrink_path(data: str, decimals: int) -> str:
     """Path data with its numbers rounded and its separators cut to the bone.
 
 	Only the space before a minus sign is dropped. A leading dot could be run
@@ -200,7 +201,7 @@ def _shrink_path(data, decimals):
     return "".join(parts)
 
 
-def _transform_scale(value):
+def _transform_scale(value: str | None) -> float:
     """How much @value magnifies lengths, as one number. 1.0 if it can't tell."""
     scale = 1.0
     for name, args in TRANSFORM.findall(value or ""):
@@ -215,7 +216,7 @@ def _transform_scale(value):
     return scale or 1.0
 
 
-def _base_decimals(root):
+def _base_decimals(root: ET.Element) -> int:
     """Enough decimals that the quantum is under 1/2000 of the viewBox."""
     box = root.get("viewBox")
     width = 0.0
@@ -241,7 +242,7 @@ def _base_decimals(root):
     return decimals
 
 
-def _referenced_ids(root):
+def _referenced_ids(root: ET.Element) -> set[str]:
     """Every id something in the document points at, by any of the 3 ways."""
     found = set()
     for element in root.iter():
@@ -255,8 +256,8 @@ def _referenced_ids(root):
     return found
 
 
-def _shorten_color(text):
-    def fold(match):
+def _shorten_color(text: str) -> str:
+    def fold(match: re.Match[str]) -> str:
         digits = match.group(1)
         if digits[0] == digits[1] and digits[2] == digits[3] and digits[4] == digits[5]:
             return "#" + digits[0] + digits[2] + digits[4]
@@ -264,7 +265,7 @@ def _shorten_color(text):
     return HEX6.sub(fold, text)
 
 
-def _tighten(element, base, keep_ids, scale, is_root):
+def _tighten(element: ET.Element, base: int, keep_ids: set[str], scale: float, is_root: bool) -> None:
     scale *= _transform_scale(element.get("transform"))
     decimals = base + max(0, int(math.ceil(math.log10(scale))) if scale > 1 else 0)
 
@@ -296,7 +297,7 @@ def _tighten(element, base, keep_ids, scale, is_root):
             _tighten(child, base, keep_ids, scale, False)
 
 
-def minify(src, dst):
+def minify(src: str, dst: str) -> None:
     tree = ET.parse(src)
     root = tree.getroot()
     _clean(root)
@@ -305,7 +306,7 @@ def minify(src, dst):
     out = ET.tostring(root, encoding="unicode")
     # ET emits the default namespace on every child it can't attribute; collapse
     # the redundant redeclarations it leaves behind.
-    out = out.replace(' xmlns:ns0="%s"' % SVG_NS, "")
+    out = out.replace(f' xmlns:ns0="{SVG_NS}"', "")
     out = re.sub(r"\s+", " ", out)
     out = out.replace("> <", "><").strip()
 
@@ -339,11 +340,12 @@ SELF_TEST_SVG = """\
 """
 
 
-def self_test():
-    print("[ Test %s svg-min.py --self-test ]" % re.search(r"(?m)^Test ID: (\S+)$", __doc__).group(1))
+def self_test() -> int:
+    test_id = re.search(r"(?m)^Test ID: (\S+)$", __doc__).group(1)
+    print(f"[ Test {test_id} svg-min.py --self-test ]")
     failures = []
 
-    def check(label, got, want):
+    def check(label: str, got: object, want: object) -> None:
         if got != want:
             failures.append(f"{label}: got {got!r}, expected {want!r}")
 
@@ -401,7 +403,7 @@ def self_test():
     return 0
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     if argv[1:] == ["--self-test"]:
         return self_test()
 
@@ -424,7 +426,7 @@ def main(argv):
                     continue
                 try:
                     minify(src, dst)
-                except Exception:
+                except (ET.ParseError, LookupError, ValueError, OverflowError):
                     # An SVG we can't parse still renders; copy it untouched.
                     with open(src, "rb") as fh:
                         data = fh.read()

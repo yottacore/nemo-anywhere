@@ -38,7 +38,7 @@ CALL = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
 DEF_START = re.compile(r"^(.*?[\s*])?([A-Za-z_]\w*)\s*\(")
 
 
-def blank_out(text):
+def blank_out(text: str) -> str:
     """Comments, string and char literals, and preprocessor lines become
     spaces. Newlines stay, so line numbers still match the file."""
     out = []
@@ -81,7 +81,7 @@ def blank_out(text):
     return "".join(out)
 
 
-def header_names(root):
+def header_names(root: Path) -> set[str]:
     """Every name a first-party header follows with a parenthesis. More than
     the declarations, but only definitions are looked up in it."""
     names = set()
@@ -91,7 +91,7 @@ def header_names(root):
     return names
 
 
-def comment_above(raw, top):
+def comment_above(raw: list[str], top: int) -> str | None:
     """The comment that ends on the line above @top, or one blank line above
     it, as text; None when there is none."""
     k = top - 1
@@ -112,7 +112,7 @@ def comment_above(raw, top):
     return None
 
 
-def check_file(path, names):
+def check_file(path: Path, names: set[str]) -> list[tuple[int, str]]:
     text = path.read_text(encoding="utf-8", errors="replace")
     raw = text.split("\n")
     flat = blank_out(text)
@@ -169,7 +169,7 @@ def check_file(path, names):
     return found
 
 
-def run(root):
+def run(root: Path) -> list[str]:
     names = header_names(root)
     bad = []
     for d in CODE_DIRS:
@@ -319,9 +319,10 @@ thing_twice (void)
 SELF_TEST_EXPECTED = ["thing_list", "thing_words", "thing_new", "thing_far", "thing_wordy", "thing_data", "thing_line"]
 
 
-def self_test():
+def self_test() -> int:
     own = Path(__file__).read_text(encoding="utf-8")
-    print("[ Test %s lint-ownership.py --self-test ]" % re.search(r"(?m)^# Test ID: (\S+)$", own).group(1))
+    test_id = re.search(r"(?m)^# Test ID: (\S+)$", own).group(1)
+    print(f"[ Test {test_id} lint-ownership.py --self-test ]")
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         (root / "src").mkdir()
@@ -335,7 +336,7 @@ def self_test():
     return 0
 
 
-def main():
+def main() -> int:
     if sys.argv[1:] == ["--self-test"]:
         return self_test()
 
