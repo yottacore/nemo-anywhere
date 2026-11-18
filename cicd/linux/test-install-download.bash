@@ -53,7 +53,7 @@ fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 ## Returns a URL's file from $CURL_SHIM_ROOT the way GitHub would, 404 for anything
 ## else, and logs every request. Takes both forms of call the installers use.
 shimDir="${scratch}/shim"
-mkdir -p "$shimDir"
+mkdir -p "${shimDir}"
 cat > "${shimDir}/curl" <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
@@ -131,7 +131,7 @@ fMakeFixture(){
 	{
 		printf '['
 		for tag in "$@"; do
-			printf '%s\n  {"tag_name": "%s", "prerelease": %s}' "$sep" "$tag" "$([[ "$tag" == *-* ]] && echo true || echo false)"
+			printf '%s\n  {"tag_name": "%s", "prerelease": %s}' "${sep}" "${tag}" "$([[ "${tag}" == *-* ]] && echo true || echo false)"
 			sep=","
 		done
 		printf '\n]\n'
@@ -144,12 +144,12 @@ fMakeFixture(){
 		sums="${exeName}-${ver}-sha256sums.txt"
 		tree="${dir}/build/${name}"
 		mkdir -p "${tree}/bin" "${dir}/assets/${tag}"
-		printf '#!/bin/sh\necho %s\n' "$ver" > "${tree}/bin/${exeName}"
+		printf '#!/bin/sh\necho %s\n' "${ver}" > "${tree}/bin/${exeName}"
 		chmod +x "${tree}/bin/${exeName}"
-		tar -czf "${dir}/assets/${tag}/${asset}" -C "${dir}/build" "$name"
+		tar -czf "${dir}/assets/${tag}/${asset}" -C "${dir}/build" "${name}"
 		sumsEntry=""
 		if ((withSums)); then
-			( cd "${dir}/assets/${tag}" && sha256sum "$asset" > "$sums" )
+			( cd "${dir}/assets/${tag}" && sha256sum "${asset}" > "${sums}" )
 			sumsEntry=",
 			  {\"name\": \"${sums}\", \"browser_download_url\": \"${dl}/${tag}/${sums}\"}"
 		fi
@@ -175,26 +175,26 @@ fRun(){
 	home="${scratch}/home-${installer}-${label}"
 	mkdir -p "${home}/tmp"
 	: > "${fixture}/requests.log"
-	if [[ "$installer" == "bash" ]]; then
-		cmd=(bash "${root}/install.bash" --release "$channel")
-		[[ -n "$answer" ]] || cmd+=(--yes)
-		[[ -z "$unverified" ]] || cmd+=(--no-verify)
+	if [[ "${installer}" == "bash" ]]; then
+		cmd=(bash "${root}/install.bash" --release "${channel}")
+		[[ -n "${answer}" ]] || cmd+=(--yes)
+		[[ -z "${unverified}" ]] || cmd+=(--no-verify)
 	else
-		cmd=(pwsh -NoProfile -File "${shimDir}/run-install.ps1" -Installer "${root}/install.ps1" -Curl "${shimDir}/curl" -Release "$channel")
-		[[ -n "$answer" ]] || cmd+=(-Yes)
-		[[ -z "$unverified" ]] || cmd+=(-NoVerify)
+		cmd=(pwsh -NoProfile -File "${shimDir}/run-install.ps1" -Installer "${root}/install.ps1" -Curl "${shimDir}/curl" -Release "${channel}")
+		[[ -n "${answer}" ]] || cmd+=(-Yes)
+		[[ -z "${unverified}" ]] || cmd+=(-NoVerify)
 	fi
 	## A proxy that never responds, so a request that slips past the stand-ins
 	## fails here instead of going to GitHub.
-	local runEnv=(env -u DISPLAY -u no_proxy -u NO_PROXY HOME="$home" XDG_DATA_HOME="${home}/.local/share"
-		TMPDIR="${home}/tmp" PATH="${shimDir}:${PATH}" CURL_SHIM_ROOT="$fixture" UNAME_SHIM_M="$unameM" UNAME_SHIM_S="$unameS"
+	local runEnv=(env -u DISPLAY -u no_proxy -u NO_PROXY HOME="${home}" XDG_DATA_HOME="${home}/.local/share"
+		TMPDIR="${home}/tmp" PATH="${shimDir}:${PATH}" CURL_SHIM_ROOT="${fixture}" UNAME_SHIM_M="${unameM}" UNAME_SHIM_S="${unameS}"
 		https_proxy="http://127.0.0.1:9" HTTPS_PROXY="http://127.0.0.1:9")
 	runRc=0
-	if [[ -z "$answer" ]]; then
+	if [[ -z "${answer}" ]]; then
 		"${runEnv[@]}" "${cmd[@]}" </dev/null >"${home}/run.log" 2>&1 || runRc=$?
 	else
 		## The installers only ask on a terminal, so give them one.
-		"${runEnv[@]}" python3 "${root}/cicd/linux/answer-prompt.py" "Proceed?" "$answer" "${cmd[@]}" \
+		"${runEnv[@]}" python3 "${root}/cicd/linux/answer-prompt.py" "Proceed?" "${answer}" "${cmd[@]}" \
 			</dev/null >"${home}/run.log" 2>&1 || runRc=$?
 	fi
 	return 0
@@ -207,21 +207,21 @@ fExpectInstall(){
 	local prefix="${home}/.local/share/${exeName}"
 	local launcher="${home}/.local/share/applications/${exeName}.desktop"
 	local symlink="${home}/.local/bin/${exeName}"
-	if [[ -z "$ver" ]]; then
-		[[ ! -e "$prefix" && ! -e "$launcher" && ! -L "$symlink" ]] || fFail "${what}: installed something anyway"
+	if [[ -z "${ver}" ]]; then
+		[[ ! -e "${prefix}" && ! -e "${launcher}" && ! -L "${symlink}" ]] || fFail "${what}: installed something anyway"
 		[[ -z "$(find "${home}/.local/share" -maxdepth 1 -name ".${exeName}-install.*" 2>/dev/null || true)" ]] \
 			|| fFail "${what}: left a staging folder behind"
 		return 0
 	fi
-	if [[ "$runRc" != "0" ]]; then
+	if [[ "${runRc}" != "0" ]]; then
 		fFail "${what}: exited ${runRc}; last lines:"
 		tail -5 "${home}/run.log"
 		return 0
 	fi
 	grep -q -F "echo ${ver}" "${prefix}/bin/${exeName}" 2>/dev/null || fFail "${what}: ${ver} isn't what got installed"
-	[[ -f "$launcher" ]] || fFail "${what}: no launcher"
-	[[ "$(readlink "$symlink" || true)" == "${prefix}/bin/${exeName}" ]] || fFail "${what}: symlink doesn't point into the prefix"
-	if [[ -n "$unverified" ]]; then
+	[[ -f "${launcher}" ]] || fFail "${what}: no launcher"
+	[[ "$(readlink "${symlink}" || true)" == "${prefix}/bin/${exeName}" ]] || fFail "${what}: symlink doesn't point into the prefix"
+	if [[ -n "${unverified}" ]]; then
 		grep -q "UNVERIFIED" "${home}/run.log" || fFail "${what}: the plan never said the install is unverified"
 	else
 		grep -q "sha256 verified" "${home}/run.log" || fFail "${what}: installed without saying the checksum was verified"
@@ -238,28 +238,28 @@ fExpectSaid(){
 ## $1 what, $2 fixture, $3 tag whose build and sums had to be fetched.
 fExpectFetched(){
 	local log="${2}/requests.log"
-	grep -q -F "/${3}/${exeName}-${3#v}-${os}-${arch}.tar.gz" "$log" || fFail "${1}: never downloaded the ${3} build"
-	grep -q -F "/${3}/${exeName}-${3#v}-sha256sums.txt" "$log" || fFail "${1}: never downloaded the ${3} sums"
-	! grep -q -F "releases/latest" "$log" || fFail "${1}: asked for releases/latest, which fails with no stable release"
+	grep -q -F "/${3}/${exeName}-${3#v}-${os}-${arch}.tar.gz" "${log}" || fFail "${1}: never downloaded the ${3} build"
+	grep -q -F "/${3}/${exeName}-${3#v}-sha256sums.txt" "${log}" || fFail "${1}: never downloaded the ${3} sums"
+	! grep -q -F "releases/latest" "${log}" || fFail "${1}: asked for releases/latest, which fails with no stable release"
 	return 0
 }
 
 ## 1.0.0-alpha.2 is listed on purpose: sort -V ranks it above 1.0.0.
 mixed="${scratch}/mixed"
-fMakeFixture "$mixed" v1.0.0-beta2 v1.0.0 v0.9.0 v1.1.0-rc.1 v1.0.0-alpha.2
+fMakeFixture "${mixed}" v1.0.0-beta2 v1.0.0 v0.9.0 v1.1.0-rc.1 v1.0.0-alpha.2
 preOnly="${scratch}/prerelease-only"
-fMakeFixture "$preOnly" v1.0.0-beta2 v1.0.0-beta10 v1.0.0-alpha.2
+fMakeFixture "${preOnly}" v1.0.0-beta2 v1.0.0-beta10 v1.0.0-alpha.2
 tampered="${scratch}/tampered"
-fMakeFixture "$tampered" v1.0.0
+fMakeFixture "${tampered}" v1.0.0
 ## Still a good archive, so only the checksum stands between it and the prefix.
 printf 'echo tampered\n' >> "${tampered}/build/${exeName}-1.0.0-linux-${arch}/bin/${exeName}"
 tar -czf "${tampered}/assets/v1.0.0/${exeName}-1.0.0-linux-${arch}.tar.gz" -C "${tampered}/build" "${exeName}-1.0.0-linux-${arch}"
 noLine="${scratch}/no-sums-line"
-fMakeFixture "$noLine" v1.0.0
+fMakeFixture "${noLine}" v1.0.0
 printf '%064d  %s\n' 0 "${exeName}-1.0.0-windows-x86_64.zip" > "${noLine}/assets/v1.0.0/${exeName}-1.0.0-sha256sums.txt"
 noSums="${scratch}/no-sums"
 withSums=0
-fMakeFixture "$noSums" v1.0.0 v1.1.0-rc.1
+fMakeFixture "${noSums}" v1.0.0 v1.1.0-rc.1
 withSums=1
 
 installers=(bash)
@@ -272,92 +272,92 @@ havePython=1
 command -v python3 >/dev/null 2>&1 || { havePython=0; fEcho "python3 not installed; the question isn't checked"; }
 
 for inst in "${installers[@]}"; do
-	fRun "$inst" stable "$mixed" stable ""
+	fRun "${inst}" stable "${mixed}" stable ""
 	fExpectInstall "${inst} stable" 1.0.0
-	fExpectFetched "${inst} stable" "$mixed" v1.0.0
+	fExpectFetched "${inst} stable" "${mixed}" v1.0.0
 
-	fRun "$inst" dev "$mixed" dev ""
+	fRun "${inst}" dev "${mixed}" dev ""
 	fExpectInstall "${inst} dev" 1.1.0-rc.1
-	fExpectFetched "${inst} dev" "$mixed" v1.1.0-rc.1
+	fExpectFetched "${inst} dev" "${mixed}" v1.1.0-rc.1
 
-	fRun "$inst" prerelease-only "$preOnly" stable ""
+	fRun "${inst}" prerelease-only "${preOnly}" stable ""
 	fExpectInstall "${inst} stable with only prereleases" 1.0.0-beta10
 	fExpectSaid "${inst} stable with only prereleases" "no stable release yet"
-	fExpectFetched "${inst} stable with only prereleases" "$preOnly" v1.0.0-beta10
+	fExpectFetched "${inst} stable with only prereleases" "${preOnly}" v1.0.0-beta10
 
-	fRun "$inst" tampered "$tampered" stable ""
-	[[ "$runRc" != "0" ]] || fFail "${inst} tampered build: exited 0"
+	fRun "${inst}" tampered "${tampered}" stable ""
+	[[ "${runRc}" != "0" ]] || fFail "${inst} tampered build: exited 0"
 	fExpectSaid "${inst} tampered build" "checksum mismatch"
 	fExpectInstall "${inst} tampered build" ""
 
-	fRun "$inst" no-sums-line "$noLine" stable ""
-	[[ "$runRc" != "0" ]] || fFail "${inst} sums without the build: exited 0"
+	fRun "${inst}" no-sums-line "${noLine}" stable ""
+	[[ "${runRc}" != "0" ]] || fFail "${inst} sums without the build: exited 0"
 	fExpectSaid "${inst} sums without the build" "has no line for ${exeName}-1.0.0-linux-${arch}.tar.gz"
 	fExpectInstall "${inst} sums without the build" ""
 
 	if ((havePython)); then
-		fRun "$inst" answered-no "$mixed" stable n
-		[[ "$runRc" != "0" ]] || fFail "${inst} answered no: exited 0"
+		fRun "${inst}" answered-no "${mixed}" stable n
+		[[ "${runRc}" != "0" ]] || fFail "${inst} answered no: exited 0"
 		fExpectSaid "${inst} answered no" "Nothing changed."
 		fExpectInstall "${inst} answered no" ""
 		## Nothing is fetched until the plan is accepted.
 		! grep -q -F ".tar.gz" "${mixed}/requests.log" || fFail "${inst} answered no: downloaded the build first"
 
-		fRun "$inst" answered-yes "$mixed" stable y
+		fRun "${inst}" answered-yes "${mixed}" stable y
 		fExpectInstall "${inst} answered yes" 1.0.0
 	fi
 
 	## No sums file: refused before anything is fetched, on either channel, and
 	## the yes option alone doesn't get past it.
 	for channel in stable dev; do
-		fRun "$inst" "no-sums-${channel}" "$noSums" "$channel" ""
-		[[ "$runRc" != "0" ]] || fFail "${inst} ${channel} with no sums file: exited 0"
+		fRun "${inst}" "no-sums-${channel}" "${noSums}" "${channel}" ""
+		[[ "${runRc}" != "0" ]] || fFail "${inst} ${channel} with no sums file: exited 0"
 		opt="--no-verify"
-		[[ "$inst" == "bash" ]] || opt="-NoVerify"
-		fExpectSaid "${inst} ${channel} with no sums file" "$opt"
+		[[ "${inst}" == "bash" ]] || opt="-NoVerify"
+		fExpectSaid "${inst} ${channel} with no sums file" "${opt}"
 		fExpectInstall "${inst} ${channel} with no sums file" ""
 		! grep -q -F ".tar.gz" "${noSums}/requests.log" || fFail "${inst} ${channel} with no sums file: downloaded the build first"
 	done
 
-	fRun "$inst" no-sums-allowed "$noSums" dev "" unverified
+	fRun "${inst}" no-sums-allowed "${noSums}" dev "" unverified
 	fExpectInstall "${inst} no sums file, allowed" 1.1.0-rc.1 unverified
 
 	## The option is for a missing sums file only. One that is there still counts.
-	fRun "$inst" allowed-with-sums "$mixed" stable "" unverified
+	fRun "${inst}" allowed-with-sums "${mixed}" stable "" unverified
 	fExpectInstall "${inst} allowed, with a sums file" 1.0.0
-	fRun "$inst" allowed-tampered "$tampered" stable "" unverified
-	[[ "$runRc" != "0" ]] || fFail "${inst} allowed, tampered build: exited 0"
+	fRun "${inst}" allowed-tampered "${tampered}" stable "" unverified
+	[[ "${runRc}" != "0" ]] || fFail "${inst} allowed, tampered build: exited 0"
 	fExpectSaid "${inst} allowed, tampered build" "checksum mismatch"
 	fExpectInstall "${inst} allowed, tampered build" ""
 done
 
 ## The other arch, under the name its release lane gives it.
-hostArch="$arch"
-case "$hostArch" in
+hostArch="${arch}"
+case "${hostArch}" in
 	x86_64) unameM="aarch64" ;;
 	*)      unameM="x86_64" ;;
 esac
-arch="$(fReleaseArch "$unameM")"
+arch="$(fReleaseArch "${unameM}")"
 otherArch="${scratch}/other-arch"
-fMakeFixture "$otherArch" v1.0.0
+fMakeFixture "${otherArch}" v1.0.0
 for inst in "${installers[@]}"; do
-	fRun "$inst" other-arch "$otherArch" stable ""
+	fRun "${inst}" other-arch "${otherArch}" stable ""
 	fExpectInstall "${inst} on ${unameM}" 1.0.0
-	fExpectFetched "${inst} on ${unameM}" "$otherArch" v1.0.0
+	fExpectFetched "${inst} on ${unameM}" "${otherArch}" v1.0.0
 done
-unameM=""; arch="$hostArch"
+unameM=""; arch="${hostArch}"
 
 ## FreeBSD on amd64, which uname calls it there.
 unameS="FreeBSD"; unameM="amd64"
-os="$(fReleaseOs "$unameS")"; arch="$(fReleaseArch "$unameM")"
+os="$(fReleaseOs "${unameS}")"; arch="$(fReleaseArch "${unameM}")"
 freebsd="${scratch}/freebsd"
-fMakeFixture "$freebsd" v1.0.0
+fMakeFixture "${freebsd}" v1.0.0
 for inst in "${installers[@]}"; do
-	fRun "$inst" freebsd "$freebsd" stable ""
+	fRun "${inst}" freebsd "${freebsd}" stable ""
 	fExpectInstall "${inst} on FreeBSD" 1.0.0
-	fExpectFetched "${inst} on FreeBSD" "$freebsd" v1.0.0
+	fExpectFetched "${inst} on FreeBSD" "${freebsd}" v1.0.0
 done
-unameS=""; unameM=""; arch="$hostArch"; os="$(fReleaseOs "$(uname -s)")"
+unameS=""; unameM=""; arch="${hostArch}"; os="$(fReleaseOs "$(uname -s)")"
 
 if ((failures)); then
 	fEcho "FAILED: installer download check, ${failures} problem(s)"

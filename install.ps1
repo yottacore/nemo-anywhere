@@ -386,7 +386,7 @@ function fHoldersOf {
 	## as absent. Match on the folder plus a separator so C:\foo doesn't hit
 	## C:\foobar.
 	$fulls = @($Folder | ForEach-Object { [System.IO.Path]::GetFullPath($_).TrimEnd('\') + '\' })
-	$names = @()
+	$names = [System.Collections.Generic.List[string]]::new()
 	foreach ($proc in (Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)) {
 		$path = $proc.ExecutablePath
 		if (-not $path) { continue }
@@ -396,7 +396,7 @@ function fHoldersOf {
 		if ($path.Contains('~')) { $path = [System.IO.Path]::GetFullPath($path) }
 		foreach ($full in $fulls) {
 			if ($path.StartsWith($full, [StringComparison]::OrdinalIgnoreCase)) {
-				$names += [System.IO.Path]::GetFileName($path)
+				$names.Add([System.IO.Path]::GetFileName($path))
 				break
 			}
 		}

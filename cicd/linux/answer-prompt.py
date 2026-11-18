@@ -30,7 +30,7 @@ CURSOR_REPLY = b"\x1b[1;1R"
 TIMEOUT_SECONDS = 120
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     if len(argv) < 4:
         sys.stderr.write("usage: answer-prompt.py <prompt-text> <answer> <command> [args...]\n")
         return 2
@@ -53,7 +53,7 @@ def main(argv):
         if time.monotonic() > deadline:
             os.kill(pid, signal.SIGKILL)
             os.waitpid(pid, 0)
-            sys.stderr.write("answer-prompt.py: gave up waiting on %s\n" % command[0])
+            sys.stderr.write(f"answer-prompt.py: gave up waiting on {command[0]}\n")
             return 124
         ready, _, _ = select.select([fd], [], [], 0.3)
         if not ready:

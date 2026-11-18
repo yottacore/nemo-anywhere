@@ -143,6 +143,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - When another program removed files one after another, the status bar could go on counting a few that were already gone.
 
+- Marking an empty launcher as trusted wrote a byte past the end of a buffer, which could crash the app.
+
 ## v1.0.0-beta2 - 2026-08-04
 
 ### Notes

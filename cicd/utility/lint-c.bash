@@ -49,7 +49,7 @@ source cicd/utility/include/run-temp.bash
 ## Each check prints its test ID, read from the "## Test ID:" line above it, so
 ## the comment stays the only copy. A check fails by exiting, hence the trap.
 declare -A testIds=()
-while read -r fn tag; do testIds[$fn]="$tag"; done < <(awk '
+while read -r fn tag; do testIds[${fn}]="${tag}"; done < <(awk '
 	/^##[[:space:]]+Test ID: / { id = $NF; next }
 	/^##/ { next }
 	/^fCheck[A-Za-z0-9_]+\(\)\{/ { fn = $0; sub(/\(\).*/, "", fn); if (id != "") print fn, id }
@@ -57,7 +57,7 @@ while read -r fn tag; do testIds[$fn]="$tag"; done < <(awk '
 curTest=""
 cacheDir=""
 fCleanCache(){
-	[[ "$cacheDir" == cicd/artifacts/cppcheck.* && -d "$cacheDir" ]] || return 0
+	[[ "${cacheDir}" == cicd/artifacts/cppcheck.* && -d "${cacheDir}" ]] || return 0
 	fSafeRm_Under "${PWD}/cicd/artifacts" "${PWD}/${cacheDir}" || true
 }
 trap 'fCleanCache; [[ -n "$curTest" ]] && printf "FAIL %s %s\n" "${testIds[$curTest]:-?}" "${curTest#fCheck}"' EXIT
@@ -78,12 +78,12 @@ fCheckDeleteWrapper(){
 	local src='source/libnemo-private/nemo-file-operations.c'
 	local n
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
-	n="$(grep -c -F 'g_file_delete (' "$src" || true)"
-	if [[ "$n" != 1 ]]; then
+	n="$(grep -c -F 'g_file_delete (' "${src}" || true)"
+	if [[ "${n}" != 1 ]]; then
 		fEcho "FAIL: ${src}: ${n} g_file_delete calls, expected the 1 in file_delete_wrapper"
-		grep -n -F 'g_file_delete (' "$src" || true
+		grep -n -F 'g_file_delete (' "${src}" || true
 		exit 2
 	fi
 }
@@ -99,18 +99,18 @@ fCheckOverwriteAsk(){
 	local src='source/libnemo-private/nemo-file-operations.c'
 	local bad
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
 	bad="$(awk '
 		/testguard_allows_overwrite \(/ { asked = NR }
 		/G_FILE_COPY_OVERWRITE/ {
 			if (NR - asked > 15) print NR ": " $0
 		}
-	' "$src")"
+	' "${src}")"
 
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: ${src}: G_FILE_COPY_OVERWRITE with no test guard ask above it"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -136,11 +136,11 @@ fCheckBusMethods(){
 	local name bad=""
 
 	while read -r name; do
-		[[ -z "$name" ]] && continue
-		[[ "$allowed" == *" ${name} "* ]] || bad+="${name} "
+		[[ -z "${name}" ]] && continue
+		[[ "${allowed}" == *" ${name} "* ]] || bad+="${name} "
 	done <<< "$(grep -rhoE --exclude-dir=test "<method name=['\"][A-Za-z0-9_]+" source | sed -E "s/.*=['\"]//" | sort -u || true)"
 
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: bus methods not on the list in lint-c.bash: ${bad% }"
 		grep -rnE --exclude-dir=test "<method name=['\"]" source || true
 		exit 2
@@ -156,9 +156,9 @@ fCheckAppActions(){
 	hits="$(grep -rnE 'g_simple_action_new|GActionEntry|g_action_map_add_action_entries' \
 		source/src source/libnemo-private source/eel 2>/dev/null \
 		| grep -v -F 'g_simple_action_new ("quit"' || true)"
-	if [[ -n "$hits" ]]; then
+	if [[ -n "${hits}" ]]; then
 		fEcho "FAIL: a new application action; another program can call it over the bus"
-		printf '%s\n' "$hits"
+		printf '%s\n' "${hits}"
 		exit 2
 	fi
 }
@@ -181,13 +181,13 @@ fCheckJobCallers(){
 	local file bad=""
 
 	while read -r file; do
-		[[ -z "$file" ]] && continue
-		[[ "$allowed" == *" ${file} "* ]] || bad+="${file} "
+		[[ -z "${file}" ]] && continue
+		[[ "${allowed}" == *" ${file} "* ]] || bad+="${file} "
 	done <<< "$(grep -rlE 'nemo_file_operations_(trash_or_delete|delete|empty_trash|move|copy_move)(_by_user)?[[:space:]]*\(' \
 		source --include='*.c' \
 		| grep -v -e '^source/test/' -e '^source/libnemo-private/nemo-file-operations\.c$' || true)"
 
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: trash, delete or move started from a file not on the list in lint-c.bash: ${bad% }"
 		exit 2
 	fi
@@ -212,12 +212,12 @@ fCheckRawDeletes(){
 	local file bad=""
 
 	while read -r file; do
-		[[ -z "$file" ]] && continue
-		[[ "$allowed" == *" ${file} "* ]] || bad+="${file} "
+		[[ -z "${file}" ]] && continue
+		[[ "${allowed}" == *" ${file} "* ]] || bad+="${file} "
 	done <<< "$(grep -rlE '(^|[^>.[:alnum:]_])(g_file_delete|g_file_delete_async|g_file_trash|g_file_trash_async|g_unlink|g_remove|g_rmdir|unlink|rmdir|remove|_wunlink|_wremove|_wrmdir|DeleteFileW|DeleteFileA|RemoveDirectoryW|RemoveDirectoryA|SHFileOperationW|SHEmptyRecycleBinW)[[:space:]]*\(' \
 		source/src source/libnemo-private source/libnemo-extension source/eel --include='*.c' || true)"
 
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a raw delete in a file not on the list in lint-c.bash: ${bad% }"
 		exit 2
 	fi
@@ -236,7 +236,7 @@ fCheckTreeWalks(){
 	allowed+='sweep_old_reports '		# its own crash-*.txt files, one level, no walk
 	local bad
 
-	bad="$(awk -v allowed="$allowed" '
+	bad="$(awk -v allowed="${allowed}" '
 		FNR == 1 { fn = "" }
 		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ {
 			fn = $1; sub(/\(.*/, "", fn)
@@ -252,9 +252,9 @@ fCheckTreeWalks(){
 		}
 	' source/libnemo-private/*.c source/src/*.c)"
 
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: lists a folder and removes things without nemo_delete_guard_is_real_folder"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -287,9 +287,9 @@ fCheckTestTreeWalks(){
 		{ defline = 0 }
 	' source/test/*.c)"
 
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a test rolls its own tree removal - use test_scratch_remove_tree"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -304,9 +304,9 @@ fCheckTestHelpers(){
 	local bad
 
 	bad="$(grep -ln '^#define check' source/test/*.c || true)"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a test defines its own check macro - include test-check.h"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 
@@ -314,9 +314,9 @@ fCheckTestHelpers(){
 	## about how the config root is picked, so it has to point the variables
 	## at separate directories itself.
 	bad="$(grep -ln 'g_setenv ("XDG_CONFIG_HOME"' source/test/*.c | grep -vE '(test-scratch|test-nemo-config-root)\.c$' || true)"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a test points the config root by hand - use test_scratch_config_home"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -331,17 +331,17 @@ fCheckCellPlain(){
 	local src='source/src/nemo-list-view.c'
 	local n
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
-	n="$(grep -c -F '"cell-background-set"' "$src" || true)"
-	if [[ "$n" != 1 ]]; then
+	n="$(grep -c -F '"cell-background-set"' "${src}" || true)"
+	if [[ "${n}" != 1 ]]; then
 		fEcho "FAIL: ${src}: ${n} writes of cell-background-set, expected the 1 in cell_set_plain"
-		grep -n -F '"cell-background-set"' "$src" || true
+		grep -n -F '"cell-background-set"' "${src}" || true
 		exit 2
 	fi
 
 	n="$(grep -rl -F '"cell-background' source/src source/libnemo-private source/eel | grep -cv 'nemo-list-view.c' || true)"
-	if [[ "$n" != 0 ]]; then
+	if [[ "${n}" != 0 ]]; then
 		fEcho "FAIL: cell-background is written outside nemo-list-view.c"
 		grep -rn -F '"cell-background' source/src source/libnemo-private source/eel | grep -v 'nemo-list-view.c' || true
 		exit 2
@@ -358,9 +358,9 @@ fRun fCheckCellPlain
 fCheckColumnExpand(){
 	local src='source/src/nemo-list-view.c'
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
-	if grep -n -F 'gtk_tree_view_column_set_expand' "$src"; then
+	if grep -n -F 'gtk_tree_view_column_set_expand' "${src}"; then
 		fEcho "FAIL: ${src}: no column expands; the layout owns the widths"
 		exit 2
 	fi
@@ -376,16 +376,16 @@ fCheckStaleSamples(){
 	local src='source/src/nemo-list-view.c'
 	local body
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
-	body="$(awk '/^drop_name_sample / { on=1 } on { print } on && /^}/ { on=0 }' "$src")"
-	if ! grep -q -F 'samples_stale = TRUE' <<<"$body"; then
+	body="$(awk '/^drop_name_sample / { on=1 } on { print } on && /^}/ { on=0 }' "${src}")"
+	if ! grep -q -F 'samples_stale = TRUE' <<<"${body}"; then
 		fEcho "FAIL: ${src}: drop_name_sample must mark the samples stale"
 		exit 2
 	fi
 
-	body="$(awk '/^layout_columns / { on=1 } on { print } on && /^}/ { on=0 }' "$src")"
-	if ! grep -q -F 'resample_rows_soon' <<<"$body"; then
+	body="$(awk '/^layout_columns / { on=1 } on { print } on && /^}/ { on=0 }' "${src}")"
+	if ! grep -q -F 'resample_rows_soon' <<<"${body}"; then
 		fEcho "FAIL: ${src}: layout_columns must resample stale samples when the minimums overflow"
 		exit 2
 	fi
@@ -401,10 +401,10 @@ fCheckStatusAfterChanges(){
 	local src='source/src/nemo-view.c'
 	local body
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
-	body="$(awk '/^process_old_files / { on=1 } on { print } on && /^}/ { on=0 }' "$src")"
-	if ! grep -q -F 'schedule_update_status (view)' <<<"$body"; then
+	body="$(awk '/^process_old_files / { on=1 } on { print } on && /^}/ { on=0 }' "${src}")"
+	if ! grep -q -F 'schedule_update_status (view)' <<<"${body}"; then
 		fEcho "FAIL: ${src}: process_old_files must schedule a status update once the changes are in"
 		exit 2
 	fi
@@ -421,9 +421,9 @@ fCheckFixedHeight(){
 	local src='source/src/nemo-list-view.c'
 	local other
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
-	if ! grep -q -F 'gtk_tree_view_set_fixed_height_mode' "$src"; then
+	if ! grep -q -F 'gtk_tree_view_set_fixed_height_mode' "${src}"; then
 		fEcho "FAIL: ${src}: the list view must ask for fixed-height mode"
 		exit 2
 	fi
@@ -436,9 +436,9 @@ fCheckFixedHeight(){
 		open && /;/ {
 			if (text !~ /GTK_TREE_VIEW_COLUMN_FIXED/) print at ": " text
 			open=0
-		}' "$src")"
-	if [[ -n "$other" ]]; then
-		echo "$other"
+		}' "${src}")"
+	if [[ -n "${other}" ]]; then
+		echo "${other}"
 		fEcho "FAIL: ${src}: every column sizes FIXED, or fixed-height mode is unsafe"
 		exit 2
 	fi
@@ -453,26 +453,26 @@ fCheckMeasureCache(){
 	local src='source/src/nemo-list-view.c'
 	local body
 
-	[[ -f "$src" ]] || return 0
-	grep -q -F 'samples->measured' "$src" || return 0
+	[[ -f "${src}" ]] || return 0
+	grep -q -F 'samples->measured' "${src}" || return 0
 
-	body="$(awk '/^row_width_for_column/ { on=1 } on { print } on && /^}/ { exit }' "$src")"
+	body="$(awk '/^row_width_for_column/ { on=1 } on { print } on && /^}/ { exit }' "${src}")"
 
 	## Bold and light rows lay out wider or narrower at the same text.
-	if ! grep -q -F 'weight == NORMAL_TEXT_WEIGHT' <<< "$body"; then
+	if ! grep -q -F 'weight == NORMAL_TEXT_WEIGHT' <<< "${body}"; then
 		fEcho "FAIL: ${src}: only a normal-weight cell may reuse a remembered width"
 		exit 2
 	fi
 
 	## Thrown away with the samples, or a zoom leaves widths from the old font.
-	if ! awk '/^column_samples_free/ { on=1 } on { print } on && /^}/ { exit }' "$src" |
+	if ! awk '/^column_samples_free/ { on=1 } on { print } on && /^}/ { exit }' "${src}" |
 	     grep -q -F 'samples->measured'; then
 		fEcho "FAIL: ${src}: the remembered widths must go when the samples do"
 		exit 2
 	fi
 
 	## A date is nearly all distinct values, so the table needs a ceiling.
-	if ! grep -q -F 'MEASURED_TEXTS_MAX' <<< "$body"; then
+	if ! grep -q -F 'MEASURED_TEXTS_MAX' <<< "${body}"; then
 		fEcho "FAIL: ${src}: remembering a width must stop at MEASURED_TEXTS_MAX"
 		exit 2
 	fi
@@ -488,16 +488,16 @@ fCheckStyleRemeasure(){
 	local src='source/src/nemo-list-view.c'
 	local body
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
-	body="$(awk '/^tree_view_style_updated/ { on=1 } on { print } on && /^}/ { exit }' "$src")"
+	body="$(awk '/^tree_view_style_updated/ { on=1 } on { print } on && /^}/ { exit }' "${src}")"
 
-	if ! grep -q -F 'remeasure_rows' <<< "$body"; then
+	if ! grep -q -F 'remeasure_rows' <<< "${body}"; then
 		fEcho "FAIL: ${src}: a theme change must send the rows back to be measured"
 		exit 2
 	fi
 
-	if ! grep -q -F 'measure_style_id' <<< "$body"; then
+	if ! grep -q -F 'measure_style_id' <<< "${body}"; then
 		fEcho "FAIL: ${src}: remeasure only where the font or the theme sizes moved"
 		exit 2
 	fi
@@ -510,9 +510,9 @@ fRun fCheckStyleRemeasure
 fCheckSliderMargin(){
 	local src='source/src/nemo-statusbar.c'
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
-	if ! grep -q -F 'gtk_widget_set_margin_end (GTK_WIDGET (zoom_slider)' "$src"; then
+	if ! grep -q -F 'gtk_widget_set_margin_end (GTK_WIDGET (zoom_slider)' "${src}"; then
 		fEcho "FAIL: ${src}: the zoom slider needs a margin at the window edge"
 		exit 2
 	fi
@@ -525,16 +525,16 @@ fRun fCheckSliderMargin
 fCheckIconRelayout(){
 	local src='source/libnemo-private/nemo-icon-container.c' body
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
-	body="$(awk '/^schedule_redo_layout \(/,/^}/' "$src")"
-	if ! grep -q -F 'GDK_PRIORITY_REDRAW' <<< "$body"; then
+	body="$(awk '/^schedule_redo_layout \(/,/^}/' "${src}")"
+	if ! grep -q -F 'GDK_PRIORITY_REDRAW' <<< "${body}"; then
 		fEcho "FAIL: ${src}: schedule_redo_layout must run ahead of the redraw"
 		exit 2
 	fi
 
-	body="$(awk '/^nemo_icon_container_update_icon \(/,/^}/' "$src")"
-	if ! grep -q -F 'schedule_redo_layout' <<< "$body"; then
+	body="$(awk '/^nemo_icon_container_update_icon \(/,/^}/' "${src}")"
+	if ! grep -q -F 'schedule_redo_layout' <<< "${body}"; then
 		fEcho "FAIL: ${src}: nemo_icon_container_update_icon must relayout when the picture changes size"
 		exit 2
 	fi
@@ -548,10 +548,10 @@ fRun fCheckIconRelayout
 fCheckToolbarStack(){
 	local src='source/src/nemo-toolbar.c' types
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
-	types="$(grep -E -o 'GTK_STACK_TRANSITION_TYPE_[A-Z_]+' "$src" | sort -u || true)"
-	if [[ "$types" != 'GTK_STACK_TRANSITION_TYPE_NONE' ]]; then
+	types="$(grep -E -o 'GTK_STACK_TRANSITION_TYPE_[A-Z_]+' "${src}" | sort -u || true)"
+	if [[ "${types}" != 'GTK_STACK_TRANSITION_TYPE_NONE' ]]; then
 		fEcho "FAIL: ${src}: the path bar stack must switch with no transition"
 		exit 2
 	fi
@@ -568,16 +568,16 @@ fCheckImageDefault(){
 	local src='source/src/nemo-icon-view.c'
 	local body
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
-	body="$(awk '/^(size_for_mostly_images|update_mostly_images)/ { on=1 } on { print } on && /^}/ { on=0 }' "$src")"
+	body="$(awk '/^(size_for_mostly_images|update_mostly_images)/ { on=1 } on { print } on && /^}/ { on=0 }' "${src}")"
 
-	if ! grep -q -F 'nemo_directory_is_mostly_images' <<< "$body"; then
+	if ! grep -q -F 'nemo_directory_is_mostly_images' <<< "${body}"; then
 		fEcho "FAIL: ${src}: update_mostly_images must ask what is in the folder"
 		exit 2
 	fi
 
-	if grep -qE '(^|[[:space:](])set_icon_size \(|nemo_folder_settings_set|nemo_window_set_ignore_meta_icon_size' <<< "$body"; then
+	if grep -qE '(^|[[:space:](])set_icon_size \(|nemo_folder_settings_set|nemo_window_set_ignore_meta_icon_size' <<< "${body}"; then
 		fEcho "FAIL: ${src}: sizing a folder of images must not write anything back"
 		exit 2
 	fi
@@ -595,18 +595,18 @@ fCheckHeldIconSize(){
 	local src='source/src/nemo-icon-view.c'
 	local stray
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
-	stray="$(awk '/^(held_icon_size|hold_icon_size) / { on=1 } !on && /nemo_window_[gs]et_ignore_meta_(image_)?icon_size/ { print FNR": "$0 } on && /^}/ { on=0 }' "$src")"
+	stray="$(awk '/^(held_icon_size|hold_icon_size) / { on=1 } !on && /nemo_window_[gs]et_ignore_meta_(image_)?icon_size/ { print FNR": "$0 } on && /^}/ { on=0 }' "${src}")"
 
-	if [[ -n "$stray" ]]; then
+	if [[ -n "${stray}" ]]; then
 		fEcho "FAIL: ${src}: read or write the window's held icon size through held_icon_size/hold_icon_size:"
 		fEcho "${stray}"
 		exit 2
 	fi
 
 	stray="$(grep -n -E 'nemo_window_[gs]et_ignore_meta_(image_)?icon_size' source/src/nemo-list-view.c || true)"
-	if [[ -n "$stray" ]]; then
+	if [[ -n "${stray}" ]]; then
 		fEcho "FAIL: source/src/nemo-list-view.c: list view holds its size in the window's list slot only:"
 		fEcho "${stray}"
 		exit 2
@@ -627,7 +627,7 @@ fCheckWindowIcon(){
 	fi
 
 	stray="$(grep -n -E 'gtk_window_set_icon(_name)? \(' source/src/nemo-window*.c source/src/nemo-file-management-properties.c || true)"
-	if [[ -n "$stray" ]]; then
+	if [[ -n "${stray}" ]]; then
 		fEcho "FAIL: a main window or the settings window sets its own icon over the program's:"
 		fEcho "${stray}"
 		exit 2
@@ -642,7 +642,7 @@ fRun fCheckWindowIcon
 fCheckNoSessionRegister(){
 	local stray
 	stray="$(grep -rn -F 'register-session' source/src source/libnemo-private || true)"
-	if [[ -n "$stray" ]]; then
+	if [[ -n "${stray}" ]]; then
 		fEcho "FAIL: no copy may register with the session manager:"
 		fEcho "${stray}"
 		exit 2
@@ -664,11 +664,11 @@ fCheckDigestAttrOrder(){
 	local src='source/libnemo-private/nemo-file-digest.c'
 	local body order
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
-	body="$(awk '/^nemo_file_digest_write_attr/ { on=1 } on { print } on && /^}/ { on=0 }' "$src")"
+	body="$(awk '/^nemo_file_digest_write_attr/ { on=1 } on { print } on && /^}/ { on=0 }' "${src}")"
 
-	order="$(grep -o 'nemo_file_xattr_set (file, ATTR_[A-Z]*' <<< "$body" | sed 's/.*ATTR_//' | tr '\n' ' ')"
+	order="$(grep -o 'nemo_file_xattr_set (file, ATTR_[A-Z]*' <<< "${body}" | sed 's/.*ATTR_//' | tr '\n' ' ')"
 
 	if [[ "${order}" != "DIGEST BYTES MTIME " ]]; then
 		fEcho "FAIL: ${src}: the checksum attributes must be written DIGEST, BYTES, MTIME (got: ${order:-none})"
@@ -714,9 +714,9 @@ fCheckTestSkipExit(){
 		END { report() }
 	' source/test/*.c)"
 
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a test says it skips and exits 0 - a test that can't run exits 77"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -732,9 +732,9 @@ fCheckTestScratchDirs(){
 
 	bad="$(grep -nE '(^|[^[:alnum:]_])(g_dir_make_tmp|g_mkdtemp|g_mkdtemp_full|mkdtemp)[[:space:]]*\(' source/test/*.c \
 		| grep -vE '^source/test/(test-scratch|test-nemo-scratch)\.c:' || true)"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a test makes its own temporary directory - use test_scratch_dir"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -751,9 +751,9 @@ fCheckNoUtime(){
 
 	bad="$(grep -rnE '(^|[^[:alnum:]_])(g_)?utime[[:space:]]*\(' source --include='*.c' --include='*.h' \
 		| grep -vE '^source/unused/|^[^:]+:[0-9]+:[[:space:]]*//' || true)"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: g_utime sets the wrong time on Windows - use test_set_mtime or GIO"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -769,9 +769,9 @@ fCheckNoCancellableSource(){
 
 	bad="$(grep -rnE '(^|[^[:alnum:]_])g_cancellable_source_new[[:space:]]*\(' source --include='*.c' --include='*.h' \
 		| grep -vE '^source/unused/|^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)' || true)"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a cancellable source isn't safe to cancel from another thread - use g_cancellable_connect"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -785,12 +785,12 @@ fCheckTestJobPrefs(){
 	local f bad=""
 
 	for f in source/test/*.c; do
-		grep -qE '(nemo_file_operations_[a-z_]+|nemo_archive_create[a-z_]*|nemo_extract_files)[[:space:]]*\(' "$f" || continue
-		grep -q 'nemo_global_preferences_init' "$f" || bad+="$f"$'\n'
+		grep -qE '(nemo_file_operations_[a-z_]+|nemo_archive_create[a-z_]*|nemo_extract_files)[[:space:]]*\(' "${f}" || continue
+		grep -q 'nemo_global_preferences_init' "${f}" || bad+="${f}"$'\n'
 	done
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a test starts a file job without nemo_global_preferences_init"
-		printf '%s' "$bad"
+		printf '%s' "${bad}"
 		exit 2
 	fi
 }
@@ -813,12 +813,12 @@ fCheckByUser(){
 	local file bad=""
 
 	while read -r file; do
-		[[ -z "$file" ]] && continue
-		[[ "$allowed" == *" ${file} "* ]] || bad+="${file} "
+		[[ -z "${file}" ]] && continue
+		[[ "${allowed}" == *" ${file} "* ]] || bad+="${file} "
 	done <<< "$(grep -rlE 'nemo_file_operations_[a-z_]+_by_user[[:space:]]*\(' source --include='*.c' \
 		| grep -v -e '^source/test/' -e '^source/libnemo-private/nemo-file-operations\.c$' || true)"
 
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a _by_user job started from a file not on the list in lint-c.bash: ${bad% }"
 		exit 2
 	fi
@@ -833,9 +833,9 @@ fCheckByUser(){
 			fn = ""
 		}
 	' source/libnemo-private/*.c source/src/*.c)"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: unattended is decided from GTK's current event - the caller says whether a person asked"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -852,9 +852,9 @@ fCheckShareGates(){
 	for want in nemo-directory-async.c:lacks_filesystem_info nemo-directory-async.c:lacks_mount nemo-file.c:file_is_cheap_to_read; do
 		src="source/libnemo-private/${want%%:*}"
 		fn="${want#*:}"
-		[[ -f "$src" ]] || continue
-		body="$(awk -v fn="$fn" '$0 ~ "^" fn " \\(" { on=1 } on { print } on && /^}/ { exit }' "$src")"
-		if ! grep -q -F 'nemo_file_is_on_a_share (file)' <<< "$body"; then
+		[[ -f "${src}" ]] || continue
+		body="$(awk -v fn="${fn}" '$0 ~ "^" fn " \\(" { on=1 } on { print } on && /^}/ { exit }' "${src}")"
+		if ! grep -q -F 'nemo_file_is_on_a_share (file)' <<< "${body}"; then
 			fEcho "FAIL: ${src}: ${fn} must leave files on a share alone (nemo_file_is_on_a_share)"
 			exit 2
 		fi
@@ -871,7 +871,7 @@ fCheckMarginGuard(){
 	local src='source/src/nemo-list-view.c'
 	local bad
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
 	bad="$(awk '
 		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn) }
@@ -879,10 +879,10 @@ fCheckMarginGuard(){
 			if (prev !~ /gtk_widget_get_margin_bottom/ || prev !~ /!=/) print FNR ": " $0
 		}
 		/[^[:space:]]/ { prev = $0 }
-	' "$src")"
-	if [[ -n "$bad" ]]; then
+	' "${src}")"
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: ${src}: set the bottom margin only when it changes"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -902,7 +902,7 @@ fCheckWinLaunch(){
 	allowed+='test-nemo-helper-end-win32.c:start_app '				# a test starting a copy of itself to play the app
 	local bad
 
-	bad="$(find source -path source/unused -prune -o \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
+	bad="$(find source -path source/unused -prune -o \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="${allowed}" '
 		FNR == 1 { fn = ""; base = FILENAME; sub(/.*\//, "", base) }
 		base == "nemo-launch-win32.c" { next }
 		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn) }
@@ -910,9 +910,9 @@ fCheckWinLaunch(){
 			if (index(allowed, " " base ":" fn " ") == 0) print FILENAME ":" FNR ": " $0
 		}
 	' {} +)"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a program started outside nemo-launch-win32.c, and not on the list in lint-c.bash"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -953,16 +953,16 @@ fCheckGlibSpawn(){
 	allowed+='nemo-file-utilities.c:nemo_spawn_for_user '				# not built on Windows
 	local bad
 
-	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
+	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="${allowed}" '
 		FNR == 1 { fn = ""; base = FILENAME; sub(/.*\//, "", base) }
 		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn) }
 		/(^|[^A-Za-z0-9_])(g_subprocess_newv?|g_subprocess_launcher_spawnv?|g_spawn_(async|sync|command_line_async|command_line_sync|async_with_pipes|async_with_fds|async_with_pipes_and_fds)|g_app_info_launch(_uris(_async)?|_default_for_uri(_async)?)?|g_desktop_app_info_launch_uris_as_manager(_with_fds)?|gtk_show_uri(_on_window)?|gtk_show_about_dialog|gtk_about_dialog_new|gtk_link_button_new(_with_label)?) *\(|GTK_TYPE_(ABOUT_DIALOG|LINK_BUTTON)([^A-Z_]|$)/ {
 			if (index(allowed, " " base ":" fn " ") == 0) print FILENAME ":" FNR ": " $0
 		}
 	' {} +)"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a program started through GLib, which on Windows needs nemo-tool-run.c or nemo-launch-win32.c, and not on the list in lint-c.bash"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -987,7 +987,7 @@ fCheckUserEnviron(){
 	allowed+='eel-gnome-extensions.c:eel_gnome_open_terminal_on_screen '	# its caller hands it the user's context
 	local bad
 
-	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) ! -name '*-win32.c' -exec awk -v allowed="$allowed" '
+	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) ! -name '*-win32.c' -exec awk -v allowed="${allowed}" '
 		function flush() {
 			if (hits != "" && !user && index(allowed, " " base ":" fn " ") == 0) printf "%s", hits
 			hits = ""; user = 0
@@ -1000,9 +1000,9 @@ fCheckUserEnviron(){
 		}
 		END { flush() }
 	' {} +)"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a program started with the app's own environment, and not on the list in lint-c.bash as one of ours"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -1022,16 +1022,16 @@ fCheckSessionBus(){
 	allowed+='nemo-freedesktop-dbus.c:nemo_freedesktop_dbus_init '	# never made on Windows
 	local bad
 
-	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel source/archive-core \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
+	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel source/archive-core \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="${allowed}" '
 		FNR == 1 { fn = ""; base = FILENAME; sub(/.*\//, "", base) }
 		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn) }
 		/(^|[^A-Za-z0-9_])(g_bus_(get|get_sync|own_name|own_name_with_closures|watch_name|watch_name_with_closures)|g_dbus_address_get_for_bus_sync|g_dbus_proxy_new_for_bus(_sync)?|g_dbus_object_manager_client_new_for_bus(_sync)?|[a-z0-9_]+_proxy_new_for_bus(_sync)?) *\(/ {
 			if (index(allowed, " " base ":" fn " ") == 0) print FILENAME ":" FNR ": " $0
 		}
 	' {} +)"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a call that asks for the session bus, which on Windows starts one, and not on the list in lint-c.bash"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -1045,16 +1045,16 @@ fCheckLocationPopup(){
 	local src='source/src/nemo-view.c'
 	local last body
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
-	last="$(awk '/^schedule_pop_up_location_context_menu \(/ { on=1 } on && /^}/ { print prev; exit } on && /[^[:space:]]/ { prev=$0 }' "$src")"
-	if ! grep -q -F 'real_pop_up_location_context_menu (view);' <<< "$last"; then
+	last="$(awk '/^schedule_pop_up_location_context_menu \(/ { on=1 } on && /^}/ { print prev; exit } on && /[^[:space:]]/ { prev=$0 }' "${src}")"
+	if ! grep -q -F 'real_pop_up_location_context_menu (view);' <<< "${last}"; then
 		fEcho "FAIL: ${src}: schedule_pop_up_location_context_menu must end by popping the menu up"
 		exit 2
 	fi
 
-	body="$(awk '/^location_popup_file_attributes_ready \(/,/^}/' "$src")"
-	if grep -q -E 'pop_up[a-z_]* *\(' <<< "$body"; then
+	body="$(awk '/^location_popup_file_attributes_ready \(/,/^}/' "${src}")"
+	if grep -q -E 'pop_up[a-z_]* *\(' <<< "${body}"; then
 		fEcho "FAIL: ${src}: location_popup_file_attributes_ready must not pop a menu up"
 		exit 2
 	fi
@@ -1069,7 +1069,7 @@ fCheckWinTrash(){
 	local src='source/libnemo-private/nemo-file-operations.c'
 	local bad
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
 	bad="$(awk '
 		/^#[[:space:]]*ifdef[[:space:]]+G_OS_WIN32/ { win = 1; recycled = 0; other = 0; next }
@@ -1077,12 +1077,12 @@ fCheckWinTrash(){
 		win && /^#[[:space:]]*endif/ { win = 0; other = 0; next }
 		win && !other && /nemo_trash_win32_recycle *\(/ { recycled = 1 }
 		/(^|[^A-Za-z0-9_])g_file_trash(_async)? *\(/ && !(win && other && recycled) { print FNR ": " $0 }
-	' "$src")"
+	' "${src}")"
 	bad+="$(grep -rnE '(^|[^A-Za-z0-9_])g_file_trash(_async)?[[:space:]]*\(' source/src source/libnemo-private source/eel --include='*.c' \
 		| grep -v "^${src}:" || true)"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: g_file_trash outside the non-Windows branch after nemo_trash_win32_recycle"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -1117,11 +1117,11 @@ fCheckGeometrySave(){
 	local src='source/src/nemo-window.c'
 	local body
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
-	body="$(awk '/^nemo_window_configure_event \(/,/^}/' "$src")"
-	if ! grep -q -F 'wclass->configure_event = nemo_window_configure_event;' "$src" ||
-	   ! grep -q -F 'save_geometry_cb' <<< "$body"; then
+	body="$(awk '/^nemo_window_configure_event \(/,/^}/' "${src}")"
+	if ! grep -q -F 'wclass->configure_event = nemo_window_configure_event;' "${src}" ||
+	   ! grep -q -F 'save_geometry_cb' <<< "${body}"; then
 		fEcho "FAIL: ${src}: a move or resize must schedule the geometry save"
 		exit 2
 	fi
@@ -1138,34 +1138,34 @@ fCheckSidebarFocus(){
 	local src='source/src/nemo-window.c' places='source/src/nemo-places-sidebar.c'
 	local body bad fn
 
-	[[ -f "$src" && -f "$places" ]] || return 0
+	[[ -f "${src}" && -f "${places}" ]] || return 0
 
-	body="$(awk '/^nemo_window_connect_content_view \(/,/^}/' "$src")"
+	body="$(awk '/^nemo_window_connect_content_view \(/,/^}/' "${src}")"
 	bad="$(awk '
 		/eel_gtk_focus_is_within \(window->details->places_sidebar\)/ { p = NR }
 		/eel_gtk_focus_is_within \(window->details->tree_sidebar\)/ { t = NR }
 		/(nemo_view|gtk_widget)_grab_focus *\(/ { if (!p || !t || NR - p > 4 || NR - t > 4) print }
-	' <<< "$body")"
-	if [[ -z "$body" || -n "$bad" ]]; then
+	' <<< "${body}")"
+	if [[ -z "${body}" || -n "${bad}" ]]; then
 		fEcho "FAIL: ${src}: nemo_window_connect_content_view grabs the focus only while neither side pane holds it"
-		[[ -n "$bad" ]] && printf '%s\n' "$bad"
+		[[ -n "${bad}" ]] && printf '%s\n' "${bad}"
 		exit 2
 	fi
 
-	body="$(awk '/^nemo_places_sidebar_init \(/,/^}/' "$places")"
-	if ! grep -q -F 'gtk_widget_set_can_focus (GTK_WIDGET (tree_view), FALSE);' <<< "$body" ||
-	   ! grep -q -F 'gtk_widget_set_can_focus (GTK_WIDGET (sidebar), FALSE);' <<< "$body"; then
+	body="$(awk '/^nemo_places_sidebar_init \(/,/^}/' "${places}")"
+	if ! grep -q -F 'gtk_widget_set_can_focus (GTK_WIDGET (tree_view), FALSE);' <<< "${body}" ||
+	   ! grep -q -F 'gtk_widget_set_can_focus (GTK_WIDGET (sidebar), FALSE);' <<< "${body}"; then
 		fEcho "FAIL: ${places}: the places tree and the scrolled window around it must refuse the keyboard focus"
 		exit 2
 	fi
 	for fn in open_selected_bookmark bookmarks_edited bookmarks_editing_canceled; do
-		body="$(fn="$fn" awk '$0 ~ "^" ENVIRON["fn"] " \\(", /^}/' "$places")"
-		if ! grep -q -F 'focus_folder_view (' <<< "$body"; then
+		body="$(fn="${fn}" awk '$0 ~ "^" ENVIRON["fn"] " \\(", /^}/' "${places}")"
+		if ! grep -q -F 'focus_folder_view (' <<< "${body}"; then
 			fEcho "FAIL: ${places}: ${fn} must hand the focus to the folder"
 			exit 2
 		fi
 	done
-	if grep -q 'widget_class->focus *=' "$places"; then
+	if grep -q 'widget_class->focus *=' "${places}"; then
 		fEcho "FAIL: ${places}: a focus handler on the sidebar moves its cursor on every Tab past it"
 		exit 2
 	fi
@@ -1180,7 +1180,7 @@ fCheckWinTests(){
 	local build='source/test/meson.build'
 	local bad
 
-	[[ -f "$build" ]] || return 0
+	[[ -f "${build}" ]] || return 0
 
 	bad="$(awk '
 		function side(s){ return s ~ /not[[:space:]]+is_windows/ ? -1 : (s ~ /is_windows/ ? 1 : 0) }
@@ -1193,17 +1193,17 @@ fCheckWinTests(){
 			for (i = 1; i <= n; i++) if (w[i] == 1) inwin = 1
 			if (!inwin) print FNR ": " $0
 		}
-	' "$build")"
-	if [[ -n "$bad" ]]; then
+	' "${build}")"
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: ${build}: a Windows-only test outside an if is_windows block"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 
 	bad="$(grep -nE '^#[[:space:]]*(if|ifdef|ifndef|elif).*G_OS_WIN32' source/test/test-*win32*.c || true)"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a Windows-only test carries a stub for the other platform"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -1218,7 +1218,7 @@ fCheckTestFence(){
 	local build='source/test/meson.build'
 	local bad
 
-	[[ -f "$build" ]] || return 0
+	[[ -f "${build}" ]] || return 0
 
 	bad="$(awk '
 		function count(s, c,   n, i) { n = 0; for (i = 1; i <= length(s); i++) if (substr(s, i, 1) == c) n++; return n }
@@ -1235,10 +1235,10 @@ fCheckTestFence(){
 				if (!fenced && name !~ /^(shcl-old-writer|test-fake-|test-env-dump)/) print start ": " name
 			}
 		}
-	' "$build")"
-	if [[ -n "$bad" ]]; then
+	' "${build}")"
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: ${build}: a test executable without test_fence or test_scratch"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -1259,13 +1259,13 @@ fCheckForegroundAlone(){
 	takes+='|GDK_KEY_Menu|"popup-menu"'
 	local line name files f bad=""
 
-	[[ -f "$build" ]] || return 0
+	[[ -f "${build}" ]] || return 0
 
 	## One row per test built on Windows and not alone there: line, name, its files.
 	while IFS='|' read -r line name files; do
-		for f in $files; do
+		for f in ${files}; do
 			[[ -f "source/test/${f}" ]] || continue
-			if grep -qE "$takes" "source/test/${f}"; then
+			if grep -qE "${takes}" "source/test/${f}"; then
 				bad+="${line}: ${name} (${f})"$'\n'
 				break
 			fi
@@ -1297,10 +1297,10 @@ fCheckForegroundAlone(){
 				if (onwin && !alone) print start "|" name "|" files
 			}
 		}
-	' "$build")
-	if [[ -n "$bad" ]]; then
+	' "${build}")
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: ${build}: a test that takes the foreground or holds a menu open runs beside others on Windows; give it is_parallel: not is_windows"
-		printf '%s' "$bad"
+		printf '%s' "${bad}"
 		exit 2
 	fi
 }
@@ -1313,19 +1313,19 @@ fCheckEntryFocusOut(){
 	local src='source/src/nemo-window-pane.c'
 	local body
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
-	if ! grep -q -E 'nemo_location_bar_get_entry \([^;]*"focus-out-event",[[:space:]]*G_CALLBACK \(toolbar_focus_out_callback\)' <<<"$(tr -d '\n' < "$src")"; then
+	if ! grep -q -E 'nemo_location_bar_get_entry \([^;]*"focus-out-event",[[:space:]]*G_CALLBACK \(toolbar_focus_out_callback\)' <<<"$(tr -d '\n' < "${src}")"; then
 		fEcho "FAIL: ${src}: the path entry's focus-out-event must go to toolbar_focus_out_callback"
 		exit 2
 	fi
 
-	body="$(awk '/^toolbar_focus_out_callback \(/,/^}/' "$src")"
-	if ! grep -q -F 'g_signal_emit_by_name (pane->location_bar, "cancel")' <<< "$body"; then
+	body="$(awk '/^toolbar_focus_out_callback \(/,/^}/' "${src}")"
+	if ! grep -q -F 'g_signal_emit_by_name (pane->location_bar, "cancel")' <<< "${body}"; then
 		fEcho "FAIL: ${src}: toolbar_focus_out_callback must put the buttons back"
 		exit 2
 	fi
-	if ! grep -q -F 'gtk_window_has_toplevel_focus' <<< "$body"; then
+	if ! grep -q -F 'gtk_window_has_toplevel_focus' <<< "${body}"; then
 		fEcho "FAIL: ${src}: toolbar_focus_out_callback must keep the entry when the whole window loses the focus"
 		exit 2
 	fi
@@ -1340,11 +1340,11 @@ fCheckZoomRemeasure(){
 	local src='source/src/nemo-list-view.c'
 	local fn body
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
 	for fn in nemo_list_view_set_icon_size apply_columns_settings; do
-		body="$(awk -v fn="$fn" '$0 ~ "^" fn " \\(" { on=1 } on { print } on && /^}/ { exit }' "$src")"
-		if ! grep -q -F 'remeasure_rows' <<< "$body"; then
+		body="$(awk -v fn="${fn}" '$0 ~ "^" fn " \\(" { on=1 } on { print } on && /^}/ { exit }' "${src}")"
+		if ! grep -q -F 'remeasure_rows' <<< "${body}"; then
 			fEcho "FAIL: ${src}: ${fn} must send the rows back to be measured"
 			exit 2
 		fi
@@ -1361,10 +1361,10 @@ fCheckNoAutorun(){
 	local src='source/src/nemo-window-manage-views.c'
 	local body type bad
 
-	if [[ -f "$src" ]]; then
-		body="$(awk '/^nemo_window_slot_show_x_content_bar \(/,/^}/' "$src")"
+	if [[ -f "${src}" ]]; then
+		body="$(awk '/^nemo_window_slot_show_x_content_bar \(/,/^}/' "${src}")"
 		for type in software unix-software win32-software; do
-			if ! grep -q -F "\"x-content/${type}\"" <<< "$body"; then
+			if ! grep -q -F "\"x-content/${type}\"" <<< "${body}"; then
 				fEcho "FAIL: ${src}: nemo_window_slot_show_x_content_bar must refuse x-content/${type}"
 				exit 2
 			fi
@@ -1373,9 +1373,9 @@ fCheckNoAutorun(){
 
 	bad="$(grep -rli 'autorun' source --exclude='*.po' --exclude='*.pot' || true)"
 	bad+="$(find source -iname '*autorun*' ! -name '*.po' ! -name '*.pot')"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: autorun is back under source/"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -1389,7 +1389,7 @@ fCheckMetadataSlug(){
 	local src='source/libnemo-private/nemo-metadata.h'
 	local bad
 
-	[[ -f "$src" ]] || return 0
+	[[ -f "${src}" ]] || return 0
 
 	bad="$(awk '
 		/^#define NEMO_METADATA_KEY_/ {
@@ -1399,10 +1399,10 @@ fCheckMetadataSlug(){
 			if (k ~ /_(LOCATION_BACKGROUND_[A-Z]+|ANNOTATION|CUSTOM_ICON|CUSTOM_ICON_NAME|EMBLEMS|ICON_SCALE)$/ && $0 ~ /NEMO_APP_SLUG/)
 				print FNR ": " k " is shared and must stay bare"
 		}
-	' "$src")"
-	if [[ -n "$bad" ]]; then
+	' "${src}")"
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: ${src}: metadata key naming"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -1415,9 +1415,9 @@ fCheckUiDomain(){
 	local bad
 
 	bad="$(grep -rn -E '<interface[^>]*domain=' source --include='*.glade' --include='*.ui' || true)"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a UI file names its own translation domain; leave it to the code"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -1432,9 +1432,9 @@ fCheckMintIcons(){
 	bad="$(grep -rn -E '["'"'"'>]xsi-[a-z0-9-]+' source --include='*.c' --include='*.h' --include='*.ui' \
 		--include='*.glade' --include='*.xml' --include='*.py' --include='*.json' --include='*.in' \
 		--exclude-dir=vendor --exclude-dir=cut-n-paste-code || true)"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: an icon name from Mint's xsi- set; use the freedesktop name"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -1450,7 +1450,7 @@ fCheckClickPrimary(){
 	local -a handlerFiles=()
 
 	while IFS= read -r f; do
-		[[ "$f" == source/vendor/* || "$f" == source/cut-n-paste-code/* ]] || handlerFiles+=("$f")
+		[[ "${f}" == source/vendor/* || "${f}" == source/cut-n-paste-code/* ]] || handlerFiles+=("${f}")
 	done < <(grep -rl -E 'GdkEvent(Button|Scroll)' source --include='*.c' || true)
 	if ((${#handlerFiles[@]} == 0)); then
 		fEcho "FAIL: no click or scroll handlers found; the check has lost its files"
@@ -1472,9 +1472,9 @@ fCheckClickPrimary(){
 		/^}/ || /;[[:space:]]*$/ || /^#/ { sig = ""; next }
 		{ sig = sig " " $0 }
 	' "${handlerFiles[@]}")"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: Control in a click or scroll handler; use eel_gtk_primary_mask"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -1490,9 +1490,9 @@ fCheckSignShift(){
 	bad="$(grep -rn -E '(^|[^0-9A-Za-z_.])1[[:space:]]*<<[[:space:]]*31([^0-9]|$)|\(int\)[^;]*<<[[:space:]]*24([^0-9]|$)' \
 		source vendor --include='*.c' --include='*.h' \
 		| grep -v -E '^vendor/shcl-old/' || true)"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a shift into the sign bit of an int; shift an unsigned value"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -1511,10 +1511,10 @@ fCheckMountList(){
 		| grep -v -E '^source/libnemo-private/nemo-file-utilities\.c:[0-9]+:[[:space:]]*return g_volume_monitor_get_mounts \(monitor\);' || true)"
 	bins="$(grep -rn -E 'SHQueryRecycleBin[AW]?[[:space:]]*\([[:space:]]*NULL' \
 		source/src source/libnemo-private --include='*.c' || true)"
-	if [[ -n "$bad" || -n "$bins" ]]; then
+	if [[ -n "${bad}" || -n "${bins}" ]]; then
 		fEcho "FAIL: a mount list or bin query that asks every drive; use nemo_get_mounts, one root per bin"
-		[[ -z "$bad" ]] || printf '%s\n' "$bad"
-		[[ -z "$bins" ]] || printf '%s\n' "$bins"
+		[[ -z "${bad}" ]] || printf '%s\n' "${bad}"
+		[[ -z "${bins}" ]] || printf '%s\n' "${bins}"
 		exit 2
 	fi
 }
@@ -1535,16 +1535,16 @@ fCheckUserText(){
 	allowed+='nemo-bookmark-list.c:load_bookmark_metadata_file '				# written by the app itself
 	local bad
 
-	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="$allowed" '
+	bad="$(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) -exec awk -v allowed="${allowed}" '
 		FNR == 1 { fn = ""; base = FILENAME; sub(/.*\//, "", base) }
 		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn) }
 		/(^|[^A-Za-z0-9_])(g_key_file_get_(locale_)?string(_list)?|g_shell_parse_argv) *\(/ {
 			if (index(allowed, " " base ":" fn " ") == 0) print FILENAME ":" FNR ": " $0
 		}
 	' {} +)"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: user text read through GKeyFile or g_shell_parse_argv; use nemo-user-text.h, or add it to the list in lint-c.bash"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -1558,9 +1558,9 @@ fCheckLnkCase(){
 
 	bad="$(grep -rn -E '(^|[^A-Za-z0-9_])(g_str_has_suffix|g_str_has_prefix|g_strcmp0|strn?cmp|g_str_equal|strr?str|g_strrstr|memcmp)[[:space:]]*\([^;]*"\.[lL][nN][kK]"' \
 		source/src source/libnemo-private source/eel --include='*.c' --include='*.h' || true)"
-	if [[ -n "$bad" ]]; then
+	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a case-sensitive .lnk name check; use nemo_lnk_has_extension"
-		printf '%s\n' "$bad"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -1583,24 +1583,24 @@ fCheckArcCore(){
 	local -a files=() bad=()
 	local line entry
 
-	mapfile -t files < <(find "$dir" \( -name '*.c' -o -name '*.h' \) | sort)
-	if ((${#files[@]} == 0)) || [[ ! -f "$test" ]]; then
+	mapfile -t files < <(find "${dir}" \( -name '*.c' -o -name '*.h' \) | sort)
+	if ((${#files[@]} == 0)) || [[ ! -f "${test}" ]]; then
 		fEcho "FAIL: no archive core sources, or no ${test}, to check"
 		exit 2
 	fi
 
 	while IFS= read -r line; do
-		if [[ -n "$line" ]]; then bad+=("$line"); fi
+		if [[ -n "${line}" ]]; then bad+=("${line}"); fi
 	done < <(
-		grep -nE "$appNames" "${files[@]}" "$test" || true
-		grep -nE "$ownWay" "${files[@]}" || true
-		grep -nE "$winHeaders" "${files[@]}" | grep -vE '^[^:]*-win32\.c:' || true
-		grep -nwHE "$appDeps" "${dir}/meson.build" || true
+		grep -nE "${appNames}" "${files[@]}" "${test}" || true
+		grep -nE "${ownWay}" "${files[@]}" || true
+		grep -nE "${winHeaders}" "${files[@]}" | grep -vE '^[^:]*-win32\.c:' || true
+		grep -nwHE "${appDeps}" "${dir}/meson.build" || true
 		entry="$(awk '/executable\(.test-arc-core./ { on = 1 } on { print } on && /^  \),/ { exit }' source/test/meson.build)"
-		if [[ -z "$entry" ]]; then
+		if [[ -z "${entry}" ]]; then
 			echo "source/test/meson.build: no test-arc-core executable"
 		else
-			grep -nwE "$appDeps" <<<"$entry" | sed 's|^|source/test/meson.build, test-arc-core: |' || true
+			grep -nwE "${appDeps}" <<<"${entry}" | sed 's|^|source/test/meson.build, test-arc-core: |' || true
 		fi
 	)
 
@@ -1635,32 +1635,32 @@ fCheckTabFocus(){
 	fi
 
 	for f in "${cFiles[@]}"; do
-		if grep -qE "$gtkTabs" "$f" && ! grep -qE "$gtkHelper" "$f"; then
+		if grep -qE "${gtkTabs}" "${f}" && ! grep -qE "${gtkHelper}" "${f}"; then
 			bad+=("${f}: makes tabs with no eel_gtk_tabs_keep_focus_off")
 		fi
-		if [[ "$f" != */nemo-tab-list.c ]] && grep -qE "$listMade" "$f" && ! grep -qE "$listKeys" "$f"; then
+		if [[ "${f}" != */nemo-tab-list.c ]] && grep -qE "${listMade}" "${f}" && ! grep -qE "${listKeys}" "${f}"; then
 			bad+=("${f}: shows a NemoTabList with no Ctrl+Page keys through nemo_tab_list_step")
 		fi
 	done
 
 	for f in "${uiFiles[@]}"; do
 		base="${f##*/}"
-		loaders="$(grep -lF -- "$base" "${cFiles[@]}" || true)"
-		if [[ -z "$loaders" ]] && grep -qE 'class="(Gtk(Notebook|StackSwitcher|StackSidebar|AboutDialog|ShortcutsWindow)|NemoTabList)"' "$f"; then
+		loaders="$(grep -lF -- "${base}" "${cFiles[@]}" || true)"
+		if [[ -z "${loaders}" ]] && grep -qE 'class="(Gtk(Notebook|StackSwitcher|StackSidebar|AboutDialog|ShortcutsWindow)|NemoTabList)"' "${f}"; then
 			bad+=("${f}: tabs, and no C file names it to check")
 		fi
-		for loader in $loaders; do
-			if grep -qE 'class="Gtk(Notebook|StackSwitcher|StackSidebar|AboutDialog|ShortcutsWindow)"' "$f" && ! grep -qE "$gtkHelper" "$loader"; then
+		for loader in ${loaders}; do
+			if grep -qE 'class="Gtk(Notebook|StackSwitcher|StackSidebar|AboutDialog|ShortcutsWindow)"' "${f}" && ! grep -qE "${gtkHelper}" "${loader}"; then
 				bad+=("${f}: tabs, and ${loader} loads it with no eel_gtk_tabs_keep_focus_off")
 			fi
-			if grep -qF 'class="NemoTabList"' "$f" && ! grep -qE "$listKeys" "$loader"; then
+			if grep -qF 'class="NemoTabList"' "${f}" && ! grep -qE "${listKeys}" "${loader}"; then
 				bad+=("${f}: a NemoTabList, and ${loader} loads it with no nemo_tab_list_step")
 			fi
 		done
 	done
 
 	found="$(find source \( -name '*.py' -o -name '*.py.in' \) -exec grep -nHE 'Gtk\.(Notebook|StackSwitcher|StackSidebar)\b' {} + || true)"
-	if [[ -n "$found" ]]; then bad+=("$found: tabs in Python, which has no helper to keep them off the keyboard"); fi
+	if [[ -n "${found}" ]]; then bad+=("${found}: tabs in Python, which has no helper to keep them off the keyboard"); fi
 
 	if ((${#bad[@]})); then
 		fEcho "FAIL: tabs that can take the keyboard focus, or can't be stepped with Ctrl+Page Up and Down"
@@ -1675,7 +1675,7 @@ fRun fCheckTabFocus
 GIT=(git)
 if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then
 	for cand in "/c/Program Files/Git/cmd/git.exe" "/c/Program Files (x86)/Git/cmd/git.exe"; do
-		[[ -x "$cand" ]] && { GIT=("$cand"); break; }
+		[[ -x "${cand}" ]] && { GIT=("${cand}"); break; }
 	done
 fi
 ## Read-only use; keep eol-normalization advice out of the gate output.
@@ -1685,36 +1685,36 @@ GIT+=(-c core.safecrlf=false)
 ## C changed, and a label is as wrong on a .glade-only change.
 PY=""
 for cand in python3 python; do
-	command -v "$cand" >/dev/null 2>&1 && { PY="$cand"; break; }
+	command -v "${cand}" >/dev/null 2>&1 && { PY="${cand}"; break; }
 done
 if ((listOnly)); then
 	:
-elif [[ -n "$PY" ]]; then
-	fTest "$PY" cicd/utility/lint-ui-case.py --self-test
-	"$PY" cicd/utility/lint-ui-case.py source
+elif [[ -n "${PY}" ]]; then
+	fTest "${PY}" cicd/utility/lint-ui-case.py --self-test
+	"${PY}" cicd/utility/lint-ui-case.py source
 	## Same reasoning: the demo recorder's settings keys and columns go stale
 	## silently, and nothing C has to change for that to happen.
-	"$PY" cicd/utility/lint-demo-script.py .
+	"${PY}" cicd/utility/lint-demo-script.py .
 	## Whole-tree too: a disconnect aimed at the wrong preference group removes
 	## nothing and says nothing, and the handler then runs on a freed object.
 	## So does one left for finalize while a view is still alive, which is why
 	## a plain connect for an object is reported too. A handler listening on a
 	## group that doesn't have its key is never called, and says nothing.
-	fTest "$PY" cicd/utility/lint-pref-handlers.py --self-test
-	"$PY" cicd/utility/lint-pref-handlers.py source
+	fTest "${PY}" cicd/utility/lint-pref-handlers.py --self-test
+	"${PY}" cicd/utility/lint-pref-handlers.py source
 	## A key claimed by 2 actions does whichever GTK merged first, and says
 	## nothing about it.
-	"$PY" cicd/utility/lint-accels.py source
+	"${PY}" cicd/utility/lint-accels.py source
 	## Who frees a returned pointer is written above the function, since C
 	## can't say it. Whole-tree, so a Windows-only file is read on Linux too.
-	fTest "$PY" cicd/utility/lint-ownership.py --self-test
-	"$PY" cicd/utility/lint-ownership.py source
+	fTest "${PY}" cicd/utility/lint-ownership.py --self-test
+	"${PY}" cicd/utility/lint-ownership.py source
 else
 	fEcho "WARNING: UI case SKIPPED: no python" >&2
 fi
 
 if ((! listOnly)) && ! command -v cppcheck >/dev/null 2>&1; then
-	if [[ "$strict" == "1" ]]; then
+	if [[ "${strict}" == "1" ]]; then
 		fEcho "FAILED: C lint: cppcheck not installed" >&2
 		exit 1
 	fi
@@ -1744,7 +1744,7 @@ fi
 fCheckMacroCanary(){
 	local dir="${cacheDir}/canary" got
 
-	mkdir -p "$dir"
+	mkdir -p "${dir}"
 	cat > "${dir}/known.c" <<-'EOF'
 		#include <stdlib.h>
 		static const char *const names[] = {
@@ -1762,22 +1762,22 @@ fCheckMacroCanary(){
 		static const char *const name = "a" NEMO_LINT_CANARY_NOWHERE "b";
 	EOF
 	got="$(cppcheck "${cppcheckArgs[@]}" --quiet --template='{id}' "${dir}/known.c" 2>&1 || true)"
-	if ! grep -qx 'memleak' <<<"$got"; then
+	if ! grep -qx 'memleak' <<<"${got}"; then
 		fEcho "FAIL: cppcheck stops short of a leak after the macros in .cppcheck-macros.h"
-		printf '%s\n' "$got"
+		printf '%s\n' "${got}"
 		exit 2
 	fi
 	got="$(cppcheck "${cppcheckArgs[@]}" --quiet --template='{id}' "${dir}/unknown.c" 2>&1 || true)"
-	if ! grep -qx 'unknownMacro' <<<"$got"; then
+	if ! grep -qx 'unknownMacro' <<<"${got}"; then
 		fEcho "FAIL: cppcheck says nothing about a macro it can't expand; is unknownMacro suppressed?"
-		printf '%s\n' "$got"
+		printf '%s\n' "${got}"
 		exit 2
 	fi
 }
 fRun fCheckMacroCanary
 
 ## Integration branch: explicit arg wins, else dev if it exists, else main.
-if [[ -z "$base" ]]; then
+if [[ -z "${base}" ]]; then
 	if "${GIT[@]}" show-ref --verify --quiet refs/heads/dev; then base="dev"; else base="main"; fi
 fi
 
@@ -1790,13 +1790,13 @@ candidates=""
 range=""
 wholeTree=0
 head_branch="$("${GIT[@]}" rev-parse --abbrev-ref HEAD)"
-if [[ "$head_branch" == "$base" || "$head_branch" == "dev" || "$head_branch" == "main" ]]; then
+if [[ "${head_branch}" == "${base}" || "${head_branch}" == "dev" || "${head_branch}" == "main" ]]; then
 	wholeTree=1
 	candidates+="$("${GIT[@]}" ls-files)"$'\n'
 else
-	if "${GIT[@]}" rev-parse --verify --quiet "$base" >/dev/null; then
+	if "${GIT[@]}" rev-parse --verify --quiet "${base}" >/dev/null; then
 		range="${base}...HEAD"
-		candidates+="$("${GIT[@]}" diff --name-only --diff-filter=d "$range")"$'\n'
+		candidates+="$("${GIT[@]}" diff --name-only --diff-filter=d "${range}")"$'\n'
 	fi
 	candidates+="$("${GIT[@]}" diff --name-only --diff-filter=d HEAD)"$'\n'
 	candidates+="$("${GIT[@]}" diff --cached --name-only --diff-filter=d)"$'\n'
@@ -1811,10 +1811,10 @@ candidates+="$("${GIT[@]}" ls-files --others --exclude-standard)"
 ## is one of the configurations cppcheck tries on it by itself.
 files=()
 while IFS= read -r f; do
-	[[ "$f" == *.c || "$f" == *.h ]] || continue
-	[[ "$f" == vendor/shcl-old/* || "$f" == source/unused/* ]] && continue
-	[[ -f "$f" ]] && files+=("$f")
-done < <(printf '%s\n' "$candidates" | LC_ALL=C sort -u)
+	[[ "${f}" == *.c || "${f}" == *.h ]] || continue
+	[[ "${f}" == vendor/shcl-old/* || "${f}" == source/unused/* ]] && continue
+	[[ -f "${f}" ]] && files+=("${f}")
+done < <(printf '%s\n' "${candidates}" | LC_ALL=C sort -u)
 
 if ((listOnly)); then
 	if ((${#files[@]})); then printf '%s\n' "${files[@]}"; fi
@@ -1842,6 +1842,6 @@ source cicd/utility/include/jobs.bash
 fJobs_Default
 jobs="${CICD_MAX_JOBS}"
 mkdir -p "${cacheDir}/build"
-cppcheck "${cppcheckArgs[@]}" -j "$jobs" --cppcheck-build-dir="${cacheDir}/build" \
+cppcheck "${cppcheckArgs[@]}" -j "${jobs}" --cppcheck-build-dir="${cacheDir}/build" \
 	--quiet --error-exitcode=2 "${files[@]}"
 fEcho "OK: C lint: no findings"

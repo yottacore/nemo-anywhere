@@ -78,9 +78,9 @@ remoteNice="ionice -c 3 nice -n 19"
 fOnExit(){
 	local rc=$?
 	trap - EXIT INT TERM HUP
-	fLaneStep_OnExit "$rc"
-	fBoxWrap_RunDirDone "$armHost" "${sshOpts[@]}" || true
-	exit "$rc"
+	fLaneStep_OnExit "${rc}"
+	fBoxWrap_RunDirDone "${armHost}" "${sshOpts[@]}" || true
+	exit "${rc}"
 }
 fTraps(){ trap fOnExit EXIT; trap 'exit 130' INT; trap 'exit 143' TERM; trap 'exit 129' HUP; }
 
@@ -90,11 +90,11 @@ fRun(){
 	local ver name started secs depsFile deps rc=0
 
 	ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "${ROOT}/source/meson.build" | head -1)"
-	[[ -n "$ver" ]] || fDie "no version in source/meson.build"
+	[[ -n "${ver}" ]] || fDie "no version in source/meson.build"
 	name="${SLUG}-${ver}-linux-arm64.tar.gz"
 
-	fSetSourceDate "$ROOT"
-	fWarnIfSourceDateIsAGuess "$ROOT"
+	fSetSourceDate "${ROOT}"
+	fWarnIfSourceDateIsAGuess "${ROOT}"
 
 	fEcho_Clean ""
 	fEcho "arm64 release build on ${armHost}"
@@ -102,52 +102,52 @@ fRun(){
 	fLaneStep "Box ready"
 	## Runs there.
 	# shellcheck disable=SC2016
-	fBoxWrap_WaitReady "$armHost" "$readyWaitSec" 'test "$(uname -m)" = aarch64 || exit 3; docker info >/dev/null 2>&1' "${sshOpts[@]}" || rc=$?
-	case "$rc" in
+	fBoxWrap_WaitReady "${armHost}" "${readyWaitSec}" 'test "$(uname -m)" = aarch64 || exit 3; docker info >/dev/null 2>&1' "${sshOpts[@]}" || rc=$?
+	case "${rc}" in
 		0) ;;
 		3) fDie "${armHost} is not an arm64 box" ;;
 		*) fDie "${armHost} did not answer as that user with docker up in ${readyWaitSec}s" ;;
 	esac
-	fBoxWrap_ClockReady "$armHost" "${sshOpts[@]}" || fDie "${armHost} has the wrong time, and the build would stop on it"
+	fBoxWrap_ClockReady "${armHost}" "${sshOpts[@]}" || fDie "${armHost} has the wrong time, and the build would stop on it"
 
 	fLaneStep "Send"
-	fBoxWrap_RunDir "$SLUG" "$armHost" "${sshOpts[@]}" || fDie "couldn't make a run folder on ${armHost}"
+	fBoxWrap_RunDir "${SLUG}" "${armHost}" "${sshOpts[@]}" || fDie "couldn't make a run folder on ${armHost}"
 	remoteDir="${boxRunDir}/src"
-	ssh "${sshOpts[@]}" "$armHost" "mkdir ${remoteDir}"
+	ssh "${sshOpts[@]}" "${armHost}" "mkdir ${remoteDir}"
 	## --ignore-failed-read: a file deleted in the tree but not yet in git is
 	## still listed, and the x86_64 build wouldn't see it either.
-	( cd "$ROOT" && git ls-files -z --cached --others --exclude-standard \
+	( cd "${ROOT}" && git ls-files -z --cached --others --exclude-standard \
 		| tar --null -T - --ignore-failed-read -cf - ) \
-		| ssh "${sshOpts[@]}" "$armHost" "tar -xf - -C ${remoteDir}"
-	fEcho_Clean "sent $(cd "$ROOT" && git ls-files --cached --others --exclude-standard | wc -l) files to ${armHost}:${remoteDir}"
+		| ssh "${sshOpts[@]}" "${armHost}" "tar -xf - -C ${remoteDir}"
+	fEcho_Clean "sent $(cd "${ROOT}" && git ls-files --cached --others --exclude-standard | wc -l) files to ${armHost}:${remoteDir}"
 
 	fLaneStep "Release build"
-	fBoxWrap_Jobs "$jobsPin" "$armHost" "${sshOpts[@]}" || fDie "couldn't read the CPU count and load on ${armHost}"
+	fBoxWrap_Jobs "${jobsPin}" "${armHost}" "${sshOpts[@]}" || fDie "couldn't read the CPU count and load on ${armHost}"
 	started="$(date +%s)"
-	ssh "${sshOpts[@]}" "$armHost" "$(fBoxWrap_RunCmd) SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH} CICD_MAX_JOBS=${boxJobs} ${remoteNice} bash cicd/linux/release.bash"
+	ssh "${sshOpts[@]}" "${armHost}" "$(fBoxWrap_RunCmd) SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH} CICD_MAX_JOBS=${boxJobs} ${remoteNice} bash cicd/linux/release.bash"
 	secs=$(( $(date +%s) - started ))
 
 	fLaneStep "Bring back"
 
-	mkdir -p "$OUT"
+	mkdir -p "${OUT}"
 	rm -f "${OUT:?}/${name}"
 	scp -q "${sshOpts[@]}" "${armHost}:${remoteDir}/cicd/artifacts/release/${name}" "${OUT}/${name}"
 
 	## A failed read costs only the versions in the .deb, not the hour's build.
-	depsFile="$(fDebDependsFile "$ROOT" "$name")"
-	rm -f "$depsFile"
-	if deps="$(ssh "${sshOpts[@]}" "$armHost" "$(fBoxWrap_RunCmd) CICD_MAX_JOBS=${boxJobs} ${remoteNice} bash cicd/linux/package.bash --depends-only --from cicd/artifacts/release/${name}")" && [[ -n "$deps" ]]; then
-		mkdir -p "$(dirname "$depsFile")"
-		{ (cd "$OUT" && sha256sum "$name"); printf '%s\n' "$deps"; } > "$depsFile"
+	depsFile="$(fDebDependsFile "${ROOT}" "${name}")"
+	rm -f "${depsFile}"
+	if deps="$(ssh "${sshOpts[@]}" "${armHost}" "$(fBoxWrap_RunCmd) CICD_MAX_JOBS=${boxJobs} ${remoteNice} bash cicd/linux/package.bash --depends-only --from cicd/artifacts/release/${name}")" && [[ -n "${deps}" ]]; then
+		mkdir -p "$(dirname "${depsFile}")"
+		{ (cd "${OUT}" && sha256sum "${name}"); printf '%s\n' "${deps}"; } > "${depsFile}"
 		fEcho_Clean "arm64 .deb depends: ${deps}"
 	else
 		fEcho "WARNING: could not read the arm64 dependencies on ${armHost}; the arm64 .deb will get a conservative list"
 	fi
 
-	fWriteReleaseSums "$OUT" "$SLUG" "$ver"
+	fWriteReleaseSums "${OUT}" "${SLUG}" "${ver}"
 
 	fEcho_Clean "arm64 build took $(( secs / 60 ))m $(( secs % 60 ))s on ${armHost}"
-	fEcho_Clean "$(cd "$OUT" && sha256sum "$name")"
+	fEcho_Clean "$(cd "${OUT}" && sha256sum "${name}")"
 }
 
 fMain(){
@@ -157,12 +157,12 @@ fMain(){
 		"") ;;
 		*) fDie "unknown option: $1 (try --help)" ;;
 	esac
-	if ! fBoxWrap_IsThere "$lockName" "$armHost" "$lockTool" "${sshOpts[@]}"; then
+	if ! fBoxWrap_IsThere "${lockName}" "${armHost}" "${lockTool}" "${sshOpts[@]}"; then
 		fEcho "SKIP: ${armHost} isn't there"
 		exit 77
 	fi
-	if [[ -f "$lockTool" ]]; then
-		CLAUDE_VM_BOOT_WAIT="${CLAUDE_VM_BOOT_WAIT:-1200}" bash "$lockTool" wrap "$lockName" --wait "$lockWaitSec" -- bash "${BASH_SOURCE[0]}" --locked
+	if [[ -f "${lockTool}" ]]; then
+		CLAUDE_VM_BOOT_WAIT="${CLAUDE_VM_BOOT_WAIT:-1200}" bash "${lockTool}" wrap "${lockName}" --wait "${lockWaitSec}" -- bash "${BASH_SOURCE[0]}" --locked
 	else
 		fTraps
 		fRun

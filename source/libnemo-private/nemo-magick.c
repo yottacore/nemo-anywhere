@@ -120,10 +120,10 @@ static gpointer
 list_pixbuf_extensions (G_GNUC_UNUSED gpointer data)
 {
 	GHashTable *found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
-	GSList *formats = gdk_pixbuf_get_formats ();
+	GSList *pixbuf_formats = gdk_pixbuf_get_formats ();
 	GSList *l;
 
-	for (l = formats; l != NULL; l = l->next) {
+	for (l = pixbuf_formats; l != NULL; l = l->next) {
 		g_auto (GStrv) extensions = NULL;
 		guint i;
 
@@ -137,7 +137,7 @@ list_pixbuf_extensions (G_GNUC_UNUSED gpointer data)
 			g_hash_table_add (found, lower);
 		}
 	}
-	g_slist_free (formats);
+	g_slist_free (pixbuf_formats);
 
 	return found;
 }

@@ -33,7 +33,7 @@ fi
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/deb-size-check.XXXXXX")"
 shm=""
-cleanup(){ fSafeRm_IfThere "${scratch}" || true; if [[ -n "$shm" ]]; then fSafeRm_Under /dev/shm "${shm}" || true; fi; }
+cleanup(){ fSafeRm_IfThere "${scratch}" || true; if [[ -n "${shm}" ]]; then fSafeRm_Under /dev/shm "${shm}" || true; fi; }
 trap cleanup EXIT
 
 failures=0
@@ -54,7 +54,7 @@ mkdir -p "${pfx}/bin" "${pfx}/share/applications" "${pfx}/share/icons/hicolor/48
 head -c 5000 /dev/zero > "${pfx}/bin/nemo-anywhere"; chmod 755 "${pfx}/bin/nemo-anywhere"
 printf '[Desktop Entry]\nName=Nemo Anywhere\nExec=nemo-anywhere %%U\nIcon=nemo-anywhere\n' > "${pfx}/share/applications/nemo-anywhere.desktop"
 head -c 300 /dev/zero > "${pfx}/share/icons/hicolor/48x48/apps/nemo-anywhere.png"
-for size in 0 1 1024 1025 4096 4097 70000; do head -c "$size" /dev/zero > "${pfx}/share/doc/f${size}"; done
+for size in 0 1 1024 1025 4096 4097 70000; do head -c "${size}" /dev/zero > "${pfx}/share/doc/f${size}"; done
 ln -s f70000 "${pfx}/share/doc/link"
 ln "${pfx}/share/doc/f4097" "${pfx}/share/doc/hard"
 tar -czf "${lane}/cicd/artifacts/release/${name}.tar.gz" -C "${scratch}/src" \
@@ -67,11 +67,11 @@ fPack(){
 	local out rc=0
 	out="$(TMPDIR="$1" SOURCE_DATE_EPOCH=1700000000 NEMO_RELEASE_IMAGE=no-such-image-deb-size \
 		bash "${lane}/cicd/linux/package.bash" --no-rpm 2>&1)" || rc=$?
-	if [[ "$rc" != 0 || ! -f "$deb" ]]; then
+	if [[ "${rc}" != 0 || ! -f "${deb}" ]]; then
 		fFail "package.bash with TMPDIR=$1 made no .deb (exit ${rc}): ${out}"
 		return 0
 	fi
-	mv "$deb" "$2"
+	mv "${deb}" "$2"
 }
 
 mkdir -p "${scratch}/work-a"
@@ -81,15 +81,15 @@ fPack "${scratch}/work-a" "${scratch}/a.deb"
 ## DEBIAN dir it is measured with. Counted by hand only where the tool is missing.
 fExpected(){
 	local tree="${scratch}/unpacked" ctl="${scratch}/ctl"
-	fSafeRm_IfThere "$tree" "$ctl"; mkdir -p "$tree" "${ctl}/debian"
-	dpkg-deb -x "$1" "$tree"
+	fSafeRm_IfThere "${tree}" "${ctl}"; mkdir -p "${tree}" "${ctl}/debian"
+	dpkg-deb -x "$1" "${tree}"
 	mkdir -p "${tree}/DEBIAN"
 	if command -v dpkg-gencontrol >/dev/null 2>&1; then
 		printf 'Source: pkg\nMaintainer: x <x@example.com>\n\nPackage: pkg\nArchitecture: any\nDescription: x\n x\n' > "${ctl}/debian/control"
 		printf 'pkg (1.0) unstable; urgency=low\n\n  * x\n\n -- x <x@example.com>  Thu, 01 Jan 2026 00:00:00 +0000\n' > "${ctl}/debian/changelog"
-		( cd "$ctl" && dpkg-gencontrol -P"$tree" -O 2>/dev/null ) | sed -n 's/^Installed-Size: //p'
+		( cd "${ctl}" && dpkg-gencontrol -P"${tree}" -O 2>/dev/null ) | sed -n 's/^Installed-Size: //p'
 	else
-		python3 - "$tree" <<-'EOF'
+		python3 - "${tree}" <<-'EOF'
 			import os, sys
 			kb, seen = 0, set()
 			for top, dirs, files in os.walk(sys.argv[1]):
@@ -109,9 +109,9 @@ fExpected(){
 if [[ -f "${scratch}/a.deb" ]]; then
 	want="$(fExpected "${scratch}/a.deb")"
 	got="$(dpkg-deb -f "${scratch}/a.deb" Installed-Size)"
-	if [[ -z "$want" ]]; then
+	if [[ -z "${want}" ]]; then
 		fFail "couldn't work out the expected Installed-Size"
-	elif [[ "$got" != "$want" ]]; then
+	elif [[ "${got}" != "${want}" ]]; then
 		fFail "Installed-Size is ${got}, dpkg would write ${want}"
 	else
 		fEcho "OK: Installed-Size ${got}"

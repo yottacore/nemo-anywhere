@@ -61,8 +61,8 @@ while read -r repo file sha; do
 		|| fFail "bad line in sysroot-pins.txt: ${repo} ${file} ${sha}"
 	grep -qxF "${repo} ${file} ${sha}" "${pins}" || fFail "not in msys2-pins.txt as it is here: ${file}"
 	name="$(fPkgName "${file}")"
-	[[ -z "${names[$name]:-}" ]] || fFail "listed twice: ${name}"
-	names[$name]=1
+	[[ -z "${names[${name}]:-}" ]] || fFail "listed twice: ${name}"
+	names[${name}]=1
 done < "${sysPins}"
 ((n > 0)) || fFail "sysroot-pins.txt lists no packages"
 # shellcheck disable=SC2016 # the array is read in the subshell, on purpose

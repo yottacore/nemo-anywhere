@@ -52,7 +52,7 @@ while (($#)); do case "$1" in
 	-*)        fDie "unknown option: $1 (try --help)" ;;
 	*)         out="$1"; shift ;;
 esac; done
-((probeOnly)) || [[ -n "$out" ]] || fDie "usage: profile-run.bash <output.svg> [--secs N] [--hz N] [--bin PATH]"
+((probeOnly)) || [[ -n "${out}" ]] || fDie "usage: profile-run.bash <output.svg> [--secs N] [--hz N] [--bin PATH]"
 
 
 #••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
@@ -65,7 +65,7 @@ esac; done
 fCheckPreconditions(){
 	local tool missing=()
 	for tool in gdb Xvfb xdpyinfo inferno-flamegraph; do
-		command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
+		command -v "${tool}" >/dev/null 2>&1 || missing+=("${tool}")
 	done
 	((${#missing[@]})) && fDie "missing: ${missing[*]}"
 	[[ "$(cat /proc/sys/kernel/yama/ptrace_scope 2>/dev/null || echo 0)" == 0 ]] \
@@ -84,23 +84,23 @@ work="$(mktemp -d)"
 ## through a tar stream, so the files are the host user's.
 PREFIX="${ROOT}/cicd/artifacts/profiling/prefix"
 
-if [[ -z "$bin" ]]; then
+if [[ -z "${bin}" ]]; then
 	if [[ ! -x "${PREFIX}/bin/${SLUG}" ]]; then
 		fEcho_Clean
 		fEcho "Staging the debug build"
-		fSafeRm_Under "${ROOT}/cicd/artifacts" "$PREFIX"
-		mkdir -p "$PREFIX"
+		fSafeRm_Under "${ROOT}/cicd/artifacts" "${PREFIX}"
+		mkdir -p "${PREFIX}"
 		# shellcheck disable=SC2016  ## expanded in the step's container
 		bash "${HERE}/docker-run.bash" "profile prefix" \
 			'p="$(mktemp -d)" && bash "${CICD_SRC}/cicd/linux/stage-prefix.bash" "${CICD_BUILD_ROOT}/build" "$p/nemo-anywhere" >&2 && tar -C "$p/nemo-anywhere" -cf - .' \
-			| tar -C "$PREFIX" -xf - || fDie "no staged debug prefix and none could be staged - pass --bin"
+			| tar -C "${PREFIX}" -xf - || fDie "no staged debug prefix and none could be staged - pass --bin"
 	fi
 	bin="${PREFIX}/bin/${SLUG}"
 fi
-[[ -x "$bin" ]] || fDie "no binary to profile at ${bin}"
+[[ -x "${bin}" ]] || fDie "no binary to profile at ${bin}"
 
 ## A stripped binary still runs, but every frame comes out as an address.
-if ! nm "$bin" >/dev/null 2>&1; then
+if ! nm "${bin}" >/dev/null 2>&1; then
 	fEcho "WARNING: ${bin} has no symbol table - expect an unreadable flamegraph"
 fi
 
@@ -112,10 +112,10 @@ disp=""; app_pid=""; driver_pid=""
 XVFB_PID=""
 
 cleanup(){
-	[[ -n "$driver_pid" ]] && kill "$driver_pid" 2>/dev/null || true
-	[[ -n "$app_pid"    ]] && kill "$app_pid"    2>/dev/null || true
-	[[ -n "$XVFB_PID"   ]] && kill "$XVFB_PID"   2>/dev/null || true
-	fSafeRm_IfThere "$work"
+	[[ -n "${driver_pid}" ]] && kill "${driver_pid}" 2>/dev/null || true
+	[[ -n "${app_pid}"    ]] && kill "${app_pid}"    2>/dev/null || true
+	[[ -n "${XVFB_PID}"   ]] && kill "${XVFB_PID}"   2>/dev/null || true
+	fSafeRm_IfThere "${work}"
 }
 trap cleanup EXIT
 
@@ -126,13 +126,13 @@ mkdir -p "${tree}/sub"
 ## A few hundred mixed files: enough to make folder loading, sorting, icon lookup,
 ## and thumbnailing do real work, small enough to stay quick.
 for i in $(seq 1 300); do
-	printf 'sample text %s\n' "$i" > "${tree}/file-${i}.txt"
+	printf 'sample text %s\n' "${i}" > "${tree}/file-${i}.txt"
 done
 for i in $(seq 1 40); do
 	printf 'P1\n2 2\n1 0 0 1\n' > "${tree}/image-${i}.pbm"
 	: > "${tree}/sub/nested-${i}.dat"
 done
-fEcho_Clean "$(find "$tree" -type f | wc -l) files"
+fEcho_Clean "$(find "${tree}" -type f | wc -l) files"
 
 
 #••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
@@ -140,29 +140,29 @@ fEcho_Clean "$(find "$tree" -type f | wc -l) files"
 
 fEcho_Clean
 fXvfbStart :120 1280x900x24 "${work}/xvfb.log" || fDie "no free headless display from :120"
-disp="$XVFB_DISPLAY"
+disp="${XVFB_DISPLAY}"
 fEcho "Started headless display ${disp}"
 
 ## A throwaway HOME, so profiling never reads or writes the real settings.
 fake_home="${work}/home"
-mkdir -p "$fake_home"
+mkdir -p "${fake_home}"
 
 fEcho "Launching ${SLUG}"
 ## No session bus: with one, a copy already running on the real desktop would
 ## take the arguments and this launch would hand off and exit, leaving nothing
 ## to sample. The app handles a bus-less environment on purpose.
-prefix_root="$(cd "$(dirname "$(dirname "$bin")")" && pwd)"
-DBUS_SESSION_BUS_ADDRESS="disabled:" DISPLAY="$disp" \
-	HOME="$fake_home" XDG_CONFIG_HOME="${fake_home}/.config" \
+prefix_root="$(cd "$(dirname "$(dirname "${bin}")")" && pwd)"
+DBUS_SESSION_BUS_ADDRESS="disabled:" DISPLAY="${disp}" \
+	HOME="${fake_home}" XDG_CONFIG_HOME="${fake_home}/.config" \
 	LD_LIBRARY_PATH="$(printf '%s:' "${prefix_root}"/lib/*-linux-gnu*)${prefix_root}/lib" \
 	XDG_DATA_DIRS="${prefix_root}/share:/usr/local/share:/usr/share" \
-	"$bin" "$tree" > "${work}/app.log" 2>&1 &
+	"${bin}" "${tree}" > "${work}/app.log" 2>&1 &
 app_pid=$!
 
 ## Give the window time to come up before sampling, or the profile is mostly
 ## process start-up.
 sleep 3
-if ! kill -0 "$app_pid" 2>/dev/null; then
+if ! kill -0 "${app_pid}" 2>/dev/null; then
 	fEcho_Clean "last output from the app:"
 	tail -5 "${work}/app.log" 2>/dev/null || true
 	fDie "the app exited before sampling could start"
@@ -179,15 +179,15 @@ fi
 drive(){
 	local win
 	while :; do
-		win="$(DISPLAY="$disp" xdotool search --name "" getactivewindow 2>/dev/null | head -1 || true)"
-		[[ -n "$win" ]] || win="$(DISPLAY="$disp" xdotool search --class . 2>/dev/null | tail -1 || true)"
-		[[ -n "$win" ]] || { sleep 0.5; continue; }
+		win="$(DISPLAY="${disp}" xdotool search --name "" getactivewindow 2>/dev/null | head -1 || true)"
+		[[ -n "${win}" ]] || win="$(DISPLAY="${disp}" xdotool search --class . 2>/dev/null | tail -1 || true)"
+		[[ -n "${win}" ]] || { sleep 0.5; continue; }
 
 		## Sending to the display rather than a window id: GTK ignores the
 		## synthetic events xdotool aims at a specific window.
-		DISPLAY="$disp" xdotool windowactivate --sync "$win" 2>/dev/null || true
+		DISPLAY="${disp}" xdotool windowactivate --sync "${win}" 2>/dev/null || true
 		for key in ctrl+2 Page_Down Page_Down ctrl+1 Page_Down F5 ctrl+2 Home End F5; do
-			DISPLAY="$disp" xdotool key --clearmodifiers "$key" 2>/dev/null || true
+			DISPLAY="${disp}" xdotool key --clearmodifiers "${key}" 2>/dev/null || true
 			sleep 0.25
 		done
 	done
@@ -201,18 +201,18 @@ driver_pid=$!
 # Sample
 
 folded="${work}/folded.txt"
-: > "$folded"
-interval="$(awk -v h="$hz" 'BEGIN{printf "%.3f", 1/h}')"
+: > "${folded}"
+interval="$(awk -v h="${hz}" 'BEGIN{printf "%.3f", 1/h}')"
 deadline=$(( SECONDS + secs ))
 taken=0
 
 fEcho "Sampling ${secs}s at ${hz}Hz"
 while (( SECONDS < deadline )); do
-	kill -0 "$app_pid" 2>/dev/null || break
+	kill -0 "${app_pid}" 2>/dev/null || break
 
 	## -nx skips the user's .gdbinit (it loads pretty-printers that error out
 	## under batch). One backtrace per thread, folded into "a;b;c 1" lines.
-	gdb -nx -q -p "$app_pid" -batch -ex 'thread apply all bt' 2>/dev/null |
+	gdb -nx -q -p "${app_pid}" -batch -ex 'thread apply all bt' 2>/dev/null |
 		awk '
 			/^Thread /       { if (n) print_stack(); n = 0; next }
 			/^#[0-9]+ /      {
@@ -236,16 +236,16 @@ while (( SECONDS < deadline )); do
 				if (s != "") print s " 1"
 				n = 0
 			}
-		' >> "$folded"
+		' >> "${folded}"
 
 	taken=$((taken + 1))
-	sleep "$interval"
+	sleep "${interval}"
 done
 
-kill "$app_pid" 2>/dev/null || true
+kill "${app_pid}" 2>/dev/null || true
 app_pid=""
 
-lines="$(wc -l < "$folded")"
+lines="$(wc -l < "${folded}")"
 (( lines > 0 )) || fDie "sampling produced no stacks (${taken} attempts) - is the binary stripped of symbols?"
 
 
@@ -256,16 +256,16 @@ lines="$(wc -l < "$folded")"
 ## keeps the SVG small.
 sorted="${work}/sorted.txt"
 awk '{ c = $NF; $NF = ""; sub(/ $/, ""); total[$0] += c } END { for (s in total) print s, total[s] }' \
-	"$folded" | sort > "$sorted"
+	"${folded}" | sort > "${sorted}"
 
-mkdir -p "$(dirname "$out")"
+mkdir -p "$(dirname "${out}")"
 inferno-flamegraph --title "${SLUG} - ${secs}s, ${taken} samples" \
-	--countname samples < "$sorted" > "$out"
+	--countname samples < "${sorted}" > "${out}"
 
-[[ -s "$out" ]] || fDie "the flamegraph renderer produced nothing"
+[[ -s "${out}" ]] || fDie "the flamegraph renderer produced nothing"
 
 fEcho_Clean
-fEcho "OK: $(basename "$out") (${taken} sweeps, $(wc -l < "$sorted") unique stacks)"
+fEcho "OK: $(basename "${out}") (${taken} sweeps, $(wc -l < "${sorted}") unique stacks)"
 fEcho_Clean
 
 

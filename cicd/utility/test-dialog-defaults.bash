@@ -111,12 +111,12 @@ EOF
 said="$(fSites "${scratch}/bare.c" "${scratch}/bare.py")"
 want="${scratch}/bare.c:5
 ${scratch}/bare.py:3"
-[[ "$said" == "$want" ]] || fFail "the checker found [${said//$'\n'/, }] in the made-up sources, wanted bare.c:5 and bare.py:3"
+[[ "${said}" == "${want}" ]] || fFail "the checker found [${said//$'\n'/, }] in the made-up sources, wanted bare.c:5 and bare.py:3"
 
 mapfile -t files < <(find "${root}/source" -path "${root}/source/test" -prune -o \( -name '*.c' -o -name '*.py' \) -type f -print | sort)
 ((${#files[@]} > 100)) || fFail "found only ${#files[@]} source files under source/"
 while IFS= read -r site; do
-	[[ -n "$site" ]] || continue
+	[[ -n "${site}" ]] || continue
 	fFail "${site#"${root}/"} makes a dialog with no default response in the same function"
 done < <(fSites "${files[@]}")
 

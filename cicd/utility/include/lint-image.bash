@@ -22,38 +22,38 @@ fLintImage(){
 	file="${root}/cicd/linux/Dockerfile.lint"
 	[[ "${NEMO_LINT_HOST:-0}" != "1" ]] || { echo "[ lint tools: host (NEMO_LINT_HOST=1) ]" >&2; return 0 ;}
 	[[ "$(uname -o 2>/dev/null)" != "Msys" ]] || return 0
-	[[ -f "$file" ]] || return 0
+	[[ -f "${file}" ]] || return 0
 	if ! command -v docker >/dev/null 2>&1 || ! timeout 10 docker info >/dev/null 2>&1; then
 		echo "[ WARNING: lint tools: host, docker not reachable ]" >&2
 		return 0
 	fi
-	hash="$(sha256sum "$file")"
+	hash="$(sha256sum "${file}")"
 	tag="nemo-lint:${hash:0:12}"
-	if ! docker image inspect "$tag" >/dev/null 2>&1; then
+	if ! docker image inspect "${tag}" >/dev/null 2>&1; then
 		echo "[ Building ${tag}, one time per Dockerfile.lint change ]" >&2
-		if ! docker build -q -t "$tag" --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" - <"$file" >&2; then
+		if ! docker build -q -t "${tag}" --label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" - <"${file}" >&2; then
 			echo "[ WARNING: lint tools: host, ${tag} didn't build ]" >&2
 			return 0
 		fi
 		## By tag, never -f, so an image something still runs stays put.
 		while read -r old; do
-			[[ "$old" == "$tag" ]] || docker rmi "$old" >/dev/null 2>&1 || true
+			[[ "${old}" == "${tag}" ]] || docker rmi "${old}" >/dev/null 2>&1 || true
 		done < <(docker images nemo-lint --format '{{.Repository}}:{{.Tag}}')
 	fi
 	echo "[ lint tools: ${tag} ]" >&2
-	echo "$tag"
+	echo "${tag}"
 }
 
 ## The repo goes in at its own path, and so does the git dir when it lives
 ## elsewhere, which it does in a worktree.
 fLintRun(){
 	local root="$1" img="$2"; shift 2
-	[[ -n "$img" ]] || { "$@"; return ;}
+	[[ -n "${img}" ]] || { "$@"; return ;}
 	local common; local -a mounts=(-v "${root}:${root}")
-	common="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
-	[[ -z "$common" || "$common" == "${root}/"* ]] || mounts+=(-v "${common}:${common}")
-	docker run --rm --network none --user "$(id -u):$(id -g)" "${mounts[@]}" -w "$root" \
+	common="$(git -C "${root}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+	[[ -z "${common}" || "${common}" == "${root}/"* ]] || mounts+=(-v "${common}:${common}")
+	docker run --rm --network none --user "$(id -u):$(id -g)" "${mounts[@]}" -w "${root}" \
 		--label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" \
 		-e CPPCHECK_STRICT -e SHELLCHECK_STRICT -e RUFF_STRICT -e PSA_STRICT \
-		"$img" "$@"
+		"${img}" "$@"
 }

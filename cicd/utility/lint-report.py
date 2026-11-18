@@ -18,6 +18,7 @@
 
 
 import argparse, os, re, sys, tempfile
+from typing import NoReturn
 
 SEEN_FILE = ".lint-seen"  # marker basename, kept in the lint dir - outside the git repo
 NAME_RE   = re.compile(r"run_(\d{8}-\d{6})(_\w+)?\.log$")
@@ -34,13 +35,13 @@ EVEN_OUT  = [
 ]
 
 
-def even_out(line):
+def even_out(line: str) -> str:
     for pat, rep in EVEN_OUT:
         line = pat.sub(rep, line)
     return line.strip()
 
 
-def flagged(path):
+def flagged(path: str) -> list[str]:
     """Evened-out flagged lines of one log, in first-seen order."""
     out = {}
     with open(path, encoding="utf-8", errors="replace") as f:
@@ -50,7 +51,7 @@ def flagged(path):
     return list(out)
 
 
-def logs_in(d):
+def logs_in(d: str) -> list[tuple[str, str]]:
     """(stamp, name) of every run log, oldest first."""
     found = []
     for name in os.listdir(d):
@@ -60,7 +61,7 @@ def logs_in(d):
     return sorted(found)
 
 
-def unseen(d, newest):
+def unseen(d: str, newest: str) -> list[str]:
     """Flagged lines of one log that no log older than it has."""
     m = NAME_RE.match(newest)
     key = (m.group(1) if m else "99999999-999999", newest)
@@ -71,16 +72,17 @@ def unseen(d, newest):
     return [line for line in flagged(os.path.join(d, newest)) if line not in older]
 
 
-def skip(msg):
+def skip(msg: str) -> NoReturn:
     sys.stderr.write(f"lint-report: {msg}\n")
     sys.exit(0)
 
 
-def self_test():
-    print("[ Test %s lint-report.py --self-test ]" % re.search(r"(?m)^##\tTest ID: (\S+)$", open(__file__, encoding="utf-8").read()).group(1))
+def self_test() -> int:
+    test_id = re.search(r"(?m)^##\tTest ID: (\S+)$", open(__file__, encoding="utf-8").read()).group(1)
+    print(f"[ Test {test_id} lint-report.py --self-test ]")
     failures = []
     with tempfile.TemporaryDirectory() as d:
-        def log(name, text):
+        def log(name: str, text: str) -> None:
             with open(os.path.join(d, name), "w", encoding="utf-8") as f:
                 f.write(text)
         log("run_20261001-100000_day.log",
@@ -116,7 +118,7 @@ def self_test():
     return 0
 
 
-def main():
+def main() -> int:
     if sys.argv[1:] == ["--self-test"]:
         return self_test()
     here = os.path.dirname(os.path.abspath(__file__))

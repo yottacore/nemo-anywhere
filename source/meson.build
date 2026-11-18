@@ -83,6 +83,16 @@ conf.set10('HAVE_BACKTRACE', have_backtrace)
 # gnu17 gave, with no GNU language extensions.
 add_project_arguments('-D_DEFAULT_SOURCE', language: 'c')
 
+# Missing declarations catch a function that wants static, or a header that
+# lost its prototype.
+add_project_arguments(cc.get_supported_arguments([
+    '-Wvla',
+    '-Wshadow',
+    '-Wmissing-declarations',
+  ]),
+  language: 'c',
+)
+
 # meson keeps a build dir's old defaults on --reconfigure, so one set up before
 # the std was named would go on building gnu17 with fewer warnings.
 if get_option('c_std') == 'none'

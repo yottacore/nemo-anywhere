@@ -25,7 +25,7 @@ esac
 version="${1#v}"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 file="${2:-${here}/../../changelog.md}"
-[[ -f "$file" ]] || { echo "no changelog at ${file}" >&2; exit 1; }
+[[ -f "${file}" ]] || { echo "no changelog at ${file}" >&2; exit 1; }
 
 ## Matched as a literal string, not a pattern, since versions have dots and hyphens.
 ## The template section at the top is commented out, so it is skipped rather than
@@ -45,7 +45,7 @@ notes="$(awk -v want="## v${version}" '
 		if (NF) { while (held-- > 0) print ""; held = 0; print; started = 1 }
 		else if (started) held++
 	}
-' "$file")"
+' "${file}")"
 
-[[ -n "$notes" ]] || exit 1
-printf '%s\n' "$notes"
+[[ -n "${notes}" ]] || exit 1
+printf '%s\n' "${notes}"

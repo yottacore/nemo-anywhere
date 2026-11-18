@@ -52,15 +52,15 @@ cp "${here}/include/jobs.bash" "${here}/include/step-box.bash" "${scratch}/cicd/
 ## This clone first, which makes the volumes for it.
 rc=0
 out="$(bash "${here}/docker-run.bash" check 'echo inside-the-box' 2>&1)" || rc=$?
-[[ "$rc" == 0 && "$out" == *"inside-the-box"* ]] || fFail "refused the clone the volumes belong to (exit ${rc}); said: ${out}"
+[[ "${rc}" == 0 && "${out}" == *"inside-the-box"* ]] || fFail "refused the clone the volumes belong to (exit ${rc}); said: ${out}"
 src="$(docker volume inspect "${CICD_VOLUME_PREFIX}-build" --format '{{index .Labels "dev.src"}}' 2>&1)" || true
-[[ "$src" == "$(cd "${here}/../.." && pwd -P)" ]] || fFail "${CICD_VOLUME_PREFIX}-build not made for this clone; its dev.src: ${src}"
+[[ "${src}" == "$(cd "${here}/../.." && pwd -P)" ]] || fFail "${CICD_VOLUME_PREFIX}-build not made for this clone; its dev.src: ${src}"
 
 rc=0
 out="$(bash "${scratch}/cicd/utility/docker-run.bash" check 'echo inside-the-box' 2>&1)" || rc=$?
-if [[ "$out" == *"inside-the-box"* || "$rc" == 0 ]]; then
+if [[ "${out}" == *"inside-the-box"* || "${rc}" == 0 ]]; then
 	fFail "ran from another clone (exit ${rc}); said: ${out}"
-elif [[ "$out" != *"not $(realpath "$scratch")"* ]]; then
+elif [[ "${out}" != *"not $(realpath "${scratch}")"* ]]; then
 	fFail "refused without naming the clone; said: ${out}"
 fi
 

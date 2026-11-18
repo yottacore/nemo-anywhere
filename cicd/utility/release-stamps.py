@@ -22,14 +22,15 @@ import subprocess
 import sys
 import tarfile
 import zipfile
+from typing import IO
 
 
-def tar_stamps(fileobj):
+def tar_stamps(fileobj: IO[bytes]) -> set[float]:
     with tarfile.open(fileobj=fileobj, mode="r:*") as tar:
         return {member.mtime for member in tar}
 
 
-def pe_stamp(data):
+def pe_stamp(data: bytes) -> int | None:
     if data[:2] != b"MZ" or len(data) < 0x40:
         return None
     offset = struct.unpack_from("<I", data, 0x3C)[0]
@@ -38,7 +39,7 @@ def pe_stamp(data):
     return struct.unpack_from("<I", data, offset + 8)[0]
 
 
-def deb_stamps(path):
+def deb_stamps(path: str) -> set[float] | None:
     with open(path, "rb") as f:
         data = f.read()
     if data[:8] != b"!<arch>\n":
@@ -62,7 +63,7 @@ def deb_stamps(path):
     raise ValueError("no data.tar member")
 
 
-def rpm_header(data, pos):
+def rpm_header(data: bytes, pos: int) -> tuple[dict[int, tuple[int, int, int]], int]:
     if data[pos:pos + 3] != b"\x8e\xad\xe8":
         raise ValueError("bad rpm header magic")
     count, store_size = struct.unpack_from(">II", data, pos + 8)
@@ -75,7 +76,7 @@ def rpm_header(data, pos):
     return tags, store + store_size
 
 
-def rpm_stamps(path):
+def rpm_stamps(path: str) -> set[float]:
     with open(path, "rb") as f:
         data = f.read()
     if data[:4] != b"\xed\xab\xee\xdb":
@@ -83,15 +84,15 @@ def rpm_stamps(path):
     _, end = rpm_header(data, 96)
     end += -end % 8  # the signature header is padded to 8 bytes
     tags, _ = rpm_header(data, end)
-    stamps = set()
+    stamps: set[float] = set()
     for tag in (1006, 1034):  # BUILDTIME, FILEMTIMES
         if tag in tags:
             _, at, n = tags[tag]
-            stamps.update(struct.unpack_from(">%dI" % n, data, at))
+            stamps.update(struct.unpack_from(f">{n}I", data, at))
     return stamps
 
 
-def pkg_stamps(path):
+def pkg_stamps(path: str) -> set[float] | None:
     """A FreeBSD pkg is a tar, zstd by default. pkg dates its own +MANIFEST
     entries 0, so only the packed files count. Anything else called .pkg, such
     as a macOS installer, is left unchecked."""
@@ -108,8 +109,8 @@ def pkg_stamps(path):
         return None
 
 
-def zip_stamps(path, exe):
-    stamps = set()
+def zip_stamps(path: str, exe: str | None) -> set[float] | None:
+    stamps: set[float] = set()
     with zipfile.ZipFile(path) as z:
         for info in z.infolist():
             if exe and info.filename.rsplit("/", 1)[-1] == exe:
@@ -119,7 +120,7 @@ def zip_stamps(path, exe):
     return stamps or None
 
 
-def stamps_for(path, exe):
+def stamps_for(path: str, exe: str | None) -> set[float] | None:
     lower = path.lower()
     if lower.endswith((".tar.gz", ".tgz", ".tar.xz", ".tar")):
         with open(path, "rb") as f:
@@ -135,7 +136,7 @@ def stamps_for(path, exe):
     return None
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     expect = None
     exe = None
     while len(argv) >= 2 and argv[0] in ("--expect", "--exe"):
@@ -154,13 +155,13 @@ def main(argv):
             stamps = stamps_for(path, exe)
         except (OSError, ValueError, EOFError, lzma.LZMAError, tarfile.TarError,
                 zipfile.BadZipFile, struct.error, subprocess.CalledProcessError) as e:
-            print("%s: unreadable (%s)" % (name, e))
+            print(f"{name}: unreadable ({e})")
             wrong += 1
             continue
         if stamps is None:
-            print("%s: unchecked" % name)
+            print(f"{name}: unchecked")
             continue
-        print("%s: %s" % (name, " ".join(str(s) for s in sorted(stamps))))
+        print(f"{name}: {' '.join(str(s) for s in sorted(stamps))}")
         if expect is not None and stamps != {expect}:
             wrong += 1
     return 1 if wrong else 0

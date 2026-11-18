@@ -46,6 +46,10 @@ import re
 import sys
 import tempfile
 from pathlib import Path
+from typing import TypedDict
+
+Problem = tuple[int, str, str]
+Span = tuple[int, int]
 
 # The group names come from the header that declares them, so a new group is
 # covered the day it's added. Matching a pattern instead missed nemo_window_state,
@@ -54,7 +58,7 @@ GROUPS_HEADER = "libnemo-private/nemo-global-preferences.h"
 DECLARED = re.compile(r"^extern\s+NemoConfigGroup\s*\*\s*(\w+)\s*;", re.MULTILINE)
 
 
-def groups_pattern(root):
+def groups_pattern(root: Path) -> str:
     header = root / GROUPS_HEADER
     names = DECLARED.findall(header.read_text(encoding="utf-8", errors="replace")) if header.is_file() else []
     if not names:
@@ -73,7 +77,13 @@ STRING_DEFINE = re.compile(
     re.MULTILINE)
 
 
-def string_defines(text):
+class KeyContext(TypedDict):
+    keys: set[tuple[str, str]]
+    names: dict[str, str]
+    macros: dict[str, str | None]
+
+
+def string_defines(text: str) -> dict[str, str | None]:
     found = {}
     for name, value in STRING_DEFINE.findall(text):
         # A pair of values for one name can't be told apart here, so neither is used.
@@ -81,8 +91,8 @@ def string_defines(text):
     return found
 
 
-def key_context(root):
-    def read(rel):
+def key_context(root: Path) -> KeyContext:
+    def read(rel: str) -> str:
         path = root / rel
         return path.read_text(encoding="utf-8", errors="replace") if path.is_file() else ""
 
@@ -112,7 +122,7 @@ WORD = re.compile(r"\b\w+\b")
 DEFINE_LINE = re.compile(r"^[ \t]*#[ \t]*define\b")
 
 
-def unread_keys(root):
+def unread_keys(root: Path) -> list[Problem]:
     table = root / KEYS_TABLE
     text = table.read_text(encoding="utf-8", errors="replace") if table.is_file() else ""
     rows = [(line_of(text, m.start()), m.group(1), m.group(2)) for m in TABLE_ROW.finditer(text)]
@@ -139,7 +149,7 @@ def unread_keys(root):
 
 
 
-def patterns(group):
+def patterns(group: str) -> dict[str, re.Pattern[str]]:
     return {
         "connect_by_func": re.compile(
             r"g_signal_connect\w*\s*\(\s*(" + group + r")\s*,.*?G_CALLBACK\s*\(\s*(\w+)\s*\)",
@@ -157,7 +167,7 @@ def patterns(group):
     }
 
 
-def line_of(text, pos):
+def line_of(text: str, pos: int) -> int:
     return text.count("\n", 0, pos) + 1
 
 
@@ -170,8 +180,8 @@ MASKED = re.compile(
     re.DOTALL | re.MULTILINE)
 
 
-def masked(text):
-    def blank(match):
+def masked(text: str) -> str:
+    def blank(match: re.Match[str]) -> str:
         piece = match.group(0)
         if piece[0] in "\"'":
             return piece[0] + re.sub(r"[^\n]", " ", piece[1:-1]) + piece[-1]
@@ -181,7 +191,7 @@ def masked(text):
 
 # Offsets of each top-level brace block. Every connect is in a function body,
 # so the block around one is its function.
-def functions(code):
+def functions(code: str) -> list[Span]:
     spans, depth, start = [], 0, 0
     for pos, char in enumerate(code):
         if char == "{":
@@ -195,7 +205,7 @@ def functions(code):
     return spans
 
 
-def function_at(spans, pos):
+def function_at(spans: list[Span], pos: int) -> Span | None:
     for start, end in spans:
         if start <= pos <= end:
             return start, end
@@ -204,7 +214,7 @@ def function_at(spans, pos):
 
 # Arguments of the call whose "(" is at open_pos, split on top-level commas,
 # each with its runs of whitespace made one space.
-def call_args(code, open_pos):
+def call_args(code: str, open_pos: int) -> tuple[list[str] | None, int]:
     spans, close = call_arg_spans(code, open_pos)
     if spans is None:
         return None, close
@@ -212,7 +222,7 @@ def call_args(code, open_pos):
 
 
 # The same split as offsets, so an argument can be read from the unmasked text.
-def call_arg_spans(code, open_pos):
+def call_arg_spans(code: str, open_pos: int) -> tuple[list[Span] | None, int]:
     spans, depth, start = [], 0, open_pos + 1
     for pos in range(open_pos, len(code)):
         char = code[pos]
@@ -229,7 +239,7 @@ def call_arg_spans(code, open_pos):
     return None, len(code)
 
 
-def squeeze(expr):
+def squeeze(expr: str) -> str:
     return re.sub(r"\s+", "", expr)
 
 
@@ -239,14 +249,14 @@ FREED = re.compile(r"\b(g_free|g_slice_free\w*)\s*\(")
 ASSIGNED_TO = re.compile(r"((?:\w+\s*(?:->|\.)\s*)*\w+)\s*=\s*$")
 
 
-def is_file_static(code, name):
+def is_file_static(code: str, name: str) -> bool:
     decl = re.compile(r"\bstatic\b[^;{}()=]*\b" + re.escape(name) + r"\s*(?:\[[^\]]*\]\s*)?[=;]")
     spans = functions(code)
     return any(function_at(spans, m.start()) is None for m in decl.finditer(code))
 
 
 # Functions that remove every handler a struct has on a group and then free it.
-def struct_rows(code, spans, groups):
+def struct_rows(code: str, spans: list[Span], groups: str) -> set[tuple[str, str]]:
     rows = set()
     for start, end in spans:
         body = code[start:end]
@@ -264,7 +274,7 @@ def struct_rows(code, spans, groups):
     return rows
 
 
-def lifetime_problems(text, groups):
+def lifetime_problems(text: str, groups: str) -> list[Problem]:
     code = masked(text)
     spans = functions(code)
     structs = None
@@ -328,7 +338,7 @@ KEY_PIECES = re.compile(r'\s*(?:"((?:\\.|[^"\\])*)"|(\w+))')
 # The key's text, with its macros put in. None when it isn't known until run
 # time, such as a variable. A name in capitals that can't be found is reported
 # rather than skipped, so a moved header can't blind the check.
-def key_text(expr, macros):
+def key_text(expr: str, macros: dict[str, str | None]) -> tuple[str | None, str | None]:
     found, pos = [], 0
     for piece in KEY_PIECES.finditer(expr):
         if piece.start() != pos:
@@ -351,7 +361,7 @@ def key_text(expr, macros):
     return "".join(pieces), None
 
 
-def key_problems(text, groups, context):
+def key_problems(text: str, groups: str, context: KeyContext) -> list[Problem]:
     code = masked(text)
     macros = dict(context["macros"])
     macros.update((name, value) for name, value in string_defines(text).items() if value is not None)
@@ -385,7 +395,8 @@ def key_problems(text, groups, context):
     return problems
 
 
-def check_file(path, pats, groups, context=None):
+def check_file(path: Path, pats: dict[str, re.Pattern[str]], groups: str,
+               context: KeyContext | None = None) -> list[Problem]:
     text = path.read_text(encoding="utf-8", errors="replace")
     problems = []
 
@@ -720,9 +731,10 @@ view_init (void)
 SELF_TEST_UNREAD_WANT = ["in-a-comment", "in-a-test", "only-defined"]
 
 
-def self_test():
+def self_test() -> int:
     own = Path(__file__).read_text(encoding="utf-8")
-    print("[ Test %s lint-pref-handlers.py --self-test ]" % re.search(r"(?m)^# Test ID: (\S+)$", own).group(1))
+    test_id = re.search(r"(?m)^# Test ID: (\S+)$", own).group(1)
+    print(f"[ Test {test_id} lint-pref-handlers.py --self-test ]")
     failed = False
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
@@ -764,7 +776,7 @@ def self_test():
     return 0
 
 
-def main():
+def main() -> int:
     if sys.argv[1:] == ["--self-test"]:
         return self_test()
 

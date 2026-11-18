@@ -5,6 +5,8 @@
 [tool.ruff]
 line-length = 110
 indent-width = 4
+# Some of these run in the jammy build container, which has 3.10.
+target-version = "py310"
 
 # Left out, the same way the Bash check leaves source/ alone: these came with
 # the fork or are generated, so restyling them would only make comparison with
@@ -24,7 +26,10 @@ extend-exclude = [
 # PLW1514: open() with no encoding takes the locale's, which is cp1252 under
 # Windows Python, and these scripts read UTF-8. It's a preview rule, so preview
 # is on for the rules named here only.
-select = ["W191", "E101", "E7", "E9", "F", "PLW1514"]
+# ANN: every signature typed, so a wrong argument shows in the editor.
+# UP031, UP032: f-strings, not % or .format().
+# BLE001, E722: catch what can actually happen, so a real bug isn't swallowed.
+select = ["W191", "E101", "E7", "E9", "F", "PLW1514", "ANN", "UP031", "UP032", "BLE001", "E722"]
 preview = true
 explicit-preview-rules = true
 

@@ -35,13 +35,13 @@ repo="${scratch}/repo"
 mkdir -p "${repo}/cicd/utility/include"
 cp "${here}/lint-c.bash" "${repo}/cicd/utility/"
 cp "${here}/include/result-line.bash" "${here}/include/run-temp.bash" "${repo}/cicd/utility/include/"
-g(){ git -C "$repo" "$@"; }
+g(){ git -C "${repo}" "$@"; }
 g init -q -b main
 g config user.name test
 g config user.email test@example.invalid
 g config commit.gpgsign false
 
-fCommit(){ local msg="$1"; shift; for f in "$@"; do mkdir -p "${repo}/$(dirname "$f")"; echo "int x_${RANDOM};" >> "${repo}/${f}"; done; g add -A; g commit -qm "$msg"; }
+fCommit(){ local msg="$1"; shift; for f in "$@"; do mkdir -p "${repo}/$(dirname "${f}")"; echo "int x_${RANDOM};" >> "${repo}/${f}"; done; g add -A; g commit -qm "${msg}"; }
 
 ## $1 label, $2 expected list (space separated, sorted), rest passed on.
 fExpect(){
@@ -49,7 +49,7 @@ fExpect(){
 	local got
 	got="$(bash "${repo}/cicd/utility/lint-c.bash" --list-files "$@" | tr '\n' ' ')"
 	got="${got% }"
-	[[ "$got" == "$want" ]] || fFail "${label}: listed [${got}], expected [${want}]"
+	[[ "${got}" == "${want}" ]] || fFail "${label}: listed [${got}], expected [${want}]"
 }
 
 fCommit base source/a.c source/a.h source/cut-n-paste-code/egg.c

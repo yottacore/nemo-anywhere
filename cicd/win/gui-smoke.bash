@@ -36,10 +36,10 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../utility/include" && pwd)/xvfb.ba
 fEcho(){ echo "[ $* ]"; }
 
 fEcho "Compiling schemas"
-mkdir -p "$SCHEMAS"
-cp "$SYSROOT"/mingw64/share/glib-2.0/schemas/*.gschema.xml "$SCHEMAS/" 2>/dev/null || true
-cp "$SYSROOT"/mingw64/share/glib-2.0/schemas/gschema.dtd "$SCHEMAS/" 2>/dev/null || true
-glib-compile-schemas "$SCHEMAS"
+mkdir -p "${SCHEMAS}"
+cp "${SYSROOT}"/mingw64/share/glib-2.0/schemas/*.gschema.xml "${SCHEMAS}/" 2>/dev/null || true
+cp "${SYSROOT}"/mingw64/share/glib-2.0/schemas/gschema.dtd "${SCHEMAS}/" 2>/dev/null || true
+glib-compile-schemas "${SCHEMAS}"
 
 export WINEDEBUG=-all
 ## A crash would otherwise put a modal box on a display nobody is watching.
@@ -49,36 +49,36 @@ export GSETTINGS_SCHEMA_DIR="Z:\\tmp\\nemo-schemas"
 
 XVFB_PID=""
 trap '[[ -n $XVFB_PID ]] && kill "$XVFB_PID" 2>/dev/null || true' EXIT
-if ! fXvfbStart "$dispFirst" 1280x900x24 /tmp/xvfb.log; then
+if ! fXvfbStart "${dispFirst}" 1280x900x24 /tmp/xvfb.log; then
 	fEcho "FAILED: no free display from ${dispFirst} - see /tmp/xvfb.log"
 	echo "FAIL ${testId} ${BASH_SOURCE[0]##*/}"
 	exit 1
 fi
-DISP="$XVFB_DISPLAY"
-fEcho "Started Xvfb $DISP"
-export DISPLAY="$DISP"
+DISP="${XVFB_DISPLAY}"
+fEcho "Started Xvfb ${DISP}"
+export DISPLAY="${DISP}"
 
 fEcho "Launching nemo-anywhere.exe under wine"
-if [[ -n $URI ]]; then
-	wine "$BUILD/src/nemo-anywhere.exe" "$URI" >/tmp/nemo-gui.out 2>&1 &
+if [[ -n ${URI} ]]; then
+	wine "${BUILD}/src/nemo-anywhere.exe" "${URI}" >/tmp/nemo-gui.out 2>&1 &
 else
-	wine "$BUILD/src/nemo-anywhere.exe" >/tmp/nemo-gui.out 2>&1 &
+	wine "${BUILD}/src/nemo-anywhere.exe" >/tmp/nemo-gui.out 2>&1 &
 fi
 wpid=$!
-sleep "$DWELL"
+sleep "${DWELL}"
 
 ## grep -q quits at its first match, and under pipefail the list writer's
 ## SIGPIPE would read as no window, so the list is read in full first.
 windows="$(xwininfo -root -tree 2>/dev/null || true)"
 rc=0
-if grep -qiE '0x[0-9a-f]+ "(Home|File System|Trash|Network|nemo)' <<<"$windows"; then
+if grep -qiE '0x[0-9a-f]+ "(Home|File System|Trash|Network|nemo)' <<<"${windows}"; then
 	fEcho "Main window present"
-	import -window root "$SHOT" 2>/dev/null && fEcho "Screenshot -> $SHOT"
+	import -window root "${SHOT}" 2>/dev/null && fEcho "Screenshot -> ${SHOT}"
 else
 	fEcho "FAILED: no main window - see /tmp/nemo-gui.out"
 	rc=1
 fi
 
-kill "$wpid" 2>/dev/null || true
+kill "${wpid}" 2>/dev/null || true
 if ((rc == 0)); then echo "PASS ${testId} ${BASH_SOURCE[0]##*/}"; else echo "FAIL ${testId} ${BASH_SOURCE[0]##*/}"; fi
-exit "$rc"
+exit "${rc}"

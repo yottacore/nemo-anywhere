@@ -31,7 +31,7 @@ APP_SYMBOL = re.compile(r'^_?(gtk|gdk|nemo|eel|pango|cairo|atk)_')
 PREFIX_END = ('include', 'lib', 'lib64')
 
 
-def past_prefix(path):
+def past_prefix(path: str) -> str:
     parts = re.split(r'[/\\]', path)
     for i, part in enumerate(parts):
         if part in PREFIX_END:
@@ -39,7 +39,7 @@ def past_prefix(path):
     return path
 
 
-def is_outside(path):
+def is_outside(path: str) -> bool:
     return OUTSIDE.search(past_prefix(path)) is not None
 
 
@@ -60,16 +60,16 @@ SELF_CHECK = [
 ]
 
 
-def check_rule():
-    return ['the include rule says %s for %s' % ('outside' if not want else 'fine', path)
+def check_rule() -> list[str]:
+    return [f"the include rule says {'outside' if not want else 'fine'} for {path}"
             for path, want in SELF_CHECK if is_outside(path) != want]
 
 
-def inside(path, root):
+def inside(path: str, root: str) -> bool:
     return path == root or path.startswith(root + os.sep)
 
 
-def check_compiles(source_root, build_root):
+def check_compiles(source_root: str, build_root: str) -> list[str]:
     with open(os.path.join(build_root, 'compile_commands.json'), encoding='utf-8') as f:
         entries = json.load(f)
     own = [os.path.join(source_root, 'archive-core'), os.path.join(build_root, 'archive-core')]
@@ -89,7 +89,7 @@ def check_compiles(source_root, build_root):
             elif word.startswith('-isystem'):
                 path = word[8:]
             elif word.startswith('-DNEMO_') or word.startswith('-DEEL_'):
-                bad.append('%s: %s' % (entry['file'], word))
+                bad.append(f"{entry['file']}: {word}")
             if path is None:
                 continue
             full = os.path.realpath(os.path.join(entry['directory'], path))
@@ -99,25 +99,25 @@ def check_compiles(source_root, build_root):
             else:
                 wrong = is_outside(full)
             if wrong:
-                bad.append('%s: -I%s' % (entry['file'], path))
+                bad.append(f"{entry['file']}: -I{path}")
     if found == 0:
         bad.append('no archive core file in compile_commands.json')
     return bad
 
 
-def check_symbols(library, nm):
+def check_symbols(library: str, nm: str) -> list[str]:
     run = subprocess.run([nm, '-u', library], capture_output=True, text=True)
     if run.returncode != 0:
-        return ['%s -u failed: %s' % (nm, run.stderr.strip())]
+        return [f'{nm} -u failed: {run.stderr.strip()}']
     names = set()
     for line in run.stdout.splitlines():
         parts = line.split()
         if parts and APP_SYMBOL.match(parts[-1]):
             names.add(parts[-1])
-    return ['calls %s' % name for name in sorted(names)]
+    return [f'calls {name}' for name in sorted(names)]
 
 
-def main():
+def main() -> int:
     if len(sys.argv) < 4:
         print('usage: check-arc-core-build.py <source-root> <build-root> <libarc-core.a> [nm]', file=sys.stderr)
         return 2

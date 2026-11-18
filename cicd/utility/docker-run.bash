@@ -58,7 +58,7 @@ fJobs_Default
 fStepBox_MemArgs || exit 1
 vols="$(fStepBox_VolPrefix)"
 image="${NEMO_IMAGE:-}"
-[[ -n "$image" ]] || image="$(fStepBox_ImageTag nemo-build-deps "${repo}/cicd/linux/Dockerfile.dev")" \
+[[ -n "${image}" ]] || image="$(fStepBox_ImageTag nemo-build-deps "${repo}/cicd/linux/Dockerfile.dev")" \
 	|| { fEcho "FAILED: ${label}: no linux/Dockerfile.dev to build the image from" >&2; exit 1; }
 
 if [[ "${CICD_NO_CONTAINER:-}" == "1" ]]; then
@@ -69,7 +69,7 @@ fi
 ## Environmental miss: the host, when it can build the app.
 fOnHost(){
 	local missing=() tool
-	for tool in meson ninja pkg-config; do command -v "$tool" >/dev/null 2>&1 || missing+=("$tool"); done
+	for tool in meson ninja pkg-config; do command -v "${tool}" >/dev/null 2>&1 || missing+=("${tool}"); done
 	((${#missing[@]})) || pkg-config --exists gtk+-3.0 2>/dev/null || missing+=("gtk+-3.0")
 	if ((${#missing[@]})); then
 		fEcho "STOPPED: ${label}: $1, and the host has no ${missing[*]} to run it on" >&2
@@ -78,7 +78,7 @@ fOnHost(){
 	fEcho "${label}: $1, so it runs on the host" >&2
 	mkdir -p "${repo}/build/host"
 	export CICD_SRC="${repo}" CICD_BUILD_ROOT="${repo}/build/host"
-	exec nice -n 19 sh -c "ulimit -c 0; ionice -c 3 -p \$\$ 2>/dev/null; $cmd"
+	exec nice -n 19 sh -c "ulimit -c 0; ionice -c 3 -p \$\$ 2>/dev/null; ${cmd}"
 }
 
 command -v docker >/dev/null 2>&1 || fOnHost "docker not installed"
@@ -98,10 +98,10 @@ fi
 ## Built from the recipe the first time its hash is seen, on a fresh clone too.
 ## The run's docker sweep drops all but the newest 2 tags. A NEMO_IMAGE someone
 ## named and doesn't have is still an env miss.
-if ! docker image inspect "$image" >/dev/null 2>&1; then
+if ! docker image inspect "${image}" >/dev/null 2>&1; then
 	[[ -z "${NEMO_IMAGE:-}" ]] || fOnHost "image '${image}' not found"
 	fEcho "building image ${image} from linux/Dockerfile.dev (once per change to it, takes a few minutes)" >&2
-	nice -n 19 docker build --label "dev.project=${project}" --label "dev.run=${run}" -t "$image" -f "${repo}/cicd/linux/Dockerfile.dev" "${repo}/cicd/linux/" >/dev/null \
+	nice -n 19 docker build --label "dev.project=${project}" --label "dev.run=${run}" -t "${image}" -f "${repo}/cicd/linux/Dockerfile.dev" "${repo}/cicd/linux/" >/dev/null \
 		|| fOnHost "could not build image ${image}"
 fi
 
@@ -129,9 +129,9 @@ stdin=(); [[ -t 0 ]] || stdin=(-i)
 ## The memory cap is in step-box.bash. A step killed at it exits 137.
 ## The 2 --security-opt let bubblewrap make the namespaces each test's jail
 ## needs (linux/jail.bash); docker's default profiles refuse them even to root.
-exec docker run "${keep[@]}" "${stdin[@]}" --init --ulimit core=0 --shm-size=2g --cpus "${CICD_MAX_JOBS}" --cpu-shares 256 "${stepBoxMem[@]}" --name "$name" \
+exec docker run "${keep[@]}" "${stdin[@]}" --init --ulimit core=0 --shm-size=2g --cpus "${CICD_MAX_JOBS}" --cpu-shares 256 "${stepBoxMem[@]}" --name "${name}" \
 	--label "dev.project=${project}" --label "dev.run=${run}" \
 	--security-opt seccomp=unconfined --security-opt apparmor=unconfined \
 	-v "${repo}:/src" -v "${vols}-build:/build" -v "${vols}-build-fuzz:/build-fuzz" -w /src \
 	-e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-0}" -e "CICD_MAX_JOBS=${CICD_MAX_JOBS}" -e CICD_SRC=/src -e CICD_BUILD_ROOT= -e CICD_CACHE_CAP_KB \
-	"$image" nice -n 19 sh -c "ulimit -c 0; ionice -c 3 -p \$\$ 2>/dev/null; bash /src/cicd/linux/cache-cap.bash /build /build-fuzz || true; $cmd"
+	"${image}" nice -n 19 sh -c "ulimit -c 0; ionice -c 3 -p \$\$ 2>/dev/null; bash /src/cicd/linux/cache-cap.bash /build /build-fuzz || true; ${cmd}"

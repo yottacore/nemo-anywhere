@@ -27,6 +27,7 @@
 import html
 import re
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 CODE_DIRS = ("src", "libnemo-private", "eel")
@@ -61,7 +62,7 @@ MODS = {"control": "control", "ctrl": "control", "primary": "primary", "shift": 
         "alt": "alt", "mod1": "alt", "super": "super", "meta": "meta", "hyper": "hyper"}
 
 
-def strip_comments(text):
+def strip_comments(text: str) -> str:
     out = []
     i = 0
     n = len(text)
@@ -86,7 +87,7 @@ def strip_comments(text):
     return "".join(out)
 
 
-def configurations(text):
+def configurations(text: str) -> Iterator[str]:
     """The text with every #if taken as true, then as false. Line numbers kept."""
     lines = text.split("\n")
     directive = [re.match(r"\s*#\s*(\w+)\s*(.*)", line) for line in lines]
@@ -131,7 +132,7 @@ def configurations(text):
         yield "\n".join(kept)
 
 
-def split_fields(body):
+def split_fields(body: str) -> list[str]:
     fields = []
     current = ""
     depth = 0
@@ -159,7 +160,7 @@ def split_fields(body):
     return fields
 
 
-def entries(text):
+def entries(text: str) -> Iterator[tuple[int, str, str]]:
     """(line, action name, accelerator) for each table entry that sets a key."""
     for table in TABLE.finditer(text):
         i = table.end()
@@ -188,7 +189,7 @@ def entries(text):
             i += 1
 
 
-def canonical(accel, keep_control):
+def canonical(accel: str, keep_control: bool) -> str:
     mods = set()
     for mod in re.findall(r"<(\w+)>", accel):
         mod = MODS.get(mod.lower(), mod.lower())
@@ -199,7 +200,7 @@ def canonical(accel, keep_control):
     return "+".join(sorted(mods) + [key])
 
 
-def control_problem(accel):
+def control_problem(accel: str) -> str | None:
     if not re.search(r"<(control|ctrl)>", accel, re.IGNORECASE):
         return None
     if canonical(accel, keep_control=True) in CONTROL_OK:
@@ -207,8 +208,8 @@ def control_problem(accel):
     return f"{accel} is spelled Control; use <Primary>, or add it to CONTROL_OK with its reason"
 
 
-def check(root):
-    problems = []
+def check(root: Path) -> list[tuple[Path | str, int, str]]:
+    problems: list[tuple[Path | str, int, str]] = []
     owners = {}
     # Per configuration: key -> [(file, line, action name)], across every file,
     # since the view's table and the window's are merged into one window.
@@ -263,7 +264,7 @@ def check(root):
     return problems
 
 
-def main():
+def main() -> int:
     root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parents[2] / "source"
     if not root.is_dir():
         print(f"[ FAILED: {root} isn't a directory ]")

@@ -30,10 +30,10 @@ fEcho(){ echo "[ $* ]"; }
 
 ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "${root}/source/meson.build" | head -1 || true)"
 pkgFile="${1:-}"
-if [[ -z "$pkgFile" ]]; then
+if [[ -z "${pkgFile}" ]]; then
 	for pkgFile in "${root}/cicd/artifacts/release/${slug}-${ver}-bsd-"*.pkg; do break; done
 fi
-if [[ ! -f "$pkgFile" ]]; then
+if [[ ! -f "${pkgFile}" ]]; then
 	fEcho "FreeBSD package check skipped: no ${slug}-${ver}-bsd-*.pkg (run cicd/bsd/lane.bash --release first)"
 	exit 77
 fi
@@ -42,9 +42,9 @@ if ! command -v python3 >/dev/null 2>&1 || ! command -v zstd >/dev/null 2>&1; th
 	exit 77
 fi
 tarball="${pkgFile%.pkg}.tar.gz"
-[[ -f "$tarball" ]] || { fEcho "FAILED: no ${tarball##*/} beside ${pkgFile##*/}"; exit 1; }
+[[ -f "${tarball}" ]] || { fEcho "FAILED: no ${tarball##*/} beside ${pkgFile##*/}"; exit 1; }
 
-python3 -I - "$pkgFile" "$tarball" "$slug" "$ver" <<'EOF'
+python3 -I - "${pkgFile}" "${tarball}" "${slug}" "${ver}" <<'EOF'
 import io, json, subprocess, sys, tarfile
 
 pkg_path, tar_path, slug, ver = sys.argv[1:]

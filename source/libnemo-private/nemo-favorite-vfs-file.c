@@ -611,7 +611,7 @@ file_query_info (GFile               *file,
     return info;
 }
 
-GFileInfo *
+static GFileInfo *
 file_query_filesystem_info (GFile         *file,
                             const char    *attributes,
                             GCancellable  *cancellable,
@@ -673,7 +673,7 @@ file_query_filesystem_info (GFile         *file,
     return info;
 }
 
-GMount *
+static GMount *
 file_find_enclosing_mount (GFile         *file,
                            GCancellable  *cancellable,
                            GError       **error)
@@ -701,7 +701,7 @@ file_find_enclosing_mount (GFile         *file,
     return NULL;
 }
 
-GFileAttributeInfoList *
+static GFileAttributeInfoList *
 file_query_settable_attributes (GFile         *file,
                                 GCancellable  *cancellable,
                                 GError       **error)
@@ -725,7 +725,7 @@ file_query_settable_attributes (GFile         *file,
     return g_file_attribute_info_list_new ();
 }
 
-GFileAttributeInfoList *
+static GFileAttributeInfoList *
 file_query_writable_namespaces (GFile         *file,
                                 GCancellable  *cancellable,
                                 GError       **error)
@@ -886,7 +886,7 @@ set_or_update_root_metadata (const gchar        *attr_name,
     G_UNLOCK (settings);
 }
 
-gboolean
+static gboolean
 file_set_attribute (GFile                *file,
                     const gchar          *attribute,
                     GFileAttributeType    type,
@@ -901,7 +901,6 @@ file_set_attribute (GFile                *file,
     if (priv->info != NULL && priv->info->uri != NULL)
     {
         GFile *real_file;
-        gboolean ret;
         real_file = g_file_new_for_uri (priv->info->uri);
 
         ret = g_file_set_attribute (real_file,
@@ -1050,7 +1049,7 @@ file_read_fn (GFile         *file,
     return NULL;
 }
 
-GFileOutputStream *
+static GFileOutputStream *
 file_append_to (GFile             *file,
                 GFileCreateFlags   flags,
                 GCancellable      *cancellable,
@@ -1209,7 +1208,7 @@ file_trash (GFile         *file,
     return file_delete (file, cancellable, error);
 }
 
-gboolean
+static gboolean
 file_copy (GFile                  *source,
            GFile                  *destination,
            GFileCopyFlags          flags,
@@ -1309,7 +1308,7 @@ file_monitor_file (GFile              *file,
     return NULL;
 }
 
-gboolean
+static gboolean
 file_measure_disk_usage (GFile                         *file,
                          GFileMeasureFlags              flags,
                          GCancellable                  *cancellable,
@@ -1449,6 +1448,7 @@ static void nemo_favorite_vfs_file_init (G_GNUC_UNUSED NemoFavoriteVfsFile *self
 {
 }
 
+/* Returns: (transfer full): free with g_object_unref */
 GFile *_nemo_favorite_vfs_file_new_for_info (NemoFavoriteInfo *info)
 {
     NemoFavoriteVfsFile *new_file;
@@ -1524,11 +1524,6 @@ GFile *nemo_favorite_vfs_file_new_for_uri (const char *uri)
     }
 
     return G_FILE (new_file);
-}
-
-GFile *nemo_favorite_vfs_file_new (void)
-{
-    return nemo_favorite_vfs_file_new_for_uri (ROOT_URI);
 }
 
 static GFile *

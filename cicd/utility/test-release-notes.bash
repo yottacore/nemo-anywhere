@@ -30,7 +30,7 @@ source "${here}/include/run-temp.bash"
 ## Releases are cut on Linux, and a Windows box may only have the python3 stub.
 if [[ "$(uname -o 2>/dev/null)" == "Msys" ]]; then fEcho "release notes check skipped: Linux only"; exit 77; fi
 for tool in git python3; do
-	if ! command -v "$tool" >/dev/null 2>&1; then fEcho "release notes check skipped: no ${tool}"; exit 77; fi
+	if ! command -v "${tool}" >/dev/null 2>&1; then fEcho "release notes check skipped: no ${tool}"; exit 77; fi
 done
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/release-notes-check.XXXXXX")"
@@ -48,7 +48,7 @@ tag="v${ver}"
 base="https://github.com/example/nemo-anywhere/releases/download/${tag}"
 app="nemo-anywhere-${ver}"
 changelog="${scratch}/changelog.md"
-printf '# Changelog\n\n## v%s - 2026-10-04\n\n### Added\n\n- Something new.\n\n## v9.9.8 - 2026-01-01\n\n- Old.\n' "$ver" > "$changelog"
+printf '# Changelog\n\n## v%s - 2026-10-04\n\n### Added\n\n- Something new.\n\n## v9.9.8 - 2026-01-01\n\n- Old.\n' "${ver}" > "${changelog}"
 
 ## $1 output, then names as GitHub has them. name@state for one not uploaded yet.
 fAssets(){
@@ -58,12 +58,12 @@ fAssets(){
 		printf '{"assets":['
 		for n in "$@"; do
 			st=uploaded
-			if [[ "$n" == *@* ]]; then st="${n#*@}"; n="${n%@*}"; fi
-			printf '%s{"name":"%s","state":"%s","url":"%s/%s"}' "$sep" "$n" "$st" "$base" "$n"
+			if [[ "${n}" == *@* ]]; then st="${n#*@}"; n="${n%@*}"; fi
+			printf '%s{"name":"%s","state":"%s","url":"%s/%s"}' "${sep}" "${n}" "${st}" "${base}" "${n}"
 			sep=","
 		done
 		printf ']}\n'
-	} > "$out"
+	} > "${out}"
 }
 
 ## A cell of the table, by row label and column header, with GitHub's rule
@@ -79,7 +79,7 @@ fCell(){
 fWantCell(){
 	local got
 	if ! got="$(fCell "$1" "$3" "$4")"; then fFail "${2}: no ${3} / ${4} cell in: ${1}"; return 0; fi
-	if [[ "$got" == "$5" ]]; then fEcho "OK: ${2}: ${3} / ${4}"
+	if [[ "${got}" == "$5" ]]; then fEcho "OK: ${2}: ${3} / ${4}"
 	else fFail "${2}: ${3} / ${4} is '${got}', wanted '${5}'"
 	fi
 }
@@ -93,8 +93,8 @@ fWant(){
 	fi
 }
 
-fNotes(){ bash "${here}/release-notes.bash" --changelog "$changelog" "$@"; }
-fLink(){ printf '[%s](%s/%s)' "$1" "$base" "$2"; }
+fNotes(){ bash "${here}/release-notes.bash" --changelog "${changelog}" "$@"; }
+fLink(){ printf '[%s](%s/%s)' "$1" "${base}" "$2"; }
 
 ## Every name a release has.
 linuxFiles=("${app}-linux-x86_64.deb" "${app}-linux-x86_64.rpm" "${app}-linux-x86_64.tar.gz")
@@ -104,26 +104,26 @@ sums="${app}-sha256sums.txt"
 
 bsdFiles=("${app}-bsd-x86_64.pkg" "${app}-bsd-x86_64.tar.gz")
 
-fAssets "${scratch}/full.json" "${linuxFiles[@]}" "$sums" "$winZip" "$winExe" "${bsdFiles[@]}"
-notes="$(fNotes "$ver" "${scratch}/full.json")"
-fWantCell "$notes" "full set" Linux x86_64 "$(fLink tar.gz "${app}-linux-x86_64.tar.gz"), $(fLink deb "${app}-linux-x86_64.deb"), $(fLink rpm "${app}-linux-x86_64.rpm")"
-fWantCell "$notes" "full set" Windows x86_64 "$(fLink zip "$winZip"), $(fLink "portable exe" "$winExe")"
-fWantCell "$notes" "full set" FreeBSD x86_64 "$(fLink tar.gz "${app}-bsd-x86_64.tar.gz"), $(fLink pkg "${app}-bsd-x86_64.pkg")"
-fWant "$notes" "checksums under the table" "Checksums: $(fLink "$sums" "$sums")"
-fWant "$notes" "no BSD file left out of the table" '!Other files'
-[[ "$notes" == *"| Linux"*"| Windows"*"| FreeBSD"* ]] || fFail "full set: rows not in the order Linux, Windows, FreeBSD"
+fAssets "${scratch}/full.json" "${linuxFiles[@]}" "${sums}" "${winZip}" "${winExe}" "${bsdFiles[@]}"
+notes="$(fNotes "${ver}" "${scratch}/full.json")"
+fWantCell "${notes}" "full set" Linux x86_64 "$(fLink tar.gz "${app}-linux-x86_64.tar.gz"), $(fLink deb "${app}-linux-x86_64.deb"), $(fLink rpm "${app}-linux-x86_64.rpm")"
+fWantCell "${notes}" "full set" Windows x86_64 "$(fLink zip "${winZip}"), $(fLink "portable exe" "${winExe}")"
+fWantCell "${notes}" "full set" FreeBSD x86_64 "$(fLink tar.gz "${app}-bsd-x86_64.tar.gz"), $(fLink pkg "${app}-bsd-x86_64.pkg")"
+fWant "${notes}" "checksums under the table" "Checksums: $(fLink "${sums}" "${sums}")"
+fWant "${notes}" "no BSD file left out of the table" '!Other files'
+[[ "${notes}" == *"| Linux"*"| Windows"*"| FreeBSD"* ]] || fFail "full set: rows not in the order Linux, Windows, FreeBSD"
 ## Changelog, then the table, then the build number, last.
-order="$(grep -n -E '^(- Something new\.|### Downloads|---|Build [0-9a-z]+)$' <<< "$notes" | cut -d: -f2 | tr '\n' '|')"
+order="$(grep -n -E '^(- Something new\.|### Downloads|---|Build [0-9a-z]+)$' <<< "${notes}" | cut -d: -f2 | tr '\n' '|')"
 expectBuild="$(python3 "${root}/source/build-number.py")"
-if [[ "$order" == "- Something new.|### Downloads|---|Build ${expectBuild}|" ]]; then fEcho "OK: notes in order, build ${expectBuild} last"
+if [[ "${order}" == "- Something new.|### Downloads|---|Build ${expectBuild}|" ]]; then fEcho "OK: notes in order, build ${expectBuild} last"
 else fFail "notes order: ${order}"
 fi
-fWant "$notes" "older section left out" '!- Old.'
+fWant "${notes}" "older section left out" '!- Old.'
 
 if command -v pandoc >/dev/null 2>&1; then
-	html="$(pandoc -f gfm -t html <<< "$notes")"
-	tds="$(grep -o '<td' <<< "$html" | wc -l)"
-	if [[ "$(grep -c '<table>' <<< "$html")" == 1 && "$tds" == 6 && "$html" != *"| Linux"* ]]; then fEcho "OK: renders as a 3 by 2 table"
+	html="$(pandoc -f gfm -t html <<< "${notes}")"
+	tds="$(grep -o '<td' <<< "${html}" | wc -l)"
+	if [[ "$(grep -c '<table>' <<< "${html}")" == 1 && "${tds}" == 6 && "${html}" != *"| Linux"* ]]; then fEcho "OK: renders as a 3 by 2 table"
 	else fFail "pandoc doesn't read one 3 by 2 table: ${html}"
 	fi
 else
@@ -131,50 +131,50 @@ else
 fi
 
 ## A CPU built for one OS only leaves the other's cell empty.
-fAssets "${scratch}/arm.json" "${linuxFiles[@]}" "${app}-linux-arm64.tar.gz" "$sums" "$winZip"
-notes="$(fNotes "$ver" "${scratch}/arm.json")"
-fWantCell "$notes" "arm64 for Linux only" Linux arm64 "$(fLink tar.gz "${app}-linux-arm64.tar.gz")"
-fWantCell "$notes" "arm64 for Linux only" Windows arm64 ""
-fWantCell "$notes" "arm64 for Linux only" Windows x86_64 "$(fLink zip "$winZip")"
-[[ "$(grep -m1 '^| ' <<< "$notes")" == *x86_64*arm64* ]] || fFail "arm64 column comes before x86_64"
+fAssets "${scratch}/arm.json" "${linuxFiles[@]}" "${app}-linux-arm64.tar.gz" "${sums}" "${winZip}"
+notes="$(fNotes "${ver}" "${scratch}/arm.json")"
+fWantCell "${notes}" "arm64 for Linux only" Linux arm64 "$(fLink tar.gz "${app}-linux-arm64.tar.gz")"
+fWantCell "${notes}" "arm64 for Linux only" Windows arm64 ""
+fWantCell "${notes}" "arm64 for Linux only" Windows x86_64 "$(fLink zip "${winZip}")"
+[[ "$(grep -m1 '^| ' <<< "${notes}")" == *x86_64*arm64* ]] || fFail "arm64 column comes before x86_64"
 if command -v pandoc >/dev/null 2>&1; then
-	html="$(pandoc -f gfm -t html <<< "$notes")"
-	if [[ "$(grep -o '<td' <<< "$html" | wc -l)" == 6 && "$(grep -c -E '^<td[^>]*></td>$' <<< "$html" || true)" == 1 ]]; then fEcho "OK: renders with the empty cell"
+	html="$(pandoc -f gfm -t html <<< "${notes}")"
+	if [[ "$(grep -o '<td' <<< "${html}" | wc -l)" == 6 && "$(grep -c -E '^<td[^>]*></td>$' <<< "${html}" || true)" == 1 ]]; then fEcho "OK: renders with the empty cell"
 	else fFail "pandoc doesn't read a 2 by 3 table with an empty cell: ${html}"
 	fi
 fi
 
 ## The empty cell first in its row, where a shifted row would put arm64 under x86_64.
 fAssets "${scratch}/mid.json" "${app}-linux-x86_64.tar.gz" "${app}-windows-arm64.zip"
-notes="$(fNotes "$ver" "${scratch}/mid.json")"
-fWantCell "$notes" "Windows on arm64 only" Windows x86_64 ""
-fWantCell "$notes" "Windows on arm64 only" Windows arm64 "$(fLink zip "${app}-windows-arm64.zip")"
-fWantCell "$notes" "Windows on arm64 only" Linux arm64 ""
+notes="$(fNotes "${ver}" "${scratch}/mid.json")"
+fWantCell "${notes}" "Windows on arm64 only" Windows x86_64 ""
+fWantCell "${notes}" "Windows on arm64 only" Windows arm64 "$(fLink zip "${app}-windows-arm64.zip")"
+fWantCell "${notes}" "Windows on arm64 only" Linux arm64 ""
 
 ## GitHub turns a "~" into ".", so the link has to be the name it kept.
 renamed="nemo-anywhere-1.0.0.alpha.1-linux-x86_64.tar.gz"
-fAssets "${scratch}/renamed.json" "$renamed"
-notes="$(fNotes "$ver" "${scratch}/renamed.json")"
-fWantCell "$notes" "name GitHub renamed" Linux x86_64 "$(fLink tar.gz "$renamed")"
+fAssets "${scratch}/renamed.json" "${renamed}"
+notes="$(fNotes "${ver}" "${scratch}/renamed.json")"
+fWantCell "${notes}" "name GitHub renamed" Linux x86_64 "$(fLink tar.gz "${renamed}")"
 
 ## A checksum beside the exe, the old unversioned exe, and a file still
 ## uploading.
-fAssets "${scratch}/odd.json" "$winExe" "${winExe}.sha256" "nemo-anywhere.exe" "${winZip}@starter"
-notes="$(fNotes "$ver" "${scratch}/odd.json")"
-fWantCell "$notes" "odd files" Windows x86_64 "$(fLink "portable exe" "$winExe")"
-fWant "$notes" "exe checksum under the table" "Checksums: $(fLink "${winExe}.sha256" "${winExe}.sha256")"
-fWant "$notes" "unversioned exe under the table" "Other files: $(fLink nemo-anywhere.exe nemo-anywhere.exe)"
-fWant "$notes" "file still uploading left out" "!${winZip}"
+fAssets "${scratch}/odd.json" "${winExe}" "${winExe}.sha256" "nemo-anywhere.exe" "${winZip}@starter"
+notes="$(fNotes "${ver}" "${scratch}/odd.json")"
+fWantCell "${notes}" "odd files" Windows x86_64 "$(fLink "portable exe" "${winExe}")"
+fWant "${notes}" "exe checksum under the table" "Checksums: $(fLink "${winExe}.sha256" "${winExe}.sha256")"
+fWant "${notes}" "unversioned exe under the table" "Other files: $(fLink nemo-anywhere.exe nemo-anywhere.exe)"
+fWant "${notes}" "file still uploading left out" "!${winZip}"
 
 ## No files yet: no table, the rest as before.
 fAssets "${scratch}/none.json"
-notes="$(fNotes "$ver" "${scratch}/none.json")"
-fWant "$notes" "no files, no table" '!### Downloads'
-fWant "$notes" "no files, notes still there" "- Something new."
-notes="$(fNotes "$ver")"
-fWant "$notes" "no assets file, no table" '!### Downloads'
+notes="$(fNotes "${ver}" "${scratch}/none.json")"
+fWant "${notes}" "no files, no table" '!### Downloads'
+fWant "${notes}" "no files, notes still there" "- Something new."
+notes="$(fNotes "${ver}")"
+fWant "${notes}" "no assets file, no table" '!### Downloads'
 notes="$(fNotes 9.9.7 2>/dev/null)"
-fWant "$notes" "no changelog section, placeholder" "See the changelog for details."
+fWant "${notes}" "no changelog section, placeholder" "See the changelog for details."
 
 ## A stand-in gh. It keeps the release's files in assets.json, their bytes in
 ## file_<name>, its notes in body.md and as made in body-at-create.md, and
@@ -184,7 +184,7 @@ fWant "$notes" "no changelog section, placeholder" "See the changelog for detail
 ## run_hidden looks, run_states, one state per look with the last one kept,
 ## and artifact/, what it handed over.
 fakeDir="${scratch}/gh"
-mkdir -p "${scratch}/bin" "$fakeDir"
+mkdir -p "${scratch}/bin" "${fakeDir}"
 cat > "${scratch}/bin/gh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -264,25 +264,25 @@ case "${1:-} ${2:-}" in
 esac
 EOF
 chmod +x "${scratch}/bin/gh"
-export FAKE_GH="$fakeDir" FAKE_BASE="$base" PATH="${scratch}/bin:${PATH}"
+export FAKE_GH="${fakeDir}" FAKE_BASE="${base}" PATH="${scratch}/bin:${PATH}"
 
-fUpdate(){ bash "${here}/release-notes.bash" --changelog "$changelog" --update "$tag" > "${scratch}/update.out" 2>&1; }
+fUpdate(){ bash "${here}/release-notes.bash" --changelog "${changelog}" --update "${tag}" > "${scratch}/update.out" 2>&1; }
 fReset(){ fSafeRm_IfThere "${fakeDir:?}"/*; }
 
 ## A file uploaded between the read and the edit gets a second edit.
 fReset
-fAssets "${fakeDir}/assets.json" "${linuxFiles[@]}" "$sums" "$winZip"
-fAssets "${fakeDir}/after-view-1.json" "${linuxFiles[@]}" "$sums" "$winZip" "$winExe"
+fAssets "${fakeDir}/assets.json" "${linuxFiles[@]}" "${sums}" "${winZip}"
+fAssets "${fakeDir}/after-view-1.json" "${linuxFiles[@]}" "${sums}" "${winZip}" "${winExe}"
 fUpdate || fFail "upload during the edit: update failed: $(cat "${scratch}/update.out")"
-fWantCell "$(cat "${fakeDir}/body.md")" "upload during the edit" Windows x86_64 "$(fLink zip "$winZip"), $(fLink "portable exe" "$winExe")"
+fWantCell "$(cat "${fakeDir}/body.md")" "upload during the edit" Windows x86_64 "$(fLink zip "${winZip}"), $(fLink "portable exe" "${winExe}")"
 edits="$(grep -c '^release edit' "${fakeDir}/log" || true)"
-if [[ "$edits" == 2 ]]; then fEcho "OK: upload during the edit: written again"; else fFail "upload during the edit: ${edits} edit(s), wanted 2"; fi
+if [[ "${edits}" == 2 ]]; then fEcho "OK: upload during the edit: written again"; else fFail "upload during the edit: ${edits} edit(s), wanted 2"; fi
 
 ## Files that never settle give up rather than loop.
 fReset
-fAssets "${fakeDir}/assets.json" "$winZip"
+fAssets "${fakeDir}/assets.json" "${winZip}"
 for n in 1 2 3 4 5 6 7 8 9 10 11; do
-	if ((n % 2)); then fAssets "${fakeDir}/after-view-${n}.json" "$winZip" "$winExe"; else fAssets "${fakeDir}/after-view-${n}.json" "$winZip"; fi
+	if ((n % 2)); then fAssets "${fakeDir}/after-view-${n}.json" "${winZip}" "${winExe}"; else fAssets "${fakeDir}/after-view-${n}.json" "${winZip}"; fi
 done
 if fUpdate; then fFail "files never settle: update said OK"
 elif grep -q 'kept changing' "${scratch}/update.out"; then fEcho "OK: files never settle: gave up"
@@ -297,11 +297,11 @@ cp "${root}/cicd/utility/release.bash" "${root}/cicd/utility/release-stamps.py" 
 	"${root}/cicd/utility/release-notes.bash" "${root}/cicd/utility/release-table.py" "${repo}/cicd/utility/"
 cp "${root}/cicd/utility/include/source-date.bash" "${root}/cicd/utility/include/run-temp.bash" "${repo}/cicd/utility/include/"
 cp "${root}/source/build-number.py" "${repo}/source/"
-cp "$changelog" "${repo}/changelog.md"
-printf "project('nemo-anywhere', 'c', version : '%s')\n" "$ver" > "${repo}/source/meson.build"
+cp "${changelog}" "${repo}/changelog.md"
+printf "project('nemo-anywhere', 'c', version : '%s')\n" "${ver}" > "${repo}/source/meson.build"
 printf 'stand-in\n' > "${repo}/README.md"
 printf 'cicd/artifacts/\n' > "${repo}/.gitignore"
-fGit(){ git -C "$repo" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false -c tag.gpgsign=false -c core.hooksPath=/dev/null "$@"; }
+fGit(){ git -C "${repo}" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false -c tag.gpgsign=false -c core.hooksPath=/dev/null "$@"; }
 git init -q --bare "${scratch}/origin.git"
 fGit init -q -b main
 fGit remote add origin "${scratch}/origin.git"
@@ -310,11 +310,11 @@ GIT_AUTHOR_DATE="@${SOURCE_DATE_EPOCH}" GIT_COMMITTER_DATE="@${SOURCE_DATE_EPOCH
 
 ## Stand-in artifacts with HEAD's stamp, which is all release.bash checks.
 art="${repo}/cicd/artifacts/release"
-mkdir -p "$art" "${scratch}/pfx/${app}-linux-x86_64/bin"
+mkdir -p "${art}" "${scratch}/pfx/${app}-linux-x86_64/bin"
 printf 'x\n' > "${scratch}/pfx/${app}-linux-x86_64/bin/nemo-anywhere"
 tar -czf "${art}/${app}-linux-x86_64.tar.gz" -C "${scratch}/pfx" \
 	--owner=0 --group=0 --numeric-owner --sort=name --mtime="@${SOURCE_DATE_EPOCH}" "${app}-linux-x86_64"
-python3 - "${art}/${winZip}" "$SOURCE_DATE_EPOCH" <<'EOF'
+python3 - "${art}/${winZip}" "${SOURCE_DATE_EPOCH}" <<'EOF'
 import struct, sys, zipfile
 pe = bytearray(0x80)
 pe[0:2] = b"MZ"
@@ -324,7 +324,7 @@ struct.pack_into("<I", pe, 0x48, int(sys.argv[2]))
 with zipfile.ZipFile(sys.argv[1], "w") as z:
     z.writestr("nemo-anywhere-9.9.9-beta1-windows-x86_64/nemo-anywhere.exe", bytes(pe))
 EOF
-( cd "$art" && sha256sum "${app}"-* > "$sums" )
+( cd "${art}" && sha256sum "${app}"-* > "${sums}" )
 
 export RELEASE_POLL_SECS=0 RELEASE_RUN_LOOKS=3
 ## $1 states the hosted build goes through, one per look. The run isn't
@@ -339,11 +339,11 @@ fHosted(){
 }
 ## release.bash makes the tag, so a fresh cut starts without it.
 fCut(){
-	fGit tag -d "$tag" >/dev/null 2>&1 || true
-	git -C "${scratch}/origin.git" tag -d "$tag" >/dev/null 2>&1 || true
+	fGit tag -d "${tag}" >/dev/null 2>&1 || true
+	git -C "${scratch}/origin.git" tag -d "${tag}" >/dev/null 2>&1 || true
 	fCutAgain
 }
-fCutAgain(){ out="$(cd "$repo" && bash cicd/utility/release.bash --publish -y 2>&1)"; }
+fCutAgain(){ out="$(cd "${repo}" && bash cicd/utility/release.bash --publish -y 2>&1)"; }
 fNames(){ python3 -c 'import json, sys; print(" ".join(sorted(a["name"] for a in json.load(open(sys.argv[1]))["assets"])))' "${fakeDir}/assets.json"; }
 exeLine="$(printf 'exe\n' | sha256sum | cut -d' ' -f1)  ${winExe}"
 allNames="${app}-linux-x86_64.tar.gz ${sums} ${winExe} ${winZip}"
@@ -351,44 +351,44 @@ allNames="${app}-linux-x86_64.tar.gz ${sums} ${winExe} ${winZip}"
 fWantRelease(){
 	local got
 	got="$(fNames)"
-	if [[ "$got" == "$allNames" ]]; then fEcho "OK: ${1}: files"; else fFail "${1}: files are '${got}', wanted '${allNames}'"; fi
+	if [[ "${got}" == "${allNames}" ]]; then fEcho "OK: ${1}: files"; else fFail "${1}: files are '${got}', wanted '${allNames}'"; fi
 	[[ "$(grep -m1 -E '^release (create|upload|edit|delete)' "${fakeDir}/log" || true)" == "release create"* ]] \
 		|| fFail "${1}: the release was touched before it was made"
 	if grep -q -E '^release (upload|delete)' "${fakeDir}/log"; then fFail "${1}: files went up after the release was made"; else fEcho "OK: ${1}: one create"; fi
 	got="$(cat "${fakeDir}/title" 2>/dev/null || true)"
-	if [[ "$got" == "Nemo Anywhere ${ver}" ]]; then fEcho "OK: ${1}: title"; else fFail "${1}: title is '${got}'"; fi
+	if [[ "${got}" == "Nemo Anywhere ${ver}" ]]; then fEcho "OK: ${1}: title"; else fFail "${1}: title is '${got}'"; fi
 	got="$(cat "${fakeDir}/prerelease" 2>/dev/null || true)"
-	if [[ "$got" == true ]]; then fEcho "OK: ${1}: prerelease"; else fFail "${1}: prerelease is '${got}'"; fi
+	if [[ "${got}" == true ]]; then fEcho "OK: ${1}: prerelease"; else fFail "${1}: prerelease is '${got}'"; fi
 	body="$(cat "${fakeDir}/body-at-create.md" 2>/dev/null || true)"
-	fWant "$body" "${1}, notes" "- Something new."
-	fWant "$body" "${1}, checksums" "Checksums: $(fLink "$sums" "$sums")"
-	fWantCell "$body" "${1}, table as made" Windows x86_64 "$(fLink zip "$winZip"), $(fLink "portable exe" "$winExe")"
-	fWantCell "$body" "${1}, table as made" Linux x86_64 "$(fLink tar.gz "${app}-linux-x86_64.tar.gz")"
-	fWant "$body" "${1}, build line" "Build ${expectBuild}"
+	fWant "${body}" "${1}, notes" "- Something new."
+	fWant "${body}" "${1}, checksums" "Checksums: $(fLink "${sums}" "${sums}")"
+	fWantCell "${body}" "${1}, table as made" Windows x86_64 "$(fLink zip "${winZip}"), $(fLink "portable exe" "${winExe}")"
+	fWantCell "${body}" "${1}, table as made" Linux x86_64 "$(fLink tar.gz "${app}-linux-x86_64.tar.gz")"
+	fWant "${body}" "${1}, build line" "Build ${expectBuild}"
 	got="$(cat "${fakeDir}/file_${sums}" 2>/dev/null || true)"
-	fWant "$got" "${1}, exe in the sums file" "$exeLine"
-	fWant "$got" "${1}, Linux in the sums file" "  ${app}-linux-x86_64.tar.gz"
-	fWant "$got" "${1}, zip in the sums file" "  ${winZip}"
+	fWant "${got}" "${1}, exe in the sums file" "${exeLine}"
+	fWant "${got}" "${1}, Linux in the sums file" "  ${app}-linux-x86_64.tar.gz"
+	fWant "${got}" "${1}, zip in the sums file" "  ${winZip}"
 }
 
 ## gh signed in as another account: refused before the tag is made.
 login="$(sed -n 's/^RELEASE_GH_LOGIN="\(.*\)"$/\1/p' "${repo}/cicd/config.bash")"
-[[ -n "$login" ]] || fFail "no RELEASE_GH_LOGIN in config.bash"
+[[ -n "${login}" ]] || fFail "no RELEASE_GH_LOGIN in config.bash"
 fHosted "completed success"
 if FAKE_LOGIN=someone-else fCut; then fFail "other gh account: release.bash said OK"
 else
-	fWant "$out" "other gh account: refused" "signed in as 'someone-else'"
+	fWant "${out}" "other gh account: refused" "signed in as 'someone-else'"
 	if fGit rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then fFail "other gh account: the tag was made"; else fEcho "OK: other gh account: no tag"; fi
 	if grep -q -E '^(release|run) ' "${fakeDir}/log"; then fFail "other gh account: gh went on past the check"; else fEcho "OK: other gh account: nothing else asked"; fi
 fi
-export FAKE_LOGIN="$login"
+export FAKE_LOGIN="${login}"
 
 ## The hosted build is still running when the cut looks, then passes.
 fHosted "in_progress " "in_progress " "completed success"
 if fCut; then
 	fWantRelease "hosted build waited for"
 	waited="$(grep -c '^run view' "${fakeDir}/log" || true)"
-	if [[ "$waited" == 3 ]]; then fEcho "OK: hosted build waited for: until it ended"; else fFail "hosted build waited for: ${waited} look(s), wanted 3"; fi
+	if [[ "${waited}" == 3 ]]; then fEcho "OK: hosted build waited for: until it ended"; else fFail "hosted build waited for: ${waited} look(s), wanted 3"; fi
 else
 	fFail "release.bash --publish failed: ${out}"
 fi
@@ -398,11 +398,11 @@ fi
 fHosted "completed failure"
 if fCut; then fFail "hosted build failed: release.bash said OK"
 else
-	fWant "$out" "hosted build failed: says how to go on" "gh run rerun 4242"
+	fWant "${out}" "hosted build failed: says how to go on" "gh run rerun 4242"
 	if [[ -f "${fakeDir}/assets.json" ]]; then fFail "hosted build failed: a release was made"; else fEcho "OK: hosted build failed: no release"; fi
 	echo "completed success" > "${fakeDir}/run_states"
 	if fCutAgain; then
-		fWant "$out" "rerun after the hosted build passed: tag kept" "is there already on HEAD"
+		fWant "${out}" "rerun after the hosted build passed: tag kept" "is there already on HEAD"
 		fWantRelease "rerun after the hosted build passed"
 	else
 		fFail "rerun after the hosted build passed: ${out}"
@@ -412,16 +412,16 @@ fi
 ## A rerun on a different commit is still refused.
 fGit commit -q --allow-empty -m later
 if fCutAgain; then fFail "tag on another commit: release.bash said OK"
-else fWant "$out" "tag on another commit: refused" "already exists"
+else fWant "${out}" "tag on another commit: refused" "already exists"
 fi
 fGit reset -q --hard HEAD~1
 
 ## A release that is there already is never added to.
 fHosted "completed success"
-fAssets "${fakeDir}/assets.json" "$winExe"
+fAssets "${fakeDir}/assets.json" "${winExe}"
 if fCut; then fFail "release there already: release.bash said OK"
 else
-	fWant "$out" "release there already: refused" "published already"
+	fWant "${out}" "release there already: refused" "published already"
 	if grep -q -E '^release (create|upload|edit)' "${fakeDir}/log"; then fFail "release there already: it was changed"; else fEcho "OK: release there already: left alone"; fi
 fi
 
@@ -430,17 +430,17 @@ fHosted "completed success"
 printf 'x\n' > "${fakeDir}/artifact/nemo-anywhere.exe"
 if fCut; then fFail "misnamed hosted file: release.bash said OK"
 else
-	fWant "$out" "misnamed hosted file: refused" "handed over 'nemo-anywhere.exe'"
+	fWant "${out}" "misnamed hosted file: refused" "handed over 'nemo-anywhere.exe'"
 	if [[ -f "${fakeDir}/assets.json" ]]; then fFail "misnamed hosted file: a release was made"; else fEcho "OK: misnamed hosted file: no release"; fi
 fi
 
 ## A hosted build hands over files and never touches the release.
 wfFile="${root}/.github/workflows/release-win.yml"
-if grep -q -E 'gh release|contents: write' "$wfFile"; then fFail "release-win.yml still writes to the release"
+if grep -q -E 'gh release|contents: write' "${wfFile}"; then fFail "release-win.yml still writes to the release"
 else fEcho "OK: workflow leaves the release alone"
 fi
-upload="$(grep -A3 -F 'uses: actions/upload-artifact' "$wfFile" || true)"
-if grep -q -F 'name: release-files' <<< "$upload"; then fEcho "OK: workflow hands over release-files"
+upload="$(grep -A3 -F 'uses: actions/upload-artifact' "${wfFile}" || true)"
+if grep -q -F 'name: release-files' <<< "${upload}"; then fEcho "OK: workflow hands over release-files"
 else fFail "release-win.yml uploads no release-files artifact"
 fi
 if [[ " $(sed -n 's/^RELEASE_WORKFLOWS=(\(.*\))$/\1/p' "${root}/cicd/config.bash") " == *" release-win.yml "* ]]; then fEcho "OK: the cut waits for release-win.yml"

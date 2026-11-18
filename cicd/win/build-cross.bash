@@ -47,10 +47,10 @@ tmpExe=""
 trap 'rm -f "${tmpExe}"; fStepBox_Stop' EXIT
 fWinBox_Start "cross build" || exit 1
 ## Past its cap, the cache starts empty, before the build rather than during it.
-docker exec -e CICD_CACHE_CAP_KB "$CONTAINER" bash /src/cicd/linux/cache-cap.bash "$BUILD" || true
+docker exec -e CICD_CACHE_CAP_KB "${CONTAINER}" bash /src/cicd/linux/cache-cap.bash "${BUILD}" || true
 
-fSetSourceDate "$ROOT"
-fWarnIfSourceDateIsAGuess "$ROOT"
+fSetSourceDate "${ROOT}"
+fWarnIfSourceDateIsAGuess "${ROOT}"
 
 fJobs_Default
 jobs="${CICD_MAX_JOBS}"
@@ -66,39 +66,39 @@ fBuild(){
 	local log unused serial
 	log="$(mktemp)"
 
-	if ! docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" nice -n 19 sh -c "
+	if ! docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "${CONTAINER}" nice -n 19 sh -c "
 		set -e
 		ionice -c 3 -p \$\$ 2>/dev/null || true
 		bash /src/cicd/utility/meson-setup.bash ${BUILD} /src/source --cross-file ${CROSS} --buildtype=release -Dstrip=true -Db_lto=true -Db_lto_threads=4 -Dxmp=false -Dwerror=true >/dev/null
 		bash /src/cicd/utility/check-werror.bash ${BUILD}
-		ninja -C ${BUILD} -j ${jobs}" >"$log" 2>&1
+		ninja -C ${BUILD} -j ${jobs}" >"${log}" 2>&1
 	then
-		tail -40 "$log" >&2
-		rm -f "$log"
+		tail -40 "${log}" >&2
+		rm -f "${log}"
 		fDie "cross build failed"
 	fi
 
-	tail -1 "$log"
+	tail -1 "${log}"
 
-	unused="$(grep -E 'Wunused-function|Wunused-but-set-variable' "$log" || true)"
+	unused="$(grep -E 'Wunused-function|Wunused-but-set-variable' "${log}" || true)"
 	## gcc's lto-wrapper runs the LTRANS jobs by writing a makefile and calling
 	## make, so with no make on PATH it quietly falls back to one at a time -
 	## 34s against 10s on the exe link here. Same bytes either way, so this is
 	## only ever about time, but a silent fallback is how the container drifted
 	## in the first place.
-	serial="$(grep -m1 'serial compilation of' "$log" || true)"
-	rm -f "$log"
-	if [[ -n "$unused" ]]; then
-		printf '%s\n' "$unused" >&2
+	serial="$(grep -m1 'serial compilation of' "${log}" || true)"
+	rm -f "${log}"
+	if [[ -n "${unused}" ]]; then
+		printf '%s\n' "${unused}" >&2
 		fDie "cross build has unused-code warnings"
 	fi
-	if [[ -n "$serial" ]]; then
-		printf '%s\n' "$serial" >&2
+	if [[ -n "${serial}" ]]; then
+		printf '%s\n' "${serial}" >&2
 		fDie "link-time optimization is running serially - the cross-build image needs make (cicd/win/Dockerfile)"
 	fi
 }
 
-fStamp(){ fPeTimestamp <(docker exec "$CONTAINER" head -c 4096 "${BUILD}/src/nemo-anywhere.exe") ;}
+fStamp(){ fPeTimestamp <(docker exec "${CONTAINER}" head -c 4096 "${BUILD}/src/nemo-anywhere.exe") ;}
 
 ## meson's -Dstrip=true only runs on install, and this lane never installs -
 ## pack-zip.bash copies the exe straight out of the build directory. So the
@@ -106,7 +106,7 @@ fStamp(){ fPeTimestamp <(docker exec "$CONTAINER" head -c 4096 "${BUILD}/src/nem
 ## PE Time/Date field when it writes the file, and left to itself it writes the
 ## clock, which is what the whole stamp exists to avoid.
 fStrip(){
-	docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" \
+	docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "${CONTAINER}" \
 		sh -c "x86_64-w64-mingw32-strip --strip-debug ${BUILD}/src/*.exe" \
 		|| fDie "could not strip the cross-built exes"
 }
@@ -114,7 +114,7 @@ fStrip(){
 fEcho_Clean ""
 fEcho "Cross build (stamped $(date -u -d "@${SOURCE_DATE_EPOCH}" '+%Y-%m-%d %H:%M:%S UTC'))"
 ## The dir is the volume's mount, so only what's in it goes.
-((clean)) && docker exec "$CONTAINER" find "$BUILD" -xdev -mindepth 1 -delete || true
+((clean)) && docker exec "${CONTAINER}" find "${BUILD}" -xdev -mindepth 1 -delete || true
 fBuild
 
 ## The stamp is part of the output, but ninja doesn't know that, so an exe left
@@ -123,28 +123,28 @@ fBuild
 ## there, so afterwards every exe looks current and this never fires.
 if [[ "$(fStamp)" != "${SOURCE_DATE_EPOCH}" ]]; then
 	fEcho_Clean "restamping (the existing exe is from another commit)"
-	docker exec "$CONTAINER" rm -f "${BUILD}/src/nemo-anywhere.exe"
+	docker exec "${CONTAINER}" rm -f "${BUILD}/src/nemo-anywhere.exe"
 	fBuild
 fi
 
 linked="$(fStamp)"
-[[ "$linked" == "${SOURCE_DATE_EPOCH}" ]] || fDie "the linker stamped the exe ${linked:-nothing}, not ${SOURCE_DATE_EPOCH} - it is ignoring SOURCE_DATE_EPOCH"
+[[ "${linked}" == "${SOURCE_DATE_EPOCH}" ]] || fDie "the linker stamped the exe ${linked:-nothing}, not ${SOURCE_DATE_EPOCH} - it is ignoring SOURCE_DATE_EPOCH"
 
 fStrip
 
 ## Checked again, because the strip rewrites the field and this is the file the
 ## lane goes on to pack.
 pe="$(fStamp)"
-[[ "$pe" == "${SOURCE_DATE_EPOCH}" ]] || fDie "the strip left the exe stamped ${pe:-nothing}, not ${SOURCE_DATE_EPOCH} - it is ignoring SOURCE_DATE_EPOCH"
+[[ "${pe}" == "${SOURCE_DATE_EPOCH}" ]] || fDie "the strip left the exe stamped ${pe:-nothing}, not ${SOURCE_DATE_EPOCH} - it is ignoring SOURCE_DATE_EPOCH"
 fEcho_Clean "exe stamped ${pe}"
 
 ## Read the exe back rather than trusting the flags above. Copied out first
 ## because the check runs on the host and the exe is in the container.
 tmpExe="$(mktemp)"
-docker exec "$CONTAINER" cat "${BUILD}/src/nemo-anywhere.exe" > "$tmpExe"
-bash "${ROOT}/cicd/utility/check-win-build-flags.bash" --shipped "$tmpExe" || fDie "the cross build isn't a stripped release build"
+docker exec "${CONTAINER}" cat "${BUILD}/src/nemo-anywhere.exe" > "${tmpExe}"
+bash "${ROOT}/cicd/utility/check-win-build-flags.bash" --shipped "${tmpExe}" || fDie "the cross build isn't a stripped release build"
 mkdir -p "${ROOT}/cicd/artifacts/cross"
-cp "$tmpExe" "${ROOT}/cicd/artifacts/cross/nemo-anywhere.exe"
+cp "${tmpExe}" "${ROOT}/cicd/artifacts/cross/nemo-anywhere.exe"
 fEcho_Clean ""
 
 

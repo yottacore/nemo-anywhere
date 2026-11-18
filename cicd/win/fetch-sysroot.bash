@@ -54,9 +54,9 @@ fEcho "Fetching ${#files[@]} pinned packages"
 ## These libraries go out in the release, so none is unpacked unverified.
 (cd "${work}" && sha256sum --quiet --strict -c sums) || fDie "checksum mismatch"
 
-mkdir -p "$SYSROOT"
+mkdir -p "${SYSROOT}"
 for file in "${files[@]}"; do
-	tar --zstd -xf "${work}/${file}" -C "$SYSROOT" \
+	tar --zstd -xf "${work}/${file}" -C "${SYSROOT}" \
 		--exclude='.PKGINFO' --exclude='.BUILDINFO' --exclude='.MTREE' --exclude='.INSTALL'
 done
 
@@ -71,20 +71,20 @@ done
 #	has the same rules for the bundles; this script runs alone in the image build.
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
-thumbDir="$SYSROOT/mingw64/share/thumbnailers"
-if [[ -d "$thumbDir" ]]; then
+thumbDir="${SYSROOT}/mingw64/share/thumbnailers"
+if [[ -d "${thumbDir}" ]]; then
 	## nullglob-safe: an unmatched glob would hand sed the literal pattern and
 	## abort the whole sysroot build after every package had already downloaded.
 	shopt -s nullglob
-	thumbFiles=( "$thumbDir"/*.thumbnailer )
+	thumbFiles=( "${thumbDir}"/*.thumbnailer )
 	shopt -u nullglob
 	if ((${#thumbFiles[@]})); then
 		fEcho "Normalizing thumbnailer exec paths"
 		sed -i 's#/mingw64/bin/##g' "${thumbFiles[@]}"
 		for t in "${thumbFiles[@]}"; do
-			if grep -q -E '^(TryExec|Exec)=(gdk-pixbuf|gsf-office)-thumbnailer([[:space:]]|$)' "$t"; then
+			if grep -q -E '^(TryExec|Exec)=(gdk-pixbuf|gsf-office)-thumbnailer([[:space:]]|$)' "${t}"; then
 				fEcho "Leaving out ${t##*/}"
-				rm -f "$t"
+				rm -f "${t}"
 			fi
 		done
 	fi
@@ -98,23 +98,23 @@ fi
 #	the mingw64 prefix (relative), so the cache resolves wherever the tree sits.
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
-pixLoaders="$SYSROOT/mingw64/lib/gdk-pixbuf-2.0/2.10.0"
-queryLoaders="$SYSROOT/mingw64/bin/gdk-pixbuf-query-loaders.exe"
-if [[ -f "$queryLoaders" ]]; then
+pixLoaders="${SYSROOT}/mingw64/lib/gdk-pixbuf-2.0/2.10.0"
+queryLoaders="${SYSROOT}/mingw64/bin/gdk-pixbuf-query-loaders.exe"
+if [[ -f "${queryLoaders}" ]]; then
 	fEcho "Building gdk-pixbuf loaders.cache"
 	binWin="Z:${SYSROOT//\//\\}\\mingw64\\bin"
 	## Write to a temp and only move it into place once it looks right. The
 	## redirection truncates its target before wine even starts, so on failure
 	## this used to leave a zero-byte cache - worse than none, because
 	## gdk-pixbuf then finds no loaders at all instead of falling back.
-	cacheTmp="$pixLoaders/loaders.cache.new"
-	if WINEDEBUG=-all WINEPATH="$binWin" wine "$queryLoaders" > "$cacheTmp" 2>/dev/null \
-	   && grep -q pixbufloader_svg "$cacheTmp"; then
-		mv -f "$cacheTmp" "$pixLoaders/loaders.cache"
+	cacheTmp="${pixLoaders}/loaders.cache.new"
+	if WINEDEBUG=-all WINEPATH="${binWin}" wine "${queryLoaders}" > "${cacheTmp}" 2>/dev/null \
+	   && grep -q pixbufloader_svg "${cacheTmp}"; then
+		mv -f "${cacheTmp}" "${pixLoaders}/loaders.cache"
 	else
-		rm -f "$cacheTmp"
+		rm -f "${cacheTmp}"
 		fEcho "warn: loaders.cache generation failed - SVG/symbolic icons may not render"
 	fi
 fi
 
-fEcho "Sysroot ready: $SYSROOT ($(du -sh "$SYSROOT" | cut -f1))"
+fEcho "Sysroot ready: ${SYSROOT} ($(du -sh "${SYSROOT}" | cut -f1))"

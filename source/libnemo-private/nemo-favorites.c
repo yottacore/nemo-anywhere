@@ -982,7 +982,7 @@ typedef struct {
     const gchar **mimetypes;
 } MatchData;
 
-void
+static void
 match_mimetypes (G_GNUC_UNUSED gpointer key,
                  gpointer value,
                  gpointer user_data)

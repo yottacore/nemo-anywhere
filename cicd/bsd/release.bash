@@ -61,11 +61,11 @@ esac
 export SOURCE_DATE_EPOCH
 fJobs_Default
 jobs="${CICD_MAX_JOBS}"
-[[ "$jobs" =~ ^[1-9][0-9]*$ ]] || fDie "CICD_MAX_JOBS isn't a count: ${jobs}"
+[[ "${jobs}" =~ ^[1-9][0-9]*$ ]] || fDie "CICD_MAX_JOBS isn't a count: ${jobs}"
 
 ## No grep -P here.
 ver="$(sed -n "s/^project(.*[[:space:]]version[[:space:]]*:[[:space:]]*'\([^']*\)'.*/\1/p" "${ROOT}/source/meson.build" | head -1)"
-[[ -n "$ver" ]] || fDie "no version in source/meson.build"
+[[ -n "${ver}" ]] || fDie "no version in source/meson.build"
 arch="$(fReleaseArch "$(uname -m)")" || fDie "no release name for a $(uname -m) build"
 os="$(fReleaseOs "$(uname -s)")" || fDie "no release name for a $(uname -s) build"
 name="${SLUG}-${ver}-${os}-${arch}"
@@ -86,15 +86,15 @@ trap fCleanup EXIT
 fEcho_Clean ""
 fEcho "Building ${SLUG} ${ver} (${os}-${arch}) on $(uname -r), $(cc --version | head -1)"
 ## Only ever clear a meson build dir.
-if [[ -e "$BUILD" ]]; then
-	[[ "$BUILD" == /*/* ]] || fDie "build dir must be an absolute path below /: ${BUILD}"
+if [[ -e "${BUILD}" ]]; then
+	[[ "${BUILD}" == /*/* ]] || fDie "build dir must be an absolute path below /: ${BUILD}"
 	[[ -d "${BUILD}/meson-private" ]] || fDie "${BUILD} isn't a meson build dir; not clearing it"
-	fSafeRm_Under "${BUILD%/*}" "$BUILD"
+	fSafeRm_Under "${BUILD%/*}" "${BUILD}"
 fi
 meson setup --buildtype=release -Dstrip=true -Db_lto=true -Dextension_library=static -Dwerror=true -Drelease=true \
-	"-Dprefix=${APP_DIR}" "$BUILD" "${ROOT}/source" >/dev/null
-bash "${ROOT}/cicd/utility/check-werror.bash" "$BUILD"
-ninja -C "$BUILD" -j "$jobs" | tail -1
+	"-Dprefix=${APP_DIR}" "${BUILD}" "${ROOT}/source" >/dev/null
+bash "${ROOT}/cicd/utility/check-werror.bash" "${BUILD}"
+ninja -C "${BUILD}" -j "${jobs}" | tail -1
 
 fEcho_Clean ""
 fEcho "Smoke test"
@@ -102,18 +102,18 @@ fXvfbStart 120 1280x1024x24 "${work}/xvfb.log" || fDie "no free X display from :
 export DISPLAY="${XVFB_DISPLAY}" DBUS_SESSION_BUS_ADDRESS='disabled:'
 smoke="$("${BUILD}/src/${SLUG}" --version)"
 ## Prefix match: the build number moves on every reconfigure.
-[[ "$smoke" == "${SLUG} v${ver} build "* ]] || fDie "smoke test said '${smoke}', expected '${SLUG} v${ver} build <n>'"
-fEcho_Clean "$smoke"
+[[ "${smoke}" == "${SLUG} v${ver} build "* ]] || fDie "smoke test said '${smoke}', expected '${SLUG} v${ver} build <n>'"
+fEcho_Clean "${smoke}"
 ## A fake HOME and the delete fence; there's no jail on FreeBSD.
-meson test -C "$BUILD" --no-rebuild --wrapper "bash ${ROOT}/cicd/linux/jail.bash" "dcsvh Extension load test" >/dev/null \
+meson test -C "${BUILD}" --no-rebuild --wrapper "bash ${ROOT}/cicd/linux/jail.bash" "dcsvh Extension load test" >/dev/null \
 	|| fDie "extension load test failed; see ${BUILD}/meson-logs/testlog-bash.txt"
 kill "${XVFB_PID}" 2>/dev/null || true
 XVFB_PID=""
 
 fEcho_Clean ""
 fEcho "Staging prefix"
-bash "${ROOT}/cicd/linux/stage-prefix.bash" "$BUILD" "${work}/${SLUG}"
-mkdir -p "$OUT"
+bash "${ROOT}/cicd/linux/stage-prefix.bash" "${BUILD}" "${work}/${SLUG}"
+mkdir -p "${OUT}"
 fSafeRm_Under "${OUT}" "${OUT}/${name}" "${OUT}/${name}.pkg"
 cp -a "${work}/${SLUG}" "${OUT}/${name}"
 
@@ -126,19 +126,19 @@ fEcho "Packing ${name}.pkg"
 root="${work}/root"
 app="${root}${APP_DIR}"
 mkdir -p "${root}${PKG_PREFIX}/bin" "${root}${PKG_PREFIX}/share/applications"
-cp -a "${work}/${SLUG}" "$app"
+cp -a "${work}/${SLUG}" "${app}"
 ln -s "${APP_DIR}/bin/${SLUG}" "${root}${PKG_PREFIX}/bin/${SLUG}"
 desktop="${app}/share/applications/${SLUG}.desktop"
-[[ -f "$desktop" ]] || fDie "no menu entry at share/applications/${SLUG}.desktop in the prefix"
+[[ -f "${desktop}" ]] || fDie "no menu entry at share/applications/${SLUG}.desktop in the prefix"
 sed -e "s|^Exec=.*|Exec=${APP_DIR}/bin/${SLUG} %U|" \
     -e "s|^TryExec=.*|TryExec=${APP_DIR}/bin/${SLUG}|" \
-    -e "s|^Icon=.*|Icon=${SLUG}|" "$desktop" > "${root}${PKG_PREFIX}/share/applications/${SLUG}.desktop"
+    -e "s|^Icon=.*|Icon=${SLUG}|" "${desktop}" > "${root}${PKG_PREFIX}/share/applications/${SLUG}.desktop"
 icons=0
 for src in "${app}"/share/icons/hicolor/*/apps/"${SLUG}".*; do
-	[[ -f "$src" ]] || continue
+	[[ -f "${src}" ]] || continue
 	size="${src%/apps/*}"; size="${size##*/}"
 	mkdir -p "${root}${PKG_PREFIX}/share/icons/hicolor/${size}/apps"
-	cp -a "$src" "${root}${PKG_PREFIX}/share/icons/hicolor/${size}/apps/"
+	cp -a "${src}" "${root}${PKG_PREFIX}/share/icons/hicolor/${size}/apps/"
 	icons=$((icons + 1))
 done
 ((icons)) || fDie "no app icon in the prefix"
@@ -152,31 +152,31 @@ fSafeRm_Under "${work}" "${app}/share/icons"
 fLinkedPackages(){
 	local elf lib path owner links
 	while IFS= read -r elf; do
-		[[ "$(file -b "$elf")" == ELF* ]] || continue
-		links="$(ldd "$elf")"
+		[[ "$(file -b "${elf}")" == ELF* ]] || continue
+		links="$(ldd "${elf}")"
 		while IFS= read -r lib; do
-			path="$(LIB="$lib" awk '$1 == ENVIRON["LIB"] && $2 == "=>" && !done { print $3; done = 1 }' <<<"$links")"
-			[[ -n "$path" && "$path" != "not" ]] || fDie "$(basename "$elf") needs ${lib}, which isn't on this box"
+			path="$(LIB="${lib}" awk '$1 == ENVIRON["LIB"] && $2 == "=>" && !done { print $3; done = 1 }' <<<"${links}")"
+			[[ -n "${path}" && "${path}" != "not" ]] || fDie "$(basename "${elf}") needs ${lib}, which isn't on this box"
 			## Base libraries belong to the OS, or to FreeBSD-* packages under pkgbase.
-			[[ "$path" == "${PKG_PREFIX}"/* ]] || continue
-			owner="$(pkg which -q "$path" || true)"
-			[[ -n "$owner" ]] || fDie "no package owns ${path}, which $(basename "$elf") needs"
-			pkg query '%n|%o|%v' "$owner"
-		done < <(readelf -d "$elf" | sed -n 's/.*Shared library: \[\(.*\)\].*/\1/p')
-	done < <(find "$app" -type f -perm -u+x; find "$app" -type f -name '*.so*')
+			[[ "${path}" == "${PKG_PREFIX}"/* ]] || continue
+			owner="$(pkg which -q "${path}" || true)"
+			[[ -n "${owner}" ]] || fDie "no package owns ${path}, which $(basename "${elf}") needs"
+			pkg query '%n|%o|%v' "${owner}"
+		done < <(readelf -d "${elf}" | sed -n 's/.*Shared library: \[\(.*\)\].*/\1/p')
+	done < <(find "${app}" -type f -perm -u+x; find "${app}" -type f -name '*.so*')
 }
 deps="$(fLinkedPackages | LC_ALL=C sort -u)"
 ## Loaded by gdk-pixbuf at run time, so no binary links it.
 extra="$(pkg query '%n|%o|%v' gdk-pixbuf-extra || true)"
-[[ -n "$extra" ]] || fDie "gdk-pixbuf-extra isn't installed here, and the package depends on it"
-deps="$(printf '%s\n%s\n' "$deps" "$extra" | LC_ALL=C sort -u | sed '/^$/d')"
-grep -q '^gtk3|' <<<"$deps" || fDie "no gtk3 among the dependencies read off the binaries"
+[[ -n "${extra}" ]] || fDie "gdk-pixbuf-extra isn't installed here, and the package depends on it"
+deps="$(printf '%s\n%s\n' "${deps}" "${extra}" | LC_ALL=C sort -u | sed '/^$/d')"
+grep -q '^gtk3|' <<<"${deps}" || fDie "no gtk3 among the dependencies read off the binaries"
 
 ## UCL takes JSON, which python writes without any quoting to get wrong.
 meta="${work}/meta"
-mkdir -p "$meta"
+mkdir -p "${meta}"
 flatsize="$(find "${root}" -type f -exec stat -f %z {} + | awk '{ s += $1 } END { print s + 0 }')"
-DEPS="$deps" python3 - "$meta/+MANIFEST" "$SLUG" "$pkgVer" "$PKG_PREFIX" "$(pkg config abi)" "$flatsize" <<-'EOF'
+DEPS="${deps}" python3 - "${meta}/+MANIFEST" "${SLUG}" "${pkgVer}" "${PKG_PREFIX}" "$(pkg config abi)" "${flatsize}" <<-'EOF'
 	import json, os, sys
 	out, name, version, prefix, abi, flatsize = sys.argv[1:]
 	deps = {}
@@ -207,13 +207,13 @@ EOF
 ( cd "${root}${PKG_PREFIX}" && find . \( -type f -o -type l \) | sed 's|^\./||' | LC_ALL=C sort ) > "${work}/plist"
 
 mkdir -p "${work}/pkgout"
-pkg create -m "$meta" -r "$root" -p "${work}/plist" -o "${work}/pkgout" -t "$SOURCE_DATE_EPOCH"
+pkg create -m "${meta}" -r "${root}" -p "${work}/plist" -o "${work}/pkgout" -t "${SOURCE_DATE_EPOCH}"
 made="${work}/pkgout/${SLUG}-${pkgVer}.pkg"
-[[ -f "$made" ]] || fDie "pkg create made no ${made##*/}"
-mv "$made" "${OUT}/${name}.pkg"
+[[ -f "${made}" ]] || fDie "pkg create made no ${made##*/}"
+mv "${made}" "${OUT}/${name}.pkg"
 
-fEcho_Clean "depends on: $(cut -d'|' -f1 <<<"$deps" | tr '\n' ' ')"
-fEcho_Clean "$(cd "$OUT" && ls -l "${name}.pkg")"
+fEcho_Clean "depends on: $(cut -d'|' -f1 <<<"${deps}" | tr '\n' ' ')"
+fEcho_Clean "$(cd "${OUT}" && ls -l "${name}.pkg")"
 fEcho_Clean ""
 
 

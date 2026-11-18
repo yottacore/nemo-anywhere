@@ -36,7 +36,7 @@ fi
 
 ## A compile is a "build ...: c_COMPILER" line followed by its own ARGS line.
 lacking=()
-while IFS= read -r src; do lacking+=("$src"); done < <(awk '
+while IFS= read -r src; do lacking+=("${src}"); done < <(awk '
 	/^build .*: c_COMPILER[A-Za-z_]* / { src = $4; next }
 	/^build / { src = "" }
 	src != "" && /^ ARGS = / {

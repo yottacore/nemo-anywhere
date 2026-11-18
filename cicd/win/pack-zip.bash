@@ -52,19 +52,19 @@ command -v zip >/dev/null 2>&1 || fDie "zip isn't installed"
 work=""
 trap 'fSafeRm_IfThere "${work}"; fStepBox_Stop' EXIT
 fWinBox_Start "windows zip" || exit 1
-docker exec "$CONTAINER" test -x "${BUILD}/src/${SLUG}.exe" 2>/dev/null \
+docker exec "${CONTAINER}" test -x "${BUILD}/src/${SLUG}.exe" 2>/dev/null \
 	|| fDie "no built exe at ${BUILD}/src/${SLUG}.exe - build the Windows target first"
 
 ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "${ROOT}/source/meson.build" | head -1)"
-[[ -n "$ver" ]] || fDie "no version in source/meson.build"
+[[ -n "${ver}" ]] || fDie "no version in source/meson.build"
 
-fSetSourceDate "$ROOT"
-fWarnIfSourceDateIsAGuess "$ROOT"
+fSetSourceDate "${ROOT}"
+fWarnIfSourceDateIsAGuess "${ROOT}"
 
 ## The exe was linked by a separate, manual cross build, so it can easily predate
 ## the commit being packed. Its PE header says which commit it came from.
-pe="$(fPeTimestamp <(docker exec "$CONTAINER" head -c 4096 "${BUILD}/src/${SLUG}.exe"))"
-if [[ "$pe" != "${SOURCE_DATE_EPOCH}" ]]; then
+pe="$(fPeTimestamp <(docker exec "${CONTAINER}" head -c 4096 "${BUILD}/src/${SLUG}.exe"))"
+if [[ "${pe}" != "${SOURCE_DATE_EPOCH}" ]]; then
 	fEcho "WARNING: the built exe is stamped ${pe:-unknown}, not ${SOURCE_DATE_EPOCH} - rebuild it before packing a release"
 fi
 
@@ -82,7 +82,7 @@ fEcho "Packing ${name}.zip"
 ## between the app and the sysroot goes away.
 ## The step's container is new, and goes at exit with its /tmp, so nothing
 ## there needs clearing first or after.
-docker exec "$CONTAINER" sh -c "
+docker exec "${CONTAINER}" sh -c "
 	set -e
 	mkdir -p /tmp/${name}/lib /tmp/${name}/share
 	cd ${SYSROOT}
@@ -115,13 +115,13 @@ docker exec "$CONTAINER" sh -c "
 
 ## The same descriptors as the native bundle, from a sysroot made before
 ## fetch-sysroot.bash left the gdk-pixbuf ones out too.
-docker exec "$CONTAINER" bash -c 'source /src/cicd/utility/include/thumbnailers.bash && fStageThumbnailers "$1" "$2"' \
+docker exec "${CONTAINER}" bash -c 'source /src/cicd/utility/include/thumbnailers.bash && fStageThumbnailers "$1" "$2"' \
 	_ "${SYSROOT}/share/thumbnailers" "/tmp/${name}/share/thumbnailers" \
 	|| fDie "thumbnailer descriptors"
 
 ## GTK needs its schemas compiled; the output is architecture-independent, so the
 ## container's own tool produces a file the Windows build reads fine.
-docker exec "$CONTAINER" sh -c "
+docker exec "${CONTAINER}" sh -c "
 	[ -d /tmp/${name}/share/glib-2.0/schemas ] &&
 		glib-compile-schemas /tmp/${name}/share/glib-2.0/schemas 2>/dev/null || true
 "
@@ -144,14 +144,14 @@ cp -r "${ROOT}/cicd/win/bundle-etc/." "${work}/${name}/etc/"
 fCheckLoadersCache "${work}/${name}/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache" \
 	|| fDie "the zip would have no usable gdk-pixbuf loaders.cache - rebuild the sysroot"
 
-mkdir -p "$OUT"
+mkdir -p "${OUT}"
 rm -f "${OUT}/${name}.zip"
 ## zip is the one archiver here that ignores SOURCE_DATE_EPOCH, so the mtimes have
 ## to be set on disk first. -X drops the unix uid/gid and high-precision time extra
 ## fields, and feeding a sorted list fixes the entry order that -r would take from
 ## readdir. Note zip's own floor is 1980, so a zero epoch is clamped to it.
 find "${work}/${name}" -exec touch -h -d "@${SOURCE_DATE_EPOCH}" {} +
-( cd "$work" && find "${name}" -print | LC_ALL=C sort | zip -qX "${OUT}/${name}.zip" -@ )
+( cd "${work}" && find "${name}" -print | LC_ALL=C sort | zip -qX "${OUT}/${name}.zip" -@ )
 
 fEcho "OK: ${name}.zip ($(du -h --apparent-size "${OUT}/${name}.zip" | cut -f1))"
 fEcho_Clean "contents: $(unzip -l "${OUT}/${name}.zip" | tail -1 | awk '{print $2}') entries, exe at the folder root"

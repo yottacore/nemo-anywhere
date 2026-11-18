@@ -20,7 +20,7 @@ cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fEcho(){ echo "[ $* ]"; }
 
 if ! command -v ruff >/dev/null 2>&1; then
-	if [[ "$strict" == "1" ]]; then
+	if [[ "${strict}" == "1" ]]; then
 		fEcho "FAILED: Python lint: ruff not installed" >&2
 		exit 1
 	fi

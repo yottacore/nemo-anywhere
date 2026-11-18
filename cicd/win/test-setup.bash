@@ -30,13 +30,13 @@ ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "${root}/source/meson.
 rel="${root}/cicd/artifacts/release"
 setup="${rel}/${exeName}-${ver}-windows-x86_64-setup.exe"
 zip="${rel}/${exeName}-${ver}-windows-x86_64.zip"
-if [[ -z "$ver" || ! -f "$setup" || ! -f "$zip" ]]; then
+if [[ -z "${ver}" || ! -f "${setup}" || ! -f "${zip}" ]]; then
 	fEcho "setup check skipped: no ${setup##*/} and zip (run pack-zip.bash and pack-setup.bash first)"
 	exit 77
 fi
 
 scratch="$(mktemp -d /tmp/test_setup_XXXXXXXX)"
-export WINEPREFIX="${scratch}/wine" WINEDEBUG=-all XDG_RUNTIME_DIR="$scratch"
+export WINEPREFIX="${scratch}/wine" WINEDEBUG=-all XDG_RUNTIME_DIR="${scratch}"
 trap 'wineserver -k 2>/dev/null || true; fSafeRm_IfThere "${scratch}"' EXIT
 
 failures=0
@@ -55,10 +55,10 @@ arp='HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\nemo-anywhere'
 ## 4 spaces between name, type, and value.
 fRegGet(){
 	local key="$1" name="$2" line
-	line="$(wine reg query "$key" /v "$name" 2>/dev/null | tr -d '\r' | grep -F "    ${name}    " || true)"
-	[[ -n "$line" ]] || return 0
+	line="$(wine reg query "${key}" /v "${name}" 2>/dev/null | tr -d '\r' | grep -F "    ${name}    " || true)"
+	[[ -n "${line}" ]] || return 0
 	line="${line#    "${name}"    }"
-	printf '%s %s' "${line%%    *}" "$(if [[ "$line" == *"    "* ]]; then printf '%s' "${line#*    }"; fi)"
+	printf '%s %s' "${line%%    *}" "$(if [[ "${line}" == *"    "* ]]; then printf '%s' "${line#*    }"; fi)"
 }
 
 fSetPath(){
@@ -74,13 +74,13 @@ fRun(){
 	local rc=0
 	wine "$@" /S >/dev/null 2>&1 || rc=$?
 	wineserver -w
-	return "$rc"
+	return "${rc}"
 }
 
 fNoSiblings(){
 	local left
 	left="$(find "${prefix%/*}" -maxdepth 1 \( -name "${appName}.new.*" -o -name "${appName}.old.*" \) 2>/dev/null || true)"
-	[[ -z "$left" ]] || fFail "$1: staging left behind: ${left}"
+	[[ -z "${left}" ]] || fFail "$1: staging left behind: ${left}"
 }
 
 ## The zip's file list under its top folder, against what was installed.
@@ -89,38 +89,38 @@ fSameFiles(){
 	want="$(python3 -c 'import sys, zipfile
 for n in zipfile.ZipFile(sys.argv[1]).namelist():
 	p = n.split("/", 1)[1] if "/" in n else ""
-	if p and not p.endswith("/"): print(p)' "$zip" | LC_ALL=C sort)"
-	got="$(cd "$prefix" && find . -type f ! -path ./uninstall.exe | sed 's|^\./||' | LC_ALL=C sort)"
-	[[ "$want" == "$got" ]] || fFail "$1: installed files differ from the zip: $(diff <(echo "$want") <(echo "$got") | head -5 | tr '\n' ' ')"
+	if p and not p.endswith("/"): print(p)' "${zip}" | LC_ALL=C sort)"
+	got="$(cd "${prefix}" && find . -type f ! -path ./uninstall.exe | sed 's|^\./||' | LC_ALL=C sort)"
+	[[ "${want}" == "${got}" ]] || fFail "$1: installed files differ from the zip: $(diff <(echo "${want}") <(echo "${got}") | head -5 | tr '\n' ' ')"
 }
 
 ## $1 label, $2 the PATH to start from, or <none>. $3 the PATH the install
 ## should leave, $4 the one the uninstall should, if not $2.
 fRound(){
 	local label="$1" before="$2" after="$3" gone="${4-$2}" pass
-	if [[ "$before" == "<none>" ]]; then fSetPath; else fSetPath "$before"; fi
+	if [[ "${before}" == "<none>" ]]; then fSetPath; else fSetPath "${before}"; fi
 
 	for pass in install reinstall; do
-		[[ "$pass" == "reinstall" ]] && : >"${prefix}/stray.txt"
-		fRun "$setup" || { fFail "${label} ${pass}: setup exited non-zero"; return 0; }
+		[[ "${pass}" == "reinstall" ]] && : >"${prefix}/stray.txt"
+		fRun "${setup}" || { fFail "${label} ${pass}: setup exited non-zero"; return 0; }
 		[[ -f "${prefix}/${exeName}.exe" ]] || fFail "${label} ${pass}: no ${exeName}.exe"
 		[[ -f "${prefix}/uninstall.exe" ]] || fFail "${label} ${pass}: no uninstall.exe"
 		[[ ! -e "${prefix}/stray.txt" ]] || fFail "${label} ${pass}: the old folder wasn't replaced"
-		[[ -f "$shortcut" ]] || fFail "${label} ${pass}: no Start menu shortcut"
+		[[ -f "${shortcut}" ]] || fFail "${label} ${pass}: no Start menu shortcut"
 		[[ "$(fRegGet 'HKCU\Environment' Path)" == "REG_EXPAND_SZ ${after}" ]] \
 			|| fFail "${label} ${pass}: PATH is '$(fRegGet 'HKCU\Environment' Path)', expected '${after}'"
-		[[ "$(fRegGet "$arp" DisplayVersion)" == "REG_SZ ${ver}" ]] || fFail "${label} ${pass}: no Apps entry for ${ver}"
-		[[ "$(fRegGet "$arp" UninstallString)" == "REG_SZ \"${winPrefix}\\uninstall.exe\"" ]] \
-			|| fFail "${label} ${pass}: Apps entry points at '$(fRegGet "$arp" UninstallString)'"
+		[[ "$(fRegGet "${arp}" DisplayVersion)" == "REG_SZ ${ver}" ]] || fFail "${label} ${pass}: no Apps entry for ${ver}"
+		[[ "$(fRegGet "${arp}" UninstallString)" == "REG_SZ \"${winPrefix}\\uninstall.exe\"" ]] \
+			|| fFail "${label} ${pass}: Apps entry points at '$(fRegGet "${arp}" UninstallString)'"
 		fNoSiblings "${label} ${pass}"
 	done
-	fSameFiles "$label"
+	fSameFiles "${label}"
 
 	fRun "${prefix}/uninstall.exe" || { fFail "${label} uninstall exited non-zero"; return 0; }
-	[[ ! -e "$prefix" ]] || fFail "${label} uninstall: ${prefix} is still there"
-	[[ ! -e "$shortcut" ]] || fFail "${label} uninstall: shortcut is still there"
-	[[ -z "$(fRegGet "$arp" DisplayName)" ]] || fFail "${label} uninstall: Apps entry is still there"
-	if [[ "$before" == "<none>" ]]; then
+	[[ ! -e "${prefix}" ]] || fFail "${label} uninstall: ${prefix} is still there"
+	[[ ! -e "${shortcut}" ]] || fFail "${label} uninstall: shortcut is still there"
+	[[ -z "$(fRegGet "${arp}" DisplayName)" ]] || fFail "${label} uninstall: Apps entry is still there"
+	if [[ "${before}" == "<none>" ]]; then
 		## install.ps1 leaves an empty value too.
 		[[ "$(fRegGet 'HKCU\Environment' Path)" == "REG_EXPAND_SZ " || -z "$(fRegGet 'HKCU\Environment' Path)" ]] \
 			|| fFail "${label} uninstall: PATH is '$(fRegGet 'HKCU\Environment' Path)'"
@@ -134,12 +134,12 @@ fRound(){
 
 fEcho "Setup check against ${setup##*/}"
 
-fRound "no PATH" "<none>" "$winPrefix"
+fRound "no PATH" "<none>" "${winPrefix}"
 
 ## Empty entries, a variable, a trailing backslash on one entry and a trailing
 ## ';' on the value all have to survive both ways.
 mixed='C:\first;%USERPROFILE%\bin;;C:\Last\;'
-fRound "mixed PATH" "$mixed" "${mixed%;};${winPrefix};"
+fRound "mixed PATH" "${mixed}" "${mixed%;};${winPrefix};"
 
 ## Already there with a trailing backslash: left as is, and the uninstall
 ## takes it out as install.ps1 would.
@@ -151,14 +151,14 @@ fRound "already listed" "C:\\a;${winPrefix}\\;C:\\b" "C:\\a;${winPrefix}\\;C:\\b
 fLongPath(){
 	local want="$1" out="C:\\a;C:\\b;C:\\"
 	while ((${#out} < want)); do out+="x"; done
-	printf '%s' "$out"
+	printf '%s' "${out}"
 }
 fit="$(fLongPath $((1023 - ${#winPrefix} - 1)))"
-fRound "PATH that just fits" "$fit" "${fit};${winPrefix}"
+fRound "PATH that just fits" "${fit}" "${fit};${winPrefix}"
 over="$(fLongPath $((1023 - ${#winPrefix})))"
-fRound "PATH one over" "$over" "$over"
+fRound "PATH one over" "${over}" "${over}"
 long="$(fLongPath 1500)"
-fRound "PATH too long" "$long" "$long"
+fRound "PATH too long" "${long}" "${long}"
 
 if ((failures)); then
 	fEcho "FAILED: ${failures} setup check(s)"

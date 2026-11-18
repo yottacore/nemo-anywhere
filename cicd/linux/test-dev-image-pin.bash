@@ -24,14 +24,14 @@ dockerfile="${DEV_DOCKERFILE:-${here}/Dockerfile.dev}"
 failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
-text="$(cat "$dockerfile")"
+text="$(cat "${dockerfile}")"
 
-froms="$(grep -E '^FROM[[:space:]]' <<<"$text" || true)"
-[[ -n "$froms" ]] || fFail "no FROM line in ${dockerfile}"
+froms="$(grep -E '^FROM[[:space:]]' <<<"${text}" || true)"
+[[ -n "${froms}" ]] || fFail "no FROM line in ${dockerfile}"
 while IFS= read -r line; do
-	[[ -z "$line" ]] && continue
-	[[ "$line" =~ @sha256:[0-9a-f]{64}([[:space:]]|$) ]] || fFail "base not pinned by digest: ${line}"
-done <<<"$froms"
+	[[ -z "${line}" ]] && continue
+	[[ "${line}" =~ @sha256:[0-9a-f]{64}([[:space:]]|$) ]] || fFail "base not pinned by digest: ${line}"
+done <<<"${froms}"
 
 ## debian.sources as it comes in the trixie base image.
 stock='Types: deb
@@ -49,30 +49,30 @@ Components: main
 Signed-By: /usr/share/keyrings/debian-archive-keyring.pgp'
 
 ## Comments out, continuation lines joined, so each RUN is one line.
-joined="$(grep -v '^[[:space:]]*#' <<<"$text" | sed -e ':a' -e '/\\$/{N;s/\\\n//;ba' -e '}')"
-expr="$(grep -oE "sed -i -E '[^']+' /etc/apt/sources.list.d/debian.sources" <<<"$joined" | head -1 || true)"
-if [[ -z "$expr" ]]; then
+joined="$(grep -v '^[[:space:]]*#' <<<"${text}" | sed -e ':a' -e '/\\$/{N;s/\\\n//;ba' -e '}')"
+expr="$(grep -oE "sed -i -E '[^']+' /etc/apt/sources.list.d/debian.sources" <<<"${joined}" | head -1 || true)"
+if [[ -z "${expr}" ]]; then
 	fFail "nothing rewrites /etc/apt/sources.list.d/debian.sources"
 else
 	expr="${expr#sed -i -E \'}"; expr="${expr%\' /etc/apt/sources.list.d/debian.sources}"
-	uris="$(sed -E "$expr" <<<"$stock" | grep '^URIs:')"
+	uris="$(sed -E "${expr}" <<<"${stock}" | grep '^URIs:')"
 	## Any other source the file adds, such as the debug archive.
-	uris+=$'\n'"$(grep -oE "URIs: [^' ]+" <<<"$joined" || true)"
+	uris+=$'\n'"$(grep -oE "URIs: [^' ]+" <<<"${joined}" || true)"
 	dates=""
 	while IFS= read -r line; do
-		[[ -z "$line" ]] && continue
-		if [[ "$line" =~ ^URIs:\ http://snapshot\.debian\.org/archive/debian(-security|-debug)?/([0-9]{8}T[0-9]{6}Z)$ ]]; then
+		[[ -z "${line}" ]] && continue
+		if [[ "${line}" =~ ^URIs:\ http://snapshot\.debian\.org/archive/debian(-security|-debug)?/([0-9]{8}T[0-9]{6}Z)$ ]]; then
 			dates+="${BASH_REMATCH[2]}"$'\n'
 		else
 			fFail "source not on a dated snapshot: ${line}"
 		fi
-	done <<<"$uris"
-	[[ "$(sort -u <<<"$dates" | grep -c .)" == 1 ]] || fFail "sources don't share one snapshot: $(sort -u <<<"$dates" | grep . | tr '\n' ' ')"
+	done <<<"${uris}"
+	[[ "$(sort -u <<<"${dates}" | grep -c .)" == 1 ]] || fFail "sources don't share one snapshot: $(sort -u <<<"${dates}" | grep . | tr '\n' ' ')"
 	before="${joined%%debian.sources*}"
-	[[ "$before" != *apt-get* && "$before" != *"apt "* ]] || fFail "apt runs before the sources are moved to the snapshot"
-	grep -q 'Check-Valid-Until "false"' <<<"$joined" || fFail "apt would refuse the snapshot's expired Release files"
+	[[ "${before}" != *apt-get* && "${before}" != *"apt "* ]] || fFail "apt runs before the sources are moved to the snapshot"
+	grep -q 'Check-Valid-Until "false"' <<<"${joined}" || fFail "apt would refuse the snapshot's expired Release files"
 fi
-! grep -q 'deb\.debian\.org' <<<"$joined" || fFail "a source still reads the live archive: $(grep -o '[^ ]*deb\.debian\.org[^ ]*' <<<"$joined" | head -1)"
+! grep -q 'deb\.debian\.org' <<<"${joined}" || fFail "a source still reads the live archive: $(grep -o '[^ ]*deb\.debian\.org[^ ]*' <<<"${joined}" | head -1)"
 
 if ((failures)); then fEcho "${failures} dev image pin check(s) failed"; exit 1; fi
 fEcho "dev image pin checks passed"

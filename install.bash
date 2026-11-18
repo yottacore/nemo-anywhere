@@ -45,7 +45,7 @@ EXE_NAME="nemo-anywhere"
 ## Same format as the project's cicd output: fEcho prints a bracketed status
 ## line, fEcho_Clean a plain one and collapses repeated blanks.
 _wasLastEchoBlank=0
-fEcho_Clean(){ if [[ -n "${1:-}" ]]; then echo "$*"; _wasLastEchoBlank=0; elif [[ $_wasLastEchoBlank -eq 0 ]] && echo; then _wasLastEchoBlank=1; fi; }
+fEcho_Clean(){ if [[ -n "${1:-}" ]]; then echo "$*"; _wasLastEchoBlank=0; elif [[ ${_wasLastEchoBlank} -eq 0 ]] && echo; then _wasLastEchoBlank=1; fi; }
 fEcho(){       if [[ -n "$*" ]]; then fEcho_Clean "[ $* ]"; else fEcho_Clean ""; fi; }
 fWarn(){ fEcho_Clean "WARNING: $*" >&2; }
 fDie(){  { fEcho_Clean ""; fEcho_Clean "FAILED: $*"; fEcho_Clean ""; } >&2; exit 1; }
@@ -113,8 +113,8 @@ while (($#)); do case "$1" in
 	*) fDie "unknown option: $1 (try --help)" ;;
 esac; done
 
-[[ "$release" == "stable" || "$release" == "dev" ]] || fDie "--release must be dev or stable"
-[[ "$target"  == "user"   || "$target"  == "system" ]] || fDie "--target must be user or system"
+[[ "${release}" == "stable" || "${release}" == "dev" ]] || fDie "--release must be dev or stable"
+[[ "${target}"  == "user"   || "${target}"  == "system" ]] || fDie "--target must be user or system"
 
 
 #••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
@@ -135,8 +135,8 @@ esac
 
 ## GUI package layout: the whole prefix in one dir, started from a desktop
 ## launcher or a symlink on PATH, since a file manager gets started both ways.
-if [[ "$target" == "system" ]]; then
-	[[ "$os" == "bsd" ]] && prefix="/usr/local/${EXE_NAME}" || prefix="/opt/${EXE_NAME}"
+if [[ "${target}" == "system" ]]; then
+	[[ "${os}" == "bsd" ]] && prefix="/usr/local/${EXE_NAME}" || prefix="/opt/${EXE_NAME}"
 	appdir="/usr/local/share/applications"
 	bindir="/usr/local/bin"
 else
@@ -149,7 +149,7 @@ symlink="${bindir}/${EXE_NAME}"
 
 ## Privileged steps run through this; empty when we're already root.
 priv=""
-if [[ "$target" == "system" && "$(id -u)" != "0" ]]; then
+if [[ "${target}" == "system" && "$(id -u)" != "0" ]]; then
 	command -v sudo >/dev/null 2>&1 || fDie "--target system needs root, and sudo wasn't found - re-run as root"
 	priv="sudo"
 fi
@@ -157,11 +157,11 @@ fi
 ## A user install that can't write where it's going would otherwise fail
 ## halfway, on a bare command. Say so before asking. Renames need the parent.
 fCheckWritable(){
-	[[ -n "$priv" ]] && return 0
+	[[ -n "${priv}" ]] && return 0
 	local dir
-	for dir in "$(dirname "$realPrefix")" "$appdir" "$bindir"; do
-		while [[ ! -e "$dir" ]]; do dir="$(dirname "$dir")"; done
-		[[ -w "$dir" ]] || fDie "no write access to ${dir} - check who owns it with: ls -ld ${dir}"
+	for dir in "$(dirname "${realPrefix}")" "${appdir}" "${bindir}"; do
+		while [[ ! -e "${dir}" ]]; do dir="$(dirname "${dir}")"; done
+		[[ -w "${dir}" ]] || fDie "no write access to ${dir} - check who owns it with: ls -ld ${dir}"
 	done
 	return 0
 }
@@ -169,14 +169,14 @@ fCheckWritable(){
 ## Guard every destructive path: an empty or unexpected prefix must never reach rm -rf.
 fCheckPrefix(){
 	[[ "${prefix:0:1}" == "/" ]] || fDie "refusing to touch a non-absolute prefix: ${prefix}"
-	[[ "$(basename "$prefix")" == "$EXE_NAME" ]] || fDie "refusing to touch a prefix not named ${EXE_NAME}: ${prefix}"
+	[[ "$(basename "${prefix}")" == "${EXE_NAME}" ]] || fDie "refusing to touch a prefix not named ${EXE_NAME}: ${prefix}"
 	## A prefix that's a link, such as a folder moved to another disk and linked
 	## back, is followed. realPrefix is where it points, or empty when that's not
 	## a folder that's there.
-	realPrefix="$prefix"
-	[[ -L "$prefix" ]] || return 0
-	realPrefix="$(cd -P -- "$prefix" 2>/dev/null && pwd -P)" || { realPrefix=""; return 0; }
-	[[ "$(basename "$realPrefix")" == "$EXE_NAME" && "$realPrefix" != *$'\n'* ]] || fDie "refusing to touch a folder not named ${EXE_NAME}: ${prefix} -> ${realPrefix}"
+	realPrefix="${prefix}"
+	[[ -L "${prefix}" ]] || return 0
+	realPrefix="$(cd -P -- "${prefix}" 2>/dev/null && pwd -P)" || { realPrefix=""; return 0; }
+	[[ "$(basename "${realPrefix}")" == "${EXE_NAME}" && "${realPrefix}" != *$'\n'* ]] || fDie "refusing to touch a folder not named ${EXE_NAME}: ${prefix} -> ${realPrefix}"
 }
 
 ## rm -rf of each path strictly under <parent>, with no link between the two;
@@ -187,26 +187,26 @@ fSafeRm_Under(){ ## parent path...
 	local parent="${1:-}" p real realParent='' rc=0
 	(($#)) && shift
 	parent="${parent%/}"
-	if [[ "$parent" != /?* || "$parent" == *..* || "$parent" == *//* || "$parent" == *$'\n'* ]]; then
+	if [[ "${parent}" != /?* || "${parent}" == *..* || "${parent}" == *//* || "${parent}" == *$'\n'* ]]; then
 		fWarn "won't remove anything under \"${parent}\""; return 1
 	fi
 	for p in "$@"; do
 		p="${p%/}"
-		if [[ "$p" != "${parent}"/?* || "$p" == *..* || "$p" == *//* || "$p" == *$'\n'* ]]; then
+		if [[ "${p}" != "${parent}"/?* || "${p}" == *..* || "${p}" == *//* || "${p}" == *$'\n'* ]]; then
 			fWarn "won't remove \"${p}\", it's not under ${parent}"; rc=1; continue
 		fi
-		if [[ -L "$p" ]]; then fWarn "won't remove ${p}, it's a link"; rc=1; continue; fi
-		[[ -e "$p" ]] || continue
-		if [[ -z "$realParent" ]] && ! realParent="$(cd -P -- "$parent" 2>/dev/null && pwd -P)"; then
+		if [[ -L "${p}" ]]; then fWarn "won't remove ${p}, it's a link"; rc=1; continue; fi
+		[[ -e "${p}" ]] || continue
+		if [[ -z "${realParent}" ]] && ! realParent="$(cd -P -- "${parent}" 2>/dev/null && pwd -P)"; then
 			fWarn "won't remove anything under ${parent}, it isn't there"; return 1
 		fi
 		real="$(cd -P -- "${p%/*}" 2>/dev/null && pwd -P)/${p##*/}" || real=''
-		if [[ "$real" != "${realParent%/}${p#"${parent}"}" ]]; then
+		if [[ "${real}" != "${realParent%/}${p#"${parent}"}" ]]; then
 			fWarn "won't remove ${p}, it goes through a link"; rc=1; continue
 		fi
-		$priv rm -rf ${__rmOneFs:+"$__rmOneFs"} -- "$p" || rc=1
+		${priv} rm -rf ${__rmOneFs:+"${__rmOneFs}"} -- "${p}" || rc=1
 	done
-	return "$rc"
+	return "${rc}"
 }
 
 ## GNU rm says --one-file-system, BSD and macOS say -x, and busybox has neither.
@@ -215,17 +215,17 @@ if rm --version >/dev/null 2>&1; then __rmOneFs="--one-file-system"; elif rm -fx
 
 ## Removals beside the prefix, or beside where it points: the prefix, and the
 ## staging and backup copies.
-fRmBesidePrefix(){ fCheckPrefix; [[ -n "$realPrefix" ]] || { fWarn "won't remove anything beside ${prefix}, it's a link to nothing"; return 1; }; fSafeRm_Under "$(dirname "$realPrefix")" "$@"; }
+fRmBesidePrefix(){ fCheckPrefix; [[ -n "${realPrefix}" ]] || { fWarn "won't remove anything beside ${prefix}, it's a link to nothing"; return 1; }; fSafeRm_Under "$(dirname "${realPrefix}")" "$@"; }
 
 ## Uninstall's removal. A prefix that's a link is emptied where it points, and
 ## the link and that folder stay, as they were set up.
 fRmPrefix(){
 	local kids
 	fCheckPrefix
-	if [[ "$realPrefix" == "$prefix" ]]; then fRmBesidePrefix "$prefix"; return; fi
-	[[ -n "$realPrefix" ]] || return 0
-	shopt -s nullglob dotglob; kids=("$realPrefix"/*); shopt -u nullglob dotglob
-	((${#kids[@]} == 0)) || fSafeRm_Under "$realPrefix" "${kids[@]}"
+	if [[ "${realPrefix}" == "${prefix}" ]]; then fRmBesidePrefix "${prefix}"; return; fi
+	[[ -n "${realPrefix}" ]] || return 0
+	shopt -s nullglob dotglob; kids=("${realPrefix}"/*); shopt -u nullglob dotglob
+	((${#kids[@]} == 0)) || fSafeRm_Under "${realPrefix}" "${kids[@]}"
 }
 
 
@@ -236,7 +236,7 @@ fConfirm(){
 	((assume_yes)) && return 0
 	[[ -t 0 ]] || fDie "nothing to read a confirmation from - re-run with -y to accept the plan above"
 	local answer; read -r -p "Proceed? [y/N] " answer
-	[[ "$answer" == [yY]* ]] || { fEcho_Clean ""; fEcho "Nothing changed."; fEcho_Clean ""; exit 1; }
+	[[ "${answer}" == [yY]* ]] || { fEcho_Clean ""; fEcho "Nothing changed."; fEcho_Clean ""; exit 1; }
 }
 
 fFetch(){ ## url dest
@@ -298,10 +298,10 @@ fVersionKeys(){
 fResolveTag(){ ## releases json
 	local tags newest stable
 	tags="$(printf '%s' "$1" | fJsonValues tag_name || true)"
-	[[ -n "$tags" ]] || return 0
-	newest="$(printf '%s\n' "$tags" | fVersionKeys | LC_ALL=C sort -r | head -1 | cut -f2 || true)"
-	stable="$(printf '%s\n' "$tags" | grep -v -- '-' | fVersionKeys | LC_ALL=C sort -r | head -1 | cut -f2 || true)"
-	if [[ "$release" == "stable" && -n "$stable" ]]; then echo "$stable"; else echo "$newest"; fi
+	[[ -n "${tags}" ]] || return 0
+	newest="$(printf '%s\n' "${tags}" | fVersionKeys | LC_ALL=C sort -r | head -1 | cut -f2 || true)"
+	stable="$(printf '%s\n' "${tags}" | grep -v -- '-' | fVersionKeys | LC_ALL=C sort -r | head -1 | cut -f2 || true)"
+	if [[ "${release}" == "stable" && -n "${stable}" ]]; then echo "${stable}"; else echo "${newest}"; fi
 }
 
 ## Write the desktop launcher, preferring the one in the prefix and rewriting
@@ -313,16 +313,16 @@ fInstallLauncher(){
 		"${prefix}/share/icons/hicolor/scalable/apps/${EXE_NAME}.svg" \
 		"${prefix}/share/icons/hicolor/48x48/apps/${EXE_NAME}.png" \
 		"${prefix}/share/pixmaps/${EXE_NAME}.png"
-	do if [[ -f "$candidate" ]]; then icon="$candidate"; break; fi; done
-	[[ -n "$icon" ]] || icon="${EXE_NAME}"
+	do if [[ -f "${candidate}" ]]; then icon="${candidate}"; break; fi; done
+	[[ -n "${icon}" ]] || icon="${EXE_NAME}"
 
 	tmp="${work}/${EXE_NAME}.desktop"
-	if [[ -f "$shipped" ]]; then
+	if [[ -f "${shipped}" ]]; then
 		sed -e "s|^Exec=.*|Exec=${prefix}/bin/${EXE_NAME} %U|" \
 		    -e "s|^Icon=.*|Icon=${icon}|" \
-		    -e "s|^TryExec=.*|TryExec=${prefix}/bin/${EXE_NAME}|" "$shipped" > "$tmp"
+		    -e "s|^TryExec=.*|TryExec=${prefix}/bin/${EXE_NAME}|" "${shipped}" > "${tmp}"
 	else
-		cat > "$tmp" <<-EOF
+		cat > "${tmp}" <<-EOF
 			[Desktop Entry]
 			Type=Application
 			Name=${APP_NAME}
@@ -335,9 +335,9 @@ fInstallLauncher(){
 		EOF
 	fi
 
-	$priv mkdir -p "$appdir"
-	$priv cp "$tmp" "$launcher"
-	$priv chmod 644 "$launcher"
+	${priv} mkdir -p "${appdir}"
+	${priv} cp "${tmp}" "${launcher}"
+	${priv} chmod 644 "${launcher}"
 }
 
 
@@ -350,21 +350,21 @@ fEcho_Clean "${APP_NAME} installer"
 if ((do_uninstall)); then
 	fCheckPrefix
 	havePrefix=0
-	if [[ "$realPrefix" == "$prefix" ]]; then
-		prefixLine="$prefix"
-		if [[ -d "$prefix" ]]; then havePrefix=1; fi
+	if [[ "${realPrefix}" == "${prefix}" ]]; then
+		prefixLine="${prefix}"
+		if [[ -d "${prefix}" ]]; then havePrefix=1; fi
 	else
-		prefixLine="${prefix} -> ${realPrefix:-$(readlink "$prefix" || true)}"
-		if [[ -n "$realPrefix" && -n "$(ls -A "$realPrefix")" ]]; then havePrefix=1; prefixLine="${prefixLine}   (emptied; the link stays)"; fi
+		prefixLine="${prefix} -> ${realPrefix:-$(readlink "${prefix}" || true)}"
+		if [[ -n "${realPrefix}" && -n "$(ls -A "${realPrefix}")" ]]; then havePrefix=1; prefixLine="${prefixLine}   (emptied; the link stays)"; fi
 	fi
 	fEcho_Clean ""
 	fEcho "Uninstall plan"
-	fEcho_Clean "Prefix ....: ${prefixLine}$([[ "$havePrefix" == 1 ]] || echo '   (not present)')"
-	fEcho_Clean "Launcher ..: ${launcher}$([[ -f "$launcher" ]] || echo '   (not present)')"
-	fEcho_Clean "Symlink ...: ${symlink}$([[ -L "$symlink" ]] || echo '   (not present)')"
-	[[ -n "$priv" ]] && fEcho_Clean "Privileges : sudo (system target)" || true
+	fEcho_Clean "Prefix ....: ${prefixLine}$([[ "${havePrefix}" == 1 ]] || echo '   (not present)')"
+	fEcho_Clean "Launcher ..: ${launcher}$([[ -f "${launcher}" ]] || echo '   (not present)')"
+	fEcho_Clean "Symlink ...: ${symlink}$([[ -L "${symlink}" ]] || echo '   (not present)')"
+	[[ -n "${priv}" ]] && fEcho_Clean "Privileges : sudo (system target)" || true
 
-	if ((! havePrefix)) && [[ ! -f "$launcher" && ! -L "$symlink" ]]; then
+	if ((! havePrefix)) && [[ ! -f "${launcher}" && ! -L "${symlink}" ]]; then
 		fEcho_Clean ""
 		fEcho "Nothing installed here. Nothing to do."
 		fEcho_Clean ""
@@ -377,19 +377,19 @@ if ((do_uninstall)); then
 	fEcho_Clean ""
 	fEcho "Removing"
 	## Only unlink a symlink that points into our prefix.
-	if [[ -L "$symlink" ]]; then
-		linkdest="$(readlink "$symlink" || true)"
-		case "$linkdest" in
-			"${prefix}"/*) $priv rm -f "$symlink"; fEcho_Clean "removed ${symlink}" ;;
+	if [[ -L "${symlink}" ]]; then
+		linkdest="$(readlink "${symlink}" || true)"
+		case "${linkdest}" in
+			"${prefix}"/*) ${priv} rm -f "${symlink}"; fEcho_Clean "removed ${symlink}" ;;
 			*) fWarn "left ${symlink} alone - it points at ${linkdest}, not our prefix" ;;
 		esac
 	fi
-	if [[ -f "$launcher" ]]; then $priv rm -f  "$launcher"; fEcho_Clean "removed ${launcher}"; fi
+	if [[ -f "${launcher}" ]]; then ${priv} rm -f  "${launcher}"; fEcho_Clean "removed ${launcher}"; fi
 	if ((havePrefix)); then
 		fRmPrefix || fDie "couldn't remove ${prefix}"
-		if [[ "$realPrefix" == "$prefix" ]]; then fEcho_Clean "removed ${prefix}"; else fEcho_Clean "emptied ${realPrefix}, and left the link ${prefix}"; fi
+		if [[ "${realPrefix}" == "${prefix}" ]]; then fEcho_Clean "removed ${prefix}"; else fEcho_Clean "emptied ${realPrefix}, and left the link ${prefix}"; fi
 	fi
-	command -v update-desktop-database >/dev/null 2>&1 && $priv update-desktop-database "$appdir" 2>/dev/null || true
+	command -v update-desktop-database >/dev/null 2>&1 && ${priv} update-desktop-database "${appdir}" 2>/dev/null || true
 
 	fEcho_Clean ""
 	fEcho "Uninstalled. Settings in ~/.config/${EXE_NAME} were left in place."
@@ -410,9 +410,9 @@ fEcho_Clean ""
 fEcho "Resolving"
 
 sums_url=""
-if [[ -n "$from" ]]; then
-	download_url="$from"
-	source_desc="$from"
+if [[ -n "${from}" ]]; then
+	download_url="${from}"
+	source_desc="${from}"
 	## Display only: a conventionally named archive still tells us its version.
 	## Stop at the platform, not at the first dash: a prerelease version has its
 	## own dashes (1.0.0-beta1) and cutting there reported it as plain 1.0.0.
@@ -423,30 +423,30 @@ else
 	command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || fDie "need curl or wget to reach the releases page"
 	releases_json="$(fFetchText "https://api.github.com/repos/${REPO}/releases?per_page=100" 2>/dev/null)" \
 		|| fDie "couldn't list the releases of ${REPO} - check the connection. GitHub also limits anonymous requests to 60 an hour."
-	tag="$(fResolveTag "$releases_json")"
-	[[ -n "$tag" ]] || fDie "no release published yet for ${REPO}"
+	tag="$(fResolveTag "${releases_json}")"
+	[[ -n "${tag}" ]] || fDie "no release published yet for ${REPO}"
 	version="${tag#v}"
 	release_note=""
-	[[ "$release" == "stable" && "$version" == *-* ]] && release_note="   (no stable release yet, so the newest prerelease)"
+	[[ "${release}" == "stable" && "${version}" == *-* ]] && release_note="   (no stable release yet, so the newest prerelease)"
 	asset="${EXE_NAME}-${version}-${os}-${arch}.tar.gz"
 	sums_asset="${EXE_NAME}-${version}-sha256sums.txt"
 
 	tag_json="$(fFetchText "https://api.github.com/repos/${REPO}/releases/tags/${tag}")" \
 		|| fDie "couldn't read release ${tag} of ${REPO} from GitHub"
-	asset_urls="$(printf '%s' "$tag_json" | fJsonValues browser_download_url || true)"
-	asset_url="$(printf '%s\n' "$asset_urls" | grep -F "/${asset}" | head -1 || true)"
-	sums_url="$(printf '%s\n' "$asset_urls" | grep -F "/${sums_asset}" | head -1 || true)"
+	asset_urls="$(printf '%s' "${tag_json}" | fJsonValues browser_download_url || true)"
+	asset_url="$(printf '%s\n' "${asset_urls}" | grep -F "/${asset}" | head -1 || true)"
+	sums_url="$(printf '%s\n' "${asset_urls}" | grep -F "/${sums_asset}" | head -1 || true)"
 
-	if [[ -z "$asset_url" ]]; then
+	if [[ -z "${asset_url}" ]]; then
 		fEcho_Clean ""
 		fEcho_Clean "Release ${tag} has no build for ${os}-${arch}. It publishes:"
-		printf '%s\n' "$asset_urls" | sed 's|.*/|  |'
+		printf '%s\n' "${asset_urls}" | sed 's|.*/|  |'
 		fDie "no ${asset} in release ${tag}"
 	fi
-	download_url="$asset_url"
-	source_desc="$asset_url"
+	download_url="${asset_url}"
+	source_desc="${asset_url}"
 	release_desc="${release} ${version}"
-	if [[ -n "$sums_url" ]]; then
+	if [[ -n "${sums_url}" ]]; then
 		verify="sha256, against ${sums_asset}"
 	elif ((no_verify)); then
 		verify="UNVERIFIED - release publishes no checksums (--no-verify)"
@@ -457,7 +457,7 @@ else
 fi
 
 fCheckPrefix
-[[ -n "$realPrefix" ]] || fDie "${prefix} is a link to $(readlink "$prefix" || true), which isn't a folder that's there - mount it, or remove the link"
+[[ -n "${realPrefix}" ]] || fDie "${prefix} is a link to $(readlink "${prefix}" || true), which isn't a folder that's there - mount it, or remove the link"
 fCheckWritable
 
 fEcho_Clean ""
@@ -466,10 +466,10 @@ fEcho_Clean "Release ...: ${release_desc}${release_note:-}"
 fEcho_Clean "Platform ..: ${os}-${arch}"
 fEcho_Clean "Download ..: ${source_desc}"
 fEcho_Clean "Verify ....: ${verify}"
-fEcho_Clean "Prefix ....: ${prefix}$([[ "$realPrefix" == "$prefix" ]] || echo " -> ${realPrefix}")$([[ -n "$(ls -A "$realPrefix" 2>/dev/null)" ]] && echo '   (replaces the install already there)')"
+fEcho_Clean "Prefix ....: ${prefix}$([[ "${realPrefix}" == "${prefix}" ]] || echo " -> ${realPrefix}")$([[ -n "$(ls -A "${realPrefix}" 2>/dev/null)" ]] && echo '   (replaces the install already there)')"
 fEcho_Clean "Launcher ..: ${launcher}"
 fEcho_Clean "Symlink ...: ${symlink} -> ${prefix}/bin/${EXE_NAME}"
-[[ -n "$priv" ]] && fEcho_Clean "Privileges : sudo (system target)" || true
+[[ -n "${priv}" ]] && fEcho_Clean "Privileges : sudo (system target)" || true
 
 fEcho_Clean ""
 fConfirm
@@ -482,20 +482,20 @@ fEcho_Clean ""
 fEcho "Downloading"
 
 archive="${work}/${EXE_NAME}.tar.gz"
-if [[ -n "$from" && -f "$from" ]]; then
-	cp "$from" "$archive"
+if [[ -n "${from}" && -f "${from}" ]]; then
+	cp "${from}" "${archive}"
 	fEcho_Clean "using local archive ${from}"
 else
-	fFetch "$download_url" "$archive" || fDie "download failed: ${download_url}"
-	fEcho_Clean "got $(wc -c < "$archive" | tr -d ' ') bytes"
+	fFetch "${download_url}" "${archive}" || fDie "download failed: ${download_url}"
+	fEcho_Clean "got $(wc -c < "${archive}" | tr -d ' ') bytes"
 fi
 
-if [[ -z "$from" && -n "${sums_url}" ]]; then
-	fFetch "$sums_url" "${work}/sums.txt" || fDie "download failed: ${sums_url}"
+if [[ -z "${from}" && -n "${sums_url}" ]]; then
+	fFetch "${sums_url}" "${work}/sums.txt" || fDie "download failed: ${sums_url}"
 	expected="$(grep -E "[ *]${asset}\$" "${work}/sums.txt" | awk '{print $1}' | head -1 || true)"
-	[[ -n "$expected" ]] || fDie "${sums_asset} has no line for ${asset}"
-	actual="$(fSha256 "$archive")" || fDie "no sha256 tool found (sha256sum, shasum, or openssl)"
-	[[ "$actual" == "$expected" ]] || fDie "checksum mismatch - expected ${expected}, got ${actual}"
+	[[ -n "${expected}" ]] || fDie "${sums_asset} has no line for ${asset}"
+	actual="$(fSha256 "${archive}")" || fDie "no sha256 tool found (sha256sum, shasum, or openssl)"
+	[[ "${actual}" == "${expected}" ]] || fDie "checksum mismatch - expected ${expected}, got ${actual}"
 	fEcho_Clean "sha256 verified"
 else
 	fWarn "skipping checksum verification"
@@ -509,12 +509,12 @@ fEcho_Clean ""
 fEcho "Installing"
 
 mkdir -p "${work}/unpacked"
-tar -xzf "$archive" -C "${work}/unpacked" || fDie "couldn't unpack the archive"
+tar -xzf "${archive}" -C "${work}/unpacked" || fDie "couldn't unpack the archive"
 
 ## Archives have one top-level dir, but a flat one works too.
 tree="${work}/unpacked"
-entries="$(ls -A "$tree")"
-if [[ "$(printf '%s\n' "$entries" | wc -l | tr -d ' ')" == "1" && -d "${tree}/${entries}" ]]; then
+entries="$(ls -A "${tree}")"
+if [[ "$(printf '%s\n' "${entries}" | wc -l | tr -d ' ')" == "1" && -d "${tree}/${entries}" ]]; then
 	tree="${tree}/${entries}"
 fi
 [[ -x "${tree}/bin/${EXE_NAME}" ]] || fDie "archive has no bin/${EXE_NAME} - wrong or damaged package"
@@ -524,36 +524,36 @@ fi
 ## same-filesystem renames, which are atomic and can't fail partway. A plain
 ## cross-device "mv $tree $prefix" could die mid-copy and lose both installs.
 ## A prefix that's a link keeps it, and the swap is done where it points.
-$priv mkdir -p "$(dirname "$realPrefix")"
-staging="$(dirname "$realPrefix")/.${EXE_NAME}-install.$$"
+${priv} mkdir -p "$(dirname "${realPrefix}")"
+staging="$(dirname "${realPrefix}")/.${EXE_NAME}-install.$$"
 backup="${realPrefix}.old.$$"
-fRmBesidePrefix "$staging" "$backup" || fDie "couldn't clear an earlier staging folder"
-$priv cp -a "$tree" "$staging" || { fRmBesidePrefix "$staging" || true; fDie "couldn't stage the new install"; }
-if [[ "$target" == "system" ]]; then
+fRmBesidePrefix "${staging}" "${backup}" || fDie "couldn't clear an earlier staging folder"
+${priv} cp -a "${tree}" "${staging}" || { fRmBesidePrefix "${staging}" || true; fDie "couldn't stage the new install"; }
+if [[ "${target}" == "system" ]]; then
 	## Staged as the invoking user; a system prefix must not stay user-writable.
-	$priv chown -R 0:0 "$staging" 2>/dev/null || true
-	$priv chmod -R a+rX "$staging"
+	${priv} chown -R 0:0 "${staging}" 2>/dev/null || true
+	${priv} chmod -R a+rX "${staging}"
 fi
-if [[ -e "$realPrefix" ]]; then
-	$priv mv "$realPrefix" "$backup" || { fRmBesidePrefix "$staging" || true; fDie "couldn't move the existing install aside"; }
+if [[ -e "${realPrefix}" ]]; then
+	${priv} mv "${realPrefix}" "${backup}" || { fRmBesidePrefix "${staging}" || true; fDie "couldn't move the existing install aside"; }
 fi
-if ! $priv mv "$staging" "$realPrefix"; then
-	[[ -e "$backup" ]] && $priv mv "$backup" "$realPrefix"
-	fRmBesidePrefix "$staging" || true
+if ! ${priv} mv "${staging}" "${realPrefix}"; then
+	[[ -e "${backup}" ]] && ${priv} mv "${backup}" "${realPrefix}"
+	fRmBesidePrefix "${staging}" || true
 	fDie "couldn't move the new install into place"
 fi
-fRmBesidePrefix "$backup" || true
+fRmBesidePrefix "${backup}" || true
 fEcho_Clean "prefix installed at ${prefix}"
 
 fInstallLauncher
 fEcho_Clean "launcher installed at ${launcher}"
 
-$priv mkdir -p "$bindir"
-$priv ln -sfn "${prefix}/bin/${EXE_NAME}" "$symlink"
+${priv} mkdir -p "${bindir}"
+${priv} ln -sfn "${prefix}/bin/${EXE_NAME}" "${symlink}"
 fEcho_Clean "symlink installed at ${symlink}"
 
-command -v update-desktop-database >/dev/null 2>&1 && $priv update-desktop-database "$appdir" 2>/dev/null || true
-command -v gtk-update-icon-cache    >/dev/null 2>&1 && $priv gtk-update-icon-cache -qtf "${prefix}/share/icons/hicolor" 2>/dev/null || true
+command -v update-desktop-database >/dev/null 2>&1 && ${priv} update-desktop-database "${appdir}" 2>/dev/null || true
+command -v gtk-update-icon-cache    >/dev/null 2>&1 && ${priv} gtk-update-icon-cache -qtf "${prefix}/share/icons/hicolor" 2>/dev/null || true
 
 
 #••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••

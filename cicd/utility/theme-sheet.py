@@ -23,7 +23,7 @@ PAD = 7
 COLS = 10
 
 
-def read_icon(path, index):
+def read_icon(path: str, index: int) -> tuple[str, str]:
     """Body and viewBox of one SVG, with its ids made unique to this cell."""
     raw = open(path, encoding="utf-8", errors="replace").read()
 
@@ -37,8 +37,7 @@ def read_icon(path, index):
         # No viewBox: the drawing is in the user space width/height describe.
         width = re.search(r'\bwidth="([\d.]+)', attrs)
         height = re.search(r'\bheight="([\d.]+)', attrs)
-        view = "0 0 %s %s" % (width.group(1) if width else "48",
-                      height.group(1) if height else "48")
+        view = f"0 0 {width.group(1) if width else '48'} {height.group(1) if height else '48'}"
 
     body = re.sub(r"^\s*(?:<\?xml[^>]*\?>\s*)?<svg[^>]*>", "", raw)
     body = re.sub(r"</svg>\s*$", "", body)
@@ -47,15 +46,15 @@ def read_icon(path, index):
     # reuses the same short ones - without this, cell 20 paints with cell 3's
     # gradient.
     for gid in set(re.findall(r'id="([^"]+)"', body)):
-        unique = "%s_%d" % (gid, index)
-        body = body.replace('id="%s"' % gid, 'id="%s"' % unique)
-        body = body.replace("url(#%s)" % gid, "url(#%s)" % unique)
-        body = body.replace('href="#%s"' % gid, 'href="#%s"' % unique)
+        unique = f"{gid}_{index}"
+        body = body.replace(f'id="{gid}"', f'id="{unique}"')
+        body = body.replace(f"url(#{gid})", f"url(#{unique})")
+        body = body.replace(f'href="#{gid}"', f'href="#{unique}"')
 
     return view, body
 
 
-def build_sheet(theme_dir, names, out_svg):
+def build_sheet(theme_dir: str, names: set[str] | None, out_svg: str) -> int:
     found = []
     for base, _dirs, files in os.walk(theme_dir):
         for name in sorted(files):
@@ -75,18 +74,17 @@ def build_sheet(theme_dir, names, out_svg):
 
     parts = ['<svg xmlns="http://www.w3.org/2000/svg" '
          'xmlns:xlink="http://www.w3.org/1999/xlink" '
-         'width="%d" height="%d" viewBox="0 0 %d %d">' % (width, height, width, height)]
-    parts.append('<rect width="%d" height="%d" fill="#f2f2f2"/>' % (width, height))
+         f'width="{width}" height="{height}" viewBox="0 0 {width} {height}">']
+    parts.append(f'<rect width="{width}" height="{height}" fill="#f2f2f2"/>')
 
     for index, path in enumerate(found):
         view, body = read_icon(path, index)
         x = (index % COLS) * CELL
         y = (index // COLS) * (CELL + 15)
-        parts.append('<svg x="%d" y="%d" width="%d" height="%d" viewBox="%s">%s</svg>'
-                 % (x + PAD, y + PAD, CELL - 2 * PAD, CELL - 2 * PAD, view, body))
-        parts.append('<text x="%d" y="%d" font-family="Segoe UI,DejaVu Sans,sans-serif" '
-                 'font-size="7" fill="#333" text-anchor="middle">%s</text>'
-                 % (x + CELL // 2, y + CELL + 5, os.path.basename(path)[:-4][:24]))
+        parts.append(f'<svg x="{x + PAD}" y="{y + PAD}" width="{CELL - 2 * PAD}" height="{CELL - 2 * PAD}" '
+                 f'viewBox="{view}">{body}</svg>')
+        parts.append(f'<text x="{x + CELL // 2}" y="{y + CELL + 5}" font-family="Segoe UI,DejaVu Sans,sans-serif" '
+                 f'font-size="7" fill="#333" text-anchor="middle">{os.path.basename(path)[:-4][:24]}</text>')
 
     parts.append("</svg>")
 
@@ -96,7 +94,7 @@ def build_sheet(theme_dir, names, out_svg):
     return len(found)
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     names = None
 
@@ -132,10 +130,10 @@ def main(argv):
             subprocess.call(["rsvg-convert", "-w", "1000", out_svg, "-o", out_png])
         except OSError:
             out_png = "(no rsvg-convert)"
-        print("[ %-16s %3d icons -> %s ]" % (name, count, out_png))
+        print(f"[ {name:<16} {count:3d} icons -> {out_png} ]")
         rendered += 1
 
-    print("[ %d sheets in %s ]" % (rendered, out_dir))
+    print(f"[ {rendered} sheets in {out_dir} ]")
     return 0
 
 

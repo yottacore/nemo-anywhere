@@ -141,7 +141,7 @@ static GAsyncQueue *feeder_queue = NULL;
 static GTask *feeder_task = NULL;
 
 /* Causes the feeder_task to end. Only called when Nemo is shutting down. */
-GCancellable *cancellable = NULL;
+static GCancellable *feeder_cancellable = NULL;
 
 static NemoDesktopThumbnailFactory *thumbnail_factory = NULL;
 
@@ -582,7 +582,7 @@ save_digest_on_file (NemoThumbnailInfo *info)
     guint8 there[NEMO_CACHE_DIGEST_LEN];
 
     if (!info->save_checksum || !info->id.has_digest || info->cancelled ||
-        g_cancellable_is_cancelled (cancellable))
+        g_cancellable_is_cancelled (feeder_cancellable))
         return;
 
     file = g_file_new_for_uri (info->image_uri);
@@ -629,7 +629,7 @@ remove_from_hash_table (NemoThumbnailInfo *info)
     }
 
     follow = info->follow;
-    if (follow != NULL && g_cancellable_is_cancelled (cancellable)) {
+    if (follow != NULL && g_cancellable_is_cancelled (feeder_cancellable)) {
         /* Shutting down: the pool takes no more. */
         if (g_hash_table_lookup (thumbnails_to_make_hash, follow->image_uri) == follow) {
             g_hash_table_remove (thumbnails_to_make_hash, follow->image_uri);
@@ -686,7 +686,7 @@ thumbnail_thread (gpointer data,
     g_ptr_array_add (running_jobs, info);
     g_mutex_unlock (&thumbnails_mutex);
 
-    if (g_cancellable_is_cancelled (cancellable) || info->cancelled) {
+    if (g_cancellable_is_cancelled (feeder_cancellable) || info->cancelled) {
         DEBUG ("Skipping cancelled file: %s", info->image_uri);
         remove_from_hash_table (info);
         return;
@@ -955,7 +955,7 @@ feeder_thread (GTask        *task,
                 break;
             case THUMBNAIL_THREAD_EXIT:
                 DEBUG ("(Finalize) Received THUMBNAIL_THREAD_EXIT, cancelling");
-                g_cancellable_cancel (cancellable);
+                g_cancellable_cancel (feeder_cancellable);
 
                 /* Quitting waits for the workers, so none finishes a big file first. */
                 g_mutex_lock (&thumbnails_mutex);
@@ -1040,8 +1040,8 @@ queue_render (NemoFile *file, int size, gboolean ahead, gboolean load_only, gint
         g_thread_pool_set_sort_function ((GThreadPool *) tpool, (GCompareDataFunc) order_sorter, NULL);
 
         feeder_queue = g_async_queue_new ();
-        cancellable = g_cancellable_new ();
-        feeder_task = g_task_new (NULL, cancellable, feeder_task_complete, NULL);
+        feeder_cancellable = g_cancellable_new ();
+        feeder_task = g_task_new (NULL, feeder_cancellable, feeder_task_complete, NULL);
         g_task_run_in_thread (feeder_task, feeder_thread);
 
         eel_debug_call_at_shutdown ((EelFunction) finalize_thumbnailer);

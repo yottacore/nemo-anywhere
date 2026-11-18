@@ -41,9 +41,9 @@ log="${scratch}/calls.log"
 mkdir -p "${repo}/cicd/utility/include" "${scratch}/bin"
 cp "${root}/cicd/utility/win-dogfood.bash" "${repo}/cicd/utility/"
 cp "${root}/cicd/utility/include/box-wrap.bash" "${root}/cicd/utility/include/jobs.bash" "${repo}/cicd/utility/include/"
-git -C "$repo" -c user.name=test -c user.email=test@example.invalid init -q
-git -C "$repo" add -A
-git -C "$repo" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m base
+git -C "${repo}" -c user.name=test -c user.email=test@example.invalid init -q
+git -C "${repo}" add -A
+git -C "${repo}" -c user.name=test -c user.email=test@example.invalid -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m base
 
 ## FAKE_GONE: the hosts that never reply. FAKE_BOOTING: the first N
 ## connections time out, as on a VM still booting.
@@ -82,26 +82,26 @@ chmod +x "${scratch}/bin/"*
 ## $1 the lock tool, rest env settings.
 fDogfood(){
 	local tool="$1"; shift
-	rm -f "$log" "${scratch}/tries"; touch "$log"
+	rm -f "${log}" "${scratch}/tries"; touch "${log}"
 	## A home of its own, so the real lock tools are never found.
-	(cd "$repo" && env -u WINDOWS_HOST_LOCK "$@" HOME="${scratch}/home" PATH="${scratch}/bin:${PATH}" BOX_WRAP_TOOL="$tool" BOX_READY_POLL=0 \
+	(cd "${repo}" && env -u WINDOWS_HOST_LOCK "$@" HOME="${scratch}/home" PATH="${scratch}/bin:${PATH}" BOX_WRAP_TOOL="${tool}" BOX_READY_POLL=0 \
 		bash cicd/utility/win-dogfood.bash) > "${scratch}/out.log" 2>&1
 }
 
 if fDogfood "${scratch}/x_vm-state.bash" FAKE_VMS=vm925w; then
-	grep -q '^lock wrap b29w ' "$log" || fFail "b29w wasn't taken first: $(cat "$log")"
-	grep -q '^ssh b29w .*pwsh .*cicd-win.ps1' "$log" || fFail "the build didn't run on b29w"
-	! grep -q 'b29w-wif' "$log" "${scratch}/out.log" || fFail "b29w went by another name"
-	! grep -q 'vm925w' "$log" || fFail "vm925w was touched while b29w was there"
+	grep -q '^lock wrap b29w ' "${log}" || fFail "b29w wasn't taken first: $(cat "${log}")"
+	grep -q '^ssh b29w .*pwsh .*cicd-win.ps1' "${log}" || fFail "the build didn't run on b29w"
+	! grep -q 'b29w-wif' "${log}" "${scratch}/out.log" || fFail "b29w went by another name"
+	! grep -q 'vm925w' "${log}" || fFail "vm925w was touched while b29w was there"
 	fEcho "OK: b29w goes first, by that name"
 else
 	fFail "the refresh failed with b29w there: $(tail -3 "${scratch}/out.log")"
 fi
 
 if fDogfood "${scratch}/x_vm-state.bash" FAKE_VMS=vm925w FAKE_GONE=b29w; then
-	grep -q '^lock wrap vm925w ' "$log" || fFail "vm925w, off, wasn't taken through the VM state helper: $(cat "$log")"
-	grep -q '^ssh vm925w .*pwsh .*cicd-win.ps1' "$log" || fFail "the build didn't run on vm925w"
-	! grep -q '^lock wrap b29w' "$log" || fFail "b29w was taken while gone"
+	grep -q '^lock wrap vm925w ' "${log}" || fFail "vm925w, off, wasn't taken through the VM state helper: $(cat "${log}")"
+	grep -q '^ssh vm925w .*pwsh .*cicd-win.ps1' "${log}" || fFail "the build didn't run on vm925w"
+	! grep -q '^lock wrap b29w' "${log}" || fFail "b29w was taken while gone"
 	fEcho "OK: vm925w is started through the VM state helper"
 else
 	fFail "the refresh failed with vm925w off: $(tail -3 "${scratch}/out.log")"
@@ -110,7 +110,7 @@ fi
 ## The helper's own wait is for another user, so the refresh waits for its login.
 if fDogfood "${scratch}/x_vm-state.bash" FAKE_VMS="b29w vm925w" FAKE_BOOTING=2; then
 	grep -q 'answered after' "${scratch}/out.log" || fFail "no line saying the box was waited for"
-	grep -q '^ssh b29w .*pwsh' "$log" || fFail "the build didn't run once the box answered"
+	grep -q '^ssh b29w .*pwsh' "${log}" || fFail "the build didn't run once the box answered"
 	fEcho "OK: a VM still booting is waited for"
 else
 	fFail "the refresh failed on a VM that came up on the third try: $(tail -3 "${scratch}/out.log")"
@@ -118,7 +118,7 @@ fi
 
 if fDogfood "${scratch}/x_windows-host-lock.bash" FAKE_GONE="b29w vm925w"; then
 	grep -q 'no Windows box answered' "${scratch}/out.log" || fFail "no line saying the refresh was skipped"
-	! grep -q '^lock ' "$log" || fFail "a box was taken with none there"
+	! grep -q '^lock ' "${log}" || fFail "a box was taken with none there"
 	fEcho "OK: no box there is a skip"
 else
 	fFail "the refresh failed with no box there: $(tail -3 "${scratch}/out.log")"

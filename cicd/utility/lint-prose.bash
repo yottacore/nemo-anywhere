@@ -38,8 +38,8 @@ self='cicd/utility/lint-prose.bash'
 fReport(){
 	local what="$1" pattern="$2"; shift 2
 	local hits line file text found=0
-	hits="$(git grep -niIE "$pattern" -- "$@" ":!:${self}" || true)"
-	[[ -n "$hits" ]] || return 0
+	hits="$(git grep -niIE "${pattern}" -- "$@" ":!:${self}" || true)"
+	[[ -n "${hits}" ]] || return 0
 	while IFS= read -r line; do
 		file="${line%%:*}"
 		text="${line#*:}"; text="${text#*:}"
@@ -47,14 +47,14 @@ fReport(){
 		## text doesn't have.
 		text="${text%$'\r'}"
 		## An empty match is nothing to compare; treat it as ours.
-		if [[ -n "$text" ]] && git grep -qIF -e "$text" "$baseline" -- "*${file##*/}"; then
+		if [[ -n "${text}" ]] && git grep -qIF -e "${text}" "${baseline}" -- "*${file##*/}"; then
 			continue
 		fi
-		(( found == 0 )) && fEcho "FAIL: $what"
+		(( found == 0 )) && fEcho "FAIL: ${what}"
 		found=1
-		echo "$line"
-	done <<< "$hits"
-	return "$found"
+		echo "${line}"
+	done <<< "${hits}"
+	return "${found}"
 }
 
 rc=0
@@ -62,7 +62,7 @@ rc=0
 ## The UI style guide asks for American spelling, so the code and the docs that
 ## go with it say the same thing.
 british='\b([a-z_]*colour[a-z_]*|behaviour[a-z]*|honour[a-z]*|flavour[a-z]*|[a-z]*grey[a-z]*|recognis[a-z]+|normalis[a-z]+|organis[a-z]+|initialis[a-z]+|centred|towards|licence|defence|neighbour[a-z]*|favourite[a-z]*)\b'
-fReport "a British spelling" "$british" source cicd utility README.md install.md building.md changelog.md project/design.md project/design_docs \
+fReport "a British spelling" "${british}" source cicd utility README.md install.md building.md changelog.md project/design.md project/design_docs \
 	':!:cicd/utility/lint-ui-case.py' ':!:cicd/utility/include' || rc=1
 
 ## "No banner dividers" - style-guide_code.md. There were 3 forms before anyone
@@ -77,21 +77,21 @@ fReport "a banner divider" '^[[:space:]]*/?\*+[[:space:]]*[-=_.*#]{4,}' \
 mapfile -t cfiles < <(git ls-files 'source/*.c' 'source/*.h')
 bad=""
 for f in "${cfiles[@]}"; do
-	if git grep -qI -e '' "$baseline" -- "*${f##*/}"; then
+	if git grep -qI -e '' "${baseline}" -- "*${f##*/}"; then
 		continue
 	fi
 	## The copyright symbol is wanted anywhere; the marker's other characters
 	## only on the copyright line itself.
-	out="$(sed 's/\xc2\xa9//g' "$f" | grep -nP '[^\x00-\x7F]' | grep -v 'Copyright ' || true)"
-	if [[ -n "$out" ]]; then
+	out="$(sed 's/\xc2\xa9//g' "${f}" | grep -nP '[^\x00-\x7F]' | grep -v 'Copyright ' || true)"
+	if [[ -n "${out}" ]]; then
 		bad+="${f}: ${out}"$'\n'
 	fi
 done
-if [[ -n "$bad" ]]; then
+if [[ -n "${bad}" ]]; then
 	fEcho "FAIL: a non-ASCII byte outside the copyright line"
-	printf '%s' "$bad"
+	printf '%s' "${bad}"
 	rc=1
 fi
 
 (( rc == 0 )) && fEcho "OK: prose"
-exit "$rc"
+exit "${rc}"

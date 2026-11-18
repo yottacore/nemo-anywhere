@@ -46,7 +46,7 @@ fVersionOrder(){
 	[[ "$1" == "$2" ]] && return 1
 	local top
 	top="$(printf '%s\n%s\n' "${1//-/\~}" "${2//-/\~}" | sort -V | tail -1)"
-	[[ "$top" == "${2//-/\~}" ]] && return 0
+	[[ "${top}" == "${2//-/\~}" ]] && return 0
 	return 2
 }
 
@@ -56,20 +56,20 @@ fVersionOrder(){
 fOnlySkipPaths(){
 	local -r old="$1" new="$2" zero="0000000000000000000000000000000000000000"
 	local list files f pat hit
-	[[ "$old" != "$zero" ]] || return 1
+	[[ "${old}" != "${zero}" ]] || return 1
 	git cat-file -e "${old}^{commit}" 2>/dev/null || return 1
 	list="$(git show "${new}:cicd/hooks/gate-skip-paths.txt" 2>/dev/null | grep -v -e '^##' -e '^[[:space:]]*$' || true)"
-	[[ -n "$list" ]] || return 1
-	files="$(git diff --name-only --no-renames "$old" "$new" --)" || return 1
-	[[ -n "$files" ]] || return 1
+	[[ -n "${list}" ]] || return 1
+	files="$(git diff --name-only --no-renames "${old}" "${new}" --)" || return 1
+	[[ -n "${files}" ]] || return 1
 	while IFS= read -r f; do
 		hit=0
 		while IFS= read -r pat; do
 			# shellcheck disable=SC2053  ## the pattern is a glob on purpose.
-			[[ "$f" == $pat ]] && { hit=1; break; }
-		done <<< "$list"
+			[[ "${f}" == ${pat} ]] && { hit=1; break; }
+		done <<< "${list}"
 		((hit)) || return 1
-	done <<< "$files"
+	done <<< "${files}"
 	return 0
 }
 
@@ -99,42 +99,42 @@ run_gate(){ ((gate_ran)) && return 0; gate_ran=1
 
 ## git feeds "<localref> <localsha> <remoteref> <remotesha>" lines on stdin.
 while read -r _ localsha remoteref remotesha; do
-	[[ "$localsha" == "$z" ]] && continue          # branch delete: skip
+	[[ "${localsha}" == "${z}" ]] && continue          # branch delete: skip
 	branch="${remoteref#refs/heads/}"
-	[[ "$branch" == "main" ]] || continue
-	if fOnlySkipPaths "$remotesha" "$localsha"; then
+	[[ "${branch}" == "main" ]] || continue
+	if fOnlySkipPaths "${remotesha}" "${localsha}"; then
 		echo "[ pre-push: only paths no build reads, so no merge gate ]"
 		continue
 	fi
 
 	## Version-bump guard, only when main already has a version to compare
 	## against, so never on the first push to main.
-	if [[ "$remotesha" != "$z" ]]; then
+	if [[ "${remotesha}" != "${z}" ]]; then
 		newver="$(git show "${localsha}:source/meson.build" 2>/dev/null | _ver_from /dev/stdin || true)"
 		oldver="$(git show "${remotesha}:source/meson.build" 2>/dev/null | _ver_from /dev/stdin || true)"
-		if [[ -n "$oldver" && -n "$newver" ]]; then
+		if [[ -n "${oldver}" && -n "${newver}" ]]; then
 			order=0
-			fVersionOrder "$oldver" "$newver" || order=$?
-			if [[ "$order" == "1" ]]; then
+			fVersionOrder "${oldver}" "${newver}" || order=$?
+			if [[ "${order}" == "1" ]]; then
 				echo "FAILED: push to main does not bump the version (still ${newver}); bump source/meson.build on dev first" >&2
 				exit 1
 			fi
-			[[ "$order" == "0" ]] || { echo "FAILED: main version ${newver} is not greater than ${oldver}" >&2; exit 1; }
+			[[ "${order}" == "0" ]] || { echo "FAILED: main version ${newver} is not greater than ${oldver}" >&2; exit 1; }
 		fi
 		## The README release badge must match, once there is one. shields.io
 		## escapes '-' as '--'. No badge yet = nothing to enforce, and the first release adds it.
 		readme="$(git show "${localsha}:README.md" 2>/dev/null || true)"
-		if grep -q "Release-[^ )]*-" <<<"$readme"; then
+		if grep -q "Release-[^ )]*-" <<<"${readme}"; then
 			badge_ver="${newver//-/--}"
-			grep -q "Release-${badge_ver}-" <<<"$readme" || { echo "FAILED: README release badge != ${newver}; update it on dev before the release merge" >&2; exit 1; }
+			grep -q "Release-${badge_ver}-" <<<"${readme}" || { echo "FAILED: README release badge != ${newver}; update it on dev before the release merge" >&2; exit 1; }
 		fi
 	fi
 
 	## Untracked files are left out: the lints only ever add them to what they check.
-	differs="$(git -C "$root" diff --name-only "$localsha" --)"
-	if [[ -n "$differs" ]]; then
+	differs="$(git -C "${root}" diff --name-only "${localsha}" --)"
+	if [[ -n "${differs}" ]]; then
 		echo "FAILED: the working tree isn't the commit pushed to main (${localsha:0:12}), so the gate would test something else. Check that commit out, with nothing uncommitted. Differs:" >&2
-		head -20 <<<"$differs" >&2
+		head -20 <<<"${differs}" >&2
 		exit 1
 	fi
 	run_gate

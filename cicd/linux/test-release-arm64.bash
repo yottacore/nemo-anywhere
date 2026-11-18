@@ -67,7 +67,7 @@ cp "${root}/cicd/linux/release-arm64.bash" "${root}/cicd/linux/package.bash" "${
 for inc in echo source-date release-files run-temp jobs step-box box-wrap; do
 	cp "${root}/cicd/utility/include/${inc}.bash" "${repo}/cicd/utility/include/"
 done
-printf "project('nemo-anywhere', 'c', version: '%s')\n" "$ver" > "${repo}/source/meson.build"
+printf "project('nemo-anywhere', 'c', version: '%s')\n" "${ver}" > "${repo}/source/meson.build"
 printf 'ignored.txt\ncicd/artifacts/\n' > "${repo}/.gitignore"
 echo "kept here" > "${repo}/ignored.txt"
 echo "x86_64 build" > "${repo}/cicd/artifacts/release/${x86Name}"
@@ -80,15 +80,15 @@ cat > "${repo}/cicd/linux/release.bash" <<-EOF
 	[[ -z "\${FAKE_BUILD_FAIL:-}" ]] || exit 1
 	echo "\${SOURCE_DATE_EPOCH} \${CICD_MAX_JOBS} \$(uname -m)" > cicd/artifacts/release/${armName}
 EOF
-git -C "$repo" init -q
-git -C "$repo" add source/meson.build
+git -C "${repo}" init -q
+git -C "${repo}" add source/meson.build
 
 ## The box's temp root, with a run folder left from a run long gone.
 boxTemp="${box}/tmp/nemo-anywhere"
 mkdir -p "${boxTemp}/20200101-000000_001"
 echo 999999999 > "${boxTemp}/20200101-000000_001/run.pid"
 ## No run folder left under the box's temp root.
-fNoneLeft(){ local left; left="$(find "${boxTemp}" -mindepth 1 -maxdepth 1)"; [[ -z "$left" ]] || { fFail "$1: left ${left}"; return 1; }; }
+fNoneLeft(){ local left; left="$(find "${boxTemp}" -mindepth 1 -maxdepth 1)"; [[ -z "${left}" ]] || { fFail "$1: left ${left}"; return 1; }; }
 
 mkdir -p "${scratch}/bin" "${scratch}/boxbin"
 realUname="$(command -v uname)"
@@ -184,49 +184,49 @@ fRunLane(){
 }
 
 rc=0; out="$(fRunLane)" || rc=$?
-if [[ "$rc" != 0 ]]; then
+if [[ "${rc}" != 0 ]]; then
 	fFail "the lane failed (exit ${rc}): ${out}"
 else
 	got="${repo}/cicd/artifacts/release/${armName}"
-	if [[ ! -f "$got" ]]; then
+	if [[ ! -f "${got}" ]]; then
 		fFail "no ${armName} brought back"
-	elif [[ "$(cat "$got")" != "1791244781 3 aarch64" ]]; then
-		fFail "the build got '$(cat "$got")', not the stamp, job count, and arch it was meant to"
+	elif [[ "$(cat "${got}")" != "1791244781 3 aarch64" ]]; then
+		fFail "the build got '$(cat "${got}")', not the stamp, job count, and arch it was meant to"
 	fi
 	sums="${repo}/cicd/artifacts/release/${sumsName}"
-	for name in "$armName" "$x86Name"; do
-		grep -q "  ${name}\$" "$sums" 2>/dev/null || fFail "${name} isn't in the sums file"
+	for name in "${armName}" "${x86Name}"; do
+		grep -q "  ${name}\$" "${sums}" 2>/dev/null || fFail "${name} isn't in the sums file"
 	done
-	( cd "${repo}/cicd/artifacts/release" && sha256sum -c --quiet "$sumsName" >/dev/null 2>&1 ) || fFail "the sums file doesn't verify"
-	runDir="$(sed -n 's/^work folder tester@armbox://p' <<< "$out" | tail -1)"
-	[[ "$runDir" =~ ^${boxTemp}/[0-9]{8}-[0-9]{6}_001$ ]] || fFail "run folder '${runDir}', not a new one under the box's temp root"
+	( cd "${repo}/cicd/artifacts/release" && sha256sum -c --quiet "${sumsName}" >/dev/null 2>&1 ) || fFail "the sums file doesn't verify"
+	runDir="$(sed -n 's/^work folder tester@armbox://p' <<< "${out}" | tail -1)"
+	[[ "${runDir}" =~ ^${boxTemp}/[0-9]{8}-[0-9]{6}_001$ ]] || fFail "run folder '${runDir}', not a new one under the box's temp root"
 	[[ "$(cat "${scratch}/where.log" 2>/dev/null || true)" == "pwd=${runDir}/src tmp=${runDir},${runDir},${runDir} pid=ok" ]] \
 		|| fFail "the build ran with '$(cat "${scratch}/where.log" 2>/dev/null || true)'"
-	[[ "$out" == *"removed stale tester@armbox:${boxTemp}/20200101-000000_001"* ]] || fFail "no line for the stale run folder swept"
+	[[ "${out}" == *"removed stale tester@armbox:${boxTemp}/20200101-000000_001"* ]] || fFail "no line for the stale run folder swept"
 	fNoneLeft "after a pass"
 	grep -q -x -F './source/meson.build' "${scratch}/sent.txt" || fFail "a tracked file wasn't sent"
 	grep -q -x -F './cicd/linux/release-arm64.bash' "${scratch}/sent.txt" || fFail "an untracked file wasn't sent"
 	! grep -q -x -F './ignored.txt' "${scratch}/sent.txt" || fFail "an ignored file was sent"
 	! grep -q -x -F "./cicd/artifacts/release/${x86Name}" "${scratch}/sent.txt" || fFail "this side's artifacts were sent"
-	grep -q '^lock wrap armbox ' "$log" || fFail "the box wasn't locked by its name"
-	grep -q '^ssh tester@armbox$' "$log" || fFail "ssh didn't go to NEMO_ARM_HOST"
-	grep -q '^docker stop -t 2 nemo-anywhere-' "$log" || fFail "the build container wasn't stopped"
+	grep -q '^lock wrap armbox ' "${log}" || fFail "the box wasn't locked by its name"
+	grep -q '^ssh tester@armbox$' "${log}" || fFail "ssh didn't go to NEMO_ARM_HOST"
+	grep -q '^docker stop -t 2 nemo-anywhere-' "${log}" || fFail "the build container wasn't stopped"
 	deps="${repo}/cicd/artifacts/deb-depends/${armName%.tar.gz}.txt"
-	if [[ ! -f "$deps" ]]; then
+	if [[ ! -f "${deps}" ]]; then
 		fFail "no dependency list for the arm64 tarball"
 	else
-		[[ "$(head -1 "$deps")" == "$(cd "${repo}/cicd/artifacts/release" && sha256sum "$armName")" ]] || fFail "the dependency list names '$(head -1 "$deps")', not the tarball's sha256"
-		[[ "$(sed -n 2p "$deps")" == "libc6 (>= 2.35), libgtk-3-0 (>= 3.24.33), from-aarch64" ]] || fFail "the dependency list has '$(sed -n 2p "$deps")', not the box container's reading"
+		[[ "$(head -1 "${deps}")" == "$(cd "${repo}/cicd/artifacts/release" && sha256sum "${armName}")" ]] || fFail "the dependency list names '$(head -1 "${deps}")', not the tarball's sha256"
+		[[ "$(sed -n 2p "${deps}")" == "libc6 (>= 2.35), libgtk-3-0 (>= 3.24.33), from-aarch64" ]] || fFail "the dependency list has '$(sed -n 2p "${deps}")', not the box container's reading"
 	fi
-	readAt="$(grep -n 'exec -i nemo-anywhere-' "$log" | head -1 | cut -d: -f1)"
-	stopAt="$(grep -n '^docker stop -t 2 nemo-anywhere-' "$log" | head -1 | cut -d: -f1)"
-	[[ -n "$readAt" && -n "$stopAt" && "$readAt" -lt "$stopAt" ]] || fFail "the dependencies weren't read in the box's container before it was stopped"
-	grep -q -F 'SOURCE_DATE_EPOCH=1791244781 CICD_MAX_JOBS=3 ionice -c 3 nice -n 19 bash cicd/linux/release.bash' "$log" \
-		|| fFail "the build didn't run under nice and ionice with its jobs: $(grep -F release.bash "$log" || true)"
-	grep -q -F "TMP=${runDir} CICD_MAX_JOBS=3 ionice -c 3 nice -n 19 bash cicd/linux/package.bash --depends-only" "$log" \
-		|| fFail "the dependency read didn't run under nice and ionice with its jobs: $(grep -F package.bash "$log" || true)"
-	grep -q -E '^docker run .*--cpus 3 --cpu-shares 256 ' "$log" || fFail "the box's container didn't get the count as its cap: $(grep '^docker run' "$log" || true)"
-	[[ "$out" == *"jobs 3 (pinned, load 1.00 on 8 cpus on tester@armbox)"* ]] || fFail "no jobs line for the box"
+	readAt="$(grep -n 'exec -i nemo-anywhere-' "${log}" | head -1 | cut -d: -f1)"
+	stopAt="$(grep -n '^docker stop -t 2 nemo-anywhere-' "${log}" | head -1 | cut -d: -f1)"
+	[[ -n "${readAt}" && -n "${stopAt}" && "${readAt}" -lt "${stopAt}" ]] || fFail "the dependencies weren't read in the box's container before it was stopped"
+	grep -q -F 'SOURCE_DATE_EPOCH=1791244781 CICD_MAX_JOBS=3 ionice -c 3 nice -n 19 bash cicd/linux/release.bash' "${log}" \
+		|| fFail "the build didn't run under nice and ionice with its jobs: $(grep -F release.bash "${log}" || true)"
+	grep -q -F "TMP=${runDir} CICD_MAX_JOBS=3 ionice -c 3 nice -n 19 bash cicd/linux/package.bash --depends-only" "${log}" \
+		|| fFail "the dependency read didn't run under nice and ionice with its jobs: $(grep -F package.bash "${log}" || true)"
+	grep -q -E '^docker run .*--cpus 3 --cpu-shares 256 ' "${log}" || fFail "the box's container didn't get the count as its cap: $(grep '^docker run' "${log}" || true)"
+	[[ "${out}" == *"jobs 3 (pinned, load 1.00 on 8 cpus on tester@armbox)"* ]] || fFail "no jobs line for the box"
 fi
 
 ## The step lines: each step opens under the rule and closes, with the time.
@@ -234,21 +234,21 @@ rule="$(printf '•%.0s' {1..79})"
 stamp='[0-9]{8}-[0-9]{6}\.[0-9]{2}'
 fSteps(){
 	local want="$1" text="$2" got opens rules
-	got="$(grep -E -o "^\[ ${stamp}: arm64 [0-9]+ of [0-9]+; (Starting|PASS|FAIL) [^]]*\]\$" <<< "$text" | sed -E "s/^\[ ${stamp}: //; s/ \]\$//" | paste -sd '|' -)"
-	[[ "$got" == "$want" ]] || { fFail "step lines: got '${got}', want '${want}'"; return 1; }
-	opens="$(grep -c -E "^\[ ${stamp}: arm64 [0-9]+ of [0-9]+; Starting " <<< "$text")"
-	rules="$(grep -A1 -x -F "$rule" <<< "$text" | grep -c -E "^\[ ${stamp}: arm64 [0-9]+ of [0-9]+; Starting " || true)"
-	[[ "$rules" == "$opens" ]] || { fFail "${opens} steps, ${rules} of them under a 79-dot rule"; return 1; }
+	got="$(grep -E -o "^\[ ${stamp}: arm64 [0-9]+ of [0-9]+; (Starting|PASS|FAIL) [^]]*\]\$" <<< "${text}" | sed -E "s/^\[ ${stamp}: //; s/ \]\$//" | paste -sd '|' -)"
+	[[ "${got}" == "${want}" ]] || { fFail "step lines: got '${got}', want '${want}'"; return 1; }
+	opens="$(grep -c -E "^\[ ${stamp}: arm64 [0-9]+ of [0-9]+; Starting " <<< "${text}")"
+	rules="$(grep -A1 -x -F "${rule}" <<< "${text}" | grep -c -E "^\[ ${stamp}: arm64 [0-9]+ of [0-9]+; Starting " || true)"
+	[[ "${rules}" == "${opens}" ]] || { fFail "${opens} steps, ${rules} of them under a 79-dot rule"; return 1; }
 }
 fSteps "arm64 1 of 4; Starting Box ready|arm64 1 of 4; PASS Box ready|arm64 2 of 4; Starting Send|arm64 2 of 4; PASS Send|arm64 3 of 4; Starting Release build|arm64 3 of 4; PASS Release build|arm64 4 of 4; Starting Bring back|arm64 4 of 4; PASS Bring back" \
-	"$out" && fEcho "OK: the lane prints its steps"
+	"${out}" && fEcho "OK: the lane prints its steps"
 
 ## Not pinned: half the box's CPUs, or a quarter when it's busy.
 for case in "1.00 4" "4.01 2"; do
 	rm -f "${repo}/cicd/artifacts/release/${armName}"
 	rc=0; out="$(ARM_PIN="" FAKE_LOAD="${case% *}" fRunLane)" || rc=$?
 	got="$(cat "${repo}/cicd/artifacts/release/${armName}" 2>/dev/null || true)"
-	if [[ "$rc" != 0 || "$got" != "1791244781 ${case#* } aarch64" ]]; then
+	if [[ "${rc}" != 0 || "${got}" != "1791244781 ${case#* } aarch64" ]]; then
 		fFail "8 cpus at load ${case% *}: the build got '${got}', not ${case#* } jobs (exit ${rc})"
 	else
 		fEcho "OK: 8 cpus at load ${case% *} build with ${case#* } jobs"
@@ -257,72 +257,72 @@ done
 
 ## The box can't read the dependencies: the tarball still comes back, with
 ## a warning and no list, and an old list goes.
-rm -f "${repo}/cicd/artifacts/release/${armName}" "$log"
+rm -f "${repo}/cicd/artifacts/release/${armName}" "${log}"
 rc=0; out="$(FAKE_DOCKER_FAIL=1 fRunLane)" || rc=$?
-if [[ "$rc" != 0 ]]; then
+if [[ "${rc}" != 0 ]]; then
 	fFail "the lane failed when the dependency read did (exit ${rc}): ${out}"
 else
 	[[ -f "${repo}/cicd/artifacts/release/${armName}" ]] || fFail "no tarball when the dependency read failed"
 	[[ ! -e "${repo}/cicd/artifacts/deb-depends/${armName%.tar.gz}.txt" ]] || fFail "a dependency list was left when the read failed"
-	[[ "$out" == *"WARNING: could not read the arm64 dependencies"* ]] || fFail "no warning when the dependency read failed"
-	grep -q '^docker stop -t 2 nemo-anywhere-' "$log" || fFail "the build container wasn't stopped after a failed read"
+	[[ "${out}" == *"WARNING: could not read the arm64 dependencies"* ]] || fFail "no warning when the dependency read failed"
+	grep -q '^docker stop -t 2 nemo-anywhere-' "${log}" || fFail "the build container wasn't stopped after a failed read"
 fi
 
 ## The build fails there: its step closes as FAIL, and the run folder still goes.
 rm -f "${repo}/cicd/artifacts/release/${armName}"
 rc=0; out="$(FAKE_BUILD_FAIL=1 fRunLane)" || rc=$?
-[[ "$rc" != 0 ]] || fFail "the lane passed with a failing build"
-fSteps "arm64 1 of 4; Starting Box ready|arm64 1 of 4; PASS Box ready|arm64 2 of 4; Starting Send|arm64 2 of 4; PASS Send|arm64 3 of 4; Starting Release build|arm64 3 of 4; FAIL Release build" "$out" \
+[[ "${rc}" != 0 ]] || fFail "the lane passed with a failing build"
+fSteps "arm64 1 of 4; Starting Box ready|arm64 1 of 4; PASS Box ready|arm64 2 of 4; Starting Send|arm64 2 of 4; PASS Send|arm64 3 of 4; Starting Release build|arm64 3 of 4; FAIL Release build" "${out}" \
 	&& fNoneLeft "after a failing build" && fEcho "OK: a failing build closes as FAIL and leaves no run folder"
 ## CICD_KEEP_TEMP=1 keeps it, and says where.
 rc=0; out="$(CICD_KEEP_TEMP=1 fRunLane)" || rc=$?
-runDir="$(sed -n 's/^work folder tester@armbox://p' <<< "$out" | tail -1)"
-if [[ "$rc" == 0 && -n "$runDir" && -d "${runDir}/src" && "$out" == *"[ kept the run folder: tester@armbox:${runDir} ]"* ]]; then
+runDir="$(sed -n 's/^work folder tester@armbox://p' <<< "${out}" | tail -1)"
+if [[ "${rc}" == 0 && -n "${runDir}" && -d "${runDir}/src" && "${out}" == *"[ kept the run folder: tester@armbox:${runDir} ]"* ]]; then
 	fEcho "OK: CICD_KEEP_TEMP=1 keeps the run folder and names it"
 else
 	fFail "CICD_KEEP_TEMP=1 (exit ${rc}): ${out}"
 fi
-[[ -n "$runDir" && -d "$runDir" ]] && fSafeRm "$runDir" > /dev/null
+[[ -n "${runDir}" && -d "${runDir}" ]] && fSafeRm "${runDir}" > /dev/null
 
 ## A box that responds but isn't arm64.
-rm -f "${repo}/cicd/artifacts/release/${armName}" "$log"
+rm -f "${repo}/cicd/artifacts/release/${armName}" "${log}"
 rc=0; out="$(FAKE_ARCH=x86_64 fRunLane)" || rc=$?
-[[ "$rc" != 0 ]] || fFail "an x86_64 box was taken as arm64"
-[[ "$out" == *"is not an arm64 box"* ]] || fFail "no reason given for the x86_64 box: ${out}"
-fSteps "arm64 1 of 4; Starting Box ready|arm64 1 of 4; FAIL Box ready" "$out" && fEcho "OK: a step that fails closes as FAIL"
+[[ "${rc}" != 0 ]] || fFail "an x86_64 box was taken as arm64"
+[[ "${out}" == *"is not an arm64 box"* ]] || fFail "no reason given for the x86_64 box: ${out}"
+fSteps "arm64 1 of 4; Starting Box ready|arm64 1 of 4; FAIL Box ready" "${out}" && fEcho "OK: a step that fails closes as FAIL"
 fNoneLeft "a run folder on an x86_64 box"
 [[ ! -e "${repo}/cicd/artifacts/release/${armName}" ]] || fFail "an arm64 tarball came from an x86_64 box"
 
 ## ssh, then docker, still coming up: waited for.
 rm -f "${repo}/cicd/artifacts/release/${armName}" "${scratch}/ssh-tries" "${scratch}/docker-tries"
 rc=0; out="$(BOX_WRAP_TOOL="${scratch}/x_vm-state.bash" FAKE_VM_STATE=off FAKE_SSH_DOWN=2 FAKE_DOCKER_DOWN=2 BOX_READY_POLL=0 fRunLane)" || rc=$?
-if [[ "$rc" != 0 ]]; then
+if [[ "${rc}" != 0 ]]; then
 	fFail "the lane failed on a box that came up late (exit ${rc}): ${out}"
 else
 	[[ -f "${repo}/cicd/artifacts/release/${armName}" ]] || fFail "no tarball from a box that came up late"
-	[[ "$out" == *"answered after"* ]] || fFail "no line saying the box was waited for"
+	[[ "${out}" == *"answered after"* ]] || fFail "no line saying the box was waited for"
 fi
 
 ## docker never comes up: fails before the send.
 rm -f "${repo}/cicd/artifacts/release/${armName}" "${scratch}/ssh-tries" "${scratch}/docker-tries"
 rc=0; out="$(FAKE_DOCKER_DOWN=99 BOX_READY_POLL=1 NEMO_ARM_READY_WAIT=1 fRunLane)" || rc=$?
-[[ "$rc" != 0 ]] || fFail "a box with no docker was used"
-[[ "$out" == *"did not answer as that user with docker up"* ]] || fFail "no reason given for a box with no docker: ${out}"
+[[ "${rc}" != 0 ]] || fFail "a box with no docker was used"
+[[ "${out}" == *"did not answer as that user with docker up"* ]] || fFail "no reason given for a box with no docker: ${out}"
 fNoneLeft "a run folder on a box with no docker"
 
 ## Resumed from paused with its old clock: fails before the send.
 rm -f "${repo}/cicd/artifacts/release/${armName}" "${scratch}/ssh-tries" "${scratch}/docker-tries" "${scratch}/clock-reads"
 rc=0; out="$(BOX_WRAP_TOOL="${scratch}/x_vm-state.bash" FAKE_VM_STATE=paused FAKE_CLOCK_BEHIND=60941 BOX_CLOCK_WAIT=1 BOX_READY_POLL=1 fRunLane)" || rc=$?
-[[ "$rc" != 0 ]] || fFail "a box hours behind was used"
-[[ "$out" == *"has the wrong time"* && "$out" == *"s behind, still after"* ]] || fFail "no reason given for a box hours behind: ${out}"
+[[ "${rc}" != 0 ]] || fFail "a box hours behind was used"
+[[ "${out}" == *"has the wrong time"* && "${out}" == *"s behind, still after"* ]] || fFail "no reason given for a box hours behind: ${out}"
 fNoneLeft "a run folder on a box hours behind"
 
 ## Not there, and not a VM here: a skip, before the lock.
-rm -f "${scratch}/ssh-tries" "$log"
+rm -f "${scratch}/ssh-tries" "${log}"
 rc=0; out="$(FAKE_SSH_DOWN=99 fRunLane)" || rc=$?
-[[ "$rc" == 77 ]] || fFail "a box that isn't there gave exit ${rc}, not 77: ${out}"
-[[ "$out" == *"SKIP: tester@armbox isn't there"* ]] || fFail "no SKIP line for a box that isn't there"
-! grep -q '^lock ' "$log" 2>/dev/null || fFail "the lock was taken for a box that isn't there"
+[[ "${rc}" == 77 ]] || fFail "a box that isn't there gave exit ${rc}, not 77: ${out}"
+[[ "${out}" == *"SKIP: tester@armbox isn't there"* ]] || fFail "no SKIP line for a box that isn't there"
+! grep -q '^lock ' "${log}" 2>/dev/null || fFail "the lock was taken for a box that isn't there"
 fNoneLeft "a run folder on a box that isn't there"
 
 if ((failures)); then

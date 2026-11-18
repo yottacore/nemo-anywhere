@@ -70,46 +70,46 @@ while (($#)); do case "$1" in
 esac; done
 
 hostArch="$(fReleaseArch "$(uname -m)")" || hostArch=""
-if [[ -n "$wantArch" ]]; then
-	wantArch="$(fReleaseArch "$wantArch")" || fDie "--arch takes x86_64 or arm64"
+if [[ -n "${wantArch}" ]]; then
+	wantArch="$(fReleaseArch "${wantArch}")" || fDie "--arch takes x86_64 or arm64"
 fi
 
-if [[ -z "$tarball" ]]; then
+if [[ -z "${tarball}" ]]; then
 	## Newest matching tarball. The glob is guarded so an empty dir says so
 	## rather than passing the literal pattern on to tar. One arch only, this
 	## box's unless asked: the arm64 one is usually the newest, and its
 	## dependencies aren't read the same way.
-	wantArch="${wantArch:-$hostArch}"
-	[[ -n "$wantArch" ]] || fDie "no release name for a $(uname -m) box; pass --arch or --from"
+	wantArch="${wantArch:-${hostArch}}"
+	[[ -n "${wantArch}" ]] || fDie "no release name for a $(uname -m) box; pass --arch or --from"
 	shopt -s nullglob
 	candidates=("${OUT}/${SLUG}"-*-linux-"${wantArch}".tar.gz)
 	shopt -u nullglob
 	((${#candidates[@]})) || fDie "no linux-${wantArch} release tarball in cicd/artifacts/release - run its release lane first"
 	tarball="${candidates[0]}"
 	for cand in "${candidates[@]}"; do
-		if [[ "$cand" -nt "$tarball" ]]; then tarball="$cand"; fi
+		if [[ "${cand}" -nt "${tarball}" ]]; then tarball="${cand}"; fi
 	done
 fi
-[[ -f "$tarball" ]] || fDie "no such tarball: ${tarball}"
+[[ -f "${tarball}" ]] || fDie "no such tarball: ${tarball}"
 
 ## nemo-anywhere-<ver>-linux-<arch>.tar.gz
-base="$(basename "$tarball" .tar.gz)"
+base="$(basename "${tarball}" .tar.gz)"
 ver="${base#"${SLUG}"-}"; ver="${ver%%-linux-*}"
 arch="${base##*-linux-}"
-[[ -n "$ver" && -n "$arch" ]] || fDie "can't read version/arch out of $(basename "$tarball")"
-[[ -z "$wantArch" || "$arch" == "$wantArch" ]] || fDie "$(basename "$tarball") isn't a ${wantArch} build"
+[[ -n "${ver}" && -n "${arch}" ]] || fDie "can't read version/arch out of $(basename "${tarball}")"
+[[ -z "${wantArch}" || "${arch}" == "${wantArch}" ]] || fDie "$(basename "${tarball}") isn't a ${wantArch} build"
 
 ## Runtime dependencies, read off the real binaries at the glibc floor they were
 ## built against, in a container of its own from the release image. Prints
 ## nothing when it can't. Called in a subshell, so it stops its own container.
 fDependsFromContainer(){
 	local line
-	docker image inspect "$IMAGE" >/dev/null 2>&1 || return 0
-	fStepBox_Start "package depends" "$IMAGE" >/dev/null 2>&1 || return 0
+	docker image inspect "${IMAGE}" >/dev/null 2>&1 || return 0
+	fStepBox_Start "package depends" "${IMAGE}" >/dev/null 2>&1 || return 0
 	## -l for the prefix's own lib dir, if the build has one, so a bundled
 	## extension library resolves; --ignore-missing-info so it is then
 	## skipped rather than treated as an unpackaged dependency and made fatal.
-	line="$(docker exec -i "$stepBox" sh -c '
+	line="$(docker exec -i "${stepBox}" sh -c '
 		set -e
 		d=$(mktemp -d); cd "$d"
 		tar -xzf - >/dev/null
@@ -123,26 +123,26 @@ fDependsFromContainer(){
 		done
 		dpkg-shlibdeps -O --ignore-missing-info $libargs \
 			-Tdebian/pkg.substvars bin/* 2>/dev/null
-	' < "$tarball" | sed -n 's/^shlibs:Depends=//p' | head -1 || true)"
+	' < "${tarball}" | sed -n 's/^shlibs:Depends=//p' | head -1 || true)"
 	fStepBox_Stop
-	[[ -z "$line" ]] || printf '%s\n' "$line"
+	[[ -z "${line}" ]] || printf '%s\n' "${line}"
 }
 
 ## The line the other arch's box read, if it was read off these very bytes.
 fDependsFromFile(){
 	local file sum want
-	file="$(fDebDependsFile "$ROOT" "$(basename "$tarball")")"
-	if [[ ! -f "$file" ]]; then
-		fEcho "WARNING: no ${arch} dependency list for $(basename "$tarball") from its build box" >&2
+	file="$(fDebDependsFile "${ROOT}" "$(basename "${tarball}")")"
+	if [[ ! -f "${file}" ]]; then
+		fEcho "WARNING: no ${arch} dependency list for $(basename "${tarball}") from its build box" >&2
 		return 0
 	fi
-	sum="$(sha256sum < "$tarball")"; sum="${sum%% *}"
-	want="$(head -1 "$file")"; want="${want%% *}"
-	if [[ "$sum" != "$want" ]]; then
-		fEcho "WARNING: the ${arch} dependency list was read off another build of $(basename "$tarball")" >&2
+	sum="$(sha256sum < "${tarball}")"; sum="${sum%% *}"
+	want="$(head -1 "${file}")"; want="${want%% *}"
+	if [[ "${sum}" != "${want}" ]]; then
+		fEcho "WARNING: the ${arch} dependency list was read off another build of $(basename "${tarball}")" >&2
 		return 0
 	fi
-	sed -n 2p "$file"
+	sed -n 2p "${file}"
 }
 
 ## Falls back to a conservative list with a warning when the real one can't be
@@ -152,35 +152,35 @@ fDependsFromFile(){
 deb_depends(){
 	local line=""
 
-	if [[ "$arch" == "$hostArch" ]]; then
+	if [[ "${arch}" == "${hostArch}" ]]; then
 		line="$(fDependsFromContainer)"
 	else
 		line="$(fDependsFromFile)"
 	fi
 
-	if [[ -z "$line" ]]; then
+	if [[ -z "${line}" ]]; then
 		fEcho "WARNING: could not read the ${arch} dependencies; using a conservative list" >&2
 		line="libc6, libglib2.0-0, libgtk-3-0, libgdk-pixbuf-2.0-0, libpango-1.0-0, libcairo2, libjson-glib-1.0-0, libarchive13, libexif12"
 	fi
-	printf '%s' "$line"
+	printf '%s' "${line}"
 }
 
 ## For the other arch's lane: only the line, read here where the libraries are
 ## that arch's. No fallback, since a guess would pass for a real reading.
 if ((dependsOnly)); then
-	[[ "$arch" == "$hostArch" ]] || fDie "$(basename "$tarball") is ${arch}; read its dependencies on a ${arch} box"
+	[[ "${arch}" == "${hostArch}" ]] || fDie "$(basename "${tarball}") is ${arch}; read its dependencies on a ${arch} box"
 	line="$(fDependsFromContainer)"
-	[[ -n "$line" ]] || fDie "couldn't read dependencies in a container from ${IMAGE}"
-	printf '%s\n' "$line"
+	[[ -n "${line}" ]] || fDie "couldn't read dependencies in a container from ${IMAGE}"
+	printf '%s\n' "${line}"
 	exit 0
 fi
 
 ## dpkg-deb and rpmbuild both read this and stamp it instead of the clock, so the
 ## same tarball packages to the same bytes twice.
-fSetSourceDate "$ROOT"
-fWarnIfSourceDateIsAGuess "$ROOT"
+fSetSourceDate "${ROOT}"
+fWarnIfSourceDateIsAGuess "${ROOT}"
 
-case "$arch" in
+case "${arch}" in
 	x86_64) deb_arch="amd64"; rpm_arch="x86_64" ;;
 	arm64)  deb_arch="arm64"; rpm_arch="aarch64" ;;
 	*)      fDie "unknown architecture: ${arch}" ;;
@@ -194,7 +194,7 @@ trap 'fSafeRm_IfThere "${work}"' EXIT
 
 fEcho_Clean
 fEcho "Packaging ${SLUG} ${ver} (${arch})"
-tar -xzf "$tarball" -C "$work"
+tar -xzf "${tarball}" -C "${work}"
 prefix="${work}/${base}"
 [[ -x "${prefix}/bin/${SLUG}" ]] || fDie "tarball has no bin/${SLUG}: ${tarball}"
 
@@ -222,10 +222,10 @@ build_tree(){
 	## Icons go in the shared theme as well as the prefix, so the menu entry
 	## resolves without the app having to be running.
 	for src in "${prefix}"/share/icons/hicolor/*/apps/"${SLUG}".*; do
-		[[ -f "$src" ]] || continue
-		size="$(basename "$(dirname "$(dirname "$src")")")"
+		[[ -f "${src}" ]] || continue
+		size="$(basename "$(dirname "$(dirname "${src}")")")"
 		mkdir -p "${root}/usr/share/icons/hicolor/${size}/apps"
-		cp -a "$src" "${root}/usr/share/icons/hicolor/${size}/apps/"
+		cp -a "${src}" "${root}/usr/share/icons/hicolor/${size}/apps/"
 	done
 }
 
@@ -254,10 +254,10 @@ if ((do_deb)); then
 		fEcho_Clean
 		fEcho "Building .deb"
 		debroot="${work}/deb"
-		build_tree "$debroot"
+		build_tree "${debroot}"
 		mkdir -p "${debroot}/DEBIAN"
 		depends="$(deb_depends)"
-		installed_kb="$(fInstalledKb "$debroot")"
+		installed_kb="$(fInstalledKb "${debroot}")"
 		{
 			echo "Package: ${SLUG}"
 			echo "Version: ${ver}"
@@ -291,10 +291,10 @@ if ((do_deb)); then
 		chmod 755 "${debroot}/DEBIAN/postinst" "${debroot}/DEBIAN/postrm"
 
 		deb="${OUT}/${SLUG}-${ver}-linux-${arch}.deb"
-		rm -f "$deb"
-		if fakeroot dpkg-deb --build --root-owner-group "$debroot" "$deb" >/dev/null 2>&1 ||
-		   dpkg-deb --build --root-owner-group "$debroot" "$deb" >/dev/null; then
-			fEcho "OK: $(basename "$deb") ($(fSize "$deb"))"
+		rm -f "${deb}"
+		if fakeroot dpkg-deb --build --root-owner-group "${debroot}" "${deb}" >/dev/null 2>&1 ||
+		   dpkg-deb --build --root-owner-group "${debroot}" "${deb}" >/dev/null; then
+			fEcho "OK: $(basename "${deb}") ($(fSize "${deb}"))"
 			made=$((made + 1))
 		else
 			fEcho "WARNING: .deb build failed"
@@ -313,7 +313,7 @@ if ((do_rpm)); then
 		fEcho_Clean
 		fEcho "Building .rpm"
 		rpmroot="${work}/rpm"
-		build_tree "$rpmroot"
+		build_tree "${rpmroot}"
 		mkdir -p "${work}/rpmbuild/"{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 		spec="${work}/rpmbuild/SPECS/${SLUG}.spec"
 		{
@@ -356,16 +356,16 @@ if ((do_rpm)); then
 			echo "%postun"
 			echo "update-desktop-database -q /usr/share/applications 2>/dev/null || :"
 			echo "gtk-update-icon-cache -qtf /usr/share/icons/hicolor 2>/dev/null || :"
-		} > "$spec"
+		} > "${spec}"
 
 		if rpmbuild --define "_topdir ${work}/rpmbuild" \
 		            --define "_rpmdir ${work}/rpmbuild/RPMS" \
-		            --target "${rpm_arch}" -bb "$spec" >/dev/null 2>&1; then
+		            --target "${rpm_arch}" -bb "${spec}" >/dev/null 2>&1; then
 			built="$(find "${work}/rpmbuild/RPMS" -name '*.rpm' -type f | head -1)"
-			if [[ -n "$built" ]]; then
+			if [[ -n "${built}" ]]; then
 				rpm="${OUT}/${SLUG}-${ver}-linux-${arch}.rpm"
-				mv -f "$built" "$rpm"
-				fEcho "OK: $(basename "$rpm") ($(fSize "$rpm"))"
+				mv -f "${built}" "${rpm}"
+				fEcho "OK: $(basename "${rpm}") ($(fSize "${rpm}"))"
 				made=$((made + 1))
 			else
 				fEcho "WARNING: rpmbuild produced no package"

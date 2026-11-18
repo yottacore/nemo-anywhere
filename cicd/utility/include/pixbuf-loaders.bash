@@ -15,13 +15,13 @@
 
 fCheckLoadersCache(){
 	local cache="$1"
-	if [[ ! -s "$cache" ]]; then
+	if [[ ! -s "${cache}" ]]; then
 		echo "FAILED: gdk-pixbuf loaders.cache is missing or empty: ${cache}" >&2
 		return 1
 	fi
 	## A loader entry opens with its quoted dll path. Written on Windows, the
 	## line may end in a carriage return.
-	if ! grep -q -i -E '\.dll"[[:space:]]*$' "$cache"; then
+	if ! grep -q -i -E '\.dll"[[:space:]]*$' "${cache}"; then
 		echo "FAILED: gdk-pixbuf loaders.cache names no loader: ${cache}" >&2
 		return 1
 	fi

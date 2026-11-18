@@ -41,7 +41,7 @@ source "${REPO}/cicd/utility/include/pixbuf-loaders.bash"
 source "${REPO}/cicd/utility/include/thumbnailers.bash"
 # shellcheck source=../utility/include/run-temp.bash
 source "${REPO}/cicd/utility/include/run-temp.bash"
-fSetSourceDate "$REPO"
+fSetSourceDate "${REPO}"
 
 [[ -f "${BUILD}/src/nemo-anywhere.exe" ]] || { fEcho "FAILED: no exe at ${BUILD}/src/nemo-anywhere.exe"; exit 1; }
 
@@ -76,16 +76,16 @@ cp -r "${MINGW}/lib/gdk-pixbuf-2.0" "${DEST}/mingw64/lib/"
 ## the app-local dlls stay out of the bundle's mingw64/bin). Collect over every binary
 ## that gets loaded: the app exe and each pixbuf loader.
 closure_bins=("${DEST}/app/"*.exe)
-while IFS= read -r loader; do closure_bins+=("$loader"); done < <(find "${DEST}/mingw64/lib/gdk-pixbuf-2.0" -name '*.dll')
+while IFS= read -r loader; do closure_bins+=("${loader}"); done < <(find "${DEST}/mingw64/lib/gdk-pixbuf-2.0" -name '*.dll')
 
 ## app/ on PATH so ldd resolves any app-local deps; collect the unique /mingw64 dlls.
 tmplist="$(mktemp)"
 for bin in "${closure_bins[@]}"; do
-	PATH="${DEST}/app:${MINGW}/bin:${PATH}" ldd "$bin" 2>/dev/null \
+	PATH="${DEST}/app:${MINGW}/bin:${PATH}" ldd "${bin}" 2>/dev/null \
 		| grep -oiE "${MINGW}/bin/[^ ]+\.dll" || true
-done | sort -u > "$tmplist"
-while IFS= read -r dll; do [[ -f "$dll" ]] && cp -n "$dll" "${DEST}/mingw64/bin/"; done < "$tmplist"
-ndll="$(wc -l < "$tmplist")"; rm -f "$tmplist"
+done | sort -u > "${tmplist}"
+while IFS= read -r dll; do [[ -f "${dll}" ]] && cp -n "${dll}" "${DEST}/mingw64/bin/"; done < "${tmplist}"
+ndll="$(wc -l < "${tmplist}")"; rm -f "${tmplist}"
 
 ## Rebuild the loader cache in-place (arch-independent text; the query tool writes
 ## paths relative to the loader dir, so the bundle is relocatable). A failed
@@ -148,23 +148,23 @@ launcher="${DEST}/nemo-anywhere.vbs"
 	printf '%s\r\n' "env(\"FREETYPE_PROPERTIES\") = \"truetype:interpreter-version=35\""
 	printf '%s\r\n' "sh.CurrentDirectory = base & \"app\""
 	printf '%s\r\n' "sh.Run \"\"\"\" & base & \"app\\nemo-anywhere.exe\"\"\", 1, False"
-} > "$launcher"
+} > "${launcher}"
 
 ## meson's -Dstrip=true only runs on install, and neither Windows lane installs -
 ## both copy out of the build directory, which is here. So the exes that go out
 ## are stripped here instead. Until 20260919 they went out with full DWARF.
 strip_cmd=""
 for candidate in strip x86_64-w64-mingw32-strip llvm-strip; do
-	command -v "$candidate" >/dev/null 2>&1 && { strip_cmd="$candidate"; break; }
+	command -v "${candidate}" >/dev/null 2>&1 && { strip_cmd="${candidate}"; break; }
 done
-if [[ -n "$strip_cmd" ]]; then
+if [[ -n "${strip_cmd}" ]]; then
 	nstripped=0
 	## Not an && list: a failed strip on the right of one is skipped, the count
 	## stays where it was, and the stage goes on to report how many it stripped.
 	## That's how an unstripped exe used to go out.
 	for binary in "${DEST}/app/"*.exe; do
-		[[ -f "$binary" ]] || continue
-		if strip_err="$("$strip_cmd" --strip-debug "$binary" 2>&1)"; then
+		[[ -f "${binary}" ]] || continue
+		if strip_err="$("${strip_cmd}" --strip-debug "${binary}" 2>&1)"; then
 			nstripped=$(( nstripped + 1 ))
 		else
 			fEcho "FAILED: couldn't strip ${binary}: ${strip_err:-no error text}"
@@ -176,7 +176,7 @@ if [[ -n "$strip_cmd" ]]; then
 	## The strip is the last thing to write the exe, so this is the stamp that
 	## goes out. A miss here means the bundle isn't reproducible from its tag.
 	pe="$(fPeTimestamp "${DEST}/app/nemo-anywhere.exe")"
-	[[ "$pe" == "${SOURCE_DATE_EPOCH}" ]] \
+	[[ "${pe}" == "${SOURCE_DATE_EPOCH}" ]] \
 		|| { fEcho "FAILED: the staged exe is stamped ${pe:-nothing}, not ${SOURCE_DATE_EPOCH} - the strip is ignoring SOURCE_DATE_EPOCH"; exit 1; }
 	fEcho "staged exe stamped ${pe}"
 	bash "${REPO}/cicd/utility/check-win-build-flags.bash" --shipped "${DEST}/app/nemo-anywhere.exe" \

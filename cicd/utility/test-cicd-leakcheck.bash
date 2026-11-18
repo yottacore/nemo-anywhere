@@ -27,16 +27,16 @@ fEcho(){ echo "[ $* ]"; }
 failures=0
 fFail(){ fEcho "FAILED: $*"; failures=$((failures + 1)); }
 
-help="$(bash "$cicd" --help)"
+help="$(bash "${cicd}" --help)"
 for flag in --leakcheck --no-leakcheck; do
-	grep -q -E "^ +${flag} " <<< "$help" || fFail "${flag} isn't in --help"
+	grep -q -E "^ +${flag} " <<< "${help}" || fFail "${flag} isn't in --help"
 done
 
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/cicd-leakcheck-check.XXXXXX")"
 trap 'fSafeRm_IfThere "${scratch}"' EXIT
 export HOST_TEMP="${scratch}/host-temp"
 mkdir -p "${HOST_TEMP}" "${scratch}/cicd/utility/include"
-cp "$cicd" "${scratch}/cicd/"
+cp "${cicd}" "${scratch}/cicd/"
 for inc in gfs-rotate source-date run-temp docker-sweep jobs; do
 	cp "${here}/include/${inc}.bash" "${scratch}/cicd/utility/include/"
 done
@@ -53,9 +53,9 @@ CFG
 ## $1 on or off, rest the options.
 fCase(){
 	local want="$1" out got; shift
-	out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync "$@" 2>&1 </dev/null || true)"
-	got="$(sed -n 's/^ *Leak checks \.* *: //p' <<< "$out")"
-	[[ "$got" == "$want" ]] || fFail "[${*:-no options}]: leak checks '${got:-none}', want ${want}"
+	out="$(cd "${scratch}" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync "$@" 2>&1 </dev/null || true)"
+	got="$(sed -n 's/^ *Leak checks \.* *: //p' <<< "${out}")"
+	[[ "${got}" == "${want}" ]] || fFail "[${*:-no options}]: leak checks '${got:-none}', want ${want}"
 }
 
 fCase on
@@ -75,10 +75,10 @@ fCase on  -q --quick --leakcheck
 ## $1 on or off, rest the options.
 fCaseCtu(){
 	local want="$1" out got; shift
-	out="$(cd "$scratch" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync "$@" 2>&1 </dev/null || true)"
-	got="$(sed -n 's/^ *Cross-file analyzer \.* *: //p' <<< "$out")"
-	case "$got" in ctu-step) got=on ;; "(skipped"*) got=off ;; esac
-	[[ "$got" == "$want" ]] || fFail "[${*:-no options}]: cross-file analyzer '${got:-none}', want ${want}"
+	out="$(cd "${scratch}" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync "$@" 2>&1 </dev/null || true)"
+	got="$(sed -n 's/^ *Cross-file analyzer \.* *: //p' <<< "${out}")"
+	case "${got}" in ctu-step) got=on ;; "(skipped"*) got=off ;; esac
+	[[ "${got}" == "${want}" ]] || fFail "[${*:-no options}]: cross-file analyzer '${got:-none}', want ${want}"
 }
 
 fCaseCtu off

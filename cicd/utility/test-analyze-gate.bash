@@ -38,7 +38,7 @@ listed="vendor/x/y.h:2:9: warning: Potential leak of memory pointed to by 'r' [u
 fCase(){
 	local want="$1" has="$2" name="$3" out rc=0; shift 3
 	{ echo "### source/src/a.c rc=0"; printf '%s\n' "$@"; } > "${log}"
-	out="$("$py" "${here}/analyze.py" count --supp "${supp}" "${root}" "${log}" 2>&1)" || rc=$?
+	out="$("${py}" "${here}/analyze.py" count --supp "${supp}" "${root}" "${log}" 2>&1)" || rc=$?
 	[[ "${rc}" == "${want}" ]] || fFail "${name}: exit ${rc}, want ${want}"
 	grep -qF -- "${has}" <<< "${out}" || fFail "${name}: no '${has}' in: $(tail -n 3 <<< "${out}")"
 }

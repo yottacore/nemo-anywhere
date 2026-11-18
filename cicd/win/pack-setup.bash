@@ -46,11 +46,11 @@ command -v unzip >/dev/null 2>&1 || fDie "unzip isn't installed"
 work=""
 trap 'fSafeRm_IfThere "${work}"; fStepBox_Stop' EXIT
 fWinBox_Start "windows setup" --no-build-win || exit 1
-docker exec "$CONTAINER" sh -c 'command -v makensis' >/dev/null 2>&1 \
+docker exec "${CONTAINER}" sh -c 'command -v makensis' >/dev/null 2>&1 \
 	|| fDie "no makensis in the cross-build image - rebuild it from cicd/win/Dockerfile"
 
 ver="$(grep -oP "(?<![_[:alnum:]])version\s*:\s*'\K[^']+" "${ROOT}/source/meson.build" | head -1)"
-[[ -n "$ver" ]] || fDie "no version in source/meson.build"
+[[ -n "${ver}" ]] || fDie "no version in source/meson.build"
 ## The version resource takes 4 numbers only, so 1.0.0-rc.1 goes in as 1.0.0.0.
 IFS=. read -r v1 v2 v3 _ <<<"${ver%%-*}.0.0.0"
 viver="$((10#${v1:-0})).$((10#${v2:-0})).$((10#${v3:-0})).0"
@@ -58,10 +58,10 @@ viver="$((10#${v1:-0})).$((10#${v2:-0})).$((10#${v3:-0})).0"
 name="${SLUG}-${ver}-windows-x86_64"
 zip="${OUT}/${name}.zip"
 setup="${name}-setup.exe"
-[[ -f "$zip" ]] || fDie "no ${name}.zip in ${OUT} - run pack-zip.bash first"
+[[ -f "${zip}" ]] || fDie "no ${name}.zip in ${OUT} - run pack-zip.bash first"
 
-fSetSourceDate "$ROOT"
-fWarnIfSourceDateIsAGuess "$ROOT"
+fSetSourceDate "${ROOT}"
+fWarnIfSourceDateIsAGuess "${ROOT}"
 
 fEcho_Clean
 fEcho "Packing ${setup}"
@@ -70,21 +70,21 @@ work="$(mktemp -d)"
 ## In the step's container, so it goes with it.
 box="/tmp/${SLUG}-setup.$$"
 
-unzip -q "$zip" -d "${work}/payload"
+unzip -q "${zip}" -d "${work}/payload"
 [[ -f "${work}/payload/${name}/${SLUG}.exe" ]] || fDie "${name}.zip has no ${name}/${SLUG}.exe"
 ## NSIS keeps each file's time and puts it back on install, so they get the
 ## commit's time, as in the zip. unzip alone sets the folders' to now.
 find "${work}/payload" -exec touch -h -d "@${SOURCE_DATE_EPOCH}" {} +
 
-docker exec "$CONTAINER" mkdir -p "$box"
+docker exec "${CONTAINER}" mkdir -p "${box}"
 docker cp "${work}/payload/${name}" "${CONTAINER}:${box}/payload" >/dev/null
-docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "$CONTAINER" makensis -V2 -NOCD \
+docker exec -e "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" "${CONTAINER}" makensis -V2 -NOCD \
 	"-DVERSION=${ver}" "-DVIVERSION=${viver}" \
 	"-DPAYLOAD=${box}/payload" "-DICON=/src/source/src/${SLUG}.ico" \
 	"-DOUTFILE=${box}/${setup}" /src/cicd/win/setup.nsi \
 	|| fDie "makensis failed"
 
-mkdir -p "$OUT"
+mkdir -p "${OUT}"
 rm -f "${OUT:?}/${setup}"
 docker cp "${CONTAINER}:${box}/${setup}" "${OUT}/${setup}" >/dev/null
 touch -d "@${SOURCE_DATE_EPOCH}" "${OUT}/${setup}"

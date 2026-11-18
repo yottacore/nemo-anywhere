@@ -266,15 +266,7 @@ refresh_widget (NemoActionConfigWidget *widget)
         for (l = widget->actions; l != NULL; l=l->next) {
             ActionProxy *proxy = l->data;
 
-            gboolean active = TRUE;
-            guint i = 0;
-
-            for (i = 0; i < g_strv_length (blacklist); i++) {
-                if (g_strcmp0 (blacklist[i], proxy->filename) == 0) {
-                    active = FALSE;
-                    break;
-                }
-            }
+            gboolean active = !g_strv_contains ((const gchar * const *) blacklist, proxy->filename);
 
             GtkWidget *w;
             GtkWidget *box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
