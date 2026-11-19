@@ -350,7 +350,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - CICD reset: CPU and priority.
 	- ID: 2026102416300003
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261024-163000
 	- Opened by: t00mietum
@@ -366,12 +366,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Overrides: design.md, "The pipeline", on half the cores, and the Done item "No step in CICD should consume more than 50% CPU."
 	- Progress log:
 		- 20261025: split into children 2026102517333352 (`cicd.bash` and its scripts), 2026102517333357 (`cicd-win.ps1`) and 2026102517333362 (the other boxes).
-	- Test case: none yet.
+	- Test case: its children's: 2026102517333362: ddmn7 (FreeBSD lane: half the box's CPUs, a quarter when busy, the pin, a bad pin, nice 19 there), ddmmv (arm64: the same under nice and ionice, and the container's cap), dee7t (reading both kinds of load line).; 2026102517333357: dejjt (`cicd/utility/test-cicd-win.ps1`, lint stage: the count at 50% and 51%, hard, and 1 CPU; one place reads the CPU count; ninja, `meson test` and the MSYS2 shell get it; busy and pinned jobs lines; a bad pin stops the run; the toolchain check and each step's work run at `BelowNormal` or lower).; 2026102517333352: dee7t (job counts, one place works them out, the containers read them per step under nice). de54r checks a hard step gets a quarter.
+	- Closed: 20261119-115552
 
 - CICD reset: step output.
 	- ID: 2026102416300005
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261024-163000
 	- Opened by: t00mietum
@@ -384,7 +385,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- The gate, `cicd-win.ps1` and the lanes on the other boxes print the same form.
 	- Progress log:
 		- 20261025: split into children 2026102517333367 (`cicd.bash`, the gate included) and 2026102517333373 (`cicd-win.ps1` and the other boxes).
-	- Test case: none yet.
+	- Test case: its children's: 2026102517333373: dejjt (`cicd/utility/test-cicd-win.ps1`, lint stage: the gate and the full run with every step on, with steps turned off by each flag, a missing toolchain with and without `-BuildStrict`, no Enigma Virtual Box, and a step that fails, each checked for the rule, numbering, open and close lines and the turned-off list).; 2026102517333367: de54r checks the step lines of every run it makes, a failing step, and the turned-off list. dddq3 now reads the steps `--quick` turns off from the plan.
+	- Closed: 20261119-115553
 
 - Settings: search.
 	- ID: 2026101417352263
