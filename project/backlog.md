@@ -593,15 +593,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Changelog: the Nemo Anywhere selection model, for rc.1.
 	- ID: 2026111022095190
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on UAT
+		- For the wording of the new changelog entries.
 	- Priority|Severity: Avg
 	- Opened: 20261110-220951
 	- Opened by:
-	- Related IDs: 2026102019174440, 2026102407515575
+	- Related IDs: 2026102019174440, 2026102407515575, 2026111707591589, 2026111913460865, 2026102018234903, 2026111912460963, 2026111912460983
 	- Target version: rc.1
 	- Progress log:
 		- The selection model work has no changelog entry yet: the model as the default, its checkmarks, focus and keys, Select none, Ctrl+I inverting and Properties on Alt+Enter, and the status bar line.
 		- Test case: the docs checks.
+		- 20261119: the changelog's vNEXT section has 7 selection model entries under Added, and one for Settings search with its aliases. Ctrl+I inverting, with Properties on Alt+Enter, is under Changed.
+	- Decisions:
+		- The affirmative switch is left out, since it's off and has no setting.
+		- Ctrl+I goes under Changed, since it changes a key that beta2 users already had.
+		- The F2 pair is in, since the Behavior checkbox's changelog entry reads as if it always counts, and it's grayed under the default.
+		- Ctrl+Shift+V is left out, since it's a paste key rather than part of the selection model.
+	- Test case: the docs checks, since it's a changelog edit.
+	- Verified: 20261119, the markdown checks and the content scrub pass on changelog.md. markdownlint reports only the duplicate headings that every release section already had.
+	- Stand-in: none (20261119). It turns on how the entries read.
 
 - Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
 	- ID: 2026102114400592
