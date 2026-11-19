@@ -318,7 +318,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Affirmative checkmarks: the switch and the places it will plug into, with no affirmative behavior yet.
 	- ID: 2026102019174477
 	- Type: Task
-	- Status: Started
+	- Status: Done
 	- Needs local test suite run?: No. dfh4e and the selection, drag and tree tests passed 20261119.
 	- Priority|Severity: High
 	- Opened: 20261020-191745
@@ -356,6 +356,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: nov19-2026102019174477
 	- Test case: dfh4e, Affirmative switch off test: the tunable is 0, every place goes the off way under each model, the wording is the "Switch off" column, and each place is asked somewhere in the source. dec8w, dec8v, de8bd, de8dm, ddy5f, de8ec, df066 and dd5df show the behavior hasn't changed.
 	- Verified: 20261119, dfh4e fails with the tunable at 1 (every place under Nemo Anywhere) and with the drag punt's conditional taken out, and passes as committed. The tree builds with the tunable at 1. dfh4e, dec8w, dec8v, de8bd, de8dm, ddy5f, de8ec, df066 and dd5df pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
+	- Closed: 20261119-124419
 
 - Affirmative checkmarks: the acted-on pick for commands and the dialog alert, with no affirmative behavior yet.
 	- ID: 2026111912024382
