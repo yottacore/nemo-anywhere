@@ -440,7 +440,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: search.
 	- ID: 2026101417352263
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on signoff
 	- Priority|Severity: High
 	- Opened: 20261014-173522
 	- Opened by: t00mietum
@@ -453,7 +453,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261117: raised to High.
 		- 20261119: split into children 2026111912460963 (the field, label and fuzzy matches, and going to a setting) and 2026111912460983 (aliases, Done).
-	- Test case: its children's.
+		- 20261119: children 2026111912460963 wait on UAT, and the rest are closed
+	- Test case: its children's: 2026111912460963: dfh5x, Settings search matching test: the design doc's 3 examples, the order of the groups and within each, the fuzzy rules, and the markup. dd5df, Settings dialog test, now checks the field is over the pages and outside the scrolling, a search's first match and its path and marks, a fuzzy match, no match, Enter going to the setting, a tab click leaving the search, Ctrl+F, and that the first Escape only empties the field.; 2026111912460983: dfh5x, Settings search matching test: the alias table has a setting's aliases and nothing for a key without a row. dd5df, Settings dialog test: every setting with aliases has a control in the window that the search finds, and gets them on exactly one entry, and an alias typed lists its setting with the alias after the label. The file cache page is stubbed in that test, so its key is left out there.
 
 - Settings search: a search field over the tabs, with label and fuzzy matches, each shown with its path and marked letters, that goes to the setting picked.
 	- ID: 2026111912460963
