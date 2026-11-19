@@ -326,12 +326,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Tree view: in "Checkmark selection" mode, folders follow the content view's selection rules and can be fully edited.
 	- ID: 2026102018234903
 	- Type: Enhancement
-	- Status: Started
+	- Status: Done
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261020-182349
 	- Opened by: t00mietum
 	- Prereq IDs: 2026101816495208
-	- Related IDs: 2026102018234900
+	- Related IDs: 2026102018234900, 2026102019174514
 	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
@@ -341,10 +342,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md).
 	- Progress log:
 		- 20261108: under the Nemo Anywhere model, with the tree focused, Ctrl+C, Ctrl+X, Ctrl+V, Delete and Shift+Delete act on the tree's folder, by the same rules as its right-click menu. Before, the window's keys took them first and acted on the content view's selection. Classic and v1 are unchanged.
-		- Left: F2 rename in the tree, and whether the tree takes a multi-selection with the switch off (needs more thought, with 2026102407515574).
-	- Branch: treeedit
-	- Test case: df066 (Ctrl+C in the tree with the whole list selected).
-	- Decisions: 20261110, the tree stays single-select. Only the edit keys and menu entries come over, acting on the one selected folder. Multi-select waits for the affirmative switch.
+		- 20261119: F2 in the tree renames its selected folder in place, with the whole name picked, as the content view does for a folder. The tree's right-click menu has Rename under Nemo Anywhere, for the row it was opened on. While the name is open its entry keeps Delete, Ctrl+C and the rest. It's written up under Tree view in the behavior models design doc.
+	- Decisions:
+		- 20261110, the tree stays single-select. Only the edit keys and menu entries come over, acting on the one selected folder. Multi-select waits for the affirmative switch.
+		- The tree's checkmarks with the switch on go with the rest of the affirmative half, 2026102019174514, so nothing is left here.
+		- Rename from the menu on a row that isn't selected leaves the selection where it was, so the folder doesn't open. Right-click in the tree doesn't select either, and opening it mid-rename would be a surprise.
+		- No click-to-rename in the tree, and no nested folders from a slash in the new name. F2 and the menu cover it.
+		- Menu Rename shows only under Nemo Anywhere, like the edit keys. v1 and Classic keep upstream's menu.
+	- Swept: every edit key path into the tree goes through `tree_edit_key`, which the window's key check uses too, so F2 comes to the tree the same way. The menu's entries all act on the row it was opened on. The list view's own rename is unchanged.
+	- Branch: nov19-2026102018234903
+	- Test case: df066, Tree keys and selection test: F2 in the tree edits its folder's name with the whole name picked, Delete there edits the name and leaves the folder, and Enter renames it with the window following. The menu's Rename on a row that isn't selected edits that row, leaves the selection and the open folder alone, and renames it. It fails before the fix and passes after.
+		- 20261119: df066's result count went from 18 to 25.
+	- Verified: 20261119, df066 fails on the old tree code and passes with the change. de8bd, de8dm, dec8w, dd8dp, dcnqs, ddg79 and df06r pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
+	- Acceptance signoff: Self-closed: df066.
+	- Closed: 20261119-144506
 
 - Affirmative checkmarks: the switch and the places it will plug into, with no affirmative behavior yet.
 	- ID: 2026102019174477

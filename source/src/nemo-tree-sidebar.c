@@ -34,6 +34,7 @@
 #include "nemo-tree-sidebar.h"
 
 #include "nemo-actions.h"
+#include "nemo-error-reporting.h"
 #include "nemo-tree-sidebar-model.h"
 #include "nemo-view.h"
 #include "nemo-properties-window.h"
@@ -79,6 +80,12 @@ struct FMTreeViewDetails {
 	NemoWindow *window;
 	GtkTreeView *tree_widget;
 	GtkTreeViewColumn *name_column;
+	GtkCellRenderer *name_cell;
+	/* The name's entry while a rename is open. */
+	GtkCellEditable *rename_entry;
+	char *rename_from;
+	/* Moving the cursor to a row for its rename doesn't pick it. */
+	gboolean selection_pinned;
 	/* Nemo Anywhere's dim checkmarks. Column 0 under that model, and out
 	   of the tree under the others. */
 	GtkTreeViewColumn *checkmark_column;
@@ -107,6 +114,7 @@ struct FMTreeViewDetails {
 	EelMenuPress menu_press;
 
 	NemoFile *popup_file;
+	GtkTreeRowReference *popup_row;
 	guint popup_file_idle_handler;
 	
 	guint selection_changed_timer;
@@ -833,6 +841,8 @@ update_menu_states (FMTreeView *view,
         return FALSE;
     }
     view->details->popup_file = nemo_file_ref (file);
+    g_clear_pointer (&view->details->popup_row, gtk_tree_row_reference_free);
+    view->details->popup_row = gtk_tree_row_reference_new (GTK_TREE_MODEL (view->details->sort_model), path);
 
     NemoFile *parent = nemo_file_get_parent (file);
     GList *selected = g_list_prepend (NULL, file);
@@ -869,6 +879,11 @@ update_menu_states (FMTreeView *view,
 
     can_move_file_to_trash = nemo_file_can_trash (file);
     set_action_sensitive (view->details->tv_action_group, NEMO_ACTION_TRASH, can_move_file_to_trash);
+
+    /* The tree takes the content view's edits only under Nemo Anywhere. */
+    set_action_visible (view->details->tv_action_group, NEMO_ACTION_RENAME,
+                        nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE);
+    set_action_sensitive (view->details->tv_action_group, NEMO_ACTION_RENAME, nemo_file_can_rename (file));
 
     if (nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_ENABLE_DELETE)) {
     	can_delete_file = file_can_be_deleted (file);
@@ -1324,6 +1339,7 @@ free_popup_file_in_idle_cb (gpointer data)
 		nemo_file_unref (view->details->popup_file);
 		view->details->popup_file = NULL;
 	}
+	g_clear_pointer (&view->details->popup_row, gtk_tree_row_reference_free);
 	view->details->popup_file_idle_handler = 0;
 	return FALSE;
 }
@@ -1512,6 +1528,113 @@ clear_ui (FMTreeView *view)
                         &view->details->action_action_group);
 }
 
+static gboolean
+selection_unpinned (G_GNUC_UNUSED GtkTreeSelection *selection,
+		    G_GNUC_UNUSED GtkTreeModel *model,
+		    G_GNUC_UNUSED GtkTreePath *path,
+		    G_GNUC_UNUSED gboolean selected,
+		    gpointer data)
+{
+	return !FM_TREE_VIEW (data)->details->selection_pinned;
+}
+
+/* Folders have no extension, so the whole name is picked, as in the
+   content view. A row other than the selected one, from the menu, is
+   renamed without opening it. */
+static void
+rename_row (FMTreeView *view, GtkTreePath *path)
+{
+	NemoFile *file;
+	gboolean can;
+
+	if (view->details->rename_entry != NULL) {
+		gtk_editable_select_region (GTK_EDITABLE (view->details->rename_entry), 0, -1);
+		return;
+	}
+	file = sort_model_path_to_file (view, path);
+	can = file != NULL && nemo_file_can_rename (file);
+	nemo_file_unref (file);
+	if (!can) {
+		return;
+	}
+
+	g_object_set (view->details->name_cell, "editable", TRUE, NULL);
+	gtk_tree_view_scroll_to_cell (view->details->tree_widget, path, NULL, FALSE, 0, 0);
+	view->details->selection_pinned = TRUE;
+	gtk_tree_view_set_cursor_on_cell (view->details->tree_widget, path,
+					  view->details->name_column, view->details->name_cell, TRUE);
+	view->details->selection_pinned = FALSE;
+	view->details->focus_adrift = !cursor_on_selection (view->details->tree_widget);
+	focus_outline_update (view);
+	if (view->details->rename_entry != NULL) {
+		gtk_editable_select_region (GTK_EDITABLE (view->details->rename_entry), 0, -1);
+	}
+}
+
+static void
+rename_editing_started (G_GNUC_UNUSED GtkCellRenderer *cell,
+			GtkCellEditable *editable,
+			const char *path_str,
+			FMTreeView *view)
+{
+	GtkTreePath *path = gtk_tree_path_new_from_string (path_str);
+	NemoFile *file = path != NULL ? sort_model_path_to_file (view, path) : NULL;
+
+	gtk_tree_path_free (path);
+	view->details->rename_entry = editable;
+	g_free (view->details->rename_from);
+	view->details->rename_from = NULL;
+	if (file != NULL && GTK_IS_ENTRY (editable)) {
+		view->details->rename_from = nemo_file_get_rename_name (file);
+		gtk_entry_set_text (GTK_ENTRY (editable), view->details->rename_from);
+	}
+	nemo_file_unref (file);
+}
+
+static void
+rename_editing_over (FMTreeView *view)
+{
+	view->details->rename_entry = NULL;
+	g_object_set (view->details->name_cell, "editable", FALSE, NULL);
+}
+
+static void
+rename_editing_canceled (G_GNUC_UNUSED GtkCellRenderer *cell, FMTreeView *view)
+{
+	rename_editing_over (view);
+}
+
+static void
+rename_edited (G_GNUC_UNUSED GtkCellRendererText *cell,
+	       const char *path_str,
+	       const char *new_text,
+	       FMTreeView *view)
+{
+	GtkTreePath *path = gtk_tree_path_new_from_string (path_str);
+	NemoFile *file = path != NULL ? sort_model_path_to_file (view, path) : NULL;
+
+	gtk_tree_path_free (path);
+	rename_editing_over (view);
+	/* An empty name goes back to the old one, as in the content view. */
+	if (file != NULL && new_text[0] != '\0' && g_strcmp0 (new_text, view->details->rename_from) != 0) {
+		nemo_rename_file (file, new_text, NULL, NULL);
+	}
+	nemo_file_unref (file);
+}
+
+static void
+fm_tree_view_rename_cb (G_GNUC_UNUSED GtkAction *action,
+			FMTreeView *view)
+{
+	GtkTreePath *path = view->details->popup_row != NULL ?
+		gtk_tree_row_reference_get_path (view->details->popup_row) : NULL;
+
+	if (path != NULL) {
+		rename_row (view, path);
+		gtk_tree_path_free (path);
+	}
+}
+
 static const GtkActionEntry tree_sidebar_menu_entries[] = {
     { NEMO_ACTION_OPEN,                    "folder-open-symbolic",        N_("_Open"),                NULL, NULL, G_CALLBACK (fm_tree_view_open_cb)               },
     { NEMO_ACTION_OPEN_IN_NEW_TAB,         NULL,                          N_("Open in new _tab"),     NULL, NULL, G_CALLBACK (fm_tree_view_open_in_new_tab_cb)    },
@@ -1522,6 +1645,7 @@ static const GtkActionEntry tree_sidebar_menu_entries[] = {
     { NEMO_ACTION_PASTE,                   "edit-paste-symbolic",         N_("_Paste into folder"),   NULL, NULL, G_CALLBACK (fm_tree_view_paste_cb)              },
     { NEMO_ACTION_PIN_FILE,                "view-pin-symbolic",           N_("P_in"),                 NULL, NULL, G_CALLBACK (fm_tree_view_pin_unpin_cb)          },
     { NEMO_ACTION_UNPIN_FILE,              "view-pin-symbolic",         N_("Unp_in"),               NULL, NULL, G_CALLBACK (fm_tree_view_pin_unpin_cb)          },
+    { NEMO_ACTION_RENAME,                  NULL,                          N_("_Rename..."),           NULL, NULL, G_CALLBACK (fm_tree_view_rename_cb)             },
     { NEMO_ACTION_TRASH,                   "user-trash-full-symbolic",    N_("Mo_ve to Trash"),       NULL, NULL, G_CALLBACK (fm_tree_view_trash_cb)              },
     { NEMO_ACTION_DELETE,                  "edit-delete-symbolic",        N_("_Delete"),              NULL, NULL, G_CALLBACK (fm_tree_view_delete_cb)             },
     { NEMO_ACTION_UNMOUNT_VOLUME,          NULL,                          N_("_Unmount"),             NULL, NULL, G_CALLBACK (fm_tree_view_unmount_cb)            },
@@ -1671,6 +1795,7 @@ typedef enum {
 	TREE_EDIT_PASTE,
 	TREE_EDIT_TRASH,
 	TREE_EDIT_DELETE,
+	TREE_EDIT_RENAME,
 } TreeEditKey;
 
 static TreeEditKey
@@ -1682,6 +1807,9 @@ tree_edit_key (GdkEventKey *event)
 	if (keyval == GDK_KEY_Delete || keyval == GDK_KEY_KP_Delete) {
 		return mods == 0 ? TREE_EDIT_TRASH :
 		       mods == GDK_SHIFT_MASK ? TREE_EDIT_DELETE : TREE_EDIT_NONE;
+	}
+	if (keyval == GDK_KEY_F2) {
+		return mods == 0 ? TREE_EDIT_RENAME : TREE_EDIT_NONE;
 	}
 	if (mods != GDK_CONTROL_MASK) {
 		return TREE_EDIT_NONE;
@@ -1703,11 +1831,23 @@ tree_edit_key (GdkEventKey *event)
 static gboolean
 tree_edit (FMTreeView *view, GtkTreeView *tree_view, TreeEditKey edit)
 {
+	GtkTreeModel *model;
 	GtkTreeIter iter;
+	GtkTreePath *path;
 	NemoFile *file;
 
-	if (!gtk_tree_selection_get_selected (gtk_tree_view_get_selection (tree_view), NULL, &iter)) {
+	/* The rename entry keeps its own keys. */
+	if (view->details->rename_entry != NULL && edit != TREE_EDIT_RENAME) {
 		return GDK_EVENT_PROPAGATE;
+	}
+	if (!gtk_tree_selection_get_selected (gtk_tree_view_get_selection (tree_view), &model, &iter)) {
+		return GDK_EVENT_PROPAGATE;
+	}
+	if (edit == TREE_EDIT_RENAME) {
+		path = gtk_tree_model_get_path (model, &iter);
+		rename_row (view, path);
+		gtk_tree_path_free (path);
+		return GDK_EVENT_STOP;
 	}
 	file = sort_model_iter_to_file (view, &iter);
 	if (file == NULL) {
@@ -1734,6 +1874,7 @@ tree_edit (FMTreeView *view, GtkTreeView *tree_view, TreeEditKey edit)
 			delete_file (view, file);
 		}
 		break;
+	case TREE_EDIT_RENAME:
 	case TREE_EDIT_NONE:
 		break;
 	}
@@ -2308,6 +2449,12 @@ create_tree (FMTreeView *view)
                                          "style", FM_TREE_MODEL_FONT_STYLE_COLUMN,
                                          "weight", FM_TREE_MODEL_TEXT_WEIGHT_COLUMN,
                                          NULL);
+	view->details->name_cell = cell;
+	gtk_tree_selection_set_select_function (gtk_tree_view_get_selection (view->details->tree_widget),
+						selection_unpinned, view, NULL);
+	g_signal_connect_object (cell, "editing-started", G_CALLBACK (rename_editing_started), view, 0);
+	g_signal_connect_object (cell, "editing-canceled", G_CALLBACK (rename_editing_canceled), view, 0);
+	g_signal_connect_object (cell, "edited", G_CALLBACK (rename_edited), view, 0);
 
 	gtk_tree_view_append_column (view->details->tree_widget, column);
 	view->details->name_column = column;
@@ -2581,6 +2728,8 @@ fm_tree_view_dispose (GObject *object)
 		nemo_file_unref (view->details->popup_file);
 		view->details->popup_file = NULL;
 	}
+	g_clear_pointer (&view->details->popup_row, gtk_tree_row_reference_free);
+	g_clear_pointer (&view->details->rename_from, g_free);
 
 	if (view->details->selection_location != NULL) {
 		g_free (view->details->selection_location);

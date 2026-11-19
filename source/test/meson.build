@@ -1671,7 +1671,7 @@ if not is_windows
       dependencies: [ glib, gio, test_scratch ],
     ),
     args: [ nemo, tree_keys_probe ],
-    timeout: 120
+    timeout: 180
   )
 
   # Preloaded too; it selects folders in the tree and reads its sideways scroll.

@@ -29,7 +29,8 @@
  * go to its parent, then copies that row with Ctrl+C while the list has
  * everything selected. Then it opens the folder again and its row, and moves
  * the tree's focus with Ctrl+Up and Ctrl+Down, Escape, Ctrl+Space, Up, Ctrl+End
- * and Ctrl+Home, with a Ctrl+C after a Ctrl move. One "ok" or "FAIL" line per
+ * and Ctrl+Home, with a Ctrl+C after a Ctrl move. Last it opens beta and
+ * renames it with F2, then alpha from the tree's menu. One "ok" or "FAIL" line per
  * check goes to $NEMO_TREE_KEYS_OUT, and "done" at the end. */
 
 #include <stdio.h>
@@ -403,6 +404,35 @@ folder_row_ready (void)
 	return path;
 }
 
+/* An item of the menu that's up, by its action's name. */
+static GtkWidget *
+menu_item (const char *action_name)
+{
+	GList *toplevels = gtk_window_list_toplevels ();
+	GList *l, *items, *i;
+	GtkWidget *found = NULL;
+
+	for (l = toplevels; l != NULL && found == NULL; l = l->next) {
+		GtkWidget *menu = gtk_widget_get_mapped (l->data) ? find_widget (l->data, "GtkMenu") : NULL;
+
+		if (menu == NULL) {
+			continue;
+		}
+		items = gtk_container_get_children (GTK_CONTAINER (menu));
+		for (i = items; i != NULL && found == NULL; i = i->next) {
+			GtkAction *action = GTK_IS_ACTIVATABLE (i->data) ?
+				gtk_activatable_get_related_action (GTK_ACTIVATABLE (i->data)) : NULL;
+
+			if (action != NULL && g_strcmp0 (gtk_action_get_name (action), action_name) == 0) {
+				found = i->data;
+			}
+		}
+		g_list_free (items);
+	}
+	g_list_free (toplevels);
+	return found;
+}
+
 static gboolean
 steps (void)
 {
@@ -609,7 +639,123 @@ steps (void)
 		path = gtk_tree_path_new_first ();
 		report (focus_quiet_on (path), "Ctrl+Home selects the first row, as Home does");
 		gtk_tree_path_free (path);
+		break;
+	case 13:
+		path = tree_row ("beta");
+		if (!title_changed () || path == NULL) {
+			gtk_tree_path_free (path);
+			return FALSE;
+		}
+		note_title ();
+		gtk_tree_view_expand_to_path (tree, path);
+		click_tree_path (path);
+		break;
+	case 14: {
+		GtkWidget *focus;
+		int start = -1, end = -1;
+		char *old_path;
+
+		path = tree_row ("beta");
+		if (!title_changed () || !tree_selected_is (path)) {
+			gtk_tree_path_free (path);
+			return FALSE;
+		}
+		gtk_tree_path_free (path);
+		gtk_widget_grab_focus (GTK_WIDGET (tree));
+		key (GDK_KEY_F2, 0);
+		focus = gtk_window_get_focus (GTK_WINDOW (window));
+		if (GTK_IS_ENTRY (focus)) {
+			gtk_editable_get_selection_bounds (GTK_EDITABLE (focus), &start, &end);
+		}
+		report (GTK_IS_ENTRY (focus) && gtk_widget_is_ancestor (focus, GTK_WIDGET (tree)) &&
+			g_strcmp0 (gtk_entry_get_text (GTK_ENTRY (focus)), "beta") == 0 &&
+			start == 0 && end == 4,
+			"F2 in the tree edits its folder's name, picked whole");
+		if (!GTK_IS_ENTRY (focus)) {
+			return TRUE;
+		}
+		key (GDK_KEY_Delete, 0);
+		old_path = g_build_filename (g_get_home_dir (), folder_name, "beta", NULL);
+		report (gtk_entry_get_text (GTK_ENTRY (focus))[0] == '\0' &&
+			g_file_test (old_path, G_FILE_TEST_IS_DIR),
+			"Delete there edits the name and leaves the folder alone");
+		g_free (old_path);
+		gtk_entry_set_text (GTK_ENTRY (focus), "gamma");
+		key (GDK_KEY_Return, 0);
+		break;
+	}
+	case 15: {
+		char *old_path = g_build_filename (g_get_home_dir (), folder_name, "beta", NULL);
+		char *new_path = g_build_filename (g_get_home_dir (), folder_name, "gamma", NULL);
+		gboolean renamed = g_file_test (new_path, G_FILE_TEST_IS_DIR) && !g_file_test (old_path, G_FILE_TEST_EXISTS);
+
+		g_free (old_path);
+		g_free (new_path);
+		if ((!renamed || !title_changed ()) && waited < 60) {
+			return FALSE;
+		}
+		report (renamed && g_str_has_prefix (gtk_window_get_title (GTK_WINDOW (window)), "gamma"),
+			"Enter renames it, and the window follows");
+		/* The menu on alpha, which isn't selected. */
+		alpha = tree_row ("alpha");
+		gtk_tree_view_collapse_row (tree, alpha);
+		gtk_widget_grab_focus (GTK_WIDGET (tree));
+		key (GDK_KEY_Escape, 0);
+		key (GDK_KEY_Up, GDK_CONTROL_MASK);
+		report (tree_cursor_is (alpha) && !tree_selected_is (alpha), "Ctrl+Up puts the focus on alpha");
+		gtk_tree_path_free (alpha);
+		note_title ();
+		key (GDK_KEY_F10, GDK_SHIFT_MASK);
+		break;
+	}
+	case 16: {
+		GtkWidget *item = menu_item ("Rename");
+		GtkWidget *focus;
+
+		if (item == NULL && waited < 30) {
+			return FALSE;
+		}
+		if (item == NULL || !gtk_widget_get_visible (item) || !gtk_widget_get_sensitive (item)) {
+			report (FALSE, "the tree's menu has Rename");
+			return TRUE;
+		}
+		gtk_menu_shell_activate_item (GTK_MENU_SHELL (gtk_widget_get_parent (item)), item, TRUE);
+		focus = gtk_window_get_focus (GTK_WINDOW (window));
+		report (GTK_IS_ENTRY (focus) && g_strcmp0 (gtk_entry_get_text (GTK_ENTRY (focus)), "alpha") == 0,
+			"the tree's menu has Rename, which edits that row's name");
+		break;
+	}
+	case 17: {
+		/* Past the wait before a tree pick opens the folder. */
+		GtkWidget *focus = gtk_window_get_focus (GTK_WINDOW (window));
+
+		if (waited < 10) {
+			return FALSE;
+		}
+		path = tree_row ("alpha");
+		report (GTK_IS_ENTRY (focus) && !tree_selected_is (path) && tree_cursor_is (path) &&
+			g_strcmp0 (gtk_window_get_title (GTK_WINDOW (window)), title_before) == 0,
+			"and leaves the selection and the open folder alone");
+		gtk_tree_path_free (path);
+		if (GTK_IS_ENTRY (focus)) {
+			gtk_entry_set_text (GTK_ENTRY (focus), "delta");
+			key (GDK_KEY_Return, 0);
+		}
+		break;
+	}
+	case 18: {
+		char *old_path = g_build_filename (g_get_home_dir (), folder_name, "alpha", "inner", NULL);
+		char *new_path = g_build_filename (g_get_home_dir (), folder_name, "delta", "inner", NULL);
+		gboolean renamed = g_file_test (new_path, G_FILE_TEST_IS_DIR) && !g_file_test (old_path, G_FILE_TEST_EXISTS);
+
+		g_free (old_path);
+		g_free (new_path);
+		if (!renamed && waited < 60) {
+			return FALSE;
+		}
+		report (renamed, "and Enter renames it");
 		return TRUE;
+	}
 	}
 	return TRUE;
 }
@@ -629,7 +775,7 @@ tick (G_GNUC_UNUSED gpointer data)
 	if (!steps ()) {
 		return G_SOURCE_CONTINUE;
 	}
-	if (step == 12) {
+	if (step == 18) {
 		finish ();
 		return G_SOURCE_REMOVE;
 	}
