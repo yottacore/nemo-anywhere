@@ -887,18 +887,33 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Linux and BSD, a bundled icon set picked in the settings file may draw Adwaita's folders instead of its own.
 	- ID: 2026111020501135
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261110-205011
 	- Opened by: 2026102515500000
 	- Related IDs: 2026102515500000
 	- Target OS: Linux, BSD
+	- Target version: rc.1
 	- Steps to reproduce: on a desktop with the adwaita-icon-theme package installed, set `appearance` `icon-theme` to a bundled set such as Mica in the settings file, and open a folder with a subfolder and a text file.
 	- Incorrect behavior: likely Adwaita's blue folder and plain text icon, not the set's own.
 	- Expected behavior: the picked set's own icons, as on Windows.
-	- Reproduced: No.
+	- Reproduced: 20261119 on Linux with Adwaita installed. With the bundled set loaded and Mica picked, the folder, text, and home icons came from the installed Adwaita. A default Linux or BSD build has no bundled set, since `bundled_themes` is off there, so a Mica pick in one draws the desktop's Adwaita by design. A Mica dropped into the `icons` folder beside the settings file draws its own icons.
 	- Possible cause: the one found in 2026102515500000. GTK 3 looks in an Adwaita theme on disk before hicolor, and the bundled sets sit in hicolor. Here the system's Adwaita is on disk. design.md says Linux and the BSDs use the desktop's themes, so this is only for a pick in the settings file.
-	- Test case: none yet.
+	- Actual cause: as above. The app handed GTK the set's own name, which GTK can't find on disk, so the lookup went on to the installed Adwaita before it reached hicolor.
+	- Decisions:
+		- Fix the lookup here, since the Adwaita on disk is the desktop's and can't be left out the way the Windows bundle leaves it out. 2026102515500000's fix stands. Its note that GTK can't put a resource path ahead of an on-disk Adwaita is wrong now, since naming hicolor does it.
+		- Only a pick goes to hicolor. The platform's own name is left alone. On Windows that's the bundle's settings.ini, and ddqjk already keeps Adwaita off disk there.
+		- On Windows, GTK's icon theme setting now reads hicolor for a picked bundled set rather than the set's name. The lookup order there is the same as before, since there's no Adwaita on disk.
+		- A default Linux or BSD build has no bundled set, so nothing changes there.
+	- Actual fix: a picked icon set that's bundled, with no theme of that name on GTK's search path, goes to GTK as hicolor. hicolor then comes first, and within it the picked set's path, which was added last. A drop-in or installed theme of the same name keeps its own name.
+	- Swept: every place the app names an icon theme to GTK. `apply_appearance` is the only setter. `desktop_theme_notify_cb` and the platform's name only push the bundled paths and leave the name alone. The pathbar only reloads on a name change.
+	- Verified: dbes6 fails on the unfixed code with the bundled set loaded, with 24 sets drawing the installed Adwaita's folder, and passes with the fix. It also fails when only the first set's path is ever pushed. de56s passes. gcc's and clang's analyzers report nothing on the 2 changed files, and the C lint passes.
+	- Note: not run on Windows yet, where dbes6 runs natively in the full run.
+	- Branch: nov19-2026111020501135
+	- Commit: b9250c35
+	- Test case: dbes6 `test-nemo-appearance` (`test_bundled_icons_beat_disk_adwaita`), on a build with the bundled set. A build without one skips it.
+	- Acceptance signoff: Self-closed: dbes6 fails before the fix and passes after, with the bundled set loaded.
+	- Closed: 20261119-142443
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038

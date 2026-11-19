@@ -508,6 +508,40 @@ push_bundled_icon_paths (const char *chosen)
 	g_free (path);
 }
 
+static gboolean
+gtk_finds_icon_theme (const char *name)
+{
+	gchar    **paths = NULL;
+	gint       n_paths = 0;
+	gboolean   found = FALSE;
+	int        i;
+
+	gtk_icon_theme_get_search_path (gtk_icon_theme_get_default (), &paths, &n_paths);
+	for (i = 0; i < n_paths && !found; i++) {
+		char *index = g_build_filename (paths[i], name, "index.theme", NULL);
+
+		found = g_file_test (index, G_FILE_TEST_IS_REGULAR);
+		g_free (index);
+	}
+	g_strfreev (paths);
+
+	return found;
+}
+
+/* The name to hand GTK for a picked icon set. GTK reads the bundled sets as
+ * part of hicolor, and always looks in an Adwaita on disk before hicolor, so
+ * on a desktop with Adwaita installed a bundled set lost every name Adwaita
+ * has. Naming hicolor itself puts it first. A theme GTK can find on disk,
+ * drop-ins included, keeps its own name. 2026111020501135 */
+static const char *
+gtk_name_for_icon_theme (const char *name)
+{
+	if (bundled_theme_exists (NEMO_THEME_KIND_ICON, name) && !gtk_finds_icon_theme (name)) {
+		return "hicolor";
+	}
+	return name;
+}
+
 static void
 scan_dir (ScanState *state, const char *dir, gboolean bundled)
 {
@@ -1095,7 +1129,7 @@ apply_appearance (void)
 	/* Our folders are on the icon search path, so any name works unpinned. */
 	push_bundled_icon_paths (resolved);
 	if (picked && resolved != NULL && resolved[0] != '\0') {
-		g_object_set (settings, "gtk-icon-theme-name", resolved, NULL);
+		g_object_set (settings, "gtk-icon-theme-name", gtk_name_for_icon_theme (resolved), NULL);
 		icon_theme_pinned = TRUE;
 	}
 	g_free (resolved);
