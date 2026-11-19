@@ -32,6 +32,7 @@
 #include "nemo-file.h"
 #include "nemo-file-utilities.h"
 #include "nemo-directory.h"
+#include "nemo-affirmative.h"
 #include "nemo-global-preferences.h"
 #include "nemo-icon-private.h"
 #include "nemo-lib-self-check-functions.h"
@@ -2852,6 +2853,14 @@ keyboard_up (NemoIconContainer *container,
 			    closest_in_90_degrees);
 }
 
+/* The space key's checkmark rules go here (2026102019174514). Until then it
+   previews, as with the switch off. */
+static void
+space_checkmarks (NemoIconContainer *container)
+{
+	preview_selected_items (container);
+}
+
 static void
 keyboard_space (NemoIconContainer *container,
 		GdkEventKey *event)
@@ -2889,6 +2898,8 @@ keyboard_space (NemoIconContainer *container,
 		}
 	} else if ((event->state & GDK_SHIFT_MASK) != 0) {
 		activate_selected_items_alternate (container, NULL);
+	} else if (nemo_affirmative_at (NEMO_AFFIRM_SPACE)) {
+		space_checkmarks (container);
 	} else {
 		preview_selected_items (container);
 	}

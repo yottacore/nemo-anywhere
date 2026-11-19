@@ -45,6 +45,7 @@
 #include <libnemo-private/nemo-file-attributes.h>
 #include <libnemo-private/nemo-file-operations.h>
 #include <libnemo-private/nemo-file-utilities.h>
+#include <libnemo-private/nemo-affirmative.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-icon-names.h>
 #include <libnemo-private/nemo-program-choosing.h>
@@ -1807,6 +1808,14 @@ anywhere_select_focus (GtkTreeView *tree_view, FMTreeView *view)
 	return GDK_EVENT_STOP;
 }
 
+/* The space key's checkmark rules go here (2026102019174514). Until then
+   it's the key it is with the switch off. */
+static gboolean
+space_checkmarks (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
+{
+	return key_press_callback (widget, event, user_data);
+}
+
 /* The content view's keys, as far as a single-select tree takes them: see
    the design doc's "Keyboard" and "Tree view". Right and Left are as in list
    view's tree column, and the edit keys act on the tree's own folder rather
@@ -1832,6 +1841,9 @@ anywhere_key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer use
 		return anywhere_right_left (tree_view, view, event->keyval);
 	case GDK_KEY_space:
 	case GDK_KEY_KP_Space:
+		if (mods == 0 && nemo_affirmative_at (NEMO_AFFIRM_SPACE)) {
+			return space_checkmarks (widget, event, user_data);
+		}
 		if (mods != GDK_CONTROL_MASK) {
 			return key_press_callback (widget, event, user_data);
 		}

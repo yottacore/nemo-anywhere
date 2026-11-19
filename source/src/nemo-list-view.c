@@ -58,6 +58,7 @@
 #include <libnemo-private/nemo-file-dnd.h>
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-ui-utilities.h>
+#include <libnemo-private/nemo-affirmative.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-icon-dnd.h>
 #include <libnemo-private/nemo-metadata.h>
@@ -129,6 +130,7 @@ struct NemoListViewDetails {
 		gboolean active;
 		gboolean picked;		/* rows chosen at least once */
 		gboolean keep;			/* Ctrl adds to what was there */
+		gboolean from_checks;		/* pressed in the checkmark column */
 		int press_x, press_y;		/* bin window */
 		int start_x, start_y;		/* tree, so it scrolls with the rows */
 		int x, y;			/* the pointer, bin window */
@@ -702,6 +704,14 @@ preview_selected_items (NemoListView *view)
 	}
 }
 
+/* The space key's checkmark rules go here (2026102019174514). Until then it
+   previews, as with the switch off. */
+static void
+space_checkmarks (NemoListView *view)
+{
+	preview_selected_items (view);
+}
+
 static void activate_selected_items (NemoListView *view);
 
 /* Proper GSourceFunc: activate_selected_items is void, so casting it to a
@@ -1117,6 +1127,14 @@ same_row (GtkTreePath *a, GtkTreePath *b)
 	return gtk_tree_path_compare (a, b) == 0;
 }
 
+/* The checkmark column override's checkmarks go here (2026102019174514):
+   a band from that column checks every row it touched. With the switch off
+   it sets none. */
+static void
+band_checkmark (G_GNUC_UNUSED NemoListView *view)
+{
+}
+
 static void
 band_arm (NemoListView *view, GdkEventButton *event, gboolean keep)
 {
@@ -1126,6 +1144,7 @@ band_arm (NemoListView *view, GdkEventButton *event, gboolean keep)
 	details->drag_button = 0;
 	details->band.button = event->button;
 	details->band.keep = keep;
+	details->band.from_checks = FALSE;
 	details->band.press_x = details->band.x = (int) event->x;
 	details->band.press_y = details->band.y = (int) event->y;
 	gtk_tree_view_convert_bin_window_to_tree_coords (details->tree_view,
@@ -1467,12 +1486,17 @@ band_stop (NemoListView *view)
 		}
 		gtk_tree_path_free (end);
 
+		if (details->band.from_checks && nemo_affirmative_at (NEMO_AFFIRM_COLUMN_DRAG)) {
+			band_checkmark (view);
+		}
+
 		details->band.active = FALSE;
 		gtk_widget_queue_draw (GTK_WIDGET (details->tree_view));
 		nemo_view_stop_batching_selection_changes (NEMO_VIEW (view));
 	}
 
 	details->band.button = 0;
+	details->band.from_checks = FALSE;
 	details->band.picked = FALSE;
 	g_list_free_full (details->band.kept, (GDestroyNotify) gtk_tree_row_reference_free);
 	details->band.kept = NULL;
@@ -1525,6 +1549,15 @@ band_draw_callback (GtkWidget *widget, cairo_t *cr, gpointer callback_data)
 	gtk_widget_path_unref (path);
 
 	return GDK_EVENT_PROPAGATE;
+}
+
+/* The drag punt goes here (2026102019174514): with checked rows, a drag
+   from one that isn't checked goes nowhere, and says why. With the switch
+   off a drag always goes. */
+static gboolean
+drag_punted (G_GNUC_UNUSED NemoListView *view)
+{
+	return FALSE;
 }
 
 static gboolean
@@ -1587,6 +1620,9 @@ motion_notify_callback (GtkWidget *widget,
                                       view->details->drag_y,
                                       event->x,
                                       event->y)) {
+            if (nemo_affirmative_at (NEMO_AFFIRM_DRAG_PUNT) && drag_punted (view)) {
+                return GDK_EVENT_STOP;
+            }
 #ifdef G_OS_WIN32
             if (win32_drag (view, widget)) {
                 return GDK_EVENT_STOP;
@@ -2233,11 +2269,13 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 			if (event->button == 1 && !was_selected && !on_expander &&
 			    (primary || (event->state & GDK_SHIFT_MASK) != 0)) {
 				band_arm (view, event, primary);
+				view->details->band.from_checks = on_checks;
 			} else if ((event->button == 1 || event->button == 2) &&
 			    event->type == GDK_BUTTON_PRESS) {
 				/* Without a move it's still a click. */
 				if (on_checks) {
 					band_arm (view, event, primary && event->button == 1);
+					view->details->band.from_checks = TRUE;
 				}
 				view->details->drag_started = FALSE;
 				view->details->drag_button = event->button;
@@ -2266,6 +2304,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 					view->details->drag_y = event->y;
 				} else {
 					band_arm (view, event, FALSE);
+					view->details->band.from_checks = on_checks;
 				}
 			}
 		}
@@ -2582,6 +2621,8 @@ key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer callback_dat
 		}
 		if ((event->state & GDK_SHIFT_MASK) != 0) {
 			activate_selected_items_alternate (NEMO_LIST_VIEW (view), NULL, TRUE);
+		} else if (nemo_affirmative_at (NEMO_AFFIRM_SPACE)) {
+			space_checkmarks (NEMO_LIST_VIEW (view));
 		} else {
 			preview_selected_items (NEMO_LIST_VIEW (view));
 		}

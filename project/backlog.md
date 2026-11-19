@@ -318,8 +318,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Affirmative checkmarks: the switch and the places it will plug into, with no affirmative behavior yet.
 	- ID: 2026102019174477
 	- Type: Task
-	- Status: Queued
-	- Needs local test suite run?: Yes
+	- Status: Started
+	- Needs local test suite run?: No. dfh4e and the selection, drag and tree tests passed 20261119.
 	- Priority|Severity: High
 	- Opened: 20261020-191745
 	- Opened by: t00mietum
@@ -345,7 +345,46 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "The affirmative switch".
 	- Progress log:
 		- 20261020: opened.
-	- Test case: none yet.
+		- 20261119: split. The command pick and the dialog alert are in 2026111912024382, which is queued with the views' own activation and the file operation wording left.
+		- 20261119: the tunable is in, at 0, and is on only under the Nemo Anywhere model. Each place asks it by name: Space in all 3 views and the tree, Ctrl+A, Ctrl+I and Ctrl+Shift+I, the Edit menu, the band from the checkmark column, the status bar line, and the drag start in the list and icon views. Each on side does the off thing. The Edit menu's Select all, Select none and Invert selection labels come from the wording table.
+	- Decisions:
+		- The setting has no key or checkbox yet. The tunable is the default it will read, and the switch's one function is where the setting goes in.
+		- The wording table also has the "selected items" row, which nothing reads yet. The file operation messages that will are whole translated sentences, so that's left to 2026111912024382.
+		- The menu actions keep their own labels too, since GTK needs one when the action is made. The table's label replaces it on each menu update, only when it differs.
+		- Each place calls a named stub for its on side, such as `space_checkmarks`, rather than repeating the off code in both branches. That keeps the places easy to find, and doesn't trip the analyzers' duplicate branch checks.
+	- Swept: every Space handler (list view, icon container, tree), every drag start under Nemo Anywhere (list view and the icon views, the Windows drag included, since it starts after the check), and every band arm in the list view's row press. Nemo Classic's own press and drag code never sees the switch on, so it has no conditional.
+	- Branch: nov19-2026102019174477
+	- Test case: dfh4e, Affirmative switch off test: the tunable is 0, every place goes the off way under each model, the wording is the "Switch off" column, and each place is asked somewhere in the source. dec8w, dec8v, de8bd, de8dm, ddy5f, de8ec, df066 and dd5df show the behavior hasn't changed.
+	- Verified: 20261119, dfh4e fails with the tunable at 1 (every place under Nemo Anywhere) and with the drag punt's conditional taken out, and passes as committed. The tree builds with the tunable at 1. dfh4e, dec8w, dec8v, de8bd, de8dm, ddy5f, de8ec, df066 and dd5df pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
+
+- Affirmative checkmarks: the acted-on pick for commands and the dialog alert, with no affirmative behavior yet.
+	- ID: 2026111912024382
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261119-120243
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174477
+	- Related IDs: 2026102019174514
+	- Target OS: All
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- One pick of what a command acts on, asked through `NEMO_AFFIRM_ACTS_ON`, and every command that takes the view's selection goes through it, such as open, trash, delete, cut, copy, rename, compress and properties. With the switch off it gives the selection.
+		- The dialog alert, asked through `NEMO_AFFIRM_LISTS_DIFFER`, in each file operation dialog that says what it's about to do. With the switch off there isn't one.
+		- The "selected items" row of the wording table in the file operation messages. They're whole translated sentences today, so the row can't be spliced in as is.
+		- dfh4e checks `NEMO_AFFIRM_ACTS_ON` is asked somewhere.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What a command acts on" and "The affirmative switch".
+	- Progress log:
+		- 20261119: split from 2026102019174477, which built the switch and the other places.
+		- 20261119: the pick is in the view, and each of its commands takes what it acts on from there: the open entries, trash, delete, restore, duplicate, the link entries, pin and favorite, properties, copy and move to, scripts and actions, copy, cut, copy paths, compress, extract, mount archive, paste into folder, open as root, follow link, open containing folder, rename, the volume entries, and connect to server. So do the menu updates that decide what's enabled. The confirmations for trash, delete from the trash, and delete ask for the alert.
+		- Left: Enter and the other activations inside the list and icon views, which go by each view's own selection, and the wording row.
+	- Decisions:
+		- The view's own activation is left out for now. Double-click shares that path, and opens the object under the pointer rather than the checked group, so the 2 need splitting first.
+		- Not routed, since they aren't a command's pick: the selection count, the status bar line (that's the alert's place), the selection kept across a reload, the selection changed signal, and the other pane's selection that a script gets.
+	- Branch: nov19-2026102019174477
+	- Test case: dfh4e, which now checks the pick is asked. dec8w, de8bd, ddxes, de55r, dcvpy, dcrvs, dd5dc, ddy4b and dec8v show the commands act as before.
+	- Verified: 20261119, dfh4e fails with the pick's conditional taken out, and passes as committed. Those tests pass, the format and lint gate passes, and neither analyzer reports anything on nemo-view.c or nemo-file-operations.c.
 
 - CICD reset: CPU and priority.
 	- ID: 2026102416300003

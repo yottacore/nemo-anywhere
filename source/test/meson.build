@@ -772,6 +772,15 @@ test('dd5c8 Rename selection test',
   args: []
 )
 
+test('dfh4e Affirmative switch off test',
+  executable('test-nemo-affirmative',
+    [ 'test-nemo-affirmative.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: [ meson.project_source_root() ]
+)
+
 test('dd5c9 Message dialog text test',
   executable('test-eel-stock-dialogs',
     [ 'test-eel-stock-dialogs.c' ],

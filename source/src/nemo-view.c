@@ -88,6 +88,7 @@
 #include <libnemo-private/nemo-file-operations.h>
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-file-private.h>
+#include <libnemo-private/nemo-affirmative.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-link.h>
 #include <libnemo-private/nemo-link-edit.h>
@@ -822,6 +823,35 @@ nemo_view_get_selection (NemoView *view)
 	return NEMO_VIEW_CLASS (G_OBJECT_GET_CLASS (view))->get_selection (view);
 }
 
+/* The checked group goes here (2026102019174514). Until there is one, it's
+   the selection, as with the switch off. */
+static GList *
+checked_group (NemoView *view, gboolean for_transfer)
+{
+	return for_transfer ? nemo_view_get_selection_for_file_transfer (view) :
+			      nemo_view_get_selection (view);
+}
+
+/* What a command acts on: the checked group when there is one, else the
+   selection. See the design doc's "What a command acts on". */
+static GList *
+view_acted_on (NemoView *view)
+{
+	if (nemo_affirmative_at (NEMO_AFFIRM_ACTS_ON)) {
+		return checked_group (view, FALSE);
+	}
+	return nemo_view_get_selection (view);
+}
+
+static GList *
+view_acted_on_for_transfer (NemoView *view)
+{
+	if (nemo_affirmative_at (NEMO_AFFIRM_ACTS_ON)) {
+		return checked_group (view, TRUE);
+	}
+	return nemo_view_get_selection_for_file_transfer (view);
+}
+
 /**
  * nemo_view_peek_selection:
  *
@@ -1310,7 +1340,7 @@ action_open_callback (G_GNUC_UNUSED GtkAction *action,
 
 	view = NEMO_VIEW (callback_data);
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	nemo_view_activate_files (view,
 				      selection,
 				      0,
@@ -1327,7 +1357,7 @@ action_open_close_parent_callback (G_GNUC_UNUSED GtkAction *action,
 
 	view = NEMO_VIEW (callback_data);
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	nemo_view_activate_files (view,
 				      selection,
 				      NEMO_WINDOW_OPEN_FLAG_CLOSE_BEHIND,
@@ -1345,7 +1375,7 @@ action_open_alternate_callback (G_GNUC_UNUSED GtkAction *action,
 	GtkWindow *window;
 
 	view = NEMO_VIEW (callback_data);
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 
 	window = nemo_view_get_containing_window (view);
 
@@ -1365,7 +1395,7 @@ action_open_new_tab_callback (G_GNUC_UNUSED GtkAction *action,
 	GtkWindow *window;
 
 	view = NEMO_VIEW (callback_data);
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 
 	window = nemo_view_get_containing_window (view);
 
@@ -1471,7 +1501,7 @@ open_with_other_program (NemoView *view)
 
 	g_assert (NEMO_IS_VIEW (view));
 
-       	selection = nemo_view_get_selection (view);
+       	selection = view_acted_on (view);
 
 	if (selection_contains_one_item_in_menu_callback (view, selection)) {
 		choose_program (view, NEMO_FILE (selection->data));
@@ -1504,7 +1534,7 @@ trash_or_delete_selected_files (NemoView *view)
 	 * was already removed (but the view doesn't know about it yet).
 	 */
 	if (!view->details->selection_was_removed) {
-		selection = nemo_view_get_selection_for_file_transfer (view);
+		selection = view_acted_on_for_transfer (view);
 
         if (selection == NULL) {
             return;
@@ -1552,7 +1582,7 @@ delete_selected_files (NemoView *view)
 		return;
 	}
 
-	selection = nemo_view_get_selection_for_file_transfer (view);
+	selection = view_acted_on_for_transfer (view);
 	if (selection == NULL) {
 		return;
 	}
@@ -1586,7 +1616,7 @@ action_restore_from_trash_callback (G_GNUC_UNUSED GtkAction *action,
 
 	view = NEMO_VIEW (callback_data);
 
-	selection = nemo_view_get_selection_for_file_transfer (view);
+	selection = view_acted_on_for_transfer (view);
 	nemo_restore_files_from_trash (selection,
 					   nemo_view_get_containing_window (view));
 
@@ -1618,7 +1648,7 @@ action_duplicate_callback (G_GNUC_UNUSED GtkAction *action,
         GArray *selected_item_locations;
 
         view = NEMO_VIEW (callback_data);
-	selection = nemo_view_get_selection_for_file_transfer (view);
+	selection = view_acted_on_for_transfer (view);
 	if (selection_not_empty_in_menu_callback (view, selection)) {
 		/* FIXME bugzilla.gnome.org 45061:
 		 * should change things here so that we use a get_icon_locations (view, selection).
@@ -1640,7 +1670,7 @@ create_links_for_selection (NemoView *view, const NemoLinkOptions *options)
         GList *selection;
         GArray *selected_item_locations;
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	if (selection_not_empty_in_menu_callback (view, selection)) {
 		selected_item_locations = nemo_view_get_selected_icon_locations (view);
 	        nemo_view_create_links_for_files (view, selection, selected_item_locations, options);
@@ -1657,7 +1687,7 @@ action_edit_link_callback (G_GNUC_UNUSED GtkAction *action,
 	NemoView *view = NEMO_VIEW (callback_data);
 	GList *selection;
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	if (selection != NULL && selection->next == NULL) {
 		GFile *location = nemo_file_get_location (NEMO_FILE (selection->data));
 
@@ -1680,7 +1710,7 @@ action_create_link_callback (G_GNUC_UNUSED GtkAction *action,
 	int n_folders = 0, n_files = 0;
 	gboolean go;
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	if (!selection_not_empty_in_menu_callback (view, selection)) {
 		nemo_file_list_free (selection);
 		return;
@@ -1719,7 +1749,7 @@ action_pin_unpin_file_callback (G_GNUC_UNUSED GtkAction *action,
 
     view = NEMO_VIEW (callback_data);
 
-    selection = nemo_view_get_selection (view);
+    selection = view_acted_on (view);
 
     if (g_list_length (selection) < 1) {
         g_warning ("No selection to pin - why?");
@@ -1756,7 +1786,7 @@ action_favorite_unfavorite_file_callback (G_GNUC_UNUSED GtkAction *action,
 
     view = NEMO_VIEW (callback_data);
 
-    selection = nemo_view_get_selection (view);
+    selection = view_acted_on (view);
 
     if (g_list_length (selection) < 1) {
         g_warning ("Favorites - no selection - why?");
@@ -1836,13 +1866,47 @@ static const ViewSelectRules rules_classic = {
 	.primary_i = action_properties_callback,
 };
 
+/* The checkmark halves of Ctrl+A and Ctrl+I go here (2026102019174514).
+   Until then they select, as with the switch off. */
+static void
+checkmark_all (GtkAction *action, gpointer callback_data)
+{
+	action_select_all_callback (action, callback_data);
+}
+
+static void
+invert_checkmarks (GtkAction *action, gpointer callback_data)
+{
+	action_invert_selection_callback (action, callback_data);
+}
+
+static void
+anywhere_select_all (GtkAction *action, gpointer callback_data)
+{
+	if (nemo_affirmative_at (NEMO_AFFIRM_SELECT_ALL)) {
+		checkmark_all (action, callback_data);
+	} else {
+		action_select_all_callback (action, callback_data);
+	}
+}
+
+static void
+anywhere_invert (GtkAction *action, gpointer callback_data)
+{
+	if (nemo_affirmative_at (NEMO_AFFIRM_INVERT)) {
+		invert_checkmarks (action, callback_data);
+	} else {
+		action_invert_selection_callback (action, callback_data);
+	}
+}
+
 /* With its switch off, Nemo Anywhere adds Select none, and Ctrl+I inverts
    the selection as Ctrl+Shift+I does. Properties keeps Alt+Enter. */
 static const ViewSelectRules rules_anywhere = {
-	.select_all = action_select_all_callback,
+	.select_all = anywhere_select_all,
 	.select_none = action_select_none_callback,
-	.invert_selection = action_invert_selection_callback,
-	.primary_i = action_invert_selection_callback,
+	.invert_selection = anywhere_invert,
+	.primary_i = anywhere_invert,
 };
 
 static const ViewSelectRules *
@@ -2492,7 +2556,7 @@ present_selection_properties (NemoView *view,
         GList *selection;
 	GList *files;
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	if (g_list_length (selection) == 0) {
 		if (view->details->directory_as_file != NULL) {
             if (NEMO_IS_SEARCH_DIRECTORY (view->details->model)) {
@@ -3376,6 +3440,25 @@ nemo_view_finalize (GObject *object)
 	G_OBJECT_CLASS (nemo_view_parent_class)->finalize (object);
 }
 
+/* The status bar's third line, for when the selection is what a command
+   acts on. See design_docs/20261020-103804_behavior-models.md, "Status bar
+   and dialogs". */
+static char *
+status_line_selected (const char *selected, const char *free_space)
+{
+	return free_space != NULL ?
+		g_strdup_printf (_("Ready to act on %s;  Free space: %s"), selected, free_space) :
+		g_strdup_printf (_("Ready to act on %s"), selected);
+}
+
+/* The first 2 lines, for checked items and the note when the selection
+   differs, go here (2026102019174514). Until then it's the third. */
+static char *
+status_line_checked (const char *selected, const char *free_space)
+{
+	return status_line_selected (selected, free_space);
+}
+
 /**
  * nemo_view_display_selection_info:
  *
@@ -3597,9 +3680,11 @@ nemo_view_display_selection_info (NemoView *view)
 	if (view_status_string != NULL &&
 	    nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE) {
 		g_free (status_string);
-		status_string = free_space_str != NULL ?
-			g_strdup_printf (_("Ready to act on %s;  Free space: %s"), view_status_string, free_space_str) :
-			g_strdup_printf (_("Ready to act on %s"), view_status_string);
+		if (nemo_affirmative_at (NEMO_AFFIRM_LISTS_DIFFER)) {
+			status_string = status_line_checked (view_status_string, free_space_str);
+		} else {
+			status_string = status_line_selected (view_status_string, free_space_str);
+		}
 	}
 
 	g_free (free_space_str);
@@ -5472,7 +5557,7 @@ move_copy_selection_to_location (NemoView *view,
 {
     GList *selection, *uris, *l;
 
-    selection = nemo_view_get_selection_for_file_transfer (view);
+    selection = view_acted_on_for_transfer (view);
     if (selection == NULL) {
         return;
     }
@@ -6548,7 +6633,7 @@ run_script_callback (G_GNUC_UNUSED GtkAction *action, gpointer callback_data)
 
 	old_working_dir = change_to_view_directory (launch_parameters->directory_view);
 
-	selected_files = nemo_view_get_selection (launch_parameters->directory_view);
+	selected_files = view_acted_on (launch_parameters->directory_view);
 	set_script_environment_variables (launch_parameters->directory_view, selected_files);
 
 	parameters = get_file_names_as_parameter_array (selected_files,
@@ -6823,7 +6908,7 @@ run_action_callback (NemoAction *action, gpointer callback_data)
     NemoView *view = NEMO_VIEW (callback_data);
     GList *selected_files;
 
-    selected_files = nemo_view_get_selection (view);
+    selected_files = view_acted_on (view);
     NemoFile *parent = nemo_view_get_directory_as_file (view);
 
     nemo_action_activate (action, selected_files, parent, GTK_WINDOW (view->details->window));
@@ -7249,7 +7334,7 @@ action_copy_files_callback (G_GNUC_UNUSED GtkAction *action,
 
 	view = NEMO_VIEW (callback_data);
 
-	selection = nemo_view_get_selection_for_file_transfer (view);
+	selection = view_acted_on_for_transfer (view);
 	copy_or_cut_files (view, selection, FALSE);
 	nemo_file_list_free (selection);
 }
@@ -7310,7 +7395,7 @@ copy_selection_paths (NemoView *view,
 {
 	GList *selection;
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	copy_paths_to_clipboard (view, selection, separator);
 	nemo_file_list_free (selection);
 }
@@ -7398,7 +7483,7 @@ action_open_in_explorer_callback (G_GNUC_UNUSED GtkAction *action,
 	GFile *location;
 	gchar *path;
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 
 	if (g_list_length (selection) != 1) {
 		nemo_file_list_free (selection);
@@ -7546,7 +7631,7 @@ action_compress_callback (G_GNUC_UNUSED GtkAction *action,
 
 	view = NEMO_VIEW (callback_data);
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	if (selection == NULL) {
 		return;
 	}
@@ -7642,7 +7727,7 @@ extract_selection (NemoView          *view,
 		return;
 	}
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	if (selection == NULL) {
 		return;
 	}
@@ -7742,7 +7827,7 @@ action_extract_to_callback (G_GNUC_UNUSED GtkAction *action,
 
 	view = NEMO_VIEW (callback_data);
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	if (selection == NULL) {
 		return;
 	}
@@ -7826,7 +7911,7 @@ action_mount_archive_callback (G_GNUC_UNUSED GtkAction *action,
 	GFile *archive;
 	GFile *location;
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	if (!selection_is_mountable_archive (selection)) {
 		nemo_file_list_free (selection);
 		return;
@@ -8031,7 +8116,7 @@ action_cut_files_callback (G_GNUC_UNUSED GtkAction *action,
 
 	view = NEMO_VIEW (callback_data);
 
-	selection = nemo_view_get_selection_for_file_transfer (view);
+	selection = view_acted_on_for_transfer (view);
 	copy_or_cut_files (view, selection, TRUE);
 	nemo_file_list_free (selection);
 }
@@ -8266,7 +8351,7 @@ action_paste_files_into_callback (G_GNUC_UNUSED GtkAction *action,
 	GList *selection;
 
 	view = NEMO_VIEW (callback_data);
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	if (selection != NULL) {
 		paste_into (view, NEMO_FILE (selection->data));
 		nemo_file_list_free (selection);
@@ -8296,7 +8381,7 @@ action_open_as_root_callback (G_GNUC_UNUSED GtkAction *action,
 	GList *selection;
 
 	view = NEMO_VIEW (callback_data);
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	if (selection != NULL) {
         gchar *path = nemo_file_get_path (NEMO_FILE (selection->data));
 		open_as_root (view, path);
@@ -8327,7 +8412,7 @@ action_follow_symlink_callback (G_GNUC_UNUSED GtkAction *action,
     GList *selection;
 
     view = NEMO_VIEW (callback_data);
-    selection = nemo_view_get_selection (view);
+    selection = view_acted_on (view);
 
     if (g_list_length (selection) != 1) {
         nemo_file_list_free (selection);
@@ -8373,7 +8458,7 @@ action_open_containing_folder_callback (G_GNUC_UNUSED GtkAction *action,
     NemoFile *location;
 
     view = NEMO_VIEW (callback_data);
-    selection = nemo_view_get_selection (view);
+    selection = view_acted_on (view);
 
     if (g_list_length (selection) != 1) {
         nemo_file_list_free (selection);
@@ -8400,7 +8485,7 @@ action_open_in_terminal_callback(G_GNUC_UNUSED GtkAction *action,
 	GList *selection;
 
 	view = NEMO_VIEW (callback_data);
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	if (selection != NULL) {
         gchar *path;
         if (nemo_file_is_directory (NEMO_FILE (selection->data))) {
@@ -8559,7 +8644,7 @@ real_action_rename (NemoView *view,
 
 	g_assert (NEMO_IS_VIEW (view));
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 
 	if (selection_not_empty_in_menu_callback (view, selection)) {
 		/* If there is more than one file selected, invoke a batch renamer */
@@ -8677,7 +8762,7 @@ action_mount_volume_callback (G_GNUC_UNUSED GtkAction *action,
 
         view = NEMO_VIEW (data);
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	for (l = selection; l != NULL; l = l->next) {
 		file = NEMO_FILE (l->data);
 
@@ -8702,7 +8787,7 @@ action_unmount_volume_callback (G_GNUC_UNUSED GtkAction *action,
 
         view = NEMO_VIEW (data);
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 
 	for (l = selection; l != NULL; l = l->next) {
 		file = NEMO_FILE (l->data);
@@ -8727,7 +8812,7 @@ action_eject_volume_callback (G_GNUC_UNUSED GtkAction *action,
 
         view = NEMO_VIEW (data);
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	for (l = selection; l != NULL; l = l->next) {
 		file = NEMO_FILE (l->data);
 
@@ -8769,7 +8854,7 @@ action_start_volume_callback (G_GNUC_UNUSED GtkAction *action,
 
         view = NEMO_VIEW (data);
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	for (l = selection; l != NULL; l = l->next) {
 		file = NEMO_FILE (l->data);
 
@@ -8793,7 +8878,7 @@ action_stop_volume_callback (G_GNUC_UNUSED GtkAction *action,
 
         view = NEMO_VIEW (data);
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	for (l = selection; l != NULL; l = l->next) {
 		file = NEMO_FILE (l->data);
 
@@ -8818,7 +8903,7 @@ action_detect_media_callback (G_GNUC_UNUSED GtkAction *action,
 
         view = NEMO_VIEW (data);
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	for (l = selection; l != NULL; l = l->next) {
 		file = NEMO_FILE (l->data);
 
@@ -9132,7 +9217,7 @@ action_connect_to_server_link_callback (G_GNUC_UNUSED GtkAction *action,
 
         view = NEMO_VIEW (data);
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 
 	if (g_list_length (selection) != 1) {
 		nemo_file_list_free (selection);
@@ -10068,7 +10153,7 @@ clipboard_targets_received (G_GNUC_UNUSED GtkClipboard     *clipboard,
 #endif
 
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	count = g_list_length (selection);
 
 	action = gtk_action_group_get_action (view->details->dir_action_group,
@@ -10988,7 +11073,7 @@ clipboard_changed_callback (G_GNUC_UNUSED NemoClipboardMonitor *monitor, NemoVie
 		return;
 	}
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	selection_count = g_list_length (selection);
 
 	real_update_paste_menu (view, selection, selection_count);
@@ -11058,6 +11143,22 @@ update_configurable_context_menu_items (NemoView *view)
     }
 }
 
+/* Menus update on every selection change, and a relabel rebuilds the item. */
+static void
+action_relabel (GtkAction *action, const char *label)
+{
+	if (g_strcmp0 (gtk_action_get_label (action), label) != 0) {
+		gtk_action_set_label (action, label);
+	}
+}
+
+/* The 4 checkmark entries and Uncheck all show here (2026102019174514).
+   There aren't any yet. */
+static void
+checkmark_entries_show (G_GNUC_UNUSED NemoView *view)
+{
+}
+
 static void
 real_update_menus (NemoView *view)
 {
@@ -11092,7 +11193,7 @@ real_update_menus (NemoView *view)
     gboolean first_selected_is_pinned;
     gboolean trash_supported;
 
-	selection = nemo_view_get_selection (view);
+	selection = view_acted_on (view);
 	selection_count = g_list_length (selection);
 
 	selection_contains_special_link = special_link_in_selection (view, selection);
@@ -11439,11 +11540,17 @@ real_update_menus (NemoView *view)
 	action = gtk_action_group_get_action (view->details->dir_action_group,
 					      NEMO_ACTION_SELECT_ALL);
 	gtk_action_set_sensitive (action, !nemo_view_is_empty (view));
+	action_relabel (action, nemo_affirmative_word (NEMO_AFFIRM_WORD_SELECT_ALL));
 
 	action = gtk_action_group_get_action (view->details->dir_action_group,
 					      NEMO_ACTION_SELECT_NONE);
 	gtk_action_set_sensitive (action, !nemo_view_is_empty (view));
 	gtk_action_set_visible (action, view_select_rules ()->select_none != NULL);
+	action_relabel (action, nemo_affirmative_word (NEMO_AFFIRM_WORD_SELECT_NONE));
+
+	if (nemo_affirmative_at (NEMO_AFFIRM_MENU_ENTRIES)) {
+		checkmark_entries_show (view);
+	}
 
 	action = gtk_action_group_get_action (view->details->dir_action_group,
 					      NEMO_ACTION_SELECT_PATTERN);
@@ -11452,6 +11559,7 @@ real_update_menus (NemoView *view)
 	action = gtk_action_group_get_action (view->details->dir_action_group,
 					      NEMO_ACTION_INVERT_SELECTION);
 	gtk_action_set_sensitive (action, !nemo_view_is_empty (view));
+	action_relabel (action, nemo_affirmative_word (NEMO_AFFIRM_WORD_INVERT));
 
 	action = gtk_action_group_get_action (view->details->dir_action_group,
 					      NEMO_ACTION_CUT);
@@ -11650,7 +11758,7 @@ nemo_view_update_actions_and_extensions (NemoView *view)
         update_actions_menu (view);
     }
 
-    selection = nemo_view_get_selection (view);
+    selection = view_acted_on (view);
 
     update_actions_visibility (view, selection, FALSE);
     reset_extension_actions_menu (view, selection);
@@ -11668,7 +11776,7 @@ update_accelerated_actions (NemoView *view)
         update_actions_menu (view);
     }
 
-    selection = nemo_view_get_selection (view);
+    selection = view_acted_on (view);
 
     update_actions_visibility (view, selection, TRUE);
 
