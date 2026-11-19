@@ -182,9 +182,11 @@ struct NemoIconContainerDetails {
 
 	/* A band that starts once the press moves: a right press, or Ctrl or
 	 * Shift on an icon not yet selected. band_keep is Ctrl, which adds to
-	 * the selection where anything else replaces it. */
+	 * the selection where anything else replaces it. band_noted means each
+	 * icon's was_selected_before_rubberband is from before the press. */
 	guint band_pending;
 	gboolean band_keep;
+	gboolean band_noted;
 	int band_press_x, band_press_y;
 	EelMenuPress menu_press;
 	gboolean menu_on_icon;

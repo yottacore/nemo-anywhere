@@ -130,6 +130,7 @@ struct NemoListViewDetails {
 		gboolean active;
 		gboolean picked;		/* rows chosen at least once */
 		gboolean keep;			/* Ctrl adds to what was there */
+		gboolean noted;			/* kept is from before the press */
 		gboolean from_checks;		/* pressed in the checkmark column */
 		int press_x, press_y;		/* bin window */
 		int start_x, start_y;		/* tree, so it scrolls with the rows */
@@ -816,6 +817,7 @@ button_event_modifies_selection (GdkEventButton *event)
 
 static gboolean ctrl_click_moves_focus (void);
 static gboolean ctrl_click_sets_anchor (void);
+static gboolean ctrl_band_adds (void);
 static void add_run_from_click_anchor (NemoListView *view, GtkTreePath *path);
 
 /* Takes path out of the selection and puts the focus and the anchor on it.
@@ -1281,7 +1283,7 @@ band_motion (NemoListView *view, GdkEventMotion *event)
 		}
 		details->band.active = TRUE;
 		nemo_view_start_batching_selection_changes (NEMO_VIEW (view));
-		if (details->band.keep) {
+		if (details->band.keep && !details->band.noted) {
 			selection = gtk_tree_view_get_selection (details->tree_view);
 			rows = gtk_tree_selection_get_selected_rows (selection, NULL);
 			for (l = rows; l != NULL; l = l->next) {
@@ -1513,6 +1515,7 @@ band_stop (NemoListView *view)
 	details->band.button = 0;
 	details->band.from_checks = FALSE;
 	details->band.picked = FALSE;
+	details->band.noted = FALSE;
 	g_list_free_full (details->band.kept, (GDestroyNotify) gtk_tree_row_reference_free);
 	details->band.kept = NULL;
 	g_clear_pointer (&details->band.from, gtk_tree_row_reference_free);
@@ -2094,6 +2097,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 	gboolean on_checks;
 	gboolean right_drags_files;
 	gboolean primary;
+	GList *before = NULL;
 
 	view = NEMO_LIST_VIEW (callback_data);
 	tree_view = GTK_TREE_VIEW (widget);
@@ -2152,6 +2156,11 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 	}
 
 	primary = (event->state & eel_gtk_primary_mask (event->window)) != 0;
+	/* The press can change the selection, as a Ctrl+Shift run does, so a
+	   band that adds starts from what was there before it. */
+	if (primary && ctrl_band_adds ()) {
+		before = gtk_tree_selection_get_selected_rows (selection, NULL);
+	}
 
 	call_parent = TRUE;
 	if (gtk_tree_view_get_path_at_pos (tree_view, event->x, event->y,
@@ -2289,7 +2298,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 			    event->type == GDK_BUTTON_PRESS) {
 				/* Without a move it's still a click. */
 				if (on_checks) {
-					band_arm (view, event, primary && event->button == 1);
+					band_arm (view, event, primary && (event->button == 1 || ctrl_band_adds ()));
 					view->details->band.from_checks = TRUE;
 				}
 				view->details->drag_started = FALSE;
@@ -2318,7 +2327,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 					view->details->drag_x = event->x;
 					view->details->drag_y = event->y;
 				} else {
-					band_arm (view, event, FALSE);
+					band_arm (view, event, primary && ctrl_band_adds ());
 					view->details->band.from_checks = on_checks;
 				}
 			}
@@ -2335,15 +2344,16 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 			view->details->double_click_path[0] = NULL;
 		}
 		/* Deselect if people click outside any row, unless Ctrl is
-		   held for a band that adds. It's OK to let default code run;
-		   it won't reselect anything. */
+		   held for a band that adds. Nemo Anywhere's right one puts the
+		   rows back once it moves, so a click still gets the folder's menu. It's OK to
+		   let default code run; it won't reselect anything. */
 		if (!primary || event->button != 1) {
 			gtk_tree_selection_unselect_all (gtk_tree_view_get_selection (tree_view));
 		}
 		tree_view_class->button_press_event (widget, event);
 
 		if (event->button == 1 || event->button == 3) {
-			band_arm (view, event, primary && event->button == 1);
+			band_arm (view, event, primary && (event->button == 1 || ctrl_band_adds ()));
 		}
 		if (event->button == 1) {
 			eel_menu_press_hold (&view->details->menu_press, widget, event,
@@ -2354,6 +2364,17 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 					      event->x, event->y);
 		}
 	}
+
+	if (view->details->band.button != 0 && view->details->band.keep && ctrl_band_adds ()) {
+		GList *l;
+
+		for (l = before; l != NULL; l = l->next) {
+			view->details->band.kept = g_list_prepend (view->details->band.kept,
+				gtk_tree_row_reference_new (gtk_tree_view_get_model (tree_view), l->data));
+		}
+		view->details->band.noted = TRUE;
+	}
+	g_list_free_full (before, (GDestroyNotify) gtk_tree_path_free);
 
 	/* We chained to the default handler in this method, so never
 	 * let the default handler run */
@@ -5247,6 +5268,10 @@ typedef struct {
 	/* A Ctrl+click that takes a row out moves the focus there, where v1's
 	   stays where it was. */
 	gboolean ctrl_click_moves_focus;
+	/* Every band with Ctrl held adds to what was selected before the press,
+	   the right and middle buttons' too. v1's right and middle bands
+	   replace, and its Ctrl+Shift band keeps the run its press added. */
+	gboolean ctrl_band_adds;
 } ListViewRules;
 
 static const ListViewRules rules_anywhere_v1 = {
@@ -5279,6 +5304,7 @@ static const ListViewRules rules_anywhere = {
 	.band_end_takes_focus = TRUE,
 	.ctrl_click_sets_anchor = TRUE,
 	.ctrl_click_moves_focus = TRUE,
+	.ctrl_band_adds = TRUE,
 };
 
 static const ListViewRules *
@@ -5311,6 +5337,12 @@ static gboolean
 ctrl_click_moves_focus (void)
 {
 	return list_view_rules ()->ctrl_click_moves_focus;
+}
+
+static gboolean
+ctrl_band_adds (void)
+{
+	return list_view_rules ()->ctrl_band_adds;
 }
 
 static gboolean

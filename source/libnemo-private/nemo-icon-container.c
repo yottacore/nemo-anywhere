@@ -167,6 +167,7 @@ static gboolean bands_flip (void);
 static gboolean keys_from_range_ends (void);
 static gboolean band_end_takes_focus (void);
 static gboolean ctrl_click_sets_anchor (void);
+static gboolean ctrl_band_adds (void);
 
 static gpointer accessible_parent_class;
 
@@ -1470,19 +1471,31 @@ rubberband_timeout_callback (gpointer data)
 	return TRUE;
 }
 
+/* What a band that adds puts back. */
+static void
+note_selection (NemoIconContainer *container)
+{
+	GList *p;
+
+	for (p = container->details->icons; p != NULL; p = p->next) {
+		NemoIcon *icon = p->data;
+
+		icon->was_selected_before_rubberband = icon->is_selected;
+	}
+}
+
 static void
 start_rubberbanding (NemoIconContainer *container,
 		     double x,
 		     double y,
 		     guint button,
-		     guint32 time)
+		     guint32 time,
+		     gboolean noted)
 {
 	AtkObject *accessible;
 	NemoIconContainerDetails *details;
 	NemoIconRubberbandInfo *band_info;
 	GdkRGBA bg_color, border_color;
-	GList *p;
-	NemoIcon *icon;
 	GtkStyleContext *context;
 
 	details = container->details;
@@ -1491,9 +1504,8 @@ start_rubberbanding (NemoIconContainer *container,
 	g_signal_emit (container,
 		       signals[BAND_SELECT_STARTED], 0);
 
-	for (p = details->icons; p != NULL; p = p->next) {
-		icon = p->data;
-		icon->was_selected_before_rubberband = icon->is_selected;
+	if (!noted) {
+		note_selection (container);
 	}
 
 	eel_canvas_window_to_world
@@ -3285,6 +3297,14 @@ button_press_event (GtkWidget *widget,
 		return TRUE;
 	}
 
+	/* The press can change the selection, as a Ctrl+Shift run does, so a
+	   band that adds starts from what was there before it. */
+	container->details->band_noted = ctrl_band_adds () &&
+		(event->state & eel_gtk_primary_mask (event->window)) != 0;
+	if (container->details->band_noted) {
+		note_selection (container);
+	}
+
 	/* Invoke the canvas event handler and see if an item picks up the event. */
 	clicked_on_item = GTK_WIDGET_CLASS (nemo_icon_container_parent_class)->button_press_event (widget, event);
 
@@ -3332,7 +3352,7 @@ button_press_event (GtkWidget *widget,
 			}
 		}
 
-		start_rubberbanding (container, event->x, event->y, event->button, event->time);
+		start_rubberbanding (container, event->x, event->y, event->button, event->time, FALSE);
 		eel_menu_press_hold (&container->details->menu_press, widget, event,
 				     event->x, event->y, long_press_menu, NULL);
 		container->details->menu_on_icon = FALSE;
@@ -3362,7 +3382,11 @@ button_press_event (GtkWidget *widget,
 		if (selection_changed) {
 			g_signal_emit (container, signals[SELECTION_CHANGED], 0);
 		}
-		wait_for_band (container, event->button, event->x, event->y, FALSE);
+		/* With Ctrl the band puts the selection back once it moves, so a
+		   click still clears it. */
+		wait_for_band (container, event->button, event->x, event->y,
+			       ctrl_band_adds () &&
+			       (event->state & eel_gtk_primary_mask (event->window)) != 0);
 		eel_menu_press_begin (&container->details->menu_press, event->button,
 				      event->x, event->y);
 		container->details->menu_on_icon = FALSE;
@@ -3389,12 +3413,16 @@ nemo_icon_container_did_not_drag (NemoIconContainer *container,
 
 	details = container->details;
 
-	/* Nemo Anywhere's Ctrl+Shift+click press already added the run, which
-	   has this icon in it. */
-	if (details->icon_selected_on_button_down &&
+	if (details->icon_selected_on_button_down && ctrl_click_sets_anchor () &&
+	    (event->state & eel_gtk_primary_mask (event->window)) != 0 &&
+	    (event->state & GDK_SHIFT_MASK) != 0) {
+		if (select_range (container, shift_run_anchor (container, details->drag_icon),
+				  details->drag_icon, FALSE)) {
+			g_signal_emit (container, signals[SELECTION_CHANGED], 0);
+		}
+	} else if (details->icon_selected_on_button_down &&
 	    ((event->state & eel_gtk_primary_mask (event->window)) != 0 ||
-	     (event->state & GDK_SHIFT_MASK) == 0) &&
-	    !(ctrl_click_sets_anchor () && (event->state & GDK_SHIFT_MASK) != 0)) {
+	     (event->state & GDK_SHIFT_MASK) == 0)) {
 		if (button_event_modifies_selection (event)) {
 			details->range_selection_base_icon =
 				ctrl_click_sets_anchor () ? details->drag_icon : NULL;
@@ -3871,7 +3899,7 @@ motion_notify_event (GtkWidget *widget,
 			g_signal_emit (container, signals[SELECTION_CHANGED], 0);
 		}
 		start_rubberbanding (container, details->band_press_x, details->band_press_y,
-				     button, event->time);
+				     button, event->time, details->band_keep && details->band_noted);
 	}
 
 	if (details->drag_button != 0) {
@@ -5478,8 +5506,12 @@ handle_icon_button_press (NemoIconContainer *container,
     details->skip_rename_on_release = g_list_length (sel) > 1;
     g_list_free (sel);
 
+	/* Nemo Anywhere's Ctrl+Shift+click on a selected icon adds the run on
+	   the release, so a drag takes the selection as it was. */
 	if ((event->button == DRAG_BUTTON || event->button == MIDDLE_BUTTON) &&
-	    (event->state & GDK_SHIFT_MASK) != 0) {
+	    (event->state & GDK_SHIFT_MASK) != 0 &&
+	    !(ctrl_click_sets_anchor () && details->icon_selected_on_button_down &&
+	      (event->state & eel_gtk_primary_mask (event->window)) != 0)) {
 		NemoIcon *start_icon = shift_run_anchor (container, icon);
 
 		if (select_range (container, start_icon, icon,
@@ -5529,7 +5561,9 @@ handle_icon_button_press (NemoIconContainer *container,
 
 		clear_drag_state (container);
 		eel_canvas_world_to_window (EEL_CANVAS (container), event->x, event->y, &x, &y);
-		wait_for_band (container, event->button, x, y, FALSE);
+		wait_for_band (container, event->button, x, y,
+			       ctrl_band_adds () &&
+			       (event->state & eel_gtk_primary_mask (event->window)) != 0);
 		eel_menu_press_begin (&details->menu_press, event->button, x, y);
 		details->menu_on_icon = TRUE;
 	}
@@ -5745,7 +5779,7 @@ classic_button_press_event (GtkWidget *widget,
 			}
 		}
 
-		start_rubberbanding (container, event->x, event->y, event->button, event->time);
+		start_rubberbanding (container, event->x, event->y, event->button, event->time, FALSE);
 		return TRUE;
 	}
 
@@ -5928,9 +5962,14 @@ typedef struct {
 	gboolean band_end_takes_focus;
 	/* A Ctrl+click leaves the anchor on the icon clicked, also when it takes
 	   it out, and a Shift run counts from the anchor even when it isn't
-	   selected. A Ctrl+Shift+click on a selected icon keeps it. v1's clears
-	   the anchor, starts a run over from the icon clicked, and takes it out. */
+	   selected. A Ctrl+Shift+click on a selected icon keeps it, and adds the
+	   run on the release. v1's clears the anchor, starts a run over from the
+	   icon clicked, and takes it out. */
 	gboolean ctrl_click_sets_anchor;
+	/* Every mouse band with Ctrl held adds to what was selected before the
+	   press, the right button's too. v1's right band replaces, and its
+	   Ctrl+Shift band keeps the run its press added. */
+	gboolean ctrl_band_adds;
 } ContainerRules;
 
 static const ContainerRules rules_anywhere_v1 = {
@@ -5968,6 +6007,7 @@ static const ContainerRules rules_anywhere = {
 	.keys_from_range_ends = TRUE,
 	.band_end_takes_focus = TRUE,
 	.ctrl_click_sets_anchor = TRUE,
+	.ctrl_band_adds = TRUE,
 };
 
 static const ContainerRules *
@@ -5988,6 +6028,12 @@ static gboolean
 bands_flip (void)
 {
 	return container_rules ()->band_flips;
+}
+
+static gboolean
+ctrl_band_adds (void)
+{
+	return container_rules ()->ctrl_band_adds;
 }
 
 static gboolean

@@ -33,6 +33,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Nemo Anywhere: a Shift drag from a selected object takes the run to it, rather than the selection as it was.
+	- ID: 2026111913460865
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261119-134608
+	- Opened by: t00mietum
+	- Related IDs: 2026111021233343, 2026111707591589
+	- Target OS: All
+	- Target version: rc.1
+	- Steps to reproduce: any view, Nemo Anywhere. Click item 0, Ctrl+click item 3, then Shift+drag item 3 somewhere.
+	- Incorrect behavior: likely, the press replaces the selection with the run from the anchor to item 3 at once, so the drag takes items 0 to 3, or 3 alone.
+	- Expected behavior: the drag takes the selection as it was, items 0 and 3, as a plain or Ctrl+Shift drag from a selected object does. Only a Shift+click picks the run, on its release, per the design doc's "Mouse".
+	- Reproduced: no. This comes from a reading of the presses. The icon container runs a Shift press from the anchor whether or not the icon is selected, and the list view hands GtkTreeView the Shift press on a selected row.
+	- Test case: none yet. dec8v would get the steps above in all 3 views.
+
 - CICD step output: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102819522603
 	- Type: Task
@@ -517,11 +533,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Any valid drag mode with Ctrl held (or Cmd on macOS) is not in "add to selection" mode. It should be.
 	- ID: 2026111707591589
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261117-075915
 	- Opened by: t00mietum
-	- Related IDs: 2026102407515573, 2026101405542891
+	- Related IDs: 2026102407515573, 2026101405542891, 2026111021233343, 2026111913460865
 	- Target OS: All
 	- Target version: rc.1
 	- Steps to reproduce: select something, then start any valid drag mode with Ctrl held (Cmd on macOS).
@@ -529,7 +546,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: it adds to the selection.
 	- Requirements:
 		- Before the next cut.
-	- Test case: none yet.
+	- Reproduced: 20261119, under Nemo Anywhere in dec8v's new checks. A Ctrl+right drag replaced the selection in all 3 views, from an item and from empty space, and so did a Ctrl+middle drag from the checkmark column. A Ctrl+Shift drag from an item not selected also kept the run its press added, in all 3 views. The Ctrl left bands already added.
+	- Actual cause:
+		- The right and middle bands never looked at Ctrl. A Ctrl band put back the selection as it was when the band started, after the press had already changed it.
+	- Actual fix: under Nemo Anywhere every band with Ctrl held adds to the selection as it was before the press, in the list view and the icon container. The design doc's "Mouse" says so for the right drag.
+	- Decisions:
+		- v1 and Classic keep theirs.
+		- A Ctrl+right click that doesn't move still clears the selection on empty space and opens the folder's menu, as before. Once it moves, the band puts the selection back.
+		- A Ctrl+Shift drag from an item not selected adds only what the band touches, since the design doc's "Mouse" makes it the same as a Ctrl drag. A Ctrl+Shift click there still adds the run.
+		- Cmd on macOS goes through the same primary modifier check as Ctrl, so it follows.
+	- Swept: every band arm in the list view's press (a row not selected, the checkmark column, the right button, below the rows), and every band start in the icon container (the background press for each button, the press on an icon, the pending band). The tree pane is single-select and has no band. Classic's own presses keep upstream's.
+	- Branch: nov19-2026111707591589
+	- Test case: dec8v, Drag select test, Nemo Anywhere. In the list view: Ctrl drags below the rows, Ctrl+right drags from a row, below the rows and from the checkmark column, a Ctrl+middle drag from the checkmark column, and Ctrl+Shift drags from a row not selected and from the checkmark column. In the icon and compact views: a Ctrl drag from the background, a Ctrl+Shift drag from an icon not selected, and Ctrl+right drags from the background and from an icon.
+		- 20261119: dec8v's list view count under Nemo Anywhere went from 48 to 62, and the icon and compact views from 17 to 23, with 2026111021233343's checks.
+	- Verified: 20261119, dec8v fails on the old code (4 list view checks and 3 in each icon view) and with the new rule off (5 and 3), and passes with the fix. ddy5f, de8ec, dec8w, de8bd, de8dm, df066 and dfh4e pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
+	- Not covered by a test yet: Cmd on macOS, since dec8v doesn't run there.
+	- Acceptance signoff: Self-closed: dec8v.
+	- Closed: 20261119-134700
 
 - Changelog: the Nemo Anywhere selection model, for rc.1.
 	- ID: 2026111022095190
@@ -800,17 +833,30 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Icon views under Nemo Anywhere: a Ctrl+Shift drag from a selected icon also takes the run to it.
 	- ID: 2026111021233343
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
+	- Closed reason: Done
 	- Priority|Severity: Low
 	- Opened: 20261110-212333
 	- Opened by: t00mietum
-	- Related IDs: 2026111019540307
+	- Related IDs: 2026111019540307, 2026111707591589, 2026111913460865
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: icon or compact view, Nemo Anywhere. Click icon 0, Ctrl+click icon 3, then Ctrl+Shift+drag icon 3 somewhere.
 	- Incorrect behavior: the press adds the run from the anchor to icon 3 at once, as v1's does, so the drag takes icons 0 to 3.
 	- Expected behavior: the drag takes the selection as it was, icons 0 and 3, as the list view's does. Only a Ctrl+Shift+click adds the run, on its release, per the design doc's "Mouse".
-	- Reproduced: no. This comes from a reading of the icon container's press, which runs a Shift press from the anchor whether or not the icon is selected.
-	- Test case: none yet. dec8v would get the steps above in both icon views, as its list view check does.
+	- Reproduced: 20261119, in dec8v's new check. Both icon views dragged icons 0 to 3.
+	- Actual cause:
+		- As above.
+	- Actual fix: under Nemo Anywhere the icon container's press on a selected icon leaves a Ctrl+Shift run alone, and its release adds the run from the anchor.
+	- Decisions:
+		- v1 and Classic keep theirs.
+		- The middle button takes the same path, as it does for the other Shift presses.
+	- Swept: the icon container's press and release, for the left and middle buttons. The list view already waits for the release. A Shift drag without Ctrl from a selected object may have the same fault in all 3 views, filed as 2026111913460865.
+	- Branch: nov19-2026111707591589
+	- Test case: dec8v, Drag select test, Nemo Anywhere: in the icon and compact views a Ctrl+Shift drag from a selected icon drags files and keeps the selection. dec8w's Ctrl+Shift+click on a selected icon checks the run on the release.
+	- Verified: 20261119, dec8v fails on the old code (1 check in each icon view) and passes with the fix. dec8w passes.
+	- Acceptance signoff: Self-closed: dec8v and dec8w.
+	- Closed: 20261119-134700
 
 - On Linux and BSD, a bundled icon set picked in the settings file may draw Adwaita's folders instead of its own.
 	- ID: 2026111020501135
