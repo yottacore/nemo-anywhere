@@ -156,6 +156,12 @@ HEAP_SOAK_CMD=(bash cicd/utility/heap-soak.bash)
 ## Backlog 2026110920250275.
 ANALYZE_CTU_CMD=(env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-600}" bash cicd/utility/analyze.bash --ctu)
 
+## CodeQL over both compile lists and the Python, after the cross-file run,
+## by the same rule. About 12 min at 8 jobs. Fails on a missed planted leak or
+## null dereference; its findings are report only for now. Backlog
+## 2026110920250293.
+CODEQL_CMD=(bash cicd/utility/codeql.bash)
+
 ## Stage 3 (after lints): dependency policy for licenses and advisories. NOT READY - unset.
 ## NEEDS: a C-world equivalent if wanted, since there's no Cargo.lock to check.
 ## Likely not applicable until there are vendored deps.

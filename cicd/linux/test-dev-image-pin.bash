@@ -4,7 +4,8 @@
 ##	  digest, and every apt source, debug symbols included, on one dated
 ##	  snapshot before apt first runs. Without that, a box that builds the image
 ##	  gets whatever trixie has that day, and the suppressions' dbgsym versions
-##	  can stop matching the libraries.
+##	  can stop matching the libraries. Every file it downloads, such as the
+##	  CodeQL bundles, is pinned by its sha256 too.
 ##	- Runs the Dockerfile's own sources rewrite over the stock trixie sources.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/linux/test-dev-image-pin.bash
@@ -30,6 +31,7 @@ froms="$(grep -E '^FROM[[:space:]]' <<<"${text}" || true)"
 [[ -n "${froms}" ]] || fFail "no FROM line in ${dockerfile}"
 while IFS= read -r line; do
 	[[ -z "${line}" ]] && continue
+	[[ ! "${line}" =~ ^FROM[[:space:]]+scratch([[:space:]]|$) ]] || continue   ## empty, nothing to pin
 	[[ "${line}" =~ @sha256:[0-9a-f]{64}([[:space:]]|$) ]] || fFail "base not pinned by digest: ${line}"
 done <<<"${froms}"
 
@@ -72,6 +74,11 @@ else
 	[[ "${before}" != *apt-get* && "${before}" != *"apt "* ]] || fFail "apt runs before the sources are moved to the snapshot"
 	grep -q 'Check-Valid-Until "false"' <<<"${joined}" || fFail "apt would refuse the snapshot's expired Release files"
 fi
+## A download is pinned by its hash, such as the CodeQL bundles.
+while IFS= read -r line; do
+	[[ -z "${line}" ]] && continue
+	[[ "${line}" =~ --checksum=sha256:[0-9a-f]{64}[[:space:]] ]] || fFail "download not pinned by hash: ${line:0:120}"
+done <<<"$(grep -E '^(ADD|COPY)[[:space:]].*https?://' <<<"${joined}" || true)"
 ! grep -q 'deb\.debian\.org' <<<"${joined}" || fFail "a source still reads the live archive: $(grep -o '[^ ]*deb\.debian\.org[^ ]*' <<<"${joined}" | head -1)"
 
 if ((failures)); then fEcho "${failures} dev image pin check(s) failed"; exit 1; fi
@@ -80,3 +87,4 @@ fEcho "dev image pin checks passed"
 
 ##	History:
 ##		- 2026-10-28: Created.
+##		- 2026-11-19: An empty FROM scratch stage, and every download pinned by hash.

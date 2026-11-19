@@ -56,8 +56,8 @@
 ##	                       clang analyzer across files, the heap growth soak
 ##	                       test). On in a plain run and off under --quick, so
 ##	                       this adds them back there. The analyzer across
-##	                       files takes about 20 min, so a plain run leaves it
-##	                       to --long or this flag
+##	                       files takes about 20 min, and CodeQL about 12, so a
+##	                       plain run leaves them to --long or this flag
 ##	   --no-leakcheck      leave those out of a plain run. Whichever of the 2
 ##	                       comes last on the command line wins
 ##	   --no-dogfood        skip installing the native release locally
@@ -283,9 +283,12 @@ leak_asked=0; [[ "${leakcheck}" != 1 ]] || leak_asked=1
 [[ -n "${leakcheck}" ]] || leakcheck=$((! quick))
 declare -p HEAP_SOAK_CMD &>/dev/null || HEAP_SOAK_CMD=()           ## a config with no soak
 declare -p ANALYZE_CTU_CMD &>/dev/null || ANALYZE_CTU_CMD=()
+declare -p CODEQL_CMD &>/dev/null || CODEQL_CMD=()
 ## The analyzer across files would add about 20 min to a plain run, which has
 ## the leak checks on by default, so there it waits for --long or --leakcheck.
+## So does CodeQL, at about 12.
 run_ctu=$((leakcheck && (long || leak_asked)))
+run_codeql="${run_ctu}"
 ctu_why="${leak_why}"; ((! leakcheck)) || ctu_why="--long or --leakcheck adds it"
 [[ -n "${include_bsd}" ]] || include_bsd=$((! quick))
 ((! no_bsd)) || include_bsd=0
@@ -449,6 +452,7 @@ fStep_Cmd(){
 		"Static analyzers")       echo "${ANALYZE_CMD[*]}" ;;
 		"Heap soak")              echo "${HEAP_SOAK_CMD[*]}" ;;
 		"Cross-file analyzer")    echo "${ANALYZE_CTU_CMD[*]}" ;;
+		CodeQL)                   echo "${CODEQL_CMD[*]}" ;;
 		"Native Windows gate")    echo "${WIN_GATE_SIDE_CMD[*]} ${WIN_GATE_CMD[*]}" ;;
 		Packages)                 echo "${PACKAGE_CMDS[*]:-} ${PACKAGE_CHECKS[*]:-}" ;;
 		"Private runner")         echo "${PRIVATE_RUNNER:-}" ;;
@@ -779,6 +783,7 @@ fi
 ((${#ANALYZE_CMD[@]})) && fPlan "$((! quick))" "Static analyzers" "--quick"
 ((${#HEAP_SOAK_CMD[@]})) && fPlan "${leakcheck}" "Heap soak" "${leak_why}"
 ((${#ANALYZE_CTU_CMD[@]})) && fPlan "${run_ctu}" "Cross-file analyzer" "${ctu_why}"
+((${#CODEQL_CMD[@]})) && fPlan "${run_codeql}" "CodeQL" "${ctu_why}"
 ((${#WIN_GATE_SIDE_CMD[@]} + ${#WIN_GATE_CMD[@]})) && fPlan "${run_win}" "Native Windows gate" "${win_why}"
 pkg_why="--no-package"; ((quick)) && pkg_why="--quick"
 fPlan "$((PACKAGE_ENABLE && ! quick))"  "Packages"              "${pkg_why}"
@@ -832,6 +837,7 @@ fi
 fEcho_Clean "Leak checks .........: $( ((leakcheck)) && echo on || echo off )"
 ((${#HEAP_SOAK_CMD[@]})) && fEcho_Clean "Heap soak ...........: $( ((leakcheck)) && echo "${HEAP_SOAK_CMD[*]}" || echo "(skipped ${leak_why})" )"
 ((${#ANALYZE_CTU_CMD[@]})) && fEcho_Clean "Cross-file analyzer .: $( ((run_ctu)) && echo "${ANALYZE_CTU_CMD[*]}" || echo "(skipped, ${ctu_why})" )"
+((${#CODEQL_CMD[@]})) && fEcho_Clean "CodeQL ..............: $( ((run_codeql)) && echo "${CODEQL_CMD[*]}" || echo "(skipped, ${ctu_why})" )"
 if ((quick)); then
 	fEcho_Clean "Static analyzers ....: (skipped --quick)"
 elif [[ -n "${ANALYZE_CMD+x}" ]] && ((${#ANALYZE_CMD[@]})); then
@@ -1198,6 +1204,12 @@ if ((run_ctu)) && ((${#ANALYZE_CTU_CMD[@]})); then
 	"${ANALYZE_CTU_CMD[@]}"
 fi
 
+## CodeQL over both compile lists and the Python, by the same rule.
+if ((run_codeql)) && ((${#CODEQL_CMD[@]})); then
+	fStep "CodeQL" hard
+	"${CODEQL_CMD[@]}"
+fi
+
 ## Stage 6: packages, built from what stage 5 produced and never rebuilt from
 ## source. PACKAGE_CMDS in config.bash picks the formats and how. The engine only
 ## decides when it happens, and that a failing packager warns rather than
@@ -1524,6 +1536,7 @@ fEcho_Clean
 ##		- 2026-11-08: the static analyzer stage fails on a finding left.
 ##		- 2026-11-08: heap growth soak step under --leakcheck.
 ##		- 2026-11-10: cross-file clang step, under --long or --leakcheck.
+##		- 2026-11-19: CodeQL step, by the same rule.
 ##		- 2026-10-24: --long (or --slow) adds arm64, now off in a plain run.
 ##		- 2026-10-25: --backlog-run-quick, --backlog-run-full and --merge-gate;
 ##		  --gate and --ci are other names for the first and last. --no-remote.

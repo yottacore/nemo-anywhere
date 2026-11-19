@@ -628,13 +628,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Each is pinned, in a container, and fails on a planted leak and null dereference first.
 	- Estimated effort: High
 	- Progress log:
-		- 20261110: Split into children: `2026110920250275` (cross-file clang, report only), `...293` (CodeQL) and `...1244` (the cross-file findings fixed or suppressed, then they fail the run). The first is in, and the other 2 are Queued.
+		- 20261110: Split into children: `2026110920250275` (cross-file clang, report only), `...293` (CodeQL, report only), `...1244` (the cross-file findings fixed or suppressed, then they fail the run), and `2026111915091061` (the same for CodeQL's). The first 2 are in, and the other 2 are Queued.
 	- Test case: de8ep (CodeQL) and de8eq (cross-file clang), each with a planted fault.
 
 - Static analyzers: CodeQL under `--leakcheck`.
 	- ID: 2026110920250293
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261109-202502
 	- Opened by: 2026102114400592
@@ -649,7 +649,24 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261110: The newest bundle is v2.27.4 (2026-11-02). It comes per language as well, with the CLI in each, at 165 MB for C and C++ and 111 MB for Python, against 560 MB for all of them. The release gives a sha256 for each file, so `ADD --checksum` can pin them.
 		- The Windows list needs the tracer to see the mingw cross compiler in the cross build's image. That isn't tried yet.
-	- Test case: de8ep, with a planted leak and null dereference.
+		- 20261119: `codeql.bash` is the "CodeQL" step, after the cross-file analyzer. It runs 3 lanes, one after the other: C over each compile list, in that build's image, and Python over the tree. `codeql.py` does the work in the container, and counts the SARIF per area as `analyze.py` does. The tracer sees the mingw gcc, so both lists are in.
+	- Decisions:
+		- Pinned to bundle 2.27.5 (2026-11-19), its C and C++ and its Python archives, by sha256. They come in through an empty stage read by a mount, so the archives don't stay in the image. Both unpack into one `/opt/codeql`. The cross build's image has the C and C++ one, and depf5 checks it's the same as the day-to-day image's. The images grew by 0.77 and 0.65 GB.
+		- The C database comes from compiling each compile list entry again under the tracer, to `/dev/null`, as the analyzers see it, rather than a second build. A file that doesn't compile fails the lane, so a stale list shows.
+		- The queries are the security and quality suite, plus the leak and NULL queries that no standard suite has (`cpp/memory-never-freed`, `cpp/memory-may-not-be-freed`, `cpp/missing-null-test`), plus alert suppression. Style queries are left out unless they're also tagged correctness or security, as the parent keeps style checks off vendored code. That took about a third of the Linux results out.
+		- It runs by the cross-file analyzer's rule, with `--long` or `--leakcheck` named, since it takes about 12 min at 8 jobs.
+		- It's report only, as the cross-file run was at first. Item 2026111915091061 fixes or suppresses the findings, then makes them fail the run. The count exits 2 on SARIF it can't read, and that fails the step, so a crash doesn't read as findings.
+		- The planted pair is built with each lane's compiler in each image, so a tracer that misses the mingw gcc fails it.
+		- No planted Python fault. The parent asks for a leak and a null dereference, which are C faults.
+	- Branch: nov19
+	- Test case: de8ep (`codeql.bash --self-test`, the planted pair in both images), dfha3 (`codeql.py --self-test`, the count, in lint), desha for when the step runs, and dejma and depf5 for the pins.
+	- Verified: 20261119, de8ep passes in both images, and fails in both with the planted NULL taken out. dfha3 passes, and fails with the duplicate check or the read error's exit code broken. desha passes with CodeQL added to its cases, and fails with the step put in a plain run. dejma fails on an unpinned download or base stage, and depf5 on a different bundle from the day-to-day image's. test-cicd-help, test-cicd-list, test-cicd-quick, test-analyze-gate and de8em pass, and so does `cicd/cicd.bash --backlog-run-quick format lint`.
+	- Verified: 20261119, the whole step after a fresh cross build took 693 s at 8 jobs, at a load of 9 to 16 on 32 CPUs: Linux 326 s, Windows 314 s, Python 22 s, and the planted pairs the rest. Findings: Linux 619 (91 vendored, 336 inherited, 59 ours, 133 tests), Windows 928 (92, 614, 129, 93), Python 39 (7 inherited, 32 ours). `cpp/missing-null-test` is 959 of them. An earlier run failed the Windows lane on a stale `/build-win` that didn't have a new generated header.
+	- Swept: every reader of `run_ctu` and `ctu_why` in `cicd.bash` (plan, plan line, step, the step command map for `--list`), `--help`, `config.bash`, design.md's leak check and run lengths text, the tests that copy `cicd.bash`, and the callers of `analyze.py count` after `inherited_files` moved out of it.
+	- Needs local test suite run?: No
+	- Actual effort: Avg
+	- Acceptance signoff: Self-closed: de8ep and the whole step's run pass, and the step's place is pinned by desha.
+	- Closed: 20261119-153650
 
 - Static analyzers: the cross-file clang findings fixed or suppressed, then they fail the run.
 	- ID: 2026110920251244
@@ -5843,6 +5860,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261110: the full run's Cross-file analyzer step took 861 s at 4 jobs, 2 lanes at once, and de8eq passed. Its count then crashed on the CTU index line, so it printed no table and still passed; fixed in analyze.py parse_log with a de8em case that failed first. The saved logs show Linux with 55 findings (6 ours, 7 tests, 42 inherited), Windows with 67 (7 ours, 17 tests, 43 inherited), and 0 files cut off.
 	- Swept: every reader of `leakcheck` in `cicd.bash` (plan, preflight, step), `--help`, `config.bash`, design.md's test and run lengths text, the callers of `analyzer_argv` and `count`, and the tests that copy `cicd.bash`.
 	- Closed: 20261109-235909
+
+- Static analyzers: the CodeQL findings fixed or suppressed, then they fail the run.
+	- ID: 2026111915091061
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261119-150910
+	- Opened by: 2026110920250293
+	- Parent ID: 2026102114400592
+	- Prereq IDs: 2026110920250293
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- Every CodeQL finding, in both compile lists and the Python, is fixed, or suppressed at the line with a one-line reason, or for vendored code in a list outside the file.
+		- Then a finding left fails the step, as in the per-file stage.
+	- Estimated effort: High
+	- Test case: de8ep, and a count case for the finding it then fails on.
 
 - Static analyzers: the vendored suppression list is out of date since SHCL 3.0.0-beta1.
 	- ID: 2026110814550429

@@ -20,6 +20,15 @@
 # docker-run.bash tags the image by a hash of this file and builds it the first
 # time that hash is seen.
 
+# CodeQL 2.27.5, its C and C++ bundle and its Python one, by hash. Each has the
+# same CLI and that release's query packs. Read through a mount below, so the
+# archives don't stay in the image.
+FROM scratch AS codeql-bundles
+ADD --checksum=sha256:066b43ad04ac8154fe83740ec6d24b35478d9f687f51c9dc887dff396145477d \
+	https://github.com/github/codeql-action/releases/download/codeql-bundle-v2.27.5/codeql-bundle-cpp-linux64.tar.zst /cpp.tar.zst
+ADD --checksum=sha256:ae506772fcc6abeb810dc862c9346eaba55e6e6d65c9df56f74d6966690ee507 \
+	https://github.com/github/codeql-action/releases/download/codeql-bundle-v2.27.5/codeql-bundle-python-linux64.tar.zst /python.tar.zst
+
 FROM debian:trixie@sha256:fac46bff2e02f51425b6e33b0e1169f55dfb053d83511ca28aa50c09fd5ed7a4
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -63,6 +72,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends heaptrack \
 # clang-extdef-mapping, for the cross-file clang analyzer (analyze.bash --ctu,
 # --leakcheck). Same snapshot, its own layer.
 RUN apt-get update && apt-get install -y --no-install-recommends clang-tools-19 \
+	&& rm -rf /var/lib/apt/lists/*
+# CodeQL (codeql.bash, --leakcheck), from the bundles at the top. Both unpack
+# into one /opt/codeql, since the CLI in each is the same. zstd from the same
+# snapshot.
+RUN --mount=type=bind,from=codeql-bundles,target=/mnt/codeql \
+	apt-get update && apt-get install -y --no-install-recommends zstd \
+	&& tar -C /opt --zstd -xf /mnt/codeql/cpp.tar.zst \
+	&& tar -C /opt --zstd -xf /mnt/codeql/python.tar.zst \
+	&& ln -s /opt/codeql/codeql /usr/local/bin/codeql \
 	&& rm -rf /var/lib/apt/lists/*
 
 # fontconfig's cache holds each font folder's mtime to the nanosecond, and the

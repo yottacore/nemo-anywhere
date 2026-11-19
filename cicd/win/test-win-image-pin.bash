@@ -6,7 +6,8 @@
 ##	  well formed, has every root, and is part of msys2-pins.txt line for line,
 ##	  so the cross build packs the hosted build's DLLs. fetch-sysroot.bash reads
 ##	  no package database, unpacks the pinned files from a stand-in repo, and
-##	  refuses a bad checksum or line before it unpacks anything.
+##	  refuses a bad checksum or line before it unpacks anything. Its CodeQL
+##	  bundle is the one the day-to-day image pins.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/win/test-win-image-pin.bash
 ##	- Test ID: depf5
@@ -45,6 +46,10 @@ text="$(grep -v '^[[:space:]]*#' "${dockerfile}")"
 grep -qE '^COPY .*win/sysroot-pins\.txt' <<<"${text}" || fFail "the Dockerfile doesn't copy sysroot-pins.txt"
 grep -qE '^RUN .*fetch-sysroot\.bash' <<<"${text}" || fFail "the Dockerfile doesn't run fetch-sysroot.bash"
 ! grep -qE 'mingw64\.db|\.db"' "${fetch}" || fFail "fetch-sysroot.bash reads a package database"
+## The same CodeQL in both images, so the 2 lanes run the same queries.
+fCodeqlPin(){ grep -v '^[[:space:]]*#' "$1" | sed -e ':a' -e '/\\$/{N;s/\\\n//;ba' -e '}' | grep -oE -- '--checksum=sha256:[0-9a-f]{64}[[:space:]]+\S*codeql-bundle-cpp-linux64\.tar\.zst' | tr -s '[:space:]' ' ' || true; }
+winPin="$(fCodeqlPin "${dockerfile}")"; devPin="$(fCodeqlPin "${DEV_DOCKERFILE_FOR_WIN:-${root}/cicd/linux/Dockerfile.dev}")"
+[[ -n "${winPin}" && "${winPin}" == "${devPin}" ]] || fFail "the CodeQL bundle isn't the one linux/Dockerfile.dev pins: '${winPin:-none}'"
 
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 #	The list
@@ -116,3 +121,4 @@ fEcho "Windows image pin checks passed"
 
 ##	History:
 ##		- 2026-10-31: Created.
+##		- 2026-11-19: The CodeQL bundle matches the day-to-day image's.

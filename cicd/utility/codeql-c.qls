@@ -1,0 +1,24 @@
+# The C and C++ queries codeql.bash runs: the security and quality suite, plus
+# the leak and NULL queries it leaves out, and the alert suppression query so a
+# result can be suppressed at the line. Style queries are left out, as in the
+# analyzer stage, unless they're about correctness or security too.
+- description: Nemo Anywhere C and C++ queries
+- import: codeql-suites/cpp-security-and-quality.qls
+  from: codeql/cpp-queries
+- query: Critical/MemoryNeverFreed.ql
+  from: codeql/cpp-queries
+- query: Critical/MemoryMayNotBeFreed.ql
+  from: codeql/cpp-queries
+- query: Critical/MissingNullTest.ql
+  from: codeql/cpp-queries
+- query: AlertSuppression.ql
+  from: codeql/cpp-queries
+- exclude:
+    tags contain:
+      - maintainability
+      - readability
+      - documentation
+- include:
+    tags contain:
+      - correctness
+      - security

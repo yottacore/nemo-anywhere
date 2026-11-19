@@ -9,6 +9,7 @@
 #   - nsis, for the setup exe (pack-setup.bash)
 #   - clang 19, for the analyzer stage's Windows lane (utility/analyze.bash),
 #     and clang-tools-19 for its cross-file run
+#   - CodeQL, for codeql.bash's Windows lane
 # Source tree is mounted at /src (like nemo-build); builds go to /build-win,
 # a cache volume (win-box.bash).
 #
@@ -24,6 +25,12 @@
 # which apt would refuse; every index and package is still checked against the
 # signed InRelease. The sysroot is the MSYS2 files in win/sysroot-pins.txt, by
 # name and sha256.
+
+# CodeQL 2.27.5's C and C++ bundle, by hash, the same one linux/Dockerfile.dev
+# pins. Read through a mount below, so the archive doesn't stay in the image.
+FROM scratch AS codeql-bundle
+ADD --checksum=sha256:066b43ad04ac8154fe83740ec6d24b35478d9f687f51c9dc887dff396145477d \
+	https://github.com/github/codeql-action/releases/download/codeql-bundle-v2.27.5/codeql-bundle-cpp-linux64.tar.zst /cpp.tar.zst
 
 FROM debian:trixie@sha256:fac46bff2e02f51425b6e33b0e1169f55dfb053d83511ca28aa50c09fd5ed7a4
 
@@ -53,6 +60,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends clang-19 \
 # --leakcheck). Its own layer, so the one above stays cached.
 RUN apt-get update && apt-get install -y --no-install-recommends clang-tools-19 \
 	&& rm -rf /var/lib/apt/lists/*
+# CodeQL (codeql.bash, --leakcheck), from the bundle at the top. Its tracer
+# sees the mingw gcc. Its own layer.
+RUN --mount=type=bind,from=codeql-bundle,target=/mnt/codeql \
+	tar -C /opt --zstd -xf /mnt/codeql/cpp.tar.zst \
+	&& ln -s /opt/codeql/codeql /usr/local/bin/codeql
 
 COPY win/win64.cross.txt /opt/win64.cross.txt
 
