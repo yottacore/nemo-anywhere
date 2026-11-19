@@ -36,7 +36,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Nemo Anywhere: a Shift drag from a selected object takes the run to it, rather than the selection as it was.
 	- ID: 2026111913460865
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
+	- Closed reason: Done
 	- Priority|Severity: Low
 	- Opened: 20261119-134608
 	- Opened by: t00mietum
@@ -46,8 +47,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce: any view, Nemo Anywhere. Click item 0, Ctrl+click item 3, then Shift+drag item 3 somewhere.
 	- Incorrect behavior: likely, the press replaces the selection with the run from the anchor to item 3 at once, so the drag takes items 0 to 3, or 3 alone.
 	- Expected behavior: the drag takes the selection as it was, items 0 and 3, as a plain or Ctrl+Shift drag from a selected object does. Only a Shift+click picks the run, on its release, per the design doc's "Mouse".
-	- Reproduced: no. This comes from a reading of the presses. The icon container runs a Shift press from the anchor whether or not the icon is selected, and the list view hands GtkTreeView the Shift press on a selected row.
-	- Test case: none yet. dec8v would get the steps above in all 3 views.
+	- Reproduced: 20261119, under Nemo Anywhere in dec8v's new checks. The list view's drag took the pressed row alone, and both icon views' took the run from the anchor. In all 3 views a Shift press on a selected item picked the run at once.
+	- Actual cause:
+		- The icon container ran a Shift press from the anchor whether or not the icon was selected, and the list view handed GtkTreeView the Shift press on a selected row. Only the Ctrl+Shift press waited for the release.
+	- Actual fix: under Nemo Anywhere a Shift press on a selected object leaves the selection alone, in the list view and the icon container, and its release picks the run from the anchor. A drag takes the selection as it was.
+	- Decisions:
+		- v1 and Classic keep theirs.
+		- The middle button takes the same path, as it does for Ctrl+Shift.
+		- On Windows a Shift right press on a selected icon picks no run on its release, as before.
+		- When GtkTreeView doesn't run the Shift+click, as on a press it counts as a second click, the release runs from the focus, as Ctrl+Shift's does.
+	- Swept: the list view's press and release for the left and middle buttons, the checkmark column included, and the icon container's press on an icon and its release. Classic's own presses keep upstream's. The tree pane is single-select.
+	- Branch: nov19-2026111913460865
+	- Test case: dec8v, Drag select test, Nemo Anywhere: in all 3 views a Shift drag from a selected item drags files and keeps the selection, and a Shift press on a selected item keeps the selection until the release picks the run from the anchor.
+		- 20261119: dec8v's list view count under Nemo Anywhere went from 62 to 66, and the icon and compact views from 23 to 27.
+	- Verified: 20261119, dec8v fails on the old code (2 checks in each view) and passes with the fix. ddy5f, de8ec, dec8w, de8bd, de8dm, df066 and dfh4e pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
+	- Acceptance signoff: Self-closed: dec8v.
+	- Closed: 20261119-140345
 
 - CICD step output: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102819522603
@@ -817,18 +832,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Folder tree model: the number of top-level rows is always 1.
 	- ID: 2026111021433545
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
+	- Closed reason: Done
 	- Priority|Severity: Low
 	- Opened: 20261110-214335
 	- Opened by: t00mietum
 	- Related IDs: 2026111013031747
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: call gtk_tree_model_iter_n_children with no parent on the tree pane's model, with Computer, Home and File system showing.
 	- Incorrect behavior: it returns 1, so code that takes the last top-level row as the count less one gets the first row instead.
 	- Expected behavior: the number of top-level rows.
 	- Reproduced: 20261110, in df066's probe, which then walks the rows with gtk_tree_model_iter_next instead.
-	- Possible cause: fm_tree_model_iter_n_children returns 1 for a NULL parent rather than counting root_node and its siblings (nemo-tree-sidebar-model.c), inherited from upstream.
-	- Test case: none yet. A check in df066's probe that the count matches the rows gtk_tree_model_iter_next walks.
+	- Actual cause:
+		- fm_tree_model_iter_n_children returned 1 for a NULL parent rather than counting the roots, inherited from upstream.
+	- Actual fix: it counts the roots.
+	- Decisions:
+		- The check went in dcr4f, which builds the model on its own with 3 roots, rather than in df066's probe. df066's walk stays as it is.
+	- Swept: every caller of gtk_tree_model_iter_n_children in the tree. Only the tree pane's sort model and dcr4f read this model's count. iter_nth_child with no parent already walked the roots.
+	- Branch: nov19-2026111913460865
+	- Test case: dcr4f, Tree folders test: with 3 roots, the top-level count matches the rows gtk_tree_model_iter_next walks, in the model and in the sort model over it, and the last of them is the last row.
+	- Verified: 20261119, dcr4f fails on the old code (2 checks) and passes with the fix. df066 passes. The format and lint gate passes, and neither analyzer reports anything on the changed files.
+	- Acceptance signoff: Self-closed: dcr4f.
+	- Closed: 20261119-140345
 
 - Icon views under Nemo Anywhere: a Ctrl+Shift drag from a selected icon also takes the run to it.
 	- ID: 2026111021233343

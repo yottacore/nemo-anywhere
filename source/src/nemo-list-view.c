@@ -818,7 +818,8 @@ button_event_modifies_selection (GdkEventButton *event)
 static gboolean ctrl_click_moves_focus (void);
 static gboolean ctrl_click_sets_anchor (void);
 static gboolean ctrl_band_adds (void);
-static void add_run_from_click_anchor (NemoListView *view, GtkTreePath *path);
+static gboolean shift_click_on_release (void);
+static void run_from_click_anchor (NemoListView *view, GtkTreePath *path, gboolean replace);
 
 /* Takes path out of the selection and puts the focus and the anchor on it.
    Setting the cursor selects its row alone, so the rest goes back after. */
@@ -856,6 +857,11 @@ nemo_list_view_did_not_drag (NemoListView *view,
 	if (gtk_tree_view_get_path_at_pos (tree_view, event->x, event->y,
 					   &path, NULL, NULL, NULL)) {
 		if ((event->button == 1 || event->button == 2)
+		    && (event->state & GDK_SHIFT_MASK) != 0 && shift_click_on_release ()
+		    && view->details->row_selected_on_button_down) {
+			run_from_click_anchor (view, path,
+					       (event->state & eel_gtk_primary_mask (event->window)) == 0);
+		} else if ((event->button == 1 || event->button == 2)
 		    && ((event->state & eel_gtk_primary_mask (event->window)) != 0 ||
 			(event->state & GDK_SHIFT_MASK) == 0)
 		    && view->details->row_selected_on_button_down) {
@@ -865,9 +871,6 @@ nemo_list_view_did_not_drag (NemoListView *view,
 			} else if (ctrl_click_moves_focus () &&
 				   (event->state & GDK_SHIFT_MASK) == 0) {
 				unselect_to_focus (view, path);
-			} else if (ctrl_click_sets_anchor () &&
-				   (event->state & GDK_SHIFT_MASK) != 0) {
-				add_run_from_click_anchor (view, path);
 			} else {
 				gtk_tree_selection_unselect_path (selection, path);
 			}
@@ -1397,9 +1400,9 @@ add_click_run_from_anchor (NemoListView *view, GtkWidget *widget,
 	return TRUE;
 }
 
-/* A Ctrl+Shift+click on a selected row waits for the release, so it can
-   still drag what's selected. The press only finds GTK's anchor and puts the
-   selection back, which leaves the focus on the row. */
+/* A Shift or Ctrl+Shift click on a selected row waits for the release, so
+   it can still drag what's selected. The press only finds GTK's anchor and
+   puts the selection back, which leaves the focus on the row. */
 static void
 note_click_anchor (NemoListView *view, GtkWidget *widget,
 		   GdkEventButton *event, GtkTreePath *path)
@@ -1427,10 +1430,10 @@ note_click_anchor (NemoListView *view, GtkWidget *widget,
 }
 
 /* The release of that click adds the run from the anchor the press found,
-   or from the focus when it found none. The focus goes to path, and the
-   anchor stays. */
+   or from the focus when it found none, or with replace picks the run alone.
+   The focus goes to path, and the anchor stays. */
 static void
-add_run_from_click_anchor (NemoListView *view, GtkTreePath *path)
+run_from_click_anchor (NemoListView *view, GtkTreePath *path, gboolean replace)
 {
 	GtkTreeView *tree_view = view->details->tree_view;
 	GtkTreeSelection *selection = gtk_tree_view_get_selection (tree_view);
@@ -1449,6 +1452,9 @@ add_run_from_click_anchor (NemoListView *view, GtkTreePath *path)
 	}
 
 	g_signal_handlers_block_by_func (selection, list_selection_changed_callback, view);
+	if (replace) {
+		gtk_tree_selection_unselect_all (selection);
+	}
 	gtk_tree_selection_select_range (selection, from, path);
 	rows = gtk_tree_selection_get_selected_rows (selection, NULL);
 	gtk_tree_view_set_cursor (tree_view, path, NULL, FALSE);
@@ -2219,14 +2225,14 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 
 			if ((event->button == 1 || event->button == 2) &&
 			    ((event->state & eel_gtk_primary_mask (event->window)) != 0 ||
-			     (event->state & GDK_SHIFT_MASK) == 0)) {
+			     (event->state & GDK_SHIFT_MASK) == 0 || shift_click_on_release ())) {
 				view->details->row_selected_on_button_down = gtk_tree_selection_path_is_selected (selection, path);
 				if (view->details->row_selected_on_button_down) {
 					call_parent = on_expander;
 					view->details->ignore_button_release = call_parent;
-					if (primary && (event->state & GDK_SHIFT_MASK) != 0 &&
+					if ((event->state & GDK_SHIFT_MASK) != 0 &&
 					    event->type == GDK_BUTTON_PRESS && !on_expander &&
-					    ctrl_click_sets_anchor ()) {
+					    shift_click_on_release ()) {
 						note_click_anchor (view, widget, event, path);
 					}
 				} else if (primary && (event->state & GDK_SHIFT_MASK) != 0 &&
@@ -2269,7 +2275,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 						anchor_to (selection, cursor != NULL ? cursor : path);
 					}
 					gtk_tree_path_free (cursor);
-				} else {
+				} else if ((event->state & GDK_SHIFT_MASK) == 0) {
 					view->details->ignore_button_release = on_expander;
 				}
 			}
@@ -5272,6 +5278,10 @@ typedef struct {
 	   the right and middle buttons' too. v1's right and middle bands
 	   replace, and its Ctrl+Shift band keeps the run its press added. */
 	gboolean ctrl_band_adds;
+	/* A Shift or Ctrl+Shift click on a selected row picks its run on the
+	   release, so a drag from there takes the selection as it was. v1's
+	   Shift press picks it at once. */
+	gboolean shift_click_on_release;
 } ListViewRules;
 
 static const ListViewRules rules_anywhere_v1 = {
@@ -5305,6 +5315,7 @@ static const ListViewRules rules_anywhere = {
 	.ctrl_click_sets_anchor = TRUE,
 	.ctrl_click_moves_focus = TRUE,
 	.ctrl_band_adds = TRUE,
+	.shift_click_on_release = TRUE,
 };
 
 static const ListViewRules *
@@ -5343,6 +5354,12 @@ static gboolean
 ctrl_band_adds (void)
 {
 	return list_view_rules ()->ctrl_band_adds;
+}
+
+static gboolean
+shift_click_on_release (void)
+{
+	return list_view_rules ()->shift_click_on_release;
 }
 
 static gboolean

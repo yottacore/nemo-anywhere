@@ -168,6 +168,7 @@ static gboolean keys_from_range_ends (void);
 static gboolean band_end_takes_focus (void);
 static gboolean ctrl_click_sets_anchor (void);
 static gboolean ctrl_band_adds (void);
+static gboolean shift_click_on_release (void);
 
 static gpointer accessible_parent_class;
 
@@ -3413,11 +3414,13 @@ nemo_icon_container_did_not_drag (NemoIconContainer *container,
 
 	details = container->details;
 
-	if (details->icon_selected_on_button_down && ctrl_click_sets_anchor () &&
-	    (event->state & eel_gtk_primary_mask (event->window)) != 0 &&
+	if (details->icon_selected_on_button_down && shift_click_on_release () &&
 	    (event->state & GDK_SHIFT_MASK) != 0) {
-		if (select_range (container, shift_run_anchor (container, details->drag_icon),
-				  details->drag_icon, FALSE)) {
+		/* Windows' right button drags too, but never picks a run. */
+		if ((event->button == DRAG_BUTTON || event->button == MIDDLE_BUTTON) &&
+		    select_range (container, shift_run_anchor (container, details->drag_icon),
+				  details->drag_icon,
+				  (event->state & eel_gtk_primary_mask (event->window)) == 0)) {
 			g_signal_emit (container, signals[SELECTION_CHANGED], 0);
 		}
 	} else if (details->icon_selected_on_button_down &&
@@ -5506,12 +5509,11 @@ handle_icon_button_press (NemoIconContainer *container,
     details->skip_rename_on_release = g_list_length (sel) > 1;
     g_list_free (sel);
 
-	/* Nemo Anywhere's Ctrl+Shift+click on a selected icon adds the run on
-	   the release, so a drag takes the selection as it was. */
+	/* Nemo Anywhere's Shift or Ctrl+Shift click on a selected icon picks the
+	   run on the release, so a drag takes the selection as it was. */
 	if ((event->button == DRAG_BUTTON || event->button == MIDDLE_BUTTON) &&
 	    (event->state & GDK_SHIFT_MASK) != 0 &&
-	    !(ctrl_click_sets_anchor () && details->icon_selected_on_button_down &&
-	      (event->state & eel_gtk_primary_mask (event->window)) != 0)) {
+	    !(shift_click_on_release () && details->icon_selected_on_button_down)) {
 		NemoIcon *start_icon = shift_run_anchor (container, icon);
 
 		if (select_range (container, start_icon, icon,
@@ -5962,10 +5964,13 @@ typedef struct {
 	gboolean band_end_takes_focus;
 	/* A Ctrl+click leaves the anchor on the icon clicked, also when it takes
 	   it out, and a Shift run counts from the anchor even when it isn't
-	   selected. A Ctrl+Shift+click on a selected icon keeps it, and adds the
-	   run on the release. v1's clears the anchor, starts a run over from the
-	   icon clicked, and takes it out. */
+	   selected. A Ctrl+Shift+click on a selected icon keeps it. v1's clears
+	   the anchor, starts a run over from the icon clicked, and takes it out. */
 	gboolean ctrl_click_sets_anchor;
+	/* A Shift or Ctrl+Shift click on a selected icon picks its run on the
+	   release, so a drag from there takes the selection as it was. v1's
+	   picks it on the press. */
+	gboolean shift_click_on_release;
 	/* Every mouse band with Ctrl held adds to what was selected before the
 	   press, the right button's too. v1's right band replaces, and its
 	   Ctrl+Shift band keeps the run its press added. */
@@ -6008,6 +6013,7 @@ static const ContainerRules rules_anywhere = {
 	.band_end_takes_focus = TRUE,
 	.ctrl_click_sets_anchor = TRUE,
 	.ctrl_band_adds = TRUE,
+	.shift_click_on_release = TRUE,
 };
 
 static const ContainerRules *
@@ -6034,6 +6040,12 @@ static gboolean
 ctrl_band_adds (void)
 {
 	return container_rules ()->ctrl_band_adds;
+}
+
+static gboolean
+shift_click_on_release (void)
+{
+	return container_rules ()->shift_click_on_release;
 }
 
 static gboolean

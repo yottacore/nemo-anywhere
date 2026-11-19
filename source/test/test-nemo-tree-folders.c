@@ -363,6 +363,36 @@ main (int argc, char *argv[])
 		check_consistent (&root);
 	}
 
+	/* The top-level count is the number of roots, as the pane's Computer,
+	 * Home and File system rows. It was always 1. */
+	{
+		GtkTreeModel *m = GTK_TREE_MODEL (model);
+		const char *more_roots[] = { "parent", "empty" };
+		GtkTreeIter iter;
+		int walked = 0;
+		gboolean more;
+		guint i;
+
+		for (i = 0; i < G_N_ELEMENTS (more_roots); i++) {
+			char *path = g_build_filename (root_dir, more_roots[i], NULL);
+			char *root_uri = g_filename_to_uri (path, NULL, NULL);
+			GIcon *root_icon = g_themed_icon_new ("folder");
+
+			fm_tree_model_add_root_uri (model, root_uri, more_roots[i], root_icon, NULL);
+			g_object_unref (root_icon);
+			g_free (root_uri);
+			g_free (path);
+		}
+		for (more = gtk_tree_model_get_iter_first (m, &iter); more; more = gtk_tree_model_iter_next (m, &iter)) {
+			walked++;
+		}
+		check (walked == 3);
+		check (gtk_tree_model_iter_n_children (m, NULL) == walked);
+		check (gtk_tree_model_iter_nth_child (m, &iter, NULL, walked - 1));
+		check (!gtk_tree_model_iter_next (m, &iter));
+		check (gtk_tree_model_iter_n_children (sort_model, NULL) == walked);
+	}
+
 	gtk_widget_destroy (window);
 	g_object_unref (sort_model);
 	g_object_unref (model);

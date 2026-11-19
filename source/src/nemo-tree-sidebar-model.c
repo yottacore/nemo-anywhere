@@ -1698,7 +1698,11 @@ fm_tree_model_iter_n_children (GtkTreeModel *model, GtkTreeIter *iter)
 	g_return_val_if_fail (iter == NULL || iter_is_valid (FM_TREE_MODEL (model), iter), FALSE);
 
 	if (iter == NULL) {
-		return 1;
+		n = 0;
+		for (node = FM_TREE_MODEL (model)->details->root_node; node != NULL; node = node->next) {
+			n++;
+		}
+		return n;
 	}
 
 	parent = iter->user_data;
