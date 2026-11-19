@@ -6,8 +6,16 @@ dbusBuiltSources = gnome.gdbus_codegen(
   object_manager: true
 )
 
+# Settings search aliases, out of the schema's alias rows.
+settingsAliases = custom_target('nemo-settings-aliases',
+  input: files('gen-settings-aliases.py', '../data/nemo-anywhere.schema.shcl'),
+  output: 'nemo-settings-aliases.h',
+  command: [ py, '@INPUT0@', '@INPUT1@', '@OUTPUT@' ],
+)
+
 nemoCommon_sources = [
   dbusBuiltSources,
+  settingsAliases,
   'nemo-action-config-widget.c',
   'nemo-archive-dialog.c',
   'nemo-application.c',

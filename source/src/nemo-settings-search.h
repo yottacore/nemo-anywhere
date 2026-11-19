@@ -82,6 +82,14 @@ NemoSettingsEntry *nemo_settings_entry_new  (const char *label,
 					     gpointer    target);
 void               nemo_settings_entry_free (NemoSettingsEntry *entry);
 
+/* A schema key's aliases, from the table made at build time.
+   Returns: (transfer none) NULL-terminated, or NULL */
+const char *const *nemo_settings_search_aliases_for (const char *key);
+
+/* Everything the search looks through in pages, with the aliases of each
+   control's setting. Returns: (transfer full) of NemoSettingsEntry */
+GPtrArray  *nemo_settings_search_collect (GtkWidget *pages);
+
 /* Connects the field and its match list in the Settings window. */
 void        nemo_settings_search_setup   (GtkBuilder *builder);
 

@@ -452,7 +452,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [Search](design_docs/20261020-121842_settings.md#search). Match order, aliases, fuzzy matching, and how a match is shown are there.
 	- Progress log:
 		- 20261117: raised to High.
-		- 20261119: split into children 2026111912460963 (the field, label and fuzzy matches, and going to a setting) and 2026111912460983 (aliases, Queued).
+		- 20261119: split into children 2026111912460963 (the field, label and fuzzy matches, and going to a setting) and 2026111912460983 (aliases, Done).
 	- Test case: its children's.
 
 - Settings search: a search field over the tabs, with label and fuzzy matches, each shown with its path and marked letters, that goes to the setting picked.
@@ -488,7 +488,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings search: aliases, read from the schema file when the app is built, as the second group of matches.
 	- ID: 2026111912460983
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261119-124609
 	- Opened by: t00mietum
@@ -498,6 +498,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements: the parent's Design, for aliases.
 	- Progress log:
 		- 20261119: the search already lists an entry's aliases as the middle group, and shows a match as the label with the alias after it. What's left is an `aliases:` row per field in the schema file, reading it in when the app is built, and finding each field's control, which the window's bind calls pair with its key.
+		- 20261119: built. The schema has an alias row for 34 settings. The build turns the rows into a table, and each setting's control is found by the key its binding writes. Typing "zebra stripes" lists "Shade every other row (zebra stripes)".
+	- Decisions:
+		- The row is a comment, `# aliases: [a, b]`, since SHCL refuses a schema key it doesn't know, and the installed schema has to stay one `shcl check --schema` takes. A request to SHCL for keys it ignores is drafted.
+		- Aliases are the names other file managers and SilkTerm use for the same thing, such as "dot files", "recycle bin", "address bar" and "dark mode". Only settings with a control in the window have them. They're easy to change.
+		- Every binding that writes a key marks its control with that key, and the 2 theme lists, which write theirs by hand, are marked the same way. A get-only binding, such as one for sensitivity, doesn't mark anything.
+		- A key's aliases go on the first control found for it, so a radio group or a label and field pair lists them once.
+		- The bulk rename and terminal labels now name their fields, so a pick of either label goes to the field, as other labels do.
+	- Swept: every bind helper in the window, and the file cache page's own binds, go through the one bind call that marks. Of the controls that write by hand, only the theme lists have aliases. Both tests that build the search code get the generated table.
+	- Branch: nov19-2026111912460983
+	- Commit: d1080afc
+	- Test case: dfh5x, Settings search matching test: the alias table has a setting's aliases and nothing for a key without a row. dd5df, Settings dialog test: every setting with aliases has a control in the window that the search finds, and gets them on exactly one entry, and an alias typed lists its setting with the alias after the label. The file cache page is stubbed in that test, so its key is left out there.
+	- Verified: dd5df fails with the aliases left off the entries (29 settings with none) and passes with them. Before the label fix it failed on the bulk rename and terminal fields. dfh5x, dbsx7, dav3s, dbnfq, and ddy4b pass. Format and lint pass, and both analyzers are clean on the 5 C files touched, gcc leaving out nemo-config.c as it always does.
+	- Acceptance signoff: Self-closed: dd5df and dfh5x.
+	- Closed: 20261119-132929
 
 - Any valid drag mode with Ctrl held (or Cmd on macOS) is not in "add to selection" mode. It should be.
 	- ID: 2026111707591589

@@ -1236,6 +1236,10 @@ nemo_file_management_properties_dialog_setup_appearance_page (GtkBuilder *builde
 			   (gpointer) NEMO_PREFERENCES_APPEARANCE_GTK_THEME);
 	g_object_set_data (G_OBJECT (icon_combo), APPEARANCE_KEY,
 			   (gpointer) NEMO_PREFERENCES_APPEARANCE_ICON_THEME);
+	nemo_config_mark_control (style_combo, nemo_appearance_preferences,
+				  NEMO_PREFERENCES_APPEARANCE_GTK_THEME);
+	nemo_config_mark_control (icon_combo, nemo_appearance_preferences,
+				  NEMO_PREFERENCES_APPEARANCE_ICON_THEME);
 	g_signal_connect (style_combo, "changed", G_CALLBACK (appearance_combo_changed), builder);
 	g_signal_connect (icon_combo, "changed", G_CALLBACK (appearance_combo_changed), builder);
 

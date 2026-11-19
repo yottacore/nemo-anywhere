@@ -165,6 +165,15 @@ void       nemo_config_set_share_func (NemoConfigShareFunc func,
    saves them. */
 void       nemo_config_take_shared    (GVariant *changes);
 
+/* The "group.key" a control writes, set by its first two-way or set-only
+   binding, so Settings can find the control for a key. Object data. */
+#define NEMO_CONFIG_BOUND_KEY "nemo-config-bound-key"
+
+/* The same, for a control that writes its key by hand. The first one wins. */
+void nemo_config_mark_control      (gpointer              object,
+                                    NemoConfigGroup      *group,
+                                    const char           *key);
+
 void nemo_config_bind              (NemoConfigGroup      *group,
                                     const char           *key,
                                     gpointer              object,

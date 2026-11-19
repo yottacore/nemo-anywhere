@@ -2632,6 +2632,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                                     <property name="visible">True</property>
                                                     <property name="can-focus">False</property>
                                                     <property name="label" translatable="yes">Command to invoke when renaming multiple items:</property>
+                                                    <property name="mnemonic-widget">bulk_rename_entry</property>
                                                     <property name="xalign">0</property>
                                                   </object>
                                                   <packing>
@@ -2719,6 +2720,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                                     <property name="visible">True</property>
                                                     <property name="can-focus">False</property>
                                                     <property name="label" translatable="yes">Command to open a terminal:</property>
+                                                    <property name="mnemonic-widget">terminal_exec_entry</property>
                                                     <property name="tooltip-text" translatable="yes">If empty, uses your default terminal.</property>
                                                     <property name="xalign">0</property>
                                                   </object>

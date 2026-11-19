@@ -47,6 +47,8 @@
 #include <libnemo-private/nemo-tab-list.h>
 
 #include "nemo-file-management-properties.h"
+#include "nemo-settings-aliases.h"
+#include "nemo-settings-search.h"
 #include "nemo-plugin-manager.h"
 #include "nemo-prefs-current-folder.h"
 #include "nemo-prefs-file-cache.h"
@@ -925,6 +927,103 @@ test_search (GtkWidget *dialog)
 	}
 }
 
+static GtkWidget *
+find_bound (GtkWidget *widget, const char *key)
+{
+	GList *children, *l;
+	GtkWidget *found = NULL;
+
+	if (g_strcmp0 (g_object_get_data (G_OBJECT (widget), NEMO_CONFIG_BOUND_KEY), key) == 0) {
+		return widget;
+	}
+	if (!GTK_IS_CONTAINER (widget)) {
+		return NULL;
+	}
+	children = gtk_container_get_children (GTK_CONTAINER (widget));
+	for (l = children; l != NULL && found == NULL; l = l->next) {
+		found = find_bound (l->data, key);
+	}
+	g_list_free (children);
+
+	return found;
+}
+
+/* On a page this platform shows. */
+static gboolean
+shown_under (GtkWidget *widget, GtkWidget *top)
+{
+	for (; widget != NULL && widget != top; widget = gtk_widget_get_parent (widget)) {
+		if (!gtk_widget_get_visible (widget)) {
+			return FALSE;
+		}
+	}
+	return widget == top;
+}
+
+/* 2026111912460983: every setting with aliases in the schema has a control
+   the search finds, and gets them once. An alias typed lists its setting with
+   the alias after the label. */
+static void
+test_search_aliases (GtkWidget *dialog)
+{
+	GtkWidget *entry = find_named (dialog, "settings_search_entry");
+	GtkWidget *stack = find_named (dialog, "page_stack");
+	GPtrArray *entries, *texts;
+	guint i, j;
+
+	check (entry != NULL && stack != NULL);
+	if (entry == NULL || stack == NULL) {
+		return;
+	}
+
+	entries = nemo_settings_search_collect (stack);
+	for (i = 0; settings_aliases[i].key != NULL; i++) {
+		const char *key = settings_aliases[i].key;
+		GtkWidget *control;
+		guint given = 0;
+
+		/* Its page is stubbed out above. */
+		if (g_str_has_prefix (key, "file-cache.")) {
+			continue;
+		}
+		control = find_bound (dialog, key);
+		if (control == NULL) {
+			g_printerr ("%s has aliases and no control\n", key);
+			check (control != NULL);
+			continue;
+		}
+		if (!shown_under (control, stack)) {
+			continue;
+		}
+		for (j = 0; j < entries->len; j++) {
+			NemoSettingsEntry *e = entries->pdata[j];
+
+			if (e->aliases != NULL &&
+			    g_strcmp0 (g_object_get_data (G_OBJECT (e->target), NEMO_CONFIG_BOUND_KEY), key) == 0) {
+				given++;
+				check (g_strv_equal ((const char *const *) e->aliases, settings_aliases[i].aliases));
+			}
+		}
+		if (given != 1) {
+			g_printerr ("%s's aliases are on %u entries\n", key, given);
+		}
+		check (given == 1);
+	}
+	g_ptr_array_free (entries, TRUE);
+
+	gtk_entry_set_text (GTK_ENTRY (entry), "zebra stripes");
+	settle ();
+	texts = match_rows (dialog);
+	check (texts->len >= 1);
+	if (texts->len >= 1) {
+		g_print ("alias match: %s\n", (char *) texts->pdata[0]);
+		check (g_str_has_suffix (texts->pdata[0], " (zebra stripes)"));
+	}
+	g_ptr_array_free (texts, TRUE);
+	gtk_entry_set_text (GTK_ENTRY (entry), "");
+	settle ();
+}
+
 static void
 test_escape_closes (GtkWidget *dialog)
 {
@@ -1020,6 +1119,7 @@ main (int argc, char *argv[])
 		test_selection_model (dialog);
 		test_rename_selects_grayed (dialog);
 		test_search (dialog);
+		test_search_aliases (dialog);
 		test_escape_closes (dialog);
 	}
 

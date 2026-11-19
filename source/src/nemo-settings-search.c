@@ -27,7 +27,10 @@
 #include <string.h>
 #include <glib/gi18n.h>
 
+#include <libnemo-private/nemo-config.h>
 #include <libnemo-private/nemo-tab-list.h>
+
+#include "nemo-settings-aliases.h"
 
 /* U+23F5, the arrow the settings design doc shows between levels. */
 #define PATH_ARROW " \xe2\x8f\xb5 "
@@ -555,6 +558,56 @@ walk (GtkWidget *widget, GPtrArray *entries, const char *path)
 	}
 }
 
+/* Returns: (transfer none) NULL-terminated, or NULL */
+const char *const *
+nemo_settings_search_aliases_for (const char *key)
+{
+	guint i;
+
+	for (i = 0; key != NULL && settings_aliases[i].key != NULL; i++) {
+		if (strcmp (settings_aliases[i].key, key) == 0) {
+			return settings_aliases[i].aliases;
+		}
+	}
+
+	return NULL;
+}
+
+/* A key's aliases go on the first control found for it, so a radio group or
+   a label and spin pair isn't listed twice. */
+static void
+add_aliases (GPtrArray *entries)
+{
+	GHashTable *given = g_hash_table_new (g_str_hash, g_str_equal);
+	guint i;
+
+	for (i = 0; i < entries->len; i++) {
+		NemoSettingsEntry *entry = entries->pdata[i];
+		const char *key = g_object_get_data (G_OBJECT (entry->target), NEMO_CONFIG_BOUND_KEY);
+		const char *const *aliases = nemo_settings_search_aliases_for (key);
+
+		if (aliases == NULL || g_hash_table_contains (given, key)) {
+			continue;
+		}
+		g_hash_table_add (given, (gpointer) key);
+		g_strfreev (entry->aliases);
+		entry->aliases = g_strdupv ((char **) aliases);
+	}
+	g_hash_table_destroy (given);
+}
+
+/* Returns: (transfer full) */
+GPtrArray *
+nemo_settings_search_collect (GtkWidget *pages)
+{
+	GPtrArray *entries = g_ptr_array_new_with_free_func ((GDestroyNotify) nemo_settings_entry_free);
+
+	walk (pages, entries, NULL);
+	add_aliases (entries);
+
+	return entries;
+}
+
 static char *
 mark_color (GtkWidget *widget)
 {
@@ -642,8 +695,7 @@ refresh (SearchState *state)
 		return;
 	}
 
-	entries = g_ptr_array_new_with_free_func ((GDestroyNotify) nemo_settings_entry_free);
-	walk (state->pages, entries, NULL);
+	entries = nemo_settings_search_collect (state->pages);
 	hits = nemo_settings_search_run (entries, query);
 	color = mark_color (state->results);
 

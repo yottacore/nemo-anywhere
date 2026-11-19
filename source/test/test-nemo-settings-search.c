@@ -221,6 +221,23 @@ test_groups (void)
 	g_ptr_array_free (entries, TRUE);
 }
 
+/* 2026111912460983: the table made from the schema's alias rows. */
+static void
+test_alias_table (void)
+{
+	const char *const *aliases = nemo_settings_search_aliases_for ("appearance.mode");
+	gboolean dark = FALSE;
+
+	check (aliases != NULL);
+	for (; aliases != NULL && *aliases != NULL; aliases++) {
+		dark = dark || strcmp (*aliases, "dark mode") == 0;
+	}
+	check (dark);
+	check (nemo_settings_search_aliases_for ("state.first-run-done") == NULL);
+	check (nemo_settings_search_aliases_for ("no.such-key") == NULL);
+	check (nemo_settings_search_aliases_for (NULL) == NULL);
+}
+
 static void
 test_markup (void)
 {
@@ -255,6 +272,7 @@ main (void)
 	test_literal ();
 	test_fuzzy ();
 	test_groups ();
+	test_alias_table ();
 	test_markup ();
 
 	if (failures == 0) {
