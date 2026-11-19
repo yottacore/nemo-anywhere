@@ -156,6 +156,9 @@ typedef struct {
                                                gboolean           visible);
 	char *       (* get_icon_description)     (NemoIconContainer *container,
 						   NemoIconData *data);
+	/* What Enter and the other keys open, with a ref on each. The selection
+	   when unset. */
+	GList *      (* get_acted_on)             (NemoIconContainer *container);
 	int          (* compare_icons)            (NemoIconContainer *container,
 						   NemoIconData *icon_a,
 						   NemoIconData *icon_b);

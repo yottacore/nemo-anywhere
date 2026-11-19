@@ -110,9 +110,11 @@ typedef struct {
 static GType         nemo_icon_container_accessible_get_type (void);
 
 static void          preview_selected_items                         (NemoIconContainer *container);
-static void          activate_selected_items                        (NemoIconContainer *container);
+static void          activate_selected_items                        (NemoIconContainer *container,
+								     gboolean           by_key);
 static void          activate_selected_items_alternate              (NemoIconContainer *container,
-								     NemoIcon          *icon);
+								     NemoIcon          *icon,
+								     gboolean           by_key);
 static void          compute_stretch                                (StretchState          *start,
 								     StretchState          *current);
 static NemoIcon *get_first_selected_icon                        (NemoIconContainer *container);
@@ -2897,7 +2899,7 @@ keyboard_space (NemoIconContainer *container,
 			}
 		}
 	} else if ((event->state & GDK_SHIFT_MASK) != 0) {
-		activate_selected_items_alternate (container, NULL);
+		activate_selected_items_alternate (container, NULL, TRUE);
 	} else if (nemo_affirmative_at (NEMO_AFFIRM_SPACE)) {
 		space_checkmarks (container);
 	} else {
@@ -3446,9 +3448,9 @@ nemo_icon_container_did_not_drag (NemoIconContainer *container,
 			 * much more link-like.
 			 */
 			if (event->button == MIDDLE_BUTTON) {
-				activate_selected_items_alternate (container, NULL);
+				activate_selected_items_alternate (container, NULL, FALSE);
 			} else {
-				activate_selected_items (container);
+				activate_selected_items (container, FALSE);
 			}
 		}
 	}
@@ -4080,7 +4082,7 @@ nemo_icon_container_search_activate (G_GNUC_UNUSED GtkEntry *entry,
 	nemo_icon_container_search_dialog_hide (container->details->search_window,
 						    container);
 
-	activate_selected_items (container);
+	activate_selected_items (container, FALSE);
 }
 
 static gboolean
@@ -4304,7 +4306,7 @@ nemo_icon_container_search_key_press_event (GtkWidget *widget,
 		nemo_icon_container_search_dialog_hide (widget,
 							    container);
 
-		activate_selected_items_alternate (container, NULL);
+		activate_selected_items_alternate (container, NULL, FALSE);
 		return TRUE;
 	}
 
@@ -4585,9 +4587,9 @@ key_press_event (GtkWidget *widget,
 		case GDK_KEY_Return:
 		case GDK_KEY_KP_Enter:
 			if ((event->state & GDK_SHIFT_MASK) != 0) {
-				activate_selected_items_alternate (container, NULL);
+				activate_selected_items_alternate (container, NULL, TRUE);
 			} else {
-				activate_selected_items (container);
+				activate_selected_items (container, TRUE);
 			}
 
 			handled = TRUE;
@@ -5334,11 +5336,11 @@ handle_icon_double_click (NemoIconContainer *container,
 	    details->double_click_icon[0] == details->double_click_icon[1] &&
 	    details->double_click_button[0] == details->double_click_button[1]) {
 		if (!button_event_modifies_selection (event)) {
-			activate_selected_items (container);
+			activate_selected_items (container, FALSE);
 			return TRUE;
 		} else if ((event->state & eel_gtk_primary_mask (event->window)) == 0 &&
 			   (event->state & GDK_SHIFT_MASK) != 0) {
-			activate_selected_items_alternate (container, icon);
+			activate_selected_items_alternate (container, icon, FALSE);
 			return TRUE;
 		}
 	}
@@ -6369,22 +6371,35 @@ icon_destroy (NemoIconContainer *container,
 	}
 }
 
-/* activate any selected items in the container */
+/* Enter and the other keys open what a command would act on, which the view
+   picks. A click opens what it just selected, the icon under the pointer.
+   Returns: (transfer full): free with nemo_file_list_free */
+static GList *
+items_to_activate (NemoIconContainer *container, gboolean by_key)
+{
+	NemoIconContainerClass *klass = NEMO_ICON_CONTAINER_GET_CLASS (container);
+
+	if (by_key && klass->get_acted_on != NULL) {
+		return klass->get_acted_on (container);
+	}
+	return nemo_file_list_ref (nemo_icon_container_get_selection (container));
+}
+
 static void
-activate_selected_items (NemoIconContainer *container)
+activate_selected_items (NemoIconContainer *container, gboolean by_key)
 {
 	GList *selection;
 
 	g_return_if_fail (NEMO_IS_ICON_CONTAINER (container));
 
-	selection = nemo_icon_container_get_selection (container);
+	selection = items_to_activate (container, by_key);
 	if (selection != NULL) {
 	  	g_signal_emit (container,
 				 signals[ACTIVATE], 0,
 				 selection);
 	}
 
-    g_list_free (selection);
+	nemo_file_list_free (selection);
 }
 
 static void
@@ -6421,23 +6436,24 @@ preview_selected_items (NemoIconContainer *container)
 
 static void
 activate_selected_items_alternate (NemoIconContainer *container,
-				   NemoIcon *icon)
+				   NemoIcon *icon,
+				   gboolean by_key)
 {
 	GList *selection;
 
 	g_assert (NEMO_IS_ICON_CONTAINER (container));
 
 	if (icon != NULL) {
-		selection = g_list_prepend (NULL, icon->data);
+		selection = nemo_file_list_ref (g_list_prepend (NULL, icon->data));
 	} else {
-		selection = nemo_icon_container_get_selection (container);
+		selection = items_to_activate (container, by_key);
 	}
 	if (selection != NULL) {
 	  	g_signal_emit (container,
 				 signals[ACTIVATE_ALTERNATE], 0,
 				 selection);
 	}
-	g_list_free (selection);
+	nemo_file_list_free (selection);
 }
 
 /* Returns: (transfer full): unref with nemo_icon_info_unref */

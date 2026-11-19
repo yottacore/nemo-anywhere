@@ -53,9 +53,20 @@ typedef enum {
 	NEMO_AFFIRM_WORD_SELECT_ALL,
 	NEMO_AFFIRM_WORD_SELECT_NONE,
 	NEMO_AFFIRM_WORD_INVERT,
-	NEMO_AFFIRM_WORD_SELECTED_ITEMS,
 	NEMO_AFFIRM_N_WORDS
 } NemoAffirmWord;
+
+/* The "selected items" row, as the file operation messages that count what
+   they act on use it. Each is a whole sentence, so a translation can put the
+   words where its language wants them. */
+typedef enum {
+	NEMO_AFFIRM_COUNTED_TRASH,
+	NEMO_AFFIRM_COUNTED_DELETE_FROM_TRASH,
+	NEMO_AFFIRM_COUNTED_DELETE,
+	NEMO_AFFIRM_COUNTED_CUT,	/* takes a detail string after the count */
+	NEMO_AFFIRM_COUNTED_COPY,	/* same */
+	NEMO_AFFIRM_N_COUNTED
+} NemoAffirmCounted;
 
 /* On only under the Nemo Anywhere model, and only with the tunable on. */
 gboolean     nemo_affirmative_switch (void);
@@ -67,6 +78,11 @@ gboolean     nemo_affirmative_at     (NemoAffirmPlace place);
 /* The row's label for the switch as it is now, translated. A row with no
    "Switch on" label yet gives its "Switch off" one. */
 const char  *nemo_affirmative_word   (NemoAffirmWord word);
+
+/* The message for `n` items, translated, as a format whose first argument is
+   the count. Like the rows above, it gives the "Switch off" wording until
+   there's a "Switch on" one. */
+const char  *nemo_affirmative_counted (NemoAffirmCounted line, gulong n);
 
 /* The place's name, as used in the source. For tests. */
 const char  *nemo_affirmative_place_name (NemoAffirmPlace place);

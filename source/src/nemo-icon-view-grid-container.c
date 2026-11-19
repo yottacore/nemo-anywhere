@@ -152,6 +152,13 @@ skip_emblem:
 	return icon_info;
 }
 
+/* Returns: (transfer full): free with nemo_file_list_free */
+static GList *
+nemo_icon_view_grid_container_get_acted_on (NemoIconContainer *container)
+{
+	return nemo_view_get_acted_on (NEMO_VIEW (get_icon_view (container)));
+}
+
 static char *
 nemo_icon_view_grid_container_get_icon_description (G_GNUC_UNUSED NemoIconContainer *container,
 						   NemoIconData      *data)
@@ -1611,6 +1618,7 @@ nemo_icon_view_grid_container_class_init (NemoIconViewGridContainerClass *klass)
 	ic_class->get_icon_text = nemo_icon_view_grid_container_get_icon_text;
 	ic_class->get_icon_images = nemo_icon_view_grid_container_get_icon_images;
 	ic_class->get_icon_description = nemo_icon_view_grid_container_get_icon_description;
+	ic_class->get_acted_on = nemo_icon_view_grid_container_get_acted_on;
     ic_class->get_max_layout_lines_for_pango = nemo_icon_view_grid_container_get_max_layout_lines_for_pango;
     ic_class->get_max_layout_lines = nemo_icon_view_grid_container_get_max_layout_lines;
     ic_class->get_additional_text_line_count = nemo_icon_view_grid_container_get_additional_text_line_count;

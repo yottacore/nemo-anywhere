@@ -1817,11 +1817,7 @@ confirm_move_to_trash (CommonJob *job,
         prompt = f (_("Are you sure you want to move \"%B\" "
                       "to the trash?"), files->data);
     } else {
-        /* translators: the singular form here can be skipped. */
-        prompt = f (ngettext("unused %'d",
-                             "Are you sure you want to move "
-                             "the %'d selected items to the trash?",
-                             file_count),
+        prompt = f (nemo_affirmative_counted (NEMO_AFFIRM_COUNTED_TRASH, file_count),
                     file_count);
     }
 
@@ -1894,11 +1890,7 @@ confirm_delete_from_trash (CommonJob *job,
 		prompt = f (_("Are you sure you want to permanently delete \"%B\" "
 					    "from the trash?"), files->data);
 	} else {
-		prompt = f (ngettext("Are you sure you want to permanently delete "
-				     "the %'d selected item from the trash?",
-				     "Are you sure you want to permanently delete "
-				     "the %'d selected items from the trash?",
-				     file_count),
+		prompt = f (nemo_affirmative_counted (NEMO_AFFIRM_COUNTED_DELETE_FROM_TRASH, file_count),
 			    file_count);
 	}
 
@@ -1964,10 +1956,7 @@ confirm_delete_directly (CommonJob *job,
 		prompt = f (_("Are you sure you want to permanently delete \"%B\"?"),
 			    files->data);
 	} else {
-		prompt = f (ngettext("Are you sure you want to permanently delete "
-				     "the %'d selected item?",
-				     "Are you sure you want to permanently delete "
-				     "the %'d selected items?", file_count),
+		prompt = f (nemo_affirmative_counted (NEMO_AFFIRM_COUNTED_DELETE, file_count),
 			    file_count);
 	}
 

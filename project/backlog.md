@@ -345,7 +345,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "The affirmative switch".
 	- Progress log:
 		- 20261020: opened.
-		- 20261119: split. The command pick and the dialog alert are in 2026111912024382, which is queued with the views' own activation and the file operation wording left.
+		- 20261119: split. The command pick and the dialog alert are in 2026111912024382, which is done, the views' own activation and the file operation wording included.
 		- 20261119: the tunable is in, at 0, and is on only under the Nemo Anywhere model. Each place asks it by name: Space in all 3 views and the tree, Ctrl+A, Ctrl+I and Ctrl+Shift+I, the Edit menu, the band from the checkmark column, the status bar line, and the drag start in the list and icon views. Each on side does the off thing. The Edit menu's Select all, Select none and Invert selection labels come from the wording table.
 	- Decisions:
 		- The setting has no key or checkbox yet. The tunable is the default it will read, and the switch's one function is where the setting goes in.
@@ -360,7 +360,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Affirmative checkmarks: the acted-on pick for commands and the dialog alert, with no affirmative behavior yet.
 	- ID: 2026111912024382
 	- Type: Task
-	- Status: Queued
+	- Status: Done
+	- Needs local test suite run?: No. dfh4e and the selection, drag, trash, Properties and menu tests passed 20261119.
 	- Priority|Severity: High
 	- Opened: 20261119-120243
 	- Opened by: t00mietum
@@ -378,13 +379,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261119: split from 2026102019174477, which built the switch and the other places.
 		- 20261119: the pick is in the view, and each of its commands takes what it acts on from there: the open entries, trash, delete, restore, duplicate, the link entries, pin and favorite, properties, copy and move to, scripts and actions, copy, cut, copy paths, compress, extract, mount archive, paste into folder, open as root, follow link, open containing folder, rename, the volume entries, and connect to server. So do the menu updates that decide what's enabled. The confirmations for trash, delete from the trash, and delete ask for the alert.
-		- Left: Enter and the other activations inside the list and icon views, which go by each view's own selection, and the wording row.
+		- 20261119: Enter, Shift+Enter and Shift+Space in the list, icon and compact views open what the pick gives. A click, a double-click and a middle click still open what they selected. The trash and delete questions, and the status bar line after a cut or copy, take their counted sentence from the wording table.
 	- Decisions:
-		- The view's own activation is left out for now. Double-click shares that path, and opens the object under the pointer rather than the checked group, so the 2 need splitting first.
+		- The views' keys and their clicks are split. The keys go through the pick. A click or double-click opens what it selected, the object under the pointer, which settles the design doc's double-click inconsistency that way for the switch-on side. It's one argument to change.
+		- Enter in the type-ahead find box opens the match it found, in both views, since that's what was typed for.
+		- The "selected items" row is a whole sentence per message, in the wording table, with a "Switch on" stub that gives nothing yet. The single "selected items" label nothing read is gone. The on sentences, and knowing whether a job got the checked group, wait for 2026102019174514.
+		- Labels and tooltips that say "selected", such as the trash bar's Restore and the open-with and script tooltips, aren't file operation messages, so they're left for the "Switch on" column.
 		- Not routed, since they aren't a command's pick: the selection count, the status bar line (that's the alert's place), the selection kept across a reload, the selection changed signal, and the other pane's selection that a script gets.
-	- Branch: nov19-2026102019174477
-	- Test case: dfh4e, which now checks the pick is asked. dec8w, de8bd, ddxes, de55r, dcvpy, dcrvs, dd5dc, ddy4b and dec8v show the commands act as before.
+	- Branch: nov19-2026102019174477, nov19-2026111912024382
+	- Test case: dfh4e, which now checks the pick is asked, that each counted message is the "Switch off" sentence under every model, and that no file operation message counts selected items outside the wording table. dec8w, de8bd and de8dm press Enter and Shift+Enter in each view. dec8w, de8bd, ddxes, de55r, dcvpy, dcrvs, dd5dc, ddy4b and dec8v show the commands act as before.
+		- 20261119: dfh4e's word table lost its "selected items" entry, with the row.
 	- Verified: 20261119, dfh4e fails with the pick's conditional taken out, and passes as committed. Those tests pass, the format and lint gate passes, and neither analyzer reports anything on nemo-view.c or nemo-file-operations.c.
+	- Verified: 20261119, dfh4e fails with one delete question put back as its own sentence, and passes as committed. dfh4e, dec8w, de8bd, de8dm, dec8v, dcvpy, dcrvs, ddxes, de55r, dd5dc, ddy4b, ddwn8 and ddwn9 pass. The format and lint gate passes, and neither analyzer reports anything on the 8 changed .c files.
+	- Swept: every Enter, Shift+Enter and Shift+Space handler in the list view and the icon container, both icon container subclasses, every other caller of the 2 activate functions in each (clicks, double-clicks, the find box), and a grep for `%'d selected item` across `src/` and `libnemo-private/`.
+	- Acceptance signoff: Self-closed: dfh4e and dec8w.
+	- Closed: 20261119-124247
 
 - CICD reset: CPU and priority.
 	- ID: 2026102416300003

@@ -202,6 +202,7 @@ struct NemoListViewDetails {
 	NemoFile *renaming_file;
 	gboolean rename_done;
 	guint renaming_file_activate_timeout;
+	gboolean renaming_file_activate_by_key;
 
 	gulong clipboard_handler_id;
 
@@ -712,37 +713,43 @@ space_checkmarks (NemoListView *view)
 	preview_selected_items (view);
 }
 
-static void activate_selected_items (NemoListView *view);
+static void activate_items (NemoListView *view, gboolean by_key);
 
-/* Proper GSourceFunc: activate_selected_items is void, so casting it to a
+/* Enter and the other keys open what a command would act on. A click opens
+   what it just selected, the row under the pointer. */
+static GList *
+items_to_activate (NemoListView *view, gboolean by_key)
+{
+	return by_key ? nemo_view_get_acted_on (NEMO_VIEW (view)) :
+			nemo_list_view_get_selection (NEMO_VIEW (view));
+}
+
+/* Proper GSourceFunc: activate_items is void, so casting it to a
  * source func left the timeout's repeat behavior undefined. Clear the id and
- * fire once; if still renaming, activate_selected_items re-arms a fresh one. */
+ * fire once; if still renaming, activate_items re-arms a fresh one. */
 static gboolean
 activate_selected_items_timeout (gpointer data)
 {
 	NemoListView *view = data;
 
 	view->details->renaming_file_activate_timeout = 0;
-	activate_selected_items (view);
+	activate_items (view, view->details->renaming_file_activate_by_key);
 	return G_SOURCE_REMOVE;
 }
 
 static void
-activate_selected_items (NemoListView *view)
+activate_items (NemoListView *view, gboolean by_key)
 {
 	GList *file_list;
-
-	file_list = nemo_list_view_get_selection (NEMO_VIEW (view));
-
 
 	if (view->details->renaming_file) {
 		/* We're currently renaming a file, wait until the rename is
 		   finished, or the activation uri will be wrong */
 		if (view->details->renaming_file_activate_timeout == 0) {
+			view->details->renaming_file_activate_by_key = by_key;
 			view->details->renaming_file_activate_timeout =
 				g_timeout_add (WAIT_FOR_RENAME_ON_ACTIVATE, activate_selected_items_timeout, view);
 		}
-		nemo_file_list_free (file_list);
 		return;
 	}
 
@@ -751,6 +758,7 @@ activate_selected_items (NemoListView *view)
 		view->details->renaming_file_activate_timeout = 0;
 	}
 
+	file_list = items_to_activate (view, by_key);
 	nemo_view_activate_files (NEMO_VIEW (view),
 				      file_list,
 				      0, TRUE);
@@ -759,9 +767,16 @@ activate_selected_items (NemoListView *view)
 }
 
 static void
+activate_selected_items (NemoListView *view)
+{
+	activate_items (view, FALSE);
+}
+
+static void
 activate_selected_items_alternate (NemoListView *view,
 				   NemoFile *file,
-				   gboolean open_in_tab)
+				   gboolean open_in_tab,
+				   gboolean by_key)
 {
 	GList *file_list;
 	NemoWindowOpenFlags flags;
@@ -783,7 +798,7 @@ activate_selected_items_alternate (NemoListView *view,
 		nemo_file_ref (file);
 		file_list = g_list_prepend (NULL, file);
 	} else {
-		file_list = nemo_list_view_get_selection (NEMO_VIEW (view));
+		file_list = items_to_activate (view, by_key);
 	}
 	nemo_view_activate_files (NEMO_VIEW (view),
 				      file_list,
@@ -861,7 +876,7 @@ nemo_list_view_did_not_drag (NemoListView *view,
 			if (event->button == 1) {
 				activate_selected_items (view);
 			} else if (event->button == 2) {
-				activate_selected_items_alternate (view, NULL, TRUE);
+				activate_selected_items_alternate (view, NULL, TRUE, FALSE);
 			}
 		}
 
@@ -2016,7 +2031,7 @@ handle_icon_double_click (NemoListView *view, GtkTreePath *path, GdkEventButton 
             if (event->button == 1) {
                 activate_selected_items (view);
             } else if (event->button == 2) {
-                activate_selected_items_alternate (view, NULL, TRUE);
+                activate_selected_items_alternate (view, NULL, TRUE, FALSE);
             }
 
             return TRUE;
@@ -2025,7 +2040,7 @@ handle_icon_double_click (NemoListView *view, GtkTreePath *path, GdkEventButton 
             NemoFile *file;
             file = nemo_list_model_file_for_path (view->details->model, path);
             if (file != NULL) {
-                activate_selected_items_alternate (view, file, TRUE);
+                activate_selected_items_alternate (view, file, TRUE, FALSE);
                 nemo_file_unref (file);
             }
 
@@ -2620,7 +2635,7 @@ key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer callback_dat
 			break;
 		}
 		if ((event->state & GDK_SHIFT_MASK) != 0) {
-			activate_selected_items_alternate (NEMO_LIST_VIEW (view), NULL, TRUE);
+			activate_selected_items_alternate (NEMO_LIST_VIEW (view), NULL, TRUE, TRUE);
 		} else if (nemo_affirmative_at (NEMO_AFFIRM_SPACE)) {
 			space_checkmarks (NEMO_LIST_VIEW (view));
 		} else {
@@ -2631,9 +2646,9 @@ key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer callback_dat
 	case GDK_KEY_Return:
 	case GDK_KEY_KP_Enter:
 		if ((event->state & GDK_SHIFT_MASK) != 0) {
-			activate_selected_items_alternate (NEMO_LIST_VIEW (view), NULL, TRUE);
+			activate_selected_items_alternate (NEMO_LIST_VIEW (view), NULL, TRUE, TRUE);
 		} else {
-			activate_selected_items (NEMO_LIST_VIEW (view));
+			activate_items (NEMO_LIST_VIEW (view), TRUE);
 		}
 		handled = TRUE;
 		break;

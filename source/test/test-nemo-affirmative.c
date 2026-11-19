@@ -21,7 +21,7 @@
 */
 
 /* The tunable is off, so under every model every place goes the off way and
- * the wording is the "Switch off" column. Each place is asked about at least
+ * the wording is the "Switch off" column, the file operation messages too. Each place is asked about at least
  * once in the source, so none of the design doc's list is left without its
  * conditional. Takes the source root as its argument. */
 
@@ -43,7 +43,25 @@ static const char * const off_words[NEMO_AFFIRM_N_WORDS] = {
 	[NEMO_AFFIRM_WORD_SELECT_ALL]     = "Select _all",
 	[NEMO_AFFIRM_WORD_SELECT_NONE]    = "Select _none",
 	[NEMO_AFFIRM_WORD_INVERT]         = "_Invert selection",
-	[NEMO_AFFIRM_WORD_SELECTED_ITEMS] = "selected items",
+};
+
+/* The "selected items" row in the file operation messages, for 1 and for 3. */
+static const char * const off_counted[NEMO_AFFIRM_N_COUNTED][2] = {
+	[NEMO_AFFIRM_COUNTED_TRASH] = {
+		"unused %'d",
+		"Are you sure you want to move the %'d selected items to the trash?" },
+	[NEMO_AFFIRM_COUNTED_DELETE_FROM_TRASH] = {
+		"Are you sure you want to permanently delete the %'d selected item from the trash?",
+		"Are you sure you want to permanently delete the %'d selected items from the trash?" },
+	[NEMO_AFFIRM_COUNTED_DELETE] = {
+		"Are you sure you want to permanently delete the %'d selected item?",
+		"Are you sure you want to permanently delete the %'d selected items?" },
+	[NEMO_AFFIRM_COUNTED_CUT] = {
+		"The %'d selected item will be moved if you select the Paste command",
+		"The %'d selected items%s will be moved if you select the Paste command" },
+	[NEMO_AFFIRM_COUNTED_COPY] = {
+		"The %'d selected item will be copied if you select the Paste command",
+		"The %'d selected items%s will be copied if you select the Paste command" },
 };
 
 static void
@@ -67,6 +85,16 @@ check_off (const char *model)
 
 		if (g_strcmp0 (word, off_words[i]) != 0) {
 			g_printerr ("FAIL word %d under %s is \"%s\", wanted \"%s\"\n", i, model, word, off_words[i]);
+			failures++;
+		}
+	}
+
+	for (i = 0; i < NEMO_AFFIRM_N_COUNTED; i++) {
+		const char *one = nemo_affirmative_counted ((NemoAffirmCounted) i, 1);
+		const char *many = nemo_affirmative_counted ((NemoAffirmCounted) i, 3);
+
+		if (g_strcmp0 (one, off_counted[i][0]) != 0 || g_strcmp0 (many, off_counted[i][1]) != 0) {
+			g_printerr ("FAIL message %d under %s is \"%s\" / \"%s\"\n", i, model, one, many);
 			failures++;
 		}
 	}
@@ -121,6 +149,12 @@ check_places_used (const char *source_root)
 			failures++;
 		}
 		g_free (call);
+	}
+
+	/* The counted messages come from the wording table, not their own copies. */
+	if (strstr (all->str, "%'d selected item") != NULL) {
+		g_printerr ("FAIL a file operation message counts selected items outside the wording table\n");
+		failures++;
 	}
 	g_string_free (all, TRUE);
 }

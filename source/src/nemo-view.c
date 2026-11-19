@@ -852,6 +852,16 @@ view_acted_on_for_transfer (NemoView *view)
 	return nemo_view_get_selection_for_file_transfer (view);
 }
 
+/* For the views' own keys, such as Enter, which act on what a command would.
+   Returns: (transfer full): free with nemo_file_list_free */
+GList *
+nemo_view_get_acted_on (NemoView *view)
+{
+	g_return_val_if_fail (NEMO_IS_VIEW (view), NULL);
+
+	return view_acted_on (view);
+}
+
 /**
  * nemo_view_peek_selection:
  *
@@ -7301,23 +7311,8 @@ copy_or_cut_files (NemoView *view,
 		}
 		g_free (name);
 	} else {
-		if (cut) {
-			/* translators: this is preceded with a string of form 'N selected items' (N more than 1) */
-			status_string = g_strdup_printf (ngettext("The %'d selected item will be moved "
-								  "if you select the Paste command",
-								  "The %'d selected items%s will be moved "
-								  "if you select the Paste command",
-								  count),
-							 count, view->details->detail_string);
-		} else {
-			/* translators: this is preceded with a string of form 'N selected items' (N more than 1) */
-			status_string = g_strdup_printf (ngettext("The %'d selected item will be copied "
-								  "if you select the Paste command",
-								  "The %'d selected items%s will be copied "
-								  "if you select the Paste command",
-								  count),
-							 count, view->details->detail_string);
-		}
+		status_string = g_strdup_printf (nemo_affirmative_counted (cut ? NEMO_AFFIRM_COUNTED_CUT : NEMO_AFFIRM_COUNTED_COPY, count),
+						 count, view->details->detail_string);
 	}
 
 	nemo_window_slot_set_status (view->details->slot,
