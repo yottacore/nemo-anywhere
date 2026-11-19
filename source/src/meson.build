@@ -27,6 +27,7 @@ nemoCommon_sources = [
   'nemo-file-management-properties.c',
   'nemo-prefs-current-folder.c',
   'nemo-prefs-file-cache.c',
+  'nemo-settings-search.c',
   'nemo-floating-bar.c',
   'nemo-freedesktop-dbus.c',
   'nemo-icon-view-container.c',

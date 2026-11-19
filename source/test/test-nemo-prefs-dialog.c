@@ -29,7 +29,8 @@
  * Ctrl+Tab and Ctrl+Shift+Tab step through the list, sub-tabs included.
  * Sub-tabs are indented rows, and the parent and its showing sub-tab are both
  * lit. List columns has a sub-tab for each list. No page needs a scrollbar at
- * the size the window opens. The pages that build their own widgets are left
+ * the size the window opens. The search field sits over the pages, and goes
+ * to the setting picked. The pages that build their own widgets are left
  * empty here. */
 
 #include <config.h>
@@ -784,6 +785,146 @@ test_rename_selects_grayed (GtkWidget *dialog)
 	check (!gtk_widget_get_sensitive (check_button));
 }
 
+/* The rows of the search's match list, as plain text. */
+static GPtrArray *
+match_rows (GtkWidget *dialog)
+{
+	GPtrArray *rows = g_ptr_array_new ();
+	GPtrArray *texts = g_ptr_array_new_with_free_func (g_free);
+	guint i;
+
+	collect_rows (find_named (dialog, "settings_search_results"), rows);
+	for (i = 0; i < rows->len; i++) {
+		GtkWidget *row = rows->pdata[i];
+
+		if (GTK_IS_LIST_BOX_ROW (row) && gtk_widget_get_visible (row)) {
+			g_ptr_array_add (texts, g_strdup (gtk_label_get_text (GTK_LABEL (gtk_bin_get_child (GTK_BIN (row))))));
+		}
+	}
+	g_ptr_array_free (rows, TRUE);
+
+	return texts;
+}
+
+/* 2026111912460963: a search field over the pages, outside the scrolling.
+   Matches as typed come first, each with its path and the matched letters
+   marked. Enter goes to the first, Escape empties the field before it closes
+   anything, Ctrl+F goes to the field, and picking a tab leaves the search. */
+static void
+test_search (GtkWidget *dialog)
+{
+	GtkWidget *entry = find_named (dialog, "settings_search_entry");
+	GtkWidget *results = find_named (dialog, "settings_search_scroll");
+	GtkWidget *stack = find_named (dialog, "page_stack");
+	GtkWidget *sidebar = find_named (dialog, "page_sidebar");
+	GtkWidget *reverse = find_named (dialog, "reverse_sort_checkbox");
+	GtkListBoxRow *first;
+	GPtrArray *texts;
+	GtkAllocation entry_at, stack_at;
+
+	check (entry != NULL && results != NULL && stack != NULL && reverse != NULL);
+	if (entry == NULL || results == NULL || stack == NULL || reverse == NULL) {
+		return;
+	}
+
+	check (gtk_widget_get_ancestor (entry, GTK_TYPE_SCROLLED_WINDOW) == NULL);
+	gtk_widget_get_allocation (entry, &entry_at);
+	gtk_widget_get_allocation (stack, &stack_at);
+	check (entry_at.y + entry_at.height <= stack_at.y);
+	check (!gtk_widget_get_visible (results));
+
+	gtk_entry_set_text (GTK_ENTRY (entry), "reverse sort");
+	settle ();
+	check (gtk_widget_get_visible (results));
+	check (!gtk_widget_get_visible (stack));
+	texts = match_rows (dialog);
+	check (texts->len >= 2);
+	if (texts->len >= 2) {
+		g_print ("first match: %s\n", (char *) texts->pdata[0]);
+		check (strcmp (texts->pdata[0], "Views \xe2\x8f\xb5 Default \xe2\x8f\xb5 View \xe2\x8f\xb5 Reverse sort") == 0);
+		check (g_str_has_prefix (texts->pdata[1], "Views \xe2\x8f\xb5 Current"));
+	}
+	g_ptr_array_free (texts, TRUE);
+
+	first = gtk_list_box_get_row_at_index (GTK_LIST_BOX (find_named (dialog, "settings_search_results")), 0);
+	check (first != NULL);
+	if (first != NULL) {
+		const char *markup = gtk_label_get_label (GTK_LABEL (gtk_bin_get_child (GTK_BIN (first))));
+
+		check (strstr (markup, "weight=\"bold\" size=\"larger\"") != NULL);
+		check (strstr (markup, ">Reverse sort</span>") != NULL);
+	}
+
+	/* Matched as typed, then loosely. */
+	gtk_entry_set_text (GTK_ENTRY (entry), "rvrs srt");
+	settle ();
+	texts = match_rows (dialog);
+	check (texts->len >= 1);
+	if (texts->len >= 1) {
+		check (g_str_has_suffix (texts->pdata[0], "Reverse sort"));
+	}
+	g_ptr_array_free (texts, TRUE);
+
+	gtk_entry_set_text (GTK_ENTRY (entry), "zqxjzqxj");
+	settle ();
+	texts = match_rows (dialog);
+	check (texts->len == 0);
+	g_ptr_array_free (texts, TRUE);
+
+	/* Enter goes to the first match, and leaves the search. */
+	click_row (sidebar, "Advanced");
+	gtk_entry_set_text (GTK_ENTRY (entry), "reverse sort");
+	settle ();
+	g_signal_emit_by_name (entry, "activate");
+	settle ();
+	check (*gtk_entry_get_text (GTK_ENTRY (entry)) == '\0');
+	check (gtk_widget_get_visible (stack));
+	check (!gtk_widget_get_visible (results));
+	check_showing (stack, "views/views-default");
+	check (gtk_window_get_focus (GTK_WINDOW (dialog)) == reverse);
+	check (gtk_style_context_has_class (gtk_widget_get_style_context (reverse), "nemo-settings-found"));
+
+	/* A click on a match does the same. */
+	gtk_entry_set_text (GTK_ENTRY (entry), "reverse sort");
+	settle ();
+	{
+		GtkWidget *box = find_named (dialog, "settings_search_results");
+		GtkListBoxRow *second = gtk_list_box_get_row_at_index (GTK_LIST_BOX (box), 1);
+
+		check (second != NULL);
+		if (second != NULL) {
+			g_signal_emit_by_name (box, "row-activated", second);
+			settle ();
+			check (*gtk_entry_get_text (GTK_ENTRY (entry)) == '\0');
+			check (!gtk_widget_get_visible (results));
+			check_showing (stack, "views/views-current");
+		}
+	}
+
+	/* Picking a tab leaves the search too. */
+	gtk_entry_set_text (GTK_ENTRY (entry), "trash");
+	settle ();
+	click_row (sidebar, "Behavior");
+	check (*gtk_entry_get_text (GTK_ENTRY (entry)) == '\0');
+	check (gtk_widget_get_visible (stack));
+	check (!gtk_widget_get_visible (results));
+
+	send_key (dialog, GDK_KEY_f, GDK_CONTROL_MASK);
+	check (gtk_window_get_focus (GTK_WINDOW (dialog)) == entry);
+
+	/* The first Escape only empties the field. */
+	g_object_add_weak_pointer (G_OBJECT (dialog), (gpointer *) &dialog);
+	gtk_entry_set_text (GTK_ENTRY (entry), "trash");
+	settle ();
+	check (send_key (dialog, GDK_KEY_Escape, 0));
+	check (dialog != NULL);
+	if (dialog != NULL) {
+		check (*gtk_entry_get_text (GTK_ENTRY (entry)) == '\0');
+		check (gtk_widget_get_visible (stack));
+		g_object_remove_weak_pointer (G_OBJECT (dialog), (gpointer *) &dialog);
+	}
+}
+
 static void
 test_escape_closes (GtkWidget *dialog)
 {
@@ -878,6 +1019,7 @@ main (int argc, char *argv[])
 		test_bulk_rename (dialog);
 		test_selection_model (dialog);
 		test_rename_selects_grayed (dialog);
+		test_search (dialog);
 		test_escape_closes (dialog);
 	}
 

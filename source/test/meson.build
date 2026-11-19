@@ -998,13 +998,24 @@ test('de7aj Template rename and add errors test',
 # Brings its dialog to the front, so alone on Windows too.
 test('dd5df Settings dialog test',
   executable('test-nemo-prefs-dialog',
-    [ 'test-nemo-prefs-dialog.c', '../src/nemo-file-management-properties.c' ] + gresources,
+    [ 'test-nemo-prefs-dialog.c', '../src/nemo-file-management-properties.c',
+      '../src/nemo-settings-search.c' ] + gresources,
     include_directories: [ rootInclude, include_directories('../src') ],
     dependencies: [ gtk, nemo_private, test_scratch ],
     c_args: nemo_definitions,
   ),
   args: [],
   is_parallel: not is_windows,
+)
+
+test('dfh5x Settings search matching test',
+  executable('test-nemo-settings-search',
+    [ 'test-nemo-settings-search.c', '../src/nemo-settings-search.c' ],
+    include_directories: [ rootInclude, include_directories('../src') ],
+    dependencies: [ gtk, nemo_private, test_fence ],
+    c_args: nemo_definitions,
+  ),
+  args: []
 )
 
 test('dd5dg Search box Enter test',

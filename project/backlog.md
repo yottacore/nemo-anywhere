@@ -452,7 +452,52 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [Search](design_docs/20261020-121842_settings.md#search). Match order, aliases, fuzzy matching, and how a match is shown are there.
 	- Progress log:
 		- 20261117: raised to High.
-	- Test case: none yet.
+		- 20261119: split into children 2026111912460963 (the field, label and fuzzy matches, and going to a setting) and 2026111912460983 (aliases, Queued).
+	- Test case: its children's.
+
+- Settings search: a search field over the tabs, with label and fuzzy matches, each shown with its path and marked letters, that goes to the setting picked.
+	- ID: 2026111912460963
+	- Type: Enhancement
+	- Status: Waiting on UAT
+		- For the look of the field, the match list, and the marks. The behavior is pinned by dfh5x and dd5df.
+	- Priority|Severity: High
+	- Opened: 20261119-124609
+	- Opened by: t00mietum
+	- Parent ID: 2026101417352263
+	- Target version: rc.1
+	- Requirements: the parent's, without aliases.
+	- Progress log:
+		- 20261119: built. The field is across the top of Settings, outside the scrolling. With text in it, a list of matches takes the page's place, labels as typed first and fuzzy ones after, each with its path and the matched letters marked. A pick shows the setting's tab, scrolls it into view, gives it the focus, and shades it for a moment. The Settings design doc's "Search" says how it works.
+		- 20261119: Left at signoff for the look of the field, the match list, and the marks, in light and dark themes.
+	- Decisions:
+		- The field goes across the whole top of the window, over the tab list too, as the design doc says. SilkTerm put its box over the rows only.
+		- What's searched is read from the window itself each time the text changes: the tab and sub-tab titles, the section headings, and every label that isn't a wrapped description. So a setting added to the layout is found with no list to keep up. A label's setting is its button, or the control the label names, or the label itself.
+		- A section heading is a level of the path, as in SilkTerm, since tab names alone give paths like "Views > Default > Icon size" 3 times over. A heading that only repeats its tab is left out.
+		- Fuzzy matching needs 3 letters, as in SilkTerm, and drops a match spread over more than 4 characters per letter, since 3 letters can be picked out of almost any sentence. Spaces typed don't count. A word's first letter counts for more, as in fzf, which is what makes the design doc's `Andies` example mark `dies`.
+		- Within a group: the whole label, then the label's start, then a word's start, then the middle of a word, then the layout's order. Fuzzy ones go by score.
+		- Enter, Escape, Up and Down, and Ctrl+F follow SilkTerm's choices. Picking a tab in the list leaves the search. The window opens with the focus in the field, since it's the first control.
+		- The matched letters are bold, larger and in the theme's selection color. The picked match gets a gray shade rather than the selection color, so the marks on it stay readable.
+		- The matcher already takes aliases on each entry and lists them as the middle group, so 2026111912460983 only has to supply them.
+	- Needs hand testing: the look of the field, the match list, and the marks, in a light and a dark theme.
+	- Swept: every page of the window is walked from the one stack, sub-tab stacks included, so no tab is left out. The window's size now counts the search bar, beside the close bar. Escape is handled by the field while it has the focus, and by the window's own handler otherwise, as before.
+	- Branch: nov19-2026101417352263
+	- Commit: 43d3c4fb
+	- Test case: dfh5x, Settings search matching test: the design doc's 3 examples, the order of the groups and within each, the fuzzy rules, and the markup. dd5df, Settings dialog test, now checks the field is over the pages and outside the scrolling, a search's first match and its path and marks, a fuzzy match, no match, Enter going to the setting, a tab click leaving the search, Ctrl+F, and that the first Escape only empties the field.
+	- Verified: dfh5x and dd5df pass, and each fails with part of the fix taken out: dfh5x without the word-start weight, and dd5df without the tab being shown. dbnfq, ddwqt, dd5dh and ddqa7 pass. Format and lint pass, and both analyzers are clean on the 4 C files touched.
+
+- Settings search: aliases, read from the schema file when the app is built, as the second group of matches.
+	- ID: 2026111912460983
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261119-124609
+	- Opened by: t00mietum
+	- Parent ID: 2026101417352263
+	- Prereq IDs: 2026111912460963
+	- Target version: rc.1
+	- Requirements: the parent's Design, for aliases.
+	- Progress log:
+		- 20261119: the search already lists an entry's aliases as the middle group, and shows a match as the label with the alias after it. What's left is an `aliases:` row per field in the schema file, reading it in when the app is built, and finding each field's control, which the window's bind calls pair with its key.
 
 - Any valid drag mode with Ctrl held (or Cmd on macOS) is not in "add to selection" mode. It should be.
 	- ID: 2026111707591589
