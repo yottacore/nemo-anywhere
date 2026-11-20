@@ -99,6 +99,18 @@ out="$(fCicd --list --no-container --no-sync)" || fFail "--list --no-container e
 grep -q '^Step 1 of 1; Lints$' <<< "${out}" || fFail "--list --no-container should list only the lints"
 [[ -z "$(fMarks)" ]] || fFail "--list ran something: $(fMarks)"
 
+## --long re-records the demo, but checks only still leaves it out, since it
+## rewrites tracked files.
+mkdir -p "${scratch}/cicd/utility/demo-video"; : > "${scratch}/cicd/utility/demo-video/demo-video.py"
+out="$(fCicd --list --no-sync)" || fFail "--list exited non-zero with a demo hook"
+grep -q '^    - Demo video (--demo or --long turns it on)$' <<< "${out}" || fFail "a plain run should leave the demo out"
+out="$(fCicd --list --no-sync --long)" || fFail "--list --long exited non-zero"
+grep -q '; Demo video$' <<< "${out}" || fFail "--long should re-record the demo"
+out="$(fCicd --list --backlog-run-full --long)" || fFail "--list --backlog-run-full --long exited non-zero"
+grep -q '; Demo video$' <<< "${out}" && fFail "--backlog-run-full --long should still leave the demo out"
+grep -q '^    - Demo video ' <<< "${out}" || fFail "--backlog-run-full --long should list the demo as off"
+[[ -z "$(fMarks)" ]] || fFail "--list ran something: $(fMarks)"
+
 ## The control: a plain run of the same copy leaves every mark the list must not.
 fCicd -y --no-sync >/dev/null || true
 for want in systemd-run docker pin; do
