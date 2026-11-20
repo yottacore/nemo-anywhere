@@ -714,6 +714,88 @@ test_bundled_icons_resolve (void)
 	}
 }
 
+/* Whether a bundled set draws a folder of its own, at any size. */
+static gboolean
+bundled_set_has_folder (const char *name)
+{
+	char    *top = g_strconcat ("/org/nemo/themes/icontheme/", name, "/", NULL);
+	char   **sizes = g_resources_enumerate_children (top, G_RESOURCE_LOOKUP_FLAGS_NONE, NULL);
+	gboolean found = FALSE;
+	int      i;
+
+	for (i = 0; sizes != NULL && sizes[i] != NULL && !found; i++) {
+		char *svg = g_strconcat (top, sizes[i], "places/folder.svg", NULL);
+		char *png = g_strconcat (top, sizes[i], "places/folder.png", NULL);
+
+		found = g_resources_get_info (svg, G_RESOURCE_LOOKUP_FLAGS_NONE, NULL, NULL, NULL) ||
+			g_resources_get_info (png, G_RESOURCE_LOOKUP_FLAGS_NONE, NULL, NULL, NULL);
+		g_free (svg);
+		g_free (png);
+	}
+	g_strfreev (sizes);
+	g_free (top);
+
+	return found;
+}
+
+/* A desktop with Adwaita installed, which GTK looks in before hicolor, where
+ * it finds the bundled sets. A picked bundled set still draws its own folder,
+ * and switching between 2 of them moves it.
+ * Last, since the extra theme on the search path would show in the lists. */
+static void
+test_bundled_icons_beat_disk_adwaita (const char *tmp)
+{
+	GList *themes, *node;
+	char  *disk = g_build_filename (tmp, "disk-icons", NULL);
+	char  *path;
+	int    sets = 0;
+
+	path = g_build_filename (disk, "Adwaita", "index.theme", NULL);
+	write_file (path, "[Icon Theme]\nName=Adwaita\nDirectories=scalable/places\n\n"
+			  "[scalable/places]\nSize=48\nContext=Places\nType=Scalable\n");
+	g_free (path);
+	path = g_build_filename (disk, "Adwaita", "scalable", "places", "folder.svg", NULL);
+	write_file (path, "<svg xmlns=\"http://www.w3.org/2000/svg\"/>");
+	g_free (path);
+	gtk_icon_theme_append_search_path (gtk_icon_theme_get_default (), disk);
+
+	set_mode ("light");
+	themes = nemo_appearance_list_themes (NEMO_THEME_KIND_ICON, NEMO_THEME_FITS_BOTH);
+
+	for (node = themes; node != NULL; node = node->next) {
+		NemoThemeInfo *info = node->data;
+		GtkIconInfo   *icon;
+		const char    *file;
+		char          *own;
+
+		/* The Adwaita on disk is the real one and rightly wins its own name. */
+		if (!info->bundled || info->dir != NULL || strcmp (info->name, "Adwaita") == 0) {
+			continue;
+		}
+		sets++;
+
+		choose_icon_theme (info->name);
+		icon = gtk_icon_theme_lookup_icon (gtk_icon_theme_get_default (), "folder", 48, 0);
+		file = icon != NULL ? gtk_icon_info_get_filename (icon) : NULL;
+		own = g_strconcat ("/org/nemo/themes/icontheme/", info->name, "/", NULL);
+		if (file == NULL || g_str_has_prefix (file, disk) ||
+		    (!g_str_has_prefix (file, own) && bundled_set_has_folder (info->name))) {
+			g_printerr ("FAIL %s: folder from %s\n", info->name, file != NULL ? file : "nowhere");
+			failures++;
+		}
+		g_clear_object (&icon);
+		g_free (own);
+	}
+
+	g_list_free_full (themes, (GDestroyNotify) nemo_theme_info_free);
+	choose_icon_theme ("");
+	g_free (disk);
+
+	if (sets == 0) {
+		g_print ("no bundled icon sets in this build - skipping the Adwaita check\n");
+	}
+}
+
 static void
 test_mode_resolution (void)
 {
@@ -804,6 +886,7 @@ main (int argc, char *argv[])
 	test_dropin_applied ();
 	test_dropin_shadows_bundled ();
 	test_bundled_icons_resolve ();
+	test_bundled_icons_beat_disk_adwaita (tmp);
 
 	g_free (root);
 	g_free (tmp);

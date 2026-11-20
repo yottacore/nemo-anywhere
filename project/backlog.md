@@ -33,136 +33,77 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- CICD step output: the FreeBSD and arm64 lanes and the private runner.
-	- ID: 2026102819522603
-	- Type: Task
-	- Status: Done
-	- Needs local test suite run?: none left. Closes with its child 2026102820110989, the private runner.
+- Settings: search.
+	- ID: 2026101417352263
+	- Type: Enhancement
+	- Status: Waiting on signoff
 	- Priority|Severity: High
-	- Opened: 20261028-195226
-	- Opened by: 2026102517333373
-	- Parent ID: 2026102517333373
+	- Opened: 20261014-173522
+	- Opened by: t00mietum
+	- Target version: rc.1
 	- Requirements:
-		- The FreeBSD and arm64 lanes and the private runner print the step lines of `cicd.bash` for their own steps. Those are the 79-dot rule, `Step N of M; Starting`, then `PASS` or `FAIL`, in local time to the hundredth.
-		- Each lane is already one step of `cicd.bash`, so its own steps print inside that one. They need a form that doesn't read as the outer run's step count, such as `FreeBSD 1 of 3`.
-		- `cicd/utility/include/echo.bash`, which the lanes and the release scripts use, still draws a 74-dot rule.
+		- Before the next cut.
+		- Like SilkTerm's.
+		- Search bar in an unscrollable top area.
+	- Design: [Search](design_docs/20261020-121842_settings.md#search). Match order, aliases, fuzzy matching, and how a match is shown are there.
 	- Progress log:
-		- 20261028: the FreeBSD and arm64 lanes and `echo.bash` are done. The private runner is in child 2026102820110989.
-		- It waits on children 2026102820110989 and 2026102820110967. Until then the private runner doesn't print any step lines or a b26 jobs line.
+		- 20261117: raised to High.
+		- 20261119: split into children 2026111912460963 (the field, label and fuzzy matches, and going to a setting) and 2026111912460983 (aliases, Done).
+		- 20261119: children 2026111912460963 wait on UAT, and the rest are closed
+	- Test case: its children's: 2026111912460963: dfh5x, Settings search matching test: the design doc's 3 examples, the order of the groups and within each, the fuzzy rules, and the markup. dd5df, Settings dialog test, now checks the field is over the pages and outside the scrolling, a search's first match and its path and marks, a fuzzy match, no match, Enter going to the setting, a tab click leaving the search, Ctrl+F, and that the first Escape only empties the field.; 2026111912460983: dfh5x, Settings search matching test: the alias table has a setting's aliases and nothing for a key without a row. dd5df, Settings dialog test: every setting with aliases has a control in the window that the search finds, and gets them on exactly one entry, and an alias typed lists its setting with the alias after the label. The file cache page is stubbed in that test, so its key is left out there.
+
+- Settings search: a search field over the tabs, with label and fuzzy matches, each shown with its path and marked letters, that goes to the setting picked.
+	- ID: 2026111912460963
+	- Type: Enhancement
+	- Status: Waiting on UAT
+		- For the look of the field, the match list, and the marks. The behavior is pinned by dfh5x and dd5df.
+	- Priority|Severity: High
+	- Opened: 20261119-124609
+	- Opened by: t00mietum
+	- Parent ID: 2026101417352263
+	- Target version: rc.1
+	- Requirements: the parent's, without aliases.
+	- Progress log:
+		- 20261119: built. The field is across the top of Settings, outside the scrolling. With text in it, a list of matches takes the page's place, labels as typed first and fuzzy ones after, each with its path and the matched letters marked. A pick shows the setting's tab, scrolls it into view, gives it the focus, and shades it for a moment. The Settings design doc's "Search" says how it works.
+		- 20261119: Left at signoff for the look of the field, the match list, and the marks, in light and dark themes.
 	- Decisions:
-		- A lane's steps print as `FreeBSD N of M` or `arm64 N of M`, under the same 79-dot rule, time stamp and `Starting`, `PASS` and `FAIL` words as `cicd.bash`.
-		- The steps are Box ready (the login and clock waits), Send, then Build and suite, or Release build and Bring back. The build step opens with the box's jobs line.
-		- The steps start once the box is held. Taking the lock and starting a VM print before them.
-		- A step still open when the lane stops closes as `FAIL`, as in `cicd.bash`.
-		- `echo.bash` draws the 79-dot rule and has the time stamp and the lane step helpers. `cicd.bash` keeps its own copies, unchanged.
-	- Swept: `analyze.bash` is the only other script that draws `echo.bash`'s rule, and now draws 79. Every test that copies `box-wrap.bash` also copies `jobs.bash`, which it now needs: ddmn7, ddmmv and dehyb.
-	- Branch: round1028b
-	- Test case: ddmn7 and ddmmv (the steps of a passing run, a failing step closing as `FAIL`, and the rule above each step).
-	- Verified: 20261028, ddmn7 and ddmmv pass, and fail on the lanes before the change, with a 78-dot rule, and with no `FAIL` close on a failure.
-	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed. The FreeBSD suite (FreeBSD 1 to 3 of 3), the FreeBSD release (1 to 4 of 4), and the arm64 release (arm64 1 to 4 of 4) each printed their own steps inside the run's step, under the rule, with `Starting` and `PASS`.
-	- Closed: 20261117-135150
-	- 20261102: the full run at fdce4acd passed every step, `--long` included. The FreeBSD suite (1 to 3 of 3), the FreeBSD release (1 to 4 of 4), and the arm64 release (1 to 4 of 4) printed their steps the same way. The private runner passed but didn't print any step lines of its own, so this item waits on 2026102820110989.
-	- 20261103: the full run at 92fc2c77 passed the private runner, still without any step lines of its own. The lanes' steps printed as before at d9733893.
+		- The field goes across the whole top of the window, over the tab list too, as the design doc says. SilkTerm put its box over the rows only.
+		- What's searched is read from the window itself each time the text changes: the tab and sub-tab titles, the section headings, and every label that isn't a wrapped description. So a setting added to the layout is found with no list to keep up. A label's setting is its button, or the control the label names, or the label itself.
+		- A section heading is a level of the path, as in SilkTerm, since tab names alone give paths like "Views > Default > Icon size" 3 times over. A heading that only repeats its tab is left out.
+		- Fuzzy matching needs 3 letters, as in SilkTerm, and drops a match spread over more than 4 characters per letter, since 3 letters can be picked out of almost any sentence. Spaces typed don't count. A word's first letter counts for more, as in fzf, which is what makes the design doc's `Andies` example mark `dies`.
+		- Within a group: the whole label, then the label's start, then a word's start, then the middle of a word, then the layout's order. Fuzzy ones go by score.
+		- Enter, Escape, Up and Down, and Ctrl+F follow SilkTerm's choices. Picking a tab in the list leaves the search. The window opens with the focus in the field, since it's the first control.
+		- The matched letters are bold, larger and in the theme's selection color. The picked match gets a gray shade rather than the selection color, so the marks on it stay readable.
+		- The matcher already takes aliases on each entry and lists them as the middle group, so 2026111912460983 only has to supply them.
+	- Needs hand testing: the look of the field, the match list, and the marks, in a light and a dark theme.
+	- Swept: every page of the window is walked from the one stack, sub-tab stacks included, so no tab is left out. The window's size now counts the search bar, beside the close bar. Escape is handled by the field while it has the focus, and by the window's own handler otherwise, as before.
+	- Branch: nov19-2026101417352263
+	- Commit: 43d3c4fb
+	- Test case: dfh5x, Settings search matching test: the design doc's 3 examples, the order of the groups and within each, the fuzzy rules, and the markup. dd5df, Settings dialog test, now checks the field is over the pages and outside the scrolling, a search's first match and its path and marks, a fuzzy match, no match, Enter going to the setting, a tab click leaving the search, Ctrl+F, and that the first Escape only empties the field.
+	- Verified: dfh5x and dd5df pass, and each fails with part of the fix taken out: dfh5x without the word-start weight, and dd5df without the tab being shown. dbnfq, ddwqt, dd5dh and ddqa7 pass. Format and lint pass, and both analyzers are clean on the 4 C files touched.
 
-- CICD CPU: the FreeBSD and arm64 lanes and the private runner.
-	- ID: 2026102517333362
+- Changelog: the Nemo Anywhere selection model, for rc.1.
+	- ID: 2026111022095190
 	- Type: Task
-	- Status: Done
-	- Needs local test suite run?: none left. Closes with its child 2026102820110967, the private runner.
-	- Priority|Severity: High
-	- Opened: 20261025-173333
-	- Opened by: 2026102416300003
-	- Parent ID: 2026102416300003
-	- Requirements:
-		- Each box follows the same rules, with its own CPU count and load. That means `nice -n 19` on FreeBSD, `nice` and `ionice` on the arm64 box, and its containers capped as on this box.
-		- `bsd/release.bash` and `bsd/lane.bash` take a fixed 4 jobs today, and the arm64 lane `NEMO_ARM_JOBS`, 4 by default. `include/jobs.bash` already reads FreeBSD's load.
+	- Status: Waiting on UAT
+		- For the wording of the new changelog entries.
+	- Priority|Severity: Avg
+	- Opened: 20261110-220951
+	- Opened by:
+	- Related IDs: 2026102019174440, 2026102407515575, 2026111707591589, 2026111913460865, 2026102018234903, 2026111912460963, 2026111912460983
+	- Target version: rc.1
 	- Progress log:
-		- 20261028: the FreeBSD and arm64 lanes are done. The private runner is in child 2026102820110967.
-		- 20261028: ddmn7's job count for the suite went from 4 to 6, since the fixed 4 is gone and its stand-in box has 12 CPUs.
-		- It waits on children 2026102820110989 and 2026102820110967. Until then the private runner doesn't print any step lines or a b26 jobs line.
+		- The selection model work has no changelog entry yet: the model as the default, its checkmarks, focus and keys, Select none, Ctrl+I inverting and Properties on Alt+Enter, and the status bar line.
+		- Test case: the docs checks.
+		- 20261119: the changelog's vNEXT section has 7 selection model entries under Added, and one for Settings search with its aliases. Ctrl+I inverting, with Properties on Alt+Enter, is under Changed.
 	- Decisions:
-		- Each lane reads its box's CPU count and 1-minute load over ssh, right before the build or suite, and works the count out by the same rules as this box, in `include/jobs.bash`. It prints the count the way a step of `cicd.bash` does, naming the box.
-		- `NEMO_BSD_JOBS` and `NEMO_ARM_JOBS` now pin the count, with no fixed default. A pin that isn't a count fails the lane.
-		- On FreeBSD the suite and the release build run under `nice -n 19`. On the arm64 box the release build and the dependency read run under `ionice -c 3` and `nice -n 19`, and their containers get the lane's count as `--cpus`, with `--cpu-shares 256`.
-		- No lane step is a hard one, so each takes half its box's CPUs, or a quarter when that box is busy.
-		- `bsd/release.bash` run alone on FreeBSD works its count out there the same way, rather than taking 4.
-		- The arm64 count is half the VM's own CPUs. On the emulated VM each of those costs this box several, so if the full run shows it, `NEMO_ARM_JOBS` pins it lower.
-	- Swept: every ssh that builds or tests on another box under `cicd/`: the FreeBSD suite and release, and the arm64 release and its dependency read. The Windows dogfood only copies files.
-	- Branch: round1028b
-	- Test case: ddmn7 (FreeBSD lane: half the box's CPUs, a quarter when busy, the pin, a bad pin, nice 19 there), ddmmv (arm64: the same under nice and ionice, and the container's cap), dee7t (reading both kinds of load line).
-	- Verified: 20261028, ddmn7, ddmmv and dee7t pass. ddmn7 and ddmmv fail on the lanes before the change, which had a fixed 4, no nice, and no jobs line.
-	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed. The FreeBSD suite and release printed "jobs 4 (load 1.65 on 8 cpus on bsdtest@vmFreeBSD)" and "jobs 4 (load 0.85 ...)", and the arm64 release "jobs 4 (load 1.31 on 8 cpus on tester@vmDebARM64)". nice and the container caps there are checked by ddmn7 and ddmmv, which passed in the same run.
-	- Closed: 20261117-135150
-	- 20261102: the full run at fdce4acd passed every step. The lanes printed "jobs 4 (load 1.40 on 8 cpus on bsdtest@vmFreeBSD)" and "jobs 4 (load 3.07 on 8 cpus on tester@vmDebARM64)". The private runner printed only this box's jobs line and not one for b26, so this item waits on 2026102820110967.
-	- 20261103: the full run at 92fc2c77 was the same, with only this box's jobs line before the private runner and not one for b26. The FreeBSD lanes printed "jobs 4 (load 3.18 on 8 cpus on bsdtest@vmFreeBSD)" and "jobs 4 (load 1.06 ...)" at d9733893.
-
-- CICD step output: `cicd-win.ps1` and the lanes on other boxes.
-	- ID: 2026102517333373
-	- Type: Task
-	- Status: Done
-	- Needs local test suite run?: no
-	- Needs external testing: none left. Closes with its child 2026102819522603.
-	- Priority|Severity: High
-	- Opened: 20261025-173333
-	- Opened by: 2026102416300005
-	- Parent ID: 2026102416300005
-	- Requirements:
-		- `cicd-win.ps1`, its gate included, prints the same step lines as `cicd.bash`, with the 79-dot rule, `Step N of M; Starting`, then `PASS` or `FAIL`, and local time to the hundredth. The plan lists what's turned off.
-		- The FreeBSD and arm64 lanes and the private runner print the same form for their own steps. That part is in child 2026102819522603.
-	- Progress log:
-		- 20261028: `cicd-win.ps1` makes its plan first, from the same switches the steps read, so M is known at step 1. Each step opens under a 79-dot rule with a `Starting` line and closes `PASS` or `FAIL`. A step still open when the run stops, by a failure, a throw or Ctrl+C, closes as `FAIL`. The gate and the full run print the plan's step count and the steps turned off, each with its flag or reason.
-		- 20261028: split the lanes and the private runner into child 2026102819522603.
-		- 20261029: open only for its child 2026102819522603, which waits on the private runner's child 2026102820110989.
-		- 20261102: still open for that child. The full run at fdce4acd passed the private runner, but it didn't print any step lines of its own.
-		- 20261103: the same at 92fc2c77. The native gate printed `Windows N of 4` and the gate's own `Step N of M` lines on b29w and vm925w.
-		- It waits on children 2026102820110989 and 2026102820110967. Until then the private runner doesn't print any step lines or a b26 jobs line.
-	- Decisions:
-		- The steps are the old stages, plus the smoke checks, now their own step in the full run as in the gate: Remote sync, Lints, Build (debug), Tests, Smoke checks, Runtime bundle, Packages, Dogfood, Publish. The names match `cicd.bash`'s where the step is the same.
-		- A missing toolchain, `-NoBuild`, `-NoPack` and a missing Enigma Virtual Box turn steps off in the plan, rather than warning inside the step. Dogfood says which of those turned the pack off.
-		- The old inline "skipped" lines are gone, and so are the preflight lines that only said a step was skipped, since the plan lists those.
-		- The run's timestamps are written in the invariant culture, so a Thai or Hijri calendar doesn't change the year.
-	- Swept: `echo.bash`'s 74-dot rule, which the lanes use, went to the child. Nothing reads the old stage headers. `win-dogfood.bash`, the pre-push hook, and their tests only run the script.
-	- Branch: round1028b
-	- Test case: dejjt (`cicd/utility/test-cicd-win.ps1`, lint stage: the gate and the full run with every step on, with steps turned off by each flag, a missing toolchain with and without `-BuildStrict`, no Enigma Virtual Box, and a step that fails, each checked for the rule, numbering, open and close lines and the turned-off list).
-	- Verified: 20261028, dejjt passes, and fails with a 78-dot rule, with no `FAIL` close on a failure, with a step left out of the plan, and with the last step left open. `cicd/cicd.bash --backlog-run-quick format lint` passes.
-	- Verified: 20261028, native gate on b29w at 2964120b. The plan gave the step count and listed each step turned off with its flag, each step opened under a 79-character rule with `Starting`, and the failing Lints and Tests steps closed as `FAIL`. The rule's bullets come out as 0x07 in a piped log, which predates the round and is 2026102822580287.
-	- Closed: 20261117-135150
-
-- CICD step output: the private runner.
-	- ID: 2026102820110989
-	- Type: Task
-	- Status: Done
-	- Priority|Severity: High
-	- Opened: 20261028-201109
-	- Opened by: 2026102819522603
-	- Parent ID: 2026102819522603
-	- Related IDs: 2026102517333362
-	- Requirements:
-		- The private runner prints its own steps the way the FreeBSD and arm64 lanes do, with the 79-dot rule, `<box> N of M; Starting`, then `PASS` or `FAIL`, in local time to the hundredth.
-	- Progress log:
-		- 20261028: split from 2026102819522603, whose lanes part is done.
-		- The runner isn't in this repo, so the work is done there.
-	- Test case: none here. The private repo's own test covers the runner.
-	- Verified: 20261117, the private runner's run printed its own steps, 1 to 4 of 4, each opened with `Starting` and closed `PASS` under the 79-dot rule, in local time to the hundredth.
-	- Closed: 20261117-135100
-
-- CICD CPU: the private runner.
-	- ID: 2026102820110967
-	- Type: Task
-	- Status: Done
-	- Priority|Severity: High
-	- Opened: 20261028-201109
-	- Opened by: 2026102517333362
-	- Parent ID: 2026102517333362
-	- Related IDs: 2026102819522603
-	- Requirements:
-		- The boxes the private runner builds on follow the same rules as the FreeBSD and arm64 lanes, with `nice -n 19` on macOS and `BelowNormal` on Windows, and jobs from each box's own CPU count and load.
-	- Progress log:
-		- 20261028: split from 2026102517333362, whose lanes part is done.
-		- The runner isn't in this repo, so the work is done there.
-	- Test case: none here. The private repo's own test covers the runner.
-	- Verified: 20261117, the private runner's run printed a jobs line for its box, a quarter of that box's CPUs at its load, and the build ran under nice.
-	- Closed: 20261117-135100
+		- The affirmative switch is left out, since it's off and has no setting.
+		- Ctrl+I goes under Changed, since it changes a key that beta2 users already had.
+		- The F2 pair is in, since the Behavior checkbox's changelog entry reads as if it always counts, and it's grayed under the default.
+		- Ctrl+Shift+V is left out, since it's a paste key rather than part of the selection model.
+	- Test case: the docs checks, since it's a changelog edit.
+	- Verified: 20261119, the markdown checks and the content scrub pass on changelog.md. markdownlint reports only the duplicate headings that every release section already had.
+	- Stand-in: none (20261119). It turns on how the entries read.
 
 - Move every Windows lane from MSYS2's MINGW64 to UCRT64.
 	- ID: 2026110920004210
@@ -292,147 +233,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261021 counts, unique findings by where they are (vendored, inherited, ours, tests, system headers): gcc on the Linux list 2, 12, 0, 7, 1, total 22, with 3 files not analyzed; gcc on the Windows list 3, 21, 6, 7, 3, total 40; clang on the Linux list 3, 34, 15, 17, 0, total 69; clang on the Windows list not run, since `nemo-winbuild` doesn't have clang. That's 120 unique across the 3. The 5 in system headers are GLib macros, and count toward their callers.
 	- Test case: each new stage is its own test, with a planted fault it has to catch.
 
-- Tree view: in "Checkmark selection" mode, folders follow the content view's selection rules and can be fully edited.
-	- ID: 2026102018234903
-	- Type: Enhancement
-	- Status: Started
-	- Priority|Severity: Avg
-	- Opened: 20261020-182349
-	- Opened by: t00mietum
-	- Prereq IDs: 2026101816495208
-	- Related IDs: 2026102018234900
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-		- When in "Checkmark selection" mode:
-			- Objects in the tree view follow the same rules for object selection at the folder level as the content view.
-			- Full edit capability, the same as dealing with folders in the content view.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md).
-	- Progress log:
-		- 20261108: under the Nemo Anywhere model, with the tree focused, Ctrl+C, Ctrl+X, Ctrl+V, Delete and Shift+Delete act on the tree's folder, by the same rules as its right-click menu. Before, the window's keys took them first and acted on the content view's selection. Classic and v1 are unchanged.
-		- Left: F2 rename in the tree, and whether the tree takes a multi-selection with the switch off (needs more thought, with 2026102407515574).
-	- Branch: treeedit
-	- Test case: df066 (Ctrl+C in the tree with the whole list selected).
-	- Decisions: 20261110, the tree stays single-select. Only the edit keys and menu entries come over, acting on the one selected folder. Multi-select waits for the affirmative switch.
-
-- Affirmative checkmarks: the switch and the places it will plug into, with no affirmative behavior yet.
-	- ID: 2026102019174477
-	- Type: Task
-	- Status: Queued
-	- Needs local test suite run?: Yes
-	- Priority|Severity: High
-	- Opened: 20261020-191745
-	- Opened by: t00mietum
-	- Parent ID: 2026101816495208
-	- Prereq IDs: 2026102019174440
-	- Related IDs: 2026102019174514
-	- Target OS: All
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-		- The code-level tunable for the affirmative switch, which the setting reads. It's off, and nothing turns it on yet. The checkbox under the dropdown isn't shown.
-		- A conditional on the tunable at each place the design doc's "Off removes" list names:
-			- The space key's checkmark rules.
-			- The checkmark halves of Ctrl+A and Ctrl+I.
-			- The checkmark menu entries.
-			- The checkmark column drag override.
-			- Each place a command picks the checked group over the selected one.
-			- The dialog alert and the status bar note about the 2 lists differing.
-			- The drag punt.
-		- Each on side does what the switch-off model does for now, so nothing changes in how the app behaves.
-		- The wording table's labels come from one place keyed on the tunable, with only the "Switch off" column filled in.
-		- A test that the tunable is off and that each of those places goes the off way.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "The affirmative switch".
-	- Progress log:
-		- 20261020: opened.
-	- Test case: none yet.
-
-- CICD reset: CPU and priority.
-	- ID: 2026102416300003
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261024-163000
-	- Opened by: t00mietum
-	- Requirements:
-		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
-		- Per the machine use section of the shared CICD rules. Half the cores is already the cap for job counts, for the run's own CPU quota and for the build containers. What's left:
-			- A quarter on a busy box, where the 1-minute load is over half the CPU count, checked at the start and before each step.
-			- A quarter for the hard steps, busy or not: the sanitizer suite, fuzzing, the analyzers and the leak checks.
-			- The counts are worked out in one place and passed to every tool that runs in parallel. A few scripts still work out their own half.
-			- `nice -n 19` plus `ionice -c 3` on Linux, `nice -n 19` on FreeBSD, and `BelowNormal`, or `Idle` for the hard steps, at the top of `cicd-win.ps1`.
-			- Each container gets `--cpus <jobs>`, `--cpu-shares 256`, and `nice` inside it.
-			- The same rules on the other boxes, with their own CPU count and load.
-		- Overrides: design.md, "The pipeline", on half the cores, and the Done item "No step in CICD should consume more than 50% CPU."
-	- Progress log:
-		- 20261025: split into children 2026102517333352 (`cicd.bash` and its scripts), 2026102517333357 (`cicd-win.ps1`) and 2026102517333362 (the other boxes).
-	- Test case: none yet.
-
-- CICD reset: step output.
-	- ID: 2026102416300005
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261024-163000
-	- Opened by: t00mietum
-	- Requirements:
-		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
-		- Per the step lines in the shared CICD style guide. What's left:
-			- Each step opens with `[ YYYYmmDD-HHMMSS.NN: Step N of M; Starting <name> ]` and closes the same way with `PASS` or `FAIL`, in local time.
-			- The rule above each step is 79 dots. Today it's 74.
-			- A step that's turned off isn't counted, and the first section lists those with the flag or reason for each.
-			- The gate, `cicd-win.ps1` and the lanes on the other boxes print the same form.
-	- Progress log:
-		- 20261025: split into children 2026102517333367 (`cicd.bash`, the gate included) and 2026102517333373 (`cicd-win.ps1` and the other boxes).
-	- Test case: none yet.
-
-- Settings: search.
-	- ID: 2026101417352263
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261014-173522
-	- Opened by: t00mietum
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-		- Like SilkTerm's.
-		- Search bar in an unscrollable top area.
-	- Design: [Search](design_docs/20261020-121842_settings.md#search). Match order, aliases, fuzzy matching, and how a match is shown are there.
-	- Progress log:
-		- 20261117: raised to High.
-	- Test case: none yet.
-
-- Any valid drag mode with Ctrl held (or Cmd on macOS) is not in "add to selection" mode. It should be.
-	- ID: 2026111707591589
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261117-075915
-	- Opened by: t00mietum
-	- Related IDs: 2026102407515573, 2026101405542891
-	- Target OS: All
-	- Target version: rc.1
-	- Steps to reproduce: select something, then start any valid drag mode with Ctrl held (Cmd on macOS).
-	- Incorrect behavior: it replaces the existing selection.
-	- Expected behavior: it adds to the selection.
-	- Requirements:
-		- Before the next cut.
-	- Test case: none yet.
-
-- Changelog: the Nemo Anywhere selection model, for rc.1.
-	- ID: 2026111022095190
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261110-220951
-	- Opened by:
-	- Related IDs: 2026102019174440, 2026102407515575
-	- Target version: rc.1
-	- Progress log:
-		- The selection model work has no changelog entry yet: the model as the default, its checkmarks, focus and keys, Select none, Ctrl+I inverting and Properties on Alt+Enter, and the status bar line.
-		- Test case: the docs checks.
-
 - Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
 	- ID: 2026102114400592
 	- Type: Enhancement
@@ -448,28 +248,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Each is pinned, in a container, and fails on a planted leak and null dereference first.
 	- Estimated effort: High
 	- Progress log:
-		- 20261110: Split into children: `2026110920250275` (cross-file clang, report only), `...293` (CodeQL) and `...1244` (the cross-file findings fixed or suppressed, then they fail the run). The first is in, and the other 2 are Queued.
+		- 20261110: Split into children: `2026110920250275` (cross-file clang, report only), `...293` (CodeQL, report only), `...1244` (the cross-file findings fixed or suppressed, then they fail the run), and `2026111915091061` (the same for CodeQL's). The first 2 are in, and the other 2 are Queued.
 	- Test case: de8ep (CodeQL) and de8eq (cross-file clang), each with a planted fault.
-
-- Static analyzers: CodeQL under `--leakcheck`.
-	- ID: 2026110920250293
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261109-202502
-	- Opened by: 2026102114400592
-	- Parent ID: 2026102114400592
-	- Prereq IDs: 2026101911105600
-	- Target OS: Linux
-	- Target version: rc.1
-	- Requirements:
-		- The parent's CodeQL requirements, over the same 2 compile lists, the Python included.
-		- A pinned CLI and query packs, run locally in a container, with no hosted service. It fails on a planted leak and null dereference first.
-	- Estimated effort: High
-	- Progress log:
-		- 20261110: The newest bundle is v2.27.4 (2026-11-02). It comes per language as well, with the CLI in each, at 165 MB for C and C++ and 111 MB for Python, against 560 MB for all of them. The release gives a sha256 for each file, so `ADD --checksum` can pin them.
-		- The Windows list needs the tracer to see the mingw cross compiler in the cross build's image. That isn't tried yet.
-	- Test case: de8ep, with a planted leak and null dereference.
 
 - Static analyzers: the cross-file clang findings fixed or suppressed, then they fail the run.
 	- ID: 2026110920251244
@@ -489,27 +269,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de8eq, and de8en for the count it then fails on.
 	- Progress log:
 		- 20261110: first whole-tree counts: Linux 55 (6 ours, 7 tests, 42 inherited), Windows 67 (7 ours, 17 tests, 43 inherited), 0 cut off, 861 s for both lanes. The report-only branch in analyze.bash takes any non-zero exit from count as findings, so a crash of count passed too. Making findings fail closes that.
-		- 20261110: split into children: `2026111022134952` (ours and tests, and the cause of most of the counts), Done, and `2026111022135419` (inherited, then they fail the run), Queued.
-
-- Static analyzers: the cross-file clang findings in inherited code fixed or suppressed, then they fail the run.
-	- ID: 2026111022135419
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261110-221354
-	- Opened by: 2026110920251244
-	- Parent ID: 2026110920251244
-	- Prereq IDs: 2026111022134952
-	- Target OS: Linux
-	- Target version: rc.1
-	- Requirements:
-		- Every finding the cross-file run has in inherited code, and in vendored code, in either lane, is fixed, or suppressed at the line with a one-line reason, or for vendored code in `analyze-vendored.txt`.
-		- Then a finding left, or a file cut off at the cap, fails the step, as in the per-file stage.
-	- Estimated effort: Avg
-	- Test case: de8eq, and de8en for the count it then fails on.
-	- Notes:
-		- 20261110: after `...4952`, 14 unique findings are left across both lanes: `arc-path-list.c:162` (ours, moved here, since archive-core doesn't use eel), `eel-gtk-extensions.c:267`, `nemo-directory-async.c:5037`, `nemo-file-operations.c:5783` and `:6413`, `nemo-file-undo-manager.c:177`, `nemo-icon-container.c:399`, `:773` and `:9119`, `nemo-search-engine-advanced.c:923`, `nemo-tree-view-drag-dest.c:427`, `nemo-icon-view-container.c:1360`, `nemo-icon-view-grid-container.c:768` and `nemo-query-editor.c:609`. No vendored ones, and none cut off.
-		- A few files can be rerun across files without the whole 13 min run with private `tools/analyze-ctu-files.py`.
+		- 20261110: split into children: `2026111022134952` (ours and tests, and the cause of most of the counts), Done, and `2026111022135419` (inherited, then they fail the run), Waiting on automated testing.
 
 - Build the "Where pasted and new items go" setting and its 3 target models.
 	- ID: 2026110709200000
@@ -670,52 +430,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Today the "Include the extension when a rename starts" box is grayed under Nemo Anywhere, per 2026102218380001.
 	- Test case: none yet.
 
-- Folder tree model: the number of top-level rows is always 1.
-	- ID: 2026111021433545
-	- Type: Bug
+- Static analyzers: the CodeQL findings fixed or suppressed, then they fail the run.
+	- ID: 2026111915091061
+	- Type: Enhancement
 	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261110-214335
-	- Opened by: t00mietum
-	- Related IDs: 2026111013031747
-	- Target OS: All
-	- Steps to reproduce: call gtk_tree_model_iter_n_children with no parent on the tree pane's model, with Computer, Home and File system showing.
-	- Incorrect behavior: it returns 1, so code that takes the last top-level row as the count less one gets the first row instead.
-	- Expected behavior: the number of top-level rows.
-	- Reproduced: 20261110, in df066's probe, which then walks the rows with gtk_tree_model_iter_next instead.
-	- Possible cause: fm_tree_model_iter_n_children returns 1 for a NULL parent rather than counting root_node and its siblings (nemo-tree-sidebar-model.c), inherited from upstream.
-	- Test case: none yet. A check in df066's probe that the count matches the rows gtk_tree_model_iter_next walks.
-
-- Icon views under Nemo Anywhere: a Ctrl+Shift drag from a selected icon also takes the run to it.
-	- ID: 2026111021233343
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261110-212333
-	- Opened by: t00mietum
-	- Related IDs: 2026111019540307
-	- Target OS: All
-	- Steps to reproduce: icon or compact view, Nemo Anywhere. Click icon 0, Ctrl+click icon 3, then Ctrl+Shift+drag icon 3 somewhere.
-	- Incorrect behavior: the press adds the run from the anchor to icon 3 at once, as v1's does, so the drag takes icons 0 to 3.
-	- Expected behavior: the drag takes the selection as it was, icons 0 and 3, as the list view's does. Only a Ctrl+Shift+click adds the run, on its release, per the design doc's "Mouse".
-	- Reproduced: no. This comes from a reading of the icon container's press, which runs a Shift press from the anchor whether or not the icon is selected.
-	- Test case: none yet. dec8v would get the steps above in both icon views, as its list view check does.
-
-- On Linux and BSD, a bundled icon set picked in the settings file may draw Adwaita's folders instead of its own.
-	- ID: 2026111020501135
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261110-205011
-	- Opened by: 2026102515500000
-	- Related IDs: 2026102515500000
-	- Target OS: Linux, BSD
-	- Steps to reproduce: on a desktop with the adwaita-icon-theme package installed, set `appearance` `icon-theme` to a bundled set such as Mica in the settings file, and open a folder with a subfolder and a text file.
-	- Incorrect behavior: likely Adwaita's blue folder and plain text icon, not the set's own.
-	- Expected behavior: the picked set's own icons, as on Windows.
-	- Reproduced: No.
-	- Possible cause: the one found in 2026102515500000. GTK 3 looks in an Adwaita theme on disk before hicolor, and the bundled sets sit in hicolor. Here the system's Adwaita is on disk. design.md says Linux and the BSDs use the desktop's themes, so this is only for a pick in the settings file.
-	- Test case: none yet.
+	- Priority|Severity: Avg
+	- Opened: 20261119-150910
+	- Opened by: 2026110920250293
+	- Parent ID: 2026102114400592
+	- Prereq IDs: 2026110920250293
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- Every CodeQL finding, in both compile lists and the Python, is fixed, or suppressed at the line with a one-line reason, or for vendored code in a list outside the file.
+		- Then a finding left fails the step, as in the per-file stage.
+	- Estimated effort: High
+	- Test case: de8ep, and a count case for the finding it then fails on.
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
@@ -1645,6 +1375,287 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass 3 runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. dd8d9 covers it.
 	- Closed: 20261003-112426
+
+- CICD step output: the FreeBSD and arm64 lanes and the private runner.
+	- ID: 2026102819522603
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: none left. Closes with its child 2026102820110989, the private runner.
+	- Priority|Severity: High
+	- Opened: 20261028-195226
+	- Opened by: 2026102517333373
+	- Parent ID: 2026102517333373
+	- Requirements:
+		- The FreeBSD and arm64 lanes and the private runner print the step lines of `cicd.bash` for their own steps. Those are the 79-dot rule, `Step N of M; Starting`, then `PASS` or `FAIL`, in local time to the hundredth.
+		- Each lane is already one step of `cicd.bash`, so its own steps print inside that one. They need a form that doesn't read as the outer run's step count, such as `FreeBSD 1 of 3`.
+		- `cicd/utility/include/echo.bash`, which the lanes and the release scripts use, still draws a 74-dot rule.
+	- Progress log:
+		- 20261028: the FreeBSD and arm64 lanes and `echo.bash` are done. The private runner is in child 2026102820110989.
+		- It waits on children 2026102820110989 and 2026102820110967. Until then the private runner doesn't print any step lines or a b26 jobs line.
+	- Decisions:
+		- A lane's steps print as `FreeBSD N of M` or `arm64 N of M`, under the same 79-dot rule, time stamp and `Starting`, `PASS` and `FAIL` words as `cicd.bash`.
+		- The steps are Box ready (the login and clock waits), Send, then Build and suite, or Release build and Bring back. The build step opens with the box's jobs line.
+		- The steps start once the box is held. Taking the lock and starting a VM print before them.
+		- A step still open when the lane stops closes as `FAIL`, as in `cicd.bash`.
+		- `echo.bash` draws the 79-dot rule and has the time stamp and the lane step helpers. `cicd.bash` keeps its own copies, unchanged.
+	- Swept: `analyze.bash` is the only other script that draws `echo.bash`'s rule, and now draws 79. Every test that copies `box-wrap.bash` also copies `jobs.bash`, which it now needs: ddmn7, ddmmv and dehyb.
+	- Branch: round1028b
+	- Test case: ddmn7 and ddmmv (the steps of a passing run, a failing step closing as `FAIL`, and the rule above each step).
+	- Verified: 20261028, ddmn7 and ddmmv pass, and fail on the lanes before the change, with a 78-dot rule, and with no `FAIL` close on a failure.
+	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed. The FreeBSD suite (FreeBSD 1 to 3 of 3), the FreeBSD release (1 to 4 of 4), and the arm64 release (arm64 1 to 4 of 4) each printed their own steps inside the run's step, under the rule, with `Starting` and `PASS`.
+	- Closed: 20261117-135150
+	- 20261102: the full run at fdce4acd passed every step, `--long` included. The FreeBSD suite (1 to 3 of 3), the FreeBSD release (1 to 4 of 4), and the arm64 release (1 to 4 of 4) printed their steps the same way. The private runner passed but didn't print any step lines of its own, so this item waits on 2026102820110989.
+	- 20261103: the full run at 92fc2c77 passed the private runner, still without any step lines of its own. The lanes' steps printed as before at d9733893.
+
+- CICD CPU: the FreeBSD and arm64 lanes and the private runner.
+	- ID: 2026102517333362
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: none left. Closes with its child 2026102820110967, the private runner.
+	- Priority|Severity: High
+	- Opened: 20261025-173333
+	- Opened by: 2026102416300003
+	- Parent ID: 2026102416300003
+	- Requirements:
+		- Each box follows the same rules, with its own CPU count and load. That means `nice -n 19` on FreeBSD, `nice` and `ionice` on the arm64 box, and its containers capped as on this box.
+		- `bsd/release.bash` and `bsd/lane.bash` take a fixed 4 jobs today, and the arm64 lane `NEMO_ARM_JOBS`, 4 by default. `include/jobs.bash` already reads FreeBSD's load.
+	- Progress log:
+		- 20261028: the FreeBSD and arm64 lanes are done. The private runner is in child 2026102820110967.
+		- 20261028: ddmn7's job count for the suite went from 4 to 6, since the fixed 4 is gone and its stand-in box has 12 CPUs.
+		- It waits on children 2026102820110989 and 2026102820110967. Until then the private runner doesn't print any step lines or a b26 jobs line.
+	- Decisions:
+		- Each lane reads its box's CPU count and 1-minute load over ssh, right before the build or suite, and works the count out by the same rules as this box, in `include/jobs.bash`. It prints the count the way a step of `cicd.bash` does, naming the box.
+		- `NEMO_BSD_JOBS` and `NEMO_ARM_JOBS` now pin the count, with no fixed default. A pin that isn't a count fails the lane.
+		- On FreeBSD the suite and the release build run under `nice -n 19`. On the arm64 box the release build and the dependency read run under `ionice -c 3` and `nice -n 19`, and their containers get the lane's count as `--cpus`, with `--cpu-shares 256`.
+		- No lane step is a hard one, so each takes half its box's CPUs, or a quarter when that box is busy.
+		- `bsd/release.bash` run alone on FreeBSD works its count out there the same way, rather than taking 4.
+		- The arm64 count is half the VM's own CPUs. On the emulated VM each of those costs this box several, so if the full run shows it, `NEMO_ARM_JOBS` pins it lower.
+	- Swept: every ssh that builds or tests on another box under `cicd/`: the FreeBSD suite and release, and the arm64 release and its dependency read. The Windows dogfood only copies files.
+	- Branch: round1028b
+	- Test case: ddmn7 (FreeBSD lane: half the box's CPUs, a quarter when busy, the pin, a bad pin, nice 19 there), ddmmv (arm64: the same under nice and ionice, and the container's cap), dee7t (reading both kinds of load line).
+	- Verified: 20261028, ddmn7, ddmmv and dee7t pass. ddmn7 and ddmmv fail on the lanes before the change, which had a fixed 4, no nice, and no jobs line.
+	- Verified: 20261029, full run 20261028-214801 at 2964120b (`--backlog-run-full --no-private --long`), all 13 steps passed. The FreeBSD suite and release printed "jobs 4 (load 1.65 on 8 cpus on bsdtest@vmFreeBSD)" and "jobs 4 (load 0.85 ...)", and the arm64 release "jobs 4 (load 1.31 on 8 cpus on tester@vmDebARM64)". nice and the container caps there are checked by ddmn7 and ddmmv, which passed in the same run.
+	- Closed: 20261117-135150
+	- 20261102: the full run at fdce4acd passed every step. The lanes printed "jobs 4 (load 1.40 on 8 cpus on bsdtest@vmFreeBSD)" and "jobs 4 (load 3.07 on 8 cpus on tester@vmDebARM64)". The private runner printed only this box's jobs line and not one for b26, so this item waits on 2026102820110967.
+	- 20261103: the full run at 92fc2c77 was the same, with only this box's jobs line before the private runner and not one for b26. The FreeBSD lanes printed "jobs 4 (load 3.18 on 8 cpus on bsdtest@vmFreeBSD)" and "jobs 4 (load 1.06 ...)" at d9733893.
+
+- CICD step output: `cicd-win.ps1` and the lanes on other boxes.
+	- ID: 2026102517333373
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: no
+	- Needs external testing: none left. Closes with its child 2026102819522603.
+	- Priority|Severity: High
+	- Opened: 20261025-173333
+	- Opened by: 2026102416300005
+	- Parent ID: 2026102416300005
+	- Requirements:
+		- `cicd-win.ps1`, its gate included, prints the same step lines as `cicd.bash`, with the 79-dot rule, `Step N of M; Starting`, then `PASS` or `FAIL`, and local time to the hundredth. The plan lists what's turned off.
+		- The FreeBSD and arm64 lanes and the private runner print the same form for their own steps. That part is in child 2026102819522603.
+	- Progress log:
+		- 20261028: `cicd-win.ps1` makes its plan first, from the same switches the steps read, so M is known at step 1. Each step opens under a 79-dot rule with a `Starting` line and closes `PASS` or `FAIL`. A step still open when the run stops, by a failure, a throw or Ctrl+C, closes as `FAIL`. The gate and the full run print the plan's step count and the steps turned off, each with its flag or reason.
+		- 20261028: split the lanes and the private runner into child 2026102819522603.
+		- 20261029: open only for its child 2026102819522603, which waits on the private runner's child 2026102820110989.
+		- 20261102: still open for that child. The full run at fdce4acd passed the private runner, but it didn't print any step lines of its own.
+		- 20261103: the same at 92fc2c77. The native gate printed `Windows N of 4` and the gate's own `Step N of M` lines on b29w and vm925w.
+		- It waits on children 2026102820110989 and 2026102820110967. Until then the private runner doesn't print any step lines or a b26 jobs line.
+	- Decisions:
+		- The steps are the old stages, plus the smoke checks, now their own step in the full run as in the gate: Remote sync, Lints, Build (debug), Tests, Smoke checks, Runtime bundle, Packages, Dogfood, Publish. The names match `cicd.bash`'s where the step is the same.
+		- A missing toolchain, `-NoBuild`, `-NoPack` and a missing Enigma Virtual Box turn steps off in the plan, rather than warning inside the step. Dogfood says which of those turned the pack off.
+		- The old inline "skipped" lines are gone, and so are the preflight lines that only said a step was skipped, since the plan lists those.
+		- The run's timestamps are written in the invariant culture, so a Thai or Hijri calendar doesn't change the year.
+	- Swept: `echo.bash`'s 74-dot rule, which the lanes use, went to the child. Nothing reads the old stage headers. `win-dogfood.bash`, the pre-push hook, and their tests only run the script.
+	- Branch: round1028b
+	- Test case: dejjt (`cicd/utility/test-cicd-win.ps1`, lint stage: the gate and the full run with every step on, with steps turned off by each flag, a missing toolchain with and without `-BuildStrict`, no Enigma Virtual Box, and a step that fails, each checked for the rule, numbering, open and close lines and the turned-off list).
+	- Verified: 20261028, dejjt passes, and fails with a 78-dot rule, with no `FAIL` close on a failure, with a step left out of the plan, and with the last step left open. `cicd/cicd.bash --backlog-run-quick format lint` passes.
+	- Verified: 20261028, native gate on b29w at 2964120b. The plan gave the step count and listed each step turned off with its flag, each step opened under a 79-character rule with `Starting`, and the failing Lints and Tests steps closed as `FAIL`. The rule's bullets come out as 0x07 in a piped log, which predates the round and is 2026102822580287.
+	- Closed: 20261117-135150
+
+- CICD step output: the private runner.
+	- ID: 2026102820110989
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261028-201109
+	- Opened by: 2026102819522603
+	- Parent ID: 2026102819522603
+	- Related IDs: 2026102517333362
+	- Requirements:
+		- The private runner prints its own steps the way the FreeBSD and arm64 lanes do, with the 79-dot rule, `<box> N of M; Starting`, then `PASS` or `FAIL`, in local time to the hundredth.
+	- Progress log:
+		- 20261028: split from 2026102819522603, whose lanes part is done.
+		- The runner isn't in this repo, so the work is done there.
+	- Test case: none here. The private repo's own test covers the runner.
+	- Verified: 20261117, the private runner's run printed its own steps, 1 to 4 of 4, each opened with `Starting` and closed `PASS` under the 79-dot rule, in local time to the hundredth.
+	- Closed: 20261117-135100
+
+- CICD CPU: the private runner.
+	- ID: 2026102820110967
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261028-201109
+	- Opened by: 2026102517333362
+	- Parent ID: 2026102517333362
+	- Related IDs: 2026102819522603
+	- Requirements:
+		- The boxes the private runner builds on follow the same rules as the FreeBSD and arm64 lanes, with `nice -n 19` on macOS and `BelowNormal` on Windows, and jobs from each box's own CPU count and load.
+	- Progress log:
+		- 20261028: split from 2026102517333362, whose lanes part is done.
+		- The runner isn't in this repo, so the work is done there.
+	- Test case: none here. The private repo's own test covers the runner.
+	- Verified: 20261117, the private runner's run printed a jobs line for its box, a quarter of that box's CPUs at its load, and the build ran under nice.
+	- Closed: 20261117-135100
+
+- Affirmative checkmarks: the switch and the places it will plug into, with no affirmative behavior yet.
+	- ID: 2026102019174477
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: No. dfh4e and the selection, drag and tree tests passed 20261119.
+	- Priority|Severity: High
+	- Opened: 20261020-191745
+	- Opened by: t00mietum
+	- Parent ID: 2026101816495208
+	- Prereq IDs: 2026102019174440
+	- Related IDs: 2026102019174514
+	- Target OS: All
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- The code-level tunable for the affirmative switch, which the setting reads. It's off, and nothing turns it on yet. The checkbox under the dropdown isn't shown.
+		- A conditional on the tunable at each place the design doc's "Off removes" list names:
+			- The space key's checkmark rules.
+			- The checkmark halves of Ctrl+A and Ctrl+I.
+			- The checkmark menu entries.
+			- The checkmark column drag override.
+			- Each place a command picks the checked group over the selected one.
+			- The dialog alert and the status bar note about the 2 lists differing.
+			- The drag punt.
+		- Each on side does what the switch-off model does for now, so nothing changes in how the app behaves.
+		- The wording table's labels come from one place keyed on the tunable, with only the "Switch off" column filled in.
+		- A test that the tunable is off and that each of those places goes the off way.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "The affirmative switch".
+	- Progress log:
+		- 20261020: opened.
+		- 20261119: split. The command pick and the dialog alert are in 2026111912024382, which is done, the views' own activation and the file operation wording included.
+		- 20261119: the tunable is in, at 0, and is on only under the Nemo Anywhere model. Each place asks it by name: Space in all 3 views and the tree, Ctrl+A, Ctrl+I and Ctrl+Shift+I, the Edit menu, the band from the checkmark column, the status bar line, and the drag start in the list and icon views. Each on side does the off thing. The Edit menu's Select all, Select none and Invert selection labels come from the wording table.
+	- Decisions:
+		- The setting has no key or checkbox yet. The tunable is the default it will read, and the switch's one function is where the setting goes in.
+		- The wording table also has the "selected items" row, which nothing reads yet. The file operation messages that will are whole translated sentences, so that's left to 2026111912024382.
+		- The menu actions keep their own labels too, since GTK needs one when the action is made. The table's label replaces it on each menu update, only when it differs.
+		- Each place calls a named stub for its on side, such as `space_checkmarks`, rather than repeating the off code in both branches. That keeps the places easy to find, and doesn't trip the analyzers' duplicate branch checks.
+	- Swept: every Space handler (list view, icon container, tree), every drag start under Nemo Anywhere (list view and the icon views, the Windows drag included, since it starts after the check), and every band arm in the list view's row press. Nemo Classic's own press and drag code never sees the switch on, so it has no conditional.
+	- Branch: nov19-2026102019174477
+	- Test case: dfh4e, Affirmative switch off test: the tunable is 0, every place goes the off way under each model, the wording is the "Switch off" column, and each place is asked somewhere in the source. dec8w, dec8v, de8bd, de8dm, ddy5f, de8ec, df066 and dd5df show the behavior hasn't changed.
+	- Verified: 20261119, dfh4e fails with the tunable at 1 (every place under Nemo Anywhere) and with the drag punt's conditional taken out, and passes as committed. The tree builds with the tunable at 1. dfh4e, dec8w, dec8v, de8bd, de8dm, ddy5f, de8ec, df066 and dd5df pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
+	- Closed: 20261119-124419
+
+- Affirmative checkmarks: the acted-on pick for commands and the dialog alert, with no affirmative behavior yet.
+	- ID: 2026111912024382
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: No. dfh4e and the selection, drag, trash, Properties and menu tests passed 20261119.
+	- Priority|Severity: High
+	- Opened: 20261119-120243
+	- Opened by: t00mietum
+	- Parent ID: 2026102019174477
+	- Related IDs: 2026102019174514
+	- Target OS: All
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- One pick of what a command acts on, asked through `NEMO_AFFIRM_ACTS_ON`, and every command that takes the view's selection goes through it, such as open, trash, delete, cut, copy, rename, compress and properties. With the switch off it gives the selection.
+		- The dialog alert, asked through `NEMO_AFFIRM_LISTS_DIFFER`, in each file operation dialog that says what it's about to do. With the switch off there isn't one.
+		- The "selected items" row of the wording table in the file operation messages. They're whole translated sentences today, so the row can't be spliced in as is.
+		- dfh4e checks `NEMO_AFFIRM_ACTS_ON` is asked somewhere.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md), "What a command acts on" and "The affirmative switch".
+	- Progress log:
+		- 20261119: split from 2026102019174477, which built the switch and the other places.
+		- 20261119: the pick is in the view, and each of its commands takes what it acts on from there: the open entries, trash, delete, restore, duplicate, the link entries, pin and favorite, properties, copy and move to, scripts and actions, copy, cut, copy paths, compress, extract, mount archive, paste into folder, open as root, follow link, open containing folder, rename, the volume entries, and connect to server. So do the menu updates that decide what's enabled. The confirmations for trash, delete from the trash, and delete ask for the alert.
+		- 20261119: Enter, Shift+Enter and Shift+Space in the list, icon and compact views open what the pick gives. A click, a double-click and a middle click still open what they selected. The trash and delete questions, and the status bar line after a cut or copy, take their counted sentence from the wording table.
+	- Decisions:
+		- The views' keys and their clicks are split. The keys go through the pick. A click or double-click opens what it selected, the object under the pointer, which settles the design doc's double-click inconsistency that way for the switch-on side. It's one argument to change.
+		- Enter in the type-ahead find box opens the match it found, in both views, since that's what was typed for.
+		- The "selected items" row is a whole sentence per message, in the wording table, with a "Switch on" stub that gives nothing yet. The single "selected items" label nothing read is gone. The on sentences, and knowing whether a job got the checked group, wait for 2026102019174514.
+		- Labels and tooltips that say "selected", such as the trash bar's Restore and the open-with and script tooltips, aren't file operation messages, so they're left for the "Switch on" column.
+		- Not routed, since they aren't a command's pick: the selection count, the status bar line (that's the alert's place), the selection kept across a reload, the selection changed signal, and the other pane's selection that a script gets.
+	- Branch: nov19-2026102019174477, nov19-2026111912024382
+	- Test case: dfh4e, which now checks the pick is asked, that each counted message is the "Switch off" sentence under every model, and that no file operation message counts selected items outside the wording table. dec8w, de8bd and de8dm press Enter and Shift+Enter in each view. dec8w, de8bd, ddxes, de55r, dcvpy, dcrvs, dd5dc, ddy4b and dec8v show the commands act as before.
+		- 20261119: dfh4e's word table lost its "selected items" entry, with the row.
+	- Verified: 20261119, dfh4e fails with the pick's conditional taken out, and passes as committed. Those tests pass, the format and lint gate passes, and neither analyzer reports anything on nemo-view.c or nemo-file-operations.c.
+	- Verified: 20261119, dfh4e fails with one delete question put back as its own sentence, and passes as committed. dfh4e, dec8w, de8bd, de8dm, dec8v, dcvpy, dcrvs, ddxes, de55r, dd5dc, ddy4b, ddwn8 and ddwn9 pass. The format and lint gate passes, and neither analyzer reports anything on the 8 changed .c files.
+	- Swept: every Enter, Shift+Enter and Shift+Space handler in the list view and the icon container, both icon container subclasses, every other caller of the 2 activate functions in each (clicks, double-clicks, the find box), and a grep for `%'d selected item` across `src/` and `libnemo-private/`.
+	- Acceptance signoff: Self-closed: dfh4e and dec8w.
+	- Closed: 20261119-124247
+
+- CICD reset: CPU and priority.
+	- ID: 2026102416300003
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261024-163000
+	- Opened by: t00mietum
+	- Requirements:
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- Per the machine use section of the shared CICD rules. Half the cores is already the cap for job counts, for the run's own CPU quota and for the build containers. What's left:
+			- A quarter on a busy box, where the 1-minute load is over half the CPU count, checked at the start and before each step.
+			- A quarter for the hard steps, busy or not: the sanitizer suite, fuzzing, the analyzers and the leak checks.
+			- The counts are worked out in one place and passed to every tool that runs in parallel. A few scripts still work out their own half.
+			- `nice -n 19` plus `ionice -c 3` on Linux, `nice -n 19` on FreeBSD, and `BelowNormal`, or `Idle` for the hard steps, at the top of `cicd-win.ps1`.
+			- Each container gets `--cpus <jobs>`, `--cpu-shares 256`, and `nice` inside it.
+			- The same rules on the other boxes, with their own CPU count and load.
+		- Overrides: design.md, "The pipeline", on half the cores, and the Done item "No step in CICD should consume more than 50% CPU."
+	- Progress log:
+		- 20261025: split into children 2026102517333352 (`cicd.bash` and its scripts), 2026102517333357 (`cicd-win.ps1`) and 2026102517333362 (the other boxes).
+	- Test case: its children's: 2026102517333362: ddmn7 (FreeBSD lane: half the box's CPUs, a quarter when busy, the pin, a bad pin, nice 19 there), ddmmv (arm64: the same under nice and ionice, and the container's cap), dee7t (reading both kinds of load line).; 2026102517333357: dejjt (`cicd/utility/test-cicd-win.ps1`, lint stage: the count at 50% and 51%, hard, and 1 CPU; one place reads the CPU count; ninja, `meson test` and the MSYS2 shell get it; busy and pinned jobs lines; a bad pin stops the run; the toolchain check and each step's work run at `BelowNormal` or lower).; 2026102517333352: dee7t (job counts, one place works them out, the containers read them per step under nice). de54r checks a hard step gets a quarter.
+	- Closed: 20261119-115552
+
+- CICD reset: step output.
+	- ID: 2026102416300005
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261024-163000
+	- Opened by: t00mietum
+	- Requirements:
+		- Sweeping override, 2026-10-24: this supersedes any earlier decision on this project that conflicts with it.
+		- Per the step lines in the shared CICD style guide. What's left:
+			- Each step opens with `[ YYYYmmDD-HHMMSS.NN: Step N of M; Starting <name> ]` and closes the same way with `PASS` or `FAIL`, in local time.
+			- The rule above each step is 79 dots. Today it's 74.
+			- A step that's turned off isn't counted, and the first section lists those with the flag or reason for each.
+			- The gate, `cicd-win.ps1` and the lanes on the other boxes print the same form.
+	- Progress log:
+		- 20261025: split into children 2026102517333367 (`cicd.bash`, the gate included) and 2026102517333373 (`cicd-win.ps1` and the other boxes).
+	- Test case: its children's: 2026102517333373: dejjt (`cicd/utility/test-cicd-win.ps1`, lint stage: the gate and the full run with every step on, with steps turned off by each flag, a missing toolchain with and without `-BuildStrict`, no Enigma Virtual Box, and a step that fails, each checked for the rule, numbering, open and close lines and the turned-off list).; 2026102517333367: de54r checks the step lines of every run it makes, a failing step, and the turned-off list. dddq3 now reads the steps `--quick` turns off from the plan.
+	- Closed: 20261119-115553
+
+- Settings search: aliases, read from the schema file when the app is built, as the second group of matches.
+	- ID: 2026111912460983
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261119-124609
+	- Opened by: t00mietum
+	- Parent ID: 2026101417352263
+	- Prereq IDs: 2026111912460963
+	- Target version: rc.1
+	- Requirements: the parent's Design, for aliases.
+	- Progress log:
+		- 20261119: the search already lists an entry's aliases as the middle group, and shows a match as the label with the alias after it. What's left is an `aliases:` row per field in the schema file, reading it in when the app is built, and finding each field's control, which the window's bind calls pair with its key.
+		- 20261119: built. The schema has an alias row for 34 settings. The build turns the rows into a table, and each setting's control is found by the key its binding writes. Typing "zebra stripes" lists "Shade every other row (zebra stripes)".
+	- Decisions:
+		- The row is a comment, `# aliases: [a, b]`, since SHCL refuses a schema key it doesn't know, and the installed schema has to stay one `shcl check --schema` takes. A request to SHCL for keys it ignores is drafted.
+		- Aliases are the names other file managers and SilkTerm use for the same thing, such as "dot files", "recycle bin", "address bar" and "dark mode". Only settings with a control in the window have them. They're easy to change.
+		- Every binding that writes a key marks its control with that key, and the 2 theme lists, which write theirs by hand, are marked the same way. A get-only binding, such as one for sensitivity, doesn't mark anything.
+		- A key's aliases go on the first control found for it, so a radio group or a label and field pair lists them once.
+		- The bulk rename and terminal labels now name their fields, so a pick of either label goes to the field, as other labels do.
+	- Swept: every bind helper in the window, and the file cache page's own binds, go through the one bind call that marks. Of the controls that write by hand, only the theme lists have aliases. Both tests that build the search code get the generated table.
+	- Branch: nov19-2026111912460983
+	- Commit: d1080afc
+	- Test case: dfh5x, Settings search matching test: the alias table has a setting's aliases and nothing for a key without a row. dd5df, Settings dialog test: every setting with aliases has a control in the window that the search finds, and gets them on exactly one entry, and an alias typed lists its setting with the alias after the label. The file cache page is stubbed in that test, so its key is left out there.
+	- Verified: dd5df fails with the aliases left off the entries (29 settings with none) and passes with them. Before the label fix it failed on the bulk rename and terminal fields. dfh5x, dbsx7, dav3s, dbnfq, and ddy4b pass. Format and lint pass, and both analyzers are clean on the 5 C files touched, gcc leaving out nemo-config.c as it always does.
+	- Acceptance signoff: Self-closed: dd5df and dfh5x.
+	- Closed: 20261119-132929
 
 - Build the "Nemo Anywhere" selection model with the affirmative switch off.
 	- ID: 2026102019174440
@@ -3361,6 +3372,40 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261022, round1022, the full Linux suite had 231 OK. The FreeBSD lane as `bsdtest` had 212 OK and 20 skipped, de8dm, de8ec, de8bd, ddy5f and dd5df among them.
 	- Closed: 20261022-214700
 	- Verified: 20261021, de8dm, de8ec, de8bd and ddy5f pass in all 3 views. dd5df, dbnfq, dbsx7 and dc8tz pass. The build has no warnings, the Windows cross build with warnings as errors is clean, and the UI case and test ID checks pass.
+
+- Any valid drag mode with Ctrl held (or Cmd on macOS) is not in "add to selection" mode. It should be.
+	- ID: 2026111707591589
+	- Type: Bug
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261117-075915
+	- Opened by: t00mietum
+	- Related IDs: 2026102407515573, 2026101405542891, 2026111021233343, 2026111913460865
+	- Target OS: All
+	- Target version: rc.1
+	- Steps to reproduce: select something, then start any valid drag mode with Ctrl held (Cmd on macOS).
+	- Incorrect behavior: it replaces the existing selection.
+	- Expected behavior: it adds to the selection.
+	- Requirements:
+		- Before the next cut.
+	- Reproduced: 20261119, under Nemo Anywhere in dec8v's new checks. A Ctrl+right drag replaced the selection in all 3 views, from an item and from empty space, and so did a Ctrl+middle drag from the checkmark column. A Ctrl+Shift drag from an item not selected also kept the run its press added, in all 3 views. The Ctrl left bands already added.
+	- Actual cause:
+		- The right and middle bands never looked at Ctrl. A Ctrl band put back the selection as it was when the band started, after the press had already changed it.
+	- Actual fix: under Nemo Anywhere every band with Ctrl held adds to the selection as it was before the press, in the list view and the icon container. The design doc's "Mouse" says so for the right drag.
+	- Decisions:
+		- v1 and Classic keep theirs.
+		- A Ctrl+right click that doesn't move still clears the selection on empty space and opens the folder's menu, as before. Once it moves, the band puts the selection back.
+		- A Ctrl+Shift drag from an item not selected adds only what the band touches, since the design doc's "Mouse" makes it the same as a Ctrl drag. A Ctrl+Shift click there still adds the run.
+		- Cmd on macOS goes through the same primary modifier check as Ctrl, so it follows.
+	- Swept: every band arm in the list view's press (a row not selected, the checkmark column, the right button, below the rows), and every band start in the icon container (the background press for each button, the press on an icon, the pending band). The tree pane is single-select and has no band. Classic's own presses keep upstream's.
+	- Branch: nov19-2026111707591589
+	- Test case: dec8v, Drag select test, Nemo Anywhere. In the list view: Ctrl drags below the rows, Ctrl+right drags from a row, below the rows and from the checkmark column, a Ctrl+middle drag from the checkmark column, and Ctrl+Shift drags from a row not selected and from the checkmark column. In the icon and compact views: a Ctrl drag from the background, a Ctrl+Shift drag from an icon not selected, and Ctrl+right drags from the background and from an icon.
+		- 20261119: dec8v's list view count under Nemo Anywhere went from 48 to 62, and the icon and compact views from 17 to 23, with 2026111021233343's checks.
+	- Verified: 20261119, dec8v fails on the old code (4 list view checks and 3 in each icon view) and with the new rule off (5 and 3), and passes with the fix. ddy5f, de8ec, dec8w, de8bd, de8dm, df066 and dfh4e pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
+	- Not covered by a test yet: Cmd on macOS, since dec8v doesn't run there.
+	- Acceptance signoff: Self-closed: dec8v.
+	- Closed: 20261119-134700
 
 - List view: after a Ctrl+click, a Shift+click runs from another row than the one clicked.
 	- ID: 2026111012335173
@@ -5502,6 +5547,112 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: de025 tests it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
 
+- Tree view: in "Checkmark selection" mode, folders follow the content view's selection rules and can be fully edited.
+	- ID: 2026102018234903
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Prereq IDs: 2026101816495208
+	- Related IDs: 2026102018234900, 2026102019174514
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- When in "Checkmark selection" mode:
+			- Objects in the tree view follow the same rules for object selection at the folder level as the content view.
+			- Full edit capability, the same as dealing with folders in the content view.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md).
+	- Progress log:
+		- 20261108: under the Nemo Anywhere model, with the tree focused, Ctrl+C, Ctrl+X, Ctrl+V, Delete and Shift+Delete act on the tree's folder, by the same rules as its right-click menu. Before, the window's keys took them first and acted on the content view's selection. Classic and v1 are unchanged.
+		- 20261119: F2 in the tree renames its selected folder in place, with the whole name picked, as the content view does for a folder. The tree's right-click menu has Rename under Nemo Anywhere, for the row it was opened on. While the name is open its entry keeps Delete, Ctrl+C and the rest. It's written up under Tree view in the behavior models design doc.
+	- Decisions:
+		- 20261110, the tree stays single-select. Only the edit keys and menu entries come over, acting on the one selected folder. Multi-select waits for the affirmative switch.
+		- The tree's checkmarks with the switch on go with the rest of the affirmative half, 2026102019174514, so nothing is left here.
+		- Rename from the menu on a row that isn't selected leaves the selection where it was, so the folder doesn't open. Right-click in the tree doesn't select either, and opening it mid-rename would be a surprise.
+		- No click-to-rename in the tree, and no nested folders from a slash in the new name. F2 and the menu cover it.
+		- Menu Rename shows only under Nemo Anywhere, like the edit keys. v1 and Classic keep upstream's menu.
+	- Swept: every edit key path into the tree goes through `tree_edit_key`, which the window's key check uses too, so F2 comes to the tree the same way. The menu's entries all act on the row it was opened on. The list view's own rename is unchanged.
+	- Branch: nov19-2026102018234903
+	- Test case: df066, Tree keys and selection test: F2 in the tree edits its folder's name with the whole name picked, Delete there edits the name and leaves the folder, and Enter renames it with the window following. The menu's Rename on a row that isn't selected edits that row, leaves the selection and the open folder alone, and renames it. It fails before the fix and passes after.
+		- 20261119: df066's result count went from 18 to 25.
+	- Verified: 20261119, df066 fails on the old tree code and passes with the change. de8bd, de8dm, dec8w, dd8dp, dcnqs, ddg79 and df06r pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
+	- Acceptance signoff: Self-closed: df066.
+	- Closed: 20261119-144506
+
+- Static analyzers: CodeQL under `--leakcheck`.
+	- ID: 2026110920250293
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261109-202502
+	- Opened by: 2026102114400592
+	- Parent ID: 2026102114400592
+	- Prereq IDs: 2026101911105600
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- The parent's CodeQL requirements, over the same 2 compile lists, the Python included.
+		- A pinned CLI and query packs, run locally in a container, with no hosted service. It fails on a planted leak and null dereference first.
+	- Estimated effort: High
+	- Progress log:
+		- 20261110: The newest bundle is v2.27.4 (2026-11-02). It comes per language as well, with the CLI in each, at 165 MB for C and C++ and 111 MB for Python, against 560 MB for all of them. The release gives a sha256 for each file, so `ADD --checksum` can pin them.
+		- The Windows list needs the tracer to see the mingw cross compiler in the cross build's image. That isn't tried yet.
+		- 20261119: `codeql.bash` is the "CodeQL" step, after the cross-file analyzer. It runs 3 lanes, one after the other: C over each compile list, in that build's image, and Python over the tree. `codeql.py` does the work in the container, and counts the SARIF per area as `analyze.py` does. The tracer sees the mingw gcc, so both lists are in.
+	- Decisions:
+		- Pinned to bundle 2.27.5 (2026-11-19), its C and C++ and its Python archives, by sha256. They come in through an empty stage read by a mount, so the archives don't stay in the image. Both unpack into one `/opt/codeql`. The cross build's image has the C and C++ one, and depf5 checks it's the same as the day-to-day image's. The images grew by 0.77 and 0.65 GB.
+		- The C database comes from compiling each compile list entry again under the tracer, to `/dev/null`, as the analyzers see it, rather than a second build. A file that doesn't compile fails the lane, so a stale list shows.
+		- The queries are the security and quality suite, plus the leak and NULL queries that no standard suite has (`cpp/memory-never-freed`, `cpp/memory-may-not-be-freed`, `cpp/missing-null-test`), plus alert suppression. Style queries are left out unless they're also tagged correctness or security, as the parent keeps style checks off vendored code. That took about a third of the Linux results out.
+		- It runs by the cross-file analyzer's rule, with `--long` or `--leakcheck` named, since it takes about 12 min at 8 jobs.
+		- It's report only, as the cross-file run was at first. Item 2026111915091061 fixes or suppresses the findings, then makes them fail the run. The count exits 2 on SARIF it can't read, and that fails the step, so a crash doesn't read as findings.
+		- The planted pair is built with each lane's compiler in each image, so a tracer that misses the mingw gcc fails it.
+		- No planted Python fault. The parent asks for a leak and a null dereference, which are C faults.
+	- Branch: nov19
+	- Test case: de8ep (`codeql.bash --self-test`, the planted pair in both images), dfha3 (`codeql.py --self-test`, the count, in lint), desha for when the step runs, and dejma and depf5 for the pins.
+	- Verified: 20261119, de8ep passes in both images, and fails in both with the planted NULL taken out. dfha3 passes, and fails with the duplicate check or the read error's exit code broken. desha passes with CodeQL added to its cases, and fails with the step put in a plain run. dejma fails on an unpinned download or base stage, and depf5 on a different bundle from the day-to-day image's. test-cicd-help, test-cicd-list, test-cicd-quick, test-analyze-gate and de8em pass, and so does `cicd/cicd.bash --backlog-run-quick format lint`.
+	- Verified: 20261119, the whole step after a fresh cross build took 693 s at 8 jobs, at a load of 9 to 16 on 32 CPUs: Linux 326 s, Windows 314 s, Python 22 s, and the planted pairs the rest. Findings: Linux 619 (91 vendored, 336 inherited, 59 ours, 133 tests), Windows 928 (92, 614, 129, 93), Python 39 (7 inherited, 32 ours). `cpp/missing-null-test` is 959 of them. An earlier run failed the Windows lane on a stale `/build-win` that didn't have a new generated header.
+	- Swept: every reader of `run_ctu` and `ctu_why` in `cicd.bash` (plan, plan line, step, the step command map for `--list`), `--help`, `config.bash`, design.md's leak check and run lengths text, the tests that copy `cicd.bash`, and the callers of `analyze.py count` after `inherited_files` moved out of it.
+	- Needs local test suite run?: No
+	- Actual effort: Avg
+	- Acceptance signoff: Self-closed: de8ep and the whole step's run pass, and the step's place is pinned by desha.
+	- Closed: 20261119-153650
+
+- Static analyzers: the cross-file clang findings in inherited code fixed or suppressed, then they fail the run.
+	- ID: 2026111022135419
+	- Type: Task
+	- Status: Done
+	- Needs local test suite run?: No
+	- Priority|Severity: Avg
+	- Opened: 20261110-221354
+	- Opened by: 2026110920251244
+	- Parent ID: 2026110920251244
+	- Prereq IDs: 2026111022134952
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- Every finding the cross-file run has in inherited code, and in vendored code, in either lane, is fixed, or suppressed at the line with a one-line reason, or for vendored code in `analyze-vendored.txt`.
+		- Then a finding left, or a file cut off at the cap, fails the step, as in the per-file stage.
+	- Estimated effort: Avg
+	- Test case: de8eq, and de8en for the count it then fails on. dfhbg for the icon bounds crash.
+	- Notes:
+		- 20261110: after `...4952`, 14 unique findings are left across both lanes: `arc-path-list.c:162` (ours, moved here, since archive-core doesn't use eel), `eel-gtk-extensions.c:267`, `nemo-directory-async.c:5037`, `nemo-file-operations.c:5783` and `:6413`, `nemo-file-undo-manager.c:177`, `nemo-icon-container.c:399`, `:773` and `:9119`, `nemo-search-engine-advanced.c:923`, `nemo-tree-view-drag-dest.c:427`, `nemo-icon-view-container.c:1360`, `nemo-icon-view-grid-container.c:768` and `nemo-query-editor.c:609`. No vendored ones, and none cut off.
+		- A few files can be rerun across files without the whole 13 min run with private `tools/analyze-ctu-files.py`.
+	- Progress log:
+		- 20261119: 4 of the 14 were real bugs in inherited code. A manual layout view with no icon shown yet wrote its empty bounds through the NULLs it was handed, which crashed. A failed undo read an unset `user_cancel`. A drop on the trash, or of a launcher, with only copy offered returned an unset action from the tree's drag code, the one caller that didn't zero it first. A geometry string that didn't parse passed unset numbers on.
+		- The rest were false: a list or pointer that is never NULL there, a helper process that always has a stdout pipe, and archive-core's slots, which start zeroed.
+		- 20261119: Verified: `cicd/utility/analyze.bash --ctu` on nov19 at ce4db9f9, both lanes 0 findings, 0 failed, 7 suppressed each, de8eq passed.
+	- Decisions:
+		- The false ones get an assert where the invariant lives rather than a skip at the reported line, which is in a function many callers share, so a skip there would hide a real one later. `set_query_editor_visible` asserts the editor as `ensure_query_editor` already does. Each `move_icon` and `icon_set_selected` assert the icon. The search file asserts its display name, since the NULL case of `set_display_name` reaches for a directory that can be unset there.
+		- The copy and move findings came through the test's empty file list, so the test asserts its list instead of the file operations growing a guard.
+		- `arc-path-list.c` gets its own clang skip macro, as archive-core can't use eel.
+		- A load with no stdout stream frees the helper run, though GLib always gives one with a pipe asked for.
+		- `nemo_drag_default_drop_action_for_icons` zeroes the action itself, so no caller can get an unset one. The other 3 callers already zeroed it.
+	- Swept: every caller of `nemo_drag_default_drop_action_for_icons` (window slot, icon view, places sidebar, tree), of `nemo_file_undo_info_apply_finish` (the manager and 2 tests), and of `nemo_icon_container_get_all_icon_bounds`. `eel_canvas_group_bounds` has the same empty-box line, but it's a canvas bounds vfunc whose callers always pass all 4. The 3 `move_icon` implementations: the base one is never reached.
+	- Branch: nov19-2026111022135419
+	- Verified: 20261119, the cross-file run over the 16 files the findings came through gives none in either lane, and gives all 14 back with those files at HEAD. dfhbg passes, and crashes with the old bounds code. de8eq and de8en pass, and so do ddzwv, de7as, dbcw4, dc54g, ddwn7, dd29z, dd8e1, dbwjj and ddn29. gcc and clang per file give none on the changed files in the Linux lane. The format and lint gate passes.
+	- Closed: 20261119-162115
+
 - Static analyzers: the cross-file clang findings in our code and the tests fixed or suppressed.
 	- ID: 2026111022134952
 	- Type: Task
@@ -7587,6 +7738,123 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddf4w Config old formats test.
 	- Acceptance signoff: Self-closed: ddf4w is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- Nemo Anywhere: a Shift drag from a selected object takes the run to it, rather than the selection as it was.
+	- ID: 2026111913460865
+	- Type: Bug
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Low
+	- Opened: 20261119-134608
+	- Opened by: t00mietum
+	- Related IDs: 2026111021233343, 2026111707591589
+	- Target OS: All
+	- Target version: rc.1
+	- Steps to reproduce: any view, Nemo Anywhere. Click item 0, Ctrl+click item 3, then Shift+drag item 3 somewhere.
+	- Incorrect behavior: likely, the press replaces the selection with the run from the anchor to item 3 at once, so the drag takes items 0 to 3, or 3 alone.
+	- Expected behavior: the drag takes the selection as it was, items 0 and 3, as a plain or Ctrl+Shift drag from a selected object does. Only a Shift+click picks the run, on its release, per the design doc's "Mouse".
+	- Reproduced: 20261119, under Nemo Anywhere in dec8v's new checks. The list view's drag took the pressed row alone, and both icon views' took the run from the anchor. In all 3 views a Shift press on a selected item picked the run at once.
+	- Actual cause:
+		- The icon container ran a Shift press from the anchor whether or not the icon was selected, and the list view handed GtkTreeView the Shift press on a selected row. Only the Ctrl+Shift press waited for the release.
+	- Actual fix: under Nemo Anywhere a Shift press on a selected object leaves the selection alone, in the list view and the icon container, and its release picks the run from the anchor. A drag takes the selection as it was.
+	- Decisions:
+		- v1 and Classic keep theirs.
+		- The middle button takes the same path, as it does for Ctrl+Shift.
+		- On Windows a Shift right press on a selected icon picks no run on its release, as before.
+		- When GtkTreeView doesn't run the Shift+click, as on a press it counts as a second click, the release runs from the focus, as Ctrl+Shift's does.
+	- Swept: the list view's press and release for the left and middle buttons, the checkmark column included, and the icon container's press on an icon and its release. Classic's own presses keep upstream's. The tree pane is single-select.
+	- Branch: nov19-2026111913460865
+	- Test case: dec8v, Drag select test, Nemo Anywhere: in all 3 views a Shift drag from a selected item drags files and keeps the selection, and a Shift press on a selected item keeps the selection until the release picks the run from the anchor.
+		- 20261119: dec8v's list view count under Nemo Anywhere went from 62 to 66, and the icon and compact views from 23 to 27.
+	- Verified: 20261119, dec8v fails on the old code (2 checks in each view) and passes with the fix. ddy5f, de8ec, dec8w, de8bd, de8dm, df066 and dfh4e pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
+	- Acceptance signoff: Self-closed: dec8v.
+	- Closed: 20261119-140345
+
+- Folder tree model: the number of top-level rows is always 1.
+	- ID: 2026111021433545
+	- Type: Bug
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Low
+	- Opened: 20261110-214335
+	- Opened by: t00mietum
+	- Related IDs: 2026111013031747
+	- Target OS: All
+	- Target version: rc.1
+	- Steps to reproduce: call gtk_tree_model_iter_n_children with no parent on the tree pane's model, with Computer, Home and File system showing.
+	- Incorrect behavior: it returns 1, so code that takes the last top-level row as the count less one gets the first row instead.
+	- Expected behavior: the number of top-level rows.
+	- Reproduced: 20261110, in df066's probe, which then walks the rows with gtk_tree_model_iter_next instead.
+	- Actual cause:
+		- fm_tree_model_iter_n_children returned 1 for a NULL parent rather than counting the roots, inherited from upstream.
+	- Actual fix: it counts the roots.
+	- Decisions:
+		- The check went in dcr4f, which builds the model on its own with 3 roots, rather than in df066's probe. df066's walk stays as it is.
+	- Swept: every caller of gtk_tree_model_iter_n_children in the tree. Only the tree pane's sort model and dcr4f read this model's count. iter_nth_child with no parent already walked the roots.
+	- Branch: nov19-2026111913460865
+	- Test case: dcr4f, Tree folders test: with 3 roots, the top-level count matches the rows gtk_tree_model_iter_next walks, in the model and in the sort model over it, and the last of them is the last row.
+	- Verified: 20261119, dcr4f fails on the old code (2 checks) and passes with the fix. df066 passes. The format and lint gate passes, and neither analyzer reports anything on the changed files.
+	- Acceptance signoff: Self-closed: dcr4f.
+	- Closed: 20261119-140345
+
+- Icon views under Nemo Anywhere: a Ctrl+Shift drag from a selected icon also takes the run to it.
+	- ID: 2026111021233343
+	- Type: Bug
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Low
+	- Opened: 20261110-212333
+	- Opened by: t00mietum
+	- Related IDs: 2026111019540307, 2026111707591589, 2026111913460865
+	- Target OS: All
+	- Target version: rc.1
+	- Steps to reproduce: icon or compact view, Nemo Anywhere. Click icon 0, Ctrl+click icon 3, then Ctrl+Shift+drag icon 3 somewhere.
+	- Incorrect behavior: the press adds the run from the anchor to icon 3 at once, as v1's does, so the drag takes icons 0 to 3.
+	- Expected behavior: the drag takes the selection as it was, icons 0 and 3, as the list view's does. Only a Ctrl+Shift+click adds the run, on its release, per the design doc's "Mouse".
+	- Reproduced: 20261119, in dec8v's new check. Both icon views dragged icons 0 to 3.
+	- Actual cause:
+		- As above.
+	- Actual fix: under Nemo Anywhere the icon container's press on a selected icon leaves a Ctrl+Shift run alone, and its release adds the run from the anchor.
+	- Decisions:
+		- v1 and Classic keep theirs.
+		- The middle button takes the same path, as it does for the other Shift presses.
+	- Swept: the icon container's press and release, for the left and middle buttons. The list view already waits for the release. A Shift drag without Ctrl from a selected object may have the same fault in all 3 views, filed as 2026111913460865.
+	- Branch: nov19-2026111707591589
+	- Test case: dec8v, Drag select test, Nemo Anywhere: in the icon and compact views a Ctrl+Shift drag from a selected icon drags files and keeps the selection. dec8w's Ctrl+Shift+click on a selected icon checks the run on the release.
+	- Verified: 20261119, dec8v fails on the old code (1 check in each icon view) and passes with the fix. dec8w passes.
+	- Acceptance signoff: Self-closed: dec8v and dec8w.
+	- Closed: 20261119-134700
+
+- On Linux and BSD, a bundled icon set picked in the settings file may draw Adwaita's folders instead of its own.
+	- ID: 2026111020501135
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261110-205011
+	- Opened by: 2026102515500000
+	- Related IDs: 2026102515500000
+	- Target OS: Linux, BSD
+	- Target version: rc.1
+	- Steps to reproduce: on a desktop with the adwaita-icon-theme package installed, set `appearance` `icon-theme` to a bundled set such as Mica in the settings file, and open a folder with a subfolder and a text file.
+	- Incorrect behavior: likely Adwaita's blue folder and plain text icon, not the set's own.
+	- Expected behavior: the picked set's own icons, as on Windows.
+	- Reproduced: 20261119 on Linux with Adwaita installed. With the bundled set loaded and Mica picked, the folder, text, and home icons came from the installed Adwaita. A default Linux or BSD build has no bundled set, since `bundled_themes` is off there, so a Mica pick in one draws the desktop's Adwaita by design. A Mica dropped into the `icons` folder beside the settings file draws its own icons.
+	- Possible cause: the one found in 2026102515500000. GTK 3 looks in an Adwaita theme on disk before hicolor, and the bundled sets sit in hicolor. Here the system's Adwaita is on disk. design.md says Linux and the BSDs use the desktop's themes, so this is only for a pick in the settings file.
+	- Actual cause: as above. The app handed GTK the set's own name, which GTK can't find on disk, so the lookup went on to the installed Adwaita before it reached hicolor.
+	- Decisions:
+		- Fix the lookup here, since the Adwaita on disk is the desktop's and can't be left out the way the Windows bundle leaves it out. 2026102515500000's fix stands. Its note that GTK can't put a resource path ahead of an on-disk Adwaita is wrong now, since naming hicolor does it.
+		- Only a pick goes to hicolor. The platform's own name is left alone. On Windows that's the bundle's settings.ini, and ddqjk already keeps Adwaita off disk there.
+		- On Windows, GTK's icon theme setting now reads hicolor for a picked bundled set rather than the set's name. The lookup order there is the same as before, since there's no Adwaita on disk.
+		- A default Linux or BSD build has no bundled set, so nothing changes there.
+	- Actual fix: a picked icon set that's bundled, with no theme of that name on GTK's search path, goes to GTK as hicolor. hicolor then comes first, and within it the picked set's path, which was added last. A drop-in or installed theme of the same name keeps its own name.
+	- Swept: every place the app names an icon theme to GTK. `apply_appearance` is the only setter. `desktop_theme_notify_cb` and the platform's name only push the bundled paths and leave the name alone. The pathbar only reloads on a name change.
+	- Verified: dbes6 fails on the unfixed code with the bundled set loaded, with 24 sets drawing the installed Adwaita's folder, and passes with the fix. It also fails when only the first set's path is ever pushed. de56s passes. gcc's and clang's analyzers report nothing on the 2 changed files, and the C lint passes.
+	- Note: not run on Windows yet, where dbes6 runs natively in the full run.
+	- Branch: nov19-2026111020501135
+	- Commit: b9250c35
+	- Test case: dbes6 `test-nemo-appearance` (`test_bundled_icons_beat_disk_adwaita`), on a build with the bundled set. A build without one skips it.
+	- Acceptance signoff: Self-closed: dbes6 fails before the fix and passes after, with the bundled set loaded.
+	- Closed: 20261119-142443
 
 - Icon views under Nemo Anywhere: after a Ctrl+click takes an icon out, a Shift+click runs from the icon clicked.
 	- ID: 2026111019540326

@@ -46,6 +46,7 @@
 #include "nemo-metadata.h"
 #include "nemo-selection-canvas-item.h"
 #include "nemo-desktop-utils.h"
+#include "nemo-affirmative.h"
 #include "nemo-global-preferences.h"
 #include <eel/eel-glib-extensions.h>
 #include <eel/eel-gnome-extensions.h>
@@ -1730,6 +1731,15 @@ win32_drag (NemoIconContainer *container,
 }
 #endif
 
+/* The drag punt goes here (2026102019174514): with checked icons, a drag
+   from one that isn't checked goes nowhere, and says why. With the switch
+   off a drag always goes. */
+static gboolean
+drag_punted (G_GNUC_UNUSED NemoIconContainer *container)
+{
+	return FALSE;
+}
+
 void
 nemo_icon_dnd_begin_drag (NemoIconContainer *container,
 			      GdkDragAction actions,
@@ -1745,6 +1755,10 @@ nemo_icon_dnd_begin_drag (NemoIconContainer *container,
 
 	dnd_info = container->details->dnd_info;
 	g_return_if_fail (dnd_info != NULL);
+
+	if (nemo_affirmative_at (NEMO_AFFIRM_DRAG_PUNT) && drag_punted (container)) {
+		return;
+	}
 
 	/* Notice that the event is in bin_window coordinates, because of
            the way the canvas handles events.

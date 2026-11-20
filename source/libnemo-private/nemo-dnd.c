@@ -536,8 +536,9 @@ nemo_drag_default_drop_action_for_icons (GdkDragContext *context,
 	NemoFile *dropped_file, *target_file;
     gboolean fav_target, fav_item;
 
+	/* Some cases below set it only for a move. */
+	*action = 0;
 	if (target_uri_string == NULL) {
-		*action = 0;
 		return;
 	}
 

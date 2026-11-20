@@ -920,6 +920,7 @@ load_contents (SearchThreadData *data,
     }
 
     if (stream == NULL) {
+        g_clear_pointer (&helper_proc, nemo_tool_run_free);
         return NULL;
     }
 

@@ -44,7 +44,7 @@ static const char     *folder_name;
 static gboolean        list_mode;
 static gboolean        classic;
 static gboolean        anywhere;
-static gboolean        ctrl_dragged;
+static int             drag_part;
 static GtkWidget      *window;
 static GtkWidget      *pane;
 static GdkWindow      *bin;
@@ -694,25 +694,48 @@ list_tick (void)
 		break;
 	case 5:
 		/* Each drag needs a tick of its own to let go. */
-		if (!ctrl_dragged) {
+		switch (drag_part++) {
+		case 0:
 			select_items (first_and_fourth);
 			press_and_move (bin, 1, GDK_CONTROL_MASK, 40, row_y (3), 40, row_y (6));
 			release (bin, 1, GDK_CONTROL_MASK, 40, row_y (6));
 			report (drags == 1, "Ctrl and a drag from a selected row drags files");
 			check_selection ("0,3", "and keeps the selection");
 			if (anywhere) {
-				ctrl_dragged = TRUE;
 				return FALSE;
 			}
 			break;
+		case 1:
+			/* #2026111019540307. Another row, so it's no double click. */
+			select_items (first_and_fourth);
+			press_and_move (bin, 1, GDK_CONTROL_MASK | GDK_SHIFT_MASK, 40, row_y (0), 40, row_y (6));
+			release (bin, 1, GDK_CONTROL_MASK | GDK_SHIFT_MASK, 40, row_y (6));
+			report (drags == 1, "Ctrl+Shift and a drag from a selected row drags files");
+			check_selection ("0,3", "and keeps the selection");
+			return FALSE;
+		case 2:
+			/* #2026111913460865 */
+			select_items (first_and_fourth);
+			press_and_move (bin, 1, GDK_SHIFT_MASK, 40, row_y (3), 40, row_y (6));
+			release (bin, 1, GDK_SHIFT_MASK, 40, row_y (6));
+			report (drags == 1, "Shift and a drag from a selected row drags files");
+			check_selection ("0,3", "and keeps the selection");
+			return FALSE;
+		default:
+			/* The anchor goes to row 2. The run waits for the release. */
+			press (bin, 1, 40, row_y (1), 0);
+			release (bin, 1, 0, 40, row_y (1));
+			press (bin, 1, 40, row_y (5), GDK_CONTROL_MASK);
+			release (bin, 1, GDK_CONTROL_MASK, 40, row_y (5));
+			press (bin, 1, 40, row_y (2), GDK_CONTROL_MASK);
+			release (bin, 1, GDK_CONTROL_MASK, 40, row_y (2));
+			press (bin, 1, 40, row_y (5), GDK_SHIFT_MASK);
+			check_selection ("1,2,5", "Shift and a press on a selected row keep the selection");
+			release (bin, 1, GDK_SHIFT_MASK, 40, row_y (5));
+			check_selection ("2,3,4,5", "and the release picks the run from the anchor");
+			break;
 		}
-		/* #2026111019540307. Another row, so it's no double click. */
-		ctrl_dragged = FALSE;
-		select_items (first_and_fourth);
-		press_and_move (bin, 1, GDK_CONTROL_MASK | GDK_SHIFT_MASK, 40, row_y (0), 40, row_y (6));
-		release (bin, 1, GDK_CONTROL_MASK | GDK_SHIFT_MASK, 40, row_y (6));
-		report (drags == 1, "Ctrl+Shift and a drag from a selected row drags files");
-		check_selection ("0,3", "and keeps the selection");
+		drag_part = 0;
 		break;
 	case 6:
 		select_items (none);
@@ -955,6 +978,89 @@ list_tick (void)
 		press (bin, 1, 40, row_y (1), GDK_SHIFT_MASK);
 		release (bin, 1, GDK_SHIFT_MASK, 40, row_y (1));
 		check_selection ("1,2,3", "Shift and a click then pick the run from that row");
+		break;
+	/* Every band with Ctrl held adds (#2026111707591589). */
+	case 32: {
+		int n = item_count ();
+		char *want = g_strdup_printf ("0,%d,%d,%d", n - 3, n - 2, n - 1);
+
+		select_items (first);
+		path = gtk_tree_path_new_from_indices (n - 1, -1);
+		gtk_tree_view_get_background_area (GTK_TREE_VIEW (pane), path, NULL, &area);
+		gtk_tree_path_free (path);
+		below = area.y + area.height + 20;
+		press_and_move (bin, 1, GDK_CONTROL_MASK, 40, below, 40, row_y (n - 3));
+		release (bin, 1, GDK_CONTROL_MASK, 40, row_y (n - 3));
+		report (drags == 0, "Ctrl and a drag below the rows drags no files");
+		check_selection (want, "and bands, adding to the selection");
+		g_free (want);
+		break;
+	}
+	case 33:
+		select_items (first);
+		press_and_move (bin, 3, GDK_CONTROL_MASK, blank_x (), row_y (2), blank_x (), row_y (4));
+		release (bin, 3, GDK_CONTROL_MASK, blank_x (), row_y (4));
+		break;
+	case 34:
+		report (shown_menu () == NULL && drags == 0,
+			"Ctrl and a right drag from a row not selected opens no menu and drags no files");
+		check_selection ("0,2,3,4", "and bands, adding to the selection");
+		close_menu ();
+		break;
+	case 35: {
+		int n = item_count ();
+
+		select_items (first);
+		path = gtk_tree_path_new_from_indices (n - 1, -1);
+		gtk_tree_view_get_background_area (GTK_TREE_VIEW (pane), path, NULL, &area);
+		gtk_tree_path_free (path);
+		below = area.y + area.height + 20;
+		press_and_move (bin, 3, GDK_CONTROL_MASK, 40, below, 40, row_y (n - 3));
+		release (bin, 3, GDK_CONTROL_MASK, 40, row_y (n - 3));
+		break;
+	}
+	case 36: {
+		int n = item_count ();
+		char *want = g_strdup_printf ("0,%d,%d,%d", n - 3, n - 2, n - 1);
+
+		report (shown_menu () == NULL && drags == 0,
+			"Ctrl and a right drag below the rows opens no menu and drags no files");
+		check_selection (want, "and bands, adding to the selection");
+		g_free (want);
+		close_menu ();
+		break;
+	}
+	case 37:
+		select_items (first_and_fourth);
+		press_and_move (bin, 3, GDK_CONTROL_MASK, checks_x (), row_y (3), checks_x (), row_y (5));
+		release (bin, 3, GDK_CONTROL_MASK, checks_x (), row_y (5));
+		break;
+	case 38:
+		report (shown_menu () == NULL && drags == 0,
+			"Ctrl and a right drag from the checkmark column of a selected row opens no menu and drags no files");
+		check_selection ("0,3,4,5", "and bands, adding to the selection");
+		close_menu ();
+		break;
+	case 39:
+		select_items (second_to_fourth);
+		press_and_move (bin, 2, GDK_CONTROL_MASK, checks_x (), row_y (2), checks_x (), row_y (5));
+		release (bin, 2, GDK_CONTROL_MASK, checks_x (), row_y (5));
+		report (drags == 0, "Ctrl and a middle drag from the checkmark column of a selected row drags no files");
+		check_selection ("1,2,3,4,5", "and bands, adding to the selection");
+		break;
+	case 40:
+		select_items (first);
+		press_and_move (bin, 1, GDK_CONTROL_MASK | GDK_SHIFT_MASK, blank_x (), row_y (4), blank_x (), row_y (6));
+		release (bin, 1, GDK_CONTROL_MASK | GDK_SHIFT_MASK, blank_x (), row_y (6));
+		report (drags == 0, "Ctrl+Shift and a drag from a row not selected drags no files");
+		check_selection ("0,4,5,6", "and bands, adding to the selection");
+		break;
+	case 41:
+		select_items (second_to_fourth);
+		press_and_move (bin, 1, GDK_CONTROL_MASK | GDK_SHIFT_MASK, checks_x (), row_y (3), checks_x (), row_y (5));
+		release (bin, 1, GDK_CONTROL_MASK | GDK_SHIFT_MASK, checks_x (), row_y (5));
+		report (drags == 0, "Ctrl+Shift and a drag from the checkmark column of a selected row drags no files");
+		check_selection ("1,2,3,4,5", "and bands, adding to the selection");
 		finish ();
 		return TRUE;
 	}
@@ -1135,6 +1241,121 @@ icon_tick (void)
 		press (bin, 1, x0, y0, GDK_SHIFT_MASK);
 		release (bin, 1, GDK_SHIFT_MASK, x0, y0);
 		check_selection ("2,3,4,5", "Shift and a click then pick the run from the icon the band ended on");
+		break;
+	/* Every band with Ctrl held adds (#2026111707591589). */
+	case 18:
+		select_items (first);
+		icon_center (3, &x1, &y1);
+		if (!icon_blank (x1, y1, &x0, &y0)) {
+			report (FALSE, "there is a spot clear of the icons");
+			break;
+		}
+		press_and_move (bin, 1, GDK_CONTROL_MASK, x0, y0, x1, y1);
+		break;
+	case 19:
+		release (bin, 1, GDK_CONTROL_MASK, x1, y1);
+		report (drags == 0 && bands == 1 && is_selected (0) && is_selected (3) && marks_follow (),
+			"Ctrl and a drag from the background bands, adding to the selection");
+		break;
+	case 20:
+		/* #2026111021233343. The anchor goes to icon 0, and the press on
+		   icon 3 doesn't follow one on it. */
+		icon_center (3, &x0, &y0);
+		press (bin, 1, x0, y0, 0);
+		release (bin, 1, 0, x0, y0);
+		icon_center (0, &x1, &y1);
+		press (bin, 1, x1, y1, GDK_CONTROL_MASK);
+		release (bin, 1, GDK_CONTROL_MASK, x1, y1);
+		icon_center (6, &x1, &y1);
+		press_and_move (bin, 1, GDK_CONTROL_MASK | GDK_SHIFT_MASK, x0, y0, x1, y1);
+		release (bin, 1, GDK_CONTROL_MASK | GDK_SHIFT_MASK, x1, y1);
+		report (drags == 1 && bands == 0, "Ctrl+Shift and a drag from a selected icon drags files");
+		check_selection ("0,3", "and keeps the selection as it was");
+		break;
+	case 21:
+		/* #2026111913460865. As above, with Shift alone, and other icons
+		   so no press follows one on the same icon. */
+		icon_center (4, &x0, &y0);
+		press (bin, 1, x0, y0, 0);
+		release (bin, 1, 0, x0, y0);
+		icon_center (1, &x1, &y1);
+		press (bin, 1, x1, y1, GDK_CONTROL_MASK);
+		release (bin, 1, GDK_CONTROL_MASK, x1, y1);
+		icon_center (6, &x1, &y1);
+		press_and_move (bin, 1, GDK_SHIFT_MASK, x0, y0, x1, y1);
+		release (bin, 1, GDK_SHIFT_MASK, x1, y1);
+		report (drags == 1 && bands == 0, "Shift and a drag from a selected icon drags files");
+		check_selection ("1,4", "and keeps the selection as it was");
+		break;
+	case 22:
+		/* The anchor goes to icon 2. The run waits for the release. */
+		icon_center (1, &x0, &y0);
+		press (bin, 1, x0, y0, 0);
+		release (bin, 1, 0, x0, y0);
+		icon_center (5, &x1, &y1);
+		press (bin, 1, x1, y1, GDK_CONTROL_MASK);
+		release (bin, 1, GDK_CONTROL_MASK, x1, y1);
+		icon_center (2, &x0, &y0);
+		press (bin, 1, x0, y0, GDK_CONTROL_MASK);
+		release (bin, 1, GDK_CONTROL_MASK, x0, y0);
+		press (bin, 1, x1, y1, GDK_SHIFT_MASK);
+		check_selection ("1,2,5", "Shift and a press on a selected icon keep the selection");
+		release (bin, 1, GDK_SHIFT_MASK, x1, y1);
+		check_selection ("2,3,4,5", "and the release picks the run from the anchor");
+		break;
+	case 23:
+		icon_center (0, &x0, &y0);
+		press (bin, 1, x0, y0, 0);
+		release (bin, 1, 0, x0, y0);
+		icon_center (4, &x0, &y0);
+		icon_center (6, &x1, &y1);
+		press_and_move (bin, 1, GDK_CONTROL_MASK | GDK_SHIFT_MASK, x0, y0, x1, y1);
+		break;
+	case 24:
+		release (bin, 1, GDK_CONTROL_MASK | GDK_SHIFT_MASK, x1, y1);
+		{
+			char *got = selected_list ();
+			char *line = g_strdup_printf ("Ctrl+Shift and a drag from an icon not selected bands, adding only what it touches (selected %s)",
+						      got);
+
+			report (drags == 0 && bands == 1 && is_selected (0) && is_selected (4) && is_selected (6) &&
+				!is_selected (1) && !is_selected (2) && marks_follow (), line);
+			g_free (line);
+			g_free (got);
+		}
+		break;
+	case 25:
+		select_items (first);
+		icon_center (7, &x1, &y1);
+		if (!icon_blank (x1, y1, &x0, &y0)) {
+			report (FALSE, "there is a spot clear of the icons");
+			break;
+		}
+		press_and_move (bin, 3, GDK_CONTROL_MASK, x0, y0, x1, y1);
+		break;
+	case 26:
+		release (bin, 3, GDK_CONTROL_MASK, x1, y1);
+		break;
+	case 27:
+		report (shown_menu () == NULL && drags == 0 && bands == 1 &&
+			is_selected (0) && is_selected (7) && marks_follow (),
+			"Ctrl and a right drag from the background bands, adding to the selection");
+		close_menu ();
+		break;
+	case 28:
+		select_items (first);
+		icon_center (4, &x0, &y0);
+		icon_center (6, &x1, &y1);
+		press_and_move (bin, 3, GDK_CONTROL_MASK, x0, y0, x1, y1);
+		break;
+	case 29:
+		release (bin, 3, GDK_CONTROL_MASK, x1, y1);
+		break;
+	case 30:
+		report (shown_menu () == NULL && drags == 0 && bands == 1 &&
+			is_selected (0) && is_selected (4) && is_selected (6) && marks_follow (),
+			"Ctrl and a right drag from an icon not selected bands, adding to the selection");
+		close_menu ();
 		finish ();
 		return TRUE;
 	}

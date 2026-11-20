@@ -58,6 +58,7 @@
 #include <libnemo-private/nemo-file-dnd.h>
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-ui-utilities.h>
+#include <libnemo-private/nemo-affirmative.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-icon-dnd.h>
 #include <libnemo-private/nemo-metadata.h>
@@ -129,6 +130,8 @@ struct NemoListViewDetails {
 		gboolean active;
 		gboolean picked;		/* rows chosen at least once */
 		gboolean keep;			/* Ctrl adds to what was there */
+		gboolean noted;			/* kept is from before the press */
+		gboolean from_checks;		/* pressed in the checkmark column */
 		int press_x, press_y;		/* bin window */
 		int start_x, start_y;		/* tree, so it scrolls with the rows */
 		int x, y;			/* the pointer, bin window */
@@ -200,6 +203,7 @@ struct NemoListViewDetails {
 	NemoFile *renaming_file;
 	gboolean rename_done;
 	guint renaming_file_activate_timeout;
+	gboolean renaming_file_activate_by_key;
 
 	gulong clipboard_handler_id;
 
@@ -702,37 +706,51 @@ preview_selected_items (NemoListView *view)
 	}
 }
 
-static void activate_selected_items (NemoListView *view);
+/* The space key's checkmark rules go here (2026102019174514). Until then it
+   previews, as with the switch off. */
+static void
+space_checkmarks (NemoListView *view)
+{
+	preview_selected_items (view);
+}
 
-/* Proper GSourceFunc: activate_selected_items is void, so casting it to a
+static void activate_items (NemoListView *view, gboolean by_key);
+
+/* Enter and the other keys open what a command would act on. A click opens
+   what it just selected, the row under the pointer. */
+static GList *
+items_to_activate (NemoListView *view, gboolean by_key)
+{
+	return by_key ? nemo_view_get_acted_on (NEMO_VIEW (view)) :
+			nemo_list_view_get_selection (NEMO_VIEW (view));
+}
+
+/* Proper GSourceFunc: activate_items is void, so casting it to a
  * source func left the timeout's repeat behavior undefined. Clear the id and
- * fire once; if still renaming, activate_selected_items re-arms a fresh one. */
+ * fire once; if still renaming, activate_items re-arms a fresh one. */
 static gboolean
 activate_selected_items_timeout (gpointer data)
 {
 	NemoListView *view = data;
 
 	view->details->renaming_file_activate_timeout = 0;
-	activate_selected_items (view);
+	activate_items (view, view->details->renaming_file_activate_by_key);
 	return G_SOURCE_REMOVE;
 }
 
 static void
-activate_selected_items (NemoListView *view)
+activate_items (NemoListView *view, gboolean by_key)
 {
 	GList *file_list;
-
-	file_list = nemo_list_view_get_selection (NEMO_VIEW (view));
-
 
 	if (view->details->renaming_file) {
 		/* We're currently renaming a file, wait until the rename is
 		   finished, or the activation uri will be wrong */
 		if (view->details->renaming_file_activate_timeout == 0) {
+			view->details->renaming_file_activate_by_key = by_key;
 			view->details->renaming_file_activate_timeout =
 				g_timeout_add (WAIT_FOR_RENAME_ON_ACTIVATE, activate_selected_items_timeout, view);
 		}
-		nemo_file_list_free (file_list);
 		return;
 	}
 
@@ -741,6 +759,7 @@ activate_selected_items (NemoListView *view)
 		view->details->renaming_file_activate_timeout = 0;
 	}
 
+	file_list = items_to_activate (view, by_key);
 	nemo_view_activate_files (NEMO_VIEW (view),
 				      file_list,
 				      0, TRUE);
@@ -749,9 +768,16 @@ activate_selected_items (NemoListView *view)
 }
 
 static void
+activate_selected_items (NemoListView *view)
+{
+	activate_items (view, FALSE);
+}
+
+static void
 activate_selected_items_alternate (NemoListView *view,
 				   NemoFile *file,
-				   gboolean open_in_tab)
+				   gboolean open_in_tab,
+				   gboolean by_key)
 {
 	GList *file_list;
 	NemoWindowOpenFlags flags;
@@ -773,7 +799,7 @@ activate_selected_items_alternate (NemoListView *view,
 		nemo_file_ref (file);
 		file_list = g_list_prepend (NULL, file);
 	} else {
-		file_list = nemo_list_view_get_selection (NEMO_VIEW (view));
+		file_list = items_to_activate (view, by_key);
 	}
 	nemo_view_activate_files (NEMO_VIEW (view),
 				      file_list,
@@ -791,7 +817,9 @@ button_event_modifies_selection (GdkEventButton *event)
 
 static gboolean ctrl_click_moves_focus (void);
 static gboolean ctrl_click_sets_anchor (void);
-static void add_run_from_click_anchor (NemoListView *view, GtkTreePath *path);
+static gboolean ctrl_band_adds (void);
+static gboolean shift_click_on_release (void);
+static void run_from_click_anchor (NemoListView *view, GtkTreePath *path, gboolean replace);
 
 /* Takes path out of the selection and puts the focus and the anchor on it.
    Setting the cursor selects its row alone, so the rest goes back after. */
@@ -829,6 +857,11 @@ nemo_list_view_did_not_drag (NemoListView *view,
 	if (gtk_tree_view_get_path_at_pos (tree_view, event->x, event->y,
 					   &path, NULL, NULL, NULL)) {
 		if ((event->button == 1 || event->button == 2)
+		    && (event->state & GDK_SHIFT_MASK) != 0 && shift_click_on_release ()
+		    && view->details->row_selected_on_button_down) {
+			run_from_click_anchor (view, path,
+					       (event->state & eel_gtk_primary_mask (event->window)) == 0);
+		} else if ((event->button == 1 || event->button == 2)
 		    && ((event->state & eel_gtk_primary_mask (event->window)) != 0 ||
 			(event->state & GDK_SHIFT_MASK) == 0)
 		    && view->details->row_selected_on_button_down) {
@@ -838,9 +871,6 @@ nemo_list_view_did_not_drag (NemoListView *view,
 			} else if (ctrl_click_moves_focus () &&
 				   (event->state & GDK_SHIFT_MASK) == 0) {
 				unselect_to_focus (view, path);
-			} else if (ctrl_click_sets_anchor () &&
-				   (event->state & GDK_SHIFT_MASK) != 0) {
-				add_run_from_click_anchor (view, path);
 			} else {
 				gtk_tree_selection_unselect_path (selection, path);
 			}
@@ -851,7 +881,7 @@ nemo_list_view_did_not_drag (NemoListView *view,
 			if (event->button == 1) {
 				activate_selected_items (view);
 			} else if (event->button == 2) {
-				activate_selected_items_alternate (view, NULL, TRUE);
+				activate_selected_items_alternate (view, NULL, TRUE, FALSE);
 			}
 		}
 
@@ -1117,6 +1147,14 @@ same_row (GtkTreePath *a, GtkTreePath *b)
 	return gtk_tree_path_compare (a, b) == 0;
 }
 
+/* The checkmark column override's checkmarks go here (2026102019174514):
+   a band from that column checks every row it touched. With the switch off
+   it sets none. */
+static void
+band_checkmark (G_GNUC_UNUSED NemoListView *view)
+{
+}
+
 static void
 band_arm (NemoListView *view, GdkEventButton *event, gboolean keep)
 {
@@ -1126,6 +1164,7 @@ band_arm (NemoListView *view, GdkEventButton *event, gboolean keep)
 	details->drag_button = 0;
 	details->band.button = event->button;
 	details->band.keep = keep;
+	details->band.from_checks = FALSE;
 	details->band.press_x = details->band.x = (int) event->x;
 	details->band.press_y = details->band.y = (int) event->y;
 	gtk_tree_view_convert_bin_window_to_tree_coords (details->tree_view,
@@ -1247,7 +1286,7 @@ band_motion (NemoListView *view, GdkEventMotion *event)
 		}
 		details->band.active = TRUE;
 		nemo_view_start_batching_selection_changes (NEMO_VIEW (view));
-		if (details->band.keep) {
+		if (details->band.keep && !details->band.noted) {
 			selection = gtk_tree_view_get_selection (details->tree_view);
 			rows = gtk_tree_selection_get_selected_rows (selection, NULL);
 			for (l = rows; l != NULL; l = l->next) {
@@ -1361,9 +1400,9 @@ add_click_run_from_anchor (NemoListView *view, GtkWidget *widget,
 	return TRUE;
 }
 
-/* A Ctrl+Shift+click on a selected row waits for the release, so it can
-   still drag what's selected. The press only finds GTK's anchor and puts the
-   selection back, which leaves the focus on the row. */
+/* A Shift or Ctrl+Shift click on a selected row waits for the release, so
+   it can still drag what's selected. The press only finds GTK's anchor and
+   puts the selection back, which leaves the focus on the row. */
 static void
 note_click_anchor (NemoListView *view, GtkWidget *widget,
 		   GdkEventButton *event, GtkTreePath *path)
@@ -1391,10 +1430,10 @@ note_click_anchor (NemoListView *view, GtkWidget *widget,
 }
 
 /* The release of that click adds the run from the anchor the press found,
-   or from the focus when it found none. The focus goes to path, and the
-   anchor stays. */
+   or from the focus when it found none, or with replace picks the run alone.
+   The focus goes to path, and the anchor stays. */
 static void
-add_run_from_click_anchor (NemoListView *view, GtkTreePath *path)
+run_from_click_anchor (NemoListView *view, GtkTreePath *path, gboolean replace)
 {
 	GtkTreeView *tree_view = view->details->tree_view;
 	GtkTreeSelection *selection = gtk_tree_view_get_selection (tree_view);
@@ -1413,6 +1452,9 @@ add_run_from_click_anchor (NemoListView *view, GtkTreePath *path)
 	}
 
 	g_signal_handlers_block_by_func (selection, list_selection_changed_callback, view);
+	if (replace) {
+		gtk_tree_selection_unselect_all (selection);
+	}
 	gtk_tree_selection_select_range (selection, from, path);
 	rows = gtk_tree_selection_get_selected_rows (selection, NULL);
 	gtk_tree_view_set_cursor (tree_view, path, NULL, FALSE);
@@ -1467,13 +1509,19 @@ band_stop (NemoListView *view)
 		}
 		gtk_tree_path_free (end);
 
+		if (details->band.from_checks && nemo_affirmative_at (NEMO_AFFIRM_COLUMN_DRAG)) {
+			band_checkmark (view);
+		}
+
 		details->band.active = FALSE;
 		gtk_widget_queue_draw (GTK_WIDGET (details->tree_view));
 		nemo_view_stop_batching_selection_changes (NEMO_VIEW (view));
 	}
 
 	details->band.button = 0;
+	details->band.from_checks = FALSE;
 	details->band.picked = FALSE;
+	details->band.noted = FALSE;
 	g_list_free_full (details->band.kept, (GDestroyNotify) gtk_tree_row_reference_free);
 	details->band.kept = NULL;
 	g_clear_pointer (&details->band.from, gtk_tree_row_reference_free);
@@ -1525,6 +1573,15 @@ band_draw_callback (GtkWidget *widget, cairo_t *cr, gpointer callback_data)
 	gtk_widget_path_unref (path);
 
 	return GDK_EVENT_PROPAGATE;
+}
+
+/* The drag punt goes here (2026102019174514): with checked rows, a drag
+   from one that isn't checked goes nowhere, and says why. With the switch
+   off a drag always goes. */
+static gboolean
+drag_punted (G_GNUC_UNUSED NemoListView *view)
+{
+	return FALSE;
 }
 
 static gboolean
@@ -1587,6 +1644,9 @@ motion_notify_callback (GtkWidget *widget,
                                       view->details->drag_y,
                                       event->x,
                                       event->y)) {
+            if (nemo_affirmative_at (NEMO_AFFIRM_DRAG_PUNT) && drag_punted (view)) {
+                return GDK_EVENT_STOP;
+            }
 #ifdef G_OS_WIN32
             if (win32_drag (view, widget)) {
                 return GDK_EVENT_STOP;
@@ -1980,7 +2040,7 @@ handle_icon_double_click (NemoListView *view, GtkTreePath *path, GdkEventButton 
             if (event->button == 1) {
                 activate_selected_items (view);
             } else if (event->button == 2) {
-                activate_selected_items_alternate (view, NULL, TRUE);
+                activate_selected_items_alternate (view, NULL, TRUE, FALSE);
             }
 
             return TRUE;
@@ -1989,7 +2049,7 @@ handle_icon_double_click (NemoListView *view, GtkTreePath *path, GdkEventButton 
             NemoFile *file;
             file = nemo_list_model_file_for_path (view->details->model, path);
             if (file != NULL) {
-                activate_selected_items_alternate (view, file, TRUE);
+                activate_selected_items_alternate (view, file, TRUE, FALSE);
                 nemo_file_unref (file);
             }
 
@@ -2043,6 +2103,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 	gboolean on_checks;
 	gboolean right_drags_files;
 	gboolean primary;
+	GList *before = NULL;
 
 	view = NEMO_LIST_VIEW (callback_data);
 	tree_view = GTK_TREE_VIEW (widget);
@@ -2101,6 +2162,11 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 	}
 
 	primary = (event->state & eel_gtk_primary_mask (event->window)) != 0;
+	/* The press can change the selection, as a Ctrl+Shift run does, so a
+	   band that adds starts from what was there before it. */
+	if (primary && ctrl_band_adds ()) {
+		before = gtk_tree_selection_get_selected_rows (selection, NULL);
+	}
 
 	call_parent = TRUE;
 	if (gtk_tree_view_get_path_at_pos (tree_view, event->x, event->y,
@@ -2159,14 +2225,14 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 
 			if ((event->button == 1 || event->button == 2) &&
 			    ((event->state & eel_gtk_primary_mask (event->window)) != 0 ||
-			     (event->state & GDK_SHIFT_MASK) == 0)) {
+			     (event->state & GDK_SHIFT_MASK) == 0 || shift_click_on_release ())) {
 				view->details->row_selected_on_button_down = gtk_tree_selection_path_is_selected (selection, path);
 				if (view->details->row_selected_on_button_down) {
 					call_parent = on_expander;
 					view->details->ignore_button_release = call_parent;
-					if (primary && (event->state & GDK_SHIFT_MASK) != 0 &&
+					if ((event->state & GDK_SHIFT_MASK) != 0 &&
 					    event->type == GDK_BUTTON_PRESS && !on_expander &&
-					    ctrl_click_sets_anchor ()) {
+					    shift_click_on_release ()) {
 						note_click_anchor (view, widget, event, path);
 					}
 				} else if (primary && (event->state & GDK_SHIFT_MASK) != 0 &&
@@ -2209,7 +2275,7 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 						anchor_to (selection, cursor != NULL ? cursor : path);
 					}
 					gtk_tree_path_free (cursor);
-				} else {
+				} else if ((event->state & GDK_SHIFT_MASK) == 0) {
 					view->details->ignore_button_release = on_expander;
 				}
 			}
@@ -2233,11 +2299,13 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 			if (event->button == 1 && !was_selected && !on_expander &&
 			    (primary || (event->state & GDK_SHIFT_MASK) != 0)) {
 				band_arm (view, event, primary);
+				view->details->band.from_checks = on_checks;
 			} else if ((event->button == 1 || event->button == 2) &&
 			    event->type == GDK_BUTTON_PRESS) {
 				/* Without a move it's still a click. */
 				if (on_checks) {
-					band_arm (view, event, primary && event->button == 1);
+					band_arm (view, event, primary && (event->button == 1 || ctrl_band_adds ()));
+					view->details->band.from_checks = TRUE;
 				}
 				view->details->drag_started = FALSE;
 				view->details->drag_button = event->button;
@@ -2265,7 +2333,8 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 					view->details->drag_x = event->x;
 					view->details->drag_y = event->y;
 				} else {
-					band_arm (view, event, FALSE);
+					band_arm (view, event, primary && ctrl_band_adds ());
+					view->details->band.from_checks = on_checks;
 				}
 			}
 		}
@@ -2281,15 +2350,16 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 			view->details->double_click_path[0] = NULL;
 		}
 		/* Deselect if people click outside any row, unless Ctrl is
-		   held for a band that adds. It's OK to let default code run;
-		   it won't reselect anything. */
+		   held for a band that adds. Nemo Anywhere's right one puts the
+		   rows back once it moves, so a click still gets the folder's menu. It's OK to
+		   let default code run; it won't reselect anything. */
 		if (!primary || event->button != 1) {
 			gtk_tree_selection_unselect_all (gtk_tree_view_get_selection (tree_view));
 		}
 		tree_view_class->button_press_event (widget, event);
 
 		if (event->button == 1 || event->button == 3) {
-			band_arm (view, event, primary && event->button == 1);
+			band_arm (view, event, primary && (event->button == 1 || ctrl_band_adds ()));
 		}
 		if (event->button == 1) {
 			eel_menu_press_hold (&view->details->menu_press, widget, event,
@@ -2300,6 +2370,17 @@ button_press_callback (GtkWidget *widget, GdkEventButton *event, gpointer callba
 					      event->x, event->y);
 		}
 	}
+
+	if (view->details->band.button != 0 && view->details->band.keep && ctrl_band_adds ()) {
+		GList *l;
+
+		for (l = before; l != NULL; l = l->next) {
+			view->details->band.kept = g_list_prepend (view->details->band.kept,
+				gtk_tree_row_reference_new (gtk_tree_view_get_model (tree_view), l->data));
+		}
+		view->details->band.noted = TRUE;
+	}
+	g_list_free_full (before, (GDestroyNotify) gtk_tree_path_free);
 
 	/* We chained to the default handler in this method, so never
 	 * let the default handler run */
@@ -2581,7 +2662,9 @@ key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer callback_dat
 			break;
 		}
 		if ((event->state & GDK_SHIFT_MASK) != 0) {
-			activate_selected_items_alternate (NEMO_LIST_VIEW (view), NULL, TRUE);
+			activate_selected_items_alternate (NEMO_LIST_VIEW (view), NULL, TRUE, TRUE);
+		} else if (nemo_affirmative_at (NEMO_AFFIRM_SPACE)) {
+			space_checkmarks (NEMO_LIST_VIEW (view));
 		} else {
 			preview_selected_items (NEMO_LIST_VIEW (view));
 		}
@@ -2590,9 +2673,9 @@ key_press_callback (GtkWidget *widget, GdkEventKey *event, gpointer callback_dat
 	case GDK_KEY_Return:
 	case GDK_KEY_KP_Enter:
 		if ((event->state & GDK_SHIFT_MASK) != 0) {
-			activate_selected_items_alternate (NEMO_LIST_VIEW (view), NULL, TRUE);
+			activate_selected_items_alternate (NEMO_LIST_VIEW (view), NULL, TRUE, TRUE);
 		} else {
-			activate_selected_items (NEMO_LIST_VIEW (view));
+			activate_items (NEMO_LIST_VIEW (view), TRUE);
 		}
 		handled = TRUE;
 		break;
@@ -5191,6 +5274,14 @@ typedef struct {
 	/* A Ctrl+click that takes a row out moves the focus there, where v1's
 	   stays where it was. */
 	gboolean ctrl_click_moves_focus;
+	/* Every band with Ctrl held adds to what was selected before the press,
+	   the right and middle buttons' too. v1's right and middle bands
+	   replace, and its Ctrl+Shift band keeps the run its press added. */
+	gboolean ctrl_band_adds;
+	/* A Shift or Ctrl+Shift click on a selected row picks its run on the
+	   release, so a drag from there takes the selection as it was. v1's
+	   Shift press picks it at once. */
+	gboolean shift_click_on_release;
 } ListViewRules;
 
 static const ListViewRules rules_anywhere_v1 = {
@@ -5223,6 +5314,8 @@ static const ListViewRules rules_anywhere = {
 	.band_end_takes_focus = TRUE,
 	.ctrl_click_sets_anchor = TRUE,
 	.ctrl_click_moves_focus = TRUE,
+	.ctrl_band_adds = TRUE,
+	.shift_click_on_release = TRUE,
 };
 
 static const ListViewRules *
@@ -5255,6 +5348,18 @@ static gboolean
 ctrl_click_moves_focus (void)
 {
 	return list_view_rules ()->ctrl_click_moves_focus;
+}
+
+static gboolean
+ctrl_band_adds (void)
+{
+	return list_view_rules ()->ctrl_band_adds;
+}
+
+static gboolean
+shift_click_on_release (void)
+{
+	return list_view_rules ()->shift_click_on_release;
 }
 
 static gboolean

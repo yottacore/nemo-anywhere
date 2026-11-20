@@ -3,6 +3,7 @@ nemo_private_sources = [
   'nemo-action-manager.c',
   'nemo-appearance.c',
   'nemo-action.c',
+  'nemo-affirmative.c',
   'nemo-archive.c',
   'nemo-archive-host.c',
   'nemo-bookmark.c',

@@ -1,6 +1,9 @@
 # Schema for the nemo-anywhere config file.
 # Declares every setting's type, default and (where closed) allowed values.
 # Plain SHCL - nothing compiles it. See vendor/shcl for the language.
+# A "# aliases: [a, b]" row under a field lists other words the Settings
+# search finds it by, read into a table when the app is built. It's a comment
+# because SHCL refuses a schema key it doesn't know.
 
 field: favorites
 	type: string-array
@@ -12,16 +15,19 @@ field: appearance.gtk-theme
 	type: string
 	default: 
 	desc: "Widget theme name, or empty for the platform's own"
+	# aliases: [theme, skin, style]
 
 field: appearance.icon-theme
 	type: string
 	default: 
 	desc: "Icon theme name, or empty for the platform's own"
+	# aliases: [icons, icon set]
 
 field: appearance.mode
 	type: string
 	allowed: [system, light, dark]
 	default: system
+	# aliases: [dark mode, light mode, night mode, color scheme]
 
 field: archive.create-with-7z
 	type: string
@@ -138,6 +144,7 @@ field: file-cache.max-size-gib
 	type: float
 	default: 2
 	desc: "Largest the file cache may get, in GiB. The least recently drawn thumbnails go first. 0 for no limit"
+	# aliases: [cache size, disk cache]
 
 field: file-cache.memory-gib
 	type: float
@@ -181,6 +188,7 @@ field: interface.clock-use-24h
 field: media-handling.automount
 	type: bool
 	default: false
+	# aliases: [auto mount, usb, removable drives, autoplay]
 
 field: media-handling.automount-open
 	type: bool
@@ -205,6 +213,7 @@ field: terminal.exec
 	type: string
 	default: ""
 	desc: "Terminal used for Open in Terminal, or empty to let the system pick"
+	# aliases: [console, shell, command prompt, terminal emulator]
 
 field: terminal.exec-arg
 	type: string
@@ -233,6 +242,7 @@ field: icon-view.default-icon-size
 	type: int
 	default: 100
 	desc: Icon size as a percent of the standard 64 pixels
+	# aliases: [zoom, icon size]
 
 field: icon-view.default-image-icon-size
 	type: int
@@ -290,6 +300,7 @@ field: list-view.enable-folder-expansion
 	type: bool
 	default: true
 	desc: Let a folder be expanded in place to show what is in it
+	# aliases: [tree view, expanders, disclosure triangles]
 
 field: list-view.row-hover-color
 	type: string
@@ -300,6 +311,7 @@ field: list-view.row-shading
 	type: bool
 	default: false
 	desc: Shade every other row
+	# aliases: [zebra stripes, alternating rows, striped rows]
 
 field: list-view.row-shading-color
 	type: string
@@ -321,6 +333,7 @@ field: preferences.always-show-tabs
 	type: bool
 	default: false
 	desc: Show the tab strip even with only one tab
+	# aliases: [tab bar]
 
 field: preferences.always-use-browser
 	type: bool
@@ -331,6 +344,7 @@ field: preferences.bulk-rename-tool
 	type: string
 	default: ""
 	desc: "Program run for a bulk rename. Unset means the first known renamer that's installed, or else the first known one"
+	# aliases: [mass rename, batch rename, multi rename, renamer]
 
 field: preferences.click-double-parent-folder
 	type: bool
@@ -342,6 +356,7 @@ field: preferences.click-policy
 	allowed: [single, double]
 	default: double
 	desc: One click or two to open a file
+	# aliases: [single click, double click, open items]
 
 field: preferences.close-device-view-on-device-eject
 	type: bool
@@ -361,11 +376,13 @@ field: preferences.confirm-drag-move
 field: preferences.confirm-move-to-trash
 	type: bool
 	default: true
+	# aliases: [recycle bin, delete confirmation, are you sure]
 
 field: preferences.confirm-trash
 	type: bool
 	default: true
 	desc: Ask before deleting outright or emptying the Trash
+	# aliases: [empty recycle bin, are you sure]
 
 field: preferences.confirm-many-items
 	type: int
@@ -376,20 +393,24 @@ field: preferences.date-format
 	type: string
 	allowed: [locale, iso, informal]
 	default: iso
+	# aliases: [time format, timestamp]
 
 field: preferences.default-folder-viewer
 	type: string
 	allowed: [icon-view, compact-view, list-view]
 	default: list-view
+	# aliases: [view mode, layout, default view]
 
 field: preferences.default-sort-in-reverse-order
 	type: bool
 	default: false
+	# aliases: [descending, sort direction]
 
 field: preferences.default-sort-order
 	type: string
 	allowed: [manually, name, size, type, detailed_type, mtime, atime, trash-time]
 	default: name
+	# aliases: [arrange by, order by]
 
 field: preferences.deferred-attribute-preload-limit
 	type: int
@@ -414,6 +435,7 @@ field: preferences.enable-delete
 	type: bool
 	default: true
 	desc: "Offer Delete, which skips the Trash"
+	# aliases: [permanent delete, bypass trash, shift delete]
 
 field: preferences.enable-mime-actions-make-executable
 	type: bool
@@ -425,6 +447,7 @@ field: preferences.executable-text-activation
 	allowed: [launch, display, ask]
 	default: ask
 	desc: What opening an executable text file does
+	# aliases: [run scripts, shell scripts]
 
 field: preferences.expand-row-on-dnd-dwell
 	type: bool
@@ -474,11 +497,13 @@ field: preferences.remember-folder-settings
 	type: bool
 	default: false
 	desc: "Each folder keeps its own view, zoom, sort, and columns"
+	# aliases: [per-folder view, folder view memory]
 
 field: preferences.rename-selects-whole-name
 	type: bool
 	default: true
 	desc: "Renaming selects the whole name, extension included"
+	# aliases: [file extension, f2]
 
 field: preferences.quick-renames-with-pause-in-between
 	type: bool
@@ -490,10 +515,12 @@ field: preferences.selection-model
 	allowed: [nemo-anywhere-v1, nemo-classic, nemo-anywhere]
 	default: nemo-anywhere
 	desc: How clicks and keys select and focus files and folders
+	# aliases: [behavior model, emulation, explorer, finder]
 
 field: preferences.show-advanced-permissions
 	type: bool
 	default: false
+	# aliases: [chmod, rwx, octal]
 
 field: preferences.show-bookmarks-in-to-menus
 	type: bool
@@ -513,6 +540,7 @@ field: preferences.show-directory-item-counts
 	allowed: [always, local-only, never]
 	default: local-only
 	desc: When to count what is in a folder
+	# aliases: [folder size, item count]
 
 field: preferences.show-edit-icon-toolbar
 	type: bool
@@ -523,10 +551,12 @@ field: preferences.show-full-path-titles
 	type: bool
 	default: false
 	desc: Show the whole path in the title bar and on tabs
+	# aliases: [title bar, window title]
 
 field: preferences.show-hidden-files
 	type: bool
 	default: false
+	# aliases: [dot files, dotfiles, hidden items, invisible files]
 
 field: preferences.show-home-icon-toolbar
 	type: bool
@@ -541,6 +571,7 @@ field: preferences.show-image-thumbnails
 	allowed: [always, local-only, never]
 	default: local-only
 	desc: When to draw thumbnails
+	# aliases: [previews, preview images]
 
 field: preferences.show-list-view-icon-toolbar
 	type: bool
@@ -607,10 +638,12 @@ field: preferences.size-prefixes
 	allowed: [base-10, base-10-full, base-2, base-2-full]
 	default: base-2
 	desc: Whether sizes count in 1024s or 1000s
+	# aliases: [units, kib, kb, binary units, decimal units]
 
 field: preferences.sort-directories-first
 	type: bool
 	default: true
+	# aliases: [folders on top, folders before files, group folders]
 
 field: preferences.sort-favorites-first
 	type: bool
@@ -619,11 +652,13 @@ field: preferences.sort-favorites-first
 field: preferences.start-with-dual-pane
 	type: bool
 	default: false
+	# aliases: [split view, dual pane, two panes, commander]
 
 field: preferences.swap-trash-delete
 	type: bool
 	default: false
 	desc: Swap the Trash and Delete keys
+	# aliases: [delete key, shift delete]
 
 field: preferences.tab-width-max-percent
 	type: int
@@ -645,6 +680,7 @@ field: preferences.thumbnail-limit
 	type: int
 	default: 104857600
 	desc: "Largest image a thumbnail is made for, in bytes"
+	# aliases: [preview size limit, max file size]
 
 field: preferences.thumbnail-threads
 	type: int
@@ -654,6 +690,7 @@ field: preferences.thumbnail-threads
 field: preferences.tooltips-in-icon-view
 	type: bool
 	default: false
+	# aliases: [hover, info tips, flyover]
 
 field: preferences.tooltips-in-list-view
 	type: bool

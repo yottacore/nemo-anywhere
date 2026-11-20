@@ -31,9 +31,9 @@
 ##	  both lists, following calls into the other .c files of the same list,
 ##	  with logs in cicd/artifacts/analyze-ctu/. It fails when either lane misses
 ##	  the planted pair, whose leak and NULL come from the other file, or reports
-##	  a NULL read the other file suppresses (test de8eq), or a run fails. Its
-##	  findings and cut-off files are report only for now (backlog
-##	  2026110920251244).
+##	  a NULL read the other file suppresses (test de8eq), or a run fails. A
+##	  finding left, or a file cut off at the cap, fails it, as in the per-file
+##	  run (backlog 2026110920251244).
 ##	- Syntax: cicd/utility/analyze.bash [--self-test] [--ctu]
 ##	- Test ID: de8es
 
@@ -143,11 +143,7 @@ fEcho "analyzers took $(( SECONDS - t0 )) s"
 
 countRc=0
 python3 "${root}/cicd/utility/analyze.py" count ${ctuArg[@]:+--no-stale} "${root}" "${logs[@]/#/${last}/}" | tee "${out}/counts_${stamp}.txt" || countRc="${PIPESTATUS[0]}"
-if ((countRc && ctu)); then
-	fEcho "The cross-file findings and cut-off files above don't fail the run yet (backlog 2026110920251244)"
-elif ((countRc)); then
-	failed=1
-fi
+((! countRc)) || failed=1
 tar -C "${last}" -czf "${out}/findings_${stamp}.tgz" "${logs[@]}"
 gfs_rotate "${out}" counts txt   >/dev/null 2>&1 || true
 gfs_rotate "${out}" findings tgz >/dev/null 2>&1 || true
@@ -167,3 +163,4 @@ fEcho "OK: analyzer stage"
 ##		- 2026-11-08: analyze-slow.txt for the files gcc can't finish inside the
 ##		  cap, and a file cut off fails the stage.
 ##		- 2026-11-10: --ctu, the cross-file clang run.
+##		- 2026-11-19: Its findings and cut-off files fail the stage too.

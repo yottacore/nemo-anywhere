@@ -69,6 +69,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - A new folder's first name can be a path, such as `photos/2026/june`, and each folder in it is made, nested. Folders already there along the way are used as they are. `/` works everywhere, and `\` on Windows too. On Windows `/` only counts while "Accept a forward slash as a separator in typed locations" is on. Undo takes away the folders it made, deepest first, as long as each is still empty.
 
+- Settings has a "File and folder selection model" dropdown on the Advanced tab, for how items get selected and what a command acts on. Nemo Anywhere is the default. Nemo Classic is upstream Nemo's behavior, and Nemo Anywhere v1 is how this fork worked before. A settings file that doesn't name a model gets Nemo Anywhere.
+
+- Under Nemo Anywhere, each selected item has a dim checkmark, so it's always clear what a command will act on. In the list view the marks go in a thin column left of Name, which can't be hidden or moved. The icon view puts the mark on the icon's top-left corner, and the compact view puts it left of the name. The folder tree has a column of its own for the selected folder.
+
+- Under Nemo Anywhere, a drag in the list view that starts in the checkmark column always draws a band, even on a selected row, and so does one that starts below the rows. A plain drag from the rest of a row drags files, as before. Ctrl, Shift, and right drags draw a band from empty space or from an item that isn't selected, in every view. Every band with Ctrl held adds to the selection, the right and middle buttons included. A Shift press on a selected item leaves the selection alone until the button comes up, so a Shift drag takes what was already selected. A band leaves the focus on the last item it touched.
+
+- Under Nemo Anywhere, there's no focus outline except after Ctrl+Up or Ctrl+Down has moved the focus off the selection, as in Explorer. Ctrl+Left and Ctrl+Right do the same in the icon views. Ctrl+Space then adds or removes the focused item, and Ctrl+Shift with an arrow adds the run from the anchor. Plain arrows, Page Up, and Page Down count from the ends of the selection, as a text editor does, or from the focus after a Ctrl move. Escape clears the selection and the focus.
+
+- Under Nemo Anywhere, the Edit menu has Select none, which clears the selection. The status bar reads "Ready to act on N items selected" while something is selected.
+
+- Under Nemo Anywhere, F2 starts a rename with the name picked and the extension left out, and Shift+F2 picks the whole name. A folder's whole name is picked either way. The Behavior checkbox for the extension counts only under the other 2 models, and is grayed under this one.
+
+- Under Nemo Anywhere, the folder tree has a focus of its own. Ctrl+Up and Ctrl+Down move it without opening anything, Ctrl+Space opens the focused folder, and Escape puts the focus back. With the tree focused, Ctrl+C, Ctrl+X, Ctrl+V, Delete, and Shift+Delete act on the tree's selected folder rather than on what's selected in the main view, and F2 renames it in place. The tree's right-click menu has Rename too.
+
+- Settings has a search field across the top. Matches are listed as you type, each with the setting's path and the matched letters marked, and picking one goes to the setting. Labels that contain the text come first, then other names a setting is known by, such as "zebra stripes" or "recycle bin", then looser matches. Ctrl+F goes to the field.
+
 ### Changed
 
 - On Windows a folder lists faster. A file's owner and group are read only when a column, a caption or Properties shows them, since each name is a call to the local security service, and the Owner column is off by default there.
@@ -126,6 +142,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The window title puts the folder first and the program name after it, as `Documents - Nemo Anywhere`. A name or path with a space in it is put in double quotes.
 
 - Tabs never take the keyboard focus, in Settings, Properties, About, or the keyboard shortcuts window. Tab goes past them, and Ctrl+Page Up and Ctrl+Page Down, or Ctrl+Tab and Ctrl+Shift+Tab, step through the pages from anywhere in the window.
+
+- Under the default Nemo Anywhere model, Ctrl+I inverts the selection, the same as Ctrl+Shift+I, and Properties is on Alt+Enter. Nemo Classic and Nemo Anywhere v1 keep Ctrl+I for Properties.
 
 ### Fixed
 

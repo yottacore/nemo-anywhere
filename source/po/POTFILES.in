@@ -17,6 +17,7 @@ libnemo-extension/nemo-column.c
 libnemo-extension/nemo-menu-item.c
 libnemo-extension/nemo-property-page.c
 libnemo-private/nemo-action.c
+libnemo-private/nemo-affirmative.c
 libnemo-private/nemo-bookmark.c
 libnemo-private/nemo-clipboard.c
 libnemo-private/nemo-column-chooser.c

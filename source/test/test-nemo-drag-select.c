@@ -34,7 +34,8 @@
  * ones the probe marks (#2026102016594200). "nemo-anywhere" takes v1's
  * results for now (#2026102019174440), every drag from its checkmark
  * column bands (#2026110919315994), and a band leaves the focus and the
- * anchor on the last item it touched (#2026102407515573).
+ * anchor on the last item it touched (#2026102407515573). Every band with
+ * Ctrl held adds (#2026111707591589).
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Runs
  * on an X server of its own, since drags and menus take the pointer. Linux
@@ -220,11 +221,11 @@ main (int argc, char *argv[])
 	/* Nemo Anywhere adds the checkmark column's bands, and checks where a
 	   band leaves the focus and the anchor. */
 	run_view (argv[1], argv[2], model, "list-view",
-		  g_strcmp0 (model, "nemo-anywhere") == 0 ? 48 : 24);
+		  g_strcmp0 (model, "nemo-anywhere") == 0 ? 66 : 24);
 	run_view (argv[1], argv[2], model, "icon-view",
-		  g_strcmp0 (model, "nemo-anywhere") == 0 ? 17 : 15);
+		  g_strcmp0 (model, "nemo-anywhere") == 0 ? 27 : 15);
 	run_view (argv[1], argv[2], model, "compact-view",
-		  g_strcmp0 (model, "nemo-anywhere") == 0 ? 17 : 15);
+		  g_strcmp0 (model, "nemo-anywhere") == 0 ? 27 : 15);
 
 	if (failures > 0) {
 		g_printerr ("%d failure(s)\n", failures);

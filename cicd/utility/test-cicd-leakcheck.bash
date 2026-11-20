@@ -5,7 +5,7 @@
 ##	  --no-leakcheck off, under --quick or not, with -q too, and the last of the
 ##	  2 on the command line wins. Both are in --help. The cross-file analyzer
 ##	  runs only with the leak checks on and --long or --leakcheck named, so not
-##	  in a plain run. A copy of cicd.bash runs with a debug build that fails, so
+##	  in a plain run, and CodeQL by the same rule. A copy of cicd.bash runs with a debug build that fails, so
 ##	  the run stops right after its plan.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-leakcheck.bash
@@ -48,6 +48,7 @@ cat > "${scratch}/cicd/config.bash" <<-CFG
 	DOGFOOD_FIXED_DESTS=(); DOGFOOD_ROTATING_DESTS=(); DOGFOOD_CROSS_DESTS=(); DOGFOOD_HOOK=()
 	DOGFOOD_REMOTE=(); GIT_PUBLISH=(true); PUBLISH_AUTO_MESSAGE="unused"
 	ANALYZE_CTU_CMD=(ctu-step)
+	CODEQL_CMD=(codeql-step)
 CFG
 
 ## $1 on or off, rest the options.
@@ -72,13 +73,16 @@ fCase off --quick --leakcheck --no-leakcheck
 fCase off -q --no-leakcheck
 fCase on  -q --quick --leakcheck
 
-## $1 on or off, rest the options.
+## $1 on or off, rest the options. CodeQL goes by the same rule.
 fCaseCtu(){
-	local want="$1" out got; shift
+	local want="$1" out got step label; shift
 	out="$(cd "${scratch}" && CICD_CPU_CAPPED=1 SOURCE_DATE_EPOCH=1791244781 bash cicd/cicd.bash -y --no-sync "$@" 2>&1 </dev/null || true)"
-	got="$(sed -n 's/^ *Cross-file analyzer \.* *: //p' <<< "${out}")"
-	case "${got}" in ctu-step) got=on ;; "(skipped"*) got=off ;; esac
-	[[ "${got}" == "${want}" ]] || fFail "[${*:-no options}]: cross-file analyzer '${got:-none}', want ${want}"
+	for step in "Cross-file analyzer|ctu-step" "CodeQL|codeql-step"; do
+		label="${step%|*}"
+		got="$(sed -n "s/^ *${label} \\.* *: //p" <<< "${out}")"
+		case "${got}" in "${step#*|}") got=on ;; "(skipped"*) got=off ;; esac
+		[[ "${got}" == "${want}" ]] || fFail "[${*:-no options}]: ${label,,} '${got:-none}', want ${want}"
+	done
 }
 
 fCaseCtu off

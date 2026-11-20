@@ -13,6 +13,7 @@
     <menuitem name="Pin" action="Pin File"/>
     <menuitem name="Unpin" action="Unpin File"/>
     <separator name="PinSeparator"/>
+    <menuitem name="Rename" action="Rename"/>
     <menuitem name="Trash" action="Trash"/>
     <menuitem name="Delete" action="Delete"/>
     <separator name="ActionSeparator"/>

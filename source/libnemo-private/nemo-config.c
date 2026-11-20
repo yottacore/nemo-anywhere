@@ -3070,6 +3070,21 @@ binding_object_gone (gpointer data, G_GNUC_UNUSED GObject *where_the_object_was)
 }
 
 void
+nemo_config_mark_control (gpointer object, NemoConfigGroup *group, const char *key)
+{
+	g_return_if_fail (G_IS_OBJECT (object));
+	g_return_if_fail (NEMO_IS_CONFIG_GROUP (group));
+
+	if (g_object_get_data (object, NEMO_CONFIG_BOUND_KEY) != NULL)
+		return;
+	g_object_set_data_full (object, NEMO_CONFIG_BOUND_KEY,
+	                        group->name != NULL && *group->name != '\0'
+	                        ? g_strdup_printf ("%s.%s", group->name, key)
+	                        : g_strdup (key),
+	                        g_free);
+}
+
+void
 nemo_config_bind_with_mapping (NemoConfigGroup      *group,
                                const char           *key,
                                gpointer              object,
@@ -3115,6 +3130,11 @@ nemo_config_bind_with_mapping (NemoConfigGroup      *group,
 	}
 
 	g_object_weak_ref (object, binding_object_gone, b);
+
+	/* A get-only binding is a side effect, such as sensitivity, not what the
+	   control edits. */
+	if (do_set)
+		nemo_config_mark_control (object, group, key);
 
 	if (do_get)
 		binding_sync_to_object (b);

@@ -49,6 +49,7 @@
 #include "nemo-plugin-manager.h"
 #include "nemo-prefs-current-folder.h"
 #include "nemo-prefs-file-cache.h"
+#include "nemo-settings-search.h"
 #include "nemo-template-config-widget.h"
 #include "nemo-actions.h"
 
@@ -1235,6 +1236,10 @@ nemo_file_management_properties_dialog_setup_appearance_page (GtkBuilder *builde
 			   (gpointer) NEMO_PREFERENCES_APPEARANCE_GTK_THEME);
 	g_object_set_data (G_OBJECT (icon_combo), APPEARANCE_KEY,
 			   (gpointer) NEMO_PREFERENCES_APPEARANCE_ICON_THEME);
+	nemo_config_mark_control (style_combo, nemo_appearance_preferences,
+				  NEMO_PREFERENCES_APPEARANCE_GTK_THEME);
+	nemo_config_mark_control (icon_combo, nemo_appearance_preferences,
+				  NEMO_PREFERENCES_APPEARANCE_ICON_THEME);
 	g_signal_connect (style_combo, "changed", G_CALLBACK (appearance_combo_changed), builder);
 	g_signal_connect (icon_combo, "changed", G_CALLBACK (appearance_combo_changed), builder);
 
@@ -1449,8 +1454,14 @@ size_dialog_to_longest_page (GtkBuilder *builder,
 	}
 	g_ptr_array_free (pages, TRUE);
 
-	/* The close bar is under every page, outside the scrolling. */
+	/* The close bar is under every page, and the search bar over them, both
+	   outside the scrolling. */
 	bar = GTK_WIDGET (gtk_builder_get_object (builder, "close_bar"));
+	if (bar != NULL) {
+		gtk_widget_get_preferred_size (bar, &wanted, NULL);
+		content_height += wanted.height + 1;
+	}
+	bar = GTK_WIDGET (gtk_builder_get_object (builder, "search_bar"));
 	if (bar != NULL) {
 		gtk_widget_get_preferred_size (bar, &wanted, NULL);
 		content_height += wanted.height + 1;
@@ -1846,6 +1857,7 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
 	}
 
 	nemo_prefs_current_folder_setup (builder, dialog, window);
+	nemo_settings_search_setup (builder);
 
 	show_scrollbars_when_needed (dialog, NULL);
 	size_dialog_to_longest_page (builder, dialog, window);

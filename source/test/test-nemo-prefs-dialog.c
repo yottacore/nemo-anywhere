@@ -29,7 +29,8 @@
  * Ctrl+Tab and Ctrl+Shift+Tab step through the list, sub-tabs included.
  * Sub-tabs are indented rows, and the parent and its showing sub-tab are both
  * lit. List columns has a sub-tab for each list. No page needs a scrollbar at
- * the size the window opens. The pages that build their own widgets are left
+ * the size the window opens. The search field sits over the pages, and goes
+ * to the setting picked. The pages that build their own widgets are left
  * empty here. */
 
 #include <config.h>
@@ -46,6 +47,8 @@
 #include <libnemo-private/nemo-tab-list.h>
 
 #include "nemo-file-management-properties.h"
+#include "nemo-settings-aliases.h"
+#include "nemo-settings-search.h"
 #include "nemo-plugin-manager.h"
 #include "nemo-prefs-current-folder.h"
 #include "nemo-prefs-file-cache.h"
@@ -784,6 +787,243 @@ test_rename_selects_grayed (GtkWidget *dialog)
 	check (!gtk_widget_get_sensitive (check_button));
 }
 
+/* The rows of the search's match list, as plain text. */
+static GPtrArray *
+match_rows (GtkWidget *dialog)
+{
+	GPtrArray *rows = g_ptr_array_new ();
+	GPtrArray *texts = g_ptr_array_new_with_free_func (g_free);
+	guint i;
+
+	collect_rows (find_named (dialog, "settings_search_results"), rows);
+	for (i = 0; i < rows->len; i++) {
+		GtkWidget *row = rows->pdata[i];
+
+		if (GTK_IS_LIST_BOX_ROW (row) && gtk_widget_get_visible (row)) {
+			g_ptr_array_add (texts, g_strdup (gtk_label_get_text (GTK_LABEL (gtk_bin_get_child (GTK_BIN (row))))));
+		}
+	}
+	g_ptr_array_free (rows, TRUE);
+
+	return texts;
+}
+
+/* 2026111912460963: a search field over the pages, outside the scrolling.
+   Matches as typed come first, each with its path and the matched letters
+   marked. Enter goes to the first, Escape empties the field before it closes
+   anything, Ctrl+F goes to the field, and picking a tab leaves the search. */
+static void
+test_search (GtkWidget *dialog)
+{
+	GtkWidget *entry = find_named (dialog, "settings_search_entry");
+	GtkWidget *results = find_named (dialog, "settings_search_scroll");
+	GtkWidget *stack = find_named (dialog, "page_stack");
+	GtkWidget *sidebar = find_named (dialog, "page_sidebar");
+	GtkWidget *reverse = find_named (dialog, "reverse_sort_checkbox");
+	GtkListBoxRow *first;
+	GPtrArray *texts;
+	GtkAllocation entry_at, stack_at;
+
+	check (entry != NULL && results != NULL && stack != NULL && reverse != NULL);
+	if (entry == NULL || results == NULL || stack == NULL || reverse == NULL) {
+		return;
+	}
+
+	check (gtk_widget_get_ancestor (entry, GTK_TYPE_SCROLLED_WINDOW) == NULL);
+	gtk_widget_get_allocation (entry, &entry_at);
+	gtk_widget_get_allocation (stack, &stack_at);
+	check (entry_at.y + entry_at.height <= stack_at.y);
+	check (!gtk_widget_get_visible (results));
+
+	gtk_entry_set_text (GTK_ENTRY (entry), "reverse sort");
+	settle ();
+	check (gtk_widget_get_visible (results));
+	check (!gtk_widget_get_visible (stack));
+	texts = match_rows (dialog);
+	check (texts->len >= 2);
+	if (texts->len >= 2) {
+		g_print ("first match: %s\n", (char *) texts->pdata[0]);
+		check (strcmp (texts->pdata[0], "Views \xe2\x8f\xb5 Default \xe2\x8f\xb5 View \xe2\x8f\xb5 Reverse sort") == 0);
+		check (g_str_has_prefix (texts->pdata[1], "Views \xe2\x8f\xb5 Current"));
+	}
+	g_ptr_array_free (texts, TRUE);
+
+	first = gtk_list_box_get_row_at_index (GTK_LIST_BOX (find_named (dialog, "settings_search_results")), 0);
+	check (first != NULL);
+	if (first != NULL) {
+		const char *markup = gtk_label_get_label (GTK_LABEL (gtk_bin_get_child (GTK_BIN (first))));
+
+		check (strstr (markup, "weight=\"bold\" size=\"larger\"") != NULL);
+		check (strstr (markup, ">Reverse sort</span>") != NULL);
+	}
+
+	/* Matched as typed, then loosely. */
+	gtk_entry_set_text (GTK_ENTRY (entry), "rvrs srt");
+	settle ();
+	texts = match_rows (dialog);
+	check (texts->len >= 1);
+	if (texts->len >= 1) {
+		check (g_str_has_suffix (texts->pdata[0], "Reverse sort"));
+	}
+	g_ptr_array_free (texts, TRUE);
+
+	gtk_entry_set_text (GTK_ENTRY (entry), "zqxjzqxj");
+	settle ();
+	texts = match_rows (dialog);
+	check (texts->len == 0);
+	g_ptr_array_free (texts, TRUE);
+
+	/* Enter goes to the first match, and leaves the search. */
+	click_row (sidebar, "Advanced");
+	gtk_entry_set_text (GTK_ENTRY (entry), "reverse sort");
+	settle ();
+	g_signal_emit_by_name (entry, "activate");
+	settle ();
+	check (*gtk_entry_get_text (GTK_ENTRY (entry)) == '\0');
+	check (gtk_widget_get_visible (stack));
+	check (!gtk_widget_get_visible (results));
+	check_showing (stack, "views/views-default");
+	check (gtk_window_get_focus (GTK_WINDOW (dialog)) == reverse);
+	check (gtk_style_context_has_class (gtk_widget_get_style_context (reverse), "nemo-settings-found"));
+
+	/* A click on a match does the same. */
+	gtk_entry_set_text (GTK_ENTRY (entry), "reverse sort");
+	settle ();
+	{
+		GtkWidget *box = find_named (dialog, "settings_search_results");
+		GtkListBoxRow *second = gtk_list_box_get_row_at_index (GTK_LIST_BOX (box), 1);
+
+		check (second != NULL);
+		if (second != NULL) {
+			g_signal_emit_by_name (box, "row-activated", second);
+			settle ();
+			check (*gtk_entry_get_text (GTK_ENTRY (entry)) == '\0');
+			check (!gtk_widget_get_visible (results));
+			check_showing (stack, "views/views-current");
+		}
+	}
+
+	/* Picking a tab leaves the search too. */
+	gtk_entry_set_text (GTK_ENTRY (entry), "trash");
+	settle ();
+	click_row (sidebar, "Behavior");
+	check (*gtk_entry_get_text (GTK_ENTRY (entry)) == '\0');
+	check (gtk_widget_get_visible (stack));
+	check (!gtk_widget_get_visible (results));
+
+	send_key (dialog, GDK_KEY_f, GDK_CONTROL_MASK);
+	check (gtk_window_get_focus (GTK_WINDOW (dialog)) == entry);
+
+	/* The first Escape only empties the field. */
+	g_object_add_weak_pointer (G_OBJECT (dialog), (gpointer *) &dialog);
+	gtk_entry_set_text (GTK_ENTRY (entry), "trash");
+	settle ();
+	check (send_key (dialog, GDK_KEY_Escape, 0));
+	check (dialog != NULL);
+	if (dialog != NULL) {
+		check (*gtk_entry_get_text (GTK_ENTRY (entry)) == '\0');
+		check (gtk_widget_get_visible (stack));
+		g_object_remove_weak_pointer (G_OBJECT (dialog), (gpointer *) &dialog);
+	}
+}
+
+static GtkWidget *
+find_bound (GtkWidget *widget, const char *key)
+{
+	GList *children, *l;
+	GtkWidget *found = NULL;
+
+	if (g_strcmp0 (g_object_get_data (G_OBJECT (widget), NEMO_CONFIG_BOUND_KEY), key) == 0) {
+		return widget;
+	}
+	if (!GTK_IS_CONTAINER (widget)) {
+		return NULL;
+	}
+	children = gtk_container_get_children (GTK_CONTAINER (widget));
+	for (l = children; l != NULL && found == NULL; l = l->next) {
+		found = find_bound (l->data, key);
+	}
+	g_list_free (children);
+
+	return found;
+}
+
+/* On a page this platform shows. */
+static gboolean
+shown_under (GtkWidget *widget, GtkWidget *top)
+{
+	for (; widget != NULL && widget != top; widget = gtk_widget_get_parent (widget)) {
+		if (!gtk_widget_get_visible (widget)) {
+			return FALSE;
+		}
+	}
+	return widget == top;
+}
+
+/* 2026111912460983: every setting with aliases in the schema has a control
+   the search finds, and gets them once. An alias typed lists its setting with
+   the alias after the label. */
+static void
+test_search_aliases (GtkWidget *dialog)
+{
+	GtkWidget *entry = find_named (dialog, "settings_search_entry");
+	GtkWidget *stack = find_named (dialog, "page_stack");
+	GPtrArray *entries, *texts;
+	guint i, j;
+
+	check (entry != NULL && stack != NULL);
+	if (entry == NULL || stack == NULL) {
+		return;
+	}
+
+	entries = nemo_settings_search_collect (stack);
+	for (i = 0; settings_aliases[i].key != NULL; i++) {
+		const char *key = settings_aliases[i].key;
+		GtkWidget *control;
+		guint given = 0;
+
+		/* Its page is stubbed out above. */
+		if (g_str_has_prefix (key, "file-cache.")) {
+			continue;
+		}
+		control = find_bound (dialog, key);
+		if (control == NULL) {
+			g_printerr ("%s has aliases and no control\n", key);
+			check (control != NULL);
+			continue;
+		}
+		if (!shown_under (control, stack)) {
+			continue;
+		}
+		for (j = 0; j < entries->len; j++) {
+			NemoSettingsEntry *e = entries->pdata[j];
+
+			if (e->aliases != NULL &&
+			    g_strcmp0 (g_object_get_data (G_OBJECT (e->target), NEMO_CONFIG_BOUND_KEY), key) == 0) {
+				given++;
+				check (g_strv_equal ((const char *const *) e->aliases, settings_aliases[i].aliases));
+			}
+		}
+		if (given != 1) {
+			g_printerr ("%s's aliases are on %u entries\n", key, given);
+		}
+		check (given == 1);
+	}
+	g_ptr_array_free (entries, TRUE);
+
+	gtk_entry_set_text (GTK_ENTRY (entry), "zebra stripes");
+	settle ();
+	texts = match_rows (dialog);
+	check (texts->len >= 1);
+	if (texts->len >= 1) {
+		g_print ("alias match: %s\n", (char *) texts->pdata[0]);
+		check (g_str_has_suffix (texts->pdata[0], " (zebra stripes)"));
+	}
+	g_ptr_array_free (texts, TRUE);
+	gtk_entry_set_text (GTK_ENTRY (entry), "");
+	settle ();
+}
+
 static void
 test_escape_closes (GtkWidget *dialog)
 {
@@ -878,6 +1118,8 @@ main (int argc, char *argv[])
 		test_bulk_rename (dialog);
 		test_selection_model (dialog);
 		test_rename_selects_grayed (dialog);
+		test_search (dialog);
+		test_search_aliases (dialog);
 		test_escape_closes (dialog);
 	}
 

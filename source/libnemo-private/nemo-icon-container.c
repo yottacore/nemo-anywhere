@@ -32,6 +32,7 @@
 #include "nemo-file.h"
 #include "nemo-file-utilities.h"
 #include "nemo-directory.h"
+#include "nemo-affirmative.h"
 #include "nemo-global-preferences.h"
 #include "nemo-icon-private.h"
 #include "nemo-lib-self-check-functions.h"
@@ -109,9 +110,11 @@ typedef struct {
 static GType         nemo_icon_container_accessible_get_type (void);
 
 static void          preview_selected_items                         (NemoIconContainer *container);
-static void          activate_selected_items                        (NemoIconContainer *container);
+static void          activate_selected_items                        (NemoIconContainer *container,
+								     gboolean           by_key);
 static void          activate_selected_items_alternate              (NemoIconContainer *container,
-								     NemoIcon          *icon);
+								     NemoIcon          *icon,
+								     gboolean           by_key);
 static void          compute_stretch                                (StretchState          *start,
 								     StretchState          *current);
 static NemoIcon *get_first_selected_icon                        (NemoIconContainer *container);
@@ -164,6 +167,8 @@ static gboolean bands_flip (void);
 static gboolean keys_from_range_ends (void);
 static gboolean band_end_takes_focus (void);
 static gboolean ctrl_click_sets_anchor (void);
+static gboolean ctrl_band_adds (void);
+static gboolean shift_click_on_release (void);
 
 static gpointer accessible_parent_class;
 
@@ -395,6 +400,7 @@ icon_set_selected (NemoIconContainer *container,
 		   NemoIcon *icon,
 		   gboolean select)
 {
+	g_assert (icon != NULL);
 	g_assert (select == FALSE || select == TRUE);
 	g_assert (icon->is_selected == FALSE || icon->is_selected == TRUE);
 
@@ -770,8 +776,8 @@ get_icon_bounds_for_canvas_bounds (EelCanvasGroup *group,
 	/* If there were no visible items, return an empty bounding box */
 
 	if (!set) {
-		*x1 = *y1 = *x2 = *y2 = 0.0;
-		return;
+		minx = miny = maxx = maxy = 0.0;
+		goto out;
 	}
 
 	/* Now we can grow the bounds using the rest of the items */
@@ -823,6 +829,7 @@ get_icon_bounds_for_canvas_bounds (EelCanvasGroup *group,
 		maxy += group->ypos;
 	}
 
+out:
 	if (x1 != NULL) {
 		*x1 = minx;
 	}
@@ -1467,19 +1474,31 @@ rubberband_timeout_callback (gpointer data)
 	return TRUE;
 }
 
+/* What a band that adds puts back. */
+static void
+note_selection (NemoIconContainer *container)
+{
+	GList *p;
+
+	for (p = container->details->icons; p != NULL; p = p->next) {
+		NemoIcon *icon = p->data;
+
+		icon->was_selected_before_rubberband = icon->is_selected;
+	}
+}
+
 static void
 start_rubberbanding (NemoIconContainer *container,
 		     double x,
 		     double y,
 		     guint button,
-		     guint32 time)
+		     guint32 time,
+		     gboolean noted)
 {
 	AtkObject *accessible;
 	NemoIconContainerDetails *details;
 	NemoIconRubberbandInfo *band_info;
 	GdkRGBA bg_color, border_color;
-	GList *p;
-	NemoIcon *icon;
 	GtkStyleContext *context;
 
 	details = container->details;
@@ -1488,9 +1507,8 @@ start_rubberbanding (NemoIconContainer *container,
 	g_signal_emit (container,
 		       signals[BAND_SELECT_STARTED], 0);
 
-	for (p = details->icons; p != NULL; p = p->next) {
-		icon = p->data;
-		icon->was_selected_before_rubberband = icon->is_selected;
+	if (!noted) {
+		note_selection (container);
 	}
 
 	eel_canvas_window_to_world
@@ -2852,6 +2870,14 @@ keyboard_up (NemoIconContainer *container,
 			    closest_in_90_degrees);
 }
 
+/* The space key's checkmark rules go here (2026102019174514). Until then it
+   previews, as with the switch off. */
+static void
+space_checkmarks (NemoIconContainer *container)
+{
+	preview_selected_items (container);
+}
+
 static void
 keyboard_space (NemoIconContainer *container,
 		GdkEventKey *event)
@@ -2888,7 +2914,9 @@ keyboard_space (NemoIconContainer *container,
 			}
 		}
 	} else if ((event->state & GDK_SHIFT_MASK) != 0) {
-		activate_selected_items_alternate (container, NULL);
+		activate_selected_items_alternate (container, NULL, TRUE);
+	} else if (nemo_affirmative_at (NEMO_AFFIRM_SPACE)) {
+		space_checkmarks (container);
 	} else {
 		preview_selected_items (container);
 	}
@@ -3272,6 +3300,14 @@ button_press_event (GtkWidget *widget,
 		return TRUE;
 	}
 
+	/* The press can change the selection, as a Ctrl+Shift run does, so a
+	   band that adds starts from what was there before it. */
+	container->details->band_noted = ctrl_band_adds () &&
+		(event->state & eel_gtk_primary_mask (event->window)) != 0;
+	if (container->details->band_noted) {
+		note_selection (container);
+	}
+
 	/* Invoke the canvas event handler and see if an item picks up the event. */
 	clicked_on_item = GTK_WIDGET_CLASS (nemo_icon_container_parent_class)->button_press_event (widget, event);
 
@@ -3319,7 +3355,7 @@ button_press_event (GtkWidget *widget,
 			}
 		}
 
-		start_rubberbanding (container, event->x, event->y, event->button, event->time);
+		start_rubberbanding (container, event->x, event->y, event->button, event->time, FALSE);
 		eel_menu_press_hold (&container->details->menu_press, widget, event,
 				     event->x, event->y, long_press_menu, NULL);
 		container->details->menu_on_icon = FALSE;
@@ -3349,7 +3385,11 @@ button_press_event (GtkWidget *widget,
 		if (selection_changed) {
 			g_signal_emit (container, signals[SELECTION_CHANGED], 0);
 		}
-		wait_for_band (container, event->button, event->x, event->y, FALSE);
+		/* With Ctrl the band puts the selection back once it moves, so a
+		   click still clears it. */
+		wait_for_band (container, event->button, event->x, event->y,
+			       ctrl_band_adds () &&
+			       (event->state & eel_gtk_primary_mask (event->window)) != 0);
 		eel_menu_press_begin (&container->details->menu_press, event->button,
 				      event->x, event->y);
 		container->details->menu_on_icon = FALSE;
@@ -3376,12 +3416,18 @@ nemo_icon_container_did_not_drag (NemoIconContainer *container,
 
 	details = container->details;
 
-	/* Nemo Anywhere's Ctrl+Shift+click press already added the run, which
-	   has this icon in it. */
-	if (details->icon_selected_on_button_down &&
+	if (details->icon_selected_on_button_down && shift_click_on_release () &&
+	    (event->state & GDK_SHIFT_MASK) != 0) {
+		/* Windows' right button drags too, but never picks a run. */
+		if ((event->button == DRAG_BUTTON || event->button == MIDDLE_BUTTON) &&
+		    select_range (container, shift_run_anchor (container, details->drag_icon),
+				  details->drag_icon,
+				  (event->state & eel_gtk_primary_mask (event->window)) == 0)) {
+			g_signal_emit (container, signals[SELECTION_CHANGED], 0);
+		}
+	} else if (details->icon_selected_on_button_down &&
 	    ((event->state & eel_gtk_primary_mask (event->window)) != 0 ||
-	     (event->state & GDK_SHIFT_MASK) == 0) &&
-	    !(ctrl_click_sets_anchor () && (event->state & GDK_SHIFT_MASK) != 0)) {
+	     (event->state & GDK_SHIFT_MASK) == 0)) {
 		if (button_event_modifies_selection (event)) {
 			details->range_selection_base_icon =
 				ctrl_click_sets_anchor () ? details->drag_icon : NULL;
@@ -3435,9 +3481,9 @@ nemo_icon_container_did_not_drag (NemoIconContainer *container,
 			 * much more link-like.
 			 */
 			if (event->button == MIDDLE_BUTTON) {
-				activate_selected_items_alternate (container, NULL);
+				activate_selected_items_alternate (container, NULL, FALSE);
 			} else {
-				activate_selected_items (container);
+				activate_selected_items (container, FALSE);
 			}
 		}
 	}
@@ -3858,7 +3904,7 @@ motion_notify_event (GtkWidget *widget,
 			g_signal_emit (container, signals[SELECTION_CHANGED], 0);
 		}
 		start_rubberbanding (container, details->band_press_x, details->band_press_y,
-				     button, event->time);
+				     button, event->time, details->band_keep && details->band_noted);
 	}
 
 	if (details->drag_button != 0) {
@@ -4069,7 +4115,7 @@ nemo_icon_container_search_activate (G_GNUC_UNUSED GtkEntry *entry,
 	nemo_icon_container_search_dialog_hide (container->details->search_window,
 						    container);
 
-	activate_selected_items (container);
+	activate_selected_items (container, FALSE);
 }
 
 static gboolean
@@ -4293,7 +4339,7 @@ nemo_icon_container_search_key_press_event (GtkWidget *widget,
 		nemo_icon_container_search_dialog_hide (widget,
 							    container);
 
-		activate_selected_items_alternate (container, NULL);
+		activate_selected_items_alternate (container, NULL, FALSE);
 		return TRUE;
 	}
 
@@ -4574,9 +4620,9 @@ key_press_event (GtkWidget *widget,
 		case GDK_KEY_Return:
 		case GDK_KEY_KP_Enter:
 			if ((event->state & GDK_SHIFT_MASK) != 0) {
-				activate_selected_items_alternate (container, NULL);
+				activate_selected_items_alternate (container, NULL, TRUE);
 			} else {
-				activate_selected_items (container);
+				activate_selected_items (container, TRUE);
 			}
 
 			handled = TRUE;
@@ -5323,11 +5369,11 @@ handle_icon_double_click (NemoIconContainer *container,
 	    details->double_click_icon[0] == details->double_click_icon[1] &&
 	    details->double_click_button[0] == details->double_click_button[1]) {
 		if (!button_event_modifies_selection (event)) {
-			activate_selected_items (container);
+			activate_selected_items (container, FALSE);
 			return TRUE;
 		} else if ((event->state & eel_gtk_primary_mask (event->window)) == 0 &&
 			   (event->state & GDK_SHIFT_MASK) != 0) {
-			activate_selected_items_alternate (container, icon);
+			activate_selected_items_alternate (container, icon, FALSE);
 			return TRUE;
 		}
 	}
@@ -5465,8 +5511,11 @@ handle_icon_button_press (NemoIconContainer *container,
     details->skip_rename_on_release = g_list_length (sel) > 1;
     g_list_free (sel);
 
+	/* Nemo Anywhere's Shift or Ctrl+Shift click on a selected icon picks the
+	   run on the release, so a drag takes the selection as it was. */
 	if ((event->button == DRAG_BUTTON || event->button == MIDDLE_BUTTON) &&
-	    (event->state & GDK_SHIFT_MASK) != 0) {
+	    (event->state & GDK_SHIFT_MASK) != 0 &&
+	    !(shift_click_on_release () && details->icon_selected_on_button_down)) {
 		NemoIcon *start_icon = shift_run_anchor (container, icon);
 
 		if (select_range (container, start_icon, icon,
@@ -5516,7 +5565,9 @@ handle_icon_button_press (NemoIconContainer *container,
 
 		clear_drag_state (container);
 		eel_canvas_world_to_window (EEL_CANVAS (container), event->x, event->y, &x, &y);
-		wait_for_band (container, event->button, x, y, FALSE);
+		wait_for_band (container, event->button, x, y,
+			       ctrl_band_adds () &&
+			       (event->state & eel_gtk_primary_mask (event->window)) != 0);
 		eel_menu_press_begin (&details->menu_press, event->button, x, y);
 		details->menu_on_icon = TRUE;
 	}
@@ -5732,7 +5783,7 @@ classic_button_press_event (GtkWidget *widget,
 			}
 		}
 
-		start_rubberbanding (container, event->x, event->y, event->button, event->time);
+		start_rubberbanding (container, event->x, event->y, event->button, event->time, FALSE);
 		return TRUE;
 	}
 
@@ -5918,6 +5969,14 @@ typedef struct {
 	   selected. A Ctrl+Shift+click on a selected icon keeps it. v1's clears
 	   the anchor, starts a run over from the icon clicked, and takes it out. */
 	gboolean ctrl_click_sets_anchor;
+	/* A Shift or Ctrl+Shift click on a selected icon picks its run on the
+	   release, so a drag from there takes the selection as it was. v1's
+	   picks it on the press. */
+	gboolean shift_click_on_release;
+	/* Every mouse band with Ctrl held adds to what was selected before the
+	   press, the right button's too. v1's right band replaces, and its
+	   Ctrl+Shift band keeps the run its press added. */
+	gboolean ctrl_band_adds;
 } ContainerRules;
 
 static const ContainerRules rules_anywhere_v1 = {
@@ -5955,6 +6014,8 @@ static const ContainerRules rules_anywhere = {
 	.keys_from_range_ends = TRUE,
 	.band_end_takes_focus = TRUE,
 	.ctrl_click_sets_anchor = TRUE,
+	.ctrl_band_adds = TRUE,
+	.shift_click_on_release = TRUE,
 };
 
 static const ContainerRules *
@@ -5975,6 +6036,18 @@ static gboolean
 bands_flip (void)
 {
 	return container_rules ()->band_flips;
+}
+
+static gboolean
+ctrl_band_adds (void)
+{
+	return container_rules ()->ctrl_band_adds;
+}
+
+static gboolean
+shift_click_on_release (void)
+{
+	return container_rules ()->shift_click_on_release;
 }
 
 static gboolean
@@ -6358,22 +6431,35 @@ icon_destroy (NemoIconContainer *container,
 	}
 }
 
-/* activate any selected items in the container */
+/* Enter and the other keys open what a command would act on, which the view
+   picks. A click opens what it just selected, the icon under the pointer.
+   Returns: (transfer full): free with nemo_file_list_free */
+static GList *
+items_to_activate (NemoIconContainer *container, gboolean by_key)
+{
+	NemoIconContainerClass *klass = NEMO_ICON_CONTAINER_GET_CLASS (container);
+
+	if (by_key && klass->get_acted_on != NULL) {
+		return klass->get_acted_on (container);
+	}
+	return nemo_file_list_ref (nemo_icon_container_get_selection (container));
+}
+
 static void
-activate_selected_items (NemoIconContainer *container)
+activate_selected_items (NemoIconContainer *container, gboolean by_key)
 {
 	GList *selection;
 
 	g_return_if_fail (NEMO_IS_ICON_CONTAINER (container));
 
-	selection = nemo_icon_container_get_selection (container);
+	selection = items_to_activate (container, by_key);
 	if (selection != NULL) {
 	  	g_signal_emit (container,
 				 signals[ACTIVATE], 0,
 				 selection);
 	}
 
-    g_list_free (selection);
+	nemo_file_list_free (selection);
 }
 
 static void
@@ -6410,23 +6496,24 @@ preview_selected_items (NemoIconContainer *container)
 
 static void
 activate_selected_items_alternate (NemoIconContainer *container,
-				   NemoIcon *icon)
+				   NemoIcon *icon,
+				   gboolean by_key)
 {
 	GList *selection;
 
 	g_assert (NEMO_IS_ICON_CONTAINER (container));
 
 	if (icon != NULL) {
-		selection = g_list_prepend (NULL, icon->data);
+		selection = nemo_file_list_ref (g_list_prepend (NULL, icon->data));
 	} else {
-		selection = nemo_icon_container_get_selection (container);
+		selection = items_to_activate (container, by_key);
 	}
 	if (selection != NULL) {
 	  	g_signal_emit (container,
 				 signals[ACTIVATE_ALTERNATE], 0,
 				 selection);
 	}
-	g_list_free (selection);
+	nemo_file_list_free (selection);
 }
 
 /* Returns: (transfer full): unref with nemo_icon_info_unref */

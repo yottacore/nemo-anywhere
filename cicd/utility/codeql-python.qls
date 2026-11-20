@@ -1,0 +1,16 @@
+# The Python queries codeql.bash runs, with the alert suppression query. Style
+# queries are left out unless they're about correctness or security too.
+- description: Nemo Anywhere Python queries
+- import: codeql-suites/python-security-and-quality.qls
+  from: codeql/python-queries
+- query: AlertSuppression.ql
+  from: codeql/python-queries
+- exclude:
+    tags contain:
+      - maintainability
+      - readability
+      - documentation
+- include:
+    tags contain:
+      - correctness
+      - security

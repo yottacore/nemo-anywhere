@@ -61,6 +61,7 @@
 
 #include "nemo-file-changes-queue.h"
 #include "nemo-file-private.h"
+#include "nemo-affirmative.h"
 #include "nemo-global-preferences.h"
 #include "nemo-link.h"
 #include "nemo-desktop-utils.h"
@@ -1788,6 +1789,14 @@ delete_note (CommonJob *job, GList *files, const char *secondary, const char *li
 	return note;
 }
 
+/* The alert that the checked items it will act on differ from the selection
+   goes here (2026102019174514). With the switch off there's none. */
+static char *
+lists_differ_alert (char *prompt)
+{
+	return prompt;
+}
+
 static gboolean
 confirm_move_to_trash (CommonJob *job,
 			   GList *files)
@@ -1808,13 +1817,13 @@ confirm_move_to_trash (CommonJob *job,
         prompt = f (_("Are you sure you want to move \"%B\" "
                       "to the trash?"), files->data);
     } else {
-        /* translators: the singular form here can be skipped. */
-        prompt = f (ngettext("unused %'d",
-                             "Are you sure you want to move "
-                             "the %'d selected items to the trash?",
-                             file_count),
+        prompt = f (nemo_affirmative_counted (NEMO_AFFIRM_COUNTED_TRASH, file_count),
                     file_count);
     }
+
+	if (nemo_affirmative_at (NEMO_AFFIRM_LISTS_DIFFER)) {
+		prompt = lists_differ_alert (prompt);
+	}
 
 	response = run_warning (job,
 				prompt,
@@ -1881,12 +1890,12 @@ confirm_delete_from_trash (CommonJob *job,
 		prompt = f (_("Are you sure you want to permanently delete \"%B\" "
 					    "from the trash?"), files->data);
 	} else {
-		prompt = f (ngettext("Are you sure you want to permanently delete "
-				     "the %'d selected item from the trash?",
-				     "Are you sure you want to permanently delete "
-				     "the %'d selected items from the trash?",
-				     file_count),
+		prompt = f (nemo_affirmative_counted (NEMO_AFFIRM_COUNTED_DELETE_FROM_TRASH, file_count),
 			    file_count);
+	}
+
+	if (nemo_affirmative_at (NEMO_AFFIRM_LISTS_DIFFER)) {
+		prompt = lists_differ_alert (prompt);
 	}
 
 	response = run_warning (job,
@@ -1947,11 +1956,12 @@ confirm_delete_directly (CommonJob *job,
 		prompt = f (_("Are you sure you want to permanently delete \"%B\"?"),
 			    files->data);
 	} else {
-		prompt = f (ngettext("Are you sure you want to permanently delete "
-				     "the %'d selected item?",
-				     "Are you sure you want to permanently delete "
-				     "the %'d selected items?", file_count),
+		prompt = f (nemo_affirmative_counted (NEMO_AFFIRM_COUNTED_DELETE, file_count),
 			    file_count);
+	}
+
+	if (nemo_affirmative_at (NEMO_AFFIRM_LISTS_DIFFER)) {
+		prompt = lists_differ_alert (prompt);
 	}
 
 	response = run_warning (job,

@@ -381,6 +381,46 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
         <property name="can-focus">False</property>
         <property name="orientation">vertical</property>
         <child>
+          <object class="GtkBox" id="search_bar">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="margin-start">8</property>
+            <property name="margin-end">8</property>
+            <property name="margin-top">8</property>
+            <property name="margin-bottom">8</property>
+            <child>
+              <object class="GtkSearchEntry" id="settings_search_entry">
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="width-chars">40</property>
+                <property name="primary-icon-name">edit-find-symbolic</property>
+                <property name="placeholder-text" translatable="yes">Search settings</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkSeparator">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+        <child>
           <object class="GtkBox">
             <property name="visible">True</property>
             <property name="can-focus">False</property>
@@ -2592,6 +2632,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                                     <property name="visible">True</property>
                                                     <property name="can-focus">False</property>
                                                     <property name="label" translatable="yes">Command to invoke when renaming multiple items:</property>
+                                                    <property name="mnemonic-widget">bulk_rename_entry</property>
                                                     <property name="xalign">0</property>
                                                   </object>
                                                   <packing>
@@ -2679,6 +2720,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                                     <property name="visible">True</property>
                                                     <property name="can-focus">False</property>
                                                     <property name="label" translatable="yes">Command to open a terminal:</property>
+                                                    <property name="mnemonic-widget">terminal_exec_entry</property>
                                                     <property name="tooltip-text" translatable="yes">If empty, uses your default terminal.</property>
                                                     <property name="xalign">0</property>
                                                   </object>
@@ -6472,11 +6514,31 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                 <property name="position">2</property>
               </packing>
             </child>
+            <child>
+              <object class="GtkScrolledWindow" id="settings_search_scroll">
+                <property name="visible">False</property>
+                <property name="can-focus">False</property>
+                <property name="hscrollbar-policy">never</property>
+                <property name="border-width">6</property>
+                <child>
+                  <object class="GtkListBox" id="settings_search_results">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="name">nemo-settings-search-results</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">3</property>
+              </packing>
+            </child>
           </object>
           <packing>
             <property name="expand">True</property>
             <property name="fill">True</property>
-            <property name="position">0</property>
+            <property name="position">2</property>
           </packing>
         </child>
         <child>
@@ -6487,7 +6549,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
           <packing>
             <property name="expand">False</property>
             <property name="fill">True</property>
-            <property name="position">1</property>
+            <property name="position">3</property>
           </packing>
         </child>
         <child>
@@ -6518,7 +6580,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
           <packing>
             <property name="expand">False</property>
             <property name="fill">True</property>
-            <property name="position">2</property>
+            <property name="position">4</property>
           </packing>
         </child>
       </object>

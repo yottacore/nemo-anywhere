@@ -500,6 +500,14 @@ def count(logs: dict[str, str], inherited: set[str], supp: dict[SuppKey, str] | 
     return table, failed, sorted(set(supp) - used), sorted(left), listed
 
 
+# The baseline commit has upstream 6.6.4 under original/, moved to source/ right after.
+def inherited_files(root: str) -> set[str]:
+    base = subprocess.run(["git", "-C", root, "rev-list", "--max-parents=0", "HEAD"], check=True,
+                          capture_output=True, text=True).stdout.split()[-1]
+    return {re.sub(r"^original/", "source/", f) for f in subprocess.run(
+        ["git", "-C", root, "ls-tree", "-r", "--name-only", base], check=True, capture_output=True, text=True).stdout.split()}
+
+
 def cmd_count(args: list[str]) -> int:
     supp_file, no_stale = None, False
     while args and args[0] in ("--supp", "--no-stale"):
@@ -508,11 +516,7 @@ def cmd_count(args: list[str]) -> int:
         else:
             no_stale, args = True, args[1:]
     root, paths = args[0], args[1:]
-    base = subprocess.run(["git", "-C", root, "rev-list", "--max-parents=0", "HEAD"], check=True,
-                          capture_output=True, text=True).stdout.split()[-1]
-    # The baseline commit has upstream 6.6.4 under original/, moved to source/ right after.
-    inherited = {re.sub(r"^original/", "source/", f) for f in subprocess.run(
-        ["git", "-C", root, "ls-tree", "-r", "--name-only", base], check=True, capture_output=True, text=True).stdout.split()}
+    inherited = inherited_files(root)
     supp_file = supp_file or os.path.join(root, SUPP_FILE)
     with open(supp_file, encoding="utf-8") as f:
         supp, problems = parse_supp(f.read())
