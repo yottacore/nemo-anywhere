@@ -263,6 +263,7 @@ run_job (GtkWidget *window, gboolean is_move, const char *from,
 
 		sources = g_list_append (sources, g_file_new_for_path (path));
 	}
+	g_assert_nonnull (sources);
 
 	script = answers;
 	answered = 0;

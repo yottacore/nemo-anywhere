@@ -686,12 +686,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de8eq, and de8en for the count it then fails on.
 	- Progress log:
 		- 20261110: first whole-tree counts: Linux 55 (6 ours, 7 tests, 42 inherited), Windows 67 (7 ours, 17 tests, 43 inherited), 0 cut off, 861 s for both lanes. The report-only branch in analyze.bash takes any non-zero exit from count as findings, so a crash of count passed too. Making findings fail closes that.
-		- 20261110: split into children: `2026111022134952` (ours and tests, and the cause of most of the counts), Done, and `2026111022135419` (inherited, then they fail the run), Queued.
+		- 20261110: split into children: `2026111022134952` (ours and tests, and the cause of most of the counts), Done, and `2026111022135419` (inherited, then they fail the run), Waiting on automated testing.
 
 - Static analyzers: the cross-file clang findings in inherited code fixed or suppressed, then they fail the run.
 	- ID: 2026111022135419
 	- Type: Task
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: `cicd/utility/analyze.bash --ctu` alone, both lanes, about 13 min. It should end with no finding and no file cut off. Only the files the 14 findings came through were rerun across files.
 	- Priority|Severity: Avg
 	- Opened: 20261110-221354
 	- Opened by: 2026110920251244
@@ -703,10 +704,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Every finding the cross-file run has in inherited code, and in vendored code, in either lane, is fixed, or suppressed at the line with a one-line reason, or for vendored code in `analyze-vendored.txt`.
 		- Then a finding left, or a file cut off at the cap, fails the step, as in the per-file stage.
 	- Estimated effort: Avg
-	- Test case: de8eq, and de8en for the count it then fails on.
+	- Test case: de8eq, and de8en for the count it then fails on. dfhbg for the icon bounds crash.
 	- Notes:
 		- 20261110: after `...4952`, 14 unique findings are left across both lanes: `arc-path-list.c:162` (ours, moved here, since archive-core doesn't use eel), `eel-gtk-extensions.c:267`, `nemo-directory-async.c:5037`, `nemo-file-operations.c:5783` and `:6413`, `nemo-file-undo-manager.c:177`, `nemo-icon-container.c:399`, `:773` and `:9119`, `nemo-search-engine-advanced.c:923`, `nemo-tree-view-drag-dest.c:427`, `nemo-icon-view-container.c:1360`, `nemo-icon-view-grid-container.c:768` and `nemo-query-editor.c:609`. No vendored ones, and none cut off.
 		- A few files can be rerun across files without the whole 13 min run with private `tools/analyze-ctu-files.py`.
+	- Progress log:
+		- 20261119: 4 of the 14 were real bugs in inherited code. A manual layout view with no icon shown yet wrote its empty bounds through the NULLs it was handed, which crashed. A failed undo read an unset `user_cancel`. A drop on the trash, or of a launcher, with only copy offered returned an unset action from the tree's drag code, the one caller that didn't zero it first. A geometry string that didn't parse passed unset numbers on.
+		- The rest were false: a list or pointer that is never NULL there, a helper process that always has a stdout pipe, and archive-core's slots, which start zeroed.
+	- Decisions:
+		- The false ones get an assert where the invariant lives rather than a skip at the reported line, which is in a function many callers share, so a skip there would hide a real one later. `set_query_editor_visible` asserts the editor as `ensure_query_editor` already does. Each `move_icon` and `icon_set_selected` assert the icon. The search file asserts its display name, since the NULL case of `set_display_name` reaches for a directory that can be unset there.
+		- The copy and move findings came through the test's empty file list, so the test asserts its list instead of the file operations growing a guard.
+		- `arc-path-list.c` gets its own clang skip macro, as archive-core can't use eel.
+		- A load with no stdout stream frees the helper run, though GLib always gives one with a pipe asked for.
+		- `nemo_drag_default_drop_action_for_icons` zeroes the action itself, so no caller can get an unset one. The other 3 callers already zeroed it.
+	- Swept: every caller of `nemo_drag_default_drop_action_for_icons` (window slot, icon view, places sidebar, tree), of `nemo_file_undo_info_apply_finish` (the manager and 2 tests), and of `nemo_icon_container_get_all_icon_bounds`. `eel_canvas_group_bounds` has the same empty-box line, but it's a canvas bounds vfunc whose callers always pass all 4. The 3 `move_icon` implementations: the base one is never reached.
+	- Branch: nov19-2026111022135419
+	- Verified: 20261119, the cross-file run over the 16 files the findings came through gives none in either lane, and gives all 14 back with those files at HEAD. dfhbg passes, and crashes with the old bounds code. de8eq and de8en pass, and so do ddzwv, de7as, dbcw4, dc54g, ddwn7, dd29z, dd8e1, dbwjj and ddn29. gcc and clang per file give none on the changed files in the Linux lane. The format and lint gate passes.
 
 - Build the "Where pasted and new items go" setting and its 3 target models.
 	- ID: 2026110709200000

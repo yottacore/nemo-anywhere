@@ -657,6 +657,15 @@ test('ddwjs Rename field takes a new width while hidden test',
   args: []
 )
 
+test('dfhbg Icon bounds with nothing shown test',
+  executable('test-nemo-icon-bounds',
+    [ 'test-nemo-icon-bounds.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('dd5dd Escape forgets the cursor test',
   executable('test-eel-forget-cursor',
     [ 'test-eel-forget-cursor.c' ],

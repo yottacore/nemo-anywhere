@@ -761,6 +761,8 @@ nemo_icon_view_grid_container_move_icon (NemoIconContainer *container,
     NemoIconPosition position;
     gint current_monitor;
 
+    g_assert (icon != NULL);
+
     current_monitor = nemo_desktop_utils_get_monitor_for_widget (GTK_WIDGET (container));
 
     details = container->details;

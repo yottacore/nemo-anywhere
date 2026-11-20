@@ -201,6 +201,8 @@ nemo_search_directory_file_update_display_name (NemoSearchDirectoryFile *search_
 	if (display_name == NULL) {
 		display_name = g_strdup (_("Search"));
 	}
+	/* set_display_name's NULL case reaches for the directory, which can be unset here */
+	g_assert (display_name != NULL);
 
 	changed = nemo_file_set_display_name (file, display_name, NULL, TRUE);
 	if (changed) {

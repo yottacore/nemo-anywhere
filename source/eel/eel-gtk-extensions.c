@@ -234,8 +234,8 @@ eel_gtk_window_set_initial_geometry_from_string (GtkWindow *window,
 						 guint minimum_height,
 						 gboolean ignore_position)
 {
-	int left, top;
-	guint width, height;
+	int left = 0, top = 0;
+	guint width = 0, height = 0;
 	EelGdkGeometryFlags geometry_flags;
 
 	g_return_if_fail (GTK_IS_WINDOW (window));

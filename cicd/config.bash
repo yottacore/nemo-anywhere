@@ -151,9 +151,9 @@ HEAP_SOAK_CMD=(bash cicd/utility/heap-soak.bash)
 
 ## The clang analyzer across files, over both compile lists, after the heap
 ## soak: with --long, or --leakcheck named. About 20 min, so not in a plain
-## run. Fails on a missed planted pair; its findings are report only for now.
+## run. Fails on a missed planted pair, a finding left, or a file cut off.
 ## 10 min a file, since following calls takes about 3 times the per-file run.
-## Backlog 2026110920250275.
+## Backlog 2026110920250275 and 2026110920251244.
 ANALYZE_CTU_CMD=(env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-600}" bash cicd/utility/analyze.bash --ctu)
 
 ## CodeQL over both compile lists and the Python, after the cross-file run,

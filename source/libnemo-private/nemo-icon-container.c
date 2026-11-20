@@ -400,6 +400,7 @@ icon_set_selected (NemoIconContainer *container,
 		   NemoIcon *icon,
 		   gboolean select)
 {
+	g_assert (icon != NULL);
 	g_assert (select == FALSE || select == TRUE);
 	g_assert (icon->is_selected == FALSE || icon->is_selected == TRUE);
 
@@ -775,8 +776,8 @@ get_icon_bounds_for_canvas_bounds (EelCanvasGroup *group,
 	/* If there were no visible items, return an empty bounding box */
 
 	if (!set) {
-		*x1 = *y1 = *x2 = *y2 = 0.0;
-		return;
+		minx = miny = maxx = maxy = 0.0;
+		goto out;
 	}
 
 	/* Now we can grow the bounds using the rest of the items */
@@ -828,6 +829,7 @@ get_icon_bounds_for_canvas_bounds (EelCanvasGroup *group,
 		maxy += group->ypos;
 	}
 
+out:
 	if (x1 != NULL) {
 		*x1 = minx;
 	}

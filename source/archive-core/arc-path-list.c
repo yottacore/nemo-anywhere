@@ -26,6 +26,13 @@
    the entries in one array, and the index is open addressing over it. */
 #define CHUNK_BYTES (1u << 20)
 
+/* The clang half of the app's analyzer skip, since the archive core stands alone. */
+#if defined(__clang_analyzer__)
+#define ARC_ANALYZER_SKIP [[clang::suppress]]
+#else
+#define ARC_ANALYZER_SKIP
+#endif
+
 typedef struct {
 	const char *path;	/* in a chunk */
 	guint64     bytes;
@@ -159,6 +166,7 @@ slot_for (const ArcPathList *list,
 			return slot;
 		}
 		entry = &list->entries[index - 1];
+		ARC_ANALYZER_SKIP // the slots start zeroed, so an index names an entry already written
 		if (entry->hash == hash && entry->length == length &&
 		    memcmp (entry->path, path, length) == 0) {
 			return slot;

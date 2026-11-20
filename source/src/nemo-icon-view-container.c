@@ -1356,6 +1356,8 @@ nemo_icon_view_container_move_icon (NemoIconContainer *container,
     gboolean emit_signal;
     NemoIconPosition position;
 
+    g_assert (icon != NULL);
+
     details = container->details;
 
     emit_signal = FALSE;

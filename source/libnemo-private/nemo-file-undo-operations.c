@@ -253,6 +253,7 @@ nemo_file_undo_info_apply_finish (G_GNUC_UNUSED NemoFileUndoInfo *self,
 {
 	FileUndoInfoOpRes *op_res;
 
+	*user_cancel = FALSE;
 	if (g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT (res), error)) {
 		return FALSE;
 	}
