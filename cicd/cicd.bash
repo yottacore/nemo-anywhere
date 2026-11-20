@@ -87,9 +87,10 @@
 ##	                       gate, the private runner, remote dogfood, scroll
 ##	                       harness, screenshots, demo video. arm64 and FreeBSD
 ##	                       come back with --include-arm and --include-bsd
-##	   --long              everything, the arm64 release build included, which
-##	                       a plain run leaves out to stay near an hour. The
-##	                       static analyzers get 15 min a file, not 2
+##	   --long              everything, the arm64 release build and the demo
+##	                       video included, which a plain run leaves out to stay
+##	                       near an hour. The static analyzers get 15 min a
+##	                       file, not 2
 ##	   --slow              same as --long
 ##	   --backlog-run-quick [<area>...]
 ##	                       what a backlog worker runs before a commit, about 4
@@ -248,13 +249,14 @@ while (($#)); do case "$1" in
 	--no-bsd)                 no_bsd=1; shift ;;                ## wins over --include-bsd
 	--no-win)                 no_win=1; shift ;;
 	--quick)                  quick=1; PACKAGE_ENABLE=0; shift ;;   ## the quick local steps only
-	--long|--slow)            long=1; shift ;;                  ## adds the arm64 lane
+	--long|--slow)            long=1; shift ;;                  ## adds the arm64 lane and the demo
 	--message=*|--msg=*|-m=*) cli_message="${1#*=}"; shift ;;
 	-m|--message|--msg)       cli_message="${2-}"; shift; (($#)) && shift ;;
 	-h|--help)                sed -n '/^##	- Purpose:/,/^##	History:/p' "${BASH_SOURCE[0]}" | sed '$d; s/^##	\{0,1\}//'; exit 0 ;;
 	*) echo "unknown option: $1 (try --help)" >&2; exit 2 ;;
 esac; done
 [[ -z "${alias_note}" ]] || echo "[ ${alias_note} ]"
+((! long)) || DEMO_ENABLE=1                                     ## before checks only, which wins
 
 ## Checks only: a round or the pre-push hook runs these, so nothing may change
 ## the tree, the box, or the remote, and nobody is there to answer a prompt.
@@ -791,7 +793,7 @@ fPlan "${run_private}"                    "Private runner"        "${priv_why}"
 fPlan "${run_dogfood}"                    "Dogfood"               "${dogfood_why}"
 ((had_remote_df)) && fPlan "${run_remote_df}" "Dogfood (remote)" "$(remote_why "$(mode_or --no-dogfood)")"
 [[ ! -x "${shots_hook}" ]] || fPlan "$((SHOTS_ENABLE && ! quick))" "Screenshots" "$(quick_or "--shots turns it on")"
-[[ ! -f "${demo_hook}" ]] || fPlan "$((${DEMO_ENABLE:-0} && ! quick))" "Demo video" "$(quick_or "--demo turns it on")"
+[[ ! -f "${demo_hook}" ]] || fPlan "$((${DEMO_ENABLE:-0} && ! quick))" "Demo video" "$(quick_or "--demo or --long turns it on")"
 fPlan "$((${#GIT_PUBLISH[@]} > 0))"     "Publish"               "$(mode_or --no-publish)"
 ## On the host nothing runs past the lints, which go before the build.
 if ((no_container)); then
@@ -1537,6 +1539,7 @@ fEcho_Clean
 ##		- 2026-11-08: heap growth soak step under --leakcheck.
 ##		- 2026-11-10: cross-file clang step, under --long or --leakcheck.
 ##		- 2026-11-19: CodeQL step, by the same rule.
+##		- 2026-11-19: --long re-records the demo video too.
 ##		- 2026-10-24: --long (or --slow) adds arm64, now off in a plain run.
 ##		- 2026-10-25: --backlog-run-quick, --backlog-run-full and --merge-gate;
 ##		  --gate and --ci are other names for the first and last. --no-remote.

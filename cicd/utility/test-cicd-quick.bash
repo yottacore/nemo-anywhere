@@ -218,8 +218,8 @@ quickSteps="sync fmt build tests lint fuzz fuzz-short sanitize profile native wi
 checkSteps="fmt-check build tests lint fuzz sanitize scroll bsd-tests profile native windows bsd-release analyze soak packages package-check private"
 ## A plain run leaves arm64 out since 2026-10-24, to stay near an hour.
 fRun "sync ${fullSteps/ arm64 / }"
-fRun "sync ${fullSteps} analyze-long"    --long
-fRun "sync ${fullSteps} analyze-long"    --slow
+fRun "sync ${fullSteps} analyze-long demo" --long
+fRun "sync ${fullSteps} analyze-long demo" --slow
 fRun "sync ${fullSteps/ arm64 / } shots demo" --shots --demo
 fRun "${quickSteps}"                     --quick
 fRun "${quickSteps} arm64"               --quick --include-arm
@@ -237,7 +237,7 @@ remoteSteps=" arm64 bsd-tests bsd-release private remote-dogfood "
 localSteps=" ${fullSteps} "
 for step in ${remoteSteps}; do localSteps="${localSteps/ ${step} / }"; done
 fRun "sync ${localSteps}"                --no-remote
-fRun "sync ${localSteps} analyze-long"   --long --include-arm --include-bsd --no-remote
+fRun "sync ${localSteps} analyze-long demo" --long --include-arm --include-bsd --no-remote
 fRun "sync ${localSteps}"                --no-remote --include-arm --include-bsd
 
 ## $1 the other name, or empty: the run says so in one line, and only then.
