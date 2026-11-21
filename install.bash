@@ -34,7 +34,7 @@
 set -Eeuo pipefail
 
 REPO="yottacore/nemo-anywhere"
-INSTALLER_VERSION="1.4.0"
+INSTALLER_VERSION="1.4.1"
 APP_NAME="Nemo Anywhere"
 EXE_NAME="nemo-anywhere"
 
@@ -53,7 +53,7 @@ fDie(){  { fEcho_Clean ""; fEcho_Clean "FAILED: $*"; fEcho_Clean ""; } >&2; exit
 fAbort(){ printf "\nINSTALL ABORTED (exit %s) at line %s: %s\n\n" "$1" "$2" "$3" >&2; exit "$1"; }
 trap 'fAbort $? $LINENO "$BASH_COMMAND"' ERR
 
-## Spelled out rather than read back out of this file: run the documented way,
+## Written out rather than read back out of this file: run the documented way,
 ## as `bash <(curl ...)`, the script is a pipe that has already been consumed,
 ## so anything that re-reads its own source prints nothing.
 fHelp(){
@@ -84,8 +84,8 @@ fHelp(){
 		  ~/.local/bin. A system install goes to /opt/${EXE_NAME} (/usr/local on BSD)
 		  and needs sudo; the plan says so before anything happens.
 
-		  Covers Linux, BSD, WSL, and macOS. install.ps1 is the same installer for
-		  PowerShell, and adds Windows.
+		  Covers Linux, BSD, and WSL, and macOS once there's a build for it.
+		  install.ps1 is the same installer for PowerShell, and adds Windows.
 
 	EOF
 }
@@ -586,3 +586,4 @@ fEcho_Clean ""
 ##		- 2026-11-04 JC: A prefix that's a link is followed instead. An install
 ##		  replaces the folder it points at and keeps the link, and --uninstall
 ##		  empties that folder and leaves both.
+##		- 2026-11-21 JC: --help no longer claims macOS before there's a build.

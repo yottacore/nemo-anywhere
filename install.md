@@ -31,11 +31,13 @@ Everything is on the [releases page](https://github.com/yottacore/nemo-anywhere/
 
 Both packages install to `/opt/nemo-anywhere` with a menu entry and `nemo-anywhere` on PATH, and use the GTK3 your distro already provides.
 
+- **FreeBSD**: As root, run `pkg install ./nemo-anywhere-<version>-bsd-x86_64.pkg`, which also fetches any dependency that's missing. It installs to `/usr/local/nemo-anywhere` with a menu entry and `nemo-anywhere` on PATH. Releases after 1.0.0-beta2 have it.
+
 ## Direct stable and dev install scripts
 
 It's one command. It downloads the right build for the machine, verifies its checksum, tells you exactly what it is about to do, and waits for a yes. The defaults suit most people. Add `--help` (`-Help` in PowerShell) to see the options.
 
-This one is for Linux and WSL, and for BSD and macOS once those are built:
+This one is for Linux, BSD, and WSL, and for macOS once that's built:
 
 ~~~bash
 bash <(curl -fsSL https://raw.githubusercontent.com/yottacore/nemo-anywhere/main/install.bash)
@@ -57,7 +59,7 @@ This is where it goes:
 | :---    | :---                                   | :---                                                                                | :---                            | :---
 | Linux   | ~/.local/share/nemo-anywhere/          | ~/.local/share/applications/nemo-anywhere.desktop, ~/.local/bin/nemo-anywhere       | /opt/nemo-anywhere/             | /usr/local/share/applications/nemo-anywhere.desktop, /usr/local/bin/nemo-anywhere
 | Windows | %LOCALAPPDATA%\Programs\Nemo Anywhere\ | %APPDATA%\Microsoft\Windows\Start Menu\Programs\Nemo Anywhere.lnk, and a PATH entry | C:\Program Files\Nemo Anywhere\ | %ProgramData%\Microsoft\Windows\Start Menu\Programs\Nemo Anywhere.lnk, and a PATH entry
-| BSD     | *pending a BSD build*                  |                                                                                     |                                 |
+| BSD     | ~/.local/share/nemo-anywhere/          | ~/.local/share/applications/nemo-anywhere.desktop, ~/.local/bin/nemo-anywhere       | /usr/local/nemo-anywhere/       | /usr/local/share/applications/nemo-anywhere.desktop, /usr/local/bin/nemo-anywhere
 | macOS   | *pending a macOS build*                |                                                                                     |                                 |
 
 Settings go in per-platform standard locations: `~/.config/nemo-anywhere` on Linux and BSD, `%APPDATA%\nemo-anywhere` on Windows, `~/Library/Application Support/nemo-anywhere` on macOS - and are left alone by an uninstall.

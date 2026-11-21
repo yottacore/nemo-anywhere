@@ -108,7 +108,7 @@ param(
 # Configuration
 
 $Repo    = "yottacore/nemo-anywhere"
-$InstallerVersion = "1.5.0"
+$InstallerVersion = "1.6.0"
 $AppName = "Nemo Anywhere"
 $ExeName = "nemo-anywhere"
 
@@ -207,6 +207,18 @@ function fHelp {
 	fEcho_Clean "  A release download is checked against the release's checksums file."
 	fEcho_Clean "  With no checksums file it stops, even with -Yes, unless -NoVerify is"
 	fEcho_Clean "  given. A -From archive isn't checked."
+	fEcho_Clean ""
+	fEcho_Clean "  On Windows a user install goes to %LOCALAPPDATA%\Programs\${AppName}, with a"
+	fEcho_Clean "  Start Menu shortcut and a user PATH entry. A system install goes to"
+	fEcho_Clean "  C:\Program Files\${AppName} and needs an elevated shell."
+	fEcho_Clean ""
+	fEcho_Clean ('  Elsewhere a user install goes to ${XDG_DATA_HOME:-~/.local/share}/' + $ExeName + ', with a')
+	fEcho_Clean "  launcher in ~/.local/share/applications and ${ExeName} on PATH via"
+	fEcho_Clean "  ~/.local/bin. A system install goes to /opt/${ExeName} (/usr/local on BSD)"
+	fEcho_Clean "  and needs sudo. The plan says so before anything happens."
+	fEcho_Clean ""
+	fEcho_Clean "  Covers Windows, Linux, BSD, and WSL, and macOS once there's a build for it."
+	fEcho_Clean "  install.bash is the same installer for anyone without PowerShell."
 	fEcho_Clean ""
 }
 
@@ -586,6 +598,17 @@ function fInstallLauncher {
 	fSh @("chmod", "644", $launcher)
 }
 
+## A user install that can't write where it's going would otherwise fail
+## halfway, on a bare command. Say so before asking. Renames need the parent.
+function fCheckWritable {
+	if ($priv) { return }
+	foreach ($dir in @((Split-Path -Parent $realPrefix), $appDir, $binDir)) {
+		while (-not (Test-Path -LiteralPath $dir)) { $dir = Split-Path -Parent $dir }
+		& test -w $dir
+		if ($LASTEXITCODE -ne 0) { fFail "no write access to ${dir}" @("Check who owns it: ls -ld ${dir}") }
+	}
+}
+
 ## Desktop caches only matter to the menu showing up promptly - never fatal.
 function fRefreshCaches {
 	if (Get-Command update-desktop-database -ErrorAction SilentlyContinue) {
@@ -800,6 +823,7 @@ function fMain {
 	# Resolve what to install
 
 	if ($prefixIsLink -and -not $realPrefix) { fFail "${prefixShown} isn't a folder that's there - mount it, or remove the link" }
+	if ($os -ne "windows") { fCheckWritable }
 	$archiveExt = if ($os -eq "windows") { "zip" } else { "tar.gz" }
 
 	$state.tmpRoot = [System.IO.Path]::GetTempPath().TrimEnd('\', '/')
@@ -1146,3 +1170,6 @@ if ($state.failed -and $runningAsScriptFile) { exit 1 }
 ##		  its parent, as in install.bash. A prefix that's a link is followed. An
 ##		  install replaces the folder it points at and keeps the link, and
 ##		  -Uninstall empties that folder and leaves both.
+##		- 2026-11-21 JC: A unix user install checks it can write where it's
+##		  going before asking, as install.bash does. -Help says where each
+##		  target installs.
