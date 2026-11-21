@@ -6473,6 +6473,10 @@ preview_selected_items (NemoIconContainer *container)
 
 	selection = nemo_icon_container_get_selection (container);
 	locations = nemo_icon_container_get_selected_icon_locations (container);
+	if (locations == NULL) {
+		g_list_free (selection);
+		return;
+	}
 
 	for (idx = 0; idx < locations->len; idx++) {
 		GdkPoint *point = &(g_array_index (locations, GdkPoint, idx));
@@ -6491,7 +6495,8 @@ preview_selected_items (NemoIconContainer *container)
 			       selection, locations);
 	}
 
-    g_list_free (selection);
+	g_list_free (selection);
+	g_array_unref (locations);
 }
 
 static void
