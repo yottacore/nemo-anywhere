@@ -242,6 +242,8 @@ Currently beta - for options tuning and visual polish. But the guts and stabilit
 
 Every build goes through exhaustive static and dynamic analysis for security and memory leaks (including fuzz-testing), a full regression test suite, and comprehensive checks that guard against losing files. Finally, every build performs performance profiling.
 
+Linux release builds are reproducible. A rebuild of a release's tag gives the same bytes, and every release comes with a sha256 checksums file.
+
 Current limitations:
 
 - All prerelease builds, as a build rule, enable the option "Paranoid mode for move, overwrite, trash, and delete". It's built into all possible trash/delete/move code paths (replacing the existing dialogs where possible), as an extra safety net for all prereleases - whether needed or not. It can be safely turned off in Settings.

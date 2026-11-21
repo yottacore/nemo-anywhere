@@ -60,15 +60,20 @@ LINT
 printf '#!/usr/bin/env bash\n\n## Checks a thing.\n##	Test ID: d0004\nfCheckThing(){ :; }\n' > "${scratch}/cicd/utility/lint-c.bash"
 printf '#!/usr/bin/env bash\n## Test ID: d0002\ntouch "%s/test-run"\n' "${mark}" > "${scratch}/cicd/utility/test-run.bash"
 printf '#!/usr/bin/env bash\n## Test ID: d0003\ntouch "%s/test-pkg"\n' "${mark}" > "${scratch}/cicd/utility/test-pkg.bash"
+## A step's own script with tests of its own: a "Test ID:" line, and a PASS
+## line in code. One in a comment doesn't count.
+printf '#!/usr/bin/env bash\n##\t- Test ID: d0007\n## prints "PASS d0009 sample"\necho "PASS d0008 planted"\n' > "${scratch}/cicd/utility/analyze.bash"
+## Named by the path a step container sees.
+printf '#!/usr/bin/env bash\n## Test ID: d000a\n' > "${scratch}/cicd/utility/test-box.bash"
 cat > "${scratch}/cicd/config.bash" <<-CFG
 	APP_NAME="App"; EXE_NAME="app"; CICD_CONTAINERS=("app-build"); DOCKER_SWEEP=0
 	TOOL_PINS=("pin|1.0|touch ${mark}/pin")
 	FMT_CMD=(); FMT_CHECK_CMD=(); DEBUG_BUILD_CMD=(false); TEST_CMD=(bash cicd/linux/run-tests.bash)
 	LINT_PROBE=(true); LINT_CMD=(bash cicd/utility/lint.bash); FUZZ_PROBE=(true); FUZZ_CMD=(bash cicd/linux/fuzz.bash)
-	FUZZ_QUICK_CMD=(); SANITIZE_CMD=(bash cicd/linux/run-tests.bash --sanitize); ANALYZE_CMD=()
+	FUZZ_QUICK_CMD=(); SANITIZE_CMD=(bash cicd/linux/run-tests.bash --sanitize); ANALYZE_CMD=(bash cicd/utility/analyze.bash)
 	PROFILE_ENABLE=0; PROFILE_OUT_DIR="out"
 	RELEASE_ENABLE=1; RELEASE_NATIVE_CMD=(bash cicd/linux/release.bash); RELEASE_NATIVE_BIN="x"; BUILD_CROSS=0; CROSS_TARGETS=()
-	VERSION_MANIFEST="meson.build"; PACKAGE_ENABLE=1; PACKAGE_CMDS=(); PACKAGE_CHECKS=("Pkg check|bash cicd/utility/test-pkg.bash")
+	VERSION_MANIFEST="meson.build"; PACKAGE_ENABLE=1; PACKAGE_CMDS=(); PACKAGE_CHECKS=("Pkg check|bash cicd/utility/test-pkg.bash" "Box check|bash cicd/utility/box.bash 'bash /src/cicd/utility/test-box.bash'")
 	PRIVATE_RUNNER=""; PRIVATE_DOGFOOD=(); SHOTS_ENABLE=0; DEMO_ENABLE=0; LINT_LOG_DIR="logs"
 	DOGFOOD_FIXED_DESTS=(); DOGFOOD_ROTATING_DESTS=(); DOGFOOD_CROSS_DESTS=(); DOGFOOD_HOOK=()
 	DOGFOOD_REMOTE=(); GIT_PUBLISH=(); PUBLISH_AUTO_MESSAGE="unused"
@@ -85,9 +90,10 @@ rc=0; out="$(fCicd --list --no-sync)" || rc=$?
 [[ "$(fUnder "Lints" "${out}" | tr '\n' ' ')" == "d0002 d0004 " ]] || fFail "Lints should list d0002 d0004 and not the echoed d0003, got: $(fUnder "Lints" "${out}" | tr '\n' ' ')"
 [[ "$(fUnder "Fuzzing" "${out}")" == "d0005" ]] || fFail "Fuzzing should list d0005"
 [[ "$(fUnder "Release build (native)" "${out}")" == "d0001" ]] || fFail "the release smoke should list only the meson test it names"
-[[ "$(fUnder "Packages" "${out}")" == "d0003" ]] || fFail "Packages should list d0003"
+[[ "$(fUnder "Packages" "${out}" | tr '\n' ' ')" == "d0003 d000a " ]] || fFail "Packages should list d0003 d000a, got: $(fUnder "Packages" "${out}" | tr '\n' ' ')"
+[[ "$(fUnder "Static analyzers" "${out}" | tr '\n' ' ')" == "d0007 d0008 " ]] || fFail "Static analyzers should list d0007 d0008, got: $(fUnder "Static analyzers" "${out}" | tr '\n' ' ')"
 grep -q '^    the 2 meson tests, as in Tests$' <<< "${out}" || fFail "the sanitizer suite should point back to the meson tests under Tests"
-grep -q '^Step 1 of 7; Build (debug)$' <<< "${out}" || fFail "the plan's steps should be numbered as a run numbers them"
+grep -q '^Step 1 of 8; Build (debug)$' <<< "${out}" || fFail "the plan's steps should be numbered as a run numbers them"
 grep -q '^    - Remote sync (--no-sync)$' <<< "${out}" || fFail "the steps turned off should be listed"
 [[ -z "$(fMarks)" ]] || fFail "--list ran something: $(fMarks)"
 [[ -z "$(ls -A "${HOST_TEMP}")" ]] || fFail "--list made a run folder"

@@ -7,7 +7,8 @@
 ##	  A run removes the project's run folders older than 2 days whose run.pid
 ##	  names no live process, and leaves the rest. fSafeRm refuses what it
 ##	  should, HOST_TEMP and a project's whole folder in it included. A copy
-##	  of cicd.bash runs in a scratch dir with a stand-in step.
+##	  of cicd.bash runs in a scratch dir with a stand-in step. No script makes
+##	  its temp files under a fixed /tmp, but the few that run in a container.
 ##	- Runs in the lint stage.
 ##	- Syntax: cicd/utility/test-cicd-temp.bash
 ##	- Test ID: dee6e
@@ -196,6 +197,18 @@ fi
 [[ -d "${ht}/proj/run" && -d "${ht}/other" ]] || fFail "fSafeRm removed a whole folder it refused"
 HOST_TEMP="${ht}" projectName=proj fSafeRm "${ht}/proj/run" > /dev/null || fFail "fSafeRm refused a run folder under HOST_TEMP"
 [[ ! -e "${ht}/proj/run" ]] || fFail "fSafeRm left a run folder under HOST_TEMP"
+
+## A fixed /tmp skips the run folder, and on a box the lane's too. Only these may.
+declare -A fixedTmpOk=(
+	[cicd/linux/run-tests.bash]="the Xvfb log stays out of the leftover count"
+	[cicd/linux/test-fuzz-exit.bash]="runs inside the build container"
+	[cicd/win/test-gui-smoke.bash]="runs inside the cross-build container"
+	[cicd/win/test-setup.bash]="runs inside the cross-build container"
+)
+while IFS=: read -r f n _; do
+	[[ -n "${f}" && -z "${fixedTmpOk[${f}]:-}" ]] || continue
+	fFail "${f}:${n}: mktemp under a fixed /tmp, not TMPDIR"
+done < <(git -C "${root}" grep -n -E "mktemp[^|;]*[[:space:]\"']/tmp/" -- 'cicd/*.bash' 'utility/*.bash' || true)
 
 if ((failures)); then
 	fEcho "FAILED: run folder, ${failures} problem(s)"

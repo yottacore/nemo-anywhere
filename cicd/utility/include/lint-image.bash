@@ -45,15 +45,23 @@ fLintImage(){
 }
 
 ## The repo goes in at its own path, and so does the git dir when it lives
-## elsewhere, which it does in a worktree.
+## elsewhere, which it does in a worktree. Same caps, share and name as a
+## step box, and the run's job count goes in, or cppcheck works out its own
+## from the host's CPUs.
 fLintRun(){
 	local root="$1" img="$2"; shift 2
 	[[ -n "${img}" ]] || { "$@"; return ;}
-	local common; local -a mounts=(-v "${root}:${root}")
+	# shellcheck source=step-box.bash
+	source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/step-box.bash"
+	fJobs_Default
+	fStepBox_MemArgs || return 1
+	local common keep=(--rm); local -a mounts=(-v "${root}:${root}")
+	[[ "${CICD_KEEP_TEMP:-0}" != 1 ]] || keep=()
 	common="$(git -C "${root}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
 	[[ -z "${common}" || "${common}" == "${root}/"* ]] || mounts+=(-v "${common}:${common}")
-	docker run --rm --network none --user "$(id -u):$(id -g)" "${mounts[@]}" -w "${root}" \
+	docker run "${keep[@]}" --network none --user "$(id -u):$(id -g)" "${mounts[@]}" -w "${root}" \
+		--cpus "${CICD_MAX_JOBS}" --cpu-shares 256 "${stepBoxMem[@]}" --name "$(fStepBox_Name lint)" \
 		--label "dev.project=${CICD_PROJECT:-nemo-anywhere}" --label "dev.run=${CICD_RUN:-none}" \
-		-e CPPCHECK_STRICT -e SHELLCHECK_STRICT -e RUFF_STRICT -e PSA_STRICT \
-		"${img}" "$@"
+		-e "CICD_MAX_JOBS=${CICD_MAX_JOBS}" -e CPPCHECK_STRICT -e SHELLCHECK_STRICT -e RUFF_STRICT -e PSA_STRICT \
+		"${img}" nice -n 19 "$@"
 }

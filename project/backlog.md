@@ -6319,6 +6319,31 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: dd5ex passes.
 	- Closed: 20261107-084500
 
+- CICD: lint containers, box temp folders, and listed test IDs.
+	- ID: 2026112016130200
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261120-161302
+	- Opened by: t00mietum
+	- Related IDs: 2026102416300002, 2026102416300003, 2026102416300007
+	- Target version: rc.1
+	- Requirements:
+		- Gaps against the shared CICD rules, left after the reset items closed:
+			- The lint tools' container had no CPU or memory cap, no low CPU share, and no `nice`. cppcheck worked out its own job count from every CPU on the box.
+			- The FreeBSD release made its work folder in the box's `/tmp`, outside the lane's run folder.
+			- `--list` left out the tests of the static analyzers, the heap soak, CodeQL, and the scripts a step runs inside its container.
+			- The per-file analyzer's planted faults printed no PASS or FAIL line with their ID.
+			- The README didn't say Linux releases are reproducible.
+	- Decisions:
+		- The lint container takes the same caps, share, name, and `--keep-temp` rule as a step container.
+		- A step's script with tests of its own is found by its "Test ID:" line and by the IDs on PASS lines in its code, not in its comments.
+		- The README line covers only the Linux builds, since the packed Windows exe hasn't been checked byte for byte.
+	- Branch: cicdfix
+	- Test case: ddrpf (the lint container's caps), dee6e (no script makes temp files under a fixed `/tmp`, but the few that run in a container), dez4x (`--list` names a step script's own tests, and those named by a container path), and de8es's new PASS line. All but de8es are in the lint stage.
+	- Verified: 20261120, ddrpf, dee6e and dez4x pass, and each fails with its fix taken out. `--backlog-run-quick lint` passes, and the analyzer self-test prints `PASS de8es`.
+	- Closed: 20261120-162320
+
 - CICD reset: temp files and safe removal.
 	- ID: 2026102416300002
 	- Type: Task

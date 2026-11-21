@@ -113,6 +113,18 @@ for r in main wt; do
 	[[ "${seen}" == "${want_m}" ]] || fFail "fLintRun ${r}: mounts '${seen}', wanted '${want_m}'"
 done
 
+## Held to the run's jobs like a step box, so cppcheck can't take every core.
+: >"${log}"
+PATH="${scratch}/bin:${PATH}" STUB_LOG="${log}" CICD_MAX_JOBS=3 CICD_MEM_CAP=6g CICD_RUN=r1 fLintRun "${scratch}/main" img:x true
+runLine="$(grep '^run ' "${log}" || true)"
+for want_a in "--rm " "--cpus 3 --cpu-shares 256 --memory 6g --memory-swap 6g --oom-score-adj 1000 --name nemo-anywhere-r1-lint " \
+	"-e CICD_MAX_JOBS=3 " " img:x nice -n 19 true"; do
+	[[ "${runLine}" == *"${want_a}"* ]] || fFail "fLintRun caps: no '${want_a}' in: ${runLine:-no run}"
+done
+: >"${log}"
+PATH="${scratch}/bin:${PATH}" STUB_LOG="${log}" CICD_MAX_JOBS=3 CICD_KEEP_TEMP=1 fLintRun "${scratch}/main" img:x true
+grep -q -- '--rm' "${log}" && fFail "fLintRun --keep-temp: container still --rm"
+
 ## With no image the command runs here.
 out="$(fLintRun "${scratch}/main" "" echo on-host)"
 [[ "${out}" == "on-host" ]] || fFail "fLintRun with no image: '${out}'"

@@ -78,7 +78,7 @@ from scipy import signal as spsig
 
 ME_DIR   = Path(__file__).resolve().parent
 REPO     = ME_DIR.parents[2]                  # repo/cicd/utility/demo-video -> repo
-OUT_DIR  = REPO.parent / "demo-video"         # beside the repo, not in it
+OUT_DIR  = REPO.parent / "private" / "demo"   # beside the repo, not in it
 SOUNDS   = ME_DIR / "sounds"
 
 SR         = 48000                            # audio mix rate
@@ -1708,3 +1708,4 @@ if __name__ == "__main__":
 ##		  3 seconds of black. The length warning leaves the tail out.
 ##		- 20261005: Best features first. New relative link, link copy, column
 ##		  and striped row scenes; F3, the tree and the drag scene left out.
+##		- 20261120: Renders and the photo cache go in private/demo beside the repo.
