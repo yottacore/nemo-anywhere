@@ -1474,8 +1474,8 @@ if ((SHOTS_ENABLE && ! quick)) && [[ -x "${shots_hook}" ]]; then
 fi
 
 ## Re-record the demo video. Like screenshots, it's off by default, skipped
-## under --quick, and never aborts. Both recordings GFS-rotate into the
-## demo-video/ directory beside the repo, and the README gif is also written to
+## under --quick, and never aborts. Both recordings GFS-rotate into
+## private/demo/ beside the repo, and the README gif is also written to
 ## assets/demo.gif. It runs on a private Xvfb, so nothing shows up on whatever
 ## display this was started from. It needs the release build, so it goes after
 ## stage 5.

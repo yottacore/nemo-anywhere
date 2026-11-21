@@ -9,7 +9,8 @@
 # in the log already names it. A lint-c check and a test script have it on a
 # "Test ID:" comment line, and read it back from there to print it when they
 # run. So does a tool's self-test that the lint stage runs, on a line in the
-# tool. A fuzz target has it at the front of its entry in fuzz.bash.
+# tool, and a step's script with tests of its own, on that line or its PASS
+# lines. A fuzz target has it at the front of its entry in fuzz.bash.
 #
 # With no option, prints the first free ID from right now, for a new test.
 # --at TIME prints the one for an ISO time, when dating an older test.
@@ -106,13 +107,26 @@ def found_ids(root: Path) -> Iterator[tuple[str | None, str]]:
             if not m or line.lstrip().startswith('#') or m.group(1) == 'test-id.py':
                 continue
             tools.setdefault(m.group(1) + ' ' + m.group(2), f'{driver}:{num}')
+    self_tested = set()
     for run, where in tools.items():
         name = run.split(' ')[0]
         tool = next((p for p in (root / 'cicd').rglob(name) if p.is_file()), None)
+        self_tested.add(tool)
         if tool in scripts:
             continue
         m = tool and re.search(r'(?m)^(?:#+\s+(?:- )?)?Test ID: (\S+)$', tool.read_text(encoding='utf-8'))
         yield (m.group(1) if m else None), f'{where}: {run}'
+
+    # A step's own script that isn't named as a test but has one or more, such
+    # as the analyzers' planted faults: its "Test ID:" line and the IDs on the
+    # PASS lines it prints. Not a tool already counted by its self-test.
+    for other in sorted(p for p in (root / 'cicd').rglob('*') if p.is_file() and p.suffix in ('.bash', '.ps1')
+            and p not in scripts and p not in self_tested and not re.fullmatch(r'lint-.*\.bash', p.name)
+            and 'artifacts' not in p.parts):
+        tags = re.findall(r'(?m)^##\s+(?:- )?Test ID: (\S+)$', other.read_text(encoding='utf-8-sig'))
+        tags += re.findall(r'"PASS ([0-9a-z]{5,}) ', '\n'.join(code_lines(other)))
+        for tag in dict.fromkeys(tags):
+            yield tag, other.relative_to(root).as_posix()
 
     fuzz = root / 'cicd/linux/fuzz.bash'
     for num, line in enumerate(fuzz.read_text(encoding='utf-8').splitlines(), 1):
@@ -195,6 +209,9 @@ def resolve(ref: str, index: dict[str, list[str]], near: str) -> list[str]:
     # it names. A bare name with twins is the one beside the file naming it.
     parts = [p for p in ref.split('/') if p not in ('', '.', '..')]
     found = [c for c in index.get(parts[-1], []) if c == '/'.join(parts) or c.endswith('/' + '/'.join(parts))]
+    # /src/... is the repo as a step container mounts it.
+    if not found and parts[0] == 'src' and len(parts) > 2:
+        return resolve('/'.join(parts[1:]), index, near)
     if len(found) > 1 and len(parts) == 1 and near:
         found = [c for c in found if c.rsplit('/', 1)[0] == near]
     return found if len(found) == 1 else []
@@ -213,7 +230,7 @@ def listing(root: Path, steps: list[tuple[str, str]]) -> None:
     for tag, where in found_ids(root):
         path, _, num = where.partition(':')
         if not num:
-            scripts[path] = tag
+            scripts.setdefault(path, []).append(tag)
             continue
         line = (root / path).read_text(encoding='utf-8').splitlines()[int(num.split(':')[0]) - 1]
         if path.endswith('meson.build'):
@@ -248,7 +265,7 @@ def listing(root: Path, steps: list[tuple[str, str]]) -> None:
             tags = {t for t in re.findall(r'["\'](\w+) ', line) if t in meson_tags}
             named |= tags
             runs_meson = runs_meson or not tags
-        found = [(scripts[p], p) for p in sorted(seen) if p in scripts]
+        found = [(tag, p) for p in sorted(seen) if p in scripts for tag in scripts[p]]
         if not runs_meson:
             found += [(tag, name) for tag, name in meson if tag in named]
         for path in sorted(seen):

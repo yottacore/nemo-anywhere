@@ -72,7 +72,8 @@ name="${SLUG}-${ver}-${os}-${arch}"
 ## pkg splits name from version at the last dash, and sorts 1.0.0.beta2 below 1.0.0.
 pkgVer="${ver//-/.}"
 
-work="$(mktemp -d /tmp/${SLUG}-bsd-release.XXXXXX)"
+## TMPDIR is the lane's run folder on the box, which the lane removes.
+work="$(mktemp -d "${TMPDIR:-/tmp}/${SLUG}-bsd-release.XXXXXX")"
 fCleanup(){
 	if [[ -n "${XVFB_PID:-}" ]]; then kill "${XVFB_PID}" 2>/dev/null || true; fi
 	fSafeRm_IfThere "${work}" || true
@@ -222,3 +223,4 @@ fEcho_Clean ""
 ##		- 2026-10-19: The extension load test runs in a cell of its own.
 ##		- 2026-10-28: Run alone, works out its jobs from this box's CPUs and
 ##		  load, not a fixed 4.
+##		- 2026-11-20: Works in the lane's run folder, not the box's /tmp.

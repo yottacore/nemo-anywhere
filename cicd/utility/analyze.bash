@@ -99,7 +99,8 @@ python3 "${root}/cicd/utility/analyze.py" --self-test || failed=1
 fPlanted
 if ((ctu)); then
 	if ((failed)); then echo "FAIL de8eq cross-file clang planted faults"; else echo "PASS de8eq cross-file clang planted faults"; fi
-fi
+elif ((failed)); then echo "FAIL de8es analyzer planted faults"
+else echo "PASS de8es analyzer planted faults"; fi
 if ((selfTest)); then
 	((failed)) && fDie "analyzer self-test"
 	fEcho "OK: analyzer self-test"; exit 0
@@ -164,3 +165,4 @@ fEcho "OK: analyzer stage"
 ##		  cap, and a file cut off fails the stage.
 ##		- 2026-11-10: --ctu, the cross-file clang run.
 ##		- 2026-11-19: Its findings and cut-off files fail the stage too.
+##		- 2026-11-20: A PASS or FAIL line for de8es, as de8eq has.
