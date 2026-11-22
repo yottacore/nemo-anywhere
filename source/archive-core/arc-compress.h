@@ -83,6 +83,12 @@ GThread         *arc_tool_stderr_start  (const ArcHost *host,
 					 ArcRun        *process);
 char            *arc_tool_stderr_finish (GThread       *reader);
 
+/* Both tools write a running "NN%". The newest one in text wins. FALSE when
+   there's none. */
+gboolean         arc_tool_percent       (const char    *text,
+					 gsize          length,
+					 int           *percent);
+
 /* For tests: the job's walk tells filesystems apart by the table this
    makes, called on the job's thread, rather than the system's. NULL puts
    the system's back. */

@@ -9,7 +9,9 @@
  *
  * Also archives whose names have * or ?, unpacked through the commands, which
  * must not read those names as patterns, with the 7-Zip line as installed and
- * as edited. */
+ * as edited.
+ *
+ * Also a tar hard link, copied from the file it names without a question. */
 
 #include "test.h"
 
@@ -426,6 +428,45 @@ check_split_volumes (const char *tmp,
 	g_free (seven);
 }
 
+/* A tar's hard link names a file it already unpacked, which gets copied. That
+   file is no conflict, so nothing is asked. */
+static void
+check_hard_links (const char *tmp,
+		  GtkWidget  *window)
+{
+	char *archive = g_build_filename (tmp, "linked.tar", NULL);
+	char *dest = g_build_filename (tmp, "linked", NULL);
+	char *copy = g_build_filename (dest, "b.txt", NULL);
+	struct archive *a = archive_write_new ();
+	struct archive_entry *entry;
+	guint asked = 0, refuse_id;
+
+	check (archive_write_set_format_pax_restricted (a) == ARCHIVE_OK);
+	check (archive_write_open_filename (a, archive) == ARCHIVE_OK);
+	add_file_entry (a, "a.txt", "data");
+	entry = archive_entry_new ();
+	archive_entry_set_pathname (entry, "b.txt");
+	archive_entry_set_hardlink (entry, "a.txt");
+	archive_entry_set_filetype (entry, AE_IFREG);
+	archive_entry_set_perm (entry, 0644);
+	archive_entry_set_size (entry, 0);
+	check (archive_write_header (a, entry) == ARCHIVE_OK);
+	archive_entry_free (entry);
+	check (archive_write_close (a) == ARCHIVE_OK);
+	archive_write_free (a);
+
+	g_mkdir_with_parents (dest, 0700);
+	refuse_id = g_timeout_add (100, refuse_dialogs, &asked);
+	run_job (archive, dest, NEMO_EXTRACT_HERE, window);
+	g_source_remove (refuse_id);
+	check (asked == 0);
+	check_contents (copy, "data");
+
+	g_free (copy);
+	g_free (dest);
+	g_free (archive);
+}
+
 #ifndef G_OS_WIN32
 /* Names with * or ? can't be made on Windows. */
 static char *
@@ -697,6 +738,7 @@ main (int argc, char *argv[])
 	check_here_layout (tmp, archive_path, window);
 	check_subfolder_layout (tmp, archive_path, window);
 	check_split_volumes (tmp, window);
+	check_hard_links (tmp, window);
 #ifndef G_OS_WIN32
 	check_pattern_names (tmp, window);
 #endif

@@ -169,30 +169,33 @@ compare_ints (const void *a,
 	return (x > y) - (x < y);
 }
 
+/* Rounded down, but never to no values at all: 90 percent of 3 values is 2. */
+static int
+fit_of_sorted (const int *sorted,
+	       int        n_values,
+	       int        percent)
+{
+	percent = CLAMP (percent, 1, 100);
+
+	return sorted[MAX (1, (n_values * percent) / 100) - 1];
+}
+
 int
 nemo_column_layout_fit (const int *values,
 			int        n_values,
 			int        percent)
 {
 	int *sorted;
-	int rank;
 	int fit;
 
 	if (values == NULL || n_values <= 0) {
 		return 0;
 	}
 
-	percent = CLAMP (percent, 1, 100);
-
 	sorted = g_new (int, n_values);
-	memcpy (sorted, values, n_values * sizeof (int));
-	qsort (sorted, n_values, sizeof (int), compare_ints);
-
-	/* Rounded down, but never to no values at all: 90 percent of 3
-	   values is 2. */
-	rank = MAX (1, (n_values * percent) / 100);
-
-	fit = sorted[rank - 1];
+	memcpy (sorted, values, (gsize) n_values * sizeof (int));
+	qsort (sorted, (gsize) n_values, sizeof (int), compare_ints);
+	fit = fit_of_sorted (sorted, n_values, percent);
 	g_free (sorted);
 
 	return fit;
@@ -420,8 +423,14 @@ nemo_column_tally_measure (NemoColumnTally *tally,
 			tally->widest = MAX (tally->widest, GPOINTER_TO_INT (value));
 		}
 
-		tally->fit = nemo_column_layout_fit (widths, (int) n, percent);
-		tally->half = nemo_column_layout_fit (widths, (int) n, 50);
+		if (n > 0) {
+			qsort (widths, n, sizeof (int), compare_ints);
+			tally->fit = fit_of_sorted (widths, (int) n, percent);
+			tally->half = fit_of_sorted (widths, (int) n, 50);
+		} else {
+			tally->fit = 0;
+			tally->half = 0;
+		}
 		tally->fit_percent = percent;
 		g_free (widths);
 	}

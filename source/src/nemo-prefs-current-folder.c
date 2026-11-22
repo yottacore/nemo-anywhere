@@ -179,8 +179,6 @@ field_key (int field)
 	}
 }
 
-/* the preference a field falls back to, as a spin box value, a combo row, or a
-   check state */
 /* A size is stored as pixels and shown as a percent of the standard size. */
 static int
 size_percent (gint size)
@@ -192,6 +190,8 @@ size_percent (gint size)
 	return nemo_icon_size_percent (size);
 }
 
+/* the preference a field falls back to, as a spin box value, a combo row, or a
+   check state */
 static int
 field_default (int field)
 {

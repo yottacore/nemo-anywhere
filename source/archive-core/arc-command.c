@@ -621,7 +621,7 @@ names_skipped (const char *path,
 	return FALSE;
 }
 
-/* "WARNING: Can't open 2 files", which both end on under Windows. It names
+/* "WARNING: Cannot open 2 files", which both end on under Windows. It names
    nothing, so it says only how many names have to be there. */
 static gboolean
 open_count (const char *line,
@@ -692,7 +692,7 @@ arc_only_skipped_links (ArcBackend  backend,
 		}
 
 		if (backend == ARC_BACKEND_RAR) {
-			/* "Can't open <name>", then the reason on a line of its own. */
+			/* "Cannot open <name>", then the reason on a line of its own. */
 			if (g_str_has_prefix (line, "Cannot open ")) {
 				const char *name = line + strlen ("Cannot open ");
 
