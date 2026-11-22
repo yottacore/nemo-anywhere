@@ -63,7 +63,7 @@ fMain(){
 			skipped+=1
 			continue
 		fi
-		if [[ ! -d "$(dirname "${dst}")" ]]; then
+		if [[ ! -d "${dst%/*}" ]]; then
 			fEcho_Clean "  skipped (no ${dst%/*}/): ${relative##*/}"
 			skipped+=1
 			continue

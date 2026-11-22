@@ -782,15 +782,14 @@ fRun fCheckNoCancellableSource
 ## open, which only logged a critical (2026101416534029).
 ## Test ID: de7ap
 fCheckTestJobPrefs(){
-	local f bad=""
+	local -a starters=()
+	local bad=""
 
-	for f in source/test/*.c; do
-		grep -qE '(nemo_file_operations_[a-z_]+|nemo_archive_create[a-z_]*|nemo_extract_files)[[:space:]]*\(' "${f}" || continue
-		grep -q 'nemo_global_preferences_init' "${f}" || bad+="${f}"$'\n'
-	done
+	mapfile -t starters < <(grep -lE '(nemo_file_operations_[a-z_]+|nemo_archive_create[a-z_]*|nemo_extract_files)[[:space:]]*\(' source/test/*.c || true)
+	((${#starters[@]})) && bad="$(grep -L 'nemo_global_preferences_init' "${starters[@]}" || true)"
 	if [[ -n "${bad}" ]]; then
 		fEcho "FAIL: a test starts a file job without nemo_global_preferences_init"
-		printf '%s' "${bad}"
+		printf '%s\n' "${bad}"
 		exit 2
 	fi
 }
@@ -1258,14 +1257,15 @@ fCheckForegroundAlone(){
 	takes+='|gtk_menu_popup|pop_up_context_menu|drag_drop_action_ask|gtk_popover_popup|gtk_combo_box_popup'
 	takes+='|GDK_KEY_Menu|"popup-menu"'
 	local line name files f bad=""
+	local -A taking=()
 
 	[[ -f "${build}" ]] || return 0
+	while IFS= read -r f; do taking[${f##*/}]=1; done < <(grep -lE "${takes}" source/test/*.c || true)
 
 	## One row per test built on Windows and not alone there: line, name, its files.
 	while IFS='|' read -r line name files; do
 		for f in ${files}; do
-			[[ -f "source/test/${f}" ]] || continue
-			if grep -qE "${takes}" "source/test/${f}"; then
+			if [[ -n "${taking[${f}]:-}" ]]; then
 				bad+="${line}: ${name} (${f})"$'\n'
 				break
 			fi
@@ -1625,6 +1625,7 @@ fCheckTabFocus(){
 	local listMade='(^|[^A-Za-z0-9_])nemo_tab_list_new[[:space:]]*\('
 	local listKeys='nemo_tab_list_step'
 	local -a cFiles=() uiFiles=() bad=()
+	local -A hasTabs=() hasHelper=() hasList=() hasKeys=()
 	local f base loader loaders found
 
 	mapfile -t cFiles < <(find source/src source/libnemo-private source/libnemo-extension source/eel \( -name '*.c' -o -name '*.h' \) | sort)
@@ -1634,11 +1635,16 @@ fCheckTabFocus(){
 		exit 2
 	fi
 
+	## One grep per pattern over every file, not 4 per file.
+	while IFS= read -r f; do hasTabs[${f}]=1; done < <(grep -lE "${gtkTabs}" "${cFiles[@]}" || true)
+	while IFS= read -r f; do hasHelper[${f}]=1; done < <(grep -lE "${gtkHelper}" "${cFiles[@]}" || true)
+	while IFS= read -r f; do hasList[${f}]=1; done < <(grep -lE "${listMade}" "${cFiles[@]}" || true)
+	while IFS= read -r f; do hasKeys[${f}]=1; done < <(grep -lE "${listKeys}" "${cFiles[@]}" || true)
 	for f in "${cFiles[@]}"; do
-		if grep -qE "${gtkTabs}" "${f}" && ! grep -qE "${gtkHelper}" "${f}"; then
+		if [[ -n "${hasTabs[${f}]:-}" && -z "${hasHelper[${f}]:-}" ]]; then
 			bad+=("${f}: makes tabs with no eel_gtk_tabs_keep_focus_off")
 		fi
-		if [[ "${f}" != */nemo-tab-list.c ]] && grep -qE "${listMade}" "${f}" && ! grep -qE "${listKeys}" "${f}"; then
+		if [[ "${f}" != */nemo-tab-list.c && -n "${hasList[${f}]:-}" && -z "${hasKeys[${f}]:-}" ]]; then
 			bad+=("${f}: shows a NemoTabList with no Ctrl+Page keys through nemo_tab_list_step")
 		fi
 	done
@@ -1650,10 +1656,10 @@ fCheckTabFocus(){
 			bad+=("${f}: tabs, and no C file names it to check")
 		fi
 		for loader in ${loaders}; do
-			if grep -qE 'class="Gtk(Notebook|StackSwitcher|StackSidebar|AboutDialog|ShortcutsWindow)"' "${f}" && ! grep -qE "${gtkHelper}" "${loader}"; then
+			if grep -qE 'class="Gtk(Notebook|StackSwitcher|StackSidebar|AboutDialog|ShortcutsWindow)"' "${f}" && [[ -z "${hasHelper[${loader}]:-}" ]]; then
 				bad+=("${f}: tabs, and ${loader} loads it with no eel_gtk_tabs_keep_focus_off")
 			fi
-			if grep -qF 'class="NemoTabList"' "${f}" && ! grep -qE "${listKeys}" "${loader}"; then
+			if grep -qF 'class="NemoTabList"' "${f}" && [[ -z "${hasKeys[${loader}]:-}" ]]; then
 				bad+=("${f}: a NemoTabList, and ${loader} loads it with no nemo_tab_list_step")
 			fi
 		done
