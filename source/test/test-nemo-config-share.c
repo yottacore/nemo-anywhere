@@ -609,7 +609,6 @@ test_same_key_at_once (Peer *a, Peer *b)
 		   the other's. */
 		tell (a, "at %" G_GINT64_FORMAT ";set " STRING_KEY " a%d;stamp;hold 200", when, round);
 		tell (b, "at %" G_GINT64_FORMAT ";set " STRING_KEY " b%d;stamp;hold 200", when, round);
-		g_usleep (700 * 1000);
 
 		/* On a loaded box a copy can get to its set late, and its save
 		   counts from there (2026101419352490). */
