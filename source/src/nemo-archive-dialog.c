@@ -1215,7 +1215,7 @@ confirm_overwrite (ArchiveDialog *self,
 		primary = g_strdup_printf (_("A file named \"%s\" already exists. Replace it?"), name);
 		g_free (name);
 	} else {
-		primary = g_strdup_printf (_("%d of the archives already exist. Replace them?"), count);
+		primary = g_strdup_printf (_("%u of the archives already exist. Replace them?"), count);
 	}
 
 	response = eel_run_simple_dialog (self->dialog, TRUE, GTK_MESSAGE_QUESTION,

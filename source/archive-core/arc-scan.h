@@ -19,7 +19,7 @@
 */
 
 /* Walks the selection and everything below it by the 4 follow options, and
- * hands each path to a path list wiht what it needs of them. "Background
+ * hands each path to a path list with what it needs of them. "Background
  * scan" in project/design_docs/20260929-101432_compression.md.
  *
  * Folders are listed through the host's walk. Paths go in canonical, and a

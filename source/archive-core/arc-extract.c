@@ -29,7 +29,7 @@
 #include <archive_entry.h>
 
 #include "arc-command.h"
-#include "arc-compress.h"	/* the tools' stderr reader */
+#include "arc-compress.h"	/* the tools' stderr reader and percent */
 #include "arc-extract-names.h"
 #include "arc-verify.h"
 #include "arc-writer.h"
@@ -897,42 +897,6 @@ extract_with_libarchive (ExtractJob *job,
  * Reading with a command
  */
 
-/* Both tools write a running "NN%". The newest one in the buffer wins. */
-static gboolean
-scan_percent (const char *text,
-	      gsize       length,
-	      int        *percent)
-{
-	gboolean found = FALSE;
-	gsize i;
-
-	for (i = 0; i < length; i++) {
-		gsize start;
-		int value;
-
-		if (!g_ascii_isdigit (text[i])) {
-			continue;
-		}
-
-		start = i;
-		value = 0;
-		while (i < length && g_ascii_isdigit (text[i])) {
-			value = value * 10 + (text[i] - '0');
-			if (value > 100) {
-				value = 101;	/* too big to be a percentage */
-			}
-			i++;
-		}
-
-		if (i > start && i < length && text[i] == '%' && value <= 100) {
-			*percent = value;
-			found = TRUE;
-		}
-	}
-
-	return found;
-}
-
 /* Placed, or asked about, before libarchive stopped at a link it can't read. */
 static gboolean
 handled_before_stop (ExtractJob *job,
@@ -1079,7 +1043,7 @@ run_unpack_command (ExtractJob         *job,
 			g_string_erase (tail, 0, tail->len - 4096);
 		}
 
-		if (scan_percent (buffer, (gsize) count, &percent)) {
+		if (arc_tool_percent (buffer, (gsize) count, &percent)) {
 			arc_fraction (&job->host, percent, 100);
 		}
 	}
