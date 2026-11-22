@@ -33,7 +33,7 @@
 <table style="border: none; border-collapse: collapse;">
 	<tr style="border: none; border-collapse: collapse;">
 		<td style="border: none; border-collapse: collapse;"><img src="assets/logo.png" alt="Logo" width="160"/></td>
-		<td style="border: none;">This is the legendary Nemo file manager, ported to Windows, with BSD and macOS to follow - as well as to Linux without the Cinnamon dependency. It also has several major new convenience features.</td>
+		<td style="border: none;">This is the legendary Nemo file manager, ported to Windows and FreeBSD, with macOS to follow - as well as to Linux without the Cinnamon dependency. It also has several major new convenience features.</td>
 	</tr>
 </table>
 
@@ -84,7 +84,7 @@ That means, in order:
 
 - **Windows**: A real native build, not a compatibility shim. Inclusion in the Windows app store, winget, and choco are underway.
 
-- **BSD**: Coming soon.
+- **BSD**: A native FreeBSD build, with a `.pkg` package.
 
 - **macOS**: Buildable, with an app store build underway.
 
@@ -116,7 +116,7 @@ These are the features that make Nemo worth porting:
 
 - **Cinnamon Desktop isn't required**.
 
-- **Linux isn't required**. Windows is a real native build, not a compatibility layer. (BSD coming soon.) You can install it from here, and Windows Store and Apple Store downloads are underway.
+- **Linux isn't required**. Windows is a real native build, not a compatibility layer. (So is FreeBSD.) You can install it from here, and Windows Store and Apple Store downloads are underway.
 
 - On Windows it's one executable. The whole runtime is packed inside it, so there's nothing to install and nothing to keep in sync. Copy it where you like and run it.
 
@@ -250,7 +250,7 @@ Current limitations:
 
 - The Windows exe isn't code-signed yet, so Windows may warn the first time it runs.
 
-- macOS and BSD aren't built yet.
+- macOS isn't built yet.
 
 Details are in these docs:
 
