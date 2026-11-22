@@ -106,7 +106,7 @@ try {
 		$procs += fStart (Join-Path $short "holder.exe")
 		$reported = $null
 		for ($i = 0; $i -lt 20 -and -not $reported; $i++) {
-			$reported = (Get-CimInstance Win32_Process -Filter "ProcessId = $($procs[-1].Id)").ExecutablePath
+			$reported = (Get-CimInstance -ClassName Win32_Process -Filter "ProcessId = $($procs[-1].Id)").ExecutablePath
 			if (-not $reported) { Start-Sleep -Milliseconds 250 }
 		}
 		Write-Host "  started as ${short}\holder.exe, reported as ${reported}"

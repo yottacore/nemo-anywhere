@@ -196,7 +196,8 @@ def offenders(text: str) -> list[str]:
 
 
 def strings_in(path: str) -> Iterator[tuple[int, str]]:
-    text = open(path, encoding="utf-8", errors="replace").read()
+    with open(path, encoding="utf-8", errors="replace") as f:
+        text = f.read()
 
     if path.endswith((".c", ".h")):
         pattern = C_RE
@@ -275,12 +276,14 @@ SELF_TEST_EXPECTED = [
 
 
 def self_test() -> int:
-    own = open(__file__, encoding="utf-8").read()
+    with open(__file__, encoding="utf-8") as f:
+        own = f.read()
     test_id = re.search(r"(?m)^##\t  Test ID: (\S+)$", own).group(1)
     print(f"[ Test {test_id} lint-ui-case.py --self-test ]")
     with tempfile.TemporaryDirectory() as tmp:
-        open(os.path.join(tmp, "thing.c"), "w", encoding="utf-8").write(SELF_TEST_C)
-        open(os.path.join(tmp, "thing.ui"), "w", encoding="utf-8").write(SELF_TEST_UI)
+        for name, text in (("thing.c", SELF_TEST_C), ("thing.ui", SELF_TEST_UI)):
+            with open(os.path.join(tmp, name), "w", encoding="utf-8") as f:
+                f.write(text)
         got = [f.split(": ")[0].replace(tmp.replace(os.sep, "/") + "/", "")
                + ": " + f.split(": ")[1] for f in run(tmp)]
     if got != SELF_TEST_EXPECTED:
