@@ -210,17 +210,6 @@ monitor_files (G_GNUC_UNUSED NemoFavoriteVfsFileMonitor *monitor)
 //     }
 }
 
-static gint
-find_info_by_uri (gconstpointer ptr_a,
-                  gconstpointer ptr_b)
-{
-    NemoFavoriteInfo *info = (NemoFavoriteInfo *) ptr_a;
-    const gchar *uri = (gchar *) ptr_b;
-
-    // GCompareFunc returns 0 when there's a match.
-    return g_strcmp0 (info->uri, uri);
-}
-
 static void
 favorites_changed (NemoFavorites *favorites,
                    gpointer       user_data)
@@ -232,6 +221,7 @@ favorites_changed (NemoFavorites *favorites,
     NemoFavoriteVfsFileMonitorPrivate *priv = nemo_favorite_vfs_file_monitor_get_instance_private (monitor);
     GList *added, *removed;
     GList *iter, *new_infos;
+    GHashTable *old_uris, *new_uris;
 
     if (g_file_monitor_is_cancelled (G_FILE_MONITOR (monitor)))
     {
@@ -242,13 +232,26 @@ favorites_changed (NemoFavorites *favorites,
 
     new_infos = nemo_favorites_get_favorites (favorites, NULL);
 
+    /* Sets of borrowed uris, so each side is one pass rather than a walk of
+     * the other list per entry. */
+    old_uris = g_hash_table_new (g_str_hash, g_str_equal);
+    new_uris = g_hash_table_new (g_str_hash, g_str_equal);
+
+    for (iter = priv->infos; iter != NULL; iter = iter->next)
+    {
+        g_hash_table_add (old_uris, ((NemoFavoriteInfo *) iter->data)->uri);
+    }
+
+    for (iter = new_infos; iter != NULL; iter = iter->next)
+    {
+        g_hash_table_add (new_uris, ((NemoFavoriteInfo *) iter->data)->uri);
+    }
+
     for (iter = priv->infos; iter != NULL; iter = iter->next)
     {
         NemoFavoriteInfo *old_info = (NemoFavoriteInfo *) iter->data;
-        GList *res = g_list_find_custom (new_infos,
-                                         (gpointer) old_info->uri,
-                                         (GCompareFunc) find_info_by_uri);
-        if (res == NULL)
+
+        if (!g_hash_table_contains (new_uris, old_info->uri))
         {
             removed = g_list_prepend (removed, old_info);
         }
@@ -257,14 +260,15 @@ favorites_changed (NemoFavorites *favorites,
     for (iter = new_infos; iter != NULL; iter = iter->next)
     {
         NemoFavoriteInfo *new_info = (NemoFavoriteInfo *) iter->data;
-        GList *res = g_list_find_custom (priv->infos,
-                                         (gpointer) new_info->uri,
-                                         (GCompareFunc) find_info_by_uri);
-        if (res == NULL)
+
+        if (!g_hash_table_contains (old_uris, new_info->uri))
         {
             added = g_list_prepend (added, new_info);
         }
     }
+
+    g_hash_table_unref (old_uris);
+    g_hash_table_unref (new_uris);
 
     for (iter = removed; iter != NULL; iter = iter->next)
     {

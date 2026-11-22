@@ -407,7 +407,8 @@ _gdk_pixbuf_new_from_uri_at_scale (const char   *uri,
     GdkPixbufAnimation *animation;
     GdkPixbufAnimationIter *iter;
     gboolean has_frame;
-    SizePrepareContext info;
+    /* Read at the end even when no size was asked for and the loader never set it. */
+    SizePrepareContext info = { 0 };
     GFile *file;
     GFileInfo *file_info;
     GInputStream *input_stream;
@@ -863,6 +864,7 @@ external_thumbnailers_disabled_all_changed_cb (G_GNUC_UNUSED NemoConfigGroup    
     }
   else
     {
+      g_strfreev (priv->disabled_types);
       priv->disabled_types = nemo_config_get_strv (priv->settings, "disable");
       nemo_desktop_thumbnail_factory_load_thumbnailers (factory);
     }
@@ -1870,8 +1872,10 @@ nemo_desktop_thumbnail_factory_save_thumbnail (NemoDesktopThumbnailFactory *fact
   if (saved_ok)
     {
       g_chmod (tmp_path, 0600);
-      g_rename (tmp_path, path);
-      maybe_fix_ownership (factory, path);
+      if (g_rename (tmp_path, path) == 0)
+        maybe_fix_ownership (factory, path);
+      else
+        g_unlink (tmp_path);
     }
   else
     {
@@ -1962,8 +1966,14 @@ nemo_desktop_thumbnail_factory_create_failed_thumbnail (NemoDesktopThumbnailFact
   if (saved_ok)
     {
       g_chmod (tmp_path, 0600);
-      g_rename(tmp_path, path);
-      maybe_fix_ownership (factory, path);
+      if (g_rename (tmp_path, path) == 0)
+        maybe_fix_ownership (factory, path);
+      else
+        g_unlink (tmp_path);
+    }
+  else
+    {
+      g_unlink (tmp_path);
     }
 
   g_free (path);

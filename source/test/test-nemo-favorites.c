@@ -1,7 +1,7 @@
 /* Exercises the favorites list and its favorites:/// vfs: how stored entries are
  * read and written back, listing an entry that has gone away, the prefix and
- * relative-path checks, what a favorite with an unreachable target does, and a
- * concurrent read while the list is rebuilt. Runs against a throwaway
+ * relative-path checks, what a favorite with an unreachable target does, a
+ * concurrent read while the list is rebuilt, and the root's own metadata. Runs against a throwaway
  * XDG_CONFIG_HOME. */
 
 #include <config.h>
@@ -382,6 +382,62 @@ test_concurrent_reload (NemoFavorites *favorites)
 	check (nemo_favorites_get_n_favorites (favorites) == 2);
 }
 
+/* root metadata */
+
+static int
+rows_named (const char *name)
+{
+	char **stored = nemo_config_get_strv (root_group, "favorites-root-metadata");
+	int n = 0;
+	guint i;
+
+	for (i = 0; stored[i] != NULL; i++) {
+		char **t_n_v = g_strsplit (stored[i], "==", 3);
+
+		if (g_strv_length (t_n_v) == 3 && strcmp (t_n_v[1], name) == 0)
+			n++;
+		g_strfreev (t_n_v);
+	}
+	g_strfreev (stored);
+
+	return n;
+}
+
+/* A strv was taken for unset whenever its first pointer ended in a zero
+ * byte, and a name written twice by hand had its new row freed twice. */
+static void
+test_root_metadata (void)
+{
+	const char *const twice[] = { "string==metadata::nemo-test-dupe==a",
+	                              "string==metadata::nemo-test-dupe==b", NULL };
+	GFile *root = g_file_new_for_uri ("favorites:///");
+	char *block = g_malloc (512);
+	char *aligned = (char *) (((guintptr) block + 255) & ~(guintptr) 255);
+	char *values[] = { aligned, NULL };
+	GError *error = NULL;
+	char **stored;
+
+	g_strlcpy (aligned, "kept", 16);
+	check (g_file_set_attribute (root, "metadata::nemo-test-strv", G_FILE_ATTRIBUTE_TYPE_STRINGV,
+	                             values, G_FILE_QUERY_INFO_NONE, NULL, &error));
+	g_clear_error (&error);
+	check (rows_named ("metadata::nemo-test-strv") == 1);
+
+	nemo_config_set_strv (root_group, "favorites-root-metadata", twice);
+	check (g_file_set_attribute_string (root, "metadata::nemo-test-dupe", "c",
+	                                    G_FILE_QUERY_INFO_NONE, NULL, &error));
+	g_clear_error (&error);
+	check (rows_named ("metadata::nemo-test-dupe") == 1);
+
+	stored = nemo_config_get_strv (root_group, "favorites-root-metadata");
+	check (g_strv_contains ((const char * const *) stored, "string==metadata::nemo-test-dupe==c"));
+	g_strfreev (stored);
+
+	nemo_config_reset (root_group, "favorites-root-metadata");
+	g_free (block);
+	g_object_unref (root);
+}
+
 /* No arguments runs the lot, which is how meson calls it. Naming one or more
  * runs only those, for when an earlier one is expected to take the process
  * down with it. */
@@ -440,6 +496,8 @@ main (int argc, char *argv[])
 		test_no_callbacks_after_dispose ();
 	if (want ("concurrent", argc, argv))
 		test_concurrent_reload (favorites);
+	if (want ("root-metadata", argc, argv))
+		test_root_metadata ();
 
 	nemo_config_shutdown ();
 	g_free (tmp);
