@@ -85,12 +85,7 @@ nemo_view_win32_quote_arg (const gchar *arg)
 	}
 	g_string_append_c (out, '"');
 
-	{
-		gchar *ret = g_strdup (out->str);
-
-		g_string_free (out, TRUE);
-		return ret;
-	}
+	return g_string_free (out, FALSE);
 }
 
 gboolean
@@ -125,9 +120,11 @@ nemo_view_win32_open_elevated (const gchar *path)
 	gchar *quoted;
 	wchar_t *wpath;
 	HINSTANCE res;
-	DWORD failure;
+	DWORD failure, length;
 
-	if (GetModuleFileNameW (NULL, exe, MAX_PATH) == 0) {
+	/* A full buffer is a cut-off path, which would run something else. */
+	length = GetModuleFileNameW (NULL, exe, MAX_PATH);
+	if (length == 0 || length >= MAX_PATH) {
 		g_warning ("Open as Administrator: can't find our own executable");
 		return;
 	}
@@ -272,7 +269,7 @@ nemo_view_win32_open_in_explorer (const gchar *path,
 {
 	wchar_t *wpath;
 	PIDLIST_ABSOLUTE item;
-	HRESULT hr;
+	HRESULT hr, com;
 
 	g_return_if_fail (path != NULL);
 
@@ -307,9 +304,14 @@ nemo_view_win32_open_in_explorer (const gchar *path,
 		return;
 	}
 
-	hr = CoInitializeEx (NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
-	if (SUCCEEDED (hr) || hr == RPC_E_CHANGED_MODE) {
+	com = CoInitializeEx (NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+	hr = com;
+	if (SUCCEEDED (com) || com == RPC_E_CHANGED_MODE) {
 		hr = SHOpenFolderAndSelectItems (item, 0, NULL, 0);
+	}
+	/* S_FALSE too: every init that succeeded takes one off. */
+	if (SUCCEEDED (com)) {
+		CoUninitialize ();
 	}
 
 	ILFree (item);

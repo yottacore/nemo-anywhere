@@ -497,6 +497,8 @@ nemo_splash_is_up (void)
 void
 nemo_splash_hide (void)
 {
+	gboolean gone = TRUE;
+
 	if (InterlockedCompareExchange (&splash_up, 0, 1) == 0) {
 		return;
 	}
@@ -510,12 +512,16 @@ nemo_splash_hide (void)
 	if (splash_thread != NULL) {
 		/* Bounded: a splash that won't go away must never be what
 		 * keeps the app from starting. */
-		WaitForSingleObject (splash_thread, 2000);
+		gone = WaitForSingleObject (splash_thread, 2000) == WAIT_OBJECT_0;
 		CloseHandle (splash_thread);
 		splash_thread = NULL;
 	}
 
-	if (splash_lock_ready) {
+	/* A thread that hasn't ended may still paint from the lines under the
+	 * lock, so both are left to it. */
+	if (!gone) {
+		splash_lock_ready = FALSE;
+	} else if (splash_lock_ready) {
 		EnterCriticalSection (&splash_lock);
 		free_lines ();
 		LeaveCriticalSection (&splash_lock);

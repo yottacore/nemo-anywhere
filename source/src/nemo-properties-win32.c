@@ -258,6 +258,7 @@ collect_paths (GList *files)
 		GFile *location = nemo_file_get_location (NEMO_FILE (node->data));
 		gchar *path = (location != NULL) ? g_file_get_path (location) : NULL;
 		gchar *parent;
+		gunichar2 *wide = NULL;
 		gboolean usable;
 
 		g_clear_object (&location);
@@ -279,6 +280,12 @@ collect_paths (GList *files)
 			}
 		}
 
+		/* A NULL in the middle would end the list early. */
+		if (usable) {
+			wide = g_utf8_to_utf16 (path, -1, NULL, NULL, NULL);
+			usable = wide != NULL;
+		}
+
 		if (!usable) {
 			g_free (path);
 			g_free (shared_parent);
@@ -286,7 +293,7 @@ collect_paths (GList *files)
 			return NULL;
 		}
 
-		g_ptr_array_add (paths, g_utf8_to_utf16 (path, -1, NULL, NULL, NULL));
+		g_ptr_array_add (paths, wide);
 		g_free (path);
 	}
 
