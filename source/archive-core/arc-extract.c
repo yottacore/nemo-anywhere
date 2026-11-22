@@ -29,7 +29,7 @@
 #include <archive_entry.h>
 
 #include "arc-command.h"
-#include "arc-compress.h"	/* the tools' stderr reader */
+#include "arc-compress.h"	/* the tools' stderr reader and percent */
 #include "arc-extract-names.h"
 #include "arc-verify.h"
 #include "arc-writer.h"
@@ -444,6 +444,21 @@ target_for_entry (ExtractJob  *job,
 	return target;
 }
 
+/* Where an entry already unpacked went. Not through resolve_target, which
+   would ask about it as if it were in the way. A file renamed on the way in
+   isn't found. */
+static GFile *
+placed_file (ExtractJob *job,
+	     const char *rel_path)
+{
+	const char *slash = strrchr (rel_path, '/');
+	char *rel_dir = slash != NULL ? g_strndup (rel_path, (gsize) (slash - rel_path)) : g_strdup ("");
+	GFile *dir = dir_for_rel (job, rel_dir);
+
+	g_free (rel_dir);
+	return dir != NULL ? g_file_get_child (dir, slash != NULL ? slash + 1 : rel_path) : NULL;
+}
+
 static void
 apply_entry_metadata (ExtractJob *job,
 		      GFile      *target,
@@ -816,7 +831,8 @@ extract_with_libarchive (ExtractJob *job,
 #endif
 		}
 
-		if (filetype != AE_IFREG) {
+		/* A tar's hard link comes back with no type at all. */
+		if (filetype != AE_IFREG && archive_entry_hardlink (entry) == NULL) {
 			/* Devices, sockets and fifos have no place in a folder a
 			   person is unpacking into. */
 			g_free (rel);
@@ -837,8 +853,7 @@ extract_with_libarchive (ExtractJob *job,
 			   in the same archive, which is copied instead. */
 			const char *other = archive_entry_hardlink_utf8 (entry);
 			char *link_rel = arc_extract_sanitize_path (other != NULL ? other : archive_entry_hardlink (entry));
-			GFile *source = link_rel != NULL ?
-				target_for_entry (job, link_rel, FALSE, size, mtime) : NULL;
+			GFile *source = link_rel != NULL ? placed_file (job, link_rel) : NULL;
 
 			if (source != NULL) {
 				if (g_file_copy (source, target, G_FILE_COPY_OVERWRITE | G_FILE_COPY_ALL_METADATA,
@@ -881,42 +896,6 @@ extract_with_libarchive (ExtractJob *job,
 /*
  * Reading with a command
  */
-
-/* Both tools write a running "NN%". The newest one in the buffer wins. */
-static gboolean
-scan_percent (const char *text,
-	      gsize       length,
-	      int        *percent)
-{
-	gboolean found = FALSE;
-	gsize i;
-
-	for (i = 0; i < length; i++) {
-		gsize start;
-		int value;
-
-		if (!g_ascii_isdigit (text[i])) {
-			continue;
-		}
-
-		start = i;
-		value = 0;
-		while (i < length && g_ascii_isdigit (text[i])) {
-			value = value * 10 + (text[i] - '0');
-			if (value > 100) {
-				value = 101;	/* too big to be a percentage */
-			}
-			i++;
-		}
-
-		if (i > start && i < length && text[i] == '%' && value <= 100) {
-			*percent = value;
-			found = TRUE;
-		}
-	}
-
-	return found;
-}
 
 /* Placed, or asked about, before libarchive stopped at a link it can't read. */
 static gboolean
@@ -1064,7 +1043,7 @@ run_unpack_command (ExtractJob         *job,
 			g_string_erase (tail, 0, tail->len - 4096);
 		}
 
-		if (scan_percent (buffer, (gsize) count, &percent)) {
+		if (arc_tool_percent (buffer, (gsize) count, &percent)) {
 			arc_fraction (&job->host, percent, 100);
 		}
 	}

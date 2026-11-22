@@ -115,6 +115,8 @@ static void finish_add_favorite (NemoFavorites *favorites,
                                  const gchar   *uri,
                                  const gchar   *mimetype,
                                  gboolean       from_saved);
+static void deduplicate_display_names (NemoFavorites *favorites,
+                                       GHashTable    *infos);
 
 /* Stored entries are "mimetype::uri". The mimetype comes first because a mime
  * type can never contain a colon, so the first "::" is always the separator;
@@ -372,6 +374,8 @@ load_favorites (NemoFavorites *favorites,
         g_free (uri);
         g_free (mimetype);
     }
+
+    deduplicate_display_names (favorites, priv->infos);
 
     g_strfreev (raw_list);
 
@@ -767,7 +771,11 @@ finish_add_favorite (NemoFavorites *favorites,
 
     g_debug ("NemoFavorites: added favorite: %s", uri);
 
-    deduplicate_display_names (favorites, priv->infos);
+    /* A load does this once at the end, not once per entry over the whole table. */
+    if (!from_saved)
+    {
+        deduplicate_display_names (favorites, priv->infos);
+    }
 
     g_rec_mutex_unlock (&infos_lock);
 
@@ -998,7 +1006,7 @@ match_mimetypes (G_GNUC_UNUSED gpointer key,
 
     guint i;
 
-    for (i = 0; i < g_strv_length ((gchar **) data->mimetypes); i++)
+    for (i = 0; data->mimetypes[i] != NULL; i++)
     {
         if (g_content_type_is_mime_type (info->cached_mimetype, data->mimetypes[i]))
         {

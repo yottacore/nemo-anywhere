@@ -75,21 +75,22 @@ fReport "a banner divider" '^[[:space:]]*/?\*+[[:space:]]*[-=_.*#]{4,}' \
 ## Upstream files are skipped whole: several have an accented author name in
 ## the header, which is theirs to keep.
 mapfile -t cfiles < <(git ls-files 'source/*.c' 'source/*.h')
+## One listing of the root commit, then the same suffix match the pathspec
+## "*name" makes, for every file at once rather than a git grep per file.
+mapfile -t ours < <(git grep -lI -e '' "${baseline}" | awk -v list="$(printf '%s\n' "${cfiles[@]}")" '
+	{ p = substr($0, index($0, ":") + 1); for (i = 1; i <= length(p); i++) tail[substr(p, i)] = 1 }
+	END { n = split(list, f, "\n"); for (i = 1; i <= n; i++) { b = f[i]; sub(/.*\//, "", b); if (f[i] != "" && !(b in tail)) print f[i] } }')
+## The copyright symbol is wanted anywhere; the marker's other characters
+## only on the copyright line itself. Prints "file: N:text" for a file's first
+## hit and "N:text" for the rest.
 bad=""
-for f in "${cfiles[@]}"; do
-	if git grep -qI -e '' "${baseline}" -- "*${f##*/}"; then
-		continue
-	fi
-	## The copyright symbol is wanted anywhere; the marker's other characters
-	## only on the copyright line itself.
-	out="$(sed 's/\xc2\xa9//g' "${f}" | grep -nP '[^\x00-\x7F]' | grep -v 'Copyright ' || true)"
-	if [[ -n "${out}" ]]; then
-		bad+="${f}: ${out}"$'\n'
-	fi
-done
+if ((${#ours[@]})); then
+	bad="$(grep -HnP '[^\x00-\x7F]' -- "${ours[@]}" | sed 's/\xc2\xa9//g' | grep -P '[^\x00-\x7F]' | grep -v 'Copyright ' \
+		| awk '{ f = $0; sub(/:.*/, "", f); t = substr($0, length(f) + 2); print (f == prev ? "" : f ": ") t; prev = f }' || true)"
+fi
 if [[ -n "${bad}" ]]; then
 	fEcho "FAIL: a non-ASCII byte outside the copyright line"
-	printf '%s' "${bad}"
+	printf '%s\n' "${bad}"
 	rc=1
 fi
 

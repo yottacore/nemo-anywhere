@@ -274,20 +274,26 @@ nemo_archive_create_each (GList                    *sources,
 		}
 		g_free (name);
 
-		chosen = g_list_append (chosen, source);
-		destinations = g_list_append (destinations, destination);
+		chosen = g_list_prepend (chosen, source);
+		destinations = g_list_prepend (destinations, destination);
 	}
 
+	/* Still answers, or a caller waiting on the callback waits for good. */
 	if (chosen == NULL) {
+		if (done_callback != NULL) {
+			done_callback (NULL, FALSE, done_callback_data);
+		}
 		return;
 	}
 
+	chosen = g_list_reverse (chosen);
+	destinations = g_list_reverse (destinations);
+
 	job = archive_job_new (destination_dir, options, parent_window, done_callback, done_callback_data);
 	for (l = chosen, d = destinations; l != NULL; l = l->next, d = d->next) {
-		GList *one = g_list_append (NULL, l->data);
+		GList one = { l->data, NULL, NULL };
 
-		arc_compress_add (job->work, one, G_FILE (d->data));
-		g_list_free (one);
+		arc_compress_add (job->work, &one, G_FILE (d->data));
 	}
 	g_list_free (chosen);
 	g_list_free_full (destinations, g_object_unref);

@@ -6426,8 +6426,11 @@ icon_destroy (NemoIconContainer *container,
 		if (icon_to_focus != NULL) {
 			select_one_unselect_others (container, icon_to_focus);
 		}
-		/* Coalesce multiple removals causing multiple selection_changed events */
-		details->selection_changed_id = g_idle_add (selection_changed_at_idle_callback, container);
+		/* Coalesce multiple removals causing multiple selection_changed events.
+		   Only one idle is kept, since dispose removes only the id it has. */
+		if (details->selection_changed_id == 0) {
+			details->selection_changed_id = g_idle_add (selection_changed_at_idle_callback, container);
+		}
 	}
 }
 

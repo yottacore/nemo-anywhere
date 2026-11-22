@@ -54,7 +54,8 @@ def newest_report(pdir: str) -> tuple[str, str] | None:
 
 
 def parse_flamegraph(path: str) -> tuple[int, list[Frame]]:
-    text = open(path, encoding="utf-8").read()
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
     m = re.search(r'total_samples="(\d+)"', text)
     total = int(m.group(1)) if m else 0
     frames = []                                      # each: (name, x, y, w) in raw samples
@@ -207,7 +208,8 @@ def main() -> None:
     if a.check and not a.force:
         seen = ""
         try:
-            seen = open(marker, encoding="utf-8").read().strip()
+            with open(marker, encoding="utf-8") as f:
+                seen = f.read().strip()
         except OSError:
             pass
         if ts and seen and ts <= seen:
@@ -221,7 +223,8 @@ def main() -> None:
 
     if a.check and not a.no_mark and ts:
         try:
-            open(marker, "w", encoding="utf-8").write(ts + "\n")
+            with open(marker, "w", encoding="utf-8") as f:
+                f.write(ts + "\n")
         except OSError as e:
             sys.stderr.write(f"flame-report: couldn't write marker: {e}\n")
 

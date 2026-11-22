@@ -855,11 +855,16 @@ set_or_update_root_metadata (const gchar        *attr_name,
 
         t_n_v = g_strsplit (old_metadata[i], "==", 3);
 
-        /* Same guard as the remove path: a row with no "==" has no t_n_v[1]. */
+        /* Same guard as the remove path: a row with no "==" has no t_n_v[1].
+         * A second row for the same name, written by hand, goes: entry can only
+         * be in the list once, or it is freed twice. */
         if (t_n_v[0] != NULL && t_n_v[1] != NULL &&
             g_strcmp0 (t_n_v[1], attr_name) == 0)
         {
-            g_ptr_array_add (new_array, entry);
+            if (!exists)
+            {
+                g_ptr_array_add (new_array, entry);
+            }
             exists = TRUE;
         }
         else
@@ -927,7 +932,12 @@ file_set_attribute (GFile                *file,
     {
         if (g_str_has_prefix (attribute, "metadata"))
         {
-            if (type == G_FILE_ATTRIBUTE_TYPE_INVALID || value_p == NULL || ((char *) value_p)[0] == '\0')
+            /* A strv's first byte is a byte of its first pointer, not of a string. */
+            gboolean unset = type == G_FILE_ATTRIBUTE_TYPE_INVALID || value_p == NULL ||
+                             (type == G_FILE_ATTRIBUTE_TYPE_STRINGV ? ((gchar **) value_p)[0] == NULL
+                                                                    : ((char *) value_p)[0] == '\0');
+
+            if (unset)
             {
                 // unset metadata
                 remove_root_metadata (attribute);
@@ -1481,7 +1491,6 @@ gchar *nemo_favorite_vfs_file_get_real_uri (GFile *file)
 GFile *nemo_favorite_vfs_file_new_for_uri (const char *uri)
 {
     NemoFavoriteVfsFile *new_file;
-    g_autofree gchar *basename = NULL;
 
     new_file = g_object_new (NEMO_TYPE_NEMO_FAVORITE_VFS_FILE, NULL);
 

@@ -64,6 +64,7 @@ void
 nemo_image_folders_note (GFile *location, gboolean mostly)
 {
 	char *uri;
+	gpointer known;
 	GList *old;
 
 	if (remembered == NULL) {
@@ -72,7 +73,11 @@ nemo_image_folders_note (GFile *location, gboolean mostly)
 
 	uri = g_file_get_uri (location);
 
-	old = g_queue_find_custom (&remembered_order, uri, (GCompareFunc) g_strcmp0);
+	/* The table and the queue share one string per folder, so a new folder
+	   skips the walk and a known one only compares pointers. */
+	old = g_hash_table_lookup_extended (remembered, uri, &known, NULL)
+		? g_queue_find (&remembered_order, known)
+		: NULL;
 	if (old != NULL) {
 		g_free (uri);
 		uri = old->data;

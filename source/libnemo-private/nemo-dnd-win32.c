@@ -101,6 +101,10 @@ block_from (gconstpointer data, gsize len)
 	}
 
 	copy = GlobalLock (block);
+	if (copy == NULL) {
+		GlobalFree (block);
+		return NULL;
+	}
 	memcpy (copy, data, len);
 	GlobalUnlock (block);
 
@@ -159,10 +163,15 @@ hdrop_block (gchar **paths)
 	if (block != NULL) {
 		guchar *copy = GlobalLock (block);
 
-		memcpy (copy, &header, sizeof (header));
-		memcpy (copy + sizeof (header), wide->data,
-			wide->len * sizeof (gunichar2));
-		GlobalUnlock (block);
+		if (copy != NULL) {
+			memcpy (copy, &header, sizeof (header));
+			memcpy (copy + sizeof (header), wide->data,
+				wide->len * sizeof (gunichar2));
+			GlobalUnlock (block);
+		} else {
+			GlobalFree (block);
+			block = NULL;
+		}
 	}
 
 	g_array_free (wide, TRUE);
@@ -235,6 +244,11 @@ shell_id_list_block (gchar **paths)
 	}
 
 	out = GlobalLock (block);
+	if (out == NULL) {
+		GlobalFree (block);
+		block = NULL;
+		goto give_up;
+	}
 	offsets = (UINT *) out;
 	offsets[0] = count;
 

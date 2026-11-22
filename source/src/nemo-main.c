@@ -154,10 +154,9 @@ main (int argc, char *argv[])
 	bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
 	textdomain (GETTEXT_PACKAGE);
 
-	/* As early as anything can be said in the user's own language, and well
-	 * before gtk_init: on Windows the packed single exe takes a noticeable
-	 * moment to get a window up, and an icon that does nothing for several
-	 * seconds reads as a failed launch. No-op on every other platform. */
+	/* Once translations are bound, and well before gtk_init: the packed
+	 * Windows exe takes a moment to get a window up, and an icon that does
+	 * nothing reads as a failed launch. No-op elsewhere. */
 	if (!prints_and_exits (argc, argv)) {
 		nemo_splash_show ();
 		nemo_splash_note (_("Starting"));

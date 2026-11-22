@@ -175,11 +175,8 @@ eel_gtk_window_set_initial_geometry (GtkWindow *window,
 		screen_height = gdk_screen_get_height (screen);
 
 		/* GDK doesn't allow win_gravity South/East, so place by hand: "-N"
-		 * means the window's right (or bottom) edge sits N pixels in from
-		 * that screen edge. The parser has already made real_left negative,
-		 * so the sign is applied once here, and the window's own size is
-		 * subtracted - without either, -20-20 ended up off-screen and got
-		 * clamped back to the primary monitor's origin.
+		 * puts the window's right (or bottom) edge N pixels in from that
+		 * screen edge. The parser already made real_left negative.
 		 */
 		if (geometry_flags & (EEL_GDK_X_NEGATIVE | EEL_GDK_Y_NEGATIVE)) {
 			int win_width = (int) width;
@@ -570,9 +567,7 @@ eel_gtk_get_treeview_row_text_at_pos (GtkTreeView *tree_view,
         return FALSE;
     }
 
-    // It also returns FALSE when the position is past the last row, and hands back no path
-    // at all - freeing the uninitialized one crashed a drag over the empty space below
-    // a list. Nothing there to be over.
+    // Past the last row it also returns FALSE, with no path.
     if (path == NULL) {
         return FALSE;
     }
@@ -584,7 +579,6 @@ eel_gtk_get_treeview_row_text_at_pos (GtkTreeView *tree_view,
     inside = (x > area.x && x < area.x + area.width &&
               y > area.y && y < area.y + area.height);
 
-    // This runs on every drag-motion event, so the path can't be leaked.
     gtk_tree_path_free (path);
 
     return inside;

@@ -616,22 +616,25 @@ static GdkPixbuf *
 decode_rgb (Reader *r, const Preview *p)
 {
 	GdkPixbuf *pixbuf = gdk_pixbuf_new (GDK_COLORSPACE_RGB, FALSE, 8, p->width, p->height);
+	gsize row_bytes = (gsize) p->width * 3;
 	guint8 *pixels;
-	int stride;
+	gsize stride;
 	guint y;
 
 	if (pixbuf == NULL) {
 		return NULL;
 	}
 	pixels = gdk_pixbuf_get_pixels (pixbuf);
-	stride = gdk_pixbuf_get_rowstride (pixbuf);
+	stride = (gsize) gdk_pixbuf_get_rowstride (pixbuf);
 
-	for (y = 0; y < p->height; y++) {
-		if (!read_at (r, p->offset + (goffset) y * p->width * 3,
-			      pixels + (gsize) y * stride, (gsize) p->width * 3)) {
-			g_object_unref (pixbuf);
-			return NULL;
-		}
+	/* One read for the lot, then each row moved out to its stride, last
+	   first, since a row only ever moves later. */
+	if (!read_at (r, p->offset, pixels, row_bytes * p->height)) {
+		g_object_unref (pixbuf);
+		return NULL;
+	}
+	for (y = p->height - 1; y > 0 && stride != row_bytes; y--) {
+		memmove (pixels + y * stride, pixels + y * row_bytes, row_bytes);
 	}
 
 	return pixbuf;

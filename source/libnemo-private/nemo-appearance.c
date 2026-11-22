@@ -557,6 +557,11 @@ scan_dir (ScanState *state, const char *dir, gboolean bundled)
 		gboolean  has_dark_css = FALSE;
 		GKeyFile *keys = NULL;
 
+		/* First wins in scan_add anyway, so skip the stats and the index read. */
+		if (g_hash_table_contains (state->by_name, name)) {
+			continue;
+		}
+
 		if (state->kind == NEMO_THEME_KIND_WIDGET) {
 			char *index;
 

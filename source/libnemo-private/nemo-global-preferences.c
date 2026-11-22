@@ -148,11 +148,8 @@ nemo_global_preferences_get_size_prefix_preference (void)
     return 0;
 }
 
-/* How many worker threads a job on this machine should ask for: a share of the
- * cores, as a percentage, rounded up so the answer is never nothing. Kept in
- * one place rather than per-format, so anything else that can be spread over
- * cores later reads the same number instead of inventing one of its own.
- * Compression is the only caller today. */
+/* Worker threads for a job: the cpu-percent share of the cores, rounded up so
+ * it's never 0. One place, so every job that spreads over cores agrees. */
 int
 nemo_global_preferences_get_cpu_thread_count (void)
 {

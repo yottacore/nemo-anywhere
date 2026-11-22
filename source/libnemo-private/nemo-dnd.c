@@ -465,11 +465,9 @@ source_is_deletable (GFile *file)
 	return ret;
 }
 
-/* Anything dragged in from another program is unknown to us - creating a NemoFile
- * for it is async, so there is nothing to compare filesystems with and the drag
- * reads as a copy every time. Look the source filesystem up once and keep it for
- * the rest of the drag; without it a drag from any other file manager copies
- * where it should move. Only asked once per drag, since it touches the disk. */
+/* A file dragged in from another program has no NemoFile yet, so its
+ * filesystem is looked up here and kept for the rest of the drag. Without it a
+ * drag from another file manager copies where it should move. */
 static void
 remember_source_filesystem (const char  *dropped_uri,
                             gchar      **source_fs,
@@ -497,10 +495,10 @@ remember_source_filesystem (const char  *dropped_uri,
                                  &error);
 
     if (error != NULL || fs_info == NULL) {
-        g_warning ("Can't read the filesystem of a dragged file: %s",
-                   error != NULL ? error->message : "no info returned");
+        /* Nothing is kept on a failure, so this runs on every motion event. */
+        g_debug ("Can't read the filesystem of a dragged file: %s",
+                 error != NULL ? error->message : "no info returned");
         g_clear_error (&error);
-        *source_fs = NULL;
         *can_delete_source = FALSE;
     } else {
         if (g_file_info_has_attribute (fs_info, G_FILE_ATTRIBUTE_ID_FILESYSTEM)) {
@@ -684,7 +682,7 @@ nemo_drag_default_drop_action_for_icons (GdkDragContext *context,
  * decision needs - a drag is one place to another, whatever is in it.
  * Returns: (transfer full): free with g_free */
 char *
-nemo_drag_first_uri (GtkSelectionData *data)
+nemo_drag_first_uri (const GtkSelectionData *data)
 {
 	char **uris;
 	char *first = NULL;

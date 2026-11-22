@@ -92,8 +92,9 @@ void                    nemo_bookmark_list_set_window_geometry (NemoBookmarkList
 const char *            nemo_bookmark_list_get_window_geometry (NemoBookmarkList   *bookmarks);
 
 /* Both of these work on the files directly and are meant to run before the list
-   object exists - the first from startup, the second from --reset. */
+   object exists - the first from startup, the second from --reset. Reset is
+   FALSE when a file that's there couldn't be removed. */
 void                    nemo_bookmark_list_first_run_setup      (void);
-void                    nemo_bookmark_list_reset_files          (void);
+gboolean                nemo_bookmark_list_reset_files          (void);
 
 #endif /* NEMO_BOOKMARK_LIST_H */

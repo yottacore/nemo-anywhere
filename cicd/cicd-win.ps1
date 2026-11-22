@@ -858,12 +858,17 @@ $script:StepFuncs = @{
 	'Dogfood'        = @('fDogfood', 'fRetireOldDogfood')
 	'Publish'        = @('fPublish')
 }
+$script:StepAst = $null
 function fStep_Cmd {
 	param([Parameter(Mandatory)][string]$Name, [string[]]$Names = @())
 	## Only the named tests, the way fTests passes them to meson.
 	if ($Name -eq 'Tests' -and $Names.Count) { return "meson test$(($Names | ForEach-Object { " '$_'" }) -join '')" }
-	$tokens = $null; $errs = $null
-	$ast = [Management.Automation.Language.Parser]::ParseFile($PSCommandPath, [ref]$tokens, [ref]$errs)
+	## Parsed once for all the steps.
+	if (-not $script:StepAst) {
+		$tokens = $null; $errs = $null
+		$script:StepAst = [Management.Automation.Language.Parser]::ParseFile($PSCommandPath, [ref]$tokens, [ref]$errs)
+	}
+	$ast = $script:StepAst
 	$text = foreach ($fn in $script:StepFuncs[$Name]) {
 		$def = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $fn }, $true)
 		if ($def) { $def.Body.Extent.Text }

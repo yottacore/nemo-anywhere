@@ -47,8 +47,7 @@ struct _ArcCompress {
 	ArcSettings         settings;		/* the job's own copy */
 	GCancellable       *cancellable;
 
-	GList              *units;		/* ArchiveUnit *, in order */
-	guint               unit_count;
+	GPtrArray          *units;		/* ArchiveUnit *, in order */
 	guint               unit_index;		/* which one is being written */
 	GFile              *result_file;	/* what the callback is handed */
 
@@ -434,7 +433,7 @@ set_unit_status (ArcCompress *job,
 	char *name;
 	char *status;
 
-	if (job->unit_count < 2) {
+	if (job->units->len < 2) {
 		arc_status (&job->host, one_archive_form);
 		g_free (one_archive_form);
 		return;
@@ -443,8 +442,8 @@ set_unit_status (ArcCompress *job,
 	g_free (one_archive_form);
 
 	name = g_file_get_basename (job->destination);
-	status = g_strdup_printf (_("Compressing %s (%d of %d)"),
-				  name, job->unit_index + 1, job->unit_count);
+	status = g_strdup_printf (_("Compressing %s (%u of %u)"),
+				  name, job->unit_index + 1, job->units->len);
 	arc_status (&job->host, status);
 	g_free (status);
 	g_free (name);
@@ -516,7 +515,7 @@ list_has_nothing (ArcCompress *job)
 		return FALSE;
 	}
 
-	if (job->unit_count > 1 && job->list->left_out->len > 0) {
+	if (job->units->len > 1 && job->list->left_out->len > 0) {
 		job->unit_empty = TRUE;
 		return TRUE;
 	}
@@ -641,11 +640,10 @@ run_libarchive (ArcCompress *job)
 	return ok;
 }
 
-/* Both tools write a running "NN%". The newest one in the buffer wins. */
-static gboolean
-scan_percent (const char *text,
-	      gsize       length,
-	      int        *percent)
+gboolean
+arc_tool_percent (const char *text,
+		  gsize       length,
+		  int        *percent)
 {
 	gboolean found = FALSE;
 	gsize i;
@@ -881,7 +879,7 @@ start_tool (ArcCompress *job,
 
 		if (job->bar_pulses) {
 			arc_pulse (&job->host);
-		} else if (scan_percent (buffer, (gsize) count, &percent)) {
+		} else if (arc_tool_percent (buffer, (gsize) count, &percent)) {
 			arc_fraction (&job->host, percent, 100);
 		}
 	}
@@ -1446,7 +1444,7 @@ arc_compress_free (ArcCompress *job)
 
 	g_clear_pointer (&job->list, arc_scan_list_free);
 	g_list_free_full (job->passed, g_free);
-	g_list_free_full (job->units, (GDestroyNotify) archive_unit_free);
+	g_clear_pointer (&job->units, g_ptr_array_unref);
 	g_list_free_full (job->verified, g_object_unref);
 	g_list_free_full (job->passed_over, g_free);
 	g_free (job->verify_trouble);
@@ -1500,16 +1498,14 @@ finish_unit (ArcCompress *job)
 void
 arc_compress_run (ArcCompress *job)
 {
-	GList *l;
-
 	g_return_if_fail (job != NULL);
 
 	job->success = TRUE;
 
-	for (l = job->units; l != NULL && !job_aborted (job); l = l->next) {
+	for (job->unit_index = 0; job->unit_index < job->units->len && !job_aborted (job); job->unit_index++) {
 		gboolean ok;
 
-		start_unit (job, l->data);
+		start_unit (job, g_ptr_array_index (job->units, job->unit_index));
 
 		if (job->base_dir == NULL) {
 			job_fail (job, _("The archive couldn't be created."),
@@ -1533,7 +1529,6 @@ arc_compress_run (ArcCompress *job)
 				g_free (name);
 			}
 			finish_unit (job);
-			job->unit_index++;
 			continue;
 		}
 
@@ -1553,7 +1548,7 @@ arc_compress_run (ArcCompress *job)
 
 			/* One unit means the callback's file is this one, and a
 			   collapsed volume is under a different name than asked. */
-			if (job->units->next == NULL) {
+			if (job->units->len == 1) {
 				g_set_object (&job->result_file, written);
 			}
 			g_object_unref (written);
@@ -1570,7 +1565,6 @@ arc_compress_run (ArcCompress *job)
 		job->success = job->success && ok;
 
 		finish_unit (job);
-		job->unit_index++;
 	}
 
 	if (job_aborted (job)) {
@@ -1616,6 +1610,7 @@ arc_compress_new (const ArcHost     *host,
 	job->backend = arc_pick_backend (options->format, options);
 	job->cancellable = cancellable != NULL ? g_object_ref (cancellable) : g_cancellable_new ();
 	job->result_file = g_object_ref (result_file);
+	job->units = g_ptr_array_new_with_free_func ((GDestroyNotify) archive_unit_free);
 
 	return job;
 }
@@ -1629,8 +1624,7 @@ arc_compress_add (ArcCompress *job,
 	g_return_if_fail (sources != NULL);
 	g_return_if_fail (G_IS_FILE (destination));
 
-	job->units = g_list_append (job->units, archive_unit_new (sources, destination));
-	job->unit_count++;
+	g_ptr_array_add (job->units, archive_unit_new (sources, destination));
 }
 
 guint
@@ -1638,7 +1632,7 @@ arc_compress_count (ArcCompress *job)
 {
 	g_return_val_if_fail (job != NULL, 0);
 
-	return job->unit_count;
+	return job->units->len;
 }
 
 /* Returns: (transfer none) */
@@ -1646,12 +1640,12 @@ GFile *
 arc_compress_destination (ArcCompress *job,
 			  guint        index)
 {
-	ArchiveUnit *unit;
-
 	g_return_val_if_fail (job != NULL, NULL);
 
-	unit = g_list_nth_data (job->units, index);
-	return unit != NULL ? unit->destination : NULL;
+	if (index >= job->units->len) {
+		return NULL;
+	}
+	return ((ArchiveUnit *) g_ptr_array_index (job->units, index))->destination;
 }
 
 ArcBackend

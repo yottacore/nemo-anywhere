@@ -53,21 +53,26 @@ DARK = "#242424"
 SKIP = {"AdwaitaLegacy"}
 
 
-def find_icon(theme_dir: str, name: str) -> str | None:
-    """The file drawing @name in @theme_dir, or None."""
+def find_icons(theme_dir: str, names: tuple[str, ...]) -> dict[str, str]:
+    """The file drawing each of @names in @theme_dir, first found, in one walk."""
+    wanted = {name + ".svg": name for name in names}
+    found = {}
     for base, _dirs, files in os.walk(theme_dir):
-        if name + ".svg" in files:
-            return os.path.join(base, name + ".svg")
-    return None
+        for file in wanted.keys() & set(files):
+            found.setdefault(wanted[file], os.path.join(base, file))
+        if len(found) == len(wanted):
+            break
+    return found
 
 
 def style_of(theme_dir: str) -> str:
     """The set's own label for its look, falling back to its directory name."""
     index = os.path.join(theme_dir, "index.theme")
     if os.path.isfile(index):
-        for line in open(index, encoding="utf-8", errors="replace"):
-            if line.startswith("X-Nemo-Style="):
-                return line.split("=", 1)[1].strip()
+        with open(index, encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                if line.startswith("X-Nemo-Style="):
+                    return line.split("=", 1)[1].strip()
     return os.path.basename(theme_dir)
 
 
@@ -122,8 +127,9 @@ def build(root: str, out_svg: str, scratch: str) -> tuple[int, int]:
         parts.append(f'<rect x="{x0}" y="{y0}" width="{HALF}" height="{ROW_H}" fill="{LIGHT}"/>')
         parts.append(f'<rect x="{x0 + HALF}" y="{y0}" width="{HALF}" height="{ROW_H}" fill="{DARK}"/>')
 
+        icons = find_icons(theme_dir, NAMES)
         for n, name in enumerate(NAMES):
-            path = find_icon(theme_dir, name)
+            path = icons.get(name)
             if path is None:
                 continue
             data = rasterise(path, ICON * 2, scratch)
@@ -157,7 +163,8 @@ def main(argv: list[str]) -> int:
     out_svg = os.path.join(scratch, "gallery.svg")
     try:
         count, width = build(root, out_svg, scratch)
-        subprocess.call(["rsvg-convert", "-w", str(width), out_svg, "-o", out_png])
+        # A failed render would leave last time's png and say it made this one.
+        subprocess.check_call(["rsvg-convert", "-w", str(width), out_svg, "-o", out_png])
     finally:
         for name in os.listdir(scratch):
             os.remove(os.path.join(scratch, name))

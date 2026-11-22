@@ -285,6 +285,41 @@ check_archive_of_archive (const char *out_dir,
 	g_object_unref (out);
 }
 
+/* No loop to quit: this one answers before create_each returns. */
+static void
+nothing_done (G_GNUC_UNUSED GFile    *result,
+	      gboolean  success,
+	      G_GNUC_UNUSED gpointer  data)
+{
+	job_succeeded = success;
+	job_finished = TRUE;
+}
+
+/* A selection with nothing to name an archive after, such as the root, writes
+   nothing, and still calls back rather than leaving the caller waiting. */
+static void
+check_each_nothing_to_name (const char *out_dir,
+			    GtkWidget  *window)
+{
+	GList *sources = g_list_prepend (NULL, g_file_new_for_path ("/"));
+	GFile *out = g_file_new_for_path (out_dir);
+	NemoArchiveOptions options;
+
+	nemo_archive_options_init (&options);
+	options.format = NEMO_ARCHIVE_FORMAT_ZIP;
+
+	job_finished = FALSE;
+	job_succeeded = TRUE;
+	nemo_archive_create_each (sources, out, &options, GTK_WINDOW (window),
+				  nothing_done, NULL);
+	check (job_finished);
+	check (!job_succeeded);
+
+	nemo_archive_options_clear (&options);
+	g_list_free_full (sources, g_object_unref);
+	g_object_unref (out);
+}
+
 /* Whether the originals may go is decided by reading the archive back, so that
    decision is checked from both sides: an archive that does contain the
    lot, and each way one can come up short. Between them the happy path is
@@ -1520,6 +1555,7 @@ main (int argc, char *argv[])
 	check_one_archive (source_dir, one_dir, names, window);
 	check_each_archive (source_dir, each_dir, names, window);
 	check_archive_of_archive (each_dir, window);
+	check_each_nothing_to_name (each_dir, window);
 	check_verify (tmp, window);
 	check_verify_followed (tmp, window);
 	check_reasons (tmp, window);

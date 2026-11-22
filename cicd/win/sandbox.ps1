@@ -124,7 +124,7 @@ if ($Start) {
 	Remove-SafeTree -LiteralPath $AppTree -Under $Share | Out-Null
 	Remove-Item -LiteralPath $AppOne -Force -ErrorAction SilentlyContinue
 	if ($Dir) {
-		$mb = [int]((Get-ChildItem -LiteralPath $Dir -Recurse -File | Measure-Object Length -Sum).Sum / 1MB)
+		$mb = [int]((Get-ChildItem -LiteralPath $Dir -Recurse -File | Measure-Object -Property Length -Sum).Sum / 1MB)
 		fEcho "Copying build dir ($mb MB)"
 		Copy-Item -LiteralPath $Dir -Destination $AppTree -Recurse -Force
 	} else {
@@ -156,7 +156,7 @@ if ($Start) {
 	Set-Content -LiteralPath $WsbPath -Value $wsb -Encoding utf8
 
 	fEcho "Launching sandbox"
-	$p = Start-Process WindowsSandbox.exe -ArgumentList "`"$WsbPath`"" -PassThru
+	$p = Start-Process -FilePath WindowsSandbox.exe -ArgumentList "`"$WsbPath`"" -PassThru
 	Set-Content -LiteralPath $PidPath -Value $p.Id
 
 	fEcho "Waiting for agent heartbeat (up to ${TimeoutSec}s)"
@@ -183,18 +183,18 @@ if ($Smoke) {
 	$jobSrc = Join-Path $SbxDir "smoke-job.ps1"
 	## First launch in there is slow: the packer maps its image and Defender scans a fresh 38 MB exe.
 	Set-Content -LiteralPath $jobSrc -Encoding utf8 -Value @'
-Start-Process $env:SBX_EXE
+Start-Process -FilePath $env:SBX_EXE
 $p = $null
 $deadline = (Get-Date).AddSeconds(30)
-while (-not $p -and (Get-Date) -lt $deadline) { Start-Sleep 1; $p = Get-Process nemo-anywhere -ErrorAction SilentlyContinue | Select-Object -First 1 }
+while (-not $p -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 1; $p = Get-Process -Name nemo-anywhere -ErrorAction SilentlyContinue | Select-Object -First 1 }
 if (-not $p) { "no process"; exit 1 }
 "pid=$($p.Id)"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File $env:SBX_GUI wait $p.Id 120
 if ($LASTEXITCODE -ne 0) { "no window"; exit 1 }
-Start-Sleep 3
+Start-Sleep -Seconds 3
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File $env:SBX_GUI rect $p.Id
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File $env:SBX_GUI raise $p.Id
-Start-Sleep 1
+Start-Sleep -Seconds 1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File $env:SBX_GUI shot $p.Id (Join-Path $env:SBX_OUT "smoke.png")
 Stop-Process -Id $p.Id -ErrorAction SilentlyContinue
 '@
@@ -219,7 +219,7 @@ if ($Stop) {
 		Stop-Process -Id $sbPid -Force -ErrorAction SilentlyContinue
 		Remove-Item -LiteralPath $PidPath -Force
 	}
-	Get-Process WindowsSandbox, WindowsSandboxClient, WindowsSandboxRemoteSession -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+	Get-Process -Name WindowsSandbox, WindowsSandboxClient, WindowsSandboxRemoteSession -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 	fEcho "sandbox stopped"
 	exit 0
 }

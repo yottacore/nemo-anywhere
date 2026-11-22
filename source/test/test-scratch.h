@@ -28,7 +28,8 @@ gboolean test_scratch_remove_tree (const char *path);
    trash, or the recent list can't touch the real one. */
 void  test_scratch_point_config_at (const char *dir);
 
-/* Makes a scratch directory and points the config root at it. Call it before
+/* Makes a scratch directory and points the config root at it, or ends the
+   test when it can't. Call it before
    anything that would cache the real config root - GLib caches its XDG path
    on first use, and so do we. */
 char *test_scratch_config_home    (const char *tmpl);

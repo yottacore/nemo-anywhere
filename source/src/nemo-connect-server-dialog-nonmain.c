@@ -31,9 +31,8 @@
  * nemo-connect-server-dialog-main.c for the standalone version.
  */
 
-/* The result travels as user_data. It used to be a file-static, so 2 dialogs
- * open at once clobbered each other's - the first to finish completed the
- * second's result and left the first hanging. */
+/* The result travels as user_data, so 2 dialogs open at once each finish
+ * their own. */
 static void
 window_go_to_cb (G_GNUC_UNUSED NemoWindow *window,
 		 GError *error,

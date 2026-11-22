@@ -141,6 +141,11 @@ fWanted(){
 	return 1
 }
 
+## The checkout's folder name. Keyed on the ref as well as the url:
+## rtl88-Themes keeps one theme family per branch, so the same repo is cloned
+## once per branch we want. The README's commit column reads it back.
+fCloneKey(){ printf '%s@%s' "$1" "$2" | tr -c 'A-Za-z0-9' '_'; }
+
 #•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 ## Clone once per url, shallow, blobless where the repo is huge. Echoes the path.
 
@@ -154,9 +159,7 @@ fWanted(){
 ## minutes. Blobs are fetched only for what the sparse patterns place.
 fClone(){
 	local url="$1" ref="$2" roots="${3:-}" fetch="${4:-full}" key dest
-	## Keyed on the ref as well as the url: rtl88-Themes keeps one theme family
-	## per branch, so the same repo is cloned once per branch we want.
-	key="$(printf '%s@%s' "${url}" "${ref}" | tr -c 'A-Za-z0-9' '_')"
+	key="$(fCloneKey "${url}" "${ref}")"
 	dest="${tmp}/${key}"
 
 	if [[ -d "${dest}/.git" ]]; then
@@ -865,11 +868,11 @@ if (( ${#wanted[@]} == 0 )); then
 			for kind in themes icons; do
 				for dir in "${vendor}/${kind}"/*/; do
 					[[ -d "${dir}" ]] || continue
-					name="$(basename "${dir}")"
+					name="${dir%/}"; name="${name##*/}"
 					meta="$(fRecordFor "${kind}" "${name}" || true)"
 					[[ -n "${meta}" ]] || continue
 					IFS='|' read -r style url ref <<< "${meta}"
-					key="$(printf '%s' "${url}" | tr -c 'A-Za-z0-9' '_')"
+					key="$(fCloneKey "${url}" "${ref}")"
 					sha="$(git -C "${tmp}/${key}" rev-parse HEAD 2>/dev/null || echo "${ref}")"
 					# shellcheck disable=SC2016  ## same, in the row format.
 					printf '`%s`\t%s\t%s\t%s\t`%s`\n' \

@@ -579,9 +579,7 @@ nemo_icon_info_get_used_name (NemoIconInfo  *icon)
 	return icon->icon_name;
 }
 
-/* The stops. Everything between two of them is a size too; these are only what
- * the slider marks and what Zoom In and Zoom Out move between. Adding one is a
- * row here and nothing else. */
+/* Adding a stop is a row here and nothing else. */
 static const gint icon_size_steps[] = {
 	NEMO_ICON_SIZE_SMALLEST,
 	NEMO_ICON_SIZE_SMALLER,

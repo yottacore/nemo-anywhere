@@ -4556,8 +4556,7 @@ files_added_callback (NemoDirectory *directory,
 
 	view = NEMO_VIEW (callback_data);
 
-	/* The window and the uri are only ever wanted for this line, and the uri
-	   is an allocation, so neither is worth making when nothing reads it. */
+	/* No uri allocation per batch unless something reads it. */
 	if (DEBUGGING) {
 		char *uri = nemo_view_get_uri (view);
 
@@ -4594,8 +4593,6 @@ files_changed_callback (NemoDirectory *directory,
 
 	view = NEMO_VIEW (callback_data);
 
-	/* The window and the uri are only ever wanted for this line, and the uri
-	   is an allocation, so neither is worth making when nothing reads it. */
 	if (DEBUGGING) {
 		char *uri = nemo_view_get_uri (view);
 
@@ -7334,9 +7331,8 @@ action_copy_files_callback (G_GNUC_UNUSED GtkAction *action,
 	nemo_file_list_free (selection);
 }
 
-/* Puts the paths of @files on the clipboard as plain text, one per line. A
-   recent or favorites item names itself with a virtual uri, so those resolve to
-   the file they stand for rather than copying a uri nothing else understands. */
+/* A recent or favorites item has a virtual uri nothing else understands, so it
+   copies the file it stands for. */
 static void
 copy_paths_to_clipboard (NemoView *view,
 			 GList    *files,
@@ -7375,7 +7371,7 @@ copy_paths_to_clipboard (NemoView *view,
 	nemo_clipboard_set_text (GTK_WIDGET (view), text);
 
 	status_string = g_strdup_printf (ngettext ("Copied the path to the clipboard",
-						   "Copied %'d paths to the clipboard",
+						   "Copied %'u paths to the clipboard",
 						   count),
 					 count);
 	nemo_window_slot_set_status (view->details->slot, status_string, NULL, FALSE);
@@ -7787,19 +7783,16 @@ extract_locations_free (gpointer data)
 static void
 browse_extract_to_response_cb (GtkDialog *dialog,
 			       int response,
-			       gpointer callback_data)
+			       G_GNUC_UNUSED gpointer callback_data)
 {
-	NemoView *view;
-
-	view = NEMO_VIEW (callback_data);
-
 	if (response == GTK_RESPONSE_OK) {
 		GList *locations = g_object_get_data (G_OBJECT (dialog), "nemo-extract-files");
 		GFile *destination = gtk_file_chooser_get_file (GTK_FILE_CHOOSER (dialog));
 
+		/* Not the view: its tab can be closed while the chooser is up. */
 		if (locations != NULL && destination != NULL) {
 			nemo_extract_files (locations, destination, NEMO_EXTRACT_HERE,
-					    GTK_WINDOW (nemo_view_get_nemo_window (view)), NULL, NULL);
+					    gtk_window_get_transient_for (GTK_WINDOW (dialog)), NULL, NULL);
 		}
 
 		g_clear_object (&destination);
@@ -7849,7 +7842,7 @@ action_extract_to_callback (G_GNUC_UNUSED GtkAction *action,
 				extract_locations_free);
 
 	g_signal_connect (dialog, "response",
-			  G_CALLBACK (browse_extract_to_response_cb), view);
+			  G_CALLBACK (browse_extract_to_response_cb), NULL);
 
 	gtk_widget_show (dialog);
 }
@@ -7936,6 +7929,7 @@ move_copy_selection_to_next_pane (NemoView *view,
 	g_return_if_fail (dest_location != NULL);
 
 	move_copy_selection_to_location (view, copy_action, dest_location);
+	g_free (dest_location);
 }
 
 static void
@@ -7964,6 +7958,7 @@ action_move_to_next_pane_callback (G_GNUC_UNUSED GtkAction *action, gpointer cal
 	g_return_if_fail (dest_location != NULL);
 
 	move_copy_selection_to_location (view, GDK_ACTION_MOVE, dest_location);
+	g_free (dest_location);
 }
 
 static void
@@ -10920,15 +10915,10 @@ real_update_location_menu (NemoView *view)
 
 	file = view->details->location_popup_directory_as_file;
 	g_assert (NEMO_IS_FILE (file));
-	/* MOUNT/FILESYSTEM_INFO may still be pending for a path-bar ancestor. We pop
-	   up now regardless (see schedule_pop_up_location_context_menu) - the volume
-	   items stay hidden until that info exists, rather than deferring the
-	   whole menu.
-
-	   INFO is usually there too, but on a slow mount it may not be, and
-	   nemo_file_clear_info defaults can_write/can_delete/can_trash/can_rename to
-	   TRUE - which offered Trash, Delete and New Folder on read-only ancestors.
-	   Treat "not loaded yet" as "don't offer". */
+	/* The menu pops up before the mount info is in, so the volume items stay
+	   hidden till then. INFO can be missing too on a slow mount, and the
+	   cleared defaults say can_write and can_delete, which offered Trash and
+	   New folder on read-only ancestors. */
 	gboolean info_ready = nemo_file_check_if_ready (file, NEMO_FILE_ATTRIBUTE_INFO);
 
 	is_special_link = FALSE;
@@ -10937,8 +10927,6 @@ real_update_location_menu (NemoView *view)
 
     is_recent = nemo_file_is_in_recent (file);
 
-	/* Path-bar folder actions: Open, terminal, admin, new folder inside.
-	   Terminal/admin need a real local path; new folder needs write access. */
 	{
 		char *local_path = nemo_file_get_path (file);
 		gboolean has_local_path = local_path != NULL;
@@ -11207,7 +11195,6 @@ real_update_menus (NemoView *view)
                      && !selection_contains_special_link;
 
 	can_duplicate_files = can_create_files && can_copy_files;
-	/* Windows uses .lnk shell shortcuts in place of POSIX symlinks. */
 	can_link_files = can_create_files && can_copy_files;
 
     is_desktop_view = get_is_desktop_view (view);
@@ -11866,9 +11853,7 @@ location_popup_file_attributes_ready (NemoFile *file,
 	g_assert (NEMO_IS_VIEW (view));
 	g_assert (file == view->details->location_popup_directory_as_file);
 
-	/* Just a warm-load completion (see schedule_pop_up_location_context_menu) -
-	   the menu was already popped up synchronously, so there's nothing to do but
-	   let the now-cached mount/filesystem info benefit the next right-click. */
+	/* The menu is already up. This only warms the info for the next one. */
 }
 
 static void
@@ -11900,8 +11885,7 @@ schedule_pop_up_location_context_menu (NemoView *view,
 		unschedule_pop_up_location_context_menu (view);
 		view->details->location_popup_directory_as_file = nemo_file_ref (file);
 
-		/* Warm mount/filesystem info in the background so a later right-click on
-		   this segment can show the volume items. We don't wait on it - see below. */
+		/* For the volume items of a later right-click. Not waited on. */
 		if (!nemo_file_check_if_ready (file, NEMO_FILE_ATTRIBUTE_INFO |
 						     NEMO_FILE_ATTRIBUTE_MOUNT |
 						     NEMO_FILE_ATTRIBUTE_FILESYSTEM_INFO)) {
@@ -11914,12 +11898,8 @@ schedule_pop_up_location_context_menu (NemoView *view,
 		}
 	}
 
-	/* Pop up synchronously, inside this button-press, so the menu grab stays tied
-	   to the press. The old code deferred the popup to the call_when_ready callback
-	   whenever the file wasn't loaded yet; that fired after the button release with
-	   a stale event, so the menu flashed open and shut and you had to right-click a
-	   second time. INFO is already loaded for path-bar segments, so the core items
-	   are correct; the volume items stay hidden until the warm load finishes. */
+	/* Now, inside the press, so the grab stays tied to it. Waiting for the
+	   load popped it after the release, and it flashed shut. */
 	real_pop_up_location_context_menu (view);
 }
 

@@ -223,7 +223,7 @@ build_tree(){
 	## resolves without the app having to be running.
 	for src in "${prefix}"/share/icons/hicolor/*/apps/"${SLUG}".*; do
 		[[ -f "${src}" ]] || continue
-		size="$(basename "$(dirname "$(dirname "${src}")")")"
+		size="${src%/apps/*}"; size="${size##*/}"
 		mkdir -p "${root}/usr/share/icons/hicolor/${size}/apps"
 		cp -a "${src}" "${root}/usr/share/icons/hicolor/${size}/apps/"
 	done

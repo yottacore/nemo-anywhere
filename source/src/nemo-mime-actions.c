@@ -35,6 +35,7 @@
 #include <glib/gi18n.h>
 #include <glib/gstdio.h>
 #include <string.h>
+#include <stdlib.h>
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
 #endif
@@ -433,18 +434,60 @@ nemo_mime_get_application_name (GAppInfo *app)
 #endif
 }
 
+typedef struct {
+	char     *key;
+	guint     order;
+	GAppInfo *app;
+} NamedApp;
+
 static int
-application_compare_by_name (const GAppInfo *app_a,
-			     const GAppInfo *app_b)
+named_app_compare (const void *a, const void *b)
 {
-	char *name_a = nemo_mime_get_application_name ((GAppInfo *) app_a);
-	char *name_b = nemo_mime_get_application_name ((GAppInfo *) app_b);
-	int ret = g_utf8_collate (name_a, name_b);
+	const NamedApp *named_a = a;
+	const NamedApp *named_b = b;
+	int ret = strcmp (named_a->key, named_b->key);
 
-	g_free (name_a);
-	g_free (name_b);
+	if (ret != 0) {
+		return ret;
+	}
 
-	return ret;
+	/* Stable, as g_list_sort was. */
+	return named_a->order < named_b->order ? -1 : named_a->order > named_b->order;
+}
+
+/* Each name once, not once per comparison: on Windows a name is read from the
+ * program's version resource. */
+static GList *
+sort_applications_by_name (GList *apps)
+{
+	guint n = g_list_length (apps);
+	NamedApp *named;
+	GList *l;
+	guint i;
+
+	if (n < 2) {
+		return apps;
+	}
+
+	named = g_new (NamedApp, n);
+	for (l = apps, i = 0; l != NULL; l = l->next, i++) {
+		char *name = nemo_mime_get_application_name (l->data);
+
+		named[i].key = g_utf8_collate_key (name != NULL ? name : "", -1);
+		named[i].order = i;
+		named[i].app = l->data;
+		g_free (name);
+	}
+
+	qsort (named, n, sizeof (NamedApp), named_app_compare);
+
+	for (l = apps, i = 0; l != NULL; l = l->next, i++) {
+		l->data = named[i].app;
+		g_free (named[i].key);
+	}
+	g_free (named);
+
+	return apps;
 }
 
 static int
@@ -510,7 +553,7 @@ nemo_mime_get_applications_for_file (NemoFile *file)
 		result = filter_non_uri_apps (result);
 	}
 
-	result = g_list_sort (result, (GCompareFunc) application_compare_by_name);
+	result = sort_applications_by_name (result);
 	g_free (mime_type);
 
 	return filter_nemo_handler (result);
@@ -647,7 +690,7 @@ nemo_mime_get_applications_for_files (GList *files)
 
 	g_list_free (sorted_files);
 
-	ret = g_list_sort (ret, (GCompareFunc) application_compare_by_name);
+	ret = sort_applications_by_name (ret);
 
 	return ret;
 }
@@ -2389,11 +2432,7 @@ resolve_win32_shortcuts (GList *files, gboolean *handled)
 		g_free (path);
 	}
 
-	remaining = g_list_reverse (remaining);
-	if (remaining == NULL) {
-		return NULL;
-	}
-	return remaining;
+	return g_list_reverse (remaining);
 }
 #endif
 

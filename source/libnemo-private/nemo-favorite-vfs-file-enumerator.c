@@ -114,7 +114,6 @@ next_files_async_thread (GTask        *task,
     for (i = 0; i < n_requested; i++)
     {
         GFileInfo *info = NULL;
-        // g_clear_error (&error);
 
         if (g_cancellable_set_error_if_cancelled (cancellable, &error))
         {
@@ -163,8 +162,6 @@ next_files_async (GFileEnumerator     *enumerator,
                   GAsyncReadyCallback  callback,
                   gpointer             user_data)
 {
-    // NemoFavoriteVfsFileEnumerator *self = NEMO_FAVORITE_VFS_FILE_ENUMERATOR (enumerator);
-
     GTask *task;
     task = g_task_new (enumerator, cancellable, callback, user_data);
     g_task_set_priority (task, io_priority);
@@ -190,8 +187,6 @@ close_fn (G_GNUC_UNUSED GFileEnumerator *enumerator,
           G_GNUC_UNUSED GCancellable    *cancellable,
           G_GNUC_UNUSED GError         **error)
 {
-    // NemoFavoriteVfsFileEnumerator *self = NEMO_FAVORITE_VFS_FILE_ENUMERATOR (enumerator);
-
     return TRUE;
 }
 

@@ -294,8 +294,8 @@ nemo_compute_search_title_for_location (GFile *location)
  *
  * GLib returns XDG everywhere, which is right on Linux and BSD but is a poor
  * fit elsewhere: on Windows it points at the local, machine-bound AppData, and
- * on macOS at a hidden dotfile dir. Settings are small, portable and worth
- * carrying between a user's machines, so Windows gets roaming AppData and
+ * on macOS at a hidden dotfile dir. Settings are small and should follow a
+ * user between machines, so Windows gets roaming AppData and
  * macOS its Application Support dir.
  *
  * Return value: (transfer none): the directory path, owned by the callee.
@@ -2113,10 +2113,10 @@ nemo_trashed_files_get_original_directories (GList *files,
 				g_hash_table_steal (directories, original_dir);
 				nemo_file_unref (original_dir);
 			}
-			m = g_list_append (m, nemo_file_ref (file));
+			m = g_list_prepend (m, nemo_file_ref (file));
 			g_hash_table_insert (directories, original_dir, m);
 		} else if (unhandled_files != NULL) {
-			*unhandled_files = g_list_append (*unhandled_files, nemo_file_ref (file));
+			*unhandled_files = g_list_prepend (*unhandled_files, nemo_file_ref (file));
 		}
 
 		if (original_file != NULL) {
@@ -2126,6 +2126,21 @@ nemo_trashed_files_get_original_directories (GList *files,
 		if (original_dir != NULL) {
 			nemo_file_unref (original_dir);
 		}
+	}
+
+	/* Built by prepending, so put each list back in selection order. Steal
+	   first, since an insert over a live value frees it. */
+	if (unhandled_files != NULL) {
+		*unhandled_files = g_list_reverse (*unhandled_files);
+	}
+	if (directories != NULL) {
+		GList *dirs = g_hash_table_get_keys (directories);
+		for (l = dirs; l != NULL; l = l->next) {
+			m = g_hash_table_lookup (directories, l->data);
+			g_hash_table_steal (directories, l->data);
+			g_hash_table_insert (directories, l->data, g_list_reverse (m));
+		}
+		g_list_free (dirs);
 	}
 
 	return directories;
@@ -3362,17 +3377,17 @@ gchar *
 nemo_file_name_make_valid (const gchar *name)
 {
     gchar *fixed = g_strdup (name != NULL ? name : "");
-    gchar *p;
+    const gchar *bad;
 
-    for (p = fixed; *p != '\0'; p++) {
-        if (nemo_file_name_find_bad_char (p) == p) {
-            *p = '_';
-        }
+    /* Each search starts past the last hit, so the name is walked once. */
+    for (bad = nemo_file_name_find_bad_char (fixed); bad != NULL;
+         bad = nemo_file_name_find_bad_char (bad + 1)) {
+        fixed[bad - fixed] = '_';
     }
 #ifdef G_OS_WIN32
     /* As 7-Zip does: each trailing dot or space, then a device name. */
-    for (p = fixed + strlen (fixed); p > fixed && (p[-1] == '.' || p[-1] == ' '); p--) {
-        p[-1] = '_';
+    for (gsize end = strlen (fixed); end > 0 && (fixed[end - 1] == '.' || fixed[end - 1] == ' '); end--) {
+        fixed[end - 1] = '_';
     }
     if (nemo_file_name_windows_device (fixed) > 0) {
         gchar *prefixed = g_strconcat ("_", fixed, NULL);
@@ -3424,7 +3439,7 @@ str_replace (char *str,
 	     char replacement)
 {
 	gboolean success;
-	int i;
+	gsize i;
 
 	success = FALSE;
 	for (i = 0; str[i] != '\0'; i++) {
@@ -3456,7 +3471,7 @@ nemo_file_name_make_valid_for_fs (char *filename,
 		    !strcmp (dest_fs_type, "msdos") ||
 		    !strcmp (dest_fs_type, "msdosfs")) {
 			gboolean ret;
-			guint i, old_len;
+			gsize i, old_len;
 
 			ret = str_replace (filename, '_');
 

@@ -200,9 +200,8 @@ nemo_notebook_find_tab_num_at_pos (NemoNotebook *notebook,
 	return AFTER_ALL_TABS;
 }
 
-/* Per notebook, not per process: as a file-static every window shared one flag,
- * and a Ctrl release that arrived at a different window (alt-tab away mid-chord,
- * or a second window opened while held) left it stuck on everywhere. */
+/* Per notebook. A Ctrl release can go to another window, say after an
+ * alt-tab mid-chord, which left one shared flag stuck on everywhere. */
 #define CTRL_DOWN_KEY "nemo-notebook-ctrl-down"
 
 static gboolean
@@ -265,12 +264,6 @@ sync_tab_visibility (GtkNotebook *gnotebook)
 							     NEMO_PREFERENCES_ALWAYS_SHOW_TABS));
 }
 
-/* Size every tab to its own title, between the 2 percentages of the strip's
- * width. GtkNotebook hands a tab its MINIMUM width, which is why upstream had
- * them all expand to fill instead - so the title's own width has to become the
- * minimum. Measured with a layout rather than converted from an average
- * character width, which was out by nearly a factor of two.
- */
 /* What a tab costs beyond its title: padding, the close button and the gap to
  * the next tab. Read off neighbors that are on screen, since the theme decides
  * most of it, and the smallest reading wins so a tab still showing its spinner
@@ -308,8 +301,13 @@ tab_chrome_px (GtkNotebook *gnotebook)
 	return GPOINTER_TO_INT (g_object_get_data (G_OBJECT (gnotebook), "tab-chrome"));
 }
 
+/* Each tab sized to its own title, between the 2 percentages of the strip's
+ * width. GtkNotebook hands a tab its minimum width, so the title's width has to
+ * become the minimum. Measured with a layout, since an average character width
+ * was out by nearly 2x.
+ */
 static gboolean
-clamp_tab_widths (GtkNotebook *gnotebook, GtkAllocation *allocation, int active)
+clamp_tab_widths (GtkNotebook *gnotebook, const GtkAllocation *allocation, int active)
 {
 	gboolean changed = FALSE;
 	int min_px, max_px, pages, avail, i;

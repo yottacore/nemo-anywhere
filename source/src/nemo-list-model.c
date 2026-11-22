@@ -112,11 +112,8 @@ struct FileEntry {
 	guint loaded : 1;
     guint expanding : 1;
     guint ok_to_show_thumb : 1;
-    /* Steady-state render cache for the icon column. GtkTreeView re-fetches
-     * get_value on every draw/validate; without this the icon, emblems and a
-     * fresh scaled surface are rebuilt each time for every visible row. Only
-     * populated when no drag/highlight is active - those cases still render
-     * live. Cleared on file change and free. */
+    /* The last icon drawn, since GtkTreeView asks again on every draw. Not
+     * kept while a drag or a cut highlight is on. */
     cairo_surface_t *icon_surface;
     guint icon_surface_column : 8;
     guint icon_surface_scale : 8;
@@ -345,9 +342,6 @@ nemo_list_model_get_value (GtkTreeModel *tree_model, GtkTreeIter *iter, int colu
 			icon_size = nemo_list_model_get_icon_size_from_column_id (column);
             icon_scale = nemo_list_model_get_icon_scale (model);
 
-            /* Drag-accept and cut-highlight render live; everything else is a
-             * stable function of (column, scale, thumb-shown) until the file
-             * changes, so reuse a cached surface across redraws. */
             cacheable = model->details->drag_view == NULL &&
                         model->details->highlight_files == NULL;
 
@@ -1235,8 +1229,7 @@ nemo_list_model_file_changed (NemoListModel *model, NemoFile *file,
 		return;
 	}
 
-	/* Icon/thumbnail/theme changes all funnel through here - drop the cached
-	 * render so the next draw rebuilds it. */
+	/* Icon, thumbnail and theme changes all come through here. */
 	file_entry_clear_icon_cache (g_sequence_get (ptr));
 
 	pos_before = g_sequence_iter_get_position (ptr);

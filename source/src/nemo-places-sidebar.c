@@ -626,9 +626,8 @@ sidebar_update_restore_selection (NemoPlacesSidebar *sidebar,
 	}
 }
 
-/* Entries stay valid this long before a rebuild triggers a fresh async query;
-   free-space that is a few seconds stale is imperceptible next to a frozen
-   window. */
+/* How long an entry is good for before a rebuild asks again. A few seconds
+   stale beats a frozen window. */
 #define DF_CACHE_TTL_USEC (8 * G_USEC_PER_SEC)
 
 typedef struct {
@@ -702,7 +701,6 @@ df_query_ready (GObject *source, GAsyncResult *result, gpointer user_data)
                 entry->percent = percent;
                 entry->freestr = freestr;
 
-                /* Fold the freshly-filled value into the visible rows. */
                 update_places_on_idle (sidebar);
             }
         }
@@ -1038,9 +1036,8 @@ update_places (NemoPlacesSidebar *sidebar)
 
             df_file = g_file_new_for_uri (drive_uri);
 
-            /* Named the same here as in the breadcrumb and the title bar. The
-               volume label is worth showing but it isn't the identity, so it
-               rides in the tooltip where it can't be mistaken for the path. */
+            /* Named as in the breadcrumb and the title bar. The volume label
+               goes in the tooltip, where it can't be taken for the path. */
             drive_name = nemo_get_drive_root_name (df_file);
 
             full = get_disk_full (sidebar, df_file, &tooltip_info);

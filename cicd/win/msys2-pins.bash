@@ -90,9 +90,10 @@ fMsys2Pins_Closure(){
 		while read -r name _; do [[ -n "${name}" ]] && inBase[${name}]=1; done < "${baseList}"
 	fi
 
-	local queue=("$@") out=()
-	while [[ ${#queue[@]} -gt 0 ]]; do
-		pkg="${queue[0]}"; queue=("${queue[@]:1}")
+	## Walked by index, since popping the head copies the whole queue each time.
+	local queue=("$@") out=() qi=0
+	while ((qi < ${#queue[@]})); do
+		pkg="${queue[qi]}"; qi=$((qi + 1))
 		[[ -n "${seen[${pkg}]:-}" ]] && continue
 		seen[${pkg}]=1
 		real="${pkg}"

@@ -4052,9 +4052,8 @@ typedef struct {
   GtkWidgetAccessibleClass parent_class;
 } EelEditableLabelAccessibleClass;
 
-/* Built on the widget accessible, so the text calls can find the field and
-   it has a place on screen. It used to be derived at run time from what the
-   registry gave for this widget type, which under GTK 3 is the no-op object. */
+/* On the widget accessible, so the text calls can find the field. What the
+   registry gives for this type under GTK 3 is the no-op object. */
 G_DEFINE_TYPE_WITH_CODE (EelEditableLabelAccessible, eel_editable_label_accessible,
                          GTK_TYPE_WIDGET_ACCESSIBLE,
                          G_IMPLEMENT_INTERFACE (ATK_TYPE_EDITABLE_TEXT, atk_editable_text_interface_init)

@@ -439,7 +439,7 @@ template_copied (GObject *source, GAsyncResult *res, gpointer user_data)
     if (!g_file_copy_finish (G_FILE (source), res, &error)) {
         eel_show_error_dialog (_("The template couldn't be added."), error->message, widget_window (widget));
         g_error_free (error);
-    } else if (g_list_length (widget->dir_monitors) == 0 && widget_window (widget) != NULL) {
+    } else if (widget->dir_monitors == NULL && widget_window (widget) != NULL) {
         /* Nothing watching to list it. */
         refresh_widget (widget);
     }

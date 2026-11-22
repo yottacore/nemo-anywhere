@@ -78,11 +78,8 @@ get_builtin_columns (void)
 					       "unbounded", TRUE,
 					       NULL));
 #endif
-	/* There are 3 dates, the same 3 on every platform. The times themselves
-	 * come from GIO, which reads whatever the OS keeps them in - statx birth
-	 * time on Linux, the Win32 creation time on Windows - so nothing here is
-	 * per-platform. The "- Time" twins these replaced showed the same instant
-	 * a second way and doubled the length of the column list. */
+	/* The same 3 dates everywhere: GIO reads statx birth time on Linux and
+	 * the creation time on Windows. */
 	columns = g_list_append (columns,
 				 g_object_new (NEMO_TYPE_COLUMN,
 					       "name", "date_created",

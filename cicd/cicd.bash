@@ -492,11 +492,11 @@ in_use(){
 	## binary, only when it is the image.
 	local inside=""
 	[[ -d "${bin}" ]] && inside="${bin}/"
-	local exe
-	## readlink is a builtin-cheap single syscall; realpath here forked a process
-	## per running pid per candidate. /proc/*/exe is already fully resolved.
-	for e in /proc/[0-9]*/exe; do
-		exe="$(readlink "${e}" 2>/dev/null || true)"
+	local exe exes=()
+	## One readlink for every pid. A readlink, or a realpath before it, per pid
+	## forked hundreds of times per candidate. /proc/*/exe is already resolved.
+	mapfile -t exes < <(readlink /proc/[0-9]*/exe 2>/dev/null || true)
+	for exe in "${exes[@]}"; do
 		[[ "${exe}" == "${bin}" ]] && return 0
 		[[ -n "${inside}" && "${exe}" == "${inside}"* ]] && return 0
 	done
@@ -1384,9 +1384,9 @@ if ((${#DOGFOOD_ROTATING_DESTS[@]})) && [[ -n "${DOGFOOD_PREFIX:-}" ]]; then
 		pruned=0
 		for old in "${rot_dest}/${DOGFOOD_PREFIX}_"*; do
 			[[ -e "${old}" ]] || continue                  # no-match glob (nullglob is off)
-			[[ "$(basename "${old}")" == "${df_name}" ]] && continue
+			[[ "${old##*/}" == "${df_name}" ]] && continue
 			if in_use "${old}"; then
-				fEcho_Clean "kept (running): $(basename "${old}")"
+				fEcho_Clean "kept (running): ${old##*/}"
 			else
 				fSafeRm_Under "${rot_dest}" "${old}" && pruned=$((pruned + 1))
 			fi

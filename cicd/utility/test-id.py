@@ -90,8 +90,8 @@ def found_ids(root: Path) -> Iterator[tuple[str | None, str]]:
             if m:
                 yield m.group(1), f'{other.relative_to(root).as_posix()}:{num}'
 
-    scripts =[p for p in (root / 'cicd').rglob('*') if p.is_file() and p.suffix in ('.bash', '.ps1')
-        and (p.name.startswith('test-') or 'smoke' in p.name or p.name == 'check-win-build-flags.bash')]
+    scripts = {p for p in (root / 'cicd').rglob('*') if p.is_file() and p.suffix in ('.bash', '.ps1')
+        and (p.name.startswith('test-') or 'smoke' in p.name or p.name == 'check-win-build-flags.bash')}
     for script in sorted(scripts):
         m = re.search(r'(?m)^##\s+(?:- )?Test ID: (\S+)$', script.read_text(encoding='utf-8-sig'))
         yield (m.group(1) if m else None), script.relative_to(root).as_posix()
@@ -226,13 +226,16 @@ def listing(root: Path, steps: list[tuple[str, str]]) -> None:
     # the meson tests. A script with modes, such as the FreeBSD lane's tests
     # and release, gives every mode's tests to each step that runs it.
     index = script_index(root)
-    held, scripts, meson = {}, {}, []
+    held, scripts, meson, lines_of = {}, {}, [], {}
     for tag, where in found_ids(root):
         path, _, num = where.partition(':')
         if not num:
             scripts.setdefault(path, []).append(tag)
             continue
-        line = (root / path).read_text(encoding='utf-8').splitlines()[int(num.split(':')[0]) - 1]
+        # meson.build alone has a few hundred of these
+        if path not in lines_of:
+            lines_of[path] = (root / path).read_text(encoding='utf-8').splitlines()
+        line = lines_of[path][int(num.split(':')[0]) - 1]
         if path.endswith('meson.build'):
             name = re.match(r"\s*test\('(?:[0-9a-z]+ )?([^']*)'", line).group(1)
             meson.append((tag, name))

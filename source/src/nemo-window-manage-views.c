@@ -504,11 +504,12 @@ nemo_window_slot_open_location_full (NemoWindowSlot *slot,
 						     location, selection);
 		g_clear_object (&selection);
 
-		if ((flags & NEMO_WINDOW_OPEN_FLAG_CLOSE_BEHIND) != 0) {
-			nemo_window_close (window);
-		}
+		/* Before the close, which can free the window. */
 		if (callback != NULL) {
 			callback (window, NULL, user_data);
+		}
+		if ((flags & NEMO_WINDOW_OPEN_FLAG_CLOSE_BEHIND) != 0) {
+			nemo_window_close (window);
 		}
 		return;
 	} else {
@@ -869,7 +870,7 @@ mount_not_mounted_callback (GObject *source_object,
 }
 
 /* Find results aren't a folder, so they keep their own view rather than the
- * window's: the list view, wiht find mode's own columns, or whatever view was
+ * window's: the list view, with find mode's own columns, or whatever view was
  * picked while they're up, kept through a new query. */
 static char *
 find_mode_view_id (NemoWindowSlot *slot, GFile *location)
@@ -1069,8 +1070,7 @@ got_file_info_for_view_selection_callback (NemoFile *file,
 
 						root = g_file_new_for_path ("/");
 						/* the last fallback is to go to a known place that can't be deleted!
-						 * Open root, not the same failing home location - passing
-						 * location retried the undisplayable folder forever. */
+						 * Root, not the failing location, which retried forever. */
 						nemo_window_slot_open_location (slot, root, 0);
 						g_object_unref (root);
 					}
@@ -1537,8 +1537,8 @@ found_mount_cb (GObject *source_object,
 			return;
 		}
 
-		/* With content detection off nothing takes ownership of any of this, so
-		   the early return leaked the mount, the cancellable and the struct. */
+		/* With content detection off nothing else takes the mount, the
+		   cancellable or the struct. */
 		g_object_unref (mount);
 		data->mount = NULL;
 	}

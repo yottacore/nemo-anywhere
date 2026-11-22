@@ -779,13 +779,26 @@ nemo_network_win32_file_iface_init (GFileIface *iface)
 	iface->monitor_file = network_file_monitor;
 }
 
+/* Kept as network:/// plus the rest, however many slashes it was typed
+   with. Everything that reads past ROOT_URI counts on it: "network:x" was
+   read from beyond its end. */
 static GFile *
 network_file_new_for_uri (const char *uri)
 {
 	NemoNetworkWin32File *self;
+	const char *rest = uri;
+
+	g_return_val_if_fail (uri != NULL, NULL);
+
+	if (g_str_has_prefix (rest, "network:")) {
+		rest += strlen ("network:");
+	}
+	while (*rest == '/') {
+		rest++;
+	}
 
 	self = g_object_new (NEMO_TYPE_NETWORK_WIN32_FILE, NULL);
-	self->uri = g_strdup (uri);
+	self->uri = g_strconcat (ROOT_URI, rest, NULL);
 	return G_FILE (self);
 }
 

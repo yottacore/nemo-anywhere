@@ -543,17 +543,11 @@ mount_removed_callback (G_GNUC_UNUSED GVolumeMonitor *monitor,
 	g_list_free (close_list);
 }
 
-/* Put the frame on screen at the size and place it will keep, without waiting
- * for the first folder to resolve - the panes stay hidden until their views are
- * ready (nemo_window_view_visible), so what appears is the window and its
- * chrome. That is the difference between a launch that looks stalled and one
- * that looks busy.
- *
- * Called once the window has somewhere to be, and not before: realizing the
- * chrome makes it ask its slot where it is, and a slot with neither a location
- * nor a pending one has no answer. It also has to come after any --geometry has
- * been applied, which is only honored while the window is still hidden.
- */
+/* The frame goes up before the first folder resolves, so a launch looks busy
+ * rather than stalled; the panes stay hidden until their views are ready
+ * (nemo_window_view_visible). Only once the slot has somewhere to be, since
+ * realizing the chrome asks it where it is, and only after any --geometry,
+ * which is honored only while the window is still hidden. */
 static void
 show_window_early (NemoWindow *window)
 {
@@ -567,11 +561,8 @@ show_window_early (NemoWindow *window)
 	nemo_splash_note (_("Opening the window"));
 	gtk_widget_show (GTK_WIDGET (window));
 
-	/* Showing a window maps it but doesn't activate it, so it sits one
-	 * place behind whatever the user was looking at - which, with a splash
-	 * covering the moment it appears, reads as nothing having opened at all
-	 * until the taskbar button is noticed. Present it, as launching an app
-	 * is supposed to. */
+	/* Shown isn't activated. Behind the splash, a window left one place back
+	 * reads as nothing having opened. */
 	gtk_window_present (GTK_WINDOW (window));
 }
 
@@ -1010,7 +1001,7 @@ nemo_main_application_local_command_line (GApplication *application,
 	 * each other on, where they use one, and runs startup, which puts this
 	 * copy in the list. */
 	if (!g_application_register (application, NULL, &error)) {
-		g_printerr ("Couldn't register nemo: %s\n", error->message);
+		g_printerr ("Couldn't register Nemo Anywhere: %s\n", error->message);
 		g_clear_error (&error);
 
 		*exit_status = EXIT_FAILURE;
@@ -1025,10 +1016,12 @@ nemo_main_application_local_command_line (GApplication *application,
 
 		g_strfreev (running);
 		if (busy) {
-			g_printerr ("Nemo is already running - quit it first, then --reset.\n");
+			g_printerr ("Nemo Anywhere is already running - quit it first, then --reset.\n");
 			*exit_status = EXIT_FAILURE;
 		} else {
 			char *settings, *shortcuts;
+			GError *set_error = NULL;
+			gboolean cleared = TRUE;
 
 			/* Clear the live store first so the flush leaves nothing queued,
 			 * then take the file itself - anything hand-written that nemo does
@@ -1037,18 +1030,33 @@ nemo_main_application_local_command_line (GApplication *application,
 			nemo_config_flush ();
 
 			settings = nemo_config_get_path ();
-			g_unlink (settings);
+			if (g_unlink (settings) != 0 && errno != ENOENT) {
+				g_printerr ("Couldn't remove %s: %s\n", settings, g_strerror (errno));
+				cleared = FALSE;
+			}
 			g_free (settings);
 
 			/* Emptied rather than removed, since a missing file is what
-			 * sends the next start to upstream Nemo's shortcuts. */
+			 * sends the next start to upstream Nemo's shortcuts. No folder
+			 * means nothing to clear. */
 			shortcuts = nemo_get_accel_map_file ();
-			/* Like the unlink above: no folder, nothing to clear. */
-			(void) g_file_set_contents (shortcuts, "", 0, NULL);
+			if (!g_file_set_contents (shortcuts, "", 0, &set_error)
+			    && !g_error_matches (set_error, G_FILE_ERROR, G_FILE_ERROR_NOENT)) {
+				g_printerr ("Couldn't empty %s: %s\n", shortcuts, set_error->message);
+				cleared = FALSE;
+			}
+			g_clear_error (&set_error);
 			g_free (shortcuts);
 
-			nemo_bookmark_list_reset_files ();
-			g_print ("Settings and bookmarks cleared.\n");
+			if (!nemo_bookmark_list_reset_files ()) {
+				cleared = FALSE;
+			}
+
+			if (cleared) {
+				g_print ("Settings and bookmarks cleared.\n");
+			} else {
+				*exit_status = EXIT_FAILURE;
+			}
 		}
 		goto out;
 	}
@@ -1119,7 +1127,7 @@ nemo_main_application_local_command_line (GApplication *application,
  out:
 	g_option_context_free (context);
 
-	return TRUE;	
+	return TRUE;
 }
 
 static void

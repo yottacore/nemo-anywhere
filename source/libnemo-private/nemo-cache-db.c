@@ -1976,6 +1976,7 @@ drop_missing_paths (NemoCacheDb *db, GCancellable *cancellable)
 	gint64                 after = 0;
 	gboolean               ok = TRUE;
 	guint                  i;
+	int                    rc;
 
 	for (;;) {
 		g_ptr_array_set_size (uris, 0);
@@ -1987,7 +1988,7 @@ drop_missing_paths (NemoCacheDb *db, GCancellable *cancellable)
 			return FALSE;
 
 		sqlite3_bind_int64 (stmt, 1, after);
-		while (sqlite3_step (stmt) == SQLITE_ROW) {
+		while ((rc = sqlite3_step (stmt)) == SQLITE_ROW) {
 			gint64 rowid = sqlite3_column_int64 (stmt, 0);
 
 			g_array_append_val (rowids, rowid);
@@ -1995,6 +1996,9 @@ drop_missing_paths (NemoCacheDb *db, GCancellable *cancellable)
 		}
 		sqlite3_finalize (stmt);
 
+		/* A listing cut short by an error isn't the end of the table. */
+		if (!db_ok (db, rc, "list paths"))
+			return FALSE;
 		if (rowids->len == 0)
 			break;
 
@@ -2211,13 +2215,16 @@ end_batch (NemoCacheDb *db, gboolean ok, const Batch *batch, GCancellable *cance
 static gboolean
 drop_orphans (NemoCacheDb *db, GCancellable *cancellable, gint64 *removed)
 {
+	/* By id from where the last batch stopped, so a batch doesn't walk again
+	 * past every record the ones before it kept. */
 	static const char pick_sql[] =
 		"SELECT f.id, IFNULL ((SELECT LENGTH (image) FROM thumbnails t WHERE t.file_id = f.id), 0)"
-		" FROM files f WHERE NOT EXISTS (SELECT 1 FROM paths p WHERE p.file_id = f.id)"
-		" LIMIT " G_STRINGIFY (PRUNE_BATCH);
+		" FROM files f WHERE f.id > ? AND NOT EXISTS (SELECT 1 FROM paths p WHERE p.file_id = f.id)"
+		" ORDER BY f.id LIMIT " G_STRINGIFY (PRUNE_BATCH);
 	g_autoptr (GArray) ids = g_array_new (FALSE, FALSE, sizeof (gint64));
 	Batch              batch = { ids, 0, FALSE };
 	sqlite3_stmt      *stmt;
+	gint64             after = 0;
 	gboolean           ok;
 
 	do {
@@ -2226,12 +2233,16 @@ drop_orphans (NemoCacheDb *db, GCancellable *cancellable, gint64 *removed)
 
 		ok = still_ours (db);
 		stmt = ok ? prep (db, pick_sql, "orphans") : NULL;
+		if (stmt != NULL)
+			sqlite3_bind_int64 (stmt, 1, after);
 		ok = stmt != NULL && pick_batch (db, stmt, PRUNE_BATCH_BYTES, &batch, "orphans");
 		ok = ok && delete_each (db, "DELETE FROM thumbnails WHERE file_id = ?", &batch, removed, "orphans");
 		ok = ok && delete_each (db, "DELETE FROM files WHERE id = ?", &batch, NULL, "orphans");
 
 		if (!end_batch (db, ok, &batch, cancellable))
 			return FALSE;
+		if (batch.ids->len > 0)
+			after = g_array_index (batch.ids, gint64, batch.ids->len - 1);
 	} while (batch.full);
 
 	return TRUE;

@@ -106,7 +106,12 @@ struct NemoFileDetails
 	guint link_unfollowed : 1;
 	/* Someone opened it or went to it, so it is followed from now on. */
 	guint link_look_wanted : 1;
-	
+	/* A .lnk's target is a folder, as read at lnk_dir_mtime. Sorting asks
+	   on every comparison. */
+	guint lnk_dir_known : 1;
+	guint lnk_is_dir : 1;
+	time_t lnk_dir_mtime;
+
 	GRefString *mime_type;
 	
 	char *selinux_context;
@@ -310,14 +315,14 @@ void          nemo_file_updated_deep_count_in_progress (NemoFile           *file
 
 
 void          nemo_file_clear_info                     (NemoFile           *file);
-/* Compare file's state with a fresh file info struct, return FALSE if
- * no change, update file and return TRUE if the file info contains
- * new state.  */
 const char *  nemo_file_default_attributes             (void);
 gboolean      nemo_file_owner_comes_with_info          (void);
 void          nemo_file_set_owner_comes_with_info_for_test (gboolean       with_info);
 gboolean      nemo_file_update_owner                   (NemoFile           *file,
 							    GFileInfo              *info);
+/* Compare file's state with a fresh file info struct, return FALSE if
+ * no change, update file and return TRUE if the file info contains
+ * new state.  */
 gboolean      nemo_file_update_info                    (NemoFile           *file,
 							    GFileInfo              *info);
 gboolean      nemo_file_update_name                    (NemoFile           *file,

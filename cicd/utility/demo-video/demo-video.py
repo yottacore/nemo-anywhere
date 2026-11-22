@@ -287,7 +287,6 @@ class Rec:
         subprocess.run(["xdotool", *a], env=self.env(), check=False,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    # --- geometry --------------------------------------------------------------
     def pt(self, lx: float, ly: float) -> tuple[int, int]:
         """A point inside the client area, from gif-pixel coordinates."""
         return (self.origin[0] + int(lx * self.scale),
@@ -381,9 +380,11 @@ class Rec:
         # xfwm4's margin_top doesn't change _NET_WORKAREA; a strut does. One
         # pixel of dock window is enough to set it, and keeps the sync flash
         # nearly all white.
-        self.strut = subprocess.Popen([sys.executable, "-c", BAND_STRUT,
-            str(self.size[0]), str(self.band)], env=self.env(),
-            stdout=subprocess.DEVNULL, stderr=open(self.work / "strut.log", "w", encoding="utf-8"))
+        # the child has its own copy of each log's fd, so ours can close at once
+        with open(self.work / "strut.log", "w", encoding="utf-8") as log_f:
+            self.strut = subprocess.Popen([sys.executable, "-c", BAND_STRUT,
+                str(self.size[0]), str(self.band)], env=self.env(),
+                stdout=subprocess.DEVNULL, stderr=log_f)
         time.sleep(0.6)
         if self.strut.poll() is not None:
             log("WARNING: couldn't reserve the caption band (see strut.log)")
@@ -405,12 +406,13 @@ class Rec:
     def start_wm(self, theme: str, wm: str = "xfwm4 --compositor=off --vblank=off") -> None:
         # its own session, so stop_wm can end the bus and xfconfd with it
         title_pt = 9 * self.scale
-        self.wm = subprocess.Popen(["dbus-run-session", "--", "sh", "-c",
-            f'xfconf-query -c xfwm4 -p /general/theme --create -t string -s "{theme}"; '
-            f'xfconf-query -c xfwm4 -p /general/title_font --create -t string -s "Lato Bold {title_pt}"; '
-            'xfconf-query -c xfwm4 -p /general/button_layout --create -t string -s "O|HMC"; '            f"exec {wm}"],
-            env=self.wm_env(), stdout=open(self.work / "wm.log", "w", encoding="utf-8"),
-            stderr=subprocess.STDOUT, start_new_session=True)
+        with open(self.work / "wm.log", "w", encoding="utf-8") as log_f:
+            self.wm = subprocess.Popen(["dbus-run-session", "--", "sh", "-c",
+                f'xfconf-query -c xfwm4 -p /general/theme --create -t string -s "{theme}"; '
+                f'xfconf-query -c xfwm4 -p /general/title_font --create -t string -s "Lato Bold {title_pt}"; '
+                'xfconf-query -c xfwm4 -p /general/button_layout --create -t string -s "O|HMC"; '
+                f"exec {wm}"],
+                env=self.wm_env(), stdout=log_f, stderr=subprocess.STDOUT, start_new_session=True)
 
     def stop_wm(self) -> None:
         # dbus-run-session dies on SIGTERM and leaves its bus, xfconfd and the WM
@@ -453,15 +455,15 @@ class Rec:
 
     def start_capture(self) -> None:
         self.raw = self.work / "raw.mkv"
-        self.ff = subprocess.Popen([
-            "ffmpeg", "-hide_banner", "-loglevel", "error",
-            "-progress", str(self.work / "ffprogress.txt"),
-            "-f", "x11grab", "-draw_mouse", "1", "-framerate", str(self.cap_fps),
-            "-video_size", f"{self.size[0]}x{self.size[1]}", "-i", self.display,
-            "-c:v", "libx264", "-preset", "ultrafast", "-qp", "0",
-            "-pix_fmt", "yuv444p", str(self.raw)],
-            env=self.env(), stdin=subprocess.DEVNULL,
-            stderr=open(self.work / "ffmpeg.log", "w", encoding="utf-8"))
+        with open(self.work / "ffmpeg.log", "w", encoding="utf-8") as log_f:
+            self.ff = subprocess.Popen([
+                "ffmpeg", "-hide_banner", "-loglevel", "error",
+                "-progress", str(self.work / "ffprogress.txt"),
+                "-f", "x11grab", "-draw_mouse", "1", "-framerate", str(self.cap_fps),
+                "-video_size", f"{self.size[0]}x{self.size[1]}", "-i", self.display,
+                "-c:v", "libx264", "-preset", "ultrafast", "-qp", "0",
+                "-pix_fmt", "yuv444p", str(self.raw)],
+                env=self.env(), stdin=subprocess.DEVNULL, stderr=log_f)
         # flash only once frames are flowing. A slow-opening ffmpeg would
         # otherwise miss the sync flash and break the whole AV anchor
         prog = self.work / "ffprogress.txt"
@@ -542,8 +544,8 @@ class Rec:
         if uri:
             cmd.append(uri)
         self.launch_e = time.time()
-        self.app = subprocess.Popen(cmd, env=self.app_env(),
-            stdout=open(self.work / "nemo.log", "w", encoding="utf-8"), stderr=subprocess.STDOUT)
+        with open(self.work / "nemo.log", "w", encoding="utf-8") as log_f:
+            self.app = subprocess.Popen(cmd, env=self.app_env(), stdout=log_f, stderr=subprocess.STDOUT)
         self.win = self.wait_for_window()
         self.place_window(self.win)
         time.sleep(2.5)
@@ -585,7 +587,6 @@ class Rec:
         run(["import", "-window", "root", str(path)], env=self.env())
         log(f"screenshot: {path}")
 
-    # --- event log -------------------------------------------------------------
     def ev(self, kind: str) -> None:
         self.events.append((time.time(), kind))
 
@@ -1483,8 +1484,9 @@ def rotate(out_dir: Path, prefix: str, ext: str, no_rotate: bool) -> None:
     if no_rotate:
         return
     inc = REPO / "cicd/utility/include/gfs-rotate.bash"
-    subprocess.run(["bash", "-c",
-        f'source "{inc}" && gfs_rotate "{out_dir}" {prefix} {ext}'], check=False)
+    # as arguments, so a quote in a path can't end up as shell code
+    subprocess.run(["bash", "-c", 'source "$1" && gfs_rotate "$2" "$3" "$4"', "bash",
+        str(inc), str(out_dir), prefix, ext], check=False)
 
 def place_video(mp4: Path, out_dir: Path, no_rotate: bool) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)

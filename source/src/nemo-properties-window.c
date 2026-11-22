@@ -961,9 +961,8 @@ get_mime_list (NemoPropertiesWindow *window)
 
 	ret = NULL;
 	for (l = window->details->target_files; l != NULL; l = l->next) {
-		ret = g_list_append (ret, nemo_file_get_mime_type (NEMO_FILE (l->data)));
+		ret = g_list_prepend (ret, nemo_file_get_mime_type (NEMO_FILE (l->data)));
 	}
-	ret = g_list_reverse (ret);
 	return ret;
 }
 

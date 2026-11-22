@@ -119,7 +119,7 @@ def key_context(root: Path) -> KeyContext:
 COMMENT_OR_STRING = re.compile(r'/\*.*?\*/|//[^\n]*|"(?:\\.|[^"\\\n])*"', re.DOTALL)
 QUOTED = re.compile(r'"((?:\\.|[^"\\\n])*)"')
 WORD = re.compile(r"\b\w+\b")
-DEFINE_LINE = re.compile(r"^[ \t]*#[ \t]*define\b")
+DEFINE_LINES = re.compile(r"^[ \t]*#[ \t]*define\b.*$", re.MULTILINE)
 
 
 def unread_keys(root: Path) -> list[Problem]:
@@ -139,10 +139,9 @@ def unread_keys(root: Path) -> list[Problem]:
                 macros.setdefault(value, set()).add(name)
         if path.suffix != ".py":
             code = COMMENT_OR_STRING.sub(lambda m: m.group(0) if m.group(0)[0] == '"' else " ", code)
-        for line in code.splitlines():
-            if not DEFINE_LINE.match(line):
-                quoted.update(QUOTED.findall(line))
-                words.update(WORD.findall(line))
+        code = DEFINE_LINES.sub("", code)
+        quoted.update(QUOTED.findall(code))
+        words.update(WORD.findall(code))
 
     return [(line, group, key) for line, group, key in rows
             if key not in quoted and not macros.get(key, set()) & words]
@@ -157,8 +156,9 @@ def patterns(group: str) -> dict[str, re.Pattern[str]]:
         "disconnect_by_func": re.compile(
             r"g_signal_handlers_disconnect_by_func\s*\(\s*(" + group + r")\s*,\s*(\w+)\s*,",
             re.DOTALL),
+        # \b, or the scan retries \w+ from inside every word: most of this file's time.
         "connect_to_id": re.compile(
-            r"(\w+)\s*=\s*g_signal_connect\w*\s*\(\s*(" + group + r")\s*,",
+            r"\b(\w+)\s*=\s*g_signal_connect\w*\s*\(\s*(" + group + r")\s*,",
             re.DOTALL),
         # The id is usually a struct member, as in self->handler.
         "disconnect_by_id": re.compile(
@@ -180,12 +180,15 @@ MASKED = re.compile(
     re.DOTALL | re.MULTILINE)
 
 
+NOT_NEWLINE = re.compile(r"[^\n]")
+
+
 def masked(text: str) -> str:
     def blank(match: re.Match[str]) -> str:
         piece = match.group(0)
         if piece[0] in "\"'":
-            return piece[0] + re.sub(r"[^\n]", " ", piece[1:-1]) + piece[-1]
-        return re.sub(r"[^\n]", " ", piece)
+            return piece[0] + NOT_NEWLINE.sub(" ", piece[1:-1]) + piece[-1]
+        return NOT_NEWLINE.sub(" ", piece)
     return MASKED.sub(blank, text)
 
 
@@ -274,8 +277,7 @@ def struct_rows(code: str, spans: list[Span], groups: str) -> set[tuple[str, str
     return rows
 
 
-def lifetime_problems(text: str, groups: str) -> list[Problem]:
-    code = masked(text)
+def lifetime_problems(text: str, code: str, groups: str) -> list[Problem]:
     spans = functions(code)
     structs = None
     problems = []
@@ -361,8 +363,7 @@ def key_text(expr: str, macros: dict[str, str | None]) -> tuple[str | None, str 
     return "".join(pieces), None
 
 
-def key_problems(text: str, groups: str, context: KeyContext) -> list[Problem]:
-    code = masked(text)
+def key_problems(text: str, code: str, groups: str, context: KeyContext) -> list[Problem]:
     macros = dict(context["macros"])
     macros.update((name, value) for name, value in string_defines(text).items() if value is not None)
     problems = []
@@ -430,9 +431,10 @@ def check_file(path: Path, pats: dict[str, re.Pattern[str]], groups: str,
                  + ", ".join(sorted(connected)))
             )
 
-    problems += lifetime_problems(text, groups)
+    code = masked(text)
+    problems += lifetime_problems(text, code, groups)
     if context is not None:
-        problems += key_problems(text, groups, context)
+        problems += key_problems(text, code, groups, context)
     return problems
 
 

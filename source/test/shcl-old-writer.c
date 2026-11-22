@@ -219,7 +219,7 @@ put_typed (char *buf, size_t cap, size_t *len, const char *s)
 		*len += n;
 	} else if (strchr (s, '"') != NULL && strpbrk (s, "'\\\t") == NULL) {
 		/* single quotes need no escape, as the later writers chose */
-		*len += (size_t) sprintf (buf + *len, "'%s'", s);
+		*len += (size_t) snprintf (buf + *len, cap - *len, "'%s'", s);
 	} else {
 		buf[(*len)++] = '"';
 		for (i = 0; i < n; i++) {

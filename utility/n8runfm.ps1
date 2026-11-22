@@ -1496,7 +1496,7 @@ function fIsElevated {
 function fLaunchedFromShortcut {
 	if (-not $IsWindows) { return $false }
 	try {
-		$parentId = (Get-CimInstance Win32_Process -Filter "ProcessId=$PID" -ErrorAction Stop).ParentProcessId
+		$parentId = (Get-CimInstance -ClassName Win32_Process -Filter "ProcessId=$PID" -ErrorAction Stop).ParentProcessId
 		$parent   = (Get-Process -Id $parentId -ErrorAction Stop).ProcessName
 		return ($parent -ieq "explorer")
 	} catch { return $false }

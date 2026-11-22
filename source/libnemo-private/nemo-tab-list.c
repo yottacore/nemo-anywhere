@@ -215,6 +215,7 @@ add_rows (NemoTabList *list, GtkStack *stack, int depth)
 		GtkWidget *page = l->data;
 		GtkWidget *row = gtk_list_box_row_new ();
 		GtkWidget *label = gtk_label_new (NULL);
+		GtkWidget *under;
 
 		gtk_label_set_xalign (GTK_LABEL (label), 0.0);
 		gtk_widget_set_margin_start (label, depth * SUB_TAB_INDENT);
@@ -224,8 +225,9 @@ add_rows (NemoTabList *list, GtkStack *stack, int depth)
 		gtk_container_add (GTK_CONTAINER (list->box), row);
 
 		watch (list, page);
-		if (sub_tabs (page) != NULL) {
-			add_rows (list, GTK_STACK (sub_tabs (page)), depth + 1);
+		under = sub_tabs (page);
+		if (under != NULL) {
+			add_rows (list, GTK_STACK (under), depth + 1);
 		}
 	}
 	g_list_free (pages);

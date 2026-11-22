@@ -558,7 +558,7 @@ forget_cursor (NemoListView *view)
 /* The first up or down key after Escape goes to the top row rather than the one
    below it. With Ctrl it only shows the cursor there, as Ctrl moves it anyway. */
 static gboolean
-start_cursor_over (NemoListView *view, GdkEventKey *event)
+start_cursor_over (NemoListView *view, const GdkEventKey *event)
 {
 	GtkTreePath *path;
 
@@ -725,9 +725,7 @@ items_to_activate (NemoListView *view, gboolean by_key)
 			nemo_list_view_get_selection (NEMO_VIEW (view));
 }
 
-/* Proper GSourceFunc: activate_items is void, so casting it to a
- * source func left the timeout's repeat behavior undefined. Clear the id and
- * fire once; if still renaming, activate_items re-arms a fresh one. */
+/* Fires once. activate_items sets a new one if the rename is still going. */
 static gboolean
 activate_selected_items_timeout (gpointer data)
 {
@@ -1139,7 +1137,7 @@ last_shown_row (GtkTreeView *tree_view)
 }
 
 static gboolean
-same_row (GtkTreePath *a, GtkTreePath *b)
+same_row (const GtkTreePath *a, const GtkTreePath *b)
 {
 	if (a == NULL || b == NULL) {
 		return a == b;
@@ -1156,7 +1154,7 @@ band_checkmark (G_GNUC_UNUSED NemoListView *view)
 }
 
 static void
-band_arm (NemoListView *view, GdkEventButton *event, gboolean keep)
+band_arm (NemoListView *view, const GdkEventButton *event, gboolean keep)
 {
 	NemoListViewDetails *details = view->details;
 	GtkTreePath *path = NULL;
@@ -1269,7 +1267,7 @@ band_scroll_cb (gpointer data)
 }
 
 static void
-band_motion (NemoListView *view, GdkEventMotion *event)
+band_motion (NemoListView *view, const GdkEventMotion *event)
 {
 	NemoListViewDetails *details = view->details;
 	GtkTreeSelection *selection;
@@ -1891,8 +1889,7 @@ columns_reordered_callback (G_GNUC_UNUSED AtkObject *atk,
                                        NEMO_METADATA_KEY_LIST_VIEW_COLUMN_ORDER,
                                        list);
     }
-    /* list owns copies now: vis_columns only borrows from columns, and any
-       column that didn't survive the match used to be freed by nobody. */
+    /* vis_columns borrows from columns, so list holds copies. */
     g_list_free_full (list, g_free);
     g_strfreev (columns);
     g_list_free (vis_columns);
@@ -3826,9 +3823,7 @@ mark_visible_files (NemoListView *view)
                 last_file = file;
 
                 if (nemo_file_get_load_deferred_attrs (file) == NEMO_FILE_LOAD_DEFERRED_ATTRS_NO) {
-                    /* First time in view: mark it and pull deferred attrs once,
-                     * rather than re-invalidating on every debounced scroll (the
-                     * icon-container twin guards the same way). */
+                    /* Once per file, not on every scroll. */
                     nemo_file_set_load_deferred_attrs (file, NEMO_FILE_LOAD_DEFERRED_ATTRS_YES);
                     nemo_file_invalidate_attributes (file, NEMO_FILE_DEFERRED_ATTRIBUTES);
                 }
@@ -4035,8 +4030,7 @@ samples_for (NemoListView      *view,
 		/* Every column but Name shows one run of text per row, so a value
 		   seen before lays out to the same width. Name is left out: in a
 		   folder no 2 files share a name, so nothing would ever repeat.
-		   NEMO_MEASURE_NOCACHE turns it off, which is how the widths it
-		   hands back are checked against measuring every row. */
+		   NEMO_MEASURE_NOCACHE turns it off. */
 		if (!is_name && g_getenv ("NEMO_MEASURE_NOCACHE") == NULL) {
 			samples->measured = g_hash_table_new_full (g_str_hash, g_str_equal,
 								   g_free, NULL);

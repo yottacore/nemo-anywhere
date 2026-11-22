@@ -498,6 +498,7 @@ nemo_launch_win32_open_path (const gchar  *path,
 {
 	wchar_t *wpath, *wdir;
 	gboolean started;
+	DWORD failure;
 
 	g_return_val_if_fail (path != NULL, FALSE);
 
@@ -512,11 +513,13 @@ nemo_launch_win32_open_path (const gchar  *path,
 	nemo_launch_win32_user_environ_enter ();
 	started = wpath != NULL &&
 		  (INT_PTR) ShellExecuteW (NULL, NULL, wpath, NULL, wdir, SW_SHOWNORMAL) > 32;
+	failure = GetLastError ();
 	nemo_launch_win32_user_environ_leave ();
 	g_free (wdir);
 	g_free (wpath);
 
 	if (!started) {
+		SetLastError (failure);
 		set_failed (error, path);
 	}
 
@@ -593,6 +596,7 @@ nemo_launch_win32_run (const gchar  *exe,
 {
 	gchar *line;
 	gboolean started;
+	DWORD failure;
 
 	g_return_val_if_fail (exe != NULL, FALSE);
 
@@ -606,9 +610,11 @@ nemo_launch_win32_run (const gchar  *exe,
 
 	nemo_launch_win32_user_environ_enter ();
 	started = nemo_launch_win32_via_service (line, workdir) || direct_start (line, workdir);
+	failure = GetLastError ();
 	nemo_launch_win32_user_environ_leave ();
 
 	if (!started) {
+		SetLastError (failure);
 		set_failed_line (error, line);
 	}
 
@@ -624,6 +630,7 @@ nemo_launch_win32_run_command (const gchar  *command_line,
 	gchar *args = NULL;
 	gchar *exe;
 	gboolean started;
+	DWORD failure;
 
 	g_return_val_if_fail (command_line != NULL, FALSE);
 
@@ -640,9 +647,11 @@ nemo_launch_win32_run_command (const gchar  *command_line,
 	 * quoting has to survive a round trip. */
 	nemo_launch_win32_user_environ_enter ();
 	started = nemo_launch_win32_via_service (command_line, workdir) || direct_start (command_line, workdir);
+	failure = GetLastError ();
 	nemo_launch_win32_user_environ_leave ();
 
 	if (!started) {
+		SetLastError (failure);
 		set_failed_line (error, command_line);
 	}
 
@@ -893,6 +902,7 @@ spawn_hidden (const gchar * const  *argv,
 	gchar *program;
 	wchar_t *wexe = NULL, *wline = NULL, *wdir = NULL;
 	gboolean started = FALSE;
+	DWORD failure = 0;
 
 	/* A bare name is found the way the rest of the app finds one, the exe's
 	 * own folder before PATH. */
@@ -962,6 +972,7 @@ spawn_hidden (const gchar * const  *argv,
 						  CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT |
 						  (job != NULL ? CREATE_SUSPENDED : 0),
 						  NULL, wdir, &startup.StartupInfo, &process);
+			failure = GetLastError ();
 			if (helper) {
 				g_rec_mutex_unlock (&start_lock);
 			} else {
@@ -977,6 +988,7 @@ spawn_hidden (const gchar * const  *argv,
 			g_debug ("helper %s not in the job: %lu", program, (unsigned long) GetLastError ());
 		}
 		if (ResumeThread (process.hThread) == (DWORD) -1) {
+			failure = GetLastError ();
 			TerminateProcess (process.hProcess, 1);
 			CloseHandle (process.hThread);
 			CloseHandle (process.hProcess);
@@ -988,6 +1000,10 @@ spawn_hidden (const gchar * const  *argv,
 		CloseHandle (process.hThread);
 		*process_out = process.hProcess;
 	} else {
+		/* The environment swap and the cleanup above both reset it. */
+		if (failure != 0) {
+			SetLastError (failure);
+		}
 		set_failed (error, program);
 	}
 
