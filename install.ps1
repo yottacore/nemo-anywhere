@@ -399,7 +399,7 @@ function fHoldersOf {
 	## C:\foobar.
 	$fulls = @($Folder | ForEach-Object { [System.IO.Path]::GetFullPath($_).TrimEnd('\') + '\' })
 	$names = [System.Collections.Generic.List[string]]::new()
-	foreach ($proc in (Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)) {
+	foreach ($proc in (Get-CimInstance -ClassName Win32_Process -ErrorAction SilentlyContinue)) {
 		$path = $proc.ExecutablePath
 		if (-not $path) { continue }
 		## GetFullPath has already long-formed the folder, but a process started

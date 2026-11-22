@@ -78,7 +78,8 @@ def skip(msg: str) -> NoReturn:
 
 
 def self_test() -> int:
-    test_id = re.search(r"(?m)^##\tTest ID: (\S+)$", open(__file__, encoding="utf-8").read()).group(1)
+    with open(__file__, encoding="utf-8") as f:
+        test_id = re.search(r"(?m)^##\tTest ID: (\S+)$", f.read()).group(1)
     print(f"[ Test {test_id} lint-report.py --self-test ]")
     failures = []
     with tempfile.TemporaryDirectory() as d:
@@ -151,7 +152,8 @@ def main() -> int:
     if a.check and not a.force:
         seen = ""
         try:
-            seen = open(marker, encoding="utf-8").read().strip()
+            with open(marker, encoding="utf-8") as f:
+                seen = f.read().strip()
         except OSError:
             pass
         if ts and seen and ts <= seen:

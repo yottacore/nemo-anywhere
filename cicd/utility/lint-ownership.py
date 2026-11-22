@@ -36,49 +36,17 @@ POINTER_TYPEDEFS = {"gpointer", "gconstpointer", "GStrv"}
 NOT_NAMES = {"if", "for", "while", "switch", "return", "sizeof", "defined"}
 CALL = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
 DEF_START = re.compile(r"^(.*?[\s*])?([A-Za-z_]\w*)\s*\(")
+# One regex pass. Walking the text a char at a time took seconds over the tree.
+# A directive runs on through its continuation lines; an unterminated literal stops at the newline.
+MASKED = re.compile(r'^[ \t]*#(?:\\\n|[^\n])*|/\*.*?(?:\*/|\Z)|//[^\n]*|"(?:\\.|[^"\\\n])*"?|\'(?:\\.|[^\'\\\n])*\'?',
+                    re.DOTALL | re.MULTILINE)
+NOT_NEWLINE = re.compile(r"[^\n]")
 
 
 def blank_out(text: str) -> str:
     """Comments, string and char literals, and preprocessor lines become
     spaces. Newlines stay, so line numbers still match the file."""
-    out = []
-    i, n = 0, len(text)
-    line_start = True
-    while i < n:
-        c = text[i]
-        if line_start and c == "#" or (line_start and c in " \t" and text[i:].lstrip(" \t").startswith("#")):
-            # a directive, with its continuation lines
-            while i < n:
-                if text[i] == "\n" and (i == 0 or text[i - 1] != "\\"):
-                    break
-                out.append("\n" if text[i] == "\n" else " ")
-                i += 1
-            continue
-        if text.startswith("/*", i):
-            end = text.find("*/", i + 2)
-            end = n if end < 0 else end + 2
-            out.append(re.sub(r"[^\n]", " ", text[i:end]))
-            i = end
-            line_start = False
-            continue
-        if text.startswith("//", i):
-            end = text.find("\n", i)
-            end = n if end < 0 else end
-            out.append(" " * (end - i))
-            i = end
-            continue
-        if c in "\"'":
-            j = i + 1
-            while j < n and text[j] != c and text[j] != "\n":
-                j += 2 if text[j] == "\\" else 1
-            out.append(" " * (min(j + 1, n) - i))
-            i = j + 1
-            line_start = False
-            continue
-        out.append(c)
-        line_start = c == "\n"
-        i += 1
-    return "".join(out)
+    return MASKED.sub(lambda m: NOT_NEWLINE.sub(" ", m.group(0)), text)
 
 
 def header_names(root: Path) -> set[str]:
@@ -210,6 +178,8 @@ thing_name (Thing *thing)
 {
 \treturn g_strdup ("x");
 }
+
+static const char *opener = "/*";
 
 GList *
 thing_list (void)

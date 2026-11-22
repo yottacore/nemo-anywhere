@@ -45,8 +45,7 @@ def main(argv: list[str]) -> int:
         finally:
             os._exit(127)
 
-    seen = b""
-    queries = 0
+    seen = bytearray()
     typed = False
     deadline = time.monotonic() + TIMEOUT_SECONDS
     while True:
@@ -69,10 +68,11 @@ def main(argv: list[str]) -> int:
             break
         sys.stdout.buffer.write(data)
         sys.stdout.buffer.flush()
+        # Only what this read could have finished, a query split across reads included.
+        start = max(0, len(seen) - len(CURSOR_QUERY) + 1)
         seen += data
-        while seen.count(CURSOR_QUERY) > queries:
+        for _ in range(seen.count(CURSOR_QUERY, start)):
             os.write(fd, CURSOR_REPLY)
-            queries += 1
 
     _, status = os.waitpid(pid, 0)
     return os.waitstatus_to_exitcode(status)

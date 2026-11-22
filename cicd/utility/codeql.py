@@ -225,7 +225,8 @@ def self_test() -> int:
 def main() -> int:
     args = sys.argv[1:]
     if not args or args[0] in ("-h", "--help"):
-        print(open(__file__, encoding="utf-8").read().split("\n\n")[1].replace("# ", "").replace("#", ""))
+        with open(__file__, encoding="utf-8") as f:
+            print(f.read().split("\n\n")[1].replace("# ", "").replace("#", ""))
         return 0
     if args[0] == "--self-test":
         return self_test()

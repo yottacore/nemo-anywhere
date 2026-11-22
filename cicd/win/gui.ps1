@@ -23,6 +23,8 @@
 
 param([string]$Cmd, [string]$A, [string]$B, [string]$C)
 
+Set-StrictMode -Version Latest
+
 Add-Type -ReferencedAssemblies System.Drawing, System.Windows.Forms -TypeDefinition @'
 using System;
 using System.Collections.Generic;

@@ -25,7 +25,8 @@ COLS = 10
 
 def read_icon(path: str, index: int) -> tuple[str, str]:
     """Body and viewBox of one SVG, with its ids made unique to this cell."""
-    raw = open(path, encoding="utf-8", errors="replace").read()
+    with open(path, encoding="utf-8", errors="replace") as handle:
+        raw = handle.read()
 
     head = re.match(r"^\s*(?:<\?xml[^>]*\?>\s*)?<svg([^>]*)>", raw)
     attrs = head.group(1) if head else ""
@@ -127,7 +128,8 @@ def main(argv: list[str]) -> int:
 
         out_png = os.path.join(out_dir, name + ".png")
         try:
-            subprocess.call(["rsvg-convert", "-w", "1000", out_svg, "-o", out_png])
+            if subprocess.call(["rsvg-convert", "-w", "1000", out_svg, "-o", out_png]) != 0:
+                out_png = "(rsvg-convert failed)"
         except OSError:
             out_png = "(no rsvg-convert)"
         print(f"[ {name:<16} {count:3d} icons -> {out_png} ]")
