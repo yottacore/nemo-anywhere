@@ -368,7 +368,7 @@ test_scratch_config_home (const char *tmpl)
 	GError *error = NULL;
 	char *dir = make_in (g_get_tmp_dir (), tmpl, &error);
 
-	/* Most callers don't check, and carrying on would run the test against
+	/* Most callers don't check, and going on would run the test against
 	   the real config. */
 	if (dir == NULL) {
 		g_error ("scratch: no config home: %s", error->message);
