@@ -788,6 +788,8 @@ network_file_new_for_uri (const char *uri)
 	NemoNetworkWin32File *self;
 	const char *rest = uri;
 
+	g_return_val_if_fail (uri != NULL, NULL);
+
 	if (g_str_has_prefix (rest, "network:")) {
 		rest += strlen ("network:");
 	}
