@@ -690,6 +690,7 @@ nemo_file_clear_info (NemoFile *file)
 	file->details->is_hidden = FALSE;
 	file->details->is_mountpoint = FALSE;
 	file->details->link_unfollowed = FALSE;
+	file->details->lnk_dir_known = FALSE;
 	file->details->uid = -1;
 	file->details->gid = -1;
 	file->details->can_read = TRUE;
@@ -3951,34 +3952,46 @@ compare_by_search_result_count (NemoFile *file_1,
     return (count_1 == count_2) ? 0 : (count_1 - count_2);
 }
 
-/* A shortcut to a folder goes with the folders, when its target is one. That
-   is read from the shortcut, as its folder icon is, and not from the target,
-   which may be on a share that isn't answering. So a shortcut whose folder
-   is gone still sorts as one, the same as it still shows the icon. */
+/* Read from the shortcut, not from the target, which may be on a share that
+   isn't answering. Kept on the file until its mtime moves, since a sort asks
+   on every comparison and the path alone is 2 allocations. */
 static gboolean
-sorts_as_folder (NemoFile *file)
+lnk_target_is_dir (NemoFile *file)
 {
 	char *path;
-	gboolean is_dir = FALSE;
 
-	if (nemo_file_is_directory (file)) {
-		return TRUE;
-	}
-	if (!lnk_is_cheap_to_read (file)) {
-		return FALSE;
+	if (file->details->lnk_dir_known &&
+	    file->details->lnk_dir_mtime == file->details->mtime) {
+		return file->details->lnk_is_dir;
 	}
 
 	path = nemo_file_get_path (file);
-	if (path != NULL) {
-#ifdef G_OS_WIN32
-		is_dir = nemo_shortcut_win32_target_is_dir (path, file->details->mtime);
-#else
-		is_dir = nemo_lnk_target_is_dir_for_path (path, file->details->mtime);
-#endif
+	if (path == NULL) {
+		return FALSE;
 	}
+#ifdef G_OS_WIN32
+	file->details->lnk_is_dir = nemo_shortcut_win32_target_is_dir (path, file->details->mtime);
+#else
+	file->details->lnk_is_dir = nemo_lnk_target_is_dir_for_path (path, file->details->mtime);
+#endif
 	g_free (path);
+	file->details->lnk_dir_mtime = file->details->mtime;
+	file->details->lnk_dir_known = TRUE;
 
-	return is_dir;
+	return file->details->lnk_is_dir;
+}
+
+/* A shortcut to a folder goes with the folders, when its target is one. So a
+   shortcut whose folder is gone still sorts as one, the same as it still
+   shows the icon. */
+static gboolean
+sorts_as_folder (NemoFile *file)
+{
+	if (nemo_file_is_directory (file)) {
+		return TRUE;
+	}
+
+	return lnk_is_cheap_to_read (file) && lnk_target_is_dir (file);
 }
 
 static int
@@ -5919,19 +5932,19 @@ nemo_file_get_icon (NemoFile *file,
 	   The shell is asked off the window's thread, and the plain icon stands
 	   in until it answers. */
 	if (lnk_is_cheap_to_read (file)) {
-		char *path = nemo_file_get_path (file);
+		char *path;
 		GdkPixbuf *pixbuf = NULL;
 
-		if (path != NULL && nemo_shortcut_win32_target_is_dir (path, file->details->mtime)) {
+		if (lnk_target_is_dir (file)) {
 			GIcon *folder = g_themed_icon_new ("folder");
 
 			icon = nemo_icon_info_lookup (folder, size, scale);
 			g_object_unref (folder);
-			g_free (path);
 
 			return icon;
 		}
 
+		path = nemo_file_get_path (file);
 		if (path != NULL) {
 			pixbuf = nemo_shell_icon_win32_lookup (path, size * scale, file->details->mtime,
 							       shell_icon_found, nemo_file_get_location (file),

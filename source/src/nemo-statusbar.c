@@ -88,8 +88,8 @@ nemo_status_bar_get_property (GObject      *object,
 /* And it stays up a moment once it ends, full, rather than vanish. */
 #define THUMB_LINGER_TICKS 4
 
-/* One bar, for the thumbnails built so far. A second one that counted the
- * pictures drawn in the view ran at about the same rate, so it went. */
+/* One bar, for the thumbnails built so far. One for pictures drawn in the
+ * view ran at about the same rate. */
 static void
 set_bar (GtkWidget *bar, const char *format, guint done, guint total)
 {

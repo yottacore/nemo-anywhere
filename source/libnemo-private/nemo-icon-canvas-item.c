@@ -2165,10 +2165,7 @@ nemo_icon_canvas_item_get_max_text_width (NemoIconCanvasItem *item)
         if (container->details->is_desktop) {
             return nemo_get_desktop_text_width (nemo_icon_container_get_icon_size (container));
         } else {
-            /* A name runs as wide as the icon above it, with a floor. There
-               used to be a table of widths of its own, which had Large
-               narrower than Standard and couldn't answer for a size that was
-               not one of the levels. */
+            /* As wide as the icon above it, with a floor. */
             return MAX (nemo_icon_container_get_icon_size (container),
                         NEMO_ICON_LABEL_WIDTH_MIN);
         }

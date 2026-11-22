@@ -1262,12 +1262,13 @@ windows_default_bookmarks (void)
 /* Drop anything that can't be a path here, and seed the defaults if that
  * leaves nothing. Keeping a set someone already curated matters more than the
  * defaults, so an upgrade from a build without the marker isn't wiped. */
-static void
+static gboolean
 first_run_setup_win32 (void)
 {
     GFile *file = nemo_bookmark_list_get_file ();
     char  *contents = NULL;
     char  *kept = NULL;
+    gboolean written = TRUE;
 
     if (g_file_load_contents (file, NULL, &contents, NULL, NULL, NULL)) {
         GString *keep = g_string_new (NULL);
@@ -1293,10 +1294,15 @@ first_run_setup_win32 (void)
     if (*kept != '\0') {
         GFile *parent = g_file_get_parent (file);
         char  *dir = g_file_get_path (parent);
+        GError *error = NULL;
 
         g_mkdir_with_parents (dir, 0700);
-        g_file_replace_contents (file, kept, strlen (kept), NULL, FALSE, 0,
-                                 NULL, NULL, NULL);
+        if (!g_file_replace_contents (file, kept, strlen (kept), NULL, FALSE, 0,
+                                      NULL, NULL, &error)) {
+            g_warning ("Couldn't write the bookmarks file: %s", error->message);
+            g_error_free (error);
+            written = FALSE;
+        }
 
         g_free (dir);
         g_object_unref (parent);
@@ -1304,6 +1310,8 @@ first_run_setup_win32 (void)
 
     g_free (kept);
     g_object_unref (file);
+
+    return written;
 }
 
 #endif /* G_OS_WIN32 */
@@ -1318,34 +1326,69 @@ nemo_bookmark_list_first_run_setup (void)
     }
 
 #ifdef G_OS_WIN32
-    first_run_setup_win32 ();
+    gboolean seeded = first_run_setup_win32 ();
+
     nemo_config_drop_foreign_paths ();
+
+    /* Left unmarked, so the next start tries again. */
+    if (!seeded) {
+        return;
+    }
 #endif
 
     nemo_config_set_boolean (state, NEMO_STATE_FIRST_RUN_DONE, TRUE);
 }
 
-void
+static gboolean
+delete_unless_missing (GFile *file)
+{
+    GError *error = NULL;
+    char *name;
+
+    if (g_file_delete (file, NULL, &error)) {
+        return TRUE;
+    }
+
+    if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND)) {
+        g_error_free (error);
+        return TRUE;
+    }
+
+    name = g_file_get_parse_name (file);
+    g_warning ("Couldn't remove %s: %s", name, error->message);
+    g_free (name);
+    g_error_free (error);
+
+    return FALSE;
+}
+
+gboolean
 nemo_bookmark_list_reset_files (void)
 {
     GFile *file = nemo_bookmark_list_get_file ();
-    char  *metadata = bookmark_metadata_path ();
+    char  *metadata_path = bookmark_metadata_path ();
+    GFile *metadata = g_file_new_for_path (metadata_path);
+    gboolean cleared;
 
-    g_file_delete (file, NULL, NULL);
-    g_unlink (metadata);
+    g_free (metadata_path);
+
+    cleared = delete_unless_missing (file);
+    cleared = delete_unless_missing (metadata) && cleared;
 
 #ifdef G_OS_WIN32
     {
         /* or the next start would copy the old list straight back in */
         GFile *toolkit = nemo_bookmark_list_get_toolkit_file ();
 
-        g_file_delete (toolkit, NULL, NULL);
+        cleared = delete_unless_missing (toolkit) && cleared;
         g_object_unref (toolkit);
     }
 #endif
 
-    g_free (metadata);
+    g_object_unref (metadata);
     g_object_unref (file);
+
+    return cleared;
 }
 
 

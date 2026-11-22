@@ -527,10 +527,8 @@ static void fill_appearance_combo (GtkComboBoxText *combo,
 				   NemoThemeKind    kind,
 				   const char      *key);
 
-/* Picking a look should bring its icons with it - a Windows 11 window frame
- * full of macOS icons is nobody's intent. Only when the style has an icon set
- * of its own; where it has none (Windows 10 today) the icons stay put rather
- * than jumping to something unrelated. */
+/* The icons follow the style, but only to a set of the style's own. Where it
+ * has none (Windows 10 today) they stay put. */
 static void
 match_icons_to_style (GtkBuilder *builder, const char *widget_name)
 {
@@ -898,6 +896,9 @@ enum_get_mapping (GValue                *value,
 	int i;
 
 	str = config_value->s;
+	if (str == NULL) {
+		return FALSE;
+	}
 	for (i = 0; enum_values[i] != NULL; i++) {
 		if (strcmp (enum_values[i], str) == 0) {
 			g_value_set_int (value, i);
@@ -914,8 +915,14 @@ enum_set_mapping (const GValue    *value,
 		  gpointer         user_data)
 {
 	const char **enum_values = user_data;
+	int active = g_value_get_int (value);
 
-	config_value->s = g_strdup (enum_values[g_value_get_int (value)]);
+	/* -1 while a combo has no row picked, as when it's being refilled. */
+	if (active < 0 || (guint) active >= g_strv_length ((gchar **) enum_values)) {
+		return FALSE;
+	}
+
+	config_value->s = g_strdup (enum_values[active]);
 	return TRUE;
 }
 
@@ -976,8 +983,13 @@ uint_enum_set_mapping (const GValue    *value,
 		       gpointer         user_data)
 {
 	UIntEnumBinding *binding = user_data;
+	int active = g_value_get_int (value);
 
-	config_value->i = (gint64) binding->values[g_value_get_int (value)];
+	if (active < 0 || active >= binding->n_values) {
+		return FALSE;
+	}
+
+	config_value->i = (gint64) binding->values[active];
 	return TRUE;
 }
 
@@ -1164,7 +1176,7 @@ connect_quick_renames (GtkBuilder *builder)
    own cached reader runs first, so the model read here is the new one. */
 static void
 rename_selects_model_changed (G_GNUC_UNUSED NemoConfigGroup *settings,
-			      G_GNUC_UNUSED gchar           *key,
+			      G_GNUC_UNUSED const gchar     *key,
 			      GtkWidget                      *check)
 {
 	gboolean applies = nemo_rename_setting_applies ();
@@ -1266,10 +1278,9 @@ nemo_file_management_properties_dialog_setup_appearance_page (GtkBuilder *builde
 #define PREFERENCES_MIN_WIDTH 1000
 #define PREFERENCES_MIN_HEIGHT 700
 
-/* Windows hands a fractional display scale to GTK as a font size and nothing
-   else, so at 150% the text grows and a floor written in raw pixels quietly
-   means two thirds of what it says. Everything measured scales itself; only the
-   2 constants above need this. */
+/* Windows gives GTK a fractional display scale only as a font size, so at 150%
+   a floor in raw pixels comes out at 2/3 of what it says. Only the 2 constants
+   above need this; everything measured scales itself. */
 static double
 text_scale (void)
 {
@@ -1284,8 +1295,8 @@ text_scale (void)
 	return MAX (1.0, xft_dpi / 1024.0 / 96.0);
 }
 
-/* A scrolled window asks for almost nothing itself - that is the whole point of
-   it - so what is inside it is what gets measured, plus the page's own border. */
+/* A scrolled window asks for almost nothing, so what's inside it is measured,
+   plus the page's own border. */
 static GtkWidget *
 page_content (GtkWidget *page, gint *border)
 {
@@ -1396,7 +1407,7 @@ size_dialog_to_longest_page (GtkBuilder *builder,
 			     GtkWindow  *parent)
 {
 	GtkWidget *sidebar, *bar;
-	GdkRectangle work;
+	GdkRectangle work = { 0, 0, 0, 0 };
 	GtkRequisition wanted;
 	double scale = text_scale ();
 	gint content_width = 0;
@@ -1432,9 +1443,13 @@ size_dialog_to_longest_page (GtkBuilder *builder,
 	monitor = parent != NULL
 		? nemo_desktop_utils_get_monitor_for_widget (GTK_WIDGET (parent))
 		: nemo_desktop_utils_get_primary_monitor ();
+	/* Left empty with no monitor at all, as in a session with no display
+	   attached, and then nothing caps the size. */
 	nemo_desktop_utils_get_monitor_work_rect (monitor, &work);
 
-	width = MIN (width, work.width * 9 / 10);
+	if (work.width > 0) {
+		width = MIN (width, work.width * 9 / 10);
+	}
 
 	/* Height depends on width - a label that fits on one line here takes 2 in
 	   a narrower window - so ask only once the width is settled. */
@@ -1469,7 +1484,7 @@ size_dialog_to_longest_page (GtkBuilder *builder,
 
 	height = MAX (content_height, (gint) (PREFERENCES_MIN_HEIGHT * scale));
 
-	if (height > work.height * 9 / 10) {
+	if (work.height > 0 && work.width > 0 && height > work.height * 9 / 10) {
 		height = work.height * 9 / 10;
 		/* It will scroll after all, and the bar has to come from somewhere
 		   other than the text. */

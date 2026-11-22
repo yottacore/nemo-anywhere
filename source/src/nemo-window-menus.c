@@ -295,14 +295,9 @@ action_show_hidden_files_callback (GtkAction *action,
 	nemo_window_set_hidden_files_mode (window, mode);
 
 #ifdef G_OS_WIN32
-	/* Both kinds of hidden move together here, so one keystroke shows
-	 * everything that was out of sight. The two can be set apart from each
-	 * other in preferences or with the dot-file item, and this brings them back
-	 * in step at whichever value the attribute switch just took.
-	 *
-	 * The dot-file item is ticked directly rather than left to follow the
-	 * setting: neither toggle watches for a change made anywhere else, they are
-	 * only read once when the menus are built. */
+	/* One keystroke shows both kinds of hidden, and puts them back in step if
+	 * they were set apart. The dot-file item is ticked here since neither
+	 * toggle watches the setting. */
 	{
 		gboolean       on = (mode == NEMO_WINDOW_SHOW_HIDDEN_FILES_ENABLE);
 		GtkActionGroup *group = nemo_window_get_main_action_group (window);

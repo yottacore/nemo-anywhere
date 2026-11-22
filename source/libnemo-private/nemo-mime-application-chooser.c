@@ -181,8 +181,7 @@ reset_clicked_cb (G_GNUC_UNUSED GtkButton *button,
 }
 
 /* Say so when the choice can't be made. Windows keeps the per-user default
-   under a hash it won't let a program write, so glib refuses outright - and
-   the result was a button that changed nothing and said nothing either. */
+   under a hash it won't let a program write, so glib refuses outright. */
 static void
 set_default_or_say_why (NemoMimeApplicationChooser *chooser,
 			GAppInfo *info)

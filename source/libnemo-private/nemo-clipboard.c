@@ -820,17 +820,24 @@ nemo_clipboard_clear_if_colliding_uris (GtkWidget *widget,
 										   copied_files_atom);
 	gtk_selection_data_free (data);
 
-	for (l = (GList *) item_uris; l; l = l->next) {
-		/* Compare the incoming uris against what is ON the clipboard, not
-		 * against item_uris itself (which always self-matches and cleared
-		 * the clipboard on every DnD move/copy). */
-		if (g_list_find_custom (clipboard_item_uris, l->data,
-					(GCompareFunc) g_strcmp0)) {
-			collision = TRUE;
-			break;
+	if (clipboard_item_uris != NULL) {
+		/* A drag and a clipboard can each hold thousands. */
+		GHashTable *on_clipboard = g_hash_table_new (g_str_hash, g_str_equal);
+
+		for (l = clipboard_item_uris; l; l = l->next) {
+			g_hash_table_add (on_clipboard, l->data);
 		}
+
+		for (l = (GList *) item_uris; l; l = l->next) {
+			if (l->data != NULL && g_hash_table_contains (on_clipboard, l->data)) {
+				collision = TRUE;
+				break;
+			}
+		}
+
+		g_hash_table_destroy (on_clipboard);
 	}
-	
+
 	if (collision) {
 		nemo_clipboard_clear (widget);
 	}
