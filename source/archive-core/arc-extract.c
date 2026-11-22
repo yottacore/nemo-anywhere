@@ -444,6 +444,21 @@ target_for_entry (ExtractJob  *job,
 	return target;
 }
 
+/* Where an entry already unpacked went. Not through resolve_target, which
+   would ask about it as if it were in the way. A file renamed on the way in
+   isn't found. */
+static GFile *
+placed_file (ExtractJob *job,
+	     const char *rel_path)
+{
+	const char *slash = strrchr (rel_path, '/');
+	char *rel_dir = slash != NULL ? g_strndup (rel_path, (gsize) (slash - rel_path)) : g_strdup ("");
+	GFile *dir = dir_for_rel (job, rel_dir);
+
+	g_free (rel_dir);
+	return dir != NULL ? g_file_get_child (dir, slash != NULL ? slash + 1 : rel_path) : NULL;
+}
+
 static void
 apply_entry_metadata (ExtractJob *job,
 		      GFile      *target,
@@ -816,7 +831,8 @@ extract_with_libarchive (ExtractJob *job,
 #endif
 		}
 
-		if (filetype != AE_IFREG) {
+		/* A tar's hard link comes back with no type at all. */
+		if (filetype != AE_IFREG && archive_entry_hardlink (entry) == NULL) {
 			/* Devices, sockets and fifos have no place in a folder a
 			   person is unpacking into. */
 			g_free (rel);
@@ -837,8 +853,7 @@ extract_with_libarchive (ExtractJob *job,
 			   in the same archive, which is copied instead. */
 			const char *other = archive_entry_hardlink_utf8 (entry);
 			char *link_rel = arc_extract_sanitize_path (other != NULL ? other : archive_entry_hardlink (entry));
-			GFile *source = link_rel != NULL ?
-				target_for_entry (job, link_rel, FALSE, size, mtime) : NULL;
+			GFile *source = link_rel != NULL ? placed_file (job, link_rel) : NULL;
 
 			if (source != NULL) {
 				if (g_file_copy (source, target, G_FILE_COPY_OVERWRITE | G_FILE_COPY_ALL_METADATA,
