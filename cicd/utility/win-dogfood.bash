@@ -44,11 +44,16 @@ readonly lockWaitSec=1800
 ## 8s was too short for a VM that had just booted on a busy host.
 sshOpts=(-o ConnectTimeout=30 -o BatchMode=yes -o LogLevel=ERROR)
 
+## Global, so a failed bundle, scp or ssh under set -e still takes it away.
+scratch=""
+fDropScratch(){ [[ -z "${scratch}" ]] || { rm -f "${scratch}/${bundleName}"; rmdir "${scratch}" 2> /dev/null || true; scratch=""; }; }
+trap fDropScratch EXIT
+
 ## Every command here is put together on this side for cmd.exe on the box.
 # shellcheck disable=SC2029
 fRun(){
 	local sshHost="$1"
-	local sha haveSha scratch bundle
+	local sha haveSha bundle
 
 	sha="$(git rev-parse HEAD)"
 	scratch="$(mktemp -d)"
@@ -70,8 +75,7 @@ fRun(){
 		## which is right: it stops here rather than losing the edit.
 		ssh "${sshOpts[@]}" "${sshHost}" "cd /d ${clone} && git fetch -q %USERPROFILE%\\${bundleName} HEAD && git checkout -q -B dogfood FETCH_HEAD && del %USERPROFILE%\\${bundleName}"
 	fi
-	rm -f "${bundle}"
-	rmdir "${scratch}"
+	fDropScratch
 
 	## Lint ran here already, and the box can't get to the remote to sync or
 	## publish.

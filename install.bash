@@ -308,7 +308,7 @@ fResolveTag(){ ## releases json
 ## Exec/Icon to absolute paths, since nothing else knows where the prefix is.
 fInstallLauncher(){
 	local shipped="${prefix}/share/applications/${EXE_NAME}.desktop"
-	local icon tmp; icon=""
+	local icon tmp candidate; icon=""
 	for candidate in \
 		"${prefix}/share/icons/hicolor/scalable/apps/${EXE_NAME}.svg" \
 		"${prefix}/share/icons/hicolor/48x48/apps/${EXE_NAME}.png" \

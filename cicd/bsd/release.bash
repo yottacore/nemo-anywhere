@@ -151,18 +151,31 @@ fSafeRm_Under "${work}" "${app}/share/icons"
 ## name|origin|version per line, for every package that owns a library some
 ## binary in the prefix links directly.
 fLinkedPackages(){
-	local elf lib path owner links
+	local elf lib path owner links magic name arrow libPath
+	## Per path, since most binaries here link the same few dozen libraries and
+	## pkg is slow to start. An ELF is told by its magic, not a file per binary.
+	local -A seenElf=() pkgOf=() where=()
 	while IFS= read -r elf; do
-		[[ "$(file -b "${elf}")" == ELF* ]] || continue
+		[[ -z "${seenElf[${elf}]:-}" ]] || continue
+		seenElf[${elf}]=1
+		magic=""; IFS= read -r -N 4 magic < "${elf}" 2> /dev/null || true
+		[[ "${magic}" == $'\x7fELF' ]] || continue
 		links="$(ldd "${elf}")"
+		where=()
+		while read -r name arrow libPath _; do
+			[[ -n "${name}" && "${arrow}" == "=>" && -z "${where[${name}]+x}" ]] && where[${name}]="${libPath}"
+		done <<<"${links}"
 		while IFS= read -r lib; do
-			path="$(LIB="${lib}" awk '$1 == ENVIRON["LIB"] && $2 == "=>" && !done { print $3; done = 1 }' <<<"${links}")"
-			[[ -n "${path}" && "${path}" != "not" ]] || fDie "$(basename "${elf}") needs ${lib}, which isn't on this box"
+			path="${where[${lib}]:-}"
+			[[ -n "${path}" && "${path}" != "not" ]] || fDie "${elf##*/} needs ${lib}, which isn't on this box"
 			## Base libraries belong to the OS, or to FreeBSD-* packages under pkgbase.
 			[[ "${path}" == "${PKG_PREFIX}"/* ]] || continue
-			owner="$(pkg which -q "${path}" || true)"
-			[[ -n "${owner}" ]] || fDie "no package owns ${path}, which $(basename "${elf}") needs"
-			pkg query '%n|%o|%v' "${owner}"
+			if [[ -z "${pkgOf[${path}]+x}" ]]; then
+				owner="$(pkg which -q "${path}" || true)"
+				[[ -n "${owner}" ]] || fDie "no package owns ${path}, which ${elf##*/} needs"
+				pkgOf[${path}]="$(pkg query '%n|%o|%v' "${owner}")"
+			fi
+			[[ -z "${pkgOf[${path}]}" ]] || printf '%s\n' "${pkgOf[${path}]}"
 		done < <(readelf -d "${elf}" | sed -n 's/.*Shared library: \[\(.*\)\].*/\1/p')
 	done < <(find "${app}" -type f -perm -u+x; find "${app}" -type f -name '*.so*')
 }
