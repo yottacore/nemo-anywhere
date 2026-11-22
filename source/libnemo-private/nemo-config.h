@@ -111,10 +111,10 @@ void             nemo_config_flush           (void);
  * can still be read until then. */
 void             nemo_config_shutdown        (void);
 NemoConfigGroup *nemo_config_get_group       (const char *group);
-/* Absolute path of the settings file, for diagnostics. Free with g_free. */
 /* Whether nemo_config_init() has run - callers reached from local_command_line
  * can run before it and must not cache what they read. */
 gboolean         nemo_config_is_ready        (void);
+/* Absolute path of the settings file, for diagnostics. Free with g_free. */
 char            *nemo_config_get_path        (void);
 
 /* A bool key's declared default. Safe before nemo_config_init(), for the

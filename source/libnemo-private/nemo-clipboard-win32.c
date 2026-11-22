@@ -123,6 +123,10 @@ block_from (gconstpointer data, gsize len)
 	}
 
 	copy = GlobalLock (block);
+	if (copy == NULL) {
+		GlobalFree (block);
+		return NULL;
+	}
 	memcpy (copy, data, len);
 	GlobalUnlock (block);
 
@@ -166,14 +170,28 @@ hdrop_block (gchar **paths)
 	if (block != NULL) {
 		guchar *copy = GlobalLock (block);
 
-		memcpy (copy, &header, sizeof (header));
-		memcpy (copy + sizeof (header), wide->data,
-			wide->len * sizeof (gunichar2));
-		GlobalUnlock (block);
+		if (copy != NULL) {
+			memcpy (copy, &header, sizeof (header));
+			memcpy (copy + sizeof (header), wide->data,
+				wide->len * sizeof (gunichar2));
+			GlobalUnlock (block);
+		} else {
+			GlobalFree (block);
+			block = NULL;
+		}
 	}
 
 	g_array_free (wide, TRUE);
 	return block;
+}
+
+/* A block the clipboard refused is still ours to free. */
+static void
+put_block (UINT format, HGLOBAL block)
+{
+	if (SetClipboardData (format, block) == NULL) {
+		GlobalFree (block);
+	}
 }
 
 /* "copy" or "cut", then one uri per line - what nemo's paste parses. */
@@ -367,11 +385,11 @@ nemo_clipboard_win32_set_files (GtkWidget *widget,
 
 	EmptyClipboard ();
 
-	SetClipboardData (CF_HDROP, drop);
-	SetClipboardData (drop_effect_format (), effect_block);
-	SetClipboardData (RegisterClipboardFormatW (NEMO_FILES_FORMAT), nemo_block);
+	put_block (CF_HDROP, drop);
+	put_block (drop_effect_format (), effect_block);
+	put_block (RegisterClipboardFormatW (NEMO_FILES_FORMAT), nemo_block);
 	if (text_block != NULL) {
-		SetClipboardData (CF_UNICODETEXT, text_block);
+		put_block (CF_UNICODETEXT, text_block);
 	}
 
 	CloseClipboard ();	/* the clipboard owns the blocks now */

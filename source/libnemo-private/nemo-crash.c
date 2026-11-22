@@ -109,6 +109,21 @@ is_empty_env (const char *name)
 	return value == NULL || *value == '\0';
 }
 
+#ifdef G_OS_WIN32
+/* Room left for the "-2" a clashing name gets, as for the narrow copies. */
+static gboolean
+copy_wide (wchar_t to[CRASH_PATH_MAX], const gunichar2 *from)
+{
+	gsize len = wcslen ((const wchar_t *) from);
+
+	if (len + 2 >= CRASH_PATH_MAX)
+		return FALSE;
+
+	memcpy (to, from, (len + 1) * sizeof (wchar_t));
+	return TRUE;
+}
+#endif
+
 static gboolean
 build_paths (void)
 {
@@ -161,13 +176,9 @@ build_paths (void)
 		if (wparent == NULL || wdir == NULL || wpath == NULL)
 			return FALSE;
 
-		if (wcslen ((const wchar_t *) wpath) + 2 >= CRASH_PATH_MAX)
+		if (!copy_wide (report_parent_w, wparent) || !copy_wide (report_dir_w, wdir) ||
+		    !copy_wide (report_path_w, wpath) || !copy_wide (written_path_w, wpath))
 			return FALSE;
-
-		wcscpy (report_parent_w, (const wchar_t *) wparent);
-		wcscpy (report_dir_w, (const wchar_t *) wdir);
-		wcscpy (report_path_w, (const wchar_t *) wpath);
-		wcscpy (written_path_w, (const wchar_t *) wpath);
 	}
 #endif
 
@@ -605,7 +616,7 @@ create_report (void)
 	char n;
 
 	memcpy (written_path, report_path, strlen (report_path) + 1);
-	wcscpy (written_path_w, report_path_w);
+	memcpy (written_path_w, report_path_w, (wcslen (report_path_w) + 1) * sizeof (wchar_t));
 
 	for (n = '2'; ; n++) {
 		HANDLE file = CreateFileW (written_path_w, GENERIC_WRITE, FILE_SHARE_READ,
@@ -617,7 +628,7 @@ create_report (void)
 		number_written_path (stem, n);
 		written_path_w[stem_w] = L'-';
 		written_path_w[stem_w + 1] = (wchar_t) n;
-		wcscpy (written_path_w + stem_w + 2, L".txt");
+		memcpy (written_path_w + stem_w + 2, L".txt", sizeof L".txt");
 	}
 }
 
