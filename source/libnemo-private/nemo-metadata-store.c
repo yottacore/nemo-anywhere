@@ -89,7 +89,6 @@ store_path (void)
 	return path;
 }
 
-/* caller holds the mutex */
 /* Lets callers skip the uri build and the global lock entirely while nothing is
  * stored - the common case, and this runs for every file on every info update.
  * -1 means "not loaded yet", which reads as not-empty so the slow path runs. */

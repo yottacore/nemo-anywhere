@@ -861,23 +861,27 @@ find_ignoring_case (const char *dir, const char *name)
 {
 	GFileEnumerator *children = open_dir (dir);
 	GFileInfo *info;
-	char *found = NULL;
+	char *found = NULL, *folded;
 	int matches = 0;
 
 	if (children == NULL) {
 		return NULL;
 	}
 
+	folded = g_utf8_casefold (name, -1);
 	while ((info = g_file_enumerator_next_file (children, NULL, NULL)) != NULL) {
 		const char *child = g_file_info_get_name (info);
+		char *child_folded = g_utf8_casefold (child, -1);
 
-		if (same_name (child, name)) {
+		if (strcmp (child_folded, folded) == 0) {
 			matches++;
 			g_free (found);
 			found = g_build_filename (dir, child, NULL);
 		}
+		g_free (child_folded);
 		g_object_unref (info);
 	}
+	g_free (folded);
 	g_object_unref (children);
 
 	if (matches != 1) {

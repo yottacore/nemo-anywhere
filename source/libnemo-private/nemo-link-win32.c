@@ -207,6 +207,14 @@ nemo_win32_link_read_target (const char  *link_path,
 		length = subst_length;
 	}
 
+	/* The offsets are the file's word, and nothing past what came back is
+	   ours to read. */
+	if ((gsize) ((const char *) names - buffer) + offset + length > returned) {
+		g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+				     _("Couldn't read the link."));
+		return FALSE;
+	}
+
 	/* The lengths the reparse point records are in bytes; the conversion counts
 	   in UTF-16 units. */
 	chars = length / sizeof (WCHAR);
@@ -318,9 +326,10 @@ try_junction (const char *target_path,
 	buffer->u.MountPoint.SubstituteNameLength = (WORD) substitute_bytes;
 	buffer->u.MountPoint.PrintNameOffset = (WORD) (substitute_bytes + sizeof (WCHAR));
 	buffer->u.MountPoint.PrintNameLength = (WORD) print_bytes;
-	wcscpy (buffer->u.MountPoint.PathBuffer, (const wchar_t *) substitute);
-	wcscpy (buffer->u.MountPoint.PathBuffer + wcslen ((const wchar_t *) substitute) + 1,
-	        (const wchar_t *) print_name);
+	/* The zeroed buffer already has both terminators. */
+	memcpy (buffer->u.MountPoint.PathBuffer, substitute, substitute_bytes);
+	memcpy ((char *) buffer->u.MountPoint.PathBuffer + substitute_bytes + sizeof (WCHAR),
+	        print_name, print_bytes);
 
 	SetLastError (0);
 	ok = DeviceIoControl (handle, FSCTL_SET_REPARSE_POINT, buffer, (DWORD) total,

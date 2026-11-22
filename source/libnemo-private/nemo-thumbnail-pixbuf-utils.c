@@ -59,7 +59,9 @@ nemo_desktop_thumbnail_scale_down_pixbuf (GdkPixbuf *pixbuf,
 	int dx, dx_frac, dy, dy_frac;
 	div_t ddx, ddy;
 	int x, y;
-	int r, g, b, a;
+	/* A source many times the size, as a loader that ignores the asked size
+	   hands back, puts more than an int's worth in one block. */
+	gint64 r, g, b, a;
 	int n_pixels;
 	gboolean has_alpha;
 	guchar *dest, *src, *xsrc, *src_pixels;
