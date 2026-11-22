@@ -25,7 +25,7 @@ make_dir (const char *dir, const char *name)
 {
 	char *path = g_build_filename (dir, name, NULL);
 
-	g_mkdir (path, 0700);
+	check (g_mkdir (path, 0700) == 0);
 	return path;
 }
 

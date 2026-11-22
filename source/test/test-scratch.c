@@ -365,9 +365,14 @@ test_scratch_point_config_at (const char *dir)
 char *
 test_scratch_config_home (const char *tmpl)
 {
-	char *dir = make_in (g_get_tmp_dir (), tmpl, NULL);
+	GError *error = NULL;
+	char *dir = make_in (g_get_tmp_dir (), tmpl, &error);
 
-	g_return_val_if_fail (dir != NULL, NULL);
+	/* Most callers don't check, and carrying on would run the test against
+	   the real config. */
+	if (dir == NULL) {
+		g_error ("scratch: no config home: %s", error->message);
+	}
 
 	test_scratch_point_config_at (dir);
 
