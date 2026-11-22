@@ -314,7 +314,7 @@ decode_png (GBytes *bytes)
  * each run opened a console window. Packed into the single exe the helper never
  * starts the program at all and the thumbnail waits on it for good. */
 static GdkPixbuf *
-run_magick (char **argv, const char *path, GCancellable *cancellable)
+run_magick (const gchar * const *argv, const char *path, GCancellable *cancellable)
 {
 	g_autoptr (GBytes) out = NULL;
 	GStatBuf info;
@@ -324,7 +324,7 @@ run_magick (char **argv, const char *path, GCancellable *cancellable)
 		return NULL;
 	}
 
-	if (!nemo_launch_win32_pipe ((const gchar * const *) argv, path, TIMEOUT_SECONDS,
+	if (!nemo_launch_win32_pipe (argv, path, TIMEOUT_SECONDS,
 				     cancellable, &out, &late)) {
 		if (late) {
 			g_warning ("ImageMagick took longer than %d seconds, gave up on %s",
@@ -337,7 +337,7 @@ run_magick (char **argv, const char *path, GCancellable *cancellable)
 }
 #else
 static GdkPixbuf *
-run_magick (char **argv, const char *path, GCancellable *cancellable)
+run_magick (const gchar * const *argv, const char *path, GCancellable *cancellable)
 {
 	g_autoptr (GMappedFile) mapped = NULL;
 	g_autoptr (GBytes) input = NULL;
@@ -361,7 +361,7 @@ run_magick (char **argv, const char *path, GCancellable *cancellable)
 	context = g_main_context_new ();
 	g_main_context_push_thread_default (context);
 
-	run.proc = g_subprocess_newv ((const gchar * const *) argv,
+	run.proc = g_subprocess_newv (argv,
 				      G_SUBPROCESS_FLAGS_STDIN_PIPE | G_SUBPROCESS_FLAGS_STDOUT_PIPE |
 				      G_SUBPROCESS_FLAGS_STDERR_SILENCE, NULL);
 	if (run.proc != NULL) {
@@ -421,5 +421,5 @@ nemo_magick_load_uri (const char *uri, int size, GCancellable *cancellable)
 	argv = nemo_magick_argv (nemo_magick_program (), nemo_magick_coder (path),
 				 CLAMP (size, 1, 4096));
 
-	return run_magick (argv, path, cancellable);
+	return run_magick ((const gchar * const *) argv, path, cancellable);
 }

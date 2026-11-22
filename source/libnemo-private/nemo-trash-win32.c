@@ -221,7 +221,6 @@ get_deletion_date_from_trashinfo (const char *real_path)
 	return result;
 }
 
-/* full re-scan of the bin into trash_items; caller holds items_mutex */
 /* Windows extensions are case-insensitive, so ".TXT" already ends with ".txt". */
 static gboolean
 has_suffix_nocase (const char *str, const char *suffix)
@@ -264,6 +263,7 @@ name_with_extension (const char *display_name, const char *real_path)
 	return out;
 }
 
+/* full re-scan of the bin into trash_items; caller holds items_mutex */
 static void
 refresh_items_locked (void)
 {
@@ -638,7 +638,9 @@ uri_is_top_level_item (const char *uri)
 		refresh_items_locked ();
 	}
 	result = g_hash_table_lookup (trash_items, real_path) != NULL;
-	if (!result) {
+	/* The bin is flat, so a path under a known entry is never one itself,
+	 * and needs no fresh walk of the whole bin on every get_parent. */
+	if (!result && !is_inside_item_locked (real_path)) {
 		/* Refresh on a miss, the way the sibling lookup does. Without it a
 		 * just-trashed item isn't yet in the snapshot, so it is taken for
 		 * something inside a folder and filed under a parent that isn't
@@ -1483,13 +1485,24 @@ nemo_trash_win32_file_iface_init (GFileIface *iface)
 	iface->monitor_file = trash_file_monitor;
 }
 
+/* Kept as trash:/// plus the rest, however many slashes it was typed with.
+   Everything that reads past ROOT_URI counts on it: "trash:x" was read from
+   beyond its end. An item's own part is escaped, so it has no slash to lose. */
 static GFile *
 trash_file_new_for_uri (const char *uri)
 {
 	NemoTrashWin32File *self;
+	const char *rest = uri;
+
+	if (g_str_has_prefix (rest, "trash:")) {
+		rest += strlen ("trash:");
+	}
+	while (*rest == '/') {
+		rest++;
+	}
 
 	self = g_object_new (NEMO_TYPE_TRASH_WIN32_FILE, NULL);
-	self->uri = g_strdup (uri);
+	self->uri = g_strconcat (ROOT_URI, rest, NULL);
 	return G_FILE (self);
 }
 
