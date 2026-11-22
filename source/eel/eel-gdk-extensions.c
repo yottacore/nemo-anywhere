@@ -34,12 +34,13 @@
 #include <stdlib.h>
 #include <pango/pango.h>
 
-/* Portable geometry-string parser (was X11's XParseGeometry). Same
- * "=WxH{+-}X{+-}Y" grammar; EelGdkGeometryFlags bits already match the
- * classic X11 mask so we set them directly and stay off libX11. */
+/* Stands in for XParseGeometry, same "=WxH{+-}X{+-}Y" grammar, so eel
+ * doesn't need libX11. A sign with no digits after it reads nothing. */
 static int
 read_geometry_int (const char *s, const char **next)
 {
+	const char *start = s;
+	const char *digits;
 	int result = 0;
 	int sign = 1;
 
@@ -49,10 +50,13 @@ read_geometry_int (const char *s, const char **next)
 		s++;
 		sign = -1;
 	}
-	for (; *s >= '0' && *s <= '9'; s++) {
-		result = (result * 10) + (*s - '0');
+	for (digits = s; *s >= '0' && *s <= '9'; s++) {
+		/* Saturate rather than overflow on a silly long number. */
+		if (result <= (G_MAXINT - 9) / 10) {
+			result = (result * 10) + (*s - '0');
+		}
 	}
-	*next = s;
+	*next = s == digits ? start : s;
 	return sign * result;
 }
 

@@ -1649,13 +1649,6 @@ job_aborted (CommonJob *job)
 	return g_cancellable_is_cancelled (job->cancellable);
 }
 
-/* Since this happens on a thread we can't use the global prefs object */
-/* Everything that trashes or deletes passes through here once, so one line
-   is a full record of who asked: how many, where, and the input event GTK was
-   delivering at the time. No event at all means nobody was at the keyboard -
-   a timer, the bus, another process - and that job asks whatever the
-   preference says. Written after a copy of the app emptied a home directory
-   with nothing in any log to say why. */
 static char *
 describe_event (GdkEvent *event)
 {
@@ -1688,6 +1681,11 @@ describe_event (GdkEvent *event)
 	}
 }
 
+/* Every trash or delete job passes through here once, so one line says who
+   asked: how many, where, and the input event GTK was delivering. No event
+   means nobody was at the keyboard - a timer, the bus, another process. Added
+   after a copy of the app emptied a home folder with nothing in any log to say
+   why. */
 static void
 log_delete_job (DeleteJob *job)
 {
@@ -1703,11 +1701,13 @@ log_delete_job (DeleteJob *job)
 		gdk_event_free (event);
 	}
 
+	/* nemo_file_operations_delete doesn't refuse an empty list, and undo
+	   passes one straight through. */
 	count = g_list_length (job->files);
-	parent = g_file_get_parent (job->files->data);
+	parent = job->files != NULL ? g_file_get_parent (job->files->data) : NULL;
 	where = parent != NULL ? g_file_get_uri (parent) : g_strdup ("-");
 	g_clear_object (&parent);
-	first = g_file_get_basename (job->files->data);
+	first = job->files != NULL ? g_file_get_basename (job->files->data) : NULL;
 	title = job->common.parent_window != NULL ? gtk_window_get_title (job->common.parent_window) : NULL;
 
 	nemo_delete_guard_log ("%s %u item%s in %s, first \"%s\" (%s, %s, window \"%s\")",
@@ -1739,6 +1739,7 @@ unattended_note (CommonJob *job, const char *secondary)
 	return f ("%s", secondary);
 }
 
+/* Since this happens on a thread we can't use the global prefs object */
 static gboolean
 should_confirm_move_to_trash (void)
 {
@@ -4884,7 +4885,6 @@ get_target_file_for_display_name (GFile *dir,
 	return dest;
 }
 
-/* Debuting files is non-NULL only for toplevel items */
 /* Whether this source is a link, and if it is, what should stand in for it at
    the far end. *target is filled in only where the link has to be built by
    hand - a plain copy that doesn't follow already leaves a symlink, so on
@@ -5023,6 +5023,7 @@ testguard_allows_overwrite_at (CopyMoveJob *copy_job,
 #define testguard_allows_overwrite(copy_job, src, dest, asked) \
 	testguard_allows_overwrite_at ((copy_job), (src), (dest), (asked), G_STRFUNC, __FILE__, __LINE__)
 
+/* Debuting files is non-NULL only for toplevel items */
 static void
 copy_move_file (CopyMoveJob *copy_job,
 		GFile *src,

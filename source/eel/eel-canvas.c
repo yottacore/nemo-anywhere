@@ -3948,10 +3948,8 @@ eel_canvas_item_accessible_is_item_on_screen (EelCanvasItem *item)
 	return eel_canvas_item_accessible_is_item_in_window (item, &rect);
 }
 
-/* Built on the GObject accessible, so the item behind it can be found, with
-   the component interface that gives its place on screen. The type used to be
-   derived at run time from whatever the registry gave for GInitiallyUnowned,
-   which under GTK 3 is the no-op object: no item, and no extents. */
+/* On the GObject accessible, not on what the registry gives for
+   GInitiallyUnowned, which under GTK 3 is the no-op object: no item, no extents. */
 G_DEFINE_TYPE_WITH_CODE (EelCanvasItemAccessible, eel_canvas_item_accessible,
 			 ATK_TYPE_GOBJECT_ACCESSIBLE,
 			 G_IMPLEMENT_INTERFACE (ATK_TYPE_COMPONENT,

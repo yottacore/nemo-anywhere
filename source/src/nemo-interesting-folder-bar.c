@@ -100,13 +100,16 @@ open_info_doc (NemoInterestingFolderBar *bar, const char *name)
 {
     g_autofree char *path = info_doc_path (name);
     GFile *f;
+    NemoFile *file;
 
     if (path == NULL) {
         return;
     }
 
     f = g_file_new_for_path (path);
-    nemo_view_activate_file (bar->priv->view, nemo_file_get (f), NEMO_WINDOW_OPEN_FLAG_NEW_WINDOW);
+    file = nemo_file_get (f);
+    nemo_view_activate_file (bar->priv->view, file, NEMO_WINDOW_OPEN_FLAG_NEW_WINDOW);
+    nemo_file_unref (file);
     g_object_unref (f);
 }
 

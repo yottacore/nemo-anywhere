@@ -1751,8 +1751,6 @@ button_data_file_changed (NemoFile *file,
         }
 
         if (renamed) {
-            /* Overwriting without letting go of the old one leaked a GFile per
-               rename of a path-bar folder. */
             g_object_unref (button_data->path);
             button_data->path = g_object_ref (location);
         } else {

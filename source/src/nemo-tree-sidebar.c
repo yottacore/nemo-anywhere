@@ -797,7 +797,7 @@ clipboard_contents_received_callback (G_GNUC_UNUSED GtkClipboard     *clipboard,
 /* The row under the click, or the cursor row when the keyboard asked. */
 static GtkTreePath *
 popup_row (FMTreeView *view,
-           GdkEventButton *event)
+           const GdkEventButton *event)
 {
     GtkTreePath *path = NULL;
 
@@ -1060,8 +1060,7 @@ new_folder_done (GFile *new_folder,
 {
 	GList *list;
 
-	/* On failure or abort new_folder is NULL; nemo_file_get would assert.
-	 * Nothing to present, so bail (matches the directory-view twin). */
+	/* NULL on failure or abort. */
 	if (!success || new_folder == NULL) {
 		return;
 	}
@@ -1799,7 +1798,7 @@ typedef enum {
 } TreeEditKey;
 
 static TreeEditKey
-tree_edit_key (GdkEventKey *event)
+tree_edit_key (const GdkEventKey *event)
 {
 	GdkModifierType mods = event->state & gtk_accelerator_get_default_mod_mask ();
 	guint keyval = gdk_keyval_to_lower (event->keyval);
@@ -2831,7 +2830,7 @@ nemo_tree_sidebar_new (NemoWindow *window)
    keys act on the content view. Under Nemo Anywhere the tree gets them first
    when it has the focus. */
 gboolean
-fm_tree_view_takes_key (GtkWidget *focus, GdkEventKey *event)
+fm_tree_view_takes_key (GtkWidget *focus, const GdkEventKey *event)
 {
 	return nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE &&
 	       tree_edit_key (event) != TREE_EDIT_NONE &&

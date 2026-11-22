@@ -1088,7 +1088,12 @@ static gboolean
 should_skip_child (SearchThreadData *data, G_GNUC_UNUSED GFileInfo *info, GFile *file, gboolean is_dir)
 {
     const gchar *path = g_file_peek_path (file);
-    g_autofree gchar *resolved_path = g_canonicalize_filename (path, NULL);
+#ifdef G_OS_WIN32
+    g_autofree gchar *resolved_path = path != NULL ? g_canonicalize_filename (path, NULL) : NULL;
+#else
+    /* Links have to resolve, or one into /proc or /run walks past the skip list. */
+    g_autofree gchar *resolved_path = path != NULL ? realpath (path, NULL) : NULL;
+#endif
 
     DEBUG ("Skip check: '%s' realpath is '%s'", path, resolved_path);
 
@@ -1200,7 +1205,11 @@ static gint
 compare_helper_priority (gconstpointer a,
                          gconstpointer b)
 {
-    return ((const SearchHelper *) b)->priority - ((const SearchHelper *) a)->priority;
+    gint pa = ((const SearchHelper *) a)->priority;
+    gint pb = ((const SearchHelper *) b)->priority;
+
+    /* Priority is whatever a helper file says, so no subtraction. */
+    return (pb > pa) - (pb < pa);
 }
 
 /* Every helper for the type, best first. */

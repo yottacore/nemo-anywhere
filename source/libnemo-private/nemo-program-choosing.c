@@ -506,7 +506,7 @@ nemo_show_uri (GtkWindow   *parent_window,
 }
 
 void
-nemo_launch_desktop_file (G_GNUC_UNUSED GdkScreen   *screen,
+nemo_launch_desktop_file (GdkScreen   *screen,
 			      const char  *desktop_file_uri,
 			      const GList *parameter_uris,
 			      GtkWindow   *parent_window)
@@ -589,11 +589,16 @@ nemo_launch_desktop_file (G_GNUC_UNUSED GdkScreen   *screen,
 	}
 
 	error = NULL;
-	context = user_launch_context (gtk_widget_get_display (GTK_WIDGET (parent_window)));
+	/* parent_window is NULL when the window went while activation ran. */
+	if (parent_window != NULL) {
+		screen = gtk_window_get_screen (parent_window);
+	} else if (screen == NULL) {
+		screen = gdk_screen_get_default ();
+	}
+	context = user_launch_context (gdk_screen_get_display (screen));
 	/* TODO: Ideally we should accept a timestamp here instead of using GDK_CURRENT_TIME */
 	gdk_app_launch_context_set_timestamp (context, GDK_CURRENT_TIME);
-	gdk_app_launch_context_set_screen (context,
-					   gtk_window_get_screen (parent_window));
+	gdk_app_launch_context_set_screen (context, screen);
 
     own = own_app_by_full_path (app_info);
     g_desktop_app_info_launch_uris_as_manager (own != NULL ? own : app_info,

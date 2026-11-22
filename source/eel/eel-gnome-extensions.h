@@ -35,9 +35,8 @@ void          eel_gnome_open_terminal_on_screen                       (const cha
 								       GdkScreen                *screen,
 								       GAppLaunchContext        *context);
 
-/* First of the known terminals present on PATH, or NULL if there is none.
-   The fallback the launch path already used, so callers that only honored a
-   configured terminal can agree with it. Caller frees. */
+/* First of the known terminals on PATH, or NULL. The same fallback the
+   launch uses. Caller frees. */
 char *        eel_gnome_get_fallback_terminal_exec                    (void);
 								 
 #endif /* EEL_GNOME_EXTENSIONS_H */

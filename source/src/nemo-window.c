@@ -1316,9 +1316,8 @@ cancel_pending_geometry_save (NemoWindow *window)
 	}
 }
 
-/* Geometry used to be written only on a clean close, so anything that killed the
- * process, such as a crash or a launcher replacing the running copy, lost it. Save on
- * a settled move/resize instead, debounced so a drag writes once at the end.
+/* Not only on a clean close, so a crash or a launcher replacing the running
+ * copy doesn't lose it. Debounced so a drag writes once.
  */
 static gboolean
 nemo_window_configure_event (GtkWidget         *widget,
@@ -2458,9 +2457,7 @@ use_extra_mouse_buttons_changed (G_GNUC_UNUSED gpointer callback_data)
 	mouse_extra_buttons = nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_MOUSE_USE_EXTRA_BUTTONS);
 }
 
-/* Open folders used to keep the view they were built with, so a new default only
- * showed up somewhere else. Switch what is already on screen instead.
- */
+/* Folders already open take the new default too, not only the next ones. */
 static void
 default_folder_viewer_changed (NemoWindow *window)
 {

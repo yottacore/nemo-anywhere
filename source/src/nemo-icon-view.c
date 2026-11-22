@@ -229,6 +229,8 @@ nemo_icon_view_destroy (GtkWidget *object)
 		icon_view->details->icons_not_positioned = NULL;
 	}
 
+	g_clear_handle_id (&icon_view->details->render_ahead_id, g_source_remove);
+
 	GTK_WIDGET_CLASS (nemo_icon_view_parent_class)->destroy (object);
 }
 
@@ -2355,11 +2357,8 @@ default_icon_size_changed_callback (gpointer callback_data)
 	if (nemo_view_supports_zooming (NEMO_VIEW (icon_view))) {
 		file = nemo_view_get_directory_as_file (NEMO_VIEW (icon_view));
 
-        /* Setting a new default is an instruction about the folder in front of you,
-         * so let go of the zoom this window was holding and take the default.
-         * The callback is per view, so gate on which one is in front -
-         * otherwise every open tab loses its zoom too. A folder that remembers
-         * its own settings keeps them; those change on the Current tab.
+        /* A new default is about the folder in front, so its window lets go of
+         * the zoom it held. A folder that remembers its own settings keeps them.
          */
         if (view_is_frontmost (NEMO_VIEW (icon_view)) &&
             !nemo_global_preferences_get_remember_folder_settings ()) {

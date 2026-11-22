@@ -200,11 +200,9 @@ eel_expand_user_input (const char *text)
 	return g_string_free (out, FALSE);
 }
 
-/* Typed-location parsing that accepts backslash separators everywhere.
- * The literal text always wins - a real backslash-named file stays
- * reachable and nothing is reserved - but if the literal form is a
- * local path that doesn't exist and contains backslashes, a \ -> /
- * retry lets pasted Windows-style paths resolve.
+/* Typed-location parsing that takes backslash separators everywhere. The
+ * literal text wins, so a file with a backslash in its name stays reachable.
+ * Only a missing local path with backslashes is tried again with slashes.
  * Returns: (transfer full): unref with g_object_unref */
 GFile *
 eel_g_file_new_for_user_input (const char *text)
@@ -214,10 +212,9 @@ eel_g_file_new_for_user_input (const char *text)
 
 	location = g_file_parse_name (text);
 
-	/* A UNC path (\\host\share) is structural backslashes, not a pasted local
-	 * path needing conversion - and probing its existence here would block the
-	 * UI thread for the full SMB timeout on an unreachable-but-resolvable host.
-	 * Hand it off as-is; the async folder load deals with reachability. */
+	/* A UNC path (\\host\share) is never converted, and probing it here would
+	 * block the UI for the whole SMB timeout on a host that resolves but
+	 * doesn't answer. The async folder load deals with that. */
 	if (g_str_has_prefix (text, "\\\\")) {
 		return location;
 	}
@@ -241,10 +238,9 @@ eel_g_file_new_for_user_input (const char *text)
 		}
 	}
 
-	/* A home shorthand or a variable only ever stands in for a local path, so
-	 * it is tried last and only when the literal isn't already something that
-	 * can be opened. The expansion is worked out first because it costs
-	 * nothing - that keeps the existence check off every other typed path. */
+	/* A ~ or a variable only stands for a local path, so it's tried last, and
+	 * only when the literal can't be opened. Expanding first is free and keeps
+	 * the existence check off every other typed path. */
 	expanded = eel_expand_user_input (text);
 
 	if (expanded != NULL) {

@@ -320,9 +320,10 @@ nemo_view_handle_uri_list_drop (NemoView  *view,
 	n_uris = 0;
 	uri_list = g_uri_list_extract_uris (item_uris);
 	for (i = 0; uri_list[i] != NULL; i++) {
-		real_uri_list = g_list_append (real_uri_list, uri_list[i]);
+		real_uri_list = g_list_prepend (real_uri_list, uri_list[i]);
 		n_uris++;
 	}
+	real_uri_list = g_list_reverse (real_uri_list);
 	g_free (uri_list);
 
 	/* do nothing if no real uris are left */

@@ -4629,6 +4629,9 @@ note_parked_io (const char *what, NemoFile *file)
 {
 	static const char *last_what = NULL;
 	static NemoFile *last_file = NULL;
+	/* Named when the wait starts: last_file may be finalized by the time it ends,
+	   so it's only ever compared. */
+	static char *last_name = NULL;
 	static gint64 since = 0;
 	gint64 now = g_get_monotonic_time ();
 
@@ -4637,18 +4640,15 @@ note_parked_io (const char *what, NemoFile *file)
 	}
 
 	if (last_what != NULL) {
-		char *name = last_file ? nemo_file_get_display_name (last_file) : NULL;
-
 		g_printerr ("io: %s on %s took %.1fs\n", last_what,
-			    name ? name : "?", (now - since) / 1000000.0);
-		g_free (name);
+			    last_name ? last_name : "?", (now - since) / 1000000.0);
 	}
+	g_clear_pointer (&last_name, g_free);
 
 	if (what != NULL) {
-		char *name = file ? nemo_file_get_display_name (file) : NULL;
+		last_name = file ? nemo_file_get_display_name (file) : NULL;
 
-		g_printerr ("io: waiting on %s for %s\n", what, name ? name : "?");
-		g_free (name);
+		g_printerr ("io: waiting on %s for %s\n", what, last_name ? last_name : "?");
 	}
 
 	last_what = what;

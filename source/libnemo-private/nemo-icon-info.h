@@ -9,11 +9,9 @@
 
 G_BEGIN_DECLS
 
-/* A view's icon size is a number of pixels at a scale factor of 1. It used to
- * be one of 7 named levels, which meant 8 separate tables keyed by the
- * level and no way to ask for a size that wasn't on the list. The names
- * survive below only as the steps the slider marks, what Zoom In and Zoom Out
- * move between, and what an older settings file has to be read as.
+/* A view's icon size is a number of pixels at a scale factor of 1. The named
+ * sizes below are only the slider's marks, the zoom steps, and what an older
+ * settings file's levels mean.
  *
  * Icons are assumed to fit a square, though an individual image doesn't have to be
  * square and can be stretched, so this is a nominal size rather than a bound.
@@ -58,8 +56,7 @@ G_BEGIN_DECLS
 #define NEMO_DESKTOP_TEXT_WIDTH_LARGER 200
 
 /* A name runs as wide as the icon above it, but never narrower than this, or
- * an ordinary file name wraps into 3 lines at the usual size. The old
- * table of widths had 110 here and nothing wider until the icon passed it. */
+ * an ordinary file name wraps into 3 lines at the usual size. */
 #define NEMO_ICON_LABEL_WIDTH_MIN 110
 
 /* Smallest icon that still gets a name under it. Below this the label would be
