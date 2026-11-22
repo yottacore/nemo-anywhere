@@ -200,7 +200,7 @@ nemo_notebook_find_tab_num_at_pos (NemoNotebook *notebook,
 	return AFTER_ALL_TABS;
 }
 
-/* Per notebook. A Ctrl release can land in another window, say after an
+/* Per notebook. A Ctrl release can go to another window, say after an
  * alt-tab mid-chord, which left one shared flag stuck on everywhere. */
 #define CTRL_DOWN_KEY "nemo-notebook-ctrl-down"
 
