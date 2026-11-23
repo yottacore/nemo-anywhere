@@ -36,7 +36,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The action strings file for translators still has 4 action names in their old case.
 	- ID: 2026112310211281
 	- Type: Bug
-	- Status: Queued
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Low
 	- Opened: 20261123-102112
 	- Opened by: 2026112310055896
@@ -46,7 +47,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: `source/data/nemo-actions/action_i18n_strings.py` and `nemo.pot` say "Add Desklets", "Change Desktop _Background", "Set as Wallpaper..." and "Display Settings", while the `.nemo_action.in` files say them in sentence case. So a translation made from the pot never matches. No meson file installs these actions, so it may not show anywhere.
 	- Expected behavior: the strings file matches the `.in` files, from `extract_action_strings` run again, or the folder goes if nothing installs it.
 	- Estimated effort: Low
-	- Test case: none yet.
+	- Decisions:
+		- The strings file was regenerated rather than the folder removed, since `makepot` runs `extract_action_strings` over it. No po files hold the old strings.
+	- Test case: none, a text-only change. `extract_action_strings` over the `.in` files gives a file identical to the committed one.
+	- Verified: 20261123, `extract_action_strings` run on a copy of the `.in` files writes a file with no difference from `action_i18n_strings.py`.
+	- Swept: the 4 msgids in `nemo.pot`, and the other 4 action names, which already matched.
+	- Acceptance signoff: Self-closed: mechanical, and the extractor reproduces the file.
+	- Closed: 20261123-103000
 
 - Settings: search.
 	- ID: 2026101417352263
