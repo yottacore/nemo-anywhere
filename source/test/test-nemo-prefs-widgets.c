@@ -63,6 +63,8 @@ static const char * const widget_ids[] = {
 	"testguard_all_deletes_checkbutton",
 	/* The selection model, on Advanced. */
 	"selection_model_combobox",
+	/* Where pasted and new items go, under it. */
+	"paste_target_combobox",
 	"close_bar",
 	"close_button",
 	NULL

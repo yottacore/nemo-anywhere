@@ -759,6 +759,65 @@ test_selection_model (GtkWidget *dialog)
 	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE);
 }
 
+/* Where pasted and new items go is on Advanced, under the selection model, with
+   its 3 models in the design doc's order and the picked one's tooltip. */
+static void
+test_paste_target (GtkWidget *dialog)
+{
+	GtkWidget *combo = find_named (dialog, "paste_target_combobox");
+	GtkWidget *above = find_named (dialog, "selection_model_combobox");
+	GtkWidget *page = find_named (dialog, "advanced_scrolledwindow");
+	GtkAllocation a, b;
+	char *text;
+
+	check (combo != NULL && above != NULL && page != NULL);
+	if (combo == NULL || above == NULL || page == NULL) {
+		return;
+	}
+	check (gtk_widget_is_ancestor (combo, page));
+	check (gtk_widget_get_parent (gtk_widget_get_parent (gtk_widget_get_parent (combo))) ==
+	       gtk_widget_get_parent (gtk_widget_get_parent (gtk_widget_get_parent (above))));
+	gtk_widget_get_allocation (above, &a);
+	gtk_widget_get_allocation (combo, &b);
+	check (!gtk_widget_get_mapped (combo) || b.y > a.y);
+
+	check (gtk_tree_model_iter_n_children (gtk_combo_box_get_model (GTK_COMBO_BOX (combo)), NULL) == 3);
+	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 0);
+	text = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT (combo));
+	check (g_strcmp0 (text, "Nemo Anywhere") == 0);
+	g_free (text);
+	text = gtk_widget_get_tooltip_text (combo);
+	check (text != NULL && g_str_has_prefix (text, "If a selected folder is expanded"));
+	g_free (text);
+	check (!nemo_config_is_set (nemo_preferences, NEMO_PREFERENCES_PASTE_TARGET));
+	check (nemo_global_preferences_get_paste_target () == NEMO_PASTE_TARGET_ANYWHERE);
+
+	gtk_combo_box_set_active (GTK_COMBO_BOX (combo), 1);
+	text = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT (combo));
+	check (g_strcmp0 (text, "Nemo Classic") == 0);
+	g_free (text);
+	text = nemo_config_get_string (nemo_preferences, NEMO_PREFERENCES_PASTE_TARGET);
+	check (g_strcmp0 (text, "nemo-classic") == 0);
+	g_free (text);
+	text = gtk_widget_get_tooltip_text (combo);
+	check (text != NULL && g_str_has_prefix (text, "Like upstream Nemo."));
+	g_free (text);
+	check (nemo_global_preferences_get_paste_target () == NEMO_PASTE_TARGET_CLASSIC);
+
+	gtk_combo_box_set_active (GTK_COMBO_BOX (combo), 2);
+	text = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT (combo));
+	check (g_strcmp0 (text, "macOS/Dolphin") == 0);
+	g_free (text);
+	text = gtk_widget_get_tooltip_text (combo);
+	check (text != NULL && g_str_has_prefix (text, "New items always go in the viewed folder"));
+	g_free (text);
+	check (nemo_global_preferences_get_paste_target () == NEMO_PASTE_TARGET_VIEWED_FOLDER);
+
+	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_PASTE_TARGET);
+	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 0);
+	check (nemo_global_preferences_get_paste_target () == NEMO_PASTE_TARGET_ANYWHERE);
+}
+
 /* The whole-name rename box is grayed under Nemo Anywhere, where F2 and
    Shift+F2 are fixed, with a tooltip saying so, and comes back with the model. */
 static void
@@ -1117,6 +1176,7 @@ main (int argc, char *argv[])
 		test_list_columns_tabs (dialog);
 		test_bulk_rename (dialog);
 		test_selection_model (dialog);
+		test_paste_target (dialog);
 		test_rename_selects_grayed (dialog);
 		test_search (dialog);
 		test_search_aliases (dialog);

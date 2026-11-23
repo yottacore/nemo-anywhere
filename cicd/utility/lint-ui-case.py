@@ -33,7 +33,7 @@ from collections.abc import Iterator
 NAMES = set("""
 Windows Linux BSD FreeBSD OpenBSD NetBSD macOS Mac OS Unix POSIX Unicode ASCII
 GNOME Cinnamon Expo GTK GLib GIO GVfs Adwaita Segoe GNU Btrfs
-Nemo Nemo's Anywhere Nautilus Explorer
+Nemo Nemo's Anywhere Nautilus Explorer Dolphin Finder
 Trash Home Desktop Documents Downloads Music Pictures Videos Public
 Network Recent Favorites Favourites
 MIME URI URL UTF SHA MD ID DPI CPU RAM USB DVD CD ISO PDF SVG PNG JPEG GIF EXIF

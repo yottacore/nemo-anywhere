@@ -337,6 +337,17 @@ typedef enum
 #define NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS        "search-visible-columns"
 #define NEMO_PREFERENCES_SEARCH_SORT_COLUMN            "search-sort-column"
 #define NEMO_PREFERENCES_SEARCH_REVERSE_SORT           "search-reverse-sort"
+/* Where paste, new folder, new file and open in terminal go when the list
+   view shows more than one folder. See design_docs/20261020-103804_behavior-models.md. */
+#define NEMO_PREFERENCES_PASTE_TARGET			"paste-target"
+
+typedef enum
+{
+	NEMO_PASTE_TARGET_ANYWHERE,
+	NEMO_PASTE_TARGET_CLASSIC,
+	NEMO_PASTE_TARGET_VIEWED_FOLDER
+} NemoPasteTarget;
+
 #define NEMO_PREFERENCES_SEARCH_GROUP_BY_FOLDER        "group-by-folder"
 
 void nemo_global_preferences_init                      (void);
@@ -347,6 +358,7 @@ gboolean nemo_global_preferences_get_inherit_show_thumbnails_preference (void);
 gboolean nemo_global_preferences_get_remember_folder_settings (void);
 int nemo_global_preferences_get_size_prefix_preference (void);
 NemoSelectionModel nemo_global_preferences_get_selection_model (void);
+NemoPasteTarget nemo_global_preferences_get_paste_target (void);
 int nemo_global_preferences_get_cpu_thread_count (void);
 char *nemo_global_preferences_get_desktop_iid (void);
 gint nemo_global_preferences_get_tooltip_flags (void);

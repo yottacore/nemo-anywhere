@@ -65,6 +65,7 @@ static gboolean inherit_view_settings = TRUE;
 static gboolean inherit_show_thumbnails_preference = FALSE;
 static int      size_prefixes_preference = 0;
 static int      selection_model_preference = NEMO_SELECTION_MODEL_ANYWHERE_V1;
+static int      paste_target_preference = NEMO_PASTE_TARGET_ANYWHERE;
 
 static gchar **file_roller_mimetypes = NULL;
 
@@ -129,6 +130,12 @@ NemoSelectionModel
 nemo_global_preferences_get_selection_model (void)
 {
     return (NemoSelectionModel) selection_model_preference;
+}
+
+NemoPasteTarget
+nemo_global_preferences_get_paste_target (void)
+{
+    return (NemoPasteTarget) paste_target_preference;
 }
 
 int
@@ -267,6 +274,12 @@ setup_cached_pref_keys (void)
                       G_CALLBACK (enum_changed_cb), &selection_model_preference);
 
     enum_changed_cb (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, &selection_model_preference);
+
+    g_signal_connect (nemo_preferences,
+                      "changed::" NEMO_PREFERENCES_PASTE_TARGET,
+                      G_CALLBACK (enum_changed_cb), &paste_target_preference);
+
+    enum_changed_cb (nemo_preferences, NEMO_PREFERENCES_PASTE_TARGET, &paste_target_preference);
 }
 
 

@@ -790,6 +790,15 @@ test('dfh4e Affirmative switch off test',
   args: [ meson.project_source_root() ]
 )
 
+test('dfpkx Paste target test',
+  executable('test-nemo-paste-target',
+    [ 'test-nemo-paste-target.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('dd5c9 Message dialog text test',
   executable('test-eel-stock-dialogs',
     [ 'test-eel-stock-dialogs.c' ],
@@ -1847,6 +1856,16 @@ if not is_windows
   test('df037 Edit keys test, list view',
     edit_keys,
     args: [ nemo, edit_keys_probe, 'list-view' ],
+    timeout: 180
+  )
+  test('dfpm1 Edit keys test, list view, macOS/Dolphin target',
+    edit_keys,
+    args: [ nemo, edit_keys_probe, 'list-view', 'macos-dolphin' ],
+    timeout: 180
+  )
+  test('dfpmc Edit keys test, list view, Nemo Classic target',
+    edit_keys,
+    args: [ nemo, edit_keys_probe, 'list-view', 'nemo-classic' ],
     timeout: 180
   )
   test('dezmt Edit keys test, icon view',

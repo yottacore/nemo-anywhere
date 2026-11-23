@@ -276,7 +276,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Build the "Where pasted and new items go" setting and its 3 target models.
 	- ID: 2026110709200000
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261107-092000
 	- Opened by: t00mietum
@@ -287,7 +288,79 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The dropdown on Advanced under the selection model one, and the Nemo Anywhere, Nemo Classic and macOS/Dolphin rules from the design doc's table, with a test per row and model.
 		- Ctrl+Shift+V follows the setting: no key under Nemo Classic, Paste into folder under macOS/Dolphin.
 	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md#where-pasted-and-new-items-go), "Where pasted and new items go".
-	- Test case: none yet.
+	- Progress log:
+		- 20261123: split into children: `2026112309305371` (the setting and the 3 rules for the target folder) and `2026112309305792` (Ctrl+Shift+V, and the commands that make something out of the selection).
+		- 20261123: closed from its children, both Done.
+	- Branch: nov23-2026110709200000
+	- Commit: dc4dc3aa, aa2d9a2a
+	- Test case: dfpkx, dfpm1 and dfpmc, per child.
+	- Acceptance signoff: Self-closed: both children Done.
+	- Closed: 20261123-100000
+
+- The "Where pasted and new items go" setting, and its 3 rules for where Paste, New folder, New file and Open in terminal go.
+	- ID: 2026112309305371
+	- Type: Enhancement
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-093053
+	- Opened by: t00mietum
+	- Parent ID: 2026110709200000
+	- Related IDs: 2026101816495200
+	- Target version: rc.1
+	- Requirements:
+		- The "Where pasted and new items go" dropdown on Advanced, under the selection model one, with Nemo Anywhere (the default), Nemo Classic, and macOS/Dolphin, each with its tooltip from the design doc.
+		- Paste, New folder, New file, the document templates, and Open in terminal go to the folder the design doc's table gives, per model.
+		- A test per row of the table and model.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md#where-pasted-and-new-items-go), "The 3 target models" and "The target setting".
+	- Progress log:
+		- 20261123: `preferences.paste-target` with `nemo-anywhere`, `nemo-classic` and `macos-dolphin`, and its dropdown under the selection model. The list view works out the folder from the selected rows, per model. Under Nemo Classic it gives what it gave before.
+	- Decisions:
+		- The dropdown's tooltip is the picked entry's, since a combo box has no tooltip per entry.
+		- A drop on the list view's empty space follows the setting too, since it asks for the same folder.
+		- Create link, Compress, Extract here and Ctrl+Shift+V are in `2026112309305792`.
+		- "Dolphin" and "Finder" are names to the UI case lint.
+	- Branch: nov23-2026110709200000
+	- Commit: dc4dc3aa
+	- Test case: dfpkx, a case per row of the design doc's table under each model, plus more for selections deeper in the tree and the setting by name. dfpm1, Ctrl+V under macOS/Dolphin with an expanded folder selected goes to the viewed folder. dd5df checks the dropdown, its order, default and tooltips. df037 still pastes into the selected expanded folder under the default.
+	- Verified: 20261123, dfpkx fails with Nemo Classic's same-folder rule taken out, and dfpm1 fails with the list view ignoring the setting. Both pass as committed, with dbsx7, dbnfq, dd5df, dfh5x, df037 and dezmt. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Swept: every caller of `nemo_view_get_backing_uri`, in nemo-view.c, nemo-view-dnd.c and nemo-window-menus.c. Only the list view overrides it.
+	- Acceptance signoff: Self-closed: dfpkx and dfpm1 pass.
+	- Closed: 20261123-095000
+
+- Ctrl+Shift+V, and Create link, Compress and Extract here, follow the target setting.
+	- ID: 2026112309305792
+	- Type: Enhancement
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-093057
+	- Opened by: t00mietum
+	- Parent ID: 2026110709200000
+	- Prereq IDs: 2026112309305371
+	- Related IDs: 2026102113540918
+	- Target version: rc.1
+	- Requirements:
+		- Ctrl+Shift+V follows the setting: Paste into viewed folder under Nemo Anywhere, no key under Nemo Classic, and Paste into folder under macOS/Dolphin, offered when exactly one folder is selected.
+		- The Edit menu and the keyboard shortcuts window show what the key does under the model in use.
+		- Create link, Compress, and Extract here put what they make next to the selected objects, in their lowest common parent, under Nemo Anywhere and macOS/Dolphin. Under Nemo Classic they use the target folder, as today.
+		- A test per model for the key, and per model for each of the 3 commands.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md#where-pasted-and-new-items-go), "Commands that make something" and "Ctrl+Shift+V".
+	- Progress log:
+		- 20261123: the views ask for a second folder, next to the selection, for Create link, Compress, Extract here and Extract to folder. The list view gives the lowest common parent of the selected rows under Nemo Anywhere and macOS/Dolphin, and the target folder under Nemo Classic. Ctrl+Shift+V, its Edit menu entry and the shortcuts window follow the setting.
+	- Decisions:
+		- Extract to folder goes next to its archives too, since it's Extract here with a folder around it.
+		- Under macOS/Dolphin the Edit menu's entry is relabeled "Paste into folder" and keeps the key. The right-click "Paste into folder" stays as it was, without the key, since one key belongs to one action.
+		- Under Nemo Classic the Edit menu entry is hidden as well as the key, as upstream has neither.
+		- The folder next to the selection comes from the selected rows, like the target. With the affirmative switch off that's what the commands act on.
+		- The changelog entry for the setting names Ctrl+Shift+V and the 3 commands.
+	- Branch: nov23-2026110709200000
+	- Commit: aa2d9a2a
+	- Test case: dfpkx, where the 3 commands put things for each row of the table under each model, and what Ctrl+Shift+V is under each. dfpm1, Ctrl+Shift+V pastes into the selected folder under macOS/Dolphin. dfpmc, Ctrl+Shift+V does nothing under Nemo Classic. df037 still pastes into the viewed folder under the default.
+	- Verified: 20261123, dfpkx fails with the 3 commands using the paste rule, and dfpm1 and dfpmc fail with Ctrl+Shift+V doing the Nemo Anywhere thing under every model. All 3 pass as committed, with df037, dezmt, dd5df, dbsx7, dbnfq, dfh4e, dcy7j, dd5dc and dcd70. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Swept: every caller of `nemo_view_get_backing_uri` in nemo-view.c. Duplicate, Extract to (a file chooser's starting folder), the drops and New folder keep the target folder. Both places that set the key's action sensitive.
+	- Acceptance signoff: Self-closed: dfpkx, dfpm1 and dfpmc pass.
+	- Closed: 20261123-100000
 
 - When moving a bookmark with the mouse, it should give some kind of indication of where it's going to go *between*.
 	- ID: 2026101613053686

@@ -236,6 +236,28 @@ static const char * const selection_model_values[] = {
 	NULL
 };
 
+/* The design doc's order. Labels and tooltips match by index. */
+static const char * const paste_target_values[] = {
+	"nemo-anywhere",
+	"nemo-classic",
+	"macos-dolphin",
+	NULL
+};
+
+static const char * const paste_target_labels[] = {
+	N_("Nemo Anywhere"),
+	N_("Nemo Classic"),
+	N_("macOS/Dolphin"),
+	NULL
+};
+
+static const char * const paste_target_tips[] = {
+	N_("If a selected folder is expanded, new items go in there. If not, new items go in the lowest common parent folder. Ctrl+Shift+V sends to viewed folder."),
+	N_("Like upstream Nemo. A selected expanded folder takes new items. Otherwise they go next to the selection, if it's all in one folder, and in the viewed folder if it isn't."),
+	N_("New items always go in the viewed folder, whatever is selected or expanded. Ctrl+Shift+V pastes into the selected folder."),
+	NULL
+};
+
 static const char * const size_prefixes_values[] = {
 	"base-10",
 	"base-10-full",
@@ -687,6 +709,27 @@ path_separator_changed (GtkComboBox *combo_box,
 	gtk_widget_set_sensitive (check, !showing_slash);
 }
 #endif
+
+/* A combo box has no tooltip per entry, so it shows the picked one's. */
+static void
+paste_target_changed (GtkComboBox *combo, G_GNUC_UNUSED gpointer user_data)
+{
+	int i = gtk_combo_box_get_active (combo);
+
+	gtk_widget_set_tooltip_text (GTK_WIDGET (combo),
+				     i >= 0 && i < (int) G_N_ELEMENTS (paste_target_tips) - 1 ? _(paste_target_tips[i]) : NULL);
+}
+
+static void
+paste_target_setup (GtkWidget *combo)
+{
+	int i;
+
+	for (i = 0; paste_target_labels[i] != NULL; i++) {
+		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), _(paste_target_labels[i]));
+	}
+	g_signal_connect (combo, "changed", G_CALLBACK (paste_target_changed), NULL);
+}
 
 #ifndef G_OS_WIN32
 static void
@@ -1700,6 +1743,11 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
 			   "selection_model_combobox",
 			   NEMO_PREFERENCES_SELECTION_MODEL,
 			   (const char **) selection_model_values);
+	paste_target_setup (GTK_WIDGET (gtk_builder_get_object (builder, "paste_target_combobox")));
+	bind_builder_enum (builder, nemo_preferences,
+			   "paste_target_combobox",
+			   NEMO_PREFERENCES_PASTE_TARGET,
+			   (const char **) paste_target_values);
 	bind_builder_enum (builder, nemo_preferences,
 			   NEMO_FILE_MANAGEMENT_PROPERTIES_DATE_FORMAT_WIDGET,
 			   NEMO_PREFERENCES_DATE_FORMAT,

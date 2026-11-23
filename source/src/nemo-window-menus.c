@@ -57,6 +57,7 @@
 #include <libnemo-extension/nemo-menu-provider.h>
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-global-preferences.h>
+#include <libnemo-private/nemo-paste-target.h>
 #include <libnemo-private/nemo-icon-names.h>
 #include <libnemo-private/nemo-ui-utilities.h>
 #include <libnemo-private/nemo-module.h>
@@ -463,6 +464,8 @@ action_show_shortcuts_window (G_GNUC_UNUSED GtkAction *action,
     static GtkWidget *shortcuts_window;
     static GObject *invert_shortcut;
     static GObject *properties_shortcut;
+    static GObject *paste_key_shortcut;
+    const NemoPasteKey *paste_key;
     gboolean primary_i_inverts;
 
     window = NEMO_WINDOW (user_data);
@@ -475,6 +478,7 @@ action_show_shortcuts_window (G_GNUC_UNUSED GtkAction *action,
         shortcuts_window = GTK_WIDGET (gtk_builder_get_object (builder, "keyboard_shortcuts"));
         invert_shortcut = gtk_builder_get_object (builder, "shortcut_invert_selection");
         properties_shortcut = gtk_builder_get_object (builder, "shortcut_properties");
+        paste_key_shortcut = gtk_builder_get_object (builder, "shortcut_paste_key");
 
         gtk_window_set_position (GTK_WINDOW (shortcuts_window), GTK_WIN_POS_CENTER);
         /* A section too long for one page gets page buttons. */
@@ -498,7 +502,14 @@ action_show_shortcuts_window (G_GNUC_UNUSED GtkAction *action,
     g_object_set (properties_shortcut, "accelerator",
                   primary_i_inverts ? "<alt>Return" : "<Primary>I <alt>Return", NULL);
 
+    /* So does Ctrl+Shift+V, by the target setting. */
+    paste_key = nemo_paste_target_key (nemo_global_preferences_get_paste_target ());
+    if (paste_key != NULL) {
+        g_object_set (paste_key_shortcut, "title", _(paste_key->title), NULL);
+    }
+
     gtk_widget_show_all (shortcuts_window);
+    gtk_widget_set_visible (GTK_WIDGET (paste_key_shortcut), paste_key != NULL);
     gtk_window_present (GTK_WINDOW (shortcuts_window));
 }
 

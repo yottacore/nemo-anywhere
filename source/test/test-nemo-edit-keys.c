@@ -27,6 +27,9 @@
  * The probe deletes b.txt for good and checks a.txt is left selected. In the
  * list view it then copies c.txt and, with sub selected and expanded, checks
  * that Ctrl+V pastes into sub and Ctrl+Shift+V into the viewed folder.
+ * argv[4], when given, is the target setting. Under macos-dolphin Ctrl+V goes
+ * into the viewed folder and Ctrl+Shift+V into sub. Under nemo-classic
+ * Ctrl+Shift+V does nothing.
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Runs
  * the program under its own HOME and XDG dirs, with the delete test guard off
@@ -49,6 +52,8 @@
 #if defined (__linux__) || defined (__FreeBSD__)
 
 #define LIST_RESULTS 13
+#define DOLPHIN_RESULTS 14
+#define CLASSIC_RESULTS 11
 #define ICON_RESULTS 5
 
 static gboolean
@@ -89,6 +94,22 @@ make_file (const char *folder, const char *name)
 	g_free (path);
 }
 
+static int
+entries_in (const char *dir)
+{
+	GDir *d = g_dir_open (dir, 0, NULL);
+	int n = 0;
+
+	if (d == NULL) {
+		return -1;
+	}
+	while (g_dir_read_name (d) != NULL) {
+		n++;
+	}
+	g_dir_close (d);
+	return n;
+}
+
 #endif
 
 int
@@ -100,8 +121,8 @@ main (int argc, char *argv[])
 	g_print ("SKIP: drives the program through LD_PRELOAD, which is Linux and FreeBSD only here\n");
 	return 77;
 #else
-	const char *view;
-	gboolean list_mode;
+	const char *view, *target;
+	gboolean list_mode, dolphin, classic;
 	char *root, *folder, *sub, *config, *settings, *out, *path, *body, *text = NULL;
 	char *spawn_argv[4];
 	char **envp, **lines;
@@ -111,12 +132,15 @@ main (int argc, char *argv[])
 	int i, results = 0, expected;
 
 	if (argc < 3) {
-		g_printerr ("usage: %s <nemo-anywhere> <probe module> [list-view|icon-view]\n", argv[0]);
+		g_printerr ("usage: %s <nemo-anywhere> <probe module> [list-view|icon-view] [paste target]\n", argv[0]);
 		return 77;
 	}
 	view = argc > 3 ? argv[3] : "list-view";
 	list_mode = g_strcmp0 (view, "icon-view") != 0;
-	expected = list_mode ? LIST_RESULTS : ICON_RESULTS;
+	target = argc > 4 ? argv[4] : "nemo-anywhere";
+	dolphin = list_mode && g_strcmp0 (target, "macos-dolphin") == 0;
+	classic = list_mode && g_strcmp0 (target, "nemo-classic") == 0;
+	expected = dolphin ? DOLPHIN_RESULTS : classic ? CLASSIC_RESULTS : list_mode ? LIST_RESULTS : ICON_RESULTS;
 
 	test_own_display (argc, argv, "1280x900x24");
 	if (g_getenv ("DISPLAY") == NULL) {
@@ -136,7 +160,7 @@ main (int argc, char *argv[])
 	make_file (folder, "a.txt");
 	make_file (folder, "b.txt");
 	make_file (folder, "c.txt");
-	body = g_strdup_printf ("preferences.default-folder-viewer: %s\n", view);
+	body = g_strdup_printf ("preferences.default-folder-viewer: %s\npreferences.paste-target: %s\n", view, target);
 	check (g_file_set_contents (settings, body, -1, NULL));
 	g_free (body);
 
@@ -157,6 +181,7 @@ main (int argc, char *argv[])
 	envp = g_environ_setenv (envp, "NEMO_EDITKEYS_OUT", out, TRUE);
 	envp = g_environ_setenv (envp, "NEMO_EDITKEYS_FOLDER", folder, TRUE);
 	envp = g_environ_setenv (envp, "NEMO_EDITKEYS_VIEW", view, TRUE);
+	envp = g_environ_setenv (envp, "NEMO_EDITKEYS_TARGET", target, TRUE);
 
 	spawn_argv[0] = argv[1];
 	spawn_argv[1] = (char *) "--geometry=900x600";
@@ -209,6 +234,7 @@ main (int argc, char *argv[])
 		path = g_build_filename (sub, "c.txt", NULL);
 		check (g_file_test (path, G_FILE_TEST_EXISTS));
 		g_free (path);
+		check (entries_in (folder) == (classic ? 3 : 4));
 	}
 
 out:

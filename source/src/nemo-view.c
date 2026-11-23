@@ -89,6 +89,7 @@
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-file-private.h>
 #include <libnemo-private/nemo-affirmative.h>
+#include <libnemo-private/nemo-paste-target.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-link.h>
 #include <libnemo-private/nemo-link-edit.h>
@@ -458,6 +459,15 @@ nemo_view_get_backing_uri (NemoView *view)
 	g_return_val_if_fail (NEMO_IS_VIEW (view), NULL);
 
 	return NEMO_VIEW_CLASS (G_OBJECT_GET_CLASS (view))->get_backing_uri (view);
+}
+
+/* Returns: (transfer full): free with g_free */
+char *
+nemo_view_get_beside_uri (NemoView *view)
+{
+	g_return_val_if_fail (NEMO_IS_VIEW (view), NULL);
+
+	return NEMO_VIEW_CLASS (G_OBJECT_GET_CLASS (view))->get_beside_uri (view);
 }
 
 /**
@@ -1734,7 +1744,7 @@ action_create_link_callback (G_GNUC_UNUSED GtkAction *action,
 	}
 	nemo_file_list_free (selection);
 
-	dir_uri = nemo_view_get_backing_uri (view);
+	dir_uri = nemo_view_get_beside_uri (view);
 	destination = g_file_new_for_uri (dir_uri);
 	g_free (dir_uri);
 
@@ -4926,7 +4936,7 @@ nemo_view_create_links_for_files (NemoView *view, GList *files,
 			    DUPLICATE_VERTICAL_ICON_OFFSET);
 
         copy_move_done_data = pre_copy_move (view);
-	dir_uri = nemo_view_get_backing_uri (view);
+	dir_uri = nemo_view_get_beside_uri (view);
 	nemo_file_operations_symlink (uris, relative_item_points, dir_uri, options,
 				      GTK_WIDGET (view), copy_move_done_callback, copy_move_done_data);
 	g_free (dir_uri);
@@ -7627,7 +7637,7 @@ action_compress_callback (G_GNUC_UNUSED GtkAction *action,
 		return;
 	}
 
-	uri = nemo_view_get_backing_uri (view);
+	uri = nemo_view_get_beside_uri (view);
 	directory = uri != NULL ? g_file_new_for_uri (uri) : NULL;
 
 	compress_files (view, selection, directory,
@@ -7744,7 +7754,7 @@ action_extract_here_callback (G_GNUC_UNUSED GtkAction *action,
 
 	view = NEMO_VIEW (callback_data);
 
-	uri = nemo_view_get_backing_uri (view);
+	uri = nemo_view_get_beside_uri (view);
 	directory = uri != NULL ? g_file_new_for_uri (uri) : NULL;
 
 	extract_selection (view, directory, NEMO_EXTRACT_HERE);
@@ -7765,7 +7775,7 @@ action_extract_to_folder_callback (G_GNUC_UNUSED GtkAction *action,
 
 	view = NEMO_VIEW (callback_data);
 
-	uri = nemo_view_get_backing_uri (view);
+	uri = nemo_view_get_beside_uri (view);
 	directory = uri != NULL ? g_file_new_for_uri (uri) : NULL;
 
 	extract_selection (view, directory, NEMO_EXTRACT_TO_SUBFOLDER);
@@ -8349,18 +8359,53 @@ action_paste_files_into_callback (G_GNUC_UNUSED GtkAction *action,
 
 }
 
-/* Ctrl+Shift+V. Plain paste follows the selection, into a selected expanded
-   folder or beside the selected files. This one goes to the folder being
-   viewed whatever is selected. */
+static gboolean can_paste_into_file (NemoFile *file);
+
+/* Ctrl+Shift+V, per the target setting. Under Nemo Anywhere plain paste
+   follows the selection, so this one goes to the viewed folder. Under
+   macOS/Dolphin plain paste goes there, so this one is Paste into folder.
+   Nemo Classic has no key. See design_docs/20261020-103804_behavior-models.md,
+   "Ctrl+Shift+V". */
 static void
 action_paste_into_viewed_callback (G_GNUC_UNUSED GtkAction *action,
 				   gpointer callback_data)
 {
 	NemoView *view = NEMO_VIEW (callback_data);
+	GList *selection;
 
-	if (view->details->directory_as_file != NULL) {
-		paste_into (view, view->details->directory_as_file);
+	switch (nemo_global_preferences_get_paste_target ()) {
+	case NEMO_PASTE_TARGET_ANYWHERE:
+		if (view->details->directory_as_file != NULL) {
+			paste_into (view, view->details->directory_as_file);
+		}
+		break;
+	case NEMO_PASTE_TARGET_VIEWED_FOLDER:
+		selection = view_acted_on (view);
+		if (selection != NULL && selection->next == NULL &&
+		    can_paste_into_file (NEMO_FILE (selection->data))) {
+			paste_into (view, NEMO_FILE (selection->data));
+		}
+		nemo_file_list_free (selection);
+		break;
+	case NEMO_PASTE_TARGET_CLASSIC:
+		break;
 	}
+}
+
+/* Whether Ctrl+Shift+V has something to do, the clipboard aside. */
+static gboolean
+paste_key_offered (NemoView *view, GList *selection)
+{
+	switch (nemo_global_preferences_get_paste_target ()) {
+	case NEMO_PASTE_TARGET_ANYWHERE:
+		return !nemo_view_is_read_only (view);
+	case NEMO_PASTE_TARGET_VIEWED_FOLDER:
+		return selection != NULL && selection->next == NULL &&
+		       can_paste_into_file (NEMO_FILE (selection->data));
+	case NEMO_PASTE_TARGET_CLASSIC:
+		break;
+	}
+	return FALSE;
 }
 
 static void
@@ -10160,7 +10205,7 @@ clipboard_targets_received (G_GNUC_UNUSED GtkClipboard     *clipboard,
 	action = gtk_action_group_get_action (view->details->dir_action_group,
 					      NEMO_ACTION_PASTE_INTO_VIEWED);
 	gtk_action_set_sensitive (action,
-				  can_paste && !nemo_view_is_read_only (view));
+				  can_paste && paste_key_offered (view, selection));
 
 	action = gtk_action_group_get_action (view->details->dir_action_group,
 					      NEMO_ACTION_LOCATION_PASTE_FILES_INTO);
@@ -10820,6 +10865,8 @@ real_update_location_menu_volumes (NemoView *view)
 	gtk_action_set_visible (action, show_poll);
 }
 
+static void action_relabel (GtkAction *action, const char *label);
+
 /* TODO: we should split out this routine into two functions:
  * Update on clipboard changes
  * Update on selection changes
@@ -10829,6 +10876,7 @@ real_update_paste_menu (NemoView *view,
 			GList *selection,
 			gint selection_count)
 {
+	const NemoPasteKey *paste_key;
 	gboolean can_paste_files_into;
 	gboolean selection_is_read_only;
     gboolean selection_contains_recent;
@@ -10859,8 +10907,13 @@ real_update_paste_menu (NemoView *view,
 
 	action = gtk_action_group_get_action (view->details->dir_action_group,
 					      NEMO_ACTION_PASTE_INTO_VIEWED);
-	gtk_action_set_sensitive (action, !is_read_only);
-	gtk_action_set_visible (action, !selection_contains_recent && !selection_contains_favorites);
+	paste_key = nemo_paste_target_key (nemo_global_preferences_get_paste_target ());
+	if (paste_key != NULL) {
+		action_relabel (action, _(paste_key->label));
+		gtk_action_set_tooltip (action, _(paste_key->tooltip));
+	}
+	gtk_action_set_sensitive (action, paste_key_offered (view, selection));
+	gtk_action_set_visible (action, paste_key != NULL && !selection_contains_recent && !selection_contains_favorites);
 
 	action = gtk_action_group_get_action (view->details->dir_action_group,
 					      NEMO_ACTION_PASTE_FILES_INTO);
@@ -12910,6 +12963,7 @@ nemo_view_class_init (NemoViewClass *klass)
 	klass->can_rename_file = can_rename_file;
 	klass->start_renaming_file = start_renaming_file;
 	klass->get_backing_uri = real_get_backing_uri;
+	klass->get_beside_uri = real_get_backing_uri;
 	klass->using_manual_layout = real_using_manual_layout;
         klass->merge_menus = real_merge_menus;
         klass->unmerge_menus = real_unmerge_menus;

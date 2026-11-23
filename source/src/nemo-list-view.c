@@ -64,6 +64,7 @@
 #include <libnemo-private/nemo-metadata.h>
 #include <libnemo-private/nemo-folder-settings.h>
 #include <libnemo-private/nemo-module.h>
+#include <libnemo-private/nemo-paste-target.h>
 #include <libnemo-private/nemo-search-directory.h>
 #include <libnemo-private/nemo-thumbnails.h>
 #include <libnemo-private/nemo-tree-view-drag-dest.h>
@@ -6201,152 +6202,51 @@ nemo_list_view_file_changed (NemoView *view, NemoFile *file, NemoDirectory *dire
 	nemo_directory_unref (group);
 }
 
-typedef struct {
-	GtkTreePath *path;
-	gboolean is_common;
-	gboolean is_root;
-} HasCommonParentData;
-
-static void
-tree_selection_has_common_parent_foreach_func (G_GNUC_UNUSED GtkTreeModel *model,
-						GtkTreePath *path,
-						G_GNUC_UNUSED GtkTreeIter *iter,
-						gpointer user_data)
+static gboolean
+row_is_expanded_folder (GtkTreePath *path, gpointer user_data)
 {
-	HasCommonParentData *data;
-	GtkTreePath *parent_path;
-	gboolean has_parent;
+	NemoListView *list_view = user_data;
+	NemoFile *file = nemo_list_model_file_for_path (list_view->details->model, path);
+	gboolean expanded = FALSE;
 
-	data = (HasCommonParentData *) user_data;
-
-	parent_path = gtk_tree_path_copy (path);
-	gtk_tree_path_up (parent_path);
-
-	has_parent = (gtk_tree_path_get_depth (parent_path) > 0) ? TRUE : FALSE;
-
-	if (!has_parent) {
-		data->is_root = TRUE;
+	if (file != NULL) {
+		expanded = nemo_file_is_directory (file) &&
+			   gtk_tree_view_row_expanded (list_view->details->tree_view, path);
+		nemo_file_unref (file);
 	}
-
-	if (data->is_common && !data->is_root) {
-		if (data->path == NULL) {
-			data->path = gtk_tree_path_copy (parent_path);
-		} else if (gtk_tree_path_compare (data->path, parent_path) != 0) {
-			data->is_common = FALSE;
-		}
-	}
-
-	gtk_tree_path_free (parent_path);
+	return expanded;
 }
 
-static void
-tree_selection_has_common_parent (GtkTreeSelection *selection,
-				  gboolean *is_common,
-				  gboolean *is_root)
-{
-	HasCommonParentData data;
+typedef GtkTreePath *(* TargetRule) (NemoPasteTarget, GList *, NemoPasteTargetExpandedFunc, gpointer);
 
-	g_assert (is_common != NULL);
-	g_assert (is_root != NULL);
-
-	data.path = NULL;
-	data.is_common = *is_common = TRUE;
-	data.is_root = *is_root = FALSE;
-
-	gtk_tree_selection_selected_foreach (selection,
-					     tree_selection_has_common_parent_foreach_func,
-					     &data);
-
-	*is_common = data.is_common;
-	*is_root = data.is_root;
-
-	if (data.path != NULL) {
-		gtk_tree_path_free (data.path);
-	}
-}
-
+/* The target setting's rule, worked out from the selection rather than the
+   checkmarks or the focus. */
 static char *
-nemo_list_view_get_backing_uri (NemoView *view)
+target_uri (NemoView *view, TargetRule rule)
 {
 	NemoListView *list_view;
-	NemoListModel *list_model;
-	NemoFile *file;
-	GtkTreeView *tree_view;
-	GtkTreeSelection *selection;
-	GtkTreePath *path;
 	GList *paths;
-	guint length;
-	char *uri;
+	GtkTreePath *target;
+	char *uri = NULL;
 
 	g_return_val_if_fail (NEMO_IS_LIST_VIEW (view), NULL);
 
 	list_view = NEMO_LIST_VIEW (view);
-	list_model = list_view->details->model;
-	tree_view = list_view->details->tree_view;
+	g_assert (list_view->details->model);
 
-	g_assert (list_model);
+	paths = gtk_tree_selection_get_selected_rows (gtk_tree_view_get_selection (list_view->details->tree_view), NULL);
+	target = rule (nemo_global_preferences_get_paste_target (), paths,
+		       row_is_expanded_folder, list_view);
+	g_list_free_full (paths, (GDestroyNotify) gtk_tree_path_free);
 
-	/* We currently handle three common cases here:
-	 * (a) if the selection contains non-filesystem items (i.e., the
-	 *     "(Empty)" label), we return the uri of the parent.
-	 * (b) if the selection consists of exactly one _expanded_ directory, we
-	 *     return its URI.
-	 * (c) if the selection consists of either exactly one item which isn't
-	 *     an expanded directory) or multiple items in the same directory,
-	 *     we return the URI of the common parent.
-	 */
-
-	uri = NULL;
-
-	selection = gtk_tree_view_get_selection (tree_view);
-	length = gtk_tree_selection_count_selected_rows (selection);
-
-	if (length == 1) {
-
-		paths = gtk_tree_selection_get_selected_rows (selection, NULL);
-		path = (GtkTreePath *) paths->data;
-
-		file = nemo_list_model_file_for_path (list_model, path);
-		if (file == NULL) {
-			/* The selected item is a label, not a file */
-			gtk_tree_path_up (path);
-			file = nemo_list_model_file_for_path (list_model, path);
-		}
+	if (target != NULL) {
+		NemoFile *file = nemo_list_model_file_for_path (list_view->details->model, target);
 
 		if (file != NULL) {
-			if (nemo_file_is_directory (file) &&
-			    gtk_tree_view_row_expanded (tree_view, path)) {
-				uri = nemo_file_get_uri (file);
-			}
+			uri = nemo_file_get_uri (file);
 			nemo_file_unref (file);
 		}
-
-		gtk_tree_path_free (path);
-		g_list_free (paths);
-	}
-
-	if (uri == NULL && length > 0) {
-
-		gboolean is_common, is_root;
-
-		/* Check that all the selected items belong to the same
-		 * directory and that directory isn't the root directory (which
-		 * is handled by NemoView::get_backing_directory.) */
-
-		tree_selection_has_common_parent (selection, &is_common, &is_root);
-
-		if (is_common && !is_root) {
-
-			paths = gtk_tree_selection_get_selected_rows (selection, NULL);
-			path = (GtkTreePath *) paths->data;
-
-			file = nemo_list_model_file_for_path (list_model, path);
-			g_assert (file != NULL);
-			uri = nemo_file_get_parent_uri (file);
-			nemo_file_unref (file);
-
-			g_list_free_full (paths, (GDestroyNotify) gtk_tree_path_free);
-		}
+		gtk_tree_path_free (target);
 	}
 
 	if (uri != NULL) {
@@ -6354,6 +6254,19 @@ nemo_list_view_get_backing_uri (NemoView *view)
 	}
 
 	return NEMO_VIEW_CLASS (nemo_list_view_parent_class)->get_backing_uri (view);
+}
+
+/* Paste, new folder, new file and open in terminal. */
+static char *
+nemo_list_view_get_backing_uri (NemoView *view)
+{
+	return target_uri (view, nemo_paste_target_row);
+}
+
+static char *
+nemo_list_view_get_beside_uri (NemoView *view)
+{
+	return target_uri (view, nemo_paste_target_beside_row);
 }
 
 static void
@@ -7450,6 +7363,7 @@ nemo_list_view_class_init (NemoListViewClass *class)
 	nemo_view_class->clear = nemo_list_view_clear;
 	nemo_view_class->file_changed = nemo_list_view_file_changed;
 	nemo_view_class->get_backing_uri = nemo_list_view_get_backing_uri;
+	nemo_view_class->get_beside_uri = nemo_list_view_get_beside_uri;
 	nemo_view_class->get_selection = nemo_list_view_get_selection;
     nemo_view_class->peek_selection = nemo_list_view_peek_selection;
     nemo_view_class->get_selection_count = nemo_list_view_get_selection_count;

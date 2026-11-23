@@ -505,6 +505,13 @@ field: preferences.rename-selects-whole-name
 	desc: "Renaming selects the whole name, extension included"
 	# aliases: [file extension, f2]
 
+field: preferences.paste-target
+	type: string
+	allowed: [nemo-anywhere, nemo-classic, macos-dolphin]
+	default: nemo-anywhere
+	desc: Where pasted and new items go
+	# aliases: [paste into, new folder, target folder, dolphin, finder]
+
 field: preferences.quick-renames-with-pause-in-between
 	type: bool
 	default: false

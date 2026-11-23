@@ -379,7 +379,7 @@
               </object>
             </child>
             <child>
-              <object class="GtkShortcutsShortcut">
+              <object class="GtkShortcutsShortcut" id="shortcut_paste_key">
                 <property name="visible">True</property>
                 <property name="title" translatable="yes" context="shortcut window">Paste into viewed folder</property>
                 <property name="accelerator">&lt;Primary&gt;&lt;shift&gt;V</property>
