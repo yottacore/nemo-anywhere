@@ -88,9 +88,10 @@
 		</placeholder>
 		<placeholder name="View Choices">
             <separator/>
-            <menuitem name="Icon View" action="IconView"/>
             <menuitem name="List View" action="ListView"/>
             <menuitem name="Compact View" action="CompactView"/>
+            <menuitem name="Icon View" action="IconView"/>
+            <menuitem name="Image View" action="ImageView"/>
 		</placeholder>
 	</menu>
 	<placeholder name="Other Menus">

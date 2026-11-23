@@ -1198,6 +1198,7 @@ nemo_main_application_continue_startup (NemoApplication *app)
 	nemo_icon_view_register ();
 	nemo_list_view_register ();
 	nemo_icon_view_compact_register ();
+	nemo_icon_view_image_register ();
 
 	/* Watch for unmounts so we can close open windows */
 	/* TODO-gio: This should be using the UNMOUNTED feature of GFileMonitor instead */

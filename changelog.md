@@ -21,6 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Image thumbnail view, a fourth view on Ctrl+4, shows a folder's pictures at the picture size, the size a folder that's mostly images gets in icon view. It's in the View menu, the keyboard shortcuts window and the default view in Settings, and `image-view` in the settings file.
+
 - Every move to the trash and every delete is written to the log with how many items, which folder, and the key, click, or drop that started it. One that wasn't started that way, such as one from another program, another copy of the app, or a timer, always asks first and says so. So does one of 20 items or more, even with confirmation turned off. `confirm-many-items` in the settings file sets that number.
 
 - Each new window is its own process, so a crash in one leaves the others running, and 2 versions can be open side by side. A launch from the command line is always a fresh process too, rather than handed to a copy that's already running. `--quit` still takes every copy down. A setting under Behavior turns it off, which puts new windows back inside one process.
@@ -148,6 +150,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Tabs never take the keyboard focus, in Settings, Properties, About, or the keyboard shortcuts window. Tab goes past them, and Ctrl+Page Up and Ctrl+Page Down, or Ctrl+Tab and Ctrl+Shift+Tab, step through the pages from anywhere in the window.
 
 - Under the default Nemo Anywhere model, Ctrl+I inverts the selection, the same as Ctrl+Shift+I, and Properties is on Alt+Enter. Nemo Classic and Nemo Anywhere v1 keep Ctrl+I for Properties.
+
+- List view is called Detailed view. The views go in the order Detailed, Compact, Icon, in the View menu, the toolbar, the keyboard shortcuts window and Settings, and Ctrl+1, Ctrl+2 and Ctrl+3 follow that order. Icon view used to be first, on Ctrl+1.
 
 ### Fixed
 

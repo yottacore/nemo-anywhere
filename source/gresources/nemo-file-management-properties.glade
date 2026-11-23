@@ -210,13 +210,16 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
     </columns>
     <data>
       <row>
-        <col id="0" translatable="yes">Icon view</col>
-      </row>
-      <row>
-        <col id="0" translatable="yes">List view</col>
+        <col id="0" translatable="yes">Detailed view</col>
       </row>
       <row>
         <col id="0" translatable="yes">Compact view</col>
+      </row>
+      <row>
+        <col id="0" translatable="yes">Icon view</col>
+      </row>
+      <row>
+        <col id="0" translatable="yes">Image thumbnail view</col>
       </row>
     </data>
   </object>
@@ -1046,7 +1049,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                               <object class="GtkLabel" id="label6">
                                                 <property name="visible">True</property>
                                                 <property name="can-focus">False</property>
-                                                <property name="label" translatable="yes">&lt;b&gt;List view&lt;/b&gt;</property>
+                                                <property name="label" translatable="yes">&lt;b&gt;Detailed view&lt;/b&gt;</property>
                                                 <property name="use-markup">True</property>
                                                 <property name="xalign">0</property>
                                               </object>
@@ -1677,7 +1680,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                               <object class="GtkLabel" id="label6_current">
                                                 <property name="visible">True</property>
                                                 <property name="can-focus">False</property>
-                                                <property name="label" translatable="yes">&lt;b&gt;List view&lt;/b&gt;</property>
+                                                <property name="label" translatable="yes">&lt;b&gt;Detailed view&lt;/b&gt;</property>
                                                 <property name="use-markup">True</property>
                                                 <property name="xalign">0</property>
                                               </object>
@@ -3128,7 +3131,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                   <object class="GtkLabel" id="label_rows">
                                     <property name="visible">True</property>
                                     <property name="can-focus">False</property>
-                                    <property name="label" translatable="yes">&lt;b&gt;List view&lt;/b&gt;</property>
+                                    <property name="label" translatable="yes">&lt;b&gt;Detailed view&lt;/b&gt;</property>
                                     <property name="use-markup">True</property>
                                     <property name="xalign">0</property>
                                   </object>
@@ -5363,7 +5366,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                       </object>
                                       <packing>
                                         <property name="left-attach">0</property>
-                                        <property name="top-attach">5</property>
+                                        <property name="top-attach">6</property>
                                       </packing>
                                     </child>
                                     <child>
@@ -5389,7 +5392,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                           <object class="GtkLabel">
                                             <property name="visible">True</property>
                                             <property name="can-focus">False</property>
-                                            <property name="label" translatable="yes">List view</property>
+                                            <property name="label" translatable="yes">Detailed view</property>
                                           </object>
                                           <packing>
                                             <property name="expand">False</property>
@@ -5399,7 +5402,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                         </child>
                                       </object>
                                       <packing>
-                                        <property name="left-attach">1</property>
+                                        <property name="left-attach">0</property>
                                         <property name="top-attach">5</property>
                                       </packing>
                                     </child>
@@ -5436,8 +5439,8 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                         </child>
                                       </object>
                                       <packing>
-                                        <property name="left-attach">0</property>
-                                        <property name="top-attach">6</property>
+                                        <property name="left-attach">1</property>
+                                        <property name="top-attach">5</property>
                                       </packing>
                                     </child>
                                     <child>

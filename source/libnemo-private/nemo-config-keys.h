@@ -57,6 +57,7 @@ static const NemoConfigEnumValue enum_FolderView[] = {
 	{ "icon-view", 0 },
 	{ "compact-view", 1 },
 	{ "list-view", 2 },
+	{ "image-view", 4 },
 	{ NULL, 0 }
 };
 

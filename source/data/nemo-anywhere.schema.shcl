@@ -397,7 +397,7 @@ field: preferences.date-format
 
 field: preferences.default-folder-viewer
 	type: string
-	allowed: [icon-view, compact-view, list-view]
+	allowed: [icon-view, compact-view, list-view, image-view]
 	default: list-view
 	# aliases: [view mode, layout, default view]
 

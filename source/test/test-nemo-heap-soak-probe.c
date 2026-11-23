@@ -96,8 +96,8 @@ static const struct {
 	{ GDK_KEY_t,    GDK_CONTROL_MASK },	/* a new tab on the same folder */
 	{ GDK_KEY_Up,   GDK_MOD1_MASK },	/* its parent */
 	{ GDK_KEY_Left, GDK_MOD1_MASK },	/* and back */
-	{ GDK_KEY_2,    GDK_CONTROL_MASK },	/* list view */
-	{ GDK_KEY_1,    GDK_CONTROL_MASK },	/* icon view, thumbnails again */
+	{ GDK_KEY_1,    GDK_CONTROL_MASK },	/* list view */
+	{ GDK_KEY_3,    GDK_CONTROL_MASK },	/* icon view, thumbnails again */
 	{ GDK_KEY_r,    GDK_CONTROL_MASK },	/* reload */
 	{ GDK_KEY_w,    GDK_CONTROL_MASK },	/* close the tab */
 };

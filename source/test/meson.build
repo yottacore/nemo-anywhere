@@ -1944,6 +1944,21 @@ if not is_windows
     timeout: 180
   )
 
+  # Preloaded too; it reads the View menu and toolbar, and presses the view keys.
+  view_keys_probe = shared_module('test-nemo-view-keys-probe',
+    [ 'test-nemo-view-keys-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('dfpqj View order and keys test',
+    executable('test-nemo-view-keys',
+      [ 'test-nemo-view-keys.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, view_keys_probe ],
+    timeout: 180
+  )
+
   # Preloaded too; it sorts and moves between views from inside the program.
   sort_views_probe = shared_module('test-nemo-sort-views-probe',
     [ 'test-nemo-sort-views-probe.c' ],

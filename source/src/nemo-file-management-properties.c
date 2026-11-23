@@ -148,10 +148,12 @@
 
 #define TOOLBAR_PADDING 20
 
+/* In the order of the View menu and its keys */
 static const char * const default_view_values[] = {
-	"icon-view",
 	"list-view",
 	"compact-view",
+	"icon-view",
+	"image-view",
 	NULL
 };
 

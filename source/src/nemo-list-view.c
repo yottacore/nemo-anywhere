@@ -5777,7 +5777,7 @@ create_and_set_up_tree_view (NemoListView *view)
 	gtk_container_add (GTK_CONTAINER (view), GTK_WIDGET (view->details->tree_view));
 
         atk_obj = gtk_widget_get_accessible (GTK_WIDGET (view->details->tree_view));
-        atk_object_set_name (atk_obj, _("List view"));
+        atk_object_set_name (atk_obj, _("Detailed view"));
 
     gtk_widget_set_has_tooltip (GTK_WIDGET (view->details->tree_view), TRUE);
 

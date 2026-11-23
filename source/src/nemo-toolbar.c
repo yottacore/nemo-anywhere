@@ -370,14 +370,14 @@ nemo_toolbar_constructed (GObject *obj)
     self->priv->show_extra_pane_button = toolbar_create_toolbutton (self, TRUE, NEMO_ACTION_SHOW_HIDE_EXTRA_PANE);
     gtk_container_add (GTK_CONTAINER (box), self->priv->show_extra_pane_button);
 
-    self->priv->icon_view_button = toolbar_create_toolbutton (self, TRUE, NEMO_ACTION_ICON_VIEW);
-    gtk_container_add (GTK_CONTAINER (box), self->priv->icon_view_button);
-
     self->priv->list_view_button = toolbar_create_toolbutton (self, TRUE, NEMO_ACTION_LIST_VIEW);
     gtk_container_add (GTK_CONTAINER (box), self->priv->list_view_button);
 
     self->priv->compact_view_button = toolbar_create_toolbutton (self, TRUE, NEMO_ACTION_COMPACT_VIEW);
     gtk_container_add (GTK_CONTAINER (box), self->priv->compact_view_button);
+
+    self->priv->icon_view_button = toolbar_create_toolbutton (self, TRUE, NEMO_ACTION_ICON_VIEW);
+    gtk_container_add (GTK_CONTAINER (box), self->priv->icon_view_button);
 
     gtk_container_add (GTK_CONTAINER (tool_box), GTK_WIDGET (box));
     gtk_container_add (GTK_CONTAINER (self->priv->toolbar), GTK_WIDGET (tool_box));

@@ -513,7 +513,71 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Its settings are in the new "Image thumbnails" section and "Image thumbnail captions" in 2026102018234905.
 		- Image thumbnail captions can also show image and video metadata. Which fields isn't settled yet.
 	- Design: its settings are under [Default and Current](design_docs/20261020-121842_settings.md#default-and-current) and [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs).
+	- Progress log:
+		- 20261123: split in 3. The new order and keys for the 3 views there are now is 2026112311283203, Done. Image thumbnail view on Ctrl+4 is 2026112311283221, Done. Opening a folder of mostly images in it, and its toolbar button, is 2026112311463795, Queued.
 	- Test case: none yet.
+
+- Reorder the views as Detailed, Compact and Icon, on Ctrl+1 to Ctrl+3, and call list view Detailed view.
+	- ID: 2026112311283203
+	- Type: Enhancement
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-112832
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234904
+	- Target version: rc.1
+	- Requirements: the parent's order and keys for the 3 views there are now. The menus, toolbar, shortcuts window and Settings list them in that order.
+	- Done: the View menu, the toolbar, the keyboard shortcuts window, Settings' view dropdown and the toolbar buttons on its Toolbar tab go Detailed, Compact, Icon. Ctrl+1, Ctrl+2 and Ctrl+3 follow. List view is called Detailed view in all of those, in the Settings section headings, and in the name a screen reader gives the view. The changelog says so.
+	- Decisions:
+		- The rename reaches the Settings headings now, rather than waiting for 2026102018234905, so the dropdown and the section under it don't disagree. Where those sections go is still that item's.
+		- The view's internal ID and the settings file value stay `list-view`, so saved settings and per-folder views still read.
+		- The view's error texts, which say "list view", were left as they are.
+	- Swept: every place that lists the 3 views: the View menu's radio entries and menu file, the toolbar's buttons and their actions, the shortcuts window, the dropdown's rows and the 2 tables that map its rows to values, on Default and on Current, and the Toolbar tab's buttons. The tooltip focus test and the heap soak, which pressed the old keys, and the find mode view test's menu label.
+	- Verified: 20261123, dfpqj fails on the old order and keys: the menu, the toolbar, and Ctrl+3 not showing Icon view. dd5df fails there on the dropdown's rows and values. Both pass after, with dbnfq, dd5dh, ddy4d, ddwk9, ddgh6, dfpm1 and dfpq4. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Test case: dfpqj, View order and keys test: the View menu and toolbar order, and Ctrl+3, Ctrl+2 and Ctrl+1 each showing their view. dd5df, Settings dialog test, now checks the view dropdown's rows and what each writes.
+	- Acceptance signoff: Self-closed: dfpqj and dd5df pass.
+	- Branch: nov23-2026102018234904
+	- Commit: 384b3172
+	- Closed: 20261123-114500
+
+- Add Image thumbnail view, a fourth view on Ctrl+4, that shows pictures at the picture size.
+	- ID: 2026112311283221
+	- Type: Enhancement
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-112832
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234904
+	- Target version: rc.1
+	- Prereq IDs: 2026112311283203
+	- Requirements: the parent's. First-class in the View menu, the shortcuts window and the default view in Settings. It shows icons at the picture size icon view uses today for a folder of mostly images. Its settings section is 2026102018234905's. Opening such a folder in it, and its toolbar button, are 2026112311463795.
+	- Done: Image thumbnail view is the icon view kept at the picture size, whatever is in the folder. It's last in the View menu, on Ctrl+4, in the keyboard shortcuts window, and in the view dropdown on Default and Current in Settings. The settings file takes `image-view` as the default view, and a folder can keep it as its own. The changelog, design.md and the Settings design doc say so.
+	- Decisions:
+		- It's the icon view with a flag, as the compact view is, so it shares the icon view's code, sort and F2 handling.
+		- It uses the picture size and its saved and held values, the ones a folder of mostly images uses in icon view, so zooming in either changes the same size. The design doc's Image thumbnails section has one Thumbnail size.
+		- A folder of mostly images still opens in icon view at that size until 2026112311463795, so there's no gap in between.
+	- Swept: every place that names a view or maps one: the view factory, the View menu's radio entries and its callback, the default view's enum, its mapping to a view, the schema, the 2 dropdown tables, and the shortcuts window. The toolbar sets none of its 3 buttons for it. The image folder switch only acts from the list and compact views, so it leaves this view alone. The view's own load and its check for a folder of images.
+	- Verified: 20261123, dfpqj passes with Ctrl+4 and the menu order. With the view not held at the picture size it fails: the icons were laid out 234 high in both views. dd5df, dbnfq, dd5dh, dav3s, dbsx7, dcx3q, ddwjw, dcx2w and dfpq4 pass. Neither analyzer reports anything on the changed .c files.
+	- Test case: dfpqj, View order and keys test, now also checks Ctrl+4, the menu entry, and that the view shows icons bigger than icon view. dd5df, Settings dialog test, checks the dropdown's fourth row and `image-view`.
+	- Acceptance signoff: Self-closed: dfpqj and dd5df pass.
+	- Branch: nov23-2026102018234904
+	- Commit: a2f85a89
+	- Closed: 20261123-115000
+
+- A folder of mostly images opens in Image thumbnail view, rather than in icon view at the picture size, and the toolbar has a button for the view.
+	- ID: 2026112311463795
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-114637
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234904
+	- Prereq IDs: 2026112311283221
+	- Target version: rc.1
+	- Requirements: the parent's. The image folder switch picks Image thumbnail view, and icon view no longer grows in such a folder. A toolbar button with the others, and its checkbox on the Toolbar tab. Its settings section is 2026102018234905's.
+	- Note: the switch, its saved and held views, the F2 fixes in 2026101009150764 and the shared sort in 2026101613053691 all assume icon view today.
 
 - Settings: new tab layout, and tidying across the dialog.
 	- ID: 2026102018234905

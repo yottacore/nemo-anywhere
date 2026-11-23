@@ -195,13 +195,15 @@ enum
 	NEMO_DEFAULT_FOLDER_VIEWER_ICON_VIEW,
 	NEMO_DEFAULT_FOLDER_VIEWER_COMPACT_VIEW,
 	NEMO_DEFAULT_FOLDER_VIEWER_LIST_VIEW,
-	NEMO_DEFAULT_FOLDER_VIEWER_OTHER
+	NEMO_DEFAULT_FOLDER_VIEWER_OTHER,
+	NEMO_DEFAULT_FOLDER_VIEWER_IMAGE_VIEW
 };
 
 /* These IIDs are used by the preferences code and in nemo-application.c */
 #define NEMO_ICON_VIEW_IID		"OAFIID:Nemo_File_Manager_Icon_View"
 #define NEMO_COMPACT_VIEW_IID	"OAFIID:Nemo_File_Manager_Compact_View"
 #define NEMO_LIST_VIEW_IID		"OAFIID:Nemo_File_Manager_List_View"
+#define NEMO_IMAGE_VIEW_IID		"OAFIID:Nemo_File_Manager_Image_View"
 #define NEMO_DESKTOP_ICON_VIEW_IID  "OAFIID:Nemo_File_Manager_Desktop_Icon_View"
 #define NEMO_DESKTOP_ICON_GRID_VIEW_IID  "OAFIID:Nemo_File_Manager_Desktop_Icon_Grid_View"
 

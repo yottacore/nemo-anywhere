@@ -84,6 +84,7 @@ enum {
     ICON_VIEW,
     LIST_VIEW,
     COMPACT_VIEW,
+    IMAGE_VIEW,
     TOOLBAR_PATHBAR,
     TOOLBAR_ENTRY
 };
@@ -772,6 +773,9 @@ view_radio_entry_changed_cb (G_GNUC_UNUSED GtkAction *action,
         case COMPACT_VIEW:
             set_content_view_type (window, FM_COMPACT_VIEW_ID);
             break;
+        case IMAGE_VIEW:
+            set_content_view_type (window, NEMO_IMAGE_VIEW_ID);
+            break;
         default:
             ;
             break;
@@ -1086,6 +1090,8 @@ action_for_view_id (const char *view_id)
         return LIST_VIEW;
     } else if (g_strcmp0(view_id, FM_COMPACT_VIEW_ID) == 0) {
         return COMPACT_VIEW;
+    } else if (g_strcmp0(view_id, NEMO_IMAGE_VIEW_ID) == 0) {
+        return IMAGE_VIEW;
     } else {
         return NULL_VIEW;
     }
@@ -1601,15 +1607,18 @@ static const GtkToggleActionEntry main_toggle_entries[] = {
 };
 
 static const GtkRadioActionEntry view_radio_entries[] = {
-    { "IconView", NULL,
-      N_("Icon view"), "<Primary>1", N_("Icon view"),
-      ICON_VIEW },
     { "ListView", NULL,
-      N_("List view"), "<Primary>2", N_("List view"),
+      N_("Detailed view"), "<Primary>1", N_("Detailed view"),
       LIST_VIEW },
     { "CompactView", NULL,
-      N_("Compact view"), "<Primary>3", N_("Compact view"),
-      COMPACT_VIEW }
+      N_("Compact view"), "<Primary>2", N_("Compact view"),
+      COMPACT_VIEW },
+    { "IconView", NULL,
+      N_("Icon view"), "<Primary>3", N_("Icon view"),
+      ICON_VIEW },
+    { "ImageView", NULL,
+      N_("Image thumbnail view"), "<Primary>4", N_("Image thumbnail view"),
+      IMAGE_VIEW }
 };
 
 static const GtkRadioActionEntry toolbar_radio_entries[] = {
@@ -1772,8 +1781,8 @@ nemo_window_create_toolbar_action_group (NemoWindow *window)
    	g_object_unref (action);
 
     action = GTK_ACTION (gtk_toggle_action_new (NEMO_ACTION_LIST_VIEW,
-                         _("List"),
-                         _("List view"),
+                         _("Detailed"),
+                         _("Detailed view"),
                          NULL));
     g_signal_connect (action, "activate",
                       G_CALLBACK (action_list_view_callback),

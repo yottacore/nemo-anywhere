@@ -759,6 +759,53 @@ test_selection_model (GtkWidget *dialog)
 	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE);
 }
 
+/* The default view lists the views in the View menu's order, and each row
+   writes its own view. */
+static void
+test_default_view (GtkWidget *dialog)
+{
+	static const struct {
+		const char *label;
+		const char *value;
+	} rows[] = {
+		{ "Detailed view", "list-view" },
+		{ "Compact view", "compact-view" },
+		{ "Icon view", "icon-view" },
+		{ "Image thumbnail view", "image-view" },
+	};
+	GtkWidget *combo = find_named (dialog, "default_view_combobox");
+	GtkTreeModel *model;
+	GtkTreeIter iter;
+	char *text;
+	guint i;
+
+	check (combo != NULL);
+	if (combo == NULL) {
+		return;
+	}
+	model = gtk_combo_box_get_model (GTK_COMBO_BOX (combo));
+	check (gtk_tree_model_iter_n_children (model, NULL) == (int) G_N_ELEMENTS (rows));
+	check (!nemo_config_is_set (nemo_preferences, NEMO_PREFERENCES_DEFAULT_FOLDER_VIEWER));
+	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 0);
+
+	for (i = 0; i < G_N_ELEMENTS (rows); i++) {
+		text = NULL;
+		if (gtk_tree_model_iter_nth_child (model, &iter, NULL, (int) i)) {
+			gtk_tree_model_get (model, &iter, 0, &text, -1);
+		}
+		check (g_strcmp0 (text, rows[i].label) == 0);
+		g_free (text);
+
+		gtk_combo_box_set_active (GTK_COMBO_BOX (combo), (int) i);
+		text = nemo_config_get_string (nemo_preferences, NEMO_PREFERENCES_DEFAULT_FOLDER_VIEWER);
+		check (g_strcmp0 (text, rows[i].value) == 0);
+		g_free (text);
+	}
+
+	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_DEFAULT_FOLDER_VIEWER);
+	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 0);
+}
+
 /* Where pasted and new items go is on Advanced, under the selection model, with
    its 3 models in the design doc's order and the picked one's tooltip. */
 static void
@@ -1175,6 +1222,7 @@ main (int argc, char *argv[])
 		test_sub_tabs (dialog);
 		test_list_columns_tabs (dialog);
 		test_bulk_rename (dialog);
+		test_default_view (dialog);
 		test_selection_model (dialog);
 		test_paste_target (dialog);
 		test_rename_selects_grayed (dialog);

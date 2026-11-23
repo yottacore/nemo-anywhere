@@ -391,7 +391,7 @@ The window has a menu and toolbar, the side panes, a path bar, and a view, and t
 
 #### Views and list columns
 
-- The icon, compact, and list views share one interface, with an optional tree column in list view. Each reads its layout from per-folder state where the folder has any, and from the defaults where it doesn't.
+- The icon, compact, and list views share one interface, with an optional tree column in list view. Image thumbnail view is the icon view at the picture size, the one a folder that's mostly images gets, whatever is in the folder. Each reads its layout from per-folder state where the folder has any, and from the defaults where it doesn't.
 
 - Every other row can be shaded, off by default. GTK 3 no longer draws the rules hint, so each cell tints its own background on odd rows, counted by place on screen so an open subfolder's rows take their turn. A cell leaves its background off a selected row, and the tint is see-through, so selection and hover still read. The color is the setting's, then the theme's `nemo_row_shading`, then a faint wash of the text color.
 

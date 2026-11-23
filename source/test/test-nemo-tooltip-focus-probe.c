@@ -413,7 +413,7 @@ tick (G_GNUC_UNUSED gpointer data)
 		break;
 	case TO_LIST:
 		if (since == 1) {
-			gtk_accel_groups_activate (G_OBJECT (window), GDK_KEY_2, GDK_CONTROL_MASK);
+			gtk_accel_groups_activate (G_OBJECT (window), GDK_KEY_1, GDK_CONTROL_MASK);
 		}
 		/* The list can take a while to fill when the box is busy. */
 		if (since < 20 || (!list_has_rows () && since < 150)) {
@@ -471,7 +471,7 @@ tick (G_GNUC_UNUSED gpointer data)
 		break;
 	case TO_ICONS:
 		if (since == 1) {
-			gtk_accel_groups_activate (G_OBJECT (window), GDK_KEY_1, GDK_CONTROL_MASK);
+			gtk_accel_groups_activate (G_OBJECT (window), GDK_KEY_3, GDK_CONTROL_MASK);
 		}
 		if (since < 20) {
 			return G_SOURCE_CONTINUE;

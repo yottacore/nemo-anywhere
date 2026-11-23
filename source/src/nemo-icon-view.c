@@ -115,6 +115,8 @@ struct NemoIconViewDetails
 	guint icon_merge_id;
 
 	gboolean compact;
+	/* Image thumbnail view: always at the picture size, whatever is in the folder. */
+	gboolean image;
 
 	/* Set once the folder has finished loading and turned out to be mostly
 	   images, which gives it a default size of its own. */
@@ -1099,7 +1101,7 @@ nemo_icon_view_begin_loading (NemoView *view)
 	/* Nothing is known about what is in here yet, so start from the ordinary
 	   default and let end_loading move it if the folder turns out to be a
 	   pile of pictures. */
-	icon_view->details->mostly_images = FALSE;
+	icon_view->details->mostly_images = icon_view->details->image;
 	g_clear_handle_id (&icon_view->details->render_ahead_id, g_source_remove);
 	icon_view->details->render_ahead_again = FALSE;
 
@@ -1214,7 +1216,7 @@ update_mostly_images (NemoIconView *icon_view, gboolean all_files_seen)
 	gboolean mostly_images;
 	gint size;
 
-	if (!all_files_seen || icon_view->details->compact ||
+	if (!all_files_seen || icon_view->details->compact || icon_view->details->image ||
 	    NEMO_ICON_VIEW_GET_CLASS (icon_view)->use_grid_container ||
 	    !nemo_view_supports_zooming (view)) {
 		return;
@@ -2865,6 +2867,9 @@ nemo_icon_view_get_id (NemoView *view)
 	if (nemo_icon_view_is_compact (NEMO_ICON_VIEW (view))) {
 		return FM_COMPACT_VIEW_ID;
 	}
+	if (NEMO_ICON_VIEW (view)->details->image) {
+		return NEMO_IMAGE_VIEW_ID;
+	}
 
 	return NEMO_ICON_VIEW_ID;
 }
@@ -3172,6 +3177,23 @@ nemo_compact_view_create (NemoWindowSlot *slot)
     return NEMO_VIEW (view);
 }
 
+static NemoView *
+nemo_image_view_create (NemoWindowSlot *slot)
+{
+	NemoIconView *view;
+
+	view = g_object_new (NEMO_TYPE_ICON_VIEW,
+			     "window-slot", slot,
+			     NULL);
+	gtk_style_context_add_class (gtk_widget_get_style_context (GTK_WIDGET (view)), GTK_STYLE_CLASS_VIEW);
+
+	set_compact_view (view, FALSE);
+	view->details->image = TRUE;
+	view->details->mostly_images = TRUE;
+
+	return NEMO_VIEW (view);
+}
+
 static gboolean
 nemo_icon_view_supports_uri (const char *uri,
 			   GFileType file_type,
@@ -3226,6 +3248,17 @@ static NemoViewInfo nemo_compact_view = {
 	nemo_icon_view_supports_uri
 };
 
+static NemoViewInfo nemo_image_view = {
+	(char *)NEMO_IMAGE_VIEW_ID,
+	(char *)N_("Image thumbnail view"),
+	(char *)N_("_Image thumbnails"),
+	(char *)N_("The image thumbnail view encountered an error."),
+	(char *)N_("The image thumbnail view encountered an error while starting up."),
+	(char *)N_("Display this location with the image thumbnail view."),
+	nemo_image_view_create,
+	nemo_icon_view_supports_uri
+};
+
 gboolean
 nemo_icon_view_is_compact (NemoIconView *view)
 {
@@ -3244,5 +3277,12 @@ nemo_icon_view_compact_register (void)
 {
 	TRANSLATE_VIEW_INFO (nemo_compact_view)
 		nemo_view_factory_register (&nemo_compact_view);
+}
+
+void
+nemo_icon_view_image_register (void)
+{
+	TRANSLATE_VIEW_INFO (nemo_image_view)
+		nemo_view_factory_register (&nemo_image_view);
 }
 
