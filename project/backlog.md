@@ -440,7 +440,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Need ability to enter variables in the path bar. E.g. `$TMP9`.
 	- ID: 2026101613053687
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on UAT
+		- Left at signoff for `$DEVELOPER_DIR`, which has no stand-in off a Mac. It expands wherever it's set.
 	- Priority|Severity: Avg
 	- Opened: 20261016-130536
 	- Opened by: t00mietum
@@ -451,7 +452,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 			- `$TMP/misc`, `${HOME}/.config`, or `~/.cache` on Windows.
 			- `%USERPROFILE%\Pictures` on mac and Linux
 			- `$DEVELOPER_DIR` on Windows and Linux
-	- Test case: none yet.
+	- Progress log:
+		- 20261123: done. A common variable from the other platform expands where nothing set it, to the local folder or name. That covers HOME and USERPROFILE, TMP, TEMP and TMPDIR, USER and USERNAME, XDG_CONFIG_HOME and APPDATA, XDG_DATA_HOME and LOCALAPPDATA, and XDG_CACHE_HOME. A variable that's set always wins.
+		- A backslash after a variable resolves too, so `%USERPROFILE%\Pictures` opens on Linux and macOS.
+		- `~` on Windows and every variable that's set already worked, since 20260828.
+	- Decisions:
+		- `$DEVELOPER_DIR` gets no stand-in. On a Mac it's the Xcode folder, and Windows and Linux don't have one.
+		- `%NAME%` ignores case, as on Windows. `$NAME` doesn't.
+		- Options for APPDATA off Windows: the config folder or the data folder; went with config. LOCALAPPDATA takes the data folder.
+		- Nothing in the change is Windows-only, so the Windows cross build's run of the test is enough there.
+	- Swept: the location bar, the bookmark editor, and the command line all use the one expansion. The command line doesn't get the backslash retry, which a shell strips unless it's quoted. Shortcut portable paths have their own reader, which maps only `%USERPROFILE%` off Windows, and were left alone.
+	- Verified: da8rh passes, and fails before the change on 16 checks. It passes in the Windows cross build too. Lint is clean, and both analyzers are clean on the 2 changed files.
+	- Branch: nov23-2026101613053687
+	- Commit: 50eafa7b
+	- Test case: da8rh `test-eel-user-input` (`test_stand_ins`, and the Windows path behind a variable).
 
 - Zoom in with Ctrl+ (or Ctrl=), and out with Ctrl-, changes the window size too.
 	- ID: 2026101715030685
