@@ -87,6 +87,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Settings has a search field across the top. Matches are listed as you type, each with the setting's path and the matched letters marked, and picking one goes to the setting. Labels that contain the text come first, then other names a setting is known by, such as "zebra stripes" or "recycle bin", then looser matches. Ctrl+F goes to the field.
 
+- Zooming from the keyboard or the View menu resizes the window too, so about the same files stay in view. "On contents zoom, change window size too" on the Views page turns it off.
+
 ### Changed
 
 - On Windows a folder lists faster. A file's owner and group are read only when a column, a caption or Properties shows them, since each name is a call to the local security service, and the Owner column is off by default there.

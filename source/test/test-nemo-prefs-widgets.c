@@ -36,6 +36,7 @@ static const char * const widget_ids[] = {
 	"page_sidebar",
 	"remember_folder_settings_checkbutton",
 	"inherit_view_alignment",
+	"zoom_resizes_window_checkbutton",
 	"list_view_row_shading_checkbutton",
 	"rename_selects_whole_name_checkbutton",
 	"always_show_tabs_checkbutton",
@@ -91,8 +92,8 @@ static const char * const page_ids[] = {
 	NULL
 };
 
-/* Wording given word for word: the guard's switch, and the terminal field's
-   tip on both its label and the entry. */
+/* Wording given word for word: the guard's switch, the zoom switch, and the
+   terminal field's tip on both its label and the entry. */
 static const struct {
 	const char *id;
 	const char *property;
@@ -104,6 +105,7 @@ static const struct {
 	  "This enables an alternate code path that is hard to accidentally OK, on every "
 	  "such action even if the action isn't triggered by a user. Every pre-release has "
 	  "this enabled by default - by strict release rules, rather than actual need." },
+	{ "zoom_resizes_window_checkbutton", "label", "On contents zoom, change _window size too" },
 	{ "command_label_1", "tooltip-text", "If empty, uses your default terminal." },
 	{ "terminal_exec_entry", "tooltip-text", "If empty, uses your default terminal." },
 };

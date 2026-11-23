@@ -1301,6 +1301,16 @@ test('dbjq9 Column layout test',
   args: []
 )
 
+test('dfpq1 Zoom window size test',
+  executable('test-nemo-zoom-resize',
+    [ 'test-nemo-zoom-resize.c', '../src/nemo-zoom-resize.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_fence, math ],
+    c_args: nemo_definitions,
+  ),
+  args: []
+)
+
 test('ddka3 Find mode columns test',
   executable('test-nemo-search-columns',
     [ 'test-nemo-search-columns.c' ],
@@ -1916,6 +1926,21 @@ if not is_windows
       dependencies: [ glib, gio, test_scratch ],
     ),
     args: [ nemo, reset_sort_probe ],
+    timeout: 180
+  )
+
+  # Preloaded too; it zooms from the keyboard inside the program.
+  zoom_window_probe = shared_module('test-nemo-zoom-window-probe',
+    [ 'test-nemo-zoom-window-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('dfpq4 Zoom window size, keyboard test',
+    executable('test-nemo-zoom-window',
+      [ 'test-nemo-zoom-window.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, zoom_window_probe ],
     timeout: 180
   )
 

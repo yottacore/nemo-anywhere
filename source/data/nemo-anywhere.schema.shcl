@@ -734,6 +734,12 @@ field: preferences.window-per-process
 	default: true
 	desc: Each new window runs as its own process
 
+field: preferences.zoom-resizes-window
+	type: bool
+	default: true
+	desc: Zooming in or out from the keyboard or the View menu resizes the window to match
+	# aliases: [zoom, window size, resize window]
+
 field: preferences.menu-config.background-menu-compress
 	type: bool
 	default: true

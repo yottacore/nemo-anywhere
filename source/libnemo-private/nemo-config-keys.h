@@ -300,6 +300,7 @@ static const NemoConfigKey nemo_config_keys[] = {
 	{ "preferences", "tooltips-show-path", NEMO_CONFIG_BOOL, "false", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "treat-root-as-normal", NEMO_CONFIG_BOOL, "false", NULL, NULL, "Drop the safeguards that apply when running as root", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "window-per-process", NEMO_CONFIG_BOOL, "true", NULL, NULL, "Each new window runs as its own process", NEMO_CONFIG_KEY_NONE },
+	{ "preferences", "zoom-resizes-window", NEMO_CONFIG_BOOL, "true", NULL, NULL, "Zooming in or out from the keyboard or the View menu resizes the window to match", NEMO_CONFIG_KEY_NONE },
 	{ "preferences.menu-config", "background-menu-compress", NEMO_CONFIG_BOOL, "true", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },
 	{ "preferences.menu-config", "background-menu-copy-path", NEMO_CONFIG_BOOL, "true", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },
 	{ "preferences.menu-config", "background-menu-create-new-folder", NEMO_CONFIG_BOOL, "true", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },

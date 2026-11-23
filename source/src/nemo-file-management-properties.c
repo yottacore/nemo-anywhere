@@ -121,6 +121,7 @@
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_START_WITH_DUAL_PANE_WIDGET "start_with_dual_pane_checkbutton"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_ALWAYS_SHOW_TABS_WIDGET "always_show_tabs_checkbutton"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_REMEMBER_FOLDER_SETTINGS_WIDGET "remember_folder_settings_checkbutton"
+#define NEMO_FILE_MANAGEMENT_PROPERTIES_ZOOM_RESIZES_WINDOW_WIDGET "zoom_resizes_window_checkbutton"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_BOOKMARKS_IN_TO_MENUS_WIDGET "bookmarks_in_to_checkbutton"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_PLACES_IN_TO_MENUS_WIDGET "places_in_to_checkbutton"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_INHERIT_SHOW_THUMBNAILS_WIDGET "inherit_show_thumbnails_checkbutton"
@@ -1689,6 +1690,9 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
   bind_builder_bool (builder, nemo_preferences,
 			   NEMO_FILE_MANAGEMENT_PROPERTIES_REMEMBER_FOLDER_SETTINGS_WIDGET,
 			   NEMO_PREFERENCES_REMEMBER_FOLDER_SETTINGS);
+	bind_builder_bool (builder, nemo_preferences,
+			   NEMO_FILE_MANAGEMENT_PROPERTIES_ZOOM_RESIZES_WINDOW_WIDGET,
+			   NEMO_PREFERENCES_ZOOM_RESIZES_WINDOW);
   bind_builder_bool (builder, nemo_preferences,
                NEMO_FILE_MANAGEMENT_PROPERTIES_REVERSE_SORT_WIDGET,
                NEMO_PREFERENCES_DEFAULT_SORT_IN_REVERSE_ORDER);

@@ -182,6 +182,7 @@ typedef enum
 
 #define NEMO_PREFERENCES_START_WITH_DUAL_PANE "start-with-dual-pane"
 #define NEMO_PREFERENCES_REMEMBER_FOLDER_SETTINGS "remember-folder-settings"
+#define NEMO_PREFERENCES_ZOOM_RESIZES_WINDOW "zoom-resizes-window"
 #define NEMO_PREFERENCES_SHOW_BOOKMARKS_IN_TO_MENUS "show-bookmarks-in-to-menus"
 #define NEMO_PREFERENCES_SHOW_PLACES_IN_TO_MENUS "show-places-in-to-menus"
 

@@ -246,25 +246,48 @@ get_current_view (NemoWindow *window)
 	return view;
 }
 
+/* direction 0 is the normal size. */
+static void
+zoom_with_window (NemoWindow *window,
+		  int         direction)
+{
+	NemoView *view;
+	gint before;
+
+	view = get_current_view (window);
+	if (view == NULL) {
+		return;
+	}
+
+	before = nemo_view_get_icon_size (view);
+	if (direction == 0) {
+		nemo_view_restore_default_icon_size (view);
+	} else {
+		nemo_view_bump_icon_size (view, direction);
+	}
+
+	nemo_window_resize_for_zoom (window, view, before, nemo_view_get_icon_size (view));
+}
+
 static void
 action_zoom_in_callback (G_GNUC_UNUSED GtkAction *action,
 			 gpointer user_data)
 {
-    nemo_view_bump_icon_size (get_current_view (user_data), 1);
+	zoom_with_window (NEMO_WINDOW (user_data), 1);
 }
 
 static void
 action_zoom_out_callback (G_GNUC_UNUSED GtkAction *action,
 			  gpointer user_data)
 {
-    nemo_view_bump_icon_size (get_current_view (user_data), -1);
+	zoom_with_window (NEMO_WINDOW (user_data), -1);
 }
 
 static void
 action_zoom_normal_callback (G_GNUC_UNUSED GtkAction *action,
 			     gpointer user_data)
 {
-    nemo_view_restore_default_icon_size (get_current_view (user_data));
+	zoom_with_window (NEMO_WINDOW (user_data), 0);
 }
 
 /* Windows marks hidden files with an attribute and treats a leading dot as an

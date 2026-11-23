@@ -435,6 +435,8 @@ The window has a menu and toolbar, the side panes, a path bar, and a view, and t
 
 - A saved size is a number of pixels. One saved before this change is a step number, 0 to 6, which no real size can be, so the 2 are told apart on read.
 
+- Zoom In, Zoom Out and Normal size, from the keyboard or the View menu, resize the window too, so about the same files stay in view. It's `preferences.zoom-resizes-window`, on by default. Only the contents area scales: by the icon size in the icon view, by the rows alone in the compact view, whose names don't grow, and by the text in a list. The window stays inside the monitor's work area, and is moved back onto it if it grows past an edge. The size it would have had is kept, so zooming back out the same number of steps returns it to where it started. A maximized, tiled or full-screen window keeps its size. The slider and Ctrl+scroll don't resize the window either, since the window would move under the pointer.
+
 #### List view column widths
 
 This rule has been rewritten several times and will probably move again, so the whole of it is here rather than spread between the code and a summary. This should be treated (and updated) as THE canonical, precise, complete, conflict-free definition. It describes where the behavior is going, so where the code differs it is the code that moves. The code has matched it since 2026-09-17. The arithmetic, and how each column counts what it has seen, is in `nemo-column-layout.c`, which knows nothing about widgets and can be tested without a screen; the measuring that feeds it is in `nemo-list-view.c`.

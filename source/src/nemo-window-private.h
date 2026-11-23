@@ -33,6 +33,7 @@
 #include "nemo-window-pane.h"
 #include "nemo-navigation-state.h"
 #include "nemo-bookmark-list.h"
+#include "nemo-zoom-resize.h"
 
 #include <libnemo-private/nemo-directory.h>
 
@@ -86,6 +87,9 @@ struct NemoWindowDetails
 
         /* Window width the title was last fitted to. */
         int title_width;
+
+        /* Where keyboard zooms have taken the window size. */
+        NemoZoomResize zoom_resize;
 
         gboolean show_places;
         gboolean show_tree;
@@ -198,6 +202,10 @@ void nemo_window_sync_allow_stop       (NemoWindow *window,
 void nemo_window_sync_title            (NemoWindow *window,
 					    NemoWindowSlot *slot);
 void nemo_window_sync_zoom_widgets     (NemoWindow *window);
+void nemo_window_resize_for_zoom       (NemoWindow *window,
+					    NemoView   *view,
+					    gint        old_size,
+					    gint        new_size);
 void nemo_window_sync_menu_bar         (NemoWindow *window);
 void nemo_window_sync_bookmark_action  (NemoWindow *window);
 void nemo_window_sync_thumbnail_action (NemoWindow *window);

@@ -1930,6 +1930,89 @@ nemo_window_sync_zoom_widgets (NemoWindow *window)
     nemo_status_bar_sync_zoom_widgets (NEMO_STATUS_BAR (window->details->nemo_status_bar));
 }
 
+/* A keyboard zoom takes the window with it, so about the same files stay in
+   view. Only the contents area scales; the window is held to the monitor's
+   work area, and moved back onto it if it grows past an edge. A window the
+   window manager has placed, such as maximized or tiled, is left alone. */
+void
+nemo_window_resize_for_zoom (NemoWindow *window,
+			     NemoView   *view,
+			     gint        old_size,
+			     gint        new_size)
+{
+	GtkWidget *widget;
+	GdkWindow *gdk_window;
+	GdkMonitor *monitor;
+	GdkRectangle workarea, frame;
+	NemoZoomResizeKind kind;
+	double ratio_x, ratio_y;
+	int width, height, content_width, content_height;
+	int new_width, new_height, deco_width, deco_height, x, y, new_x, new_y;
+
+	if (view == NULL || old_size == new_size || nemo_window_is_desktop (window) ||
+	    !nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_ZOOM_RESIZES_WINDOW)) {
+		return;
+	}
+
+	widget = GTK_WIDGET (window);
+	gdk_window = gtk_widget_get_window (widget);
+	if (gdk_window == NULL || !gtk_widget_get_realized (GTK_WIDGET (view))) {
+		return;
+	}
+
+	if (gdk_window_get_state (gdk_window) & (GDK_WINDOW_STATE_MAXIMIZED |
+						 GDK_WINDOW_STATE_FULLSCREEN |
+						 GDK_WINDOW_STATE_TILED |
+						 GDK_WINDOW_STATE_ICONIFIED)) {
+		return;
+	}
+
+	if (NEMO_IS_LIST_VIEW (view)) {
+		kind = NEMO_ZOOM_RESIZE_LIST;
+	} else if (NEMO_IS_ICON_VIEW (view) && nemo_icon_view_is_compact (NEMO_ICON_VIEW (view))) {
+		kind = NEMO_ZOOM_RESIZE_COMPACT;
+	} else {
+		kind = NEMO_ZOOM_RESIZE_ICON;
+	}
+	nemo_zoom_resize_ratios (kind, old_size, new_size, &ratio_x, &ratio_y);
+
+	gtk_window_get_size (GTK_WINDOW (window), &width, &height);
+	/* Both panes of a split view grow, so the width is the pair's. */
+	content_width = gtk_widget_get_allocated_width (window->details->split_view_hpane);
+	content_height = gtk_widget_get_allocated_height (GTK_WIDGET (view));
+
+	/* The work area counts the title bar and borders, which the size doesn't. */
+	monitor = gdk_display_get_monitor_at_window (gdk_window_get_display (gdk_window), gdk_window);
+	gdk_monitor_get_workarea (monitor, &workarea);
+	gdk_window_get_frame_extents (gdk_window, &frame);
+	deco_width = MAX (0, frame.width - width);
+	deco_height = MAX (0, frame.height - height);
+
+	if (!nemo_zoom_resize_next (&window->details->zoom_resize, width, height,
+				    content_width, content_height, ratio_x, ratio_y,
+				    workarea.width - deco_width, workarea.height - deco_height,
+				    &new_width, &new_height)) {
+		return;
+	}
+
+	gtk_window_resize (GTK_WINDOW (window), new_width, new_height);
+
+	/* Only a window that grew past an edge is moved. Where the platform won't
+	   say, the position reads as 0, 0, and this does nothing. */
+	gtk_window_get_position (GTK_WINDOW (window), &x, &y);
+	new_x = x;
+	new_y = y;
+	if (new_width > width && x + new_width + deco_width > workarea.x + workarea.width) {
+		new_x = MAX (workarea.x, workarea.x + workarea.width - new_width - deco_width);
+	}
+	if (new_height > height && y + new_height + deco_height > workarea.y + workarea.height) {
+		new_y = MAX (workarea.y, workarea.y + workarea.height - new_height - deco_height);
+	}
+	if (new_x != x || new_y != y) {
+		gtk_window_move (GTK_WINDOW (window), new_x, new_y);
+	}
+}
+
 void
 nemo_window_sync_bookmark_action (NemoWindow *window)
 {

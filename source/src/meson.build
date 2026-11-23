@@ -22,6 +22,7 @@ nemoCommon_sources = [
   'nemo-bookmark-list.c',
   'nemo-bookmarks-window.c',
   'nemo-column-layout.c',
+  'nemo-zoom-resize.c',
   'nemo-config-base-widget.c',
   'nemo-pane-layout.c',
   'nemo-proportional-paned.c',

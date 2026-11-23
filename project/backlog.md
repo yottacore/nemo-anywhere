@@ -470,7 +470,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Zoom in with Ctrl+ (or Ctrl=), and out with Ctrl-, changes the window size too.
 	- ID: 2026101715030685
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on UAT
+		- Left at signoff for how far the window grows a step in each view, which is a matter of feel.
 	- Priority|Severity: Avg
 	- Opened: 20261017-150306
 	- Opened by: t00mietum
@@ -478,7 +479,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Cmd in place of Ctrl on macOS.
 		- Change the size of the window too, to remain approximately proportional.
 			- This should be an option, enabled by default: "On contents zoom, change window size too".
-	- Test case: none yet.
+	- Target version: rc.1
+	- Done: Zoom In, Zoom Out and Normal size, from the keyboard or the View menu, resize the window by about as much as the contents grew. Only the contents area scales, and the toolbars, side panes and status bar keep their size. The setting is `preferences.zoom-resizes-window`, a checkbox on the Views page, on by default.
+	- Done: Cmd on macOS comes from the shortcuts already using the Primary key, which is Cmd there. Unverified on a Mac, like the rest of that remap.
+	- Decisions:
+		- The icon view scales by the icon size. The compact view scales only its height, since the names beside its icons don't grow. A list scales by its text, a fifth a step, which sets the column widths and most of the row height.
+		- The window stays inside the monitor's work area, and moves back onto it when it grows past an edge. The size it would have had is kept, so zooming back out the same number of steps returns it to where it started. A size changed by hand starts over from there.
+		- A maximized, tiled or full-screen window keeps its size.
+		- The slider and Ctrl+scroll leave the window alone, since it would move under the pointer. Normal size counts as a keyboard zoom.
+	- Test case: dfpq1 `test-nemo-zoom-resize` for the arithmetic, dfpq4 `test-nemo-zoom-window` for Ctrl+plus and Ctrl+minus in each view, with the setting on and off, dbnfq `test-nemo-prefs-widgets` for the checkbox and its label.
+	- Branch: nov23-2026101715030685
+	- Commit: a548bd4b
 
 - Rearrange the order of views, and add a fourth first-class view, Image thumbnail view.
 	- ID: 2026102018234904
