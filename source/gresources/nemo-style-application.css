@@ -102,6 +102,15 @@ NemoDesktopWindow GtkPaned {
 	border-bottom: 2px solid currentColor;
 }
 
+/* Same for the frame around a row a file would drop into, in any tree view.
+   The themes' frame is 1px in the same faint color. dfpp8 checks it. */
+treeview.view:drop(active):not(.before):not(.after) {
+	border-image: none;
+	border-radius: 0;
+	border: 2px solid currentColor;
+	box-shadow: none;
+}
+
 /* The hover tint on list and sidebar rows is set per tree view by
    nemo-row-hover.c, since it is worked out from the theme's colors. */
 

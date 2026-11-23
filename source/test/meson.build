@@ -710,15 +710,14 @@ test('dd2sk Row hover tint test',
 # The themes are read from the source tree, which a Windows test box doesn't
 # have; GTK draws the line the same way there.
 if not is_windows
-  test('dfpnp Places drop line test',
-    executable('test-nemo-places-drop-line',
-      [ 'test-nemo-places-drop-line.c' ] + gresources,
-      include_directories: [ rootInclude, ],
-      dependencies: [ gtk, nemo_private, test_fence ],
-      c_args: [ '-DVENDOR_THEMES_DIR="@0@"'.format(meson.project_source_root() / '..' / 'vendor' / 'themes') ],
-    ),
-    args: []
+  drop_mark_exe = executable('test-nemo-places-drop-line',
+    [ 'test-nemo-places-drop-line.c' ] + gresources,
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_fence ],
+    c_args: [ '-DVENDOR_THEMES_DIR="@0@"'.format(meson.project_source_root() / '..' / 'vendor' / 'themes') ],
   )
+  test('dfpnp Places drop line test', drop_mark_exe, args: [])
+  test('dfpp8 Drop into row frame test', drop_mark_exe, args: [ '--into' ])
 endif
 
 test('dczsk Primary mask test',

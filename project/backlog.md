@@ -36,7 +36,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Under the Windows 10 and Windows 7 themes, the frame around a row a file is about to drop into can barely be seen.
 	- ID: 2026112310420234
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on UAT
+		- Needs a look at the new frame while dragging a file over a folder.
+	- Needs hand testing: drag a file over a folder in the list view, the tree pane and Places, with the Windows 10 theme and one dark theme. The row gets a 2px frame in the text color on all 4 sides. Check it over the selected row too.
 	- Priority|Severity: Low
 	- Opened: 20261123-104202
 	- Opened by: 2026101613053686
@@ -46,9 +48,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce: pick the Windows 10 theme, and drag a file over a place in Places or a folder in the list view.
 	- Incorrect behavior: the row is marked by a 1px frame in a pale blue close to white.
 	- Expected behavior: the row a file would drop into is easy to see in every bundled theme.
-	- Reproduced: no. Read from the themes' sheets only. Windows 10 dark is likely the same.
+	- Reproduced: 20261123, by dfpp8 on the unfixed sheet. Adwaita dark, Windows 10, Windows 10 dark and Windows 7 had no part of the frame at 3:1 contrast. The rest had only 1px top and bottom, and none marked the row's sides.
 	- Possible cause: the themes' own drop frame color. dfpnp's way of drawing a tree view and checking contrast would cover it.
-	- Test case: none yet.
+	- Actual cause: each theme draws the frame 1px, top and bottom only, in its own drop color, which in some is close to the row's background.
+	- Decisions:
+		- Drawn the same way as the Places drop line: the row's text color, 2px. It goes on all 4 sides, so it can't be mistaken for the line between 2 rows in Places. Options were the theme's accent color, which is the faint one, or tinting the whole row, as Explorer does, which looks too much like a selection.
+		- One rule for every tree view in the app, since the list view, the tree pane and Places all drop into a row the same way.
+	- Actual fix: the app's own style sheet draws the frame for a drop into a row over the theme's.
+	- Swept: the list view, the tree pane and Places all mark a drop into a row through the toolkit's tree view, which the one rule covers. The icon view marks a drop target its own way and isn't affected.
+	- Verified: dfpp8 fails before the change in all 11 themes, and passes after, with 2px top and bottom and both sides marked at 3:1 contrast or better, into a plain row and into the selected row. dfpnp and dd2sk still pass. format and lint pass, and gcc's and clang's analyzers have no findings in the test.
+	- Branch: nov23-2026112310420234
+	- Commit: 47fb3ac6
+	- Test case: dfpp8 Drop into row frame test. A tree view is drawn in each bundled theme with and without a drop into a row, plain and selected. The frame has to be at least 2px on the row's top and bottom edges and mark both sides, with at least 3:1 contrast.
 
 - The action strings file for translators still has 4 action names in their old case.
 	- ID: 2026112310211281

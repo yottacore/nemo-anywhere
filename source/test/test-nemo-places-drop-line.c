@@ -28,7 +28,10 @@
  * loaded the way the app loads it, under the app's own sheet, and a Places
  * tree view is drawn with and without a drop spot. The rows that changed
  * have to make a line at least 2px thick, on the right edge of the right row,
- * with at least 3:1 contrast to what was there before. */
+ * with at least 3:1 contrast to what was there before.
+ *
+ * With --into, a plain tree view gets a drop into a row instead, plain and
+ * selected, and the frame around that row is held to the same. */
 
 #include <config.h>
 
@@ -209,8 +212,82 @@ check_line (const char *theme, GtkWidget *view, cairo_surface_t *plain,
 	gtk_tree_path_free (path);
 }
 
+static gboolean
+stands_out (cairo_surface_t *plain, cairo_surface_t *marked, int x, int y)
+{
+	return contrast (pixel (plain, x, y), pixel (marked, x, y)) >= 3.0;
+}
+
+/* A drop into row has to frame the whole row: a band at least 2px on its
+   top and bottom edges, and its sides marked too, so it can't pass for
+   the line between 2 rows. */
 static void
-check_theme (const Theme *theme)
+check_into (const char *theme, GtkWidget *view, cairo_surface_t *plain, int row)
+{
+	GtkTreePath *path = gtk_tree_path_new_from_indices (row, -1);
+	cairo_surface_t *marked;
+	GdkRectangle area;
+	int width = cairo_image_surface_get_width (plain);
+	int height = cairo_image_surface_get_height (plain);
+	int y, x, top, bottom, middle, topband = 0, bottomband = 0;
+	gboolean stray = FALSE, sides;
+
+	gtk_tree_view_get_background_area (GTK_TREE_VIEW (view), path, NULL, &area);
+	gtk_tree_view_convert_bin_window_to_widget_coords (GTK_TREE_VIEW (view),
+							   area.x, area.y, &x, &top);
+	bottom = top + area.height;
+	middle = (top + bottom) / 2;
+
+	gtk_tree_view_set_drag_dest_row (GTK_TREE_VIEW (view), path, GTK_TREE_VIEW_DROP_INTO_OR_BEFORE);
+	settle ();
+	marked = render (view);
+	gtk_tree_view_set_drag_dest_row (GTK_TREE_VIEW (view), NULL, GTK_TREE_VIEW_DROP_BEFORE);
+	settle ();
+
+	for (y = 0; y < height; y++) {
+		int changed = 0;
+
+		for (x = 0; x < width; x++) {
+			changed += pixel (plain, x, y) != pixel (marked, x, y);
+		}
+		if (changed < width / 2 || !stands_out (plain, marked, width - width / 8, y)) {
+			continue;
+		}
+		if (y < top || y >= bottom) {
+			stray = TRUE;
+		} else if (y < middle) {
+			topband++;
+		} else {
+			bottomband++;
+		}
+	}
+	sides = stands_out (plain, marked, 0, middle) && stands_out (plain, marked, 1, middle) &&
+		stands_out (plain, marked, width - 1, middle) && stands_out (plain, marked, width - 2, middle);
+
+	g_print ("%-16s into row %d (%d-%d): top %d px, bottom %d px, sides %s\n", theme, row,
+		 top, bottom - 1, topband, bottomband, sides ? "yes" : "no");
+
+	if (topband < 2 || bottomband < 2) {
+		g_printerr ("FAIL %s: the frame into row %d isn't 2px at top and bottom with 3:1 contrast\n",
+			    theme, row);
+		failures++;
+	} else if (stray) {
+		g_printerr ("FAIL %s: the frame into row %d spills outside the row\n", theme, row);
+		failures++;
+	} else if (!sides) {
+		g_printerr ("FAIL %s: the frame into row %d doesn't mark the row's sides\n", theme, row);
+		failures++;
+	} else if (!stands_out (plain, marked, 0, top) || !stands_out (plain, marked, 0, bottom - 1)) {
+		g_printerr ("FAIL %s: the frame into row %d isn't on the row's edges\n", theme, row);
+		failures++;
+	}
+
+	cairo_surface_destroy (marked);
+	gtk_tree_path_free (path);
+}
+
+static void
+check_theme (const Theme *theme, gboolean into)
 {
 	GtkCssProvider *provider = NULL;
 	GtkWidget *window, *view;
@@ -246,7 +323,8 @@ check_theme (const Theme *theme)
 	for (i = 0; i < ROWS; i++) {
 		gtk_list_store_insert_with_values (store, &iter, -1, 0, "Folder", -1);
 	}
-	view = nemo_places_tree_view_new ();
+	/* A plain tree view stands in for the list view and the tree pane. */
+	view = into ? gtk_tree_view_new () : nemo_places_tree_view_new ();
 	gtk_tree_view_set_model (GTK_TREE_VIEW (view), GTK_TREE_MODEL (store));
 	gtk_tree_view_set_headers_visible (GTK_TREE_VIEW (view), FALSE);
 	gtk_tree_view_insert_column_with_attributes (GTK_TREE_VIEW (view), -1, NULL,
@@ -258,13 +336,24 @@ check_theme (const Theme *theme)
 	gtk_window_set_default_size (GTK_WINDOW (window), 240, 200);
 	gtk_container_add (GTK_CONTAINER (window), view);
 	gtk_widget_show_all (window);
+	if (into) {
+		GtkTreePath *last = gtk_tree_path_new_from_indices (ROWS - 1, -1);
+
+		gtk_tree_selection_select_path (gtk_tree_view_get_selection (GTK_TREE_VIEW (view)), last);
+		gtk_tree_path_free (last);
+	}
 	settle ();
 
 	plain = render (view);
-	check_line (theme->name, view, plain, 1, GTK_TREE_VIEW_DROP_BEFORE);
-	check_line (theme->name, view, plain, 1, GTK_TREE_VIEW_DROP_AFTER);
-	check_line (theme->name, view, plain, 0, GTK_TREE_VIEW_DROP_BEFORE);
-	check_line (theme->name, view, plain, ROWS - 1, GTK_TREE_VIEW_DROP_AFTER);
+	if (into) {
+		check_into (theme->name, view, plain, 1);
+		check_into (theme->name, view, plain, ROWS - 1);
+	} else {
+		check_line (theme->name, view, plain, 1, GTK_TREE_VIEW_DROP_BEFORE);
+		check_line (theme->name, view, plain, 1, GTK_TREE_VIEW_DROP_AFTER);
+		check_line (theme->name, view, plain, 0, GTK_TREE_VIEW_DROP_BEFORE);
+		check_line (theme->name, view, plain, ROWS - 1, GTK_TREE_VIEW_DROP_AFTER);
+	}
 	cairo_surface_destroy (plain);
 
 	gtk_widget_destroy (window);
@@ -279,7 +368,11 @@ int
 main (int argc, char *argv[])
 {
 	GtkCssProvider *app;
+	gboolean into;
 	guint i;
+
+	/* --into checks the frame for a drop into a row (dfpp8) in place of the line. */
+	into = argc > 1 && strcmp (argv[1], "--into") == 0;
 
 	if (!gtk_init_check (&argc, &argv)) {
 		g_print ("SKIP: no display\n");
@@ -294,7 +387,7 @@ main (int argc, char *argv[])
 						   GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 
 	for (i = 0; i < G_N_ELEMENTS (themes); i++) {
-		check_theme (&themes[i]);
+		check_theme (&themes[i], into);
 	}
 
 	gtk_style_context_remove_provider_for_screen (gdk_screen_get_default (),
