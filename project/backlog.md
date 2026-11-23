@@ -254,7 +254,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: the cross-file clang findings fixed or suppressed, then they fail the run.
 	- ID: 2026110920251244
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261109-202512
 	- Opened by: 2026102114400592
@@ -266,10 +266,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Every finding the cross-file run adds over the per-file one is fixed, or suppressed at the line with a one-line reason, or for vendored code in `analyze-vendored.txt`.
 		- Then a finding left, or a file cut off at the cap, fails the step, as in the per-file stage.
 	- Estimated effort: Avg
-	- Test case: de8eq, and de8en for the count it then fails on.
+	- Test case: its children's: 2026111022135419: de8eq, and de8en for the count it then fails on. dfhbg for the icon bounds crash.; 2026111022134952: de8eq, now with a NULL read the other file suppresses, which has to stay quiet.
 	- Progress log:
 		- 20261110: first whole-tree counts: Linux 55 (6 ours, 7 tests, 42 inherited), Windows 67 (7 ours, 17 tests, 43 inherited), 0 cut off, 861 s for both lanes. The report-only branch in analyze.bash takes any non-zero exit from count as findings, so a crash of count passed too. Making findings fail closes that.
 		- 20261110: split into children: `2026111022134952` (ours and tests, and the cause of most of the counts), Done, and `2026111022135419` (inherited, then they fail the run), Waiting on automated testing.
+		- 20261123: closed from its children, both Done; the cross-file step fails on a finding since 20261119.
+	- Closed: 20261123-092843
 
 - Build the "Where pasted and new items go" setting and its 3 target models.
 	- ID: 2026110709200000
