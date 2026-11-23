@@ -963,6 +963,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- About 115 unique on 20261119: memory-never-freed 49, world-writable-file-creation 43 (all tests), memory-may-not-be-freed 8, equality-on-floats 5, stack-address-escape 4, inconsistent-null-check 4, and a few single ones.
 	- Estimated effort: High
 	- Test case: a scoped run over the files changed has none left, and a regression test per real bug fixed.
+	- 20261123: 2 more cpp/world-writable-file-creation in new test probes, `test-nemo-view-keys-probe.c:423` and `test-nemo-zoom-window-probe.c:186`, both `fopen (path, "w")` on a results file. Found by a scoped c-linux run.
 
 - Static analyzers: the other CodeQL C findings in inherited code fixed or suppressed.
 	- ID: 2026112310061079
