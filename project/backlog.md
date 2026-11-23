@@ -13141,6 +13141,109 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - **Stop here (in new format) for a next release**.
 
+- The Move to and Copy to choosers can act on a view that is already gone.
+	- ID: 2026112309242601
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-092426
+	- Opened by: t00mietum
+	- Target OS: All
+	- Steps to reproduce: open Move to or Copy to from a file's menu, close the tab or window behind the chooser, then pick a folder.
+	- Incorrect behavior: `browse_move_to_response_cb` and `browse_copy_to_response_cb` in nemo-view.c get the view as a plain pointer and use it after it may have been freed.
+	- Expected behavior: the chooser closes with its view, or the answer is dropped when the view is gone.
+	- Reproduced: No.
+	- Possible cause: the extract-to chooser had the same fault and no longer needs the view. These 2 do, so they need a weak ref, or the chooser destroyed with the view.
+	- Test case: none yet.
+
+- The metadata store can lose a damaged `metadata.json` when setting it aside fails.
+	- ID: 2026112309242602
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-092426
+	- Opened by: t00mietum
+	- Target OS: All
+	- Steps to reproduce: a `metadata.json` that doesn't parse, in a folder where the rename to `metadata.json.bad` fails.
+	- Incorrect behavior: the `g_rename` in nemo-metadata-store.c isn't checked, so the next save writes an empty store over the only copy of every folder's view, zoom, sort and layout.
+	- Expected behavior: the damaged file is never written over.
+	- Reproduced: No.
+	- Possible cause: needs a choice of what to do when the rename fails, such as copying it aside, or refusing to save until restart.
+	- Test case: none yet.
+
+- The favorites metadata calls hold a lock across a settings signal.
+	- ID: 2026112309242603
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-092426
+	- Opened by: t00mietum
+	- Target OS: All
+	- Steps to reproduce: set or remove a `favorites:///` attribute while a handler on the favorites metadata key reads the metadata back.
+	- Incorrect behavior: `remove_root_metadata` and its siblings in nemo-favorite-vfs-file.c call `nemo_config_set_strv` inside `G_LOCK (settings)`. The change signal goes out right away, so a handler that takes the same lock hangs the app.
+	- Expected behavior: the lock is let go before the settings change.
+	- Reproduced: No.
+	- Test case: none yet.
+
+- A huge file cache size in settings is undefined behavior.
+	- ID: 2026112309242604
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261123-092426
+	- Opened by: t00mietum
+	- Target OS: All
+	- Steps to reproduce: set the file cache size limit to something like 1e10 GiB in the settings file.
+	- Incorrect behavior: `read_rules` in nemo-cache-db-prune.c casts the size in bytes from a double to `gint64`, which is undefined past its range.
+	- Expected behavior: the value is clamped, to a limit still to pick, or refused when settings load.
+	- Reproduced: No.
+	- Test case: none yet.
+
+- On Windows, each start of the instance service adds its interfaces again.
+	- ID: 2026112309242605
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261123-092426
+	- Opened by: t00mietum
+	- Target OS: Windows
+	- Steps to reproduce: a start of the instance service that fails, then a retry, or a start after `nemo_instances_stop`.
+	- Incorrect behavior: `nemo_instances_start` in nemo-instances.c calls `nemo_instances_serve` for both interfaces before it knows the start worked, so they're registered twice.
+	- Expected behavior: each interface is registered once.
+	- Reproduced: No.
+	- Test case: none yet.
+
+- A hard link in an archive is skipped without a word when its source was renamed.
+	- ID: 2026112309242606
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261123-092426
+	- Opened by: t00mietum
+	- Target OS: All
+	- Related IDs: 2026112309242607
+	- Steps to reproduce: extract a tar holding a file and a hard link to it into a folder that already has a file of the same name, and answer "Keep both".
+	- Incorrect behavior: the file goes in under a new name, and the hard link looks for the old one, so it isn't written and nothing says why.
+	- Expected behavior: the hard link points at the name the file was given.
+	- Reproduced: No.
+	- Possible cause: `placed_file` in arc-extract.c knows only the archive's names. It needs a map from those to the names used.
+	- Test case: none yet, beside `check_hard_links` in test-extract-job.c.
+
+- An archive with no usable folder name fails without a message under the own-folder layout.
+	- ID: 2026112309242607
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261123-092426
+	- Opened by: t00mietum
+	- Target OS: All
+	- Related IDs: 2026112309242606
+	- Steps to reproduce: extract an archive whose name gives no folder name, with the layout set to put each archive in its own folder.
+	- Incorrect behavior: arc-extract.c counts it as failed and says nothing.
+	- Expected behavior: a fallback folder name, or an error that names the archive.
+	- Reproduced: No.
+	- Test case: none yet.
+
 - The column chooser leaks the names of the hidden columns each time it is read.
 	- ID: 2026110718100651
 	- Type: Bug
