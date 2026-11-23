@@ -362,19 +362,21 @@ free_page (Page *page)
 void
 nemo_prefs_keyboard_setup (GtkBuilder *builder)
 {
-	GtkWidget *box, *dialog, *top, *reset_all, *scrolled, *tree, *help, *note;
+	GtkWidget *box, *tab, *dialog, *top, *reset_all, *scrolled, *tree, *help, *note;
 	GtkCellRenderer *renderer;
 	GtkTreeViewColumn *column;
 	GList *list, *l;
 	Page *page;
 
 	box = GTK_WIDGET (gtk_builder_get_object (builder, "keyboard_page_box"));
+	tab = GTK_WIDGET (gtk_builder_get_object (builder, "keyboard_scrolledwindow"));
 	dialog = GTK_WIDGET (gtk_builder_get_object (builder, "file_management_dialog"));
-	if (box == NULL || dialog == NULL) {
+	if (box == NULL || tab == NULL || dialog == NULL) {
 		return;
 	}
-	/* The tab has no settings key to hang aliases on. */
-	g_object_set_data (G_OBJECT (box), NEMO_SETTINGS_SEARCH_ALIASES, (gpointer) keyboard_aliases);
+	/* The tab has no settings key to hang aliases on. Search takes a tab's
+	   aliases from the stack's own child. */
+	g_object_set_data (G_OBJECT (tab), NEMO_SETTINGS_SEARCH_ALIASES, (gpointer) keyboard_aliases);
 
 	page = g_new0 (Page, 1);
 	page->store = gtk_list_store_new (NEMO_PREFS_KEYBOARD_N_COLS,
@@ -440,7 +442,8 @@ nemo_prefs_keyboard_setup (GtkBuilder *builder)
 	g_signal_connect (tree, "focus-out-event", G_CALLBACK (tree_focus_out), page);
 	g_signal_connect_object (dialog, "key-press-event", G_CALLBACK (dialog_key_press), tree, 0);
 
-	/* Left out of the window's sizing, since the list is long and scrolls. */
+	/* The list scrolls on its own, so the page asks only for this much and
+	   the window is sized by the other pages. */
 	scrolled = gtk_scrolled_window_new (NULL, NULL);
 	gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
 	gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (scrolled), GTK_SHADOW_IN);

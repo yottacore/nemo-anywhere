@@ -90,6 +90,7 @@ static const char * const page_ids[] = {
 	"templates_scrolledwindow",
 	"scrolledwindow7",
 	"advanced_scrolledwindow",
+	"keyboard_scrolledwindow",
 	NULL
 };
 

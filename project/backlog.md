@@ -658,6 +658,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A row whose key isn't its default can be reset, and so can every row at once.
 		- Changes are saved to the `accels` file.
 	- Done: a Keyboard tab after Advanced lists every menu action with a name, sorted by name, with its key. A click on the key, or Enter or Space on the row, waits for the next key, and every key goes to the row while it waits. Escape leaves it, Backspace turns it off. A revert arrow on a changed row puts its first key back, and Reset all puts back every one. Each window notes the key every action starts with as it adds its actions, since GTK doesn't give that back once a key from `accels` is in place. The changelog and the Settings design doc say so.
+	- Progress log:
+		- 20261123: the tab's page is now a scrolled window, like every other Settings page, so the window's sizing measures it and the page scrolls on a screen too short for it. It was a plain box, which dbnfq refused. The search words for the tab moved to the new page, since search reads them from the tab's own page. Fixed on nov23-2026102018234906-fix.
 	- Decisions:
 		- A key another listed shortcut has is refused, with a note naming that one, rather than shared. 2 actions on one key would leave only one of them working.
 		- A key that types a character needs Ctrl or Alt held, since it would stop typing in the location bar and in a rename. A plain Delete or F2 is fine.
@@ -674,6 +676,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: b9a18c18
 	- Test case: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key and a plain letter refused, Backspace, the revert arrow, and Reset all.
 		- 20261123: dd5df's Ctrl+Page Up wrap from the first tab now ends on `keyboard`, where it was `advanced`, since the new tab is last until 2026102018234905 gives Advanced sub-tabs.
+		- 20261123: dbnfq, Settings widgets test, lists the Keyboard page with the other pages, and dd5df's check that every page fits at the opening size covers it too.
 	- Swept: every place a window adds menu actions with keys: the shell actions and their toggles and radios, the folder view's, and icon view's. The location bar's clipboard actions are left out, as under Decisions. The sidebars' right-click menus give none of their actions a key.
 
 - Settings: a shortcut changed on the Keyboard tab takes effect in every open window, and the keyboard shortcuts window shows it.

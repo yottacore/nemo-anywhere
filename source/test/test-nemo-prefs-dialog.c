@@ -565,7 +565,8 @@ test_sub_tabs (GtkWidget *dialog)
 			"behavior_files_scrolledwindow", "behavior_programs_scrolledwindow",
 			"scrolledwindow3", "windows_scrolledwindow", "scrolledwindow4", "list_columns_search_scrolledwindow",
 			"scrolledwindow5", "scrolledwindow6",
-			"scrolledwindow8", "templates_scrolledwindow", "scrolledwindow7", NULL
+			"scrolledwindow8", "templates_scrolledwindow", "scrolledwindow7",
+			"keyboard_scrolledwindow", NULL
 		};
 		int i;
 
