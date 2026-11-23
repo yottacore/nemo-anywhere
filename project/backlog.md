@@ -33,6 +33,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Under the Windows 10 and Windows 7 themes, the frame around a row a file is about to drop into can barely be seen.
+	- ID: 2026112310420234
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261123-104202
+	- Opened by: 2026101613053686
+	- Related IDs: 2026101613053686
+	- Target OS: All
+	- Target version: rc.1
+	- Steps to reproduce: pick the Windows 10 theme, and drag a file over a place in Places or a folder in the list view.
+	- Incorrect behavior: the row is marked by a 1px frame in a pale blue close to white.
+	- Expected behavior: the row a file would drop into is easy to see in every bundled theme.
+	- Reproduced: no. Read from the themes' sheets only. Windows 10 dark is likely the same.
+	- Possible cause: the themes' own drop frame color. dfpnp's way of drawing a tree view and checking contrast would cover it.
+	- Test case: none yet.
+
 - The action strings file for translators still has 4 action names in their old case.
 	- ID: 2026112310211281
 	- Type: Bug
@@ -387,14 +404,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - When moving a bookmark with the mouse, it should give some kind of indication of where it's going to go *between*.
 	- ID: 2026101613053686
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on UAT
+		- Needs a look at the new line while dragging a bookmark in Places.
+	- Needs hand testing: drag a bookmark up and down in Places, on Windows with the default theme and on Linux. A line in the text color shows between the 2 rows it would go between, and moves as the pointer does. Check it over the selected place too.
 	- Priority|Severity: Avg
 	- Opened: 20261016-130536
 	- Opened by: t00mietum
+	- Related IDs: 2026112310420234
 	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
-	- Test case: none yet.
+	- Progress log:
+		- 20261123: the spot was already worked out and handed to the toolkit, which drew it as the theme's drop line. That line is 1px, which is easy to miss, as in Fluent, the Windows default, and Adwaita. In Adwaita dark, Windows 10, Windows 10 dark and Windows 7 its color is so close to the background that it can't be seen at all.
+	- Decisions:
+		- The line is drawn in the row's text color, 2px thick, across the whole row, on the top edge of the row below or the bottom edge of the row above. Text color is the one color that reads on every theme, light and dark, and on the selected row. Explorer draws its line in black the same way. Options were the theme's accent color, which is the color that couldn't be seen in 3 themes, or drawing a marker of our own beside the line, as Finder does.
+		- Only Places has this kind of drop. The frame around a row a file drops into has the same faint color in those themes, and is 2026112310420234.
+	- Done: the app's own style sheet draws the line for Places over the theme's.
+	- Swept: Places is the only view that drops between rows. The list view and the tree pane only drop into a row.
+	- Verified: dfpnp fails before the change, with no line or only 1px in all 11 themes it draws, the 9 bundled sheets and Adwaita light and dark, and passes after, at 2px with contrast 3.77 or better. dd2sk, ddg79 and ddhw4 still pass. format and lint pass.
+	- Branch: nov23-2026101613053686
+	- Commit: 1bbffa05
+	- Test case: dfpnp Places drop line test. A Places tree view is drawn in each bundled theme with and without a drop spot, before and after a row and next to the selected row. The line has to be at least 2px, on the right edge of the right row, with at least 3:1 contrast.
 
 - Need ability to enter variables in the path bar. E.g. `$TMP9`.
 	- ID: 2026101613053687

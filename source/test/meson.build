@@ -706,6 +706,21 @@ test('dd2sk Row hover tint test',
   args: []
 )
 
+# gresources brings the app's own sheet, read from where the app reads it.
+# The themes are read from the source tree, which a Windows test box doesn't
+# have; GTK draws the line the same way there.
+if not is_windows
+  test('dfpnp Places drop line test',
+    executable('test-nemo-places-drop-line',
+      [ 'test-nemo-places-drop-line.c' ] + gresources,
+      include_directories: [ rootInclude, ],
+      dependencies: [ gtk, nemo_private, test_fence ],
+      c_args: [ '-DVENDOR_THEMES_DIR="@0@"'.format(meson.project_source_root() / '..' / 'vendor' / 'themes') ],
+    ),
+    args: []
+  )
+endif
+
 test('dczsk Primary mask test',
   executable('test-eel-primary-mask',
     [ 'test-eel-primary-mask.c' ],
