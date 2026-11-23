@@ -65,6 +65,11 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
     <property name="can-focus">False</property>
     <property name="icon-name">view-dual-symbolic</property>
   </object>
+  <object class="GtkImage" id="image16">
+    <property name="visible">True</property>
+    <property name="can-focus">False</property>
+    <property name="icon-name">folder-pictures-symbolic</property>
+  </object>
   <object class="GtkImage" id="image2">
     <property name="visible">True</property>
     <property name="can-focus">False</property>
@@ -885,8 +890,8 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                                     </child>
                                                     <child>
                                                       <object class="GtkCheckButton" id="image_folder_switch_checkbutton">
-                                                        <property name="label" translatable="yes">Show folders of _pictures in icon view</property>
-                                                        <property name="tooltip-text" translatable="yes">A folder that is mostly pictures opens in icon view, unless it has a view of its own. How many count as mostly is set in the settings file.</property>
+                                                        <property name="label" translatable="yes">Show folders of _pictures in image thumbnail view</property>
+                                                        <property name="tooltip-text" translatable="yes">A folder that is mostly pictures opens in image thumbnail view, unless it has a view of its own. How many count as mostly is set in the settings file.</property>
                                                         <property name="visible">True</property>
                                                         <property name="can-focus">True</property>
                                                         <property name="receives-default">False</property>
@@ -5449,6 +5454,43 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                         <property name="can-focus">False</property>
                                         <property name="spacing">6</property>
                                         <child>
+                                          <object class="GtkToggleButton" id="show_image_view_icon_toolbar_togglebutton">
+                                            <property name="name">show_previous_icon_toolbar_togglebutton</property>
+                                            <property name="visible">True</property>
+                                            <property name="can-focus">True</property>
+                                            <property name="receives-default">True</property>
+                                            <property name="image">image16</property>
+                                          </object>
+                                          <packing>
+                                            <property name="expand">False</property>
+                                            <property name="fill">True</property>
+                                            <property name="position">0</property>
+                                          </packing>
+                                        </child>
+                                        <child>
+                                          <object class="GtkLabel">
+                                            <property name="visible">True</property>
+                                            <property name="can-focus">False</property>
+                                            <property name="label" translatable="yes">Image thumbnail view</property>
+                                          </object>
+                                          <packing>
+                                            <property name="expand">False</property>
+                                            <property name="fill">True</property>
+                                            <property name="position">1</property>
+                                          </packing>
+                                        </child>
+                                      </object>
+                                      <packing>
+                                        <property name="left-attach">1</property>
+                                        <property name="top-attach">6</property>
+                                      </packing>
+                                    </child>
+                                    <child>
+                                      <object class="GtkBox">
+                                        <property name="visible">True</property>
+                                        <property name="can-focus">False</property>
+                                        <property name="spacing">6</property>
+                                        <child>
                                           <object class="GtkToggleButton" id="show_show_thumbnails_icon_toolbar_togglebutton">
                                             <property name="name">show_show_thumbnails_icon_toolbar_togglebutton</property>
                                             <property name="visible">True</property>
@@ -5476,8 +5518,8 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                         </child>
                                       </object>
                                       <packing>
-                                        <property name="left-attach">1</property>
-                                        <property name="top-attach">6</property>
+                                        <property name="left-attach">0</property>
+                                        <property name="top-attach">7</property>
                                       </packing>
                                     </child>
                                     <child>
@@ -5513,7 +5555,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                         </child>
                                       </object>
                                       <packing>
-                                        <property name="left-attach">0</property>
+                                        <property name="left-attach">1</property>
                                         <property name="top-attach">7</property>
                                       </packing>
                                     </child>

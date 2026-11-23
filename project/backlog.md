@@ -514,7 +514,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Image thumbnail captions can also show image and video metadata. Which fields isn't settled yet.
 	- Design: its settings are under [Default and Current](design_docs/20261020-121842_settings.md#default-and-current) and [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs).
 	- Progress log:
-		- 20261123: split in 3. The new order and keys for the 3 views there are now is 2026112311283203, Done. Image thumbnail view on Ctrl+4 is 2026112311283221, Done. Opening a folder of mostly images in it, and its toolbar button, is 2026112311463795, Queued.
+		- 20261123: split in 3. The new order and keys for the 3 views there are now is 2026112311283203, Done. Image thumbnail view on Ctrl+4 is 2026112311283221, Done. Opening a folder of mostly images in it, and its toolbar button, is 2026112311463795, Done.
 	- Test case: none yet.
 
 - Reorder the views as Detailed, Compact and Icon, on Ctrl+1 to Ctrl+3, and call list view Detailed view.
@@ -569,7 +569,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - A folder of mostly images opens in Image thumbnail view, rather than in icon view at the picture size, and the toolbar has a button for the view.
 	- ID: 2026112311463795
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261123-114637
 	- Opened by: t00mietum
@@ -578,6 +579,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Target version: rc.1
 	- Requirements: the parent's. The image folder switch picks Image thumbnail view, and icon view no longer grows in such a folder. A toolbar button with the others, and its checkbox on the Toolbar tab. Its settings section is 2026102018234905's.
 	- Note: the switch, its saved and held views, the F2 fixes in 2026101009150764 and the shared sort in 2026101613053691 all assume icon view today.
+	- Done: a folder that's mostly images opens in Image thumbnail view, from Detailed, Compact or Icon view, unless it has a view of its own. Icon view no longer grows in such a folder and keeps its own size there. Image thumbnail view has a toolbar button after Icon view, with a checkbox on the Toolbar tab in Settings and `preferences.show-image-view-icon-toolbar` in the settings file, on by default. The changelog, design.md and the Settings design doc say so.
+	- Decisions:
+		- The switch now also acts from icon view, since icon view used to grow in such a folder and a default of icon view would otherwise never show pictures at the picture size. Picking icon view there by hand is saved on the folder, or held by the window with per-folder settings off, the same as picking Detailed view was before.
+		- Icon view's second size is gone from the code. The picture size, and its saved and held values, now belong to Image thumbnail view only, so a zoom there sets the picture size and a zoom in icon view sets the plain one.
+		- The button uses `folder-pictures-symbolic`, since the bundled icon set has no photo or gallery icon, and `image-x-generic-symbolic` is already the Show thumbnails button.
+		- dcx3r `fCheckImageDefault` in the C lint is commented out with the reason. It read the 2 functions that grew icon view in a folder of images, which are gone.
+		- The Toolbar tab puts Image thumbnail view beside Icon view, so Show thumbnails and Extra pane each moved down one place.
+	- Swept: every place the switch picks or checks a view: the view picked before the load with per-folder settings off, the default for a folder with no view of its own, the check after the load, and the default passed when a hand pick is saved. Every reader of the picture size in the icon view: the default size, the saved key, the held size, and the thumbnails made ahead. Each toolbar view button's key, settings row, binding, show and hide, and the code that presses the button for the view showing. The F2 tests in a folder of pictures, ddwjw, ddzyz and ddzzq, now run in Image thumbnail view, and the shared sort test de55s, and all pass.
+	- Verified: 20261123, dfpqj fails on the code before this change: the folder of pictures stays out of Image thumbnail view, its button isn't pressed, and icon view lays the icons out as tall as Image thumbnail view, 2495 both. It passes after. dbnfq, dcx3q, dd5df, dcx2w, dcraj, dav3s, dd5dh, ddwjw, ddzyz, ddzzq, dfpq4, de55s and dbsx7 pass. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Test case: dfpqj, View order and keys test, now checks the toolbar's fourth button, and opens a folder of pictures: it opens in Image thumbnail view with that button pressed, and icon view there keeps the plain size. dbnfq, Settings widgets test, checks the new checkbox is in the layout.
+	- Acceptance signoff: Self-closed: dfpqj passes.
+	- Branch: nov23-2026112311463795
+	- Commit: d97c0a99
+	- Closed: 20261123-121006
 
 - Settings: new tab layout, and tidying across the dialog.
 	- ID: 2026102018234905

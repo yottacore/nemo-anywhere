@@ -21,7 +21,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Image thumbnail view, a fourth view on Ctrl+4, shows a folder's pictures at the picture size, the size a folder that's mostly images gets in icon view. It's in the View menu, the keyboard shortcuts window and the default view in Settings, and `image-view` in the settings file.
+- Image thumbnail view, a fourth view on Ctrl+4, shows a folder's pictures at the picture size. It's in the View menu, the toolbar, the keyboard shortcuts window and the default view in Settings, and `image-view` in the settings file. Its toolbar button has a checkbox on the Toolbar tab in Settings.
+
+- A folder that's mostly images opens in Image thumbnail view, rather than in icon view at the picture size. Icon view keeps its own size there.
 
 - Every move to the trash and every delete is written to the log with how many items, which folder, and the key, click, or drop that started it. One that wasn't started that way, such as one from another program, another copy of the app, or a timer, always asks first and says so. So does one of 20 items or more, even with confirmation turned off. `confirm-many-items` in the settings file sets that number.
 

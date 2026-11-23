@@ -582,7 +582,9 @@ fCheckImageDefault(){
 		exit 2
 	fi
 }
-fRun fCheckImageDefault
+# Off since icon view stopped sizing by what is in a folder (2026112311463795).
+# The image view reads its size the same way as any other, so neither function is left.
+# fRun fCheckImageDefault
 
 ## With per-folder settings off the window stores 3 icon sizes: plain and
 ## pictures for the icon view, and one for list view. Anything in the icon view

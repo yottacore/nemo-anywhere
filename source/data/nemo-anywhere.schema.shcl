@@ -262,7 +262,7 @@ field: icon-view.image-folder-min-percent
 field: icon-view.image-folder-switch
 	type: bool
 	default: true
-	desc: "Show a folder that is mostly images in icon view, unless it has a view of its own"
+	desc: "Show a folder that is mostly images in image thumbnail view, unless it has a view of its own"
 
 field: icon-view.labels-beside-icons
 	type: bool
@@ -579,6 +579,10 @@ field: preferences.show-image-thumbnails
 	default: local-only
 	desc: When to draw thumbnails
 	# aliases: [previews, preview images]
+
+field: preferences.show-image-view-icon-toolbar
+	type: bool
+	default: true
 
 field: preferences.show-list-view-icon-toolbar
 	type: bool

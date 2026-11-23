@@ -391,7 +391,7 @@ The window has a menu and toolbar, the side panes, a path bar, and a view, and t
 
 #### Views and list columns
 
-- The icon, compact, and list views share one interface, with an optional tree column in list view. Image thumbnail view is the icon view at the picture size, the one a folder that's mostly images gets, whatever is in the folder. Each reads its layout from per-folder state where the folder has any, and from the defaults where it doesn't.
+- The icon, compact, and list views share one interface, with an optional tree column in list view. Image thumbnail view is the icon view at the picture size, whatever is in the folder. A folder that's mostly images opens in it. Each reads its layout from per-folder state where the folder has any, and from the defaults where it doesn't.
 
 - Every other row can be shaded, off by default. GTK 3 no longer draws the rules hint, so each cell tints its own background on odd rows, counted by place on screen so an open subfolder's rows take their turn. A cell leaves its background off a selected row, and the tint is see-through, so selection and hover still read. The color is the setting's, then the theme's `nemo_row_shading`, then a faint wash of the text color.
 
@@ -415,17 +415,17 @@ The window has a menu and toolbar, the side panes, a path bar, and a view, and t
 
 - Both the settings file and the Settings window say it as a percent of the standard 64 pixels, so 100% is 64 and 1000% is 640.
 
-- There are 2 defaults for the icon view. An ordinary folder opens at 100%. A folder that is mostly images opens at 500%, which is 320 pixels, so pictures are shown at a size worth looking at without anyone touching the slider.
+- There are 2 defaults for the icon view. Icon view opens at 100%. Image thumbnail view opens at 500%, which is 320 pixels, so pictures are shown at a size worth looking at without anyone touching the slider.
 
 - "Mostly images" means at least 2 images, and images making up at least half of the files. Both numbers are in the settings file. Folders aren't counted either way, so filing pictures into sub-folders doesn't change the answer. The count is taken once the folder has finished loading, which is the first moment anything is known about what's in it.
 
-- Such a folder also opens in icon view when the default view is list or compact, unless it has a view of its own. Since the count waits for the load, the switch happens after it. To avoid that, the answer is kept in memory for the last few hundred folders, and the local sub-folders of a folder just loaded are counted ahead in the background. Either way the view is right from the first draw. Only a folder nothing is known about still switches late. Picking another view there by hand is saved on the folder, so it isn't switched again.
+- Such a folder opens in Image thumbnail view whatever the default view is, unless it has a view of its own. Icon view doesn't grow there, and keeps its own size. Since the count waits for the load, the switch happens after it. To avoid that, the answer is kept in memory for the last few hundred folders, and the local sub-folders of a folder just loaded are counted ahead in the background. Either way the view is right from the first draw. Only a folder nothing is known about still switches late. Picking another view there by hand is saved on the folder, so it isn't switched again.
 
 - The image size is a default rather than a rule. The slider still moves the folder, and where "Remember per-folder settings" is on that size is what sticks. The default itself is never written back. A folder with nothing of its own keeps following whatever the setting says, and in a window that isn't remembering per folder the bigger size doesn't follow you into the next folder.
 
-- A folder therefore remembers 2 icon sizes, one for how it should look full of pictures and one for how it should look otherwise. Which of the 2 a zoom sets depends on what's in the folder at the time, so zooming a gallery never moves the size its plain sibling opens at. With per-folder settings off, the window keeps the same pair for as long as it's open, so a zoom in a gallery doesn't follow into the next list either.
+- A folder therefore remembers 2 icon sizes, one for Image thumbnail view and one for icon view. Which of the 2 a zoom sets depends on the view, so zooming a gallery never moves the size its plain sibling opens at. With per-folder settings off, the window keeps the same pair for as long as it's open, so a zoom in a gallery doesn't follow into the next list either.
 
-- Both sizes inherit. A child with nothing of its own takes the pair from the nearest parent that has one and then picks between them by what is in the child. So one setting on a photo library gives every album under it the big size, while a folder of notes filed in the same tree still opens small. Where a parent only ever had one of the 2 set, the other falls back to its default.
+- Both sizes inherit. A child with nothing of its own takes the pair from the nearest parent that has one and then uses the one for the view it opens in. A child that's mostly images opens in Image thumbnail view, so one setting on a photo library gives every album under it the big size, while a folder of notes filed in the same tree still opens small. Where a parent only ever had one of the 2 set, the other falls back to its default.
 
 - The slider runs along the stops rather than over pixels. The range is nearly 30 times as wide at one end as the other, so spacing the marks evenly is the only way the low end stays usable.
 

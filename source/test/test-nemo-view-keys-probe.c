@@ -2,6 +2,8 @@
 
 /* test-nemo-view-keys-probe.c - checks the order of the views in the View menu
    and the toolbar, and presses Ctrl+4 down to Ctrl+1 from inside the program.
+   With $NEMO_VIEWKEYS_IMAGES set it checks a folder of pictures instead: that
+   it opens in Image thumbnail view, and that icon view keeps the plain size there.
 
    Copyright © 2026 t00mietum (CryptogID: ปʬϝღถɔ4რఠΔթะ9ƾǝu).
 
@@ -49,6 +51,7 @@ static GtkWidget *window;
 static guint      step;
 static int        waited;
 static guint      image_height;
+static gboolean   images;
 
 static void
 report (gboolean passed, const char *what)
@@ -237,9 +240,44 @@ check_toolbar_order (void)
 	GList *tips = NULL;
 
 	collect_tips_cb (window, &tips);
-	/* Image thumbnail view has no button yet. */
-	report (place_in (tips, 3) >= 0, "the toolbar has Detailed, Compact and Icon view in that order");
+	report (place_in (tips, G_N_ELEMENTS (order)) >= 0,
+		"the toolbar has Detailed, Compact, Icon and Image thumbnail view in that order");
 	g_list_free_full (tips, g_free);
+}
+
+typedef struct {
+	const char *tip;
+	GtkWidget  *found;
+} TipSearch;
+
+static void
+find_tip_cb (GtkWidget *widget, gpointer data)
+{
+	TipSearch *search = data;
+	char *tip;
+
+	if (search->found != NULL) {
+		return;
+	}
+	if (GTK_IS_TOGGLE_BUTTON (widget)) {
+		tip = gtk_widget_get_tooltip_text (widget);
+		if (g_strcmp0 (tip, search->tip) == 0) {
+			search->found = widget;
+		}
+		g_free (tip);
+	}
+	if (search->found == NULL && GTK_IS_CONTAINER (widget)) {
+		gtk_container_forall (GTK_CONTAINER (widget), find_tip_cb, data);
+	}
+}
+
+static gboolean
+toolbar_pressed (const char *tip)
+{
+	TipSearch search = { tip, NULL };
+
+	find_tip_cb (window, &search);
+	return search.found != NULL && gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (search.found));
 }
 
 static void
@@ -253,6 +291,44 @@ static void
 press (guint key)
 {
 	gtk_accel_groups_activate (G_OBJECT (window), key, GDK_CONTROL_MASK);
+}
+
+/* A folder of pictures: the switch has to move it from Detailed view to
+ * Image thumbnail view once it has loaded, and Ctrl+3 then shows it in icon
+ * view at the plain size, smaller than in Image thumbnail view. */
+static gboolean
+tick_images (void)
+{
+	if (step == 0) {
+		if (!(showing ("Image thumbnail view") && view_is ("NemoIconView") && waited >= 15) &&
+		    waited <= 100) {
+			return G_SOURCE_CONTINUE;
+		}
+		report (waited <= 100, "a folder of pictures opens in Image thumbnail view");
+		report (toolbar_pressed ("Image thumbnail view"), "the toolbar shows Image thumbnail view pressed");
+		image_height = laid_out_height ();
+		press (GDK_KEY_3);
+		step = 1;
+		waited = 0;
+		return G_SOURCE_CONTINUE;
+	}
+
+	if (!(showing ("Icon view") && view_is ("NemoIconView") && waited >= 15) && waited <= 100) {
+		return G_SOURCE_CONTINUE;
+	}
+	if (waited <= 100) {
+		guint icon_height = laid_out_height ();
+
+		if (icon_height == 0 || icon_height >= image_height) {
+			fprintf (out, "laid out %u high in image thumbnail view, %u in icon view\n", image_height, icon_height);
+		}
+		report (icon_height > 0 && icon_height < image_height,
+			"icon view keeps the plain size in a folder of pictures");
+	} else {
+		report (FALSE, "Ctrl+3 shows Icon view in a folder of pictures");
+	}
+	finish ();
+	return G_SOURCE_REMOVE;
 }
 
 /* Up to 10 seconds for each step. */
@@ -276,6 +352,15 @@ tick (G_GNUC_UNUSED gpointer data)
 		if (window == NULL && waited <= 100) {
 			return G_SOURCE_CONTINUE;
 		}
+		if (window == NULL) {
+			report (FALSE, "timed out waiting for the window");
+			finish ();
+			return G_SOURCE_REMOVE;
+		}
+	}
+
+	if (images) {
+		return tick_images ();
 	}
 
 	if (step == 0) {
@@ -336,6 +421,11 @@ probe_start (void)
 		return;
 	}
 	out = fopen (path, "w");
+	images = g_getenv ("NEMO_VIEWKEYS_IMAGES") != NULL;
+	/* A thumbnailer the program starts loads this too, and would empty the
+	   file again. */
+	g_unsetenv ("NEMO_VIEWKEYS_OUT");
+	g_unsetenv ("NEMO_VIEWKEYS_IMAGES");
 	if (out == NULL) {
 		return;
 	}

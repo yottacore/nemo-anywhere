@@ -43,7 +43,7 @@ void     nemo_image_folders_note              (GFile *location, gboolean mostly)
 /* FALSE when nothing is known about location. */
 gboolean nemo_image_folders_known             (GFile *location, gboolean *mostly);
 
-/* Whether folder should open in icon view: mostly images, the switch is on,
+/* Whether folder should open in the image view: mostly images, the switch is on,
    it isn't a search, and saved_view (the folder's own saved view, or NULL)
    doesn't say otherwise. Before its files are in, that is only known if it
    was seen lately or counted ahead from the folder above it, and otherwise it

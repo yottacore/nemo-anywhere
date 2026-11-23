@@ -143,6 +143,7 @@ typedef enum
 #define NEMO_PREFERENCES_SHOW_ICON_VIEW_ICON_TOOLBAR   "show-icon-view-icon-toolbar"
 #define NEMO_PREFERENCES_SHOW_LIST_VIEW_ICON_TOOLBAR   "show-list-view-icon-toolbar"
 #define NEMO_PREFERENCES_SHOW_COMPACT_VIEW_ICON_TOOLBAR   "show-compact-view-icon-toolbar"
+#define NEMO_PREFERENCES_SHOW_IMAGE_VIEW_ICON_TOOLBAR   "show-image-view-icon-toolbar"
 #define NEMO_PREFERENCES_SHOW_ROOT_WARNING                "show-root-warning"
 #define NEMO_PREFERENCES_SHOW_SHOW_THUMBNAILS_TOOLBAR     "show-show-thumbnails-toolbar"
 #define NEMO_PREFERENCES_SHOW_TOGGLE_EXTRA_PANE_TOOLBAR "show-toggle-extra-pane-toolbar"

@@ -20,10 +20,11 @@
    Boston, MA 02110-1335, USA.
 */
 
-/* The View menu and the toolbar list Detailed, Compact and Icon view in that
- * order, with Image thumbnail view after them in the menu, and Ctrl+1 to Ctrl+4
- * switch to them. Image thumbnail view shows the icons bigger than icon view.
- * The built program runs
+/* The View menu and the toolbar list Detailed, Compact, Icon and Image thumbnail
+ * view in that order, and Ctrl+1 to Ctrl+4 switch to them. Image thumbnail view
+ * shows the icons bigger than icon view. A folder of pictures opens in Image
+ * thumbnail view, with its toolbar button pressed, and icon view keeps the plain
+ * size there. The built program runs
  * with test-nemo-view-keys-probe preloaded to look and press the keys.
  *
  * Needs the built program (argv[1]), the probe (argv[2]) and a display. Linux
@@ -74,15 +75,24 @@ stop (GPid pid)
 	g_spawn_close_pid (pid);
 }
 
+/* A 1x1 PNG. */
+static const guchar png[] = {
+	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+	0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
+	0x89, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
+	0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
+	0x42, 0x60, 0x82
+};
+
 static void
-run (const char *exe, const char *probe)
+run (const char *exe, const char *probe, gboolean images)
 {
 	char *root = test_scratch_dir ("nemo-view-keys-XXXXXX", NULL);
 	char *folder = g_build_filename (root, "viewme", NULL);
 	char *config = g_build_filename (root, "config", "nemo-anywhere", NULL);
 	char *settings = g_build_filename (config, "settings.shcl", NULL);
 	char *out = g_build_filename (root, "keys.txt", NULL);
-	const char *label = "view keys";
+	const char *label = images ? "image folder" : "view keys";
 	char *path, *text = NULL;
 	char *spawn_argv[4];
 	char **envp, **lines;
@@ -93,10 +103,14 @@ run (const char *exe, const char *probe)
 
 	g_mkdir_with_parents (folder, 0700);
 	for (i = 0; i < 6; i++) {
-		char *name = g_strdup_printf ("file-%d.txt", i);
+		char *name = g_strdup_printf (images && i > 0 ? "shot-%d.png" : "file-%d.txt", i);
 
 		path = g_build_filename (folder, name, NULL);
-		check (g_file_set_contents (path, name, -1, NULL));
+		if (images && i > 0) {
+			check (g_file_set_contents (path, (const char *) png, sizeof png, NULL));
+		} else {
+			check (g_file_set_contents (path, name, -1, NULL));
+		}
 		g_free (path);
 		g_free (name);
 	}
@@ -117,6 +131,9 @@ run (const char *exe, const char *probe)
 	envp = g_environ_setenv (envp, "DBUS_SESSION_BUS_ADDRESS", "disabled:", TRUE);
 	envp = g_environ_setenv (envp, "LD_PRELOAD", probe, TRUE);
 	envp = g_environ_setenv (envp, "NEMO_VIEWKEYS_OUT", out, TRUE);
+	if (images) {
+		envp = g_environ_setenv (envp, "NEMO_VIEWKEYS_IMAGES", "1", TRUE);
+	}
 
 	spawn_argv[0] = (char *) exe;
 	spawn_argv[1] = (char *) "--geometry=640x480";
@@ -159,8 +176,8 @@ run (const char *exe, const char *probe)
 		}
 		g_strfreev (lines);
 	}
-	if (done && results != 7) {
-		g_printerr ("FAIL %s: %d results, expected 7\n", label, results);
+	if (done && results != (images ? 3 : 7)) {
+		g_printerr ("FAIL %s: %d results, expected %d\n", label, results, images ? 3 : 7);
 		failures++;
 	}
 
@@ -195,7 +212,8 @@ main (int argc, char *argv[])
 		return 77;
 	}
 
-	run (argv[1], argv[2]);
+	run (argv[1], argv[2], FALSE);
+	run (argv[1], argv[2], TRUE);
 
 	if (failures > 0) {
 		g_printerr ("%d failure(s)\n", failures);

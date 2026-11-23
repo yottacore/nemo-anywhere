@@ -55,6 +55,7 @@ struct _NemoToolbarPriv {
     GtkWidget *icon_view_button;
     GtkWidget *list_view_button;
     GtkWidget *compact_view_button;
+    GtkWidget *image_view_button;
     GtkWidget *show_thumbnails_button;
     GtkWidget *show_extra_pane_button;
 
@@ -196,6 +197,11 @@ toolbar_update_appearance (NemoToolbar *self)
 
     widgetitem = self->priv->compact_view_button;
     icon_toolbar = nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_SHOW_COMPACT_VIEW_ICON_TOOLBAR);
+    if ( icon_toolbar == FALSE ) { gtk_widget_hide (widgetitem); }
+    else {gtk_widget_show (GTK_WIDGET(widgetitem));}
+
+    widgetitem = self->priv->image_view_button;
+    icon_toolbar = nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_SHOW_IMAGE_VIEW_ICON_TOOLBAR);
     if ( icon_toolbar == FALSE ) { gtk_widget_hide (widgetitem); }
     else {gtk_widget_show (GTK_WIDGET(widgetitem));}
 
@@ -378,6 +384,9 @@ nemo_toolbar_constructed (GObject *obj)
 
     self->priv->icon_view_button = toolbar_create_toolbutton (self, TRUE, NEMO_ACTION_ICON_VIEW);
     gtk_container_add (GTK_CONTAINER (box), self->priv->icon_view_button);
+
+    self->priv->image_view_button = toolbar_create_toolbutton (self, TRUE, NEMO_ACTION_IMAGE_VIEW);
+    gtk_container_add (GTK_CONTAINER (box), self->priv->image_view_button);
 
     gtk_container_add (GTK_CONTAINER (tool_box), GTK_WIDGET (box));
     gtk_container_add (GTK_CONTAINER (self->priv->toolbar), GTK_WIDGET (tool_box));
