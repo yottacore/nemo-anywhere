@@ -57,6 +57,7 @@ static const NemoConfigEnumValue enum_FolderView[] = {
 	{ "icon-view", 0 },
 	{ "compact-view", 1 },
 	{ "list-view", 2 },
+	{ "image-view", 4 },
 	{ NULL, 0 }
 };
 
@@ -72,6 +73,14 @@ static const NemoConfigEnumValue enum_SelectionModel[] = {
 	{ "nemo-anywhere-v1", 0 },
 	{ "nemo-classic", 1 },
 	{ "nemo-anywhere", 2 },
+	{ NULL, 0 }
+};
+
+/* Where pasted and new items go in a list view. See design_docs/20261020-103804_behavior-models.md. */
+static const NemoConfigEnumValue enum_PasteTarget[] = {
+	{ "nemo-anywhere", 0 },
+	{ "nemo-classic", 1 },
+	{ "macos-dolphin", 2 },
 	{ NULL, 0 }
 };
 
@@ -197,7 +206,7 @@ static const NemoConfigKey nemo_config_keys[] = {
 	{ "icon-view", "default-image-icon-size", NEMO_CONFIG_INT, "500", NULL, NULL, "Icon size for a folder that is mostly images, as a percent of the standard 64 pixels", NEMO_CONFIG_KEY_NONE },
 	{ "icon-view", "image-folder-min-images", NEMO_CONFIG_INT, "2", NULL, NULL, "Fewest images a folder needs to count as mostly images", NEMO_CONFIG_KEY_NONE },
 	{ "icon-view", "image-folder-min-percent", NEMO_CONFIG_INT, "50", NULL, NULL, "Share of a folder's files, sub-folders not counted, that must be images for it to count as mostly images", NEMO_CONFIG_KEY_NONE },
-	{ "icon-view", "image-folder-switch", NEMO_CONFIG_BOOL, "true", NULL, NULL, "Show a folder that is mostly images in icon view, unless it has a view of its own", NEMO_CONFIG_KEY_NONE },
+	{ "icon-view", "image-folder-switch", NEMO_CONFIG_BOOL, "true", NULL, NULL, "Show a folder that is mostly images in image thumbnail view, unless it has a view of its own", NEMO_CONFIG_KEY_NONE },
 	{ "icon-view", "labels-beside-icons", NEMO_CONFIG_BOOL, "false", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },
 	{ "icon-view", "text-ellipsis-limit", NEMO_CONFIG_STRING_LIST, NULL, deflist_icon_view_text_ellipsis_limit, NULL, "Lines of a name under an icon before it is cut short", NEMO_CONFIG_KEY_NONE },
 	{ "icon-view", "thumbnail-size", NEMO_CONFIG_INT, "64", NULL, NULL, "Thumbnail size in pixels", NEMO_CONFIG_KEY_NONE },
@@ -245,6 +254,7 @@ static const NemoConfigKey nemo_config_keys[] = {
 	{ "preferences", "never-queue-file-ops", NEMO_CONFIG_BOOL, "false", NULL, NULL, "Start every file operation at once rather than queueing them", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "remember-folder-settings", NEMO_CONFIG_BOOL, "false", NULL, NULL, "Each folder keeps its own view, zoom, sort, and columns", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "rename-selects-whole-name", NEMO_CONFIG_BOOL, "true", NULL, NULL, "Renaming selects the whole name, extension included", NEMO_CONFIG_KEY_NONE },
+	{ "preferences", "paste-target", NEMO_CONFIG_ENUM, "nemo-anywhere", NULL, enum_PasteTarget, "Where pasted and new items go", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "quick-renames-with-pause-in-between", NEMO_CONFIG_BOOL, "false", NULL, NULL, "Two slow clicks on a name start a rename", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "selection-model", NEMO_CONFIG_ENUM, "nemo-anywhere", NULL, enum_SelectionModel, "How clicks and keys select and focus files and folders", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "show-advanced-permissions", NEMO_CONFIG_BOOL, "false", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },
@@ -257,6 +267,7 @@ static const NemoConfigKey nemo_config_keys[] = {
 	{ "preferences", "show-hidden-files", NEMO_CONFIG_BOOL, "false", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "show-home-icon-toolbar", NEMO_CONFIG_BOOL, "false", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "show-icon-view-icon-toolbar", NEMO_CONFIG_BOOL, "true", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },
+	{ "preferences", "show-image-view-icon-toolbar", NEMO_CONFIG_BOOL, "true", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "show-image-thumbnails", NEMO_CONFIG_ENUM, "local-only", NULL, enum_SpeedTradeoff, "When to draw thumbnails", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "show-list-view-icon-toolbar", NEMO_CONFIG_BOOL, "true", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "show-location-entry", NEMO_CONFIG_BOOL, "false", NULL, NULL, "Start with a typed location instead of path buttons", NEMO_CONFIG_KEY_NONE },
@@ -291,6 +302,7 @@ static const NemoConfigKey nemo_config_keys[] = {
 	{ "preferences", "tooltips-show-path", NEMO_CONFIG_BOOL, "false", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "treat-root-as-normal", NEMO_CONFIG_BOOL, "false", NULL, NULL, "Drop the safeguards that apply when running as root", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "window-per-process", NEMO_CONFIG_BOOL, "true", NULL, NULL, "Each new window runs as its own process", NEMO_CONFIG_KEY_NONE },
+	{ "preferences", "zoom-resizes-window", NEMO_CONFIG_BOOL, "true", NULL, NULL, "Zooming in or out from the keyboard or the View menu resizes the window to match", NEMO_CONFIG_KEY_NONE },
 	{ "preferences.menu-config", "background-menu-compress", NEMO_CONFIG_BOOL, "true", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },
 	{ "preferences.menu-config", "background-menu-copy-path", NEMO_CONFIG_BOOL, "true", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },
 	{ "preferences.menu-config", "background-menu-create-new-folder", NEMO_CONFIG_BOOL, "true", NULL, NULL, NULL, NEMO_CONFIG_KEY_NONE },

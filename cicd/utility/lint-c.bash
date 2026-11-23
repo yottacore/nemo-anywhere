@@ -207,6 +207,7 @@ fCheckRawDeletes(){
 	allowed+='source/libnemo-private/nemo-crash.c '			# old crash reports
 	allowed+='source/libnemo-private/nemo-cache-db.c '		# a damaged cache file it is replacing
 	allowed+='source/libnemo-private/nemo-desktop-thumbnail.c '	# thumbnail cache
+	allowed+='source/libnemo-private/nemo-shortcuts.c '		# its own temp copy of the shortcut file
 	allowed+='source/src/nemo-bookmark-list.c '			# --reset
 	allowed+='source/src/nemo-main-application.c '			# --reset
 	local file bad=""
@@ -582,7 +583,9 @@ fCheckImageDefault(){
 		exit 2
 	fi
 }
-fRun fCheckImageDefault
+# Off since icon view stopped sizing by what is in a folder (2026112311463795).
+# The image view reads its size the same way as any other, so neither function is left.
+# fRun fCheckImageDefault
 
 ## With per-folder settings off the window stores 3 icon sizes: plain and
 ## pictures for the icon view, and one for list view. Anything in the icon view

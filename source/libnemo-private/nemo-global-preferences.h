@@ -143,6 +143,7 @@ typedef enum
 #define NEMO_PREFERENCES_SHOW_ICON_VIEW_ICON_TOOLBAR   "show-icon-view-icon-toolbar"
 #define NEMO_PREFERENCES_SHOW_LIST_VIEW_ICON_TOOLBAR   "show-list-view-icon-toolbar"
 #define NEMO_PREFERENCES_SHOW_COMPACT_VIEW_ICON_TOOLBAR   "show-compact-view-icon-toolbar"
+#define NEMO_PREFERENCES_SHOW_IMAGE_VIEW_ICON_TOOLBAR   "show-image-view-icon-toolbar"
 #define NEMO_PREFERENCES_SHOW_ROOT_WARNING                "show-root-warning"
 #define NEMO_PREFERENCES_SHOW_SHOW_THUMBNAILS_TOOLBAR     "show-show-thumbnails-toolbar"
 #define NEMO_PREFERENCES_SHOW_TOGGLE_EXTRA_PANE_TOOLBAR "show-toggle-extra-pane-toolbar"
@@ -182,6 +183,7 @@ typedef enum
 
 #define NEMO_PREFERENCES_START_WITH_DUAL_PANE "start-with-dual-pane"
 #define NEMO_PREFERENCES_REMEMBER_FOLDER_SETTINGS "remember-folder-settings"
+#define NEMO_PREFERENCES_ZOOM_RESIZES_WINDOW "zoom-resizes-window"
 #define NEMO_PREFERENCES_SHOW_BOOKMARKS_IN_TO_MENUS "show-bookmarks-in-to-menus"
 #define NEMO_PREFERENCES_SHOW_PLACES_IN_TO_MENUS "show-places-in-to-menus"
 
@@ -194,13 +196,15 @@ enum
 	NEMO_DEFAULT_FOLDER_VIEWER_ICON_VIEW,
 	NEMO_DEFAULT_FOLDER_VIEWER_COMPACT_VIEW,
 	NEMO_DEFAULT_FOLDER_VIEWER_LIST_VIEW,
-	NEMO_DEFAULT_FOLDER_VIEWER_OTHER
+	NEMO_DEFAULT_FOLDER_VIEWER_OTHER,
+	NEMO_DEFAULT_FOLDER_VIEWER_IMAGE_VIEW
 };
 
 /* These IIDs are used by the preferences code and in nemo-application.c */
 #define NEMO_ICON_VIEW_IID		"OAFIID:Nemo_File_Manager_Icon_View"
 #define NEMO_COMPACT_VIEW_IID	"OAFIID:Nemo_File_Manager_Compact_View"
 #define NEMO_LIST_VIEW_IID		"OAFIID:Nemo_File_Manager_List_View"
+#define NEMO_IMAGE_VIEW_IID		"OAFIID:Nemo_File_Manager_Image_View"
 #define NEMO_DESKTOP_ICON_VIEW_IID  "OAFIID:Nemo_File_Manager_Desktop_Icon_View"
 #define NEMO_DESKTOP_ICON_GRID_VIEW_IID  "OAFIID:Nemo_File_Manager_Desktop_Icon_Grid_View"
 
@@ -337,6 +341,17 @@ typedef enum
 #define NEMO_PREFERENCES_SEARCH_VISIBLE_COLUMNS        "search-visible-columns"
 #define NEMO_PREFERENCES_SEARCH_SORT_COLUMN            "search-sort-column"
 #define NEMO_PREFERENCES_SEARCH_REVERSE_SORT           "search-reverse-sort"
+/* Where paste, new folder, new file and open in terminal go when the list
+   view shows more than one folder. See design_docs/20261020-103804_behavior-models.md. */
+#define NEMO_PREFERENCES_PASTE_TARGET			"paste-target"
+
+typedef enum
+{
+	NEMO_PASTE_TARGET_ANYWHERE,
+	NEMO_PASTE_TARGET_CLASSIC,
+	NEMO_PASTE_TARGET_VIEWED_FOLDER
+} NemoPasteTarget;
+
 #define NEMO_PREFERENCES_SEARCH_GROUP_BY_FOLDER        "group-by-folder"
 
 void nemo_global_preferences_init                      (void);
@@ -347,6 +362,7 @@ gboolean nemo_global_preferences_get_inherit_show_thumbnails_preference (void);
 gboolean nemo_global_preferences_get_remember_folder_settings (void);
 int nemo_global_preferences_get_size_prefix_preference (void);
 NemoSelectionModel nemo_global_preferences_get_selection_model (void);
+NemoPasteTarget nemo_global_preferences_get_paste_target (void);
 int nemo_global_preferences_get_cpu_thread_count (void);
 char *nemo_global_preferences_get_desktop_iid (void);
 gint nemo_global_preferences_get_tooltip_flags (void);

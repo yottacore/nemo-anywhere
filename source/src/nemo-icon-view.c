@@ -60,6 +60,7 @@
 #include <libnemo-private/nemo-clipboard.h>
 #include <libnemo-private/nemo-desktop-utils.h>
 #include <libnemo-private/nemo-thumbnail-memory.h>
+#include <libnemo-private/nemo-shortcuts.h>
 
 #define DEBUG_FLAG NEMO_DEBUG_ICON_VIEW
 #include <libnemo-private/nemo-debug.h>
@@ -115,10 +116,9 @@ struct NemoIconViewDetails
 	guint icon_merge_id;
 
 	gboolean compact;
+	/* Image thumbnail view: always at the picture size, whatever is in the folder. */
+	gboolean image;
 
-	/* Set once the folder has finished loading and turned out to be mostly
-	   images, which gives it a default size of its own. */
-	gboolean mostly_images;
 	guint render_ahead_id;
 	gboolean render_ahead_again;
 
@@ -959,7 +959,7 @@ get_default_icon_size (NemoIconView *icon_view)
 					       NEMO_PREFERENCES_COMPACT_VIEW_DEFAULT_ICON_SIZE);
 	} else {
 		percent = nemo_config_get_int (nemo_icon_view_preferences,
-					       icon_view->details->mostly_images
+					       icon_view->details->image
 						 ? NEMO_PREFERENCES_ICON_VIEW_DEFAULT_IMAGE_ICON_SIZE
 						 : NEMO_PREFERENCES_ICON_VIEW_DEFAULT_ICON_SIZE);
 	}
@@ -967,9 +967,8 @@ get_default_icon_size (NemoIconView *icon_view)
 	return nemo_icon_size_from_percent (percent);
 }
 
-/* Which of the folder's saved sizes applies. A folder keeps one for when it is
-   mostly pictures and one for when it isn't, and a child that inherits both
-   picks by what is in the child. */
+/* Which of the folder's saved sizes applies. A folder keeps one for the image
+   view and one for icon view. */
 static const char *
 icon_size_key (NemoIconView *icon_view)
 {
@@ -977,19 +976,19 @@ icon_size_key (NemoIconView *icon_view)
 		return NEMO_METADATA_KEY_COMPACT_VIEW_ZOOM_LEVEL;
 	}
 
-	return icon_view->details->mostly_images
+	return icon_view->details->image
 		? NEMO_METADATA_KEY_ICON_VIEW_IMAGE_ZOOM_LEVEL
 		: NEMO_METADATA_KEY_ICON_VIEW_ZOOM_LEVEL;
 }
 
 /* With per-folder settings off the window keeps the size instead, one for
-   pictures and one for everything else. 0 means nothing is held. */
+   the image view and one for icon view. 0 means nothing is held. */
 static gint
 held_icon_size (NemoIconView *icon_view)
 {
 	NemoWindow *window = nemo_view_get_nemo_window (NEMO_VIEW (icon_view));
 
-	return icon_view->details->mostly_images
+	return icon_view->details->image
 		? nemo_window_get_ignore_meta_image_icon_size (window)
 		: nemo_window_get_ignore_meta_icon_size (window);
 }
@@ -999,7 +998,7 @@ hold_icon_size (NemoIconView *icon_view, gint size)
 {
 	NemoWindow *window = nemo_view_get_nemo_window (NEMO_VIEW (icon_view));
 
-	if (icon_view->details->mostly_images) {
+	if (icon_view->details->image) {
 		nemo_window_set_ignore_meta_image_icon_size (window, size);
 	} else {
 		nemo_window_set_ignore_meta_icon_size (window, size);
@@ -1096,10 +1095,6 @@ nemo_icon_view_begin_loading (NemoView *view)
 	uri = nemo_file_get_uri (file);
 	icon_container = GTK_WIDGET (get_icon_container (icon_view));
 
-	/* Nothing is known about what is in here yet, so start from the ordinary
-	   default and let end_loading move it if the folder turns out to be a
-	   pile of pictures. */
-	icon_view->details->mostly_images = FALSE;
 	g_clear_handle_id (&icon_view->details->render_ahead_id, g_source_remove);
 	icon_view->details->render_ahead_again = FALSE;
 
@@ -1183,66 +1178,7 @@ icon_view_notify_clipboard_info (G_GNUC_UNUSED NemoClipboardMonitor *monitor,
 							       get_icon_container (icon_view), icon_data);
 }
 
-/* A folder of pictures is sized from its own pair of settings: the stored image
-   size if it has one, or the image default. Nothing is written back here - the
-   folder already has whatever it was given, and the default has to stay
-   a default so the preference can still move it.
-
-   With per-folder settings off the window keeps a size for pictures apart from
-   the plain one, so neither leaks into the other. */
-static gint
-size_for_mostly_images (NemoIconView *icon_view)
-{
-	NemoView *view = NEMO_VIEW (icon_view);
-
-	if (!nemo_global_preferences_get_remember_folder_settings ()) {
-		gint held = held_icon_size (icon_view);
-
-		return held > 0 ? held : get_default_icon_size (icon_view);
-	}
-
-	return saved_icon_size (nemo_view_get_directory_as_file (view),
-				icon_size_key (icon_view),
-				get_default_icon_size (icon_view));
-}
-
-static void
-update_mostly_images (NemoIconView *icon_view, gboolean all_files_seen)
-{
-	NemoView *view = NEMO_VIEW (icon_view);
-	NemoIconContainer *container;
-	gboolean mostly_images;
-	gint size;
-
-	if (!all_files_seen || icon_view->details->compact ||
-	    NEMO_ICON_VIEW_GET_CLASS (icon_view)->use_grid_container ||
-	    !nemo_view_supports_zooming (view)) {
-		return;
-	}
-
-	mostly_images = nemo_directory_is_mostly_images (nemo_view_get_model (view));
-	if (mostly_images == icon_view->details->mostly_images) {
-		return;
-	}
-
-	icon_view->details->mostly_images = mostly_images;
-
-	size = size_for_mostly_images (icon_view);
-
-	container = get_icon_container (icon_view);
-	if (nemo_icon_container_get_icon_size (container) == size) {
-		return;
-	}
-
-	nemo_icon_container_set_icon_size (container, size);
-	g_signal_emit_by_name (icon_view, "zoom_level_changed");
-
-	if (nemo_view_get_active (view)) {
-		nemo_view_update_menus (view);
-	}
-}
-
-/* A folder of pictures gets all of them made now, strictly top down in the
+/* The image view gets all of a folder's pictures made now, strictly top down in the
  * order the view shows them, rather than each one only once it scrolls into
  * view. Only on a local disk: over a network this would read every picture in
  * the folder whether it is looked at or not. */
@@ -1254,7 +1190,7 @@ render_folder_ahead (NemoIconView *icon_view, gboolean just_loaded)
 	NemoIconContainer *container = get_icon_container (icon_view);
 	GList *files, *l;
 
-	if (!icon_view->details->mostly_images ||
+	if (!icon_view->details->image ||
 	    folder == NULL ||
 	    !nemo_file_is_local (folder) ||
 	    nemo_file_is_on_a_share (folder)) {
@@ -1306,7 +1242,7 @@ render_folder_ahead_again (gpointer data)
 static void
 queue_render_folder_ahead (NemoIconView *icon_view)
 {
-	if (!icon_view->details->mostly_images) {
+	if (!icon_view->details->image) {
 		return;
 	}
 
@@ -1330,8 +1266,6 @@ nemo_icon_view_end_loading (NemoView *view,
 	NemoClipboardInfo *info;
 
 	icon_view = NEMO_ICON_VIEW (view);
-
-	update_mostly_images (icon_view, all_files_seen);
 
 	icon_container = GTK_WIDGET (get_icon_container (icon_view));
 	nemo_icon_container_end_loading (NEMO_ICON_CONTAINER (icon_container), all_files_seen);
@@ -1716,6 +1650,9 @@ nemo_icon_view_merge_menus (NemoView *view)
 					    -1,
 					    G_CALLBACK (action_sort_radio_callback),
 					    icon_view);
+	nemo_shortcuts_note_actions (action_group, icon_view_entries, G_N_ELEMENTS (icon_view_entries));
+	nemo_shortcuts_note_toggle_actions (action_group, icon_view_toggle_entries, G_N_ELEMENTS (icon_view_toggle_entries));
+	nemo_shortcuts_note_radio_actions (action_group, arrange_radio_entries, G_N_ELEMENTS (arrange_radio_entries));
 
 	gtk_ui_manager_insert_action_group (ui_manager, action_group, 0);
 	g_object_unref (action_group); /* owned by ui manager */
@@ -2865,6 +2802,9 @@ nemo_icon_view_get_id (NemoView *view)
 	if (nemo_icon_view_is_compact (NEMO_ICON_VIEW (view))) {
 		return FM_COMPACT_VIEW_ID;
 	}
+	if (NEMO_ICON_VIEW (view)->details->image) {
+		return NEMO_IMAGE_VIEW_ID;
+	}
 
 	return NEMO_ICON_VIEW_ID;
 }
@@ -3172,6 +3112,22 @@ nemo_compact_view_create (NemoWindowSlot *slot)
     return NEMO_VIEW (view);
 }
 
+static NemoView *
+nemo_image_view_create (NemoWindowSlot *slot)
+{
+	NemoIconView *view;
+
+	view = g_object_new (NEMO_TYPE_ICON_VIEW,
+			     "window-slot", slot,
+			     NULL);
+	gtk_style_context_add_class (gtk_widget_get_style_context (GTK_WIDGET (view)), GTK_STYLE_CLASS_VIEW);
+
+	set_compact_view (view, FALSE);
+	view->details->image = TRUE;
+
+	return NEMO_VIEW (view);
+}
+
 static gboolean
 nemo_icon_view_supports_uri (const char *uri,
 			   GFileType file_type,
@@ -3226,6 +3182,17 @@ static NemoViewInfo nemo_compact_view = {
 	nemo_icon_view_supports_uri
 };
 
+static NemoViewInfo nemo_image_view = {
+	(char *)NEMO_IMAGE_VIEW_ID,
+	(char *)N_("Image thumbnail view"),
+	(char *)N_("_Image thumbnails"),
+	(char *)N_("The image thumbnail view encountered an error."),
+	(char *)N_("The image thumbnail view encountered an error while starting up."),
+	(char *)N_("Display this location with the image thumbnail view."),
+	nemo_image_view_create,
+	nemo_icon_view_supports_uri
+};
+
 gboolean
 nemo_icon_view_is_compact (NemoIconView *view)
 {
@@ -3244,5 +3211,12 @@ nemo_icon_view_compact_register (void)
 {
 	TRANSLATE_VIEW_INFO (nemo_compact_view)
 		nemo_view_factory_register (&nemo_compact_view);
+}
+
+void
+nemo_icon_view_image_register (void)
+{
+	TRANSLATE_VIEW_INFO (nemo_image_view)
+		nemo_view_factory_register (&nemo_image_view);
 }
 

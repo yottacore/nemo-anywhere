@@ -49,7 +49,8 @@ gboolean           eel_uri_is_network                    (const char           *
 gboolean           eel_vfs_supports_uri_scheme           (const gchar       *scheme);
 
 GFile *            eel_g_file_new_for_user_input         (const char           *text);
-/* A leading ~ and any %NAME% or $NAME that names a variable that's set.
+/* A leading ~ and any %NAME% or $NAME that names a variable that's set, or
+   a common one from the other platform, such as %USERPROFILE% or $HOME.
    Both spellings work on both platforms so a path can be moved between them.
    NULL when there was nothing to expand; the caller frees otherwise. */
 char *             eel_expand_user_input                 (const char           *text);

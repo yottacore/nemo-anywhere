@@ -706,6 +706,20 @@ test('dd2sk Row hover tint test',
   args: []
 )
 
+# gresources brings the app's own sheet, read from where the app reads it.
+# The themes are read from the source tree, which a Windows test box doesn't
+# have; GTK draws the line the same way there.
+if not is_windows
+  drop_mark_exe = executable('test-nemo-places-drop-line',
+    [ 'test-nemo-places-drop-line.c' ] + gresources,
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_fence ],
+    c_args: [ '-DVENDOR_THEMES_DIR="@0@"'.format(meson.project_source_root() / '..' / 'vendor' / 'themes') ],
+  )
+  test('dfpnp Places drop line test', drop_mark_exe, args: [])
+  test('dfpp8 Drop into row frame test', drop_mark_exe, args: [ '--into' ])
+endif
+
 test('dczsk Primary mask test',
   executable('test-eel-primary-mask',
     [ 'test-eel-primary-mask.c' ],
@@ -788,6 +802,15 @@ test('dfh4e Affirmative switch off test',
     dependencies: [ gtk, nemo_private, test_scratch ],
   ),
   args: [ meson.project_source_root() ]
+)
+
+test('dfpkx Paste target test',
+  executable('test-nemo-paste-target',
+    [ 'test-nemo-paste-target.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
 )
 
 test('dd5c9 Message dialog text test',
@@ -1008,7 +1031,7 @@ test('de7aj Template rename and add errors test',
 test('dd5df Settings dialog test',
   executable('test-nemo-prefs-dialog',
     [ 'test-nemo-prefs-dialog.c', '../src/nemo-file-management-properties.c',
-      '../src/nemo-settings-search.c', settingsAliases ] + gresources,
+      '../src/nemo-settings-search.c', '../src/nemo-prefs-keyboard.c', settingsAliases ] + gresources,
     include_directories: [ rootInclude, include_directories('../src') ],
     dependencies: [ gtk, nemo_private, test_scratch ],
     c_args: nemo_definitions,
@@ -1273,6 +1296,25 @@ test('dbjq9 Column layout test',
     [ 'test-nemo-column-layout.c', '../src/nemo-column-layout.c' ],
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_fence ],
+    c_args: nemo_definitions,
+  ),
+  args: []
+)
+
+test('dfpt0 Shortcut file shared between windows test',
+  executable('test-nemo-shortcuts-file',
+    [ 'test-nemo-shortcuts-file.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
+test('dfpq1 Zoom window size test',
+  executable('test-nemo-zoom-resize',
+    [ 'test-nemo-zoom-resize.c', '../src/nemo-zoom-resize.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_fence, math ],
     c_args: nemo_definitions,
   ),
   args: []
@@ -1849,6 +1891,16 @@ if not is_windows
     args: [ nemo, edit_keys_probe, 'list-view' ],
     timeout: 180
   )
+  test('dfpm1 Edit keys test, list view, macOS/Dolphin target',
+    edit_keys,
+    args: [ nemo, edit_keys_probe, 'list-view', 'macos-dolphin' ],
+    timeout: 180
+  )
+  test('dfpmc Edit keys test, list view, Nemo Classic target',
+    edit_keys,
+    args: [ nemo, edit_keys_probe, 'list-view', 'nemo-classic' ],
+    timeout: 180
+  )
   test('dezmt Edit keys test, icon view',
     edit_keys,
     args: [ nemo, edit_keys_probe, 'icon-view' ],
@@ -1883,6 +1935,36 @@ if not is_windows
       dependencies: [ glib, gio, test_scratch ],
     ),
     args: [ nemo, reset_sort_probe ],
+    timeout: 180
+  )
+
+  # Preloaded too; it zooms from the keyboard inside the program.
+  zoom_window_probe = shared_module('test-nemo-zoom-window-probe',
+    [ 'test-nemo-zoom-window-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('dfpq4 Zoom window size, keyboard test',
+    executable('test-nemo-zoom-window',
+      [ 'test-nemo-zoom-window.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, zoom_window_probe ],
+    timeout: 180
+  )
+
+  # Preloaded too; it reads the View menu and toolbar, and presses the view keys.
+  view_keys_probe = shared_module('test-nemo-view-keys-probe',
+    [ 'test-nemo-view-keys-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('dfpqj View order and keys test',
+    executable('test-nemo-view-keys',
+      [ 'test-nemo-view-keys.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, view_keys_probe ],
     timeout: 180
   )
 

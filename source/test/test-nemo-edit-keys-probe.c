@@ -26,6 +26,9 @@
    selected, in the list view and in the icon view (NEMO_EDITKEYS_VIEW). In
    the list view it then copies c.txt, selects sub and expands it, and checks
    that Ctrl+V goes into sub while Ctrl+Shift+V goes into the viewed folder.
+   Under the macOS/Dolphin target (NEMO_EDITKEYS_TARGET) Ctrl+V goes into the
+   viewed folder instead, and Ctrl+Shift+V into sub once it's selected again.
+   Under Nemo Classic Ctrl+Shift+V does nothing.
    Writes "ok"/"FAIL" lines and "done" to NEMO_EDITKEYS_OUT. */
 
 #include <stdio.h>
@@ -36,6 +39,9 @@
 static FILE       *out;
 static const char *folder_path;
 static gboolean    list_mode;
+static gboolean    dolphin;
+static gboolean    classic;
+static gboolean    reselected;
 static GtkWidget  *window;
 static GtkWidget  *pane;
 static int         waited;
@@ -383,6 +389,21 @@ tick (G_GNUC_UNUSED gpointer data)
 			"Ctrl+V is bound");
 		break;
 	case 9:
+		if (dolphin) {
+			if (entries_in (folder_path) < 4) {
+				if (waited - step_at > 100) {
+					report (FALSE, "Ctrl+V pasted into the viewed folder");
+					finish ();
+					return G_SOURCE_REMOVE;
+				}
+				return G_SOURCE_CONTINUE;
+			}
+			report (TRUE, "Ctrl+V pasted into the viewed folder");
+			sub = g_build_filename (folder_path, "sub", NULL);
+			report (entries_in (sub) == 1, "Ctrl+V left the selected expanded folder alone");
+			g_free (sub);
+			break;
+		}
 		if (!in_folder ("sub/c.txt")) {
 			if (waited - step_at > 100) {
 				report (FALSE, "Ctrl+V pasted into the selected expanded folder");
@@ -399,11 +420,41 @@ tick (G_GNUC_UNUSED gpointer data)
 		if (waited - step_at < 10) {
 			return G_SOURCE_CONTINUE;
 		}
+		/* That paste selected its copy, so sub is picked again first. */
+		if (dolphin && !reselected) {
+			put_cursor (0);
+			reselected = TRUE;
+			step_at = waited;
+			return G_SOURCE_CONTINUE;
+		}
+		if (dolphin) {
+			report (is_selected (0) && selected_count () == 1, "sub is selected again");
+		}
+		if (classic) {
+			report (!gtk_accel_groups_activate (G_OBJECT (window), GDK_KEY_v,
+							    GDK_CONTROL_MASK | GDK_SHIFT_MASK),
+				"Ctrl+Shift+V does nothing under Nemo Classic");
+			finish ();
+			return G_SOURCE_REMOVE;
+		}
 		report (gtk_accel_groups_activate (G_OBJECT (window), GDK_KEY_v,
 						   GDK_CONTROL_MASK | GDK_SHIFT_MASK),
 			"Ctrl+Shift+V is bound");
 		break;
 	case 11:
+		if (dolphin) {
+			if (!in_folder ("sub/c.txt")) {
+				if (waited - step_at > 100) {
+					report (FALSE, "Ctrl+Shift+V pasted into the selected folder");
+					finish ();
+					return G_SOURCE_REMOVE;
+				}
+				return G_SOURCE_CONTINUE;
+			}
+			report (TRUE, "Ctrl+Shift+V pasted into the selected folder");
+			finish ();
+			return G_SOURCE_REMOVE;
+		}
 		if (entries_in (folder_path) < 4) {
 			if (waited - step_at > 100) {
 				report (FALSE, "Ctrl+Shift+V pasted into the viewed folder");
@@ -440,5 +491,7 @@ start (void)
 		return;
 	}
 	list_mode = g_strcmp0 (view, "icon-view") != 0;
+	dolphin = g_strcmp0 (g_getenv ("NEMO_EDITKEYS_TARGET"), "macos-dolphin") == 0;
+	classic = g_strcmp0 (g_getenv ("NEMO_EDITKEYS_TARGET"), "nemo-classic") == 0;
 	g_timeout_add (100, tick, NULL);
 }

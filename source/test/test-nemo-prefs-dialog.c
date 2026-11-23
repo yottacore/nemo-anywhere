@@ -30,8 +30,9 @@
  * Sub-tabs are indented rows, and the parent and its showing sub-tab are both
  * lit. List columns has a sub-tab for each list. No page needs a scrollbar at
  * the size the window opens. The search field sits over the pages, and goes
- * to the setting picked. The pages that build their own widgets are left
- * empty here. */
+ * to the setting picked. The Keyboard tab lists the shortcuts, and changes,
+ * turns off, and resets each one. The pages that build their own widgets are
+ * left empty here. */
 
 #include <config.h>
 
@@ -44,6 +45,7 @@
 #include <libnemo-private/nemo-column-utilities.h>
 #include <libnemo-private/nemo-desktop-utils.h>
 #include <libnemo-private/nemo-global-preferences.h>
+#include <libnemo-private/nemo-shortcuts.h>
 #include <libnemo-private/nemo-tab-list.h>
 
 #include "nemo-file-management-properties.h"
@@ -52,6 +54,7 @@
 #include "nemo-plugin-manager.h"
 #include "nemo-prefs-current-folder.h"
 #include "nemo-prefs-file-cache.h"
+#include "nemo-prefs-keyboard.h"
 #include "nemo-template-config-widget.h"
 
 #include "test-scratch.h"
@@ -340,7 +343,7 @@ test_tabs_take_no_focus (GtkWidget *dialog)
 	send_key (dialog, GDK_KEY_Page_Up, GDK_CONTROL_MASK);
 	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "views") == 0);
 	send_key (dialog, GDK_KEY_Page_Up, GDK_CONTROL_MASK);
-	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "advanced") == 0);
+	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "keyboard") == 0);
 	send_key (dialog, GDK_KEY_Page_Down, GDK_CONTROL_MASK);
 	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "views") == 0);
 
@@ -562,7 +565,8 @@ test_sub_tabs (GtkWidget *dialog)
 			"behavior_files_scrolledwindow", "behavior_programs_scrolledwindow",
 			"scrolledwindow3", "windows_scrolledwindow", "scrolledwindow4", "list_columns_search_scrolledwindow",
 			"scrolledwindow5", "scrolledwindow6",
-			"scrolledwindow8", "templates_scrolledwindow", "scrolledwindow7", NULL
+			"scrolledwindow8", "templates_scrolledwindow", "scrolledwindow7",
+			"keyboard_scrolledwindow", NULL
 		};
 		int i;
 
@@ -757,6 +761,112 @@ test_selection_model (GtkWidget *dialog)
 	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 2);
 	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
 	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE);
+}
+
+/* The default view lists the views in the View menu's order, and each row
+   writes its own view. */
+static void
+test_default_view (GtkWidget *dialog)
+{
+	static const struct {
+		const char *label;
+		const char *value;
+	} rows[] = {
+		{ "Detailed view", "list-view" },
+		{ "Compact view", "compact-view" },
+		{ "Icon view", "icon-view" },
+		{ "Image thumbnail view", "image-view" },
+	};
+	GtkWidget *combo = find_named (dialog, "default_view_combobox");
+	GtkTreeModel *model;
+	GtkTreeIter iter;
+	char *text;
+	guint i;
+
+	check (combo != NULL);
+	if (combo == NULL) {
+		return;
+	}
+	model = gtk_combo_box_get_model (GTK_COMBO_BOX (combo));
+	check (gtk_tree_model_iter_n_children (model, NULL) == (int) G_N_ELEMENTS (rows));
+	check (!nemo_config_is_set (nemo_preferences, NEMO_PREFERENCES_DEFAULT_FOLDER_VIEWER));
+	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 0);
+
+	for (i = 0; i < G_N_ELEMENTS (rows); i++) {
+		text = NULL;
+		if (gtk_tree_model_iter_nth_child (model, &iter, NULL, (int) i)) {
+			gtk_tree_model_get (model, &iter, 0, &text, -1);
+		}
+		check (g_strcmp0 (text, rows[i].label) == 0);
+		g_free (text);
+
+		gtk_combo_box_set_active (GTK_COMBO_BOX (combo), (int) i);
+		text = nemo_config_get_string (nemo_preferences, NEMO_PREFERENCES_DEFAULT_FOLDER_VIEWER);
+		check (g_strcmp0 (text, rows[i].value) == 0);
+		g_free (text);
+	}
+
+	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_DEFAULT_FOLDER_VIEWER);
+	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 0);
+}
+
+/* Where pasted and new items go is on Advanced, under the selection model, with
+   its 3 models in the design doc's order and the picked one's tooltip. */
+static void
+test_paste_target (GtkWidget *dialog)
+{
+	GtkWidget *combo = find_named (dialog, "paste_target_combobox");
+	GtkWidget *above = find_named (dialog, "selection_model_combobox");
+	GtkWidget *page = find_named (dialog, "advanced_scrolledwindow");
+	GtkAllocation a, b;
+	char *text;
+
+	check (combo != NULL && above != NULL && page != NULL);
+	if (combo == NULL || above == NULL || page == NULL) {
+		return;
+	}
+	check (gtk_widget_is_ancestor (combo, page));
+	check (gtk_widget_get_parent (gtk_widget_get_parent (gtk_widget_get_parent (combo))) ==
+	       gtk_widget_get_parent (gtk_widget_get_parent (gtk_widget_get_parent (above))));
+	gtk_widget_get_allocation (above, &a);
+	gtk_widget_get_allocation (combo, &b);
+	check (!gtk_widget_get_mapped (combo) || b.y > a.y);
+
+	check (gtk_tree_model_iter_n_children (gtk_combo_box_get_model (GTK_COMBO_BOX (combo)), NULL) == 3);
+	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 0);
+	text = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT (combo));
+	check (g_strcmp0 (text, "Nemo Anywhere") == 0);
+	g_free (text);
+	text = gtk_widget_get_tooltip_text (combo);
+	check (text != NULL && g_str_has_prefix (text, "If a selected folder is expanded"));
+	g_free (text);
+	check (!nemo_config_is_set (nemo_preferences, NEMO_PREFERENCES_PASTE_TARGET));
+	check (nemo_global_preferences_get_paste_target () == NEMO_PASTE_TARGET_ANYWHERE);
+
+	gtk_combo_box_set_active (GTK_COMBO_BOX (combo), 1);
+	text = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT (combo));
+	check (g_strcmp0 (text, "Nemo Classic") == 0);
+	g_free (text);
+	text = nemo_config_get_string (nemo_preferences, NEMO_PREFERENCES_PASTE_TARGET);
+	check (g_strcmp0 (text, "nemo-classic") == 0);
+	g_free (text);
+	text = gtk_widget_get_tooltip_text (combo);
+	check (text != NULL && g_str_has_prefix (text, "Like upstream Nemo."));
+	g_free (text);
+	check (nemo_global_preferences_get_paste_target () == NEMO_PASTE_TARGET_CLASSIC);
+
+	gtk_combo_box_set_active (GTK_COMBO_BOX (combo), 2);
+	text = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT (combo));
+	check (g_strcmp0 (text, "macOS/Dolphin") == 0);
+	g_free (text);
+	text = gtk_widget_get_tooltip_text (combo);
+	check (text != NULL && g_str_has_prefix (text, "New items always go in the viewed folder"));
+	g_free (text);
+	check (nemo_global_preferences_get_paste_target () == NEMO_PASTE_TARGET_VIEWED_FOLDER);
+
+	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_PASTE_TARGET);
+	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 0);
+	check (nemo_global_preferences_get_paste_target () == NEMO_PASTE_TARGET_ANYWHERE);
 }
 
 /* The whole-name rename box is grayed under Nemo Anywhere, where F2 and
@@ -968,6 +1078,7 @@ test_search_aliases (GtkWidget *dialog)
 {
 	GtkWidget *entry = find_named (dialog, "settings_search_entry");
 	GtkWidget *stack = find_named (dialog, "page_stack");
+	const char *keyboard_words[] = { "keyboard", "shortcut", "hotkey", "key binding", "Keyboard shortcuts" };
 	GPtrArray *entries, *texts;
 	guint i, j;
 
@@ -1020,7 +1131,271 @@ test_search_aliases (GtkWidget *dialog)
 		check (g_str_has_suffix (texts->pdata[0], " (zebra stripes)"));
 	}
 	g_ptr_array_free (texts, TRUE);
+
+	/* 2026112312455764: the Keyboard tab has no settings key, so its words
+	   come from the tab. */
+	for (i = 0; i < G_N_ELEMENTS (keyboard_words); i++) {
+		gboolean found = FALSE;
+
+		gtk_entry_set_text (GTK_ENTRY (entry), keyboard_words[i]);
+		settle ();
+		texts = match_rows (dialog);
+		for (j = 0; j < texts->len; j++) {
+			const char *text = texts->pdata[j];
+
+			found = found || strcmp (text, "Keyboard") == 0 || g_str_has_prefix (text, "Keyboard (");
+		}
+		if (!found) {
+			g_printerr ("\"%s\" doesn't find the Keyboard tab\n", keyboard_words[i]);
+		}
+		check (found);
+		g_ptr_array_free (texts, TRUE);
+	}
+
 	gtk_entry_set_text (GTK_ENTRY (entry), "");
+	settle ();
+}
+
+static void
+noop (void)
+{
+}
+
+/* Like a window's menus: a key loaded from the file before the actions are
+   added, which is the order the app does it in. */
+static const GtkActionEntry kb_entries[] = {
+	{ "Menu", NULL, "_Menu", NULL, NULL, NULL },
+	{ "Cut", NULL, "Cu_t", "<control>x", "Cut the selection", G_CALLBACK (noop) },
+	{ "Trash", NULL, "Mo_ve to Trash", "Delete", NULL, G_CALLBACK (noop) },
+	{ "Rename", NULL, "_Rename...", "F2", NULL, G_CALLBACK (noop) },
+	{ "Bare", NULL, "_Bare", NULL, NULL, G_CALLBACK (noop) },
+};
+
+static const GtkToggleActionEntry kb_toggles[] = {
+	{ "Hidden", NULL, "Show _Hidden Files", "<control>h", NULL, G_CALLBACK (noop), FALSE },
+};
+
+static GtkActionGroup *kb_group;
+
+static void
+add_test_shortcuts (void)
+{
+	gtk_accel_map_change_entry ("<Actions>/TestActions/Rename", GDK_KEY_F6, 0, TRUE);
+
+	kb_group = gtk_action_group_new ("TestActions");
+	gtk_action_group_add_actions (kb_group, kb_entries, G_N_ELEMENTS (kb_entries), NULL);
+	nemo_shortcuts_note_actions (kb_group, kb_entries, G_N_ELEMENTS (kb_entries));
+	gtk_action_group_add_toggle_actions (kb_group, kb_toggles, G_N_ELEMENTS (kb_toggles), NULL);
+	nemo_shortcuts_note_toggle_actions (kb_group, kb_toggles, G_N_ELEMENTS (kb_toggles));
+}
+
+static GtkWidget *
+find_widget_named (GtkWidget *widget, const char *name)
+{
+	GList *children, *l;
+	GtkWidget *found = NULL;
+
+	if (g_strcmp0 (gtk_widget_get_name (widget), name) == 0) {
+		return widget;
+	}
+	if (!GTK_IS_CONTAINER (widget)) {
+		return NULL;
+	}
+
+	children = gtk_container_get_children (GTK_CONTAINER (widget));
+	for (l = children; l != NULL && found == NULL; l = l->next) {
+		found = find_widget_named (l->data, name);
+	}
+	g_list_free (children);
+
+	return found;
+}
+
+static char *
+kb_row (GtkTreeModel *model, const char *name, guint *key, GdkModifierType *mods, char **reset)
+{
+	g_autofree char *accel_path = g_strconcat ("<Actions>/TestActions/", name, NULL);
+	GtkTreeIter iter;
+	gboolean more;
+
+	for (more = gtk_tree_model_get_iter_first (model, &iter); more; more = gtk_tree_model_iter_next (model, &iter)) {
+		g_autofree char *row_path = NULL;
+
+		gtk_tree_model_get (model, &iter, NEMO_PREFS_KEYBOARD_COL_PATH, &row_path, -1);
+		if (g_strcmp0 (row_path, accel_path) == 0) {
+			gtk_tree_model_get (model, &iter,
+					    NEMO_PREFS_KEYBOARD_COL_KEY, key,
+					    NEMO_PREFS_KEYBOARD_COL_MODS, mods,
+					    NEMO_PREFS_KEYBOARD_COL_RESET, reset,
+					    -1);
+			return gtk_tree_model_get_string_from_iter (model, &iter);
+		}
+	}
+
+	return NULL;
+}
+
+static gboolean
+kb_is (GtkTreeModel *model, const char *name, guint want_key, GdkModifierType want_mods, gboolean want_reset)
+{
+	g_autofree char *accel_path = g_strconcat ("<Actions>/TestActions/", name, NULL);
+	g_autofree char *row = NULL;
+	g_autofree char *reset = NULL;
+	GtkAccelKey current = { 0, 0, 0 };
+	guint key = 0;
+	GdkModifierType mods = 0;
+	gboolean ok;
+
+	row = kb_row (model, name, &key, &mods, &reset);
+	gtk_accel_map_lookup_entry (accel_path, &current);
+	ok = row != NULL && key == want_key && mods == want_mods && (reset != NULL) == want_reset &&
+		current.accel_key == want_key && current.accel_mods == want_mods;
+	if (!ok) {
+		g_print ("%s: row %u/%x, map %u/%x, reset %s; wanted %u/%x\n", name, key, mods,
+			 current.accel_key, current.accel_mods, reset != NULL ? "shown" : "hidden", want_key, want_mods);
+	}
+
+	return ok;
+}
+
+/* As a person does it: Enter on the row, then the keys. */
+static void
+kb_edit (GtkWidget *dialog, GtkWidget *tree, GtkTreeModel *model, const char *name, guint key, GdkModifierType mods)
+{
+	g_autofree char *reset = NULL;
+	guint k;
+	GdkModifierType m;
+	g_autofree char *row = kb_row (model, name, &k, &m, &reset);
+	GtkTreePath *path;
+
+	if (row == NULL) {
+		return;
+	}
+	path = gtk_tree_path_new_from_string (row);
+	gtk_tree_view_set_cursor (GTK_TREE_VIEW (tree), path, NULL, FALSE);
+	gtk_tree_path_free (path);
+	send_key (dialog, GDK_KEY_Return, 0);
+	send_key (dialog, key, mods);
+	settle ();
+}
+
+static void
+kb_click_reset (GtkWidget *tree, GtkTreeModel *model, const char *name)
+{
+	g_autofree char *reset = NULL;
+	guint k;
+	GdkModifierType m;
+	g_autofree char *row = kb_row (model, name, &k, &m, &reset);
+	GtkTreePath *path;
+	GdkRectangle area;
+	GdkEvent *event;
+
+	if (row == NULL) {
+		return;
+	}
+	path = gtk_tree_path_new_from_string (row);
+	gtk_tree_view_get_cell_area (GTK_TREE_VIEW (tree), path,
+				     gtk_tree_view_get_column (GTK_TREE_VIEW (tree), 2), &area);
+	gtk_tree_path_free (path);
+
+	event = gdk_event_new (GDK_BUTTON_PRESS);
+	event->button.window = g_object_ref (gtk_tree_view_get_bin_window (GTK_TREE_VIEW (tree)));
+	event->button.x = area.x + area.width / 2.0;
+	event->button.y = area.y + area.height / 2.0;
+	event->button.button = GDK_BUTTON_PRIMARY;
+	event->button.time = GDK_CURRENT_TIME;
+	gdk_event_set_device (event, gdk_seat_get_pointer (gdk_display_get_default_seat (gdk_display_get_default ())));
+	gtk_widget_event (tree, event);
+	gdk_event_free (event);
+}
+
+/* The Keyboard tab lists every action with a name, with the key it has now,
+ * and not the submenus. A key from the file shows, with the revert arrow,
+ * and the arrow puts back the key the action started with. Enter on a row
+ * waits for a key, which takes Ctrl+Page Down and Escape too. A key another
+ * action has, or a plain letter, is refused and says why. Backspace turns a
+ * key off. Reset all puts every one back. */
+static void
+test_keyboard (GtkWidget *dialog)
+{
+	GtkWidget *stack, *tree, *note, *reset_all;
+	GtkTreeModel *model;
+	GtkTreeIter iter;
+	g_autofree char *first = NULL;
+
+	stack = find_named (dialog, "page_stack");
+	tree = find_widget_named (dialog, "keyboard_tree");
+	note = find_widget_named (dialog, "keyboard_note");
+	reset_all = find_widget_named (dialog, "keyboard_reset_all");
+	check (stack != NULL && tree != NULL && note != NULL && reset_all != NULL);
+	if (stack == NULL || tree == NULL || note == NULL || reset_all == NULL) {
+		return;
+	}
+	gtk_stack_set_visible_child_name (GTK_STACK (stack), "keyboard");
+	settle ();
+
+	model = gtk_tree_view_get_model (GTK_TREE_VIEW (tree));
+	g_print ("Keyboard tab: %d rows\n", gtk_tree_model_iter_n_children (model, NULL));
+	check (gtk_tree_model_iter_n_children (model, NULL) == 5);
+	check (gtk_tree_model_get_iter_first (model, &iter));
+	gtk_tree_model_get (model, &iter, NEMO_PREFS_KEYBOARD_COL_LABEL, &first, -1);
+	check (g_strcmp0 (first, "Bare") == 0);
+
+	check (kb_is (model, "Cut", GDK_KEY_x, GDK_CONTROL_MASK, FALSE));
+	check (kb_is (model, "Bare", 0, 0, FALSE));
+	check (kb_is (model, "Rename", GDK_KEY_F6, 0, TRUE));
+
+	kb_click_reset (tree, model, "Rename");
+	check (kb_is (model, "Rename", GDK_KEY_F2, 0, FALSE));
+
+	gtk_widget_grab_focus (tree);
+	settle ();
+	if (!gtk_widget_has_focus (tree)) {
+		g_print ("SKIP: changing keys, since the dialog never got the keyboard\n");
+		gtk_stack_set_visible_child_name (GTK_STACK (stack), "views");
+		return;
+	}
+
+	kb_edit (dialog, tree, model, "Cut", GDK_KEY_k, GDK_CONTROL_MASK);
+	check (kb_is (model, "Cut", GDK_KEY_k, GDK_CONTROL_MASK, TRUE));
+	check (*gtk_label_get_text (GTK_LABEL (note)) == '\0');
+
+	/* Taken by the next key, not by the dialog's own. */
+	kb_edit (dialog, tree, model, "Bare", GDK_KEY_Page_Down, GDK_CONTROL_MASK);
+	check (kb_is (model, "Bare", GDK_KEY_Page_Down, GDK_CONTROL_MASK, TRUE));
+	check (g_strcmp0 (gtk_stack_get_visible_child_name (GTK_STACK (stack)), "keyboard") == 0);
+
+	kb_edit (dialog, tree, model, "Cut", GDK_KEY_Escape, 0);
+	check (kb_is (model, "Cut", GDK_KEY_k, GDK_CONTROL_MASK, TRUE));
+	check (gtk_widget_get_visible (dialog));
+
+	kb_edit (dialog, tree, model, "Cut", GDK_KEY_h, GDK_CONTROL_MASK);
+	check (kb_is (model, "Cut", GDK_KEY_k, GDK_CONTROL_MASK, TRUE));
+	g_print ("Taken: %s\n", gtk_label_get_text (GTK_LABEL (note)));
+	check (strstr (gtk_label_get_text (GTK_LABEL (note)), "Show Hidden Files") != NULL);
+
+	kb_edit (dialog, tree, model, "Cut", GDK_KEY_q, 0);
+	check (kb_is (model, "Cut", GDK_KEY_k, GDK_CONTROL_MASK, TRUE));
+	check (strstr (gtk_label_get_text (GTK_LABEL (note)), "Ctrl or Alt") != NULL);
+
+	kb_edit (dialog, tree, model, "Cut", GDK_KEY_BackSpace, 0);
+	check (kb_is (model, "Cut", 0, 0, TRUE));
+
+	kb_click_reset (tree, model, "Cut");
+	check (kb_is (model, "Cut", GDK_KEY_x, GDK_CONTROL_MASK, FALSE));
+
+	/* Trash's Delete goes to Bare, and back by Reset all. */
+	kb_edit (dialog, tree, model, "Trash", GDK_KEY_d, GDK_CONTROL_MASK);
+	kb_edit (dialog, tree, model, "Bare", GDK_KEY_Delete, 0);
+	kb_edit (dialog, tree, model, "Cut", GDK_KEY_F7, 0);
+	check (kb_is (model, "Bare", GDK_KEY_Delete, 0, TRUE));
+	check (kb_is (model, "Cut", GDK_KEY_F7, 0, TRUE));
+	gtk_button_clicked (GTK_BUTTON (reset_all));
+	check (kb_is (model, "Trash", GDK_KEY_Delete, 0, FALSE));
+	check (kb_is (model, "Bare", 0, 0, FALSE));
+	check (kb_is (model, "Cut", GDK_KEY_x, GDK_CONTROL_MASK, FALSE));
+
+	gtk_stack_set_visible_child_name (GTK_STACK (stack), "views");
 	settle ();
 }
 
@@ -1106,6 +1481,7 @@ main (int argc, char *argv[])
 	}
 
 	nemo_global_preferences_init ();
+	add_test_shortcuts ();
 
 	dialog = open_dialog ();
 	check (dialog != NULL);
@@ -1116,10 +1492,13 @@ main (int argc, char *argv[])
 		test_sub_tabs (dialog);
 		test_list_columns_tabs (dialog);
 		test_bulk_rename (dialog);
+		test_default_view (dialog);
 		test_selection_model (dialog);
+		test_paste_target (dialog);
 		test_rename_selects_grayed (dialog);
 		test_search (dialog);
 		test_search_aliases (dialog);
+		test_keyboard (dialog);
 		test_escape_closes (dialog);
 	}
 

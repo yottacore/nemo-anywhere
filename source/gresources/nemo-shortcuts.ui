@@ -305,22 +305,29 @@
             <child>
               <object class="GtkShortcutsShortcut">
                 <property name="visible">True</property>
-                <property name="title" translatable="yes">Icon view</property>
+                <property name="title" translatable="yes" context="shortcut window">Detailed view</property>
                 <property name="accelerator">&lt;Primary&gt;1</property>
               </object>
-            </child>            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="visible">True</property>
-                <property name="title" translatable="yes" context="shortcut window">List view</property>
-                <property name="accelerator">&lt;Primary&gt;2</property>
-              </object>
             </child>
-
             <child>
               <object class="GtkShortcutsShortcut">
                 <property name="visible">True</property>
                 <property name="title" translatable="yes" context="shortcut window">Compact view</property>
+                <property name="accelerator">&lt;Primary&gt;2</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="visible">True</property>
+                <property name="title" translatable="yes" context="shortcut window">Icon view</property>
                 <property name="accelerator">&lt;Primary&gt;3</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="visible">True</property>
+                <property name="title" translatable="yes" context="shortcut window">Image thumbnail view</property>
+                <property name="accelerator">&lt;Primary&gt;4</property>
               </object>
             </child>
           </object>
@@ -379,7 +386,7 @@
               </object>
             </child>
             <child>
-              <object class="GtkShortcutsShortcut">
+              <object class="GtkShortcutsShortcut" id="shortcut_paste_key">
                 <property name="visible">True</property>
                 <property name="title" translatable="yes" context="shortcut window">Paste into viewed folder</property>
                 <property name="accelerator">&lt;Primary&gt;&lt;shift&gt;V</property>

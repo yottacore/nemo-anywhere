@@ -5634,7 +5634,7 @@ msgid "Open Expo to add, remove, or organize workspaces"
 msgstr ""
 
 #: data/nemo-actions/action_i18n_strings.py:16
-msgid "Add Desklets"
+msgid "Add desklets"
 msgstr ""
 
 #: data/nemo-actions/action_i18n_strings.py:17
@@ -5642,7 +5642,7 @@ msgid "Add Cinnamon desklets"
 msgstr ""
 
 #: data/nemo-actions/action_i18n_strings.py:18
-msgid "Change Desktop _Background"
+msgid "Change desktop _background"
 msgstr ""
 
 #: data/nemo-actions/action_i18n_strings.py:19
@@ -5659,7 +5659,7 @@ msgid "Mount %f to browse its contents"
 msgstr ""
 
 #: data/nemo-actions/action_i18n_strings.py:22
-msgid "Set as Wallpaper..."
+msgid "Set as wallpaper..."
 msgstr ""
 
 #: data/nemo-actions/action_i18n_strings.py:23
@@ -5667,7 +5667,7 @@ msgid "Set the selected image as your Cinnamon desktop wallpaper"
 msgstr ""
 
 #: data/nemo-actions/action_i18n_strings.py:24
-msgid "Display Settings"
+msgid "Display settings"
 msgstr ""
 
 #: data/nemo-actions/action_i18n_strings.py:25

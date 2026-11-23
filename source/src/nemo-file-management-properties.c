@@ -49,6 +49,7 @@
 #include "nemo-plugin-manager.h"
 #include "nemo-prefs-current-folder.h"
 #include "nemo-prefs-file-cache.h"
+#include "nemo-prefs-keyboard.h"
 #include "nemo-settings-search.h"
 #include "nemo-template-config-widget.h"
 #include "nemo-actions.h"
@@ -109,6 +110,7 @@
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_SHOW_ICON_VIEW_ICON_TOOLBAR_WIDGET "show_icon_view_icon_toolbar_togglebutton"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_SHOW_LIST_VIEW_ICON_TOOLBAR_WIDGET "show_list_view_icon_toolbar_togglebutton"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_SHOW_COMPACT_VIEW_ICON_TOOLBAR_WIDGET "show_compact_view_icon_toolbar_togglebutton"
+#define NEMO_FILE_MANAGEMENT_PROPERTIES_SHOW_IMAGE_VIEW_ICON_TOOLBAR_WIDGET "show_image_view_icon_toolbar_togglebutton"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_SHOW_SHOW_THUMBNAILS_ICON_TOOLBAR_WIDGET "show_show_thumbnails_icon_toolbar_togglebutton"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_SHOW_TOGGLE_EXTRA_PANE_ICON_TOOLBAR_WIDGET "show_toggle_extra_pane_icon_toolbar_togglebutton"
 
@@ -121,6 +123,7 @@
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_START_WITH_DUAL_PANE_WIDGET "start_with_dual_pane_checkbutton"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_ALWAYS_SHOW_TABS_WIDGET "always_show_tabs_checkbutton"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_REMEMBER_FOLDER_SETTINGS_WIDGET "remember_folder_settings_checkbutton"
+#define NEMO_FILE_MANAGEMENT_PROPERTIES_ZOOM_RESIZES_WINDOW_WIDGET "zoom_resizes_window_checkbutton"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_BOOKMARKS_IN_TO_MENUS_WIDGET "bookmarks_in_to_checkbutton"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_PLACES_IN_TO_MENUS_WIDGET "places_in_to_checkbutton"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_INHERIT_SHOW_THUMBNAILS_WIDGET "inherit_show_thumbnails_checkbutton"
@@ -147,10 +150,12 @@
 
 #define TOOLBAR_PADDING 20
 
+/* In the order of the View menu and its keys */
 static const char * const default_view_values[] = {
-	"icon-view",
 	"list-view",
 	"compact-view",
+	"icon-view",
+	"image-view",
 	NULL
 };
 
@@ -233,6 +238,28 @@ static const char * const selection_model_values[] = {
 	"nemo-anywhere",
 	"nemo-classic",
 	"nemo-anywhere-v1",
+	NULL
+};
+
+/* The design doc's order. Labels and tooltips match by index. */
+static const char * const paste_target_values[] = {
+	"nemo-anywhere",
+	"nemo-classic",
+	"macos-dolphin",
+	NULL
+};
+
+static const char * const paste_target_labels[] = {
+	N_("Nemo Anywhere"),
+	N_("Nemo Classic"),
+	N_("macOS/Dolphin"),
+	NULL
+};
+
+static const char * const paste_target_tips[] = {
+	N_("If a selected folder is expanded, new items go in there. If not, new items go in the lowest common parent folder. Ctrl+Shift+V sends to viewed folder."),
+	N_("Like upstream Nemo. A selected expanded folder takes new items. Otherwise they go next to the selection, if it's all in one folder, and in the viewed folder if it isn't."),
+	N_("New items always go in the viewed folder, whatever is selected or expanded. Ctrl+Shift+V pastes into the selected folder."),
 	NULL
 };
 
@@ -687,6 +714,27 @@ path_separator_changed (GtkComboBox *combo_box,
 	gtk_widget_set_sensitive (check, !showing_slash);
 }
 #endif
+
+/* A combo box has no tooltip per entry, so it shows the picked one's. */
+static void
+paste_target_changed (GtkComboBox *combo, G_GNUC_UNUSED gpointer user_data)
+{
+	int i = gtk_combo_box_get_active (combo);
+
+	gtk_widget_set_tooltip_text (GTK_WIDGET (combo),
+				     i >= 0 && i < (int) G_N_ELEMENTS (paste_target_tips) - 1 ? _(paste_target_tips[i]) : NULL);
+}
+
+static void
+paste_target_setup (GtkWidget *combo)
+{
+	int i;
+
+	for (i = 0; paste_target_labels[i] != NULL; i++) {
+		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), _(paste_target_labels[i]));
+	}
+	g_signal_connect (combo, "changed", G_CALLBACK (paste_target_changed), NULL);
+}
 
 #ifndef G_OS_WIN32
 static void
@@ -1584,6 +1632,9 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
 			   NEMO_FILE_MANAGEMENT_PROPERTIES_SHOW_COMPACT_VIEW_ICON_TOOLBAR_WIDGET,
 			   NEMO_PREFERENCES_SHOW_COMPACT_VIEW_ICON_TOOLBAR);
     bind_builder_bool (builder, nemo_preferences,
+			   NEMO_FILE_MANAGEMENT_PROPERTIES_SHOW_IMAGE_VIEW_ICON_TOOLBAR_WIDGET,
+			   NEMO_PREFERENCES_SHOW_IMAGE_VIEW_ICON_TOOLBAR);
+    bind_builder_bool (builder, nemo_preferences,
 			   NEMO_FILE_MANAGEMENT_PROPERTIES_SHOW_SHOW_THUMBNAILS_ICON_TOOLBAR_WIDGET,
 			   NEMO_PREFERENCES_SHOW_SHOW_THUMBNAILS_TOOLBAR);
 
@@ -1646,6 +1697,9 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
   bind_builder_bool (builder, nemo_preferences,
 			   NEMO_FILE_MANAGEMENT_PROPERTIES_REMEMBER_FOLDER_SETTINGS_WIDGET,
 			   NEMO_PREFERENCES_REMEMBER_FOLDER_SETTINGS);
+	bind_builder_bool (builder, nemo_preferences,
+			   NEMO_FILE_MANAGEMENT_PROPERTIES_ZOOM_RESIZES_WINDOW_WIDGET,
+			   NEMO_PREFERENCES_ZOOM_RESIZES_WINDOW);
   bind_builder_bool (builder, nemo_preferences,
                NEMO_FILE_MANAGEMENT_PROPERTIES_REVERSE_SORT_WIDGET,
                NEMO_PREFERENCES_DEFAULT_SORT_IN_REVERSE_ORDER);
@@ -1700,6 +1754,11 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
 			   "selection_model_combobox",
 			   NEMO_PREFERENCES_SELECTION_MODEL,
 			   (const char **) selection_model_values);
+	paste_target_setup (GTK_WIDGET (gtk_builder_get_object (builder, "paste_target_combobox")));
+	bind_builder_enum (builder, nemo_preferences,
+			   "paste_target_combobox",
+			   NEMO_PREFERENCES_PASTE_TARGET,
+			   (const char **) paste_target_values);
 	bind_builder_enum (builder, nemo_preferences,
 			   NEMO_FILE_MANAGEMENT_PROPERTIES_DATE_FORMAT_WIDGET,
 			   NEMO_PREFERENCES_DATE_FORMAT,
@@ -1739,6 +1798,7 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
 				G_N_ELEMENTS (thumbnail_limit_values));
 
 	nemo_prefs_file_cache_setup (builder);
+	nemo_prefs_keyboard_setup (builder);
 
     bind_builder_bool (builder, nemo_media_handling_preferences,
                NEMO_FILE_MANAGEMENT_PROPERTIES_AUTOMOUNT_MEDIA_WIDGET,

@@ -24,6 +24,84 @@ check_expansion (const char *typed, const char *expected)
 	g_free (got);
 }
 
+/* A common name from either platform still expands where nothing set it. */
+static void
+test_stand_ins (const char *tmpdir)
+{
+	/* glib caches these on first use, so they keep their values once the
+	   variables they read are gone. */
+	const char *home = g_get_home_dir ();
+	const char *tmp = g_get_tmp_dir ();
+	const char *config = g_get_user_config_dir ();
+	const char *data = g_get_user_data_dir ();
+	const char *cache = g_get_user_cache_dir ();
+	const char *user = g_get_user_name ();
+	const char *names[] = {
+		"HOME", "USERPROFILE", "TMP", "TEMP", "TMPDIR", "USER", "USERNAME",
+		"XDG_CONFIG_HOME", "APPDATA", "XDG_DATA_HOME", "LOCALAPPDATA",
+		"XDG_CACHE_HOME", "DEVELOPER_DIR",
+	};
+	char *expected;
+	guint i;
+
+	for (i = 0; i < G_N_ELEMENTS (names); i++) {
+		g_unsetenv (names[i]);
+	}
+
+	expected = g_strconcat (home, "\\Pictures", NULL);
+	check_expansion ("%USERPROFILE%\\Pictures", expected);
+	check_expansion ("%UserProfile%\\Pictures", expected);
+	check_expansion ("$USERPROFILE\\Pictures", expected);
+	g_free (expected);
+
+	expected = g_strconcat (home, "/.config", NULL);
+	check_expansion ("${HOME}/.config", expected);
+	check_expansion ("%HOME%/.config", expected);
+	g_free (expected);
+
+	expected = g_strconcat (tmp, "/misc", NULL);
+	check_expansion ("$TMP/misc", expected);
+	check_expansion ("%TEMP%/misc", expected);
+	check_expansion ("$TMPDIR/misc", expected);
+	g_free (expected);
+
+	expected = g_strconcat (config, "/x", NULL);
+	check_expansion ("%APPDATA%/x", expected);
+	check_expansion ("$XDG_CONFIG_HOME/x", expected);
+	g_free (expected);
+
+	expected = g_strconcat (data, "/x", NULL);
+	check_expansion ("%LOCALAPPDATA%/x", expected);
+	check_expansion ("$XDG_DATA_HOME/x", expected);
+	g_free (expected);
+
+	expected = g_strconcat (cache, "/x", NULL);
+	check_expansion ("$XDG_CACHE_HOME/x", expected);
+	g_free (expected);
+
+	expected = g_strconcat ("/home/", user, NULL);
+	check_expansion ("/home/$USER", expected);
+	check_expansion ("/home/%USERNAME%", expected);
+	g_free (expected);
+
+	/* Unix names keep their case. */
+	check_expansion ("$home/x", NULL);
+	check_expansion ("$UserProfile/x", NULL);
+
+	/* No stand-in off a Mac, but it works anywhere it's set. */
+	check_expansion ("$DEVELOPER_DIR/x", NULL);
+
+	/* What's set always beats a stand-in. */
+	g_setenv ("TMP", tmpdir, TRUE);
+	g_setenv ("DEVELOPER_DIR", tmpdir, TRUE);
+	expected = g_strconcat (tmpdir, "/misc", NULL);
+	check_expansion ("$TMP/misc", expected);
+	check_expansion ("$DEVELOPER_DIR/misc", expected);
+	g_free (expected);
+	g_unsetenv ("TMP");
+	g_unsetenv ("DEVELOPER_DIR");
+}
+
 static void
 test_expansion (const char *tmpdir)
 {
@@ -51,6 +129,9 @@ test_expansion (const char *tmpdir)
 
 #ifdef G_OS_WIN32
 	check_expansion ("~", g_get_home_dir ());
+	expected = g_strconcat (g_get_home_dir (), "/.cache", NULL);
+	check_expansion ("~/.cache", expected);
+	g_free (expected);
 
 	/* Only at the start, and only as a whole path element. */
 	check_expansion ("a~b", NULL);
@@ -68,6 +149,7 @@ main (void)
 	g_assert (tmpdir != NULL);
 
 	test_expansion (tmpdir);
+	test_stand_ins (tmpdir);
 
 	real_file = g_build_filename (tmpdir, "plain.txt", NULL);
 	g_assert (g_file_set_contents (real_file, "x", -1, NULL));
@@ -87,6 +169,18 @@ main (void)
 	resolved = g_file_get_path (location);
 	check (resolved != NULL && g_file_test (resolved, G_FILE_TEST_EXISTS));
 	g_free (resolved);
+	g_object_unref (location);
+	g_free (typed);
+
+	/* a Windows path behind a variable resolves too */
+	typed = g_strdup ("%NEMO_TEST_DIR%\\plain.txt");
+	location = eel_g_file_new_for_user_input (typed);
+	{
+		GFile *want = g_file_new_for_path (real_file);
+
+		check (g_file_equal (location, want));
+		g_object_unref (want);
+	}
 	g_object_unref (location);
 	g_free (typed);
 

@@ -391,7 +391,7 @@ The window has a menu and toolbar, the side panes, a path bar, and a view, and t
 
 #### Views and list columns
 
-- The icon, compact, and list views share one interface, with an optional tree column in list view. Each reads its layout from per-folder state where the folder has any, and from the defaults where it doesn't.
+- The icon, compact, and list views share one interface, with an optional tree column in list view. Image thumbnail view is the icon view at the picture size, whatever is in the folder. A folder that's mostly images opens in it. Each reads its layout from per-folder state where the folder has any, and from the defaults where it doesn't.
 
 - Every other row can be shaded, off by default. GTK 3 no longer draws the rules hint, so each cell tints its own background on odd rows, counted by place on screen so an open subfolder's rows take their turn. A cell leaves its background off a selected row, and the tint is see-through, so selection and hover still read. The color is the setting's, then the theme's `nemo_row_shading`, then a faint wash of the text color.
 
@@ -415,17 +415,17 @@ The window has a menu and toolbar, the side panes, a path bar, and a view, and t
 
 - Both the settings file and the Settings window say it as a percent of the standard 64 pixels, so 100% is 64 and 1000% is 640.
 
-- There are 2 defaults for the icon view. An ordinary folder opens at 100%. A folder that is mostly images opens at 500%, which is 320 pixels, so pictures are shown at a size worth looking at without anyone touching the slider.
+- There are 2 defaults for the icon view. Icon view opens at 100%. Image thumbnail view opens at 500%, which is 320 pixels, so pictures are shown at a size worth looking at without anyone touching the slider.
 
 - "Mostly images" means at least 2 images, and images making up at least half of the files. Both numbers are in the settings file. Folders aren't counted either way, so filing pictures into sub-folders doesn't change the answer. The count is taken once the folder has finished loading, which is the first moment anything is known about what's in it.
 
-- Such a folder also opens in icon view when the default view is list or compact, unless it has a view of its own. Since the count waits for the load, the switch happens after it. To avoid that, the answer is kept in memory for the last few hundred folders, and the local sub-folders of a folder just loaded are counted ahead in the background. Either way the view is right from the first draw. Only a folder nothing is known about still switches late. Picking another view there by hand is saved on the folder, so it isn't switched again.
+- Such a folder opens in Image thumbnail view whatever the default view is, unless it has a view of its own. Icon view doesn't grow there, and keeps its own size. Since the count waits for the load, the switch happens after it. To avoid that, the answer is kept in memory for the last few hundred folders, and the local sub-folders of a folder just loaded are counted ahead in the background. Either way the view is right from the first draw. Only a folder nothing is known about still switches late. Picking another view there by hand is saved on the folder, so it isn't switched again.
 
 - The image size is a default rather than a rule. The slider still moves the folder, and where "Remember per-folder settings" is on that size is what sticks. The default itself is never written back. A folder with nothing of its own keeps following whatever the setting says, and in a window that isn't remembering per folder the bigger size doesn't follow you into the next folder.
 
-- A folder therefore remembers 2 icon sizes, one for how it should look full of pictures and one for how it should look otherwise. Which of the 2 a zoom sets depends on what's in the folder at the time, so zooming a gallery never moves the size its plain sibling opens at. With per-folder settings off, the window keeps the same pair for as long as it's open, so a zoom in a gallery doesn't follow into the next list either.
+- A folder therefore remembers 2 icon sizes, one for Image thumbnail view and one for icon view. Which of the 2 a zoom sets depends on the view, so zooming a gallery never moves the size its plain sibling opens at. With per-folder settings off, the window keeps the same pair for as long as it's open, so a zoom in a gallery doesn't follow into the next list either.
 
-- Both sizes inherit. A child with nothing of its own takes the pair from the nearest parent that has one and then picks between them by what is in the child. So one setting on a photo library gives every album under it the big size, while a folder of notes filed in the same tree still opens small. Where a parent only ever had one of the 2 set, the other falls back to its default.
+- Both sizes inherit. A child with nothing of its own takes the pair from the nearest parent that has one and then uses the one for the view it opens in. A child that's mostly images opens in Image thumbnail view, so one setting on a photo library gives every album under it the big size, while a folder of notes filed in the same tree still opens small. Where a parent only ever had one of the 2 set, the other falls back to its default.
 
 - The slider runs along the stops rather than over pixels. The range is nearly 30 times as wide at one end as the other, so spacing the marks evenly is the only way the low end stays usable.
 
@@ -434,6 +434,8 @@ The window has a menu and toolbar, the side panes, a path bar, and a view, and t
 - The list view is held to the stops rather than taking any size, because a row's icon comes out of one of the model's size columns and a tree model's column count is fixed. Its row text does grow with its size, unlike a name under an icon. In a list the row height is most of what a size means.
 
 - A saved size is a number of pixels. One saved before this change is a step number, 0 to 6, which no real size can be, so the 2 are told apart on read.
+
+- Zoom In, Zoom Out and Normal size, from the keyboard or the View menu, resize the window too, so about the same files stay in view. It's `preferences.zoom-resizes-window`, on by default. Only the contents area scales: by the icon size in the icon view, by the rows alone in the compact view, whose names don't grow, and by the text in a list. The window stays inside the monitor's work area, and is moved back onto it if it grows past an edge. The size it would have had is kept, so zooming back out the same number of steps returns it to where it started. A maximized, tiled or full-screen window keeps its size. The slider and Ctrl+scroll don't resize the window either, since the window would move under the pointer.
 
 #### List view column widths
 
@@ -546,6 +548,8 @@ There are 2 settings for how the app looks. One is a light or dark mode, and the
 #### Paths and desktop settings
 
 - Both `/` and `\` work in typed locations on every platform, without reserving `\`. On Windows both are already native. On POSIX `\` is a legal filename character, and files created over SMB shares do contain it, so it isn't reserved and no escape syntax is introduced. Typed input is normalized by fallback instead. The literal path is tried first, and a `\` to `/` retry is only tried when that doesn't resolve. Pasted Windows paths work and real backslash filenames keep working.
+
+- A typed location takes `~` at the start, and `%NAME%`, `$NAME` or `${NAME}` anywhere, in either form on every platform. The literal path is tried first. A name that isn't set stays as typed, unless it's a common one from the other platform, such as `%USERPROFILE%`, `$HOME`, `$TMP` or `%APPDATA%`. That one stands for the local equivalent, so a path copied from one box works on the other. The `%NAME%` form ignores case, as on Windows. The list is in `eel-vfs-extensions.c`.
 
 - On Windows, text a user writes takes a Windows path as written. That covers action, search helper, thumbnailer, and link files, and the command lines and paths in the settings. A backslash there is a path character and never an escape, since nobody means `\n` or `\t` in a path, and a path read as escapes breaks without a word. A file already written with every backslash doubled still reads right. A command line splits on blanks, and double quotes group words. On Linux those files keep the freedesktop spec's escapes. Text only the app writes and reads may keep escapes.
 
@@ -711,7 +715,7 @@ Tests are ordinary executables run by meson, and the bar for adding one is a def
 
 - The clang analyzer also runs across files, over both compile lists, so it follows a call into another .c file of the same build. That takes about 3 times the per-file run, near 20 minutes, so it comes with `--long`, or with `--leakcheck` named, and a plain run leaves it out. A leak and a NULL read that only show through the other file have to be found first, and a suppression in the other file has to hold. Its findings are counted in `cicd/artifacts/analyze-ctu/`, and a finding left, or a file cut off at the cap, fails the stage, as in the per-file run.
 
-- CodeQL runs by the same rule, with `--long` or with `--leakcheck` named. Its C queries go over both compile lists, and its Python queries over the tree. The CLI and its query packs are pinned by hash in the 2 build images and run there, with no hosted service. Style queries are left out, unless they're about correctness or security too. A planted leak and null dereference have to be found first, in both images. Its findings are counted in `cicd/artifacts/codeql/` and don't fail the run yet.
+- CodeQL runs by the same rule, with `--long` or with `--leakcheck` named. Its C queries go over both compile lists, and its Python queries over the tracked Python files, so build output left in the tree stays out. The CLI and its query packs are pinned by hash in the 2 build images and run there, with no hosted service. Style queries are left out, unless they're about correctness or security too. A planted leak and null dereference have to be found first, in both images. Its findings are counted in `cicd/artifacts/codeql/` and don't fail the run yet. One in our code or inherited code is suppressed with a `codeql[<rule>]` comment on the line before, with the reason. One in vendored code is listed in `cicd/utility/codeql-vendored.txt` with the reason, and an entry that matches nothing fails the step. `codeql.bash --lane` and `--match` run one lane, or the C files under some paths, in a minute or so.
 
 - The suite runs headless, on a virtual display where GTK needs one, and forms part of the Linux pre-push gate along with the build, the lints, and a launch smoke test. A test that can't run on the current platform reports a skip, never a pass.
 

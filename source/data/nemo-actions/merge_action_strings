@@ -28,7 +28,7 @@ class Main:
                         path, locale = os.path.split(path)
                         try:
                             self.mo_files[locale] = polib.mofile(os.path.join(root, file))
-                        except:
+                        except Exception:
                             print("merge_action_strings - Failed to load .mo file: %s" % (os.path.join(root, file)))
 
         if len(self.mo_files) > 0:
@@ -59,7 +59,7 @@ class Main:
                     if name == entry.msgid:
                         self.in_keyfiles[kf].set_locale_string(GROUP, "Name", locale, entry.msgstr)
                 except GLib.GError:
-                    pass
+                    pass  # an action without that key has nothing to translate
 
     def check_comment(self, locale, entry):
         if entry.msgstr != '':
@@ -69,7 +69,7 @@ class Main:
                     if name == entry.msgid:
                         self.in_keyfiles[kf].set_locale_string(GROUP, "Comment", locale, entry.msgstr)
                 except GLib.GError:
-                    pass
+                    pass  # an action without that key has nothing to translate
 
 if __name__ == "__main__":
     Main()

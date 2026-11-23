@@ -150,6 +150,10 @@ struct NemoViewClass {
 
 	char *	(* get_backing_uri)		(NemoView *view);
 
+	/* Where Create link, Compress and Extract here put what they make.
+	 * Defaults to get_backing_uri's base. */
+	char *	(* get_beside_uri)		(NemoView *view);
+
 	/* get_selection is not a signal; it is just a function pointer for
 	 * subclasses to replace (override). Subclasses must replace it
 	 * with a function that returns a newly-allocated GList of
@@ -406,6 +410,7 @@ const char *      nemo_view_get_view_id                (NemoView      *view);
 
 /* file operations */
 char *            nemo_view_get_backing_uri            (NemoView      *view);
+char *            nemo_view_get_beside_uri             (NemoView      *view);
 void              nemo_view_move_copy_items            (NemoView      *view,
 							    const GList       *item_uris,
 							    GArray            *relative_item_points,

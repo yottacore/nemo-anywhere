@@ -141,6 +141,43 @@ find_variable (const char  *p,
 	}
 }
 
+/* Names one platform sets and another doesn't, so a path typed for one box
+ * still goes somewhere sensible on the other. The environment always wins. */
+static const struct {
+	const char   *name;
+	const char *(*fallback) (void);
+} stand_ins[] = {
+	{ "HOME",            g_get_home_dir },
+	{ "USERPROFILE",     g_get_home_dir },
+	{ "TMP",             g_get_tmp_dir },
+	{ "TEMP",            g_get_tmp_dir },
+	{ "TMPDIR",          g_get_tmp_dir },
+	{ "USER",            g_get_user_name },
+	{ "USERNAME",        g_get_user_name },
+	{ "XDG_CONFIG_HOME", g_get_user_config_dir },
+	{ "APPDATA",         g_get_user_config_dir },
+	{ "XDG_DATA_HOME",   g_get_user_data_dir },
+	{ "LOCALAPPDATA",    g_get_user_data_dir },
+	{ "XDG_CACHE_HOME",  g_get_user_cache_dir },
+};
+
+/* %NAME% is case-blind as on Windows, so %UserProfile% matches; $home doesn't. */
+static const char *
+lookup_variable (const char *name, gboolean percent_form)
+{
+	const char *value = g_getenv (name);
+	guint       i;
+
+	for (i = 0; value == NULL && i < G_N_ELEMENTS (stand_ins); i++) {
+		if (percent_form ? g_ascii_strcasecmp (name, stand_ins[i].name) == 0
+		                 : strcmp (name, stand_ins[i].name) == 0) {
+			value = stand_ins[i].fallback ();
+		}
+	}
+
+	return value;
+}
+
 /* Returns: (transfer full): free with g_free */
 char *
 eel_expand_user_input (const char *text)
@@ -175,7 +212,7 @@ eel_expand_user_input (const char *text)
 
 		if (name_start != NULL) {
 			name = g_strndup (name_start, name_end - name_start);
-			value = g_getenv (name);
+			value = lookup_variable (name, *p == '%');
 			g_free (name);
 		}
 
@@ -200,15 +237,13 @@ eel_expand_user_input (const char *text)
 	return g_string_free (out, FALSE);
 }
 
-/* Typed-location parsing that takes backslash separators everywhere. The
- * literal text wins, so a file with a backslash in its name stays reachable.
- * Only a missing local path with backslashes is tried again with slashes.
- * Returns: (transfer full): unref with g_object_unref */
-GFile *
-eel_g_file_new_for_user_input (const char *text)
+/* The literal text wins, so a file with a backslash in its name stays
+ * reachable. Only a missing local path with backslashes is tried again with
+ * slashes. */
+static GFile *
+parse_with_slash_retry (const char *text)
 {
 	GFile *location;
-	char  *expanded;
 
 	location = g_file_parse_name (text);
 
@@ -238,15 +273,34 @@ eel_g_file_new_for_user_input (const char *text)
 		}
 	}
 
+	return location;
+}
+
+/* Typed-location parsing that takes backslash separators everywhere.
+ * Returns: (transfer full): unref with g_object_unref */
+GFile *
+eel_g_file_new_for_user_input (const char *text)
+{
+	GFile *location;
+	char  *expanded;
+
+	location = parse_with_slash_retry (text);
+
+	/* No probing a share, as above. */
+	if (g_str_has_prefix (text, "\\\\")) {
+		return location;
+	}
+
 	/* A ~ or a variable only stands for a local path, so it's tried last, and
 	 * only when the literal can't be opened. Expanding first is free and keeps
-	 * the existence check off every other typed path. */
+	 * the existence check off every other typed path. The expanded text gets
+	 * the same slash retry, for %USERPROFILE%\Pictures off Windows. */
 	expanded = eel_expand_user_input (text);
 
 	if (expanded != NULL) {
 		if (!g_file_is_native (location) ||
 		    !g_file_query_exists (location, NULL)) {
-			GFile *retry = g_file_parse_name (expanded);
+			GFile *retry = parse_with_slash_retry (expanded);
 
 			if (g_file_is_native (retry)) {
 				g_object_unref (location);

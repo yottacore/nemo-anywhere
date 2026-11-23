@@ -71,10 +71,12 @@ static const char * const field_widgets[N_FIELDS] = {
 };
 
 /* Same order as the view combo's rows. */
+/* The rows of the shared view dropdown, in View menu order */
 static const char * const view_iids[] = {
-	NEMO_ICON_VIEW_IID,
 	NEMO_LIST_VIEW_IID,
 	NEMO_COMPACT_VIEW_IID,
+	NEMO_ICON_VIEW_IID,
+	NEMO_IMAGE_VIEW_IID,
 };
 
 /* One row of "Arrange items" as the setting names it and as a folder keeps

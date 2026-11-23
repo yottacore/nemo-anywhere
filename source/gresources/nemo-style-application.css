@@ -83,6 +83,34 @@ NemoDesktopWindow GtkPaned {
     opacity: 1.0;
 }
 
+/* Where a bookmark dragged in Places will go. Themes draw a 1px line in
+   their drop color, which in some is close to the background, so it's drawn
+   here in the text color and thicker. dfpnp checks it in every bundled theme. */
+.places-treeview:drop(active).before,
+.places-treeview:drop(active).after {
+	border-image: none;
+	border-radius: 0;
+	border-color: currentColor;
+	border-style: none;
+}
+
+.places-treeview:drop(active).before {
+	border-top: 2px solid currentColor;
+}
+
+.places-treeview:drop(active).after {
+	border-bottom: 2px solid currentColor;
+}
+
+/* Same for the frame around a row a file would drop into, in any tree view.
+   The themes' frame is 1px in the same faint color. dfpp8 checks it. */
+treeview.view:drop(active):not(.before):not(.after) {
+	border-image: none;
+	border-radius: 0;
+	border: 2px solid currentColor;
+	box-shadow: none;
+}
+
 /* The hover tint on list and sidebar rows is set per tree view by
    nemo-row-hover.c, since it is worked out from the theme's colors. */
 

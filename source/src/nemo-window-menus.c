@@ -57,6 +57,7 @@
 #include <libnemo-extension/nemo-menu-provider.h>
 #include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-global-preferences.h>
+#include <libnemo-private/nemo-paste-target.h>
 #include <libnemo-private/nemo-icon-names.h>
 #include <libnemo-private/nemo-ui-utilities.h>
 #include <libnemo-private/nemo-module.h>
@@ -66,6 +67,7 @@
 #include <libnemo-private/nemo-search-engine.h>
 #include <libnemo-private/nemo-signaller.h>
 #include <libnemo-private/nemo-trash-monitor.h>
+#include <libnemo-private/nemo-shortcuts.h>
 #include <string.h>
 
 #define MENU_PATH_EXTENSION_ACTIONS                     "/MenuBar/File/Extension Actions"
@@ -83,6 +85,7 @@ enum {
     ICON_VIEW,
     LIST_VIEW,
     COMPACT_VIEW,
+    IMAGE_VIEW,
     TOOLBAR_PATHBAR,
     TOOLBAR_ENTRY
 };
@@ -245,25 +248,48 @@ get_current_view (NemoWindow *window)
 	return view;
 }
 
+/* direction 0 is the normal size. */
+static void
+zoom_with_window (NemoWindow *window,
+		  int         direction)
+{
+	NemoView *view;
+	gint before;
+
+	view = get_current_view (window);
+	if (view == NULL) {
+		return;
+	}
+
+	before = nemo_view_get_icon_size (view);
+	if (direction == 0) {
+		nemo_view_restore_default_icon_size (view);
+	} else {
+		nemo_view_bump_icon_size (view, direction);
+	}
+
+	nemo_window_resize_for_zoom (window, view, before, nemo_view_get_icon_size (view));
+}
+
 static void
 action_zoom_in_callback (G_GNUC_UNUSED GtkAction *action,
 			 gpointer user_data)
 {
-    nemo_view_bump_icon_size (get_current_view (user_data), 1);
+	zoom_with_window (NEMO_WINDOW (user_data), 1);
 }
 
 static void
 action_zoom_out_callback (G_GNUC_UNUSED GtkAction *action,
 			  gpointer user_data)
 {
-    nemo_view_bump_icon_size (get_current_view (user_data), -1);
+	zoom_with_window (NEMO_WINDOW (user_data), -1);
 }
 
 static void
 action_zoom_normal_callback (G_GNUC_UNUSED GtkAction *action,
 			     gpointer user_data)
 {
-    nemo_view_restore_default_icon_size (get_current_view (user_data));
+	zoom_with_window (NEMO_WINDOW (user_data), 0);
 }
 
 /* Windows marks hidden files with an attribute and treats a leading dot as an
@@ -463,6 +489,8 @@ action_show_shortcuts_window (G_GNUC_UNUSED GtkAction *action,
     static GtkWidget *shortcuts_window;
     static GObject *invert_shortcut;
     static GObject *properties_shortcut;
+    static GObject *paste_key_shortcut;
+    const NemoPasteKey *paste_key;
     gboolean primary_i_inverts;
 
     window = NEMO_WINDOW (user_data);
@@ -475,6 +503,7 @@ action_show_shortcuts_window (G_GNUC_UNUSED GtkAction *action,
         shortcuts_window = GTK_WIDGET (gtk_builder_get_object (builder, "keyboard_shortcuts"));
         invert_shortcut = gtk_builder_get_object (builder, "shortcut_invert_selection");
         properties_shortcut = gtk_builder_get_object (builder, "shortcut_properties");
+        paste_key_shortcut = gtk_builder_get_object (builder, "shortcut_paste_key");
 
         gtk_window_set_position (GTK_WINDOW (shortcuts_window), GTK_WIN_POS_CENTER);
         /* A section too long for one page gets page buttons. */
@@ -498,7 +527,14 @@ action_show_shortcuts_window (G_GNUC_UNUSED GtkAction *action,
     g_object_set (properties_shortcut, "accelerator",
                   primary_i_inverts ? "<alt>Return" : "<Primary>I <alt>Return", NULL);
 
+    /* So does Ctrl+Shift+V, by the target setting. */
+    paste_key = nemo_paste_target_key (nemo_global_preferences_get_paste_target ());
+    if (paste_key != NULL) {
+        g_object_set (paste_key_shortcut, "title", _(paste_key->title), NULL);
+    }
+
     gtk_widget_show_all (shortcuts_window);
+    gtk_widget_set_visible (GTK_WIDGET (paste_key_shortcut), paste_key != NULL);
     gtk_window_present (GTK_WINDOW (shortcuts_window));
 }
 
@@ -737,6 +773,9 @@ view_radio_entry_changed_cb (G_GNUC_UNUSED GtkAction *action,
             break;
         case COMPACT_VIEW:
             set_content_view_type (window, FM_COMPACT_VIEW_ID);
+            break;
+        case IMAGE_VIEW:
+            set_content_view_type (window, NEMO_IMAGE_VIEW_ID);
             break;
         default:
             ;
@@ -1043,6 +1082,13 @@ action_compact_view_callback (G_GNUC_UNUSED GtkAction *action,
     set_content_view_type (window, FM_COMPACT_VIEW_ID);
 }
 
+static void
+action_image_view_callback (G_GNUC_UNUSED GtkAction *action,
+                            gpointer user_data)
+{
+    set_content_view_type (NEMO_WINDOW (user_data), NEMO_IMAGE_VIEW_ID);
+}
+
 guint
 action_for_view_id (const char *view_id)
 {
@@ -1052,6 +1098,8 @@ action_for_view_id (const char *view_id)
         return LIST_VIEW;
     } else if (g_strcmp0(view_id, FM_COMPACT_VIEW_ID) == 0) {
         return COMPACT_VIEW;
+    } else if (g_strcmp0(view_id, NEMO_IMAGE_VIEW_ID) == 0) {
+        return IMAGE_VIEW;
     } else {
         return NULL_VIEW;
     }
@@ -1060,7 +1108,7 @@ action_for_view_id (const char *view_id)
 void
 toolbar_set_view_button (guint action_id, NemoWindow *window)
 {
-    GtkAction *action, *action1, *action2;
+    GtkAction *action, *action1, *action2, *action3;
     GtkActionGroup *action_group;
     if (action_id == NULL_VIEW) {
         return;
@@ -1073,6 +1121,8 @@ toolbar_set_view_button (guint action_id, NemoWindow *window)
                                          NEMO_ACTION_LIST_VIEW);
     action2 = gtk_action_group_get_action(action_group,
                                          NEMO_ACTION_COMPACT_VIEW);
+    action3 = gtk_action_group_get_action(action_group,
+                                         NEMO_ACTION_IMAGE_VIEW);
 
     g_signal_handlers_block_matched (action,
                          G_SIGNAL_MATCH_FUNC,
@@ -1093,6 +1143,12 @@ toolbar_set_view_button (guint action_id, NemoWindow *window)
                          NULL,
                          action_compact_view_callback,
                          window);
+    g_signal_handlers_block_matched (action3,
+                         G_SIGNAL_MATCH_FUNC,
+                         0, 0,
+                         NULL,
+                         action_image_view_callback,
+                         window);
 
     if (action_id != ICON_VIEW) {
         gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action), FALSE);
@@ -1111,6 +1167,8 @@ toolbar_set_view_button (guint action_id, NemoWindow *window)
     } else {
         gtk_toggle_action_set_active(GTK_TOGGLE_ACTION(action2), TRUE);
     }
+
+    gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (action3), action_id == IMAGE_VIEW);
 
     g_signal_handlers_unblock_matched (action,
                            G_SIGNAL_MATCH_FUNC,
@@ -1135,6 +1193,12 @@ toolbar_set_view_button (guint action_id, NemoWindow *window)
                            action_compact_view_callback,
                            window);
 
+    g_signal_handlers_unblock_matched (action3,
+                           G_SIGNAL_MATCH_FUNC,
+                           0, 0,
+                           NULL,
+                           action_image_view_callback,
+                           window);
 }
 
 void
@@ -1567,15 +1631,18 @@ static const GtkToggleActionEntry main_toggle_entries[] = {
 };
 
 static const GtkRadioActionEntry view_radio_entries[] = {
-    { "IconView", NULL,
-      N_("Icon view"), "<Primary>1", N_("Icon view"),
-      ICON_VIEW },
     { "ListView", NULL,
-      N_("List view"), "<Primary>2", N_("List view"),
+      N_("Detailed view"), "<Primary>1", N_("Detailed view"),
       LIST_VIEW },
     { "CompactView", NULL,
-      N_("Compact view"), "<Primary>3", N_("Compact view"),
-      COMPACT_VIEW }
+      N_("Compact view"), "<Primary>2", N_("Compact view"),
+      COMPACT_VIEW },
+    { "IconView", NULL,
+      N_("Icon view"), "<Primary>3", N_("Icon view"),
+      ICON_VIEW },
+    { "ImageView", NULL,
+      N_("Image thumbnail view"), "<Primary>4", N_("Image thumbnail view"),
+      IMAGE_VIEW }
 };
 
 static const GtkRadioActionEntry toolbar_radio_entries[] = {
@@ -1738,8 +1805,8 @@ nemo_window_create_toolbar_action_group (NemoWindow *window)
    	g_object_unref (action);
 
     action = GTK_ACTION (gtk_toggle_action_new (NEMO_ACTION_LIST_VIEW,
-                         _("List"),
-                         _("List view"),
+                         _("Detailed"),
+                         _("Detailed view"),
                          NULL));
     g_signal_connect (action, "activate",
                       G_CALLBACK (action_list_view_callback),
@@ -1760,6 +1827,18 @@ nemo_window_create_toolbar_action_group (NemoWindow *window)
     gtk_action_set_icon_name (GTK_ACTION (action), "view-continuous-symbolic");
 
    	g_object_unref (action);
+
+    /* Shipped in the bundled icon set, unlike the photo icons. */
+    action = GTK_ACTION (gtk_toggle_action_new (NEMO_ACTION_IMAGE_VIEW,
+                         _("Image thumbnails"),
+                         _("Image thumbnail view"),
+                         NULL));
+    g_signal_connect (action, "activate",
+                      G_CALLBACK (action_image_view_callback),
+                      window);
+    gtk_action_group_add_action (action_group, action);
+    gtk_action_set_icon_name (GTK_ACTION (action), "folder-pictures-symbolic");
+    g_object_unref (action);
 
  	action = GTK_ACTION (gtk_toggle_action_new (NEMO_ACTION_SEARCH,
  				_("Search"),_("Search documents and folders"),
@@ -1910,6 +1989,7 @@ nemo_window_initialize_menus (NemoWindow *window)
 	gtk_action_group_add_actions (action_group,
 				      main_entries, G_N_ELEMENTS (main_entries),
 				      window);
+	nemo_shortcuts_note_actions (action_group, main_entries, G_N_ELEMENTS (main_entries));
 
       /* if root then hide menu items that do not work */
     if (nemo_user_is_root () && !nemo_treating_root_as_normal ()) {
@@ -1928,10 +2008,12 @@ nemo_window_initialize_menus (NemoWindow *window)
 	gtk_action_group_add_toggle_actions (action_group,
 					     main_toggle_entries, G_N_ELEMENTS (main_toggle_entries),
 					     window);
+	nemo_shortcuts_note_toggle_actions (action_group, main_toggle_entries, G_N_ELEMENTS (main_toggle_entries));
     gtk_action_group_add_radio_actions (action_group,
                         view_radio_entries, G_N_ELEMENTS (view_radio_entries),
                         0, G_CALLBACK (view_radio_entry_changed_cb),
                         window);
+	nemo_shortcuts_note_radio_actions (action_group, view_radio_entries, G_N_ELEMENTS (view_radio_entries));
 
     gboolean use_entry = nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_SHOW_LOCATION_ENTRY);
     gtk_action_group_add_radio_actions (action_group,
@@ -1939,6 +2021,7 @@ nemo_window_initialize_menus (NemoWindow *window)
                                         use_entry ? TOOLBAR_ENTRY : TOOLBAR_PATHBAR,
                                         G_CALLBACK (toolbar_radio_entry_changed_cb),
                                         window);
+	nemo_shortcuts_note_radio_actions (action_group, toolbar_radio_entries, G_N_ELEMENTS (toolbar_radio_entries));
 
 	action = gtk_action_group_get_action (action_group, NEMO_ACTION_UP);
 	g_object_set (action, "short_label", _("_Up"), NULL);

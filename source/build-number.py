@@ -30,7 +30,7 @@ def stamp() -> int:
         if out.returncode == 0 and out.stdout.strip():
             return int(out.stdout.strip())
     except (OSError, ValueError, subprocess.SubprocessError):
-        pass
+        pass  # no git, or not a checkout; the build time stands in
 
     return int(time.time())
 

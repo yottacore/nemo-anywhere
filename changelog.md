@@ -21,6 +21,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Settings has a Keyboard tab that lists the menu shortcuts by name. Click a key, or press Enter or Space on its row, then press the new keys. Backspace turns one off, an arrow puts one back to the key it started with, and Reset all puts back every one. A key another shortcut already has, or a plain letter with no Ctrl or Alt, is refused with a note saying why. Changes are saved to the `accels` file, and other open windows pick them up. Settings search finds the tab by words such as shortcut and hotkey.
+
+- Image thumbnail view, a fourth view on Ctrl+4, shows a folder's pictures at the picture size. It's in the View menu, the toolbar, the keyboard shortcuts window and the default view in Settings, and `image-view` in the settings file. Its toolbar button has a checkbox on the Toolbar tab in Settings.
+
+- A folder that's mostly images opens in Image thumbnail view, rather than in icon view at the picture size. Icon view keeps its own size there.
+
 - Every move to the trash and every delete is written to the log with how many items, which folder, and the key, click, or drop that started it. One that wasn't started that way, such as one from another program, another copy of the app, or a timer, always asks first and says so. So does one of 20 items or more, even with confirmation turned off. `confirm-many-items` in the settings file sets that number.
 
 - Each new window is its own process, so a crash in one leaves the others running, and 2 versions can be open side by side. A launch from the command line is always a fresh process too, rather than handed to a copy that's already running. `--quit` still takes every copy down. A setting under Behavior turns it off, which puts new windows back inside one process.
@@ -71,6 +77,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Settings has a "File and folder selection model" dropdown on the Advanced tab, for how items get selected and what a command acts on. Nemo Anywhere is the default. Nemo Classic is upstream Nemo's behavior, and Nemo Anywhere v1 is how this fork worked before. A settings file that doesn't name a model gets Nemo Anywhere.
 
+- Settings has a "Where pasted and new items go" dropdown on the Advanced tab, under the selection model. It matters in the list view, where a selection can be spread over several folders. Nemo Anywhere, the default, pastes into a selected expanded folder, and otherwise into the lowest common parent folder of the selection. Nemo Classic is upstream Nemo's rule, and macOS/Dolphin always uses the viewed folder. Paste, New folder, New file, and Open in terminal follow it. Create link, Compress, and Extract here put what they make next to the selected items, except under Nemo Classic. Ctrl+Shift+V pastes into the viewed folder under Nemo Anywhere and into the one selected folder under macOS/Dolphin, and Nemo Classic has no key for it.
+
 - Under Nemo Anywhere, each selected item has a dim checkmark, so it's always clear what a command will act on. In the list view the marks go in a thin column left of Name, which can't be hidden or moved. The icon view puts the mark on the icon's top-left corner, and the compact view puts it left of the name. The folder tree has a column of its own for the selected folder.
 
 - Under Nemo Anywhere, a drag in the list view that starts in the checkmark column always draws a band, even on a selected row, and so does one that starts below the rows. A plain drag from the rest of a row drags files, as before. Ctrl, Shift, and right drags draw a band from empty space or from an item that isn't selected, in every view. Every band with Ctrl held adds to the selection, the right and middle buttons included. A Shift press on a selected item leaves the selection alone until the button comes up, so a Shift drag takes what was already selected. A band leaves the focus on the last item it touched.
@@ -84,6 +92,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Under Nemo Anywhere, the folder tree has a focus of its own. Ctrl+Up and Ctrl+Down move it without opening anything, Ctrl+Space opens the focused folder, and Escape puts the focus back. With the tree focused, Ctrl+C, Ctrl+X, Ctrl+V, Delete, and Shift+Delete act on the tree's selected folder rather than on what's selected in the main view, and F2 renames it in place. The tree's right-click menu has Rename too.
 
 - Settings has a search field across the top. Matches are listed as you type, each with the setting's path and the matched letters marked, and picking one goes to the setting. Labels that contain the text come first, then other names a setting is known by, such as "zebra stripes" or "recycle bin", then looser matches. Ctrl+F goes to the field.
+
+- Zooming from the keyboard or the View menu resizes the window too, so about the same files stay in view. "On contents zoom, change window size too" on the Views page turns it off.
 
 ### Changed
 
@@ -144,6 +154,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Tabs never take the keyboard focus, in Settings, Properties, About, or the keyboard shortcuts window. Tab goes past them, and Ctrl+Page Up and Ctrl+Page Down, or Ctrl+Tab and Ctrl+Shift+Tab, step through the pages from anywhere in the window.
 
 - Under the default Nemo Anywhere model, Ctrl+I inverts the selection, the same as Ctrl+Shift+I, and Properties is on Alt+Enter. Nemo Classic and Nemo Anywhere v1 keep Ctrl+I for Properties.
+
+- List view is called Detailed view. The views go in the order Detailed, Compact, Icon, in the View menu, the toolbar, the keyboard shortcuts window and Settings, and Ctrl+1, Ctrl+2 and Ctrl+3 follow that order. Icon view used to be first, on Ctrl+1.
 
 ### Fixed
 

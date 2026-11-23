@@ -51,6 +51,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261119: split into children 2026111912460963 (the field, label and fuzzy matches, and going to a setting) and 2026111912460983 (aliases, Done).
 		- 20261119: children 2026111912460963 wait on UAT, and the rest are closed
 	- Test case: its children's: 2026111912460963: dfh5x, Settings search matching test: the design doc's 3 examples, the order of the groups and within each, the fuzzy rules, and the markup. dd5df, Settings dialog test, now checks the field is over the pages and outside the scrolling, a search's first match and its path and marks, a fuzzy match, no match, Enter going to the setting, a tab click leaving the search, Ctrl+F, and that the first Escape only empties the field.; 2026111912460983: dfh5x, Settings search matching test: the alias table has a setting's aliases and nothing for a key without a row. dd5df, Settings dialog test: every setting with aliases has a control in the window that the search finds, and gets them on exactly one entry, and an alias typed lists its setting with the alias after the label. The file cache page is stubbed in that test, so its key is left out there.
+	- Stand-in: none (20261123). It closes with its child 2026111912460963, which waits on the look.
 
 - Settings search: a search field over the tabs, with label and fuzzy matches, each shown with its path and marked letters, that goes to the setting picked.
 	- ID: 2026111912460963
@@ -81,6 +82,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 43d3c4fb
 	- Test case: dfh5x, Settings search matching test: the design doc's 3 examples, the order of the groups and within each, the fuzzy rules, and the markup. dd5df, Settings dialog test, now checks the field is over the pages and outside the scrolling, a search's first match and its path and marks, a fuzzy match, no match, Enter going to the setting, a tab click leaving the search, Ctrl+F, and that the first Escape only empties the field.
 	- Verified: dfh5x and dd5df pass, and each fails with part of the fix taken out: dfh5x without the word-start weight, and dd5df without the tab being shown. dbnfq, ddwqt, dd5dh and ddqa7 pass. Format and lint pass, and both analyzers are clean on the 4 C files touched.
+	- Stand-in: none (20261123). Only the look is left, and that turns on taste.
 
 - Changelog: the Nemo Anywhere selection model, for rc.1.
 	- ID: 2026111022095190
@@ -104,6 +106,150 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: the docs checks, since it's a changelog edit.
 	- Verified: 20261119, the markdown checks and the content scrub pass on changelog.md. markdownlint reports only the duplicate headings that every release section already had.
 	- Stand-in: none (20261119). It turns on how the entries read.
+
+- When moving a bookmark with the mouse, it should give some kind of indication of where it's going to go *between*.
+	- ID: 2026101613053686
+	- Type: Enhancement
+	- Status: Waiting on UAT
+		- Needs a look at the new line while dragging a bookmark in Places.
+	- Needs hand testing: drag a bookmark up and down in Places, on Windows with the default theme and on Linux. A line in the text color shows between the 2 rows it would go between, and moves as the pointer does. Check it over the selected place too.
+	- Priority|Severity: Avg
+	- Opened: 20261016-130536
+	- Opened by: t00mietum
+	- Related IDs: 2026112310420234
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+	- Progress log:
+		- 20261123: the spot was already worked out and handed to the toolkit, which drew it as the theme's drop line. That line is 1px, which is easy to miss, as in Fluent, the Windows default, and Adwaita. In Adwaita dark, Windows 10, Windows 10 dark and Windows 7 its color is so close to the background that it can't be seen at all.
+	- Decisions:
+		- The line is drawn in the row's text color, 2px thick, across the whole row, on the top edge of the row below or the bottom edge of the row above. Text color is the one color that reads on every theme, light and dark, and on the selected row. Explorer draws its line in black the same way. Options were the theme's accent color, which is the color that couldn't be seen in 3 themes, or drawing a marker of our own beside the line, as Finder does.
+		- Only Places has this kind of drop. The frame around a row a file drops into has the same faint color in those themes, and is 2026112310420234.
+	- Done: the app's own style sheet draws the line for Places over the theme's.
+	- Swept: Places is the only view that drops between rows. The list view and the tree pane only drop into a row.
+	- Verified: dfpnp fails before the change, with no line or only 1px in all 11 themes it draws, the 9 bundled sheets and Adwaita light and dark, and passes after, at 2px with contrast 3.77 or better. dd2sk, ddg79 and ddhw4 still pass. format and lint pass.
+	- Branch: nov23-2026101613053686
+	- Commit: 1bbffa05
+	- Test case: dfpnp Places drop line test. A Places tree view is drawn in each bundled theme with and without a drop spot, before and after a row and next to the selected row. The line has to be at least 2px, on the right edge of the right row, with at least 3:1 contrast.
+
+- Need ability to enter variables in the path bar. E.g. `$TMP9`.
+	- ID: 2026101613053687
+	- Type: Enhancement
+	- Status: Waiting on UAT
+		- Left at signoff for `$DEVELOPER_DIR`, which has no stand-in off a Mac. It expands wherever it's set.
+	- Priority|Severity: Avg
+	- Opened: 20261016-130536
+	- Opened by: t00mietum
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- Can enter common standard cross-platform variables, e.g.:
+			- `$TMP/misc`, `${HOME}/.config`, or `~/.cache` on Windows.
+			- `%USERPROFILE%\Pictures` on mac and Linux
+			- `$DEVELOPER_DIR` on Windows and Linux
+	- Progress log:
+		- 20261123: done. A common variable from the other platform expands where nothing set it, to the local folder or name. That covers HOME and USERPROFILE, TMP, TEMP and TMPDIR, USER and USERNAME, XDG_CONFIG_HOME and APPDATA, XDG_DATA_HOME and LOCALAPPDATA, and XDG_CACHE_HOME. A variable that's set always wins.
+		- A backslash after a variable resolves too, so `%USERPROFILE%\Pictures` opens on Linux and macOS.
+		- `~` on Windows and every variable that's set already worked, since 20260828.
+	- Decisions:
+		- `$DEVELOPER_DIR` gets no stand-in. On a Mac it's the Xcode folder, and Windows and Linux don't have one.
+		- `%NAME%` ignores case, as on Windows. `$NAME` doesn't.
+		- Options for APPDATA off Windows: the config folder or the data folder; went with config. LOCALAPPDATA takes the data folder.
+		- Nothing in the change is Windows-only, so the Windows cross build's run of the test is enough there.
+	- Swept: the location bar, the bookmark editor, and the command line all use the one expansion. The command line doesn't get the backslash retry, which a shell strips unless it's quoted. Shortcut portable paths have their own reader, which maps only `%USERPROFILE%` off Windows, and were left alone.
+	- Verified: da8rh passes, and fails before the change on 16 checks. It passes in the Windows cross build too. Lint is clean, and both analyzers are clean on the 2 changed files.
+	- Branch: nov23-2026101613053687
+	- Commit: 50eafa7b
+	- Test case: da8rh `test-eel-user-input` (`test_stand_ins`, and the Windows path behind a variable).
+
+- Zoom in with Ctrl+ (or Ctrl=), and out with Ctrl-, changes the window size too.
+	- ID: 2026101715030685
+	- Type: Enhancement
+	- Status: Waiting on UAT
+		- Left at signoff for how far the window grows a step in each view, which is a matter of feel.
+	- Priority|Severity: Avg
+	- Opened: 20261017-150306
+	- Opened by: t00mietum
+	- Requirements:
+		- Cmd in place of Ctrl on macOS.
+		- Change the size of the window too, to remain approximately proportional.
+			- This should be an option, enabled by default: "On contents zoom, change window size too".
+	- Target version: rc.1
+	- Done: Zoom In, Zoom Out and Normal size, from the keyboard or the View menu, resize the window by about as much as the contents grew. Only the contents area scales, and the toolbars, side panes and status bar keep their size. The setting is `preferences.zoom-resizes-window`, a checkbox on the Views page, on by default.
+	- Done: Cmd on macOS comes from the shortcuts already using the Primary key, which is Cmd there. Unverified on a Mac, like the rest of that remap.
+	- Decisions:
+		- The icon view scales by the icon size. The compact view scales only its height, since the names beside its icons don't grow. A list scales by its text, a fifth a step, which sets the column widths and most of the row height.
+		- The window stays inside the monitor's work area, and moves back onto it when it grows past an edge. The size it would have had is kept, so zooming back out the same number of steps returns it to where it started. A size changed by hand starts over from there.
+		- A maximized, tiled or full-screen window keeps its size.
+		- The slider and Ctrl+scroll leave the window alone, since it would move under the pointer. Normal size counts as a keyboard zoom.
+	- Test case: dfpq1 `test-nemo-zoom-resize` for the arithmetic, dfpq4 `test-nemo-zoom-window` for Ctrl+plus and Ctrl+minus in each view, with the setting on and off, dbnfq `test-nemo-prefs-widgets` for the checkbox and its label.
+	- Branch: nov23-2026101715030685
+	- Commit: a548bd4b
+
+- Settings: a Keyboard tab that lists the shortcuts, and changes, turns off, and resets each one.
+	- ID: 2026112312181296
+	- Type: Enhancement
+	- Status: Waiting on UAT
+		- Needs a look at the tab in the app.
+	- Priority|Severity: Avg
+	- Opened: 20261123-121812
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234906
+	- Target version: rc.1
+	- Requirements:
+		- Every shortcut of the window's menus is listed with its key, by name.
+		- A row takes a new key after a click, Enter, or Space. Escape leaves it as it was, and Backspace turns it off.
+		- A row whose key isn't its default can be reset, and so can every row at once.
+		- Changes are saved to the `accels` file.
+	- Done: a Keyboard tab after Advanced lists every menu action with a name, sorted by name, with its key. A click on the key, or Enter or Space on the row, waits for the next key, and every key goes to the row while it waits. Escape leaves it, Backspace turns it off. A revert arrow on a changed row puts its first key back, and Reset all puts back every one. Each window notes the key every action starts with as it adds its actions, since GTK doesn't give that back once a key from `accels` is in place. The changelog and the Settings design doc say so.
+	- Progress log:
+		- 20261123: the tab's page is now a scrolled window, like every other Settings page, so the window's sizing measures it and the page scrolls on a screen too short for it. It was a plain box, which dbnfq refused. The search words for the tab moved to the new page, since search reads them from the tab's own page. Fixed on nov23-2026102018234906-fix.
+	- Decisions:
+		- A key another listed shortcut has is refused, with a note naming that one, rather than shared. 2 actions on one key would leave only one of them working.
+		- A key that types a character needs Ctrl or Alt held, since it would stop typing in the location bar and in a rename. A plain Delete or F2 is fine.
+		- A key turned off shows as "Off".
+		- The key is read by the tab rather than by GTK's own shortcut cell, which takes a grab before it's on screen and can crash later (GNOME/gtk#180).
+		- The text-entry Cut, Copy, and Paste of the location bar aren't listed, since they're the standard editing keys, and the menu's own Cut, Copy, and Paste are.
+		- The Alt+1 to Alt+0 tab keys have no name to list them by, so they aren't listed.
+		- A reset row is written to `accels` with its default key, since GTK doesn't mark an entry unchanged again. It only matters if a later version changes that default.
+		- Placement under Advanced waits for 2026102018234905, per the parent.
+	- Needs hand testing: open Settings, Keyboard, in the app, and judge the list and its wording.
+	- Stand-in: none (20261123). The look and wording of a new tab.
+	- Verified: 20261123, dd5df passes with the new checks. With the first key read from the accel map in place of the action's own, it fails: Rename showed F2 as its default where the file had F6. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Branch: nov23-2026102018234906
+	- Commit: b9a18c18
+	- Test case: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key and a plain letter refused, Backspace, the revert arrow, and Reset all.
+		- 20261123: dd5df's Ctrl+Page Up wrap from the first tab now ends on `keyboard`, where it was `advanced`, since the new tab is last until 2026102018234905 gives Advanced sub-tabs.
+		- 20261123: dbnfq, Settings widgets test, lists the Keyboard page with the other pages, and dd5df's check that every page fits at the opening size covers it too.
+	- Swept: every place a window adds menu actions with keys: the shell actions and their toggles and radios, the folder view's, and icon view's. The location bar's clipboard actions are left out, as under Decisions. The sidebars' right-click menus give none of their actions a key.
+
+- Under the Windows 10 and Windows 7 themes, the frame around a row a file is about to drop into can barely be seen.
+	- ID: 2026112310420234
+	- Type: Bug
+	- Status: Waiting on UAT
+		- Needs a look at the new frame while dragging a file over a folder.
+	- Needs hand testing: drag a file over a folder in the list view, the tree pane and Places, with the Windows 10 theme and one dark theme. The row gets a 2px frame in the text color on all 4 sides. Check it over the selected row too.
+	- Priority|Severity: Low
+	- Opened: 20261123-104202
+	- Opened by: 2026101613053686
+	- Related IDs: 2026101613053686
+	- Target OS: All
+	- Target version: rc.1
+	- Steps to reproduce: pick the Windows 10 theme, and drag a file over a place in Places or a folder in the list view.
+	- Incorrect behavior: the row is marked by a 1px frame in a pale blue close to white.
+	- Expected behavior: the row a file would drop into is easy to see in every bundled theme.
+	- Reproduced: 20261123, by dfpp8 on the unfixed sheet. Adwaita dark, Windows 10, Windows 10 dark and Windows 7 had no part of the frame at 3:1 contrast. The rest had only 1px top and bottom, and none marked the row's sides.
+	- Possible cause: the themes' own drop frame color. dfpnp's way of drawing a tree view and checking contrast would cover it.
+	- Actual cause: each theme draws the frame 1px, top and bottom only, in its own drop color, which in some is close to the row's background.
+	- Decisions:
+		- Drawn the same way as the Places drop line: the row's text color, 2px. It goes on all 4 sides, so it can't be mistaken for the line between 2 rows in Places. Options were the theme's accent color, which is the faint one, or tinting the whole row, as Explorer does, which looks too much like a selection.
+		- One rule for every tree view in the app, since the list view, the tree pane and Places all drop into a row the same way.
+	- Actual fix: the app's own style sheet draws the frame for a drop into a row over the theme's.
+	- Swept: the list view, the tree pane and Places all mark a drop into a row through the toolkit's tree view, which the one rule covers. The icon view marks a drop target its own way and isn't affected.
+	- Verified: dfpp8 fails before the change in all 11 themes, and passes after, with 2px top and bottom and both sides marked at 3:1 contrast or better, into a plain row and into the selected row. dfpnp and dd2sk still pass. format and lint pass, and gcc's and clang's analyzers have no findings in the test.
+	- Branch: nov23-2026112310420234
+	- Commit: 47fb3ac6
+	- Test case: dfpp8 Drop into row frame test. A tree view is drawn in each bundled theme with and without a drop into a row, plain and selected. The frame has to be at least 2px on the row's top and bottom edges and mark both sides, with at least 3:1 contrast.
 
 - Move every Windows lane from MSYS2's MINGW64 to UCRT64.
 	- ID: 2026110920004210
@@ -251,107 +397,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261110: Split into children: `2026110920250275` (cross-file clang, report only), `...293` (CodeQL, report only), `...1244` (the cross-file findings fixed or suppressed, then they fail the run), and `2026111915091061` (the same for CodeQL's). The first 2 are in, and the other 2 are Queued.
 	- Test case: de8ep (CodeQL) and de8eq (cross-file clang), each with a planted fault.
 
-- Static analyzers: the cross-file clang findings fixed or suppressed, then they fail the run.
-	- ID: 2026110920251244
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261109-202512
-	- Opened by: 2026102114400592
-	- Parent ID: 2026102114400592
-	- Prereq IDs: 2026110920250275
-	- Target OS: Linux
-	- Target version: rc.1
-	- Requirements:
-		- Every finding the cross-file run adds over the per-file one is fixed, or suppressed at the line with a one-line reason, or for vendored code in `analyze-vendored.txt`.
-		- Then a finding left, or a file cut off at the cap, fails the step, as in the per-file stage.
-	- Estimated effort: Avg
-	- Test case: de8eq, and de8en for the count it then fails on.
-	- Progress log:
-		- 20261110: first whole-tree counts: Linux 55 (6 ours, 7 tests, 42 inherited), Windows 67 (7 ours, 17 tests, 43 inherited), 0 cut off, 861 s for both lanes. The report-only branch in analyze.bash takes any non-zero exit from count as findings, so a crash of count passed too. Making findings fail closes that.
-		- 20261110: split into children: `2026111022134952` (ours and tests, and the cause of most of the counts), Done, and `2026111022135419` (inherited, then they fail the run), Waiting on automated testing.
-
-- Build the "Where pasted and new items go" setting and its 3 target models.
-	- ID: 2026110709200000
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261107-092000
-	- Opened by: t00mietum
-	- Related IDs: 2026101816495200, 2026102113540918
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut, as the design task asked.
-		- The dropdown on Advanced under the selection model one, and the Nemo Anywhere, Nemo Classic and macOS/Dolphin rules from the design doc's table, with a test per row and model.
-		- Ctrl+Shift+V follows the setting: no key under Nemo Classic, Paste into folder under macOS/Dolphin.
-	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md#where-pasted-and-new-items-go), "Where pasted and new items go".
-	- Test case: none yet.
-
-- When moving a bookmark with the mouse, it should give some kind of indication of where it's going to go *between*.
-	- ID: 2026101613053686
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261016-130536
-	- Opened by: t00mietum
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-	- Test case: none yet.
-
-- Need ability to enter variables in the path bar. E.g. `$TMP9`.
-	- ID: 2026101613053687
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261016-130536
-	- Opened by: t00mietum
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-		- Can enter common standard cross-platform variables, e.g.:
-			- `$TMP/misc`, `${HOME}/.config`, or `~/.cache` on Windows.
-			- `%USERPROFILE%\Pictures` on mac and Linux
-			- `$DEVELOPER_DIR` on Windows and Linux
-	- Test case: none yet.
-
-- Zoom in with Ctrl+ (or Ctrl=), and out with Ctrl-, changes the window size too.
-	- ID: 2026101715030685
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261017-150306
-	- Opened by: t00mietum
-	- Requirements:
-		- Cmd in place of Ctrl on macOS.
-		- Change the size of the window too, to remain approximately proportional.
-			- This should be an option, enabled by default: "On contents zoom, change window size too".
-	- Test case: none yet.
-
-- Rearrange the order of views, and add a fourth first-class view, Image thumbnail view.
-	- ID: 2026102018234904
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261020-182349
-	- Opened by: t00mietum
-	- Related IDs: 2026102018234905, 2026101009150764
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-		- The new view is first-class in menus and settings.
-		- New order and keys:
-			- Ctrl+1: Detailed view
-			- Ctrl+2: Compact view
-			- Ctrl+3: Icon view
-			- Ctrl+4: Image thumbnail view
-	- Notes:
-		- Today a folder that's mostly images opens in icon view at 500%. It isn't a view of its own.
-		- Its settings are in the new "Image thumbnails" section and "Image thumbnail captions" in 2026102018234905.
-		- Image thumbnail captions can also show image and video metadata. Which fields isn't settled yet.
-	- Design: its settings are under [Default and Current](design_docs/20261020-121842_settings.md#default-and-current) and [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs).
-	- Test case: none yet.
-
 - Settings: new tab layout, and tidying across the dialog.
 	- ID: 2026102018234905
 	- Type: Enhancement
@@ -392,7 +437,45 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Under Advanced, after Cache.
 		- Keyboard shortcuts, displayed and edited (and resettable) like SilkTerm's.
 	- Design: [Keyboard tab](design_docs/20261020-121842_settings.md#keyboard-tab).
-	- Test case: none yet.
+	- Progress log:
+		- 20261123: split in 2. 2026112312181296 is the tab itself, with keys shown, changed, turned off, and reset. 2026112312181314 is other windows, the keyboard shortcuts window, and views not opened yet.
+	- Decisions:
+		- The tab goes under Advanced with 2026102018234905, which gives Advanced sub-tabs. Until then it's a tab of its own, after Advanced.
+	- Test case: dd5df, in its children.
+
+- Settings: a shortcut changed on the Keyboard tab takes effect in every open window, and the keyboard shortcuts window shows it.
+	- ID: 2026112312181314
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-121813
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234906
+	- Prereq IDs: 2026112312181296
+	- Target version: rc.1
+	- Requirements:
+		- Other running windows pick up a change to `accels`, since each window is its own process.
+		- The keyboard shortcuts window shows the keys in use, not the defaults.
+		- Shortcuts of a view the window hasn't opened yet, such as Icon view's, are listed too.
+		- One window saving `accels` doesn't undo a change another window made.
+		- Settings search finds the Keyboard tab by words such as keyboard, shortcut, and hotkey.
+	- Note: each window saves its whole shortcut map 30 seconds after a change. So a window that reads `accels` again should take only the entries the file changed since it last read or wrote it, or a change it hasn't saved yet is lost. The search matches settings by their key in the schema, and the tab has none.
+	- Progress log:
+		- 20261123: split in 3. 2026112312455741 is other windows and saving, 2026112312455764 is Settings search, and 2026112312455787 is the keyboard shortcuts window and views not opened yet.
+
+- Settings: the keyboard shortcuts window shows the keys in use, and the Keyboard tab lists the shortcuts of views not opened yet.
+	- ID: 2026112312455787
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-124557
+	- Opened by: work on 2026112312181314
+	- Parent ID: 2026112312181314
+	- Target version: rc.1
+	- Requirements:
+		- The keyboard shortcuts window shows the keys in use, not the defaults.
+		- Shortcuts of a view the window hasn't opened yet, such as Icon view's, are listed too.
+	- Note: the keyboard shortcuts window's keys are fixed in `nemo-shortcuts.ui`, and only Ctrl+I, Properties, and Ctrl+Shift+V are set when it opens. Its rows don't name the action they stand for, so each needs that before it can show the key in use. The Keyboard tab lists only what `nemo_shortcuts_note_*` recorded as each view made its actions.
 
 - Settings: Blake3 checksum cache options, with persistence across hosts through xattrs.
 	- ID: 2026102018234907
@@ -445,7 +528,126 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Every CodeQL finding, in both compile lists and the Python, is fixed, or suppressed at the line with a one-line reason, or for vendored code in a list outside the file.
 		- Then a finding left fails the step, as in the per-file stage.
 	- Estimated effort: High
+	- Progress log:
+		- 20261123: Split into children: `2026112310054779` (the vendored list and a scoped run), `...55896` (Python), `...55921` (vendored), `...55945` (missing-null-test in ours and tests, class first), `...61005` (the same in inherited), `...61029` (non-constant-format), `...61055` (other C in ours and tests), `...61079` (other C in inherited), and `...62942` (a finding left then fails the step). The first 2 are Done, and the other 7 are Queued.
 	- Test case: de8ep, and a count case for the finding it then fails on.
+
+- Static analyzers: the CodeQL findings in vendored code listed outside the files.
+	- ID: 2026112310055921
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-100559
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310054779
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- About 99 unique on 20261119, 77 of them missing-null-test, most in SHCL and the old SHCL releases. Each goes in the list with a one-line reason, and a real bug goes to its upstream.
+	- Estimated effort: Avg
+	- Test case: dfha3, and both C lanes have no vendored finding left.
+
+- Static analyzers: the CodeQL missing-null-test findings in our code and tests fixed or suppressed.
+	- ID: 2026112310055945
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-100559
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310054779
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- 134 unique on 20261119, 51 ours and 83 tests.
+		- Look for the class first. GLib's inline g_strdup has a return NULL that only a constant NULL reaches, so every g_strdup result reads as maybe NULL. Taking that out of the replay, or teaching the query, may clear most of them in every area.
+		- The query is in no standard suite since it's noisy. Dropping it, or keeping it to some areas, goes against 2026110920250293's decision to add it, so that needs more thought before it's done.
+	- Estimated effort: High
+	- Test case: de8ep still finds the planted NULL, and a scoped run over the files changed has none left.
+
+- Static analyzers: the CodeQL missing-null-test findings in inherited code fixed or suppressed.
+	- ID: 2026112310061005
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-100610
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310055945
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- 307 unique on 20261119, before whatever the class fix in 2026112310055945 clears.
+	- Estimated effort: High
+	- Test case: a scoped run over the files changed has none left.
+
+- Static analyzers: the CodeQL non-constant-format findings fixed or suppressed.
+	- ID: 2026112310061029
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-100610
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310054779
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- 245 unique on 20261119, 237 of them only in the Windows lane, mostly from ngettext and _() strings. The Linux lane knows gettext keeps its format, and the Windows one doesn't seem to know mingw's libintl. Fix that class first, then the rest at the line.
+	- Estimated effort: Avg
+	- Test case: a scoped run of the Windows lane over the files changed has none left.
+
+- Static analyzers: the other CodeQL C findings in our code and tests fixed or suppressed.
+	- ID: 2026112310061055
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-100610
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310054779
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- About 115 unique on 20261119: memory-never-freed 49, world-writable-file-creation 43 (all tests), memory-may-not-be-freed 8, equality-on-floats 5, stack-address-escape 4, inconsistent-null-check 4, and a few single ones.
+	- Estimated effort: High
+	- Test case: a scoped run over the files changed has none left, and a regression test per real bug fixed.
+	- 20261123: 2 more cpp/world-writable-file-creation in new test probes, `test-nemo-view-keys-probe.c:423` and `test-nemo-zoom-window-probe.c:186`, both `fopen (path, "w")` on a results file. Found by a scoped c-linux run.
+
+- Static analyzers: the other CodeQL C findings in inherited code fixed or suppressed.
+	- ID: 2026112310061079
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-100610
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310054779
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- About 100 unique on 20261119: memory-never-freed 42, equality-on-floats 20, lossy-function-result-cast 17, stack-address-escape 7, integer-multiplication-cast-to-long 4, double-free 2, inconsistent-null-check 2, and one each of use-after-free, suspicious-add-sizeof, incorrectly-checked-scanf and incomplete-parity-check.
+	- Estimated effort: High
+	- Test case: a scoped run over the files changed has none left, and a regression test per real bug fixed.
+
+- Static analyzers: a CodeQL finding left fails the step.
+	- ID: 2026112310062942
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: the whole CodeQL step, once, with no finding left.
+	- Priority|Severity: Avg
+	- Opened: 20261123-100629
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310055896, 2026112310055921, 2026112310055945, 2026112310061005, 2026112310061029, 2026112310061055, 2026112310061079
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- A CodeQL finding left fails the step, as in the per-file analyzer stage.
+		- The step's help text, design.md's leak check text, and the step's note that findings are report only, brought up to date.
+	- Estimated effort: Avg
+	- Test case: de8ep, and a count case in dfha3 for the finding the step then fails on.
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
@@ -5546,6 +5748,118 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de025, Folder open time test. It goes into 9 folders of 120 from the list view, and back up after each. Of those, 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
 	- Acceptance signoff: Self-closed: de025 tests it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
+
+- Static analyzers: the cross-file clang findings fixed or suppressed, then they fail the run.
+	- ID: 2026110920251244
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261109-202512
+	- Opened by: 2026102114400592
+	- Parent ID: 2026102114400592
+	- Prereq IDs: 2026110920250275
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- Every finding the cross-file run adds over the per-file one is fixed, or suppressed at the line with a one-line reason, or for vendored code in `analyze-vendored.txt`.
+		- Then a finding left, or a file cut off at the cap, fails the step, as in the per-file stage.
+	- Estimated effort: Avg
+	- Test case: its children's: 2026111022135419: de8eq, and de8en for the count it then fails on. dfhbg for the icon bounds crash.; 2026111022134952: de8eq, now with a NULL read the other file suppresses, which has to stay quiet.
+	- Progress log:
+		- 20261110: first whole-tree counts: Linux 55 (6 ours, 7 tests, 42 inherited), Windows 67 (7 ours, 17 tests, 43 inherited), 0 cut off, 861 s for both lanes. The report-only branch in analyze.bash takes any non-zero exit from count as findings, so a crash of count passed too. Making findings fail closes that.
+		- 20261110: split into children: `2026111022134952` (ours and tests, and the cause of most of the counts), Done, and `2026111022135419` (inherited, then they fail the run), Waiting on automated testing.
+		- 20261123: closed from its children, both Done; the cross-file step fails on a finding since 20261119.
+	- Closed: 20261123-092843
+
+- Rearrange the order of views, and add a fourth first-class view, Image thumbnail view.
+	- ID: 2026102018234904
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Related IDs: 2026102018234905, 2026101009150764
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- The new view is first-class in menus and settings.
+		- New order and keys:
+			- Ctrl+1: Detailed view
+			- Ctrl+2: Compact view
+			- Ctrl+3: Icon view
+			- Ctrl+4: Image thumbnail view
+	- Notes:
+		- Today a folder that's mostly images opens in icon view at 500%. It isn't a view of its own.
+		- Its settings are in the new "Image thumbnails" section and "Image thumbnail captions" in 2026102018234905.
+		- Image thumbnail captions can also show image and video metadata. Which fields isn't settled yet.
+	- Design: its settings are under [Default and Current](design_docs/20261020-121842_settings.md#default-and-current) and [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs).
+	- Progress log:
+		- 20261123: split in 3. The new order and keys for the 3 views there are now is 2026112311283203, Done. Image thumbnail view on Ctrl+4 is 2026112311283221, Done. Opening a folder of mostly images in it, and its toolbar button, is 2026112311463795, Done.
+		- 20261123: closed from its 3 children, all Done.
+	- Test case: its children's: 2026112311283203: dfpqj, View order and keys test: the View menu and toolbar order, and Ctrl+3, Ctrl+2 and Ctrl+1 each showing their view. dd5df, Settings dialog test, now checks the view dropdown's rows and what each writes.; 2026112311283221: dfpqj, View order and keys test, now also checks Ctrl+4, the menu entry, and that the view shows icons bigger than icon view. dd5df, Settings dialog test, checks the dropdown's fourth row and `image-view`.; 2026112311463795: dfpqj, View order and keys test, now checks the toolbar's fourth button, and opens a folder of pictures: it opens in Image thumbnail view with that button pressed, and icon view there keeps the plain size. dbnfq, Settings widgets test, checks the new checkbox is in the layout.
+	- Closed: 20261123-121437
+
+- Static analyzers: a list for CodeQL's vendored findings, and a CodeQL run of one lane or some files.
+	- ID: 2026112310054779
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-100547
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- A vendored finding is suppressed in a list outside the file, with a one-line reason, as in analyze-vendored.txt. An entry that matches nothing fails the count.
+		- One lane, or the compile entries under some paths, can be run alone, so a fix can be checked in a few minutes rather than the whole step's 12.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Decisions:
+		- The list is `cicd/utility/codeql-vendored.txt`, in analyze-vendored.txt's form and read by the same parser. It's a file of its own, since analyze.py would call every CodeQL entry stale.
+		- A bad line, a stale entry, or a list it can't read exits 3, which fails the step now, ahead of findings failing it. Such an entry is only ever a mistake.
+		- In our code and inherited code a result is suppressed with `// codeql[<rule>] <why>` on the line before, which the suite's suppression query reads.
+		- `codeql.bash --lane <name>`, which can repeat, and `--match <regex>` make a scoped run. `--match` keeps the C compile entries whose path from the repo root it matches, and fails when none does. The Python lane always takes the whole tree, since that's about 20 s.
+		- A scoped run skips the planted pair and the stale check, keeps its SARIF in `cicd/artifacts/codeql/scoped/` so the last whole run's stays, and fails on any finding left, so it answers whether the files are clean.
+		- The regex reaches replay through `CODEQL_REPLAY_MATCH`, since codeql expands `$` in `--command` itself.
+		- A lane that fails now shows replay's own `[ FAILED` lines, which the tracer prefixes, rather than only a tail.
+	- Branch: nov23-2026111915091061
+	- Test case: dfha3 (`codeql.py --self-test`): a listed vendored result counts as suppressed; a stale entry, a bad line, an entry outside vendored code and a list it can't read exit 3; `--no-stale` lets a stale entry by; `--match` keeps only the entries it matches.
+	- Verified: 20261123, dfha3 passes, and de8ep (`codeql.bash --self-test`) passes in both images. Scoped runs: the Python lane in 24 s, 21 findings left; the Linux lane over 2 archive-core files in 22 s, 5 left; the Windows lane over 1 file in 32 s; a `--match` that matches nothing fails the lane by name. A `codeql[cpp/missing-null-test]` comment above the one finding in `arc-mounts.c` turns it to suppressed, and the scoped run passes. `count` over the 20261119 SARIF, with one real vendored entry listed, moves that one from vendored to suppressed, and with an entry no result matches exits 3. `cicd/cicd.bash --backlog-run-quick format lint` passes.
+	- Swept: every caller of `codeql.py count` and `cmd_count` (codeql.bash, the self-test), every reader of the lanes array in codeql.bash, `lint.bash`'s dfha3 call, `CODEQL_CMD` in config.bash and test-cicd-leakcheck.bash, which stubs the step, and design.md's CodeQL text.
+	- Acceptance signoff: Self-closed: dfha3, de8ep, and the scoped runs above.
+	- Closed: 20261123-101613
+
+- Static analyzers: the CodeQL findings in the Python fixed or suppressed.
+	- ID: 2026112310055896
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-100558
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310054779
+	- Related IDs: 2026112310211281
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- The 39 on 20261119: file-not-closed 18, empty-except 15, use-of-exit-or-quit 3, and one each of catch-base-exception, syntax-error and uninitialized-local-variable.
+	- Estimated effort: Avg
+	- Actual effort: Low
+	- Progress log:
+		- 20261123: 21 were left at the start. 10 of them, the 3 use-of-exit-or-quit, the uninitialized local and 6 empty excepts, were in old copies under `cicd/artifacts/` that git ignores, since the lane read the whole tree.
+	- Decisions:
+		- The Python lane reads only the tracked Python files, by extension or by a python shebang. `codeql.py pyfiles` lists them on the host, since the containers have no git, and the lane copies them into a source root of its own.
+		- Every empty except gets the reason it's empty as a comment, which is what the query asks for, rather than a suppression.
+		- `merge_action_strings` catches `Exception` rather than everything, so Ctrl+C still stops it.
+		- `action_i18n_strings.py` is only read by xgettext, and its names began with a digit or held a dash, so it didn't parse. `extract_action_strings` now prefixes `action_` and turns the rest into underscores, and the file has the new names with its strings and line numbers as they were, so `nemo.pot` still points at the right lines. Its strings are stale against the `.in` files, which is 2026112310211281.
+	- Branch: nov23-2026111915091061
+	- Test case: the Python lane run alone, `codeql.bash --lane python`, has no findings left.
+	- Verified: 20261123, `codeql.bash --lane python` passes with 0 findings over 32 tracked files, and with one of the new comments taken out it fails on that one empty except. dfha3 passes with the shebang check added. `extract_action_strings` over the `.in` files writes names Python parses. `cicd/cicd.bash --backlog-run-quick format lint` passes.
+	- Swept: every except that only passes in the 32 tracked Python files, per the lane's own results.
+	- Acceptance signoff: Self-closed: the Python lane has no findings left.
+	- Closed: 20261123-102300
 
 - Tree view: in "Checkmark selection" mode, folders follow the content view's selection rules and can be fully edited.
 	- ID: 2026102018234903
@@ -12948,6 +13262,249 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddq92, ddqhc and dbxj2 on Windows, with the suite's leftover check. dedme covers the retry on a held file.
 	- Acceptance signoff: Self-closed: nothing left behind in 876 runs, or in any native gate since the retry went in.
 	- Closed: 20261117-095337
+
+- Build the "Where pasted and new items go" setting and its 3 target models.
+	- ID: 2026110709200000
+	- Type: Enhancement
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261107-092000
+	- Opened by: t00mietum
+	- Related IDs: 2026101816495200, 2026102113540918
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut, as the design task asked.
+		- The dropdown on Advanced under the selection model one, and the Nemo Anywhere, Nemo Classic and macOS/Dolphin rules from the design doc's table, with a test per row and model.
+		- Ctrl+Shift+V follows the setting: no key under Nemo Classic, Paste into folder under macOS/Dolphin.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md#where-pasted-and-new-items-go), "Where pasted and new items go".
+	- Progress log:
+		- 20261123: split into children: `2026112309305371` (the setting and the 3 rules for the target folder) and `2026112309305792` (Ctrl+Shift+V, and the commands that make something out of the selection).
+		- 20261123: closed from its children, both Done.
+	- Branch: nov23-2026110709200000
+	- Commit: dc4dc3aa, aa2d9a2a
+	- Test case: dfpkx, dfpm1 and dfpmc, per child.
+	- Acceptance signoff: Self-closed: both children Done.
+	- Closed: 20261123-100000
+
+- The "Where pasted and new items go" setting, and its 3 rules for where Paste, New folder, New file and Open in terminal go.
+	- ID: 2026112309305371
+	- Type: Enhancement
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-093053
+	- Opened by: t00mietum
+	- Parent ID: 2026110709200000
+	- Related IDs: 2026101816495200
+	- Target version: rc.1
+	- Requirements:
+		- The "Where pasted and new items go" dropdown on Advanced, under the selection model one, with Nemo Anywhere (the default), Nemo Classic, and macOS/Dolphin, each with its tooltip from the design doc.
+		- Paste, New folder, New file, the document templates, and Open in terminal go to the folder the design doc's table gives, per model.
+		- A test per row of the table and model.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md#where-pasted-and-new-items-go), "The 3 target models" and "The target setting".
+	- Progress log:
+		- 20261123: `preferences.paste-target` with `nemo-anywhere`, `nemo-classic` and `macos-dolphin`, and its dropdown under the selection model. The list view works out the folder from the selected rows, per model. Under Nemo Classic it gives what it gave before.
+	- Decisions:
+		- The dropdown's tooltip is the picked entry's, since a combo box has no tooltip per entry.
+		- A drop on the list view's empty space follows the setting too, since it asks for the same folder.
+		- Create link, Compress, Extract here and Ctrl+Shift+V are in `2026112309305792`.
+		- "Dolphin" and "Finder" are names to the UI case lint.
+	- Branch: nov23-2026110709200000
+	- Commit: dc4dc3aa
+	- Test case: dfpkx, a case per row of the design doc's table under each model, plus more for selections deeper in the tree and the setting by name. dfpm1, Ctrl+V under macOS/Dolphin with an expanded folder selected goes to the viewed folder. dd5df checks the dropdown, its order, default and tooltips. df037 still pastes into the selected expanded folder under the default.
+	- Verified: 20261123, dfpkx fails with Nemo Classic's same-folder rule taken out, and dfpm1 fails with the list view ignoring the setting. Both pass as committed, with dbsx7, dbnfq, dd5df, dfh5x, df037 and dezmt. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Swept: every caller of `nemo_view_get_backing_uri`, in nemo-view.c, nemo-view-dnd.c and nemo-window-menus.c. Only the list view overrides it.
+	- Acceptance signoff: Self-closed: dfpkx and dfpm1 pass.
+	- Closed: 20261123-095000
+
+- Ctrl+Shift+V, and Create link, Compress and Extract here, follow the target setting.
+	- ID: 2026112309305792
+	- Type: Enhancement
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-093057
+	- Opened by: t00mietum
+	- Parent ID: 2026110709200000
+	- Prereq IDs: 2026112309305371
+	- Related IDs: 2026102113540918
+	- Target version: rc.1
+	- Requirements:
+		- Ctrl+Shift+V follows the setting: Paste into viewed folder under Nemo Anywhere, no key under Nemo Classic, and Paste into folder under macOS/Dolphin, offered when exactly one folder is selected.
+		- The Edit menu and the keyboard shortcuts window show what the key does under the model in use.
+		- Create link, Compress, and Extract here put what they make next to the selected objects, in their lowest common parent, under Nemo Anywhere and macOS/Dolphin. Under Nemo Classic they use the target folder, as today.
+		- A test per model for the key, and per model for each of the 3 commands.
+	- Design: [20261020-103804_behavior-models.md](design_docs/20261020-103804_behavior-models.md#where-pasted-and-new-items-go), "Commands that make something" and "Ctrl+Shift+V".
+	- Progress log:
+		- 20261123: the views ask for a second folder, next to the selection, for Create link, Compress, Extract here and Extract to folder. The list view gives the lowest common parent of the selected rows under Nemo Anywhere and macOS/Dolphin, and the target folder under Nemo Classic. Ctrl+Shift+V, its Edit menu entry and the shortcuts window follow the setting.
+	- Decisions:
+		- Extract to folder goes next to its archives too, since it's Extract here with a folder around it.
+		- Under macOS/Dolphin the Edit menu's entry is relabeled "Paste into folder" and keeps the key. The right-click "Paste into folder" stays as it was, without the key, since one key belongs to one action.
+		- Under Nemo Classic the Edit menu entry is hidden as well as the key, as upstream has neither.
+		- The folder next to the selection comes from the selected rows, like the target. With the affirmative switch off that's what the commands act on.
+		- The changelog entry for the setting names Ctrl+Shift+V and the 3 commands.
+	- Branch: nov23-2026110709200000
+	- Commit: aa2d9a2a
+	- Test case: dfpkx, where the 3 commands put things for each row of the table under each model, and what Ctrl+Shift+V is under each. dfpm1, Ctrl+Shift+V pastes into the selected folder under macOS/Dolphin. dfpmc, Ctrl+Shift+V does nothing under Nemo Classic. df037 still pastes into the viewed folder under the default.
+	- Verified: 20261123, dfpkx fails with the 3 commands using the paste rule, and dfpm1 and dfpmc fail with Ctrl+Shift+V doing the Nemo Anywhere thing under every model. All 3 pass as committed, with df037, dezmt, dd5df, dbsx7, dbnfq, dfh4e, dcy7j, dd5dc and dcd70. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Swept: every caller of `nemo_view_get_backing_uri` in nemo-view.c. Duplicate, Extract to (a file chooser's starting folder), the drops and New folder keep the target folder. Both places that set the key's action sensitive.
+	- Acceptance signoff: Self-closed: dfpkx, dfpm1 and dfpmc pass.
+	- Closed: 20261123-100000
+
+- Reorder the views as Detailed, Compact and Icon, on Ctrl+1 to Ctrl+3, and call list view Detailed view.
+	- ID: 2026112311283203
+	- Type: Enhancement
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-112832
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234904
+	- Target version: rc.1
+	- Requirements: the parent's order and keys for the 3 views there are now. The menus, toolbar, shortcuts window and Settings list them in that order.
+	- Done: the View menu, the toolbar, the keyboard shortcuts window, Settings' view dropdown and the toolbar buttons on its Toolbar tab go Detailed, Compact, Icon. Ctrl+1, Ctrl+2 and Ctrl+3 follow. List view is called Detailed view in all of those, in the Settings section headings, and in the name a screen reader gives the view. The changelog says so.
+	- Decisions:
+		- The rename reaches the Settings headings now, rather than waiting for 2026102018234905, so the dropdown and the section under it don't disagree. Where those sections go is still that item's.
+		- The view's internal ID and the settings file value stay `list-view`, so saved settings and per-folder views still read.
+		- The view's error texts, which say "list view", were left as they are.
+	- Swept: every place that lists the 3 views: the View menu's radio entries and menu file, the toolbar's buttons and their actions, the shortcuts window, the dropdown's rows and the 2 tables that map its rows to values, on Default and on Current, and the Toolbar tab's buttons. The tooltip focus test and the heap soak, which pressed the old keys, and the find mode view test's menu label.
+	- Verified: 20261123, dfpqj fails on the old order and keys: the menu, the toolbar, and Ctrl+3 not showing Icon view. dd5df fails there on the dropdown's rows and values. Both pass after, with dbnfq, dd5dh, ddy4d, ddwk9, ddgh6, dfpm1 and dfpq4. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Test case: dfpqj, View order and keys test: the View menu and toolbar order, and Ctrl+3, Ctrl+2 and Ctrl+1 each showing their view. dd5df, Settings dialog test, now checks the view dropdown's rows and what each writes.
+	- Acceptance signoff: Self-closed: dfpqj and dd5df pass.
+	- Branch: nov23-2026102018234904
+	- Commit: 384b3172
+	- Closed: 20261123-114500
+
+- Add Image thumbnail view, a fourth view on Ctrl+4, that shows pictures at the picture size.
+	- ID: 2026112311283221
+	- Type: Enhancement
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-112832
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234904
+	- Target version: rc.1
+	- Prereq IDs: 2026112311283203
+	- Requirements: the parent's. First-class in the View menu, the shortcuts window and the default view in Settings. It shows icons at the picture size icon view uses today for a folder of mostly images. Its settings section is 2026102018234905's. Opening such a folder in it, and its toolbar button, are 2026112311463795.
+	- Done: Image thumbnail view is the icon view kept at the picture size, whatever is in the folder. It's last in the View menu, on Ctrl+4, in the keyboard shortcuts window, and in the view dropdown on Default and Current in Settings. The settings file takes `image-view` as the default view, and a folder can keep it as its own. The changelog, design.md and the Settings design doc say so.
+	- Decisions:
+		- It's the icon view with a flag, as the compact view is, so it shares the icon view's code, sort and F2 handling.
+		- It uses the picture size and its saved and held values, the ones a folder of mostly images uses in icon view, so zooming in either changes the same size. The design doc's Image thumbnails section has one Thumbnail size.
+		- A folder of mostly images still opens in icon view at that size until 2026112311463795, so there's no gap in between.
+	- Swept: every place that names a view or maps one: the view factory, the View menu's radio entries and its callback, the default view's enum, its mapping to a view, the schema, the 2 dropdown tables, and the shortcuts window. The toolbar sets none of its 3 buttons for it. The image folder switch only acts from the list and compact views, so it leaves this view alone. The view's own load and its check for a folder of images.
+	- Verified: 20261123, dfpqj passes with Ctrl+4 and the menu order. With the view not held at the picture size it fails: the icons were laid out 234 high in both views. dd5df, dbnfq, dd5dh, dav3s, dbsx7, dcx3q, ddwjw, dcx2w and dfpq4 pass. Neither analyzer reports anything on the changed .c files.
+	- Test case: dfpqj, View order and keys test, now also checks Ctrl+4, the menu entry, and that the view shows icons bigger than icon view. dd5df, Settings dialog test, checks the dropdown's fourth row and `image-view`.
+	- Acceptance signoff: Self-closed: dfpqj and dd5df pass.
+	- Branch: nov23-2026102018234904
+	- Commit: a2f85a89
+	- Closed: 20261123-115000
+
+- A folder of mostly images opens in Image thumbnail view, rather than in icon view at the picture size, and the toolbar has a button for the view.
+	- ID: 2026112311463795
+	- Type: Enhancement
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-114637
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234904
+	- Prereq IDs: 2026112311283221
+	- Target version: rc.1
+	- Requirements: the parent's. The image folder switch picks Image thumbnail view, and icon view no longer grows in such a folder. A toolbar button with the others, and its checkbox on the Toolbar tab. Its settings section is 2026102018234905's.
+	- Note: the switch, its saved and held views, the F2 fixes in 2026101009150764 and the shared sort in 2026101613053691 all assume icon view today.
+	- Done: a folder that's mostly images opens in Image thumbnail view, from Detailed, Compact or Icon view, unless it has a view of its own. Icon view no longer grows in such a folder and keeps its own size there. Image thumbnail view has a toolbar button after Icon view, with a checkbox on the Toolbar tab in Settings and `preferences.show-image-view-icon-toolbar` in the settings file, on by default. The changelog, design.md and the Settings design doc say so.
+	- Decisions:
+		- The switch now also acts from icon view, since icon view used to grow in such a folder and a default of icon view would otherwise never show pictures at the picture size. Picking icon view there by hand is saved on the folder, or held by the window with per-folder settings off, the same as picking Detailed view was before.
+		- Icon view's second size is gone from the code. The picture size, and its saved and held values, now belong to Image thumbnail view only, so a zoom there sets the picture size and a zoom in icon view sets the plain one.
+		- The button uses `folder-pictures-symbolic`, since the bundled icon set has no photo or gallery icon, and `image-x-generic-symbolic` is already the Show thumbnails button.
+		- dcx3r `fCheckImageDefault` in the C lint is commented out with the reason. It read the 2 functions that grew icon view in a folder of images, which are gone.
+		- The Toolbar tab puts Image thumbnail view beside Icon view, so Show thumbnails and Extra pane each moved down one place.
+	- Swept: every place the switch picks or checks a view: the view picked before the load with per-folder settings off, the default for a folder with no view of its own, the check after the load, and the default passed when a hand pick is saved. Every reader of the picture size in the icon view: the default size, the saved key, the held size, and the thumbnails made ahead. Each toolbar view button's key, settings row, binding, show and hide, and the code that presses the button for the view showing. The F2 tests in a folder of pictures, ddwjw, ddzyz and ddzzq, now run in Image thumbnail view, and the shared sort test de55s, and all pass.
+	- Verified: 20261123, dfpqj fails on the code before this change: the folder of pictures stays out of Image thumbnail view, its button isn't pressed, and icon view lays the icons out as tall as Image thumbnail view, 2495 both. It passes after. dbnfq, dcx3q, dd5df, dcx2w, dcraj, dav3s, dd5dh, ddwjw, ddzyz, ddzzq, dfpq4, de55s and dbsx7 pass. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Test case: dfpqj, View order and keys test, now checks the toolbar's fourth button, and opens a folder of pictures: it opens in Image thumbnail view with that button pressed, and icon view there keeps the plain size. dbnfq, Settings widgets test, checks the new checkbox is in the layout.
+	- Acceptance signoff: Self-closed: dfpqj passes.
+	- Branch: nov23-2026112311463795
+	- Commit: d97c0a99
+	- Closed: 20261123-121006
+
+- Settings: other open windows take a shortcut changed in one window, and a save from one window keeps another's change.
+	- ID: 2026112312455741
+	- Type: Enhancement
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-124557
+	- Opened by: work on 2026112312181314
+	- Parent ID: 2026112312181314
+	- Target version: rc.1
+	- Requirements:
+		- Other running windows pick up a change to `accels`, since each window is its own process.
+		- One window saving `accels` doesn't undo a change another window made.
+	- Note: each window saves its whole shortcut map 30 seconds after a change. So a window that reads `accels` again should take only the entries the file changed since it last read or wrote it, or a change it hasn't saved yet is lost.
+	- Done: each window watches `accels`, and takes from it only the shortcuts the file changed since this window last read or wrote it. A save takes the file's changes first, then replaces the file whole. The Keyboard tab of an open Settings window follows along.
+	- Decisions:
+		- A change from the file beats one made here and not saved yet, since it's the newer one.
+		- What a window knows of the file is added to, never replaced, so a file read half written takes nothing back.
+		- A save writes a new file beside `accels` and renames it into place, so no window reads half of it. Where Windows refuses the rename, it writes the file in place as before.
+		- The file is readable only by its user now, as any new file made that way is.
+		- A shortcut taken from the file doesn't start a save of its own.
+	- Swept: every place `accels` is written. The delayed save and the quit-time save go through the merge. The first start's copy of upstream's file and `--reset` still write it directly, since there's no change of another window's to keep then.
+	- Test case: dfpt0 `test-nemo-shortcuts-file`: a change another window saves is taken, one made here and not saved yet is kept, a save takes the file's changes first and keeps all 3, its own save changes nothing, a file missing lines takes nothing back, and a key turned off elsewhere is turned off here.
+	- Verified: 20261123, dfpt0 fails with the reread turned off and with every line of the file taken, and passes as committed, with dd5df, ddf63, and ddfam. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Branch: nov23-2026112312181314
+	- Commit: edaf0561
+	- Verified: 20261123, dfpt0 passes on native Windows, on b29w, in the quick gate there at 682273f5, with 201 passed and 0 failed.
+	- Acceptance signoff: Self-closed: dfpt0 passed on b29w, with nothing on screen to judge.
+	- Closed: 20261123-133543
+
+- Settings: search finds the Keyboard tab by words such as keyboard, shortcut, and hotkey.
+	- ID: 2026112312455764
+	- Type: Enhancement
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-124557
+	- Opened by: work on 2026112312181314
+	- Parent ID: 2026112312181314
+	- Target version: rc.1
+	- Requirements:
+		- Settings search finds the Keyboard tab by words such as keyboard, shortcut, and hotkey.
+	- Note: the search matches settings by their key in the schema, and the tab has none.
+	- Done: the Keyboard tab gives its own search words, since it has no settings key for the schema's aliases. Settings search finds it by keyboard, shortcut, hotkey, and key binding.
+	- Decisions:
+		- A page or control with no settings key can give its own aliases. The schema's aliases still win where there's a key.
+		- The words are English, like the schema's aliases.
+	- Swept: every caller of `nemo_settings_search_aliases_for`, which are the search itself and the dd5df alias check.
+	- Test case: dd5df, Settings dialog test: keyboard, shortcut, hotkey, key binding, and Keyboard shortcuts each list the Keyboard tab.
+	- Verified: 20261123, dd5df fails with the tab's aliases left off, on all but keyboard, and passes as committed, with dfh5x. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Branch: nov23-2026112312181314
+	- Commit: 521e7124
+	- Acceptance signoff: Self-closed: dd5df's new check fails without the change and passes with it.
+	- Closed: 20261123-130250
+
+- The action strings file for translators still has 4 action names in their old case.
+	- ID: 2026112310211281
+	- Type: Bug
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Low
+	- Opened: 20261123-102112
+	- Opened by: 2026112310055896
+	- Related IDs: 2026112310055896
+	- Target OS: All
+	- Target version: rc.1
+	- Incorrect behavior: `source/data/nemo-actions/action_i18n_strings.py` and `nemo.pot` say "Add Desklets", "Change Desktop _Background", "Set as Wallpaper..." and "Display Settings", while the `.nemo_action.in` files say them in sentence case. So a translation made from the pot never matches. No meson file installs these actions, so it may not show anywhere.
+	- Expected behavior: the strings file matches the `.in` files, from `extract_action_strings` run again, or the folder goes if nothing installs it.
+	- Estimated effort: Low
+	- Decisions:
+		- The strings file was regenerated rather than the folder removed, since `makepot` runs `extract_action_strings` over it. No po files hold the old strings.
+	- Test case: none, a text-only change. `extract_action_strings` over the `.in` files gives a file identical to the committed one.
+	- Verified: 20261123, `extract_action_strings` run on a copy of the `.in` files writes a file with no difference from `action_i18n_strings.py`.
+	- Swept: the 4 msgids in `nemo.pot`, and the other 4 action names, which already matched.
+	- Acceptance signoff: Self-closed: mechanical, and the extractor reproduces the file.
+	- Closed: 20261123-103000
 
 - On Windows, a mapped drive that stops responding while connected may stall the window, and the trash icon leaves out removable drives.
 	- ID: 2026100613231440

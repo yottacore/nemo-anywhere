@@ -152,7 +152,7 @@ showing (const char *label)
 static const char *
 shown_view (void)
 {
-	return showing ("Icon view") ? "icons" : showing ("List view") ? "list" :
+	return showing ("Icon view") ? "icons" : showing ("Detailed view") ? "list" :
 	       showing ("Compact view") ? "compact" : "none";
 }
 

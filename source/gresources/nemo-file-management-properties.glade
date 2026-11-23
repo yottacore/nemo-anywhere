@@ -65,6 +65,11 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
     <property name="can-focus">False</property>
     <property name="icon-name">view-dual-symbolic</property>
   </object>
+  <object class="GtkImage" id="image16">
+    <property name="visible">True</property>
+    <property name="can-focus">False</property>
+    <property name="icon-name">folder-pictures-symbolic</property>
+  </object>
   <object class="GtkImage" id="image2">
     <property name="visible">True</property>
     <property name="can-focus">False</property>
@@ -210,13 +215,16 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
     </columns>
     <data>
       <row>
-        <col id="0" translatable="yes">Icon view</col>
-      </row>
-      <row>
-        <col id="0" translatable="yes">List view</col>
+        <col id="0" translatable="yes">Detailed view</col>
       </row>
       <row>
         <col id="0" translatable="yes">Compact view</col>
+      </row>
+      <row>
+        <col id="0" translatable="yes">Icon view</col>
+      </row>
+      <row>
+        <col id="0" translatable="yes">Image thumbnail view</col>
       </row>
     </data>
   </object>
@@ -497,6 +505,24 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                               </packing>
                             </child>
                             <child>
+                              <object class="GtkCheckButton" id="zoom_resizes_window_checkbutton">
+                                <property name="label" translatable="yes">On contents zoom, change _window size too</property>
+                                <property name="visible">True</property>
+                                <property name="margin-start">6</property>
+                                <property name="margin-top">12</property>
+                                <property name="can-focus">True</property>
+                                <property name="receives-default">False</property>
+                                <property name="use-underline">True</property>
+                                <property name="xalign">0</property>
+                                <property name="draw-indicator">True</property>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">False</property>
+                                <property name="position">2</property>
+                              </packing>
+                            </child>
+                            <child>
                               <object class="GtkSeparator" id="per_folder_separator">
                                 <property name="visible">True</property>
                                 <property name="can-focus">False</property>
@@ -505,7 +531,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                               <packing>
                                 <property name="expand">False</property>
                                 <property name="fill">True</property>
-                                <property name="position">2</property>
+                                <property name="position">3</property>
                               </packing>
                             </child>
                             <child>
@@ -864,8 +890,8 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                                     </child>
                                                     <child>
                                                       <object class="GtkCheckButton" id="image_folder_switch_checkbutton">
-                                                        <property name="label" translatable="yes">Show folders of _pictures in icon view</property>
-                                                        <property name="tooltip-text" translatable="yes">A folder that is mostly pictures opens in icon view, unless it has a view of its own. How many count as mostly is set in the settings file.</property>
+                                                        <property name="label" translatable="yes">Show folders of _pictures in image thumbnail view</property>
+                                                        <property name="tooltip-text" translatable="yes">A folder that is mostly pictures opens in image thumbnail view, unless it has a view of its own. How many count as mostly is set in the settings file.</property>
                                                         <property name="visible">True</property>
                                                         <property name="can-focus">True</property>
                                                         <property name="receives-default">False</property>
@@ -1028,7 +1054,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                               <object class="GtkLabel" id="label6">
                                                 <property name="visible">True</property>
                                                 <property name="can-focus">False</property>
-                                                <property name="label" translatable="yes">&lt;b&gt;List view&lt;/b&gt;</property>
+                                                <property name="label" translatable="yes">&lt;b&gt;Detailed view&lt;/b&gt;</property>
                                                 <property name="use-markup">True</property>
                                                 <property name="xalign">0</property>
                                               </object>
@@ -1659,7 +1685,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                               <object class="GtkLabel" id="label6_current">
                                                 <property name="visible">True</property>
                                                 <property name="can-focus">False</property>
-                                                <property name="label" translatable="yes">&lt;b&gt;List view&lt;/b&gt;</property>
+                                                <property name="label" translatable="yes">&lt;b&gt;Detailed view&lt;/b&gt;</property>
                                                 <property name="use-markup">True</property>
                                                 <property name="xalign">0</property>
                                               </object>
@@ -1775,7 +1801,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                               <packing>
                                 <property name="expand">False</property>
                                 <property name="fill">True</property>
-                                <property name="position">3</property>
+                                <property name="position">4</property>
                               </packing>
                             </child>
                           </object>
@@ -3110,7 +3136,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                   <object class="GtkLabel" id="label_rows">
                                     <property name="visible">True</property>
                                     <property name="can-focus">False</property>
-                                    <property name="label" translatable="yes">&lt;b&gt;List view&lt;/b&gt;</property>
+                                    <property name="label" translatable="yes">&lt;b&gt;Detailed view&lt;/b&gt;</property>
                                     <property name="use-markup">True</property>
                                     <property name="xalign">0</property>
                                   </object>
@@ -5345,7 +5371,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                       </object>
                                       <packing>
                                         <property name="left-attach">0</property>
-                                        <property name="top-attach">5</property>
+                                        <property name="top-attach">6</property>
                                       </packing>
                                     </child>
                                     <child>
@@ -5371,7 +5397,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                           <object class="GtkLabel">
                                             <property name="visible">True</property>
                                             <property name="can-focus">False</property>
-                                            <property name="label" translatable="yes">List view</property>
+                                            <property name="label" translatable="yes">Detailed view</property>
                                           </object>
                                           <packing>
                                             <property name="expand">False</property>
@@ -5381,7 +5407,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                         </child>
                                       </object>
                                       <packing>
-                                        <property name="left-attach">1</property>
+                                        <property name="left-attach">0</property>
                                         <property name="top-attach">5</property>
                                       </packing>
                                     </child>
@@ -5418,7 +5444,44 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                         </child>
                                       </object>
                                       <packing>
-                                        <property name="left-attach">0</property>
+                                        <property name="left-attach">1</property>
+                                        <property name="top-attach">5</property>
+                                      </packing>
+                                    </child>
+                                    <child>
+                                      <object class="GtkBox">
+                                        <property name="visible">True</property>
+                                        <property name="can-focus">False</property>
+                                        <property name="spacing">6</property>
+                                        <child>
+                                          <object class="GtkToggleButton" id="show_image_view_icon_toolbar_togglebutton">
+                                            <property name="name">show_previous_icon_toolbar_togglebutton</property>
+                                            <property name="visible">True</property>
+                                            <property name="can-focus">True</property>
+                                            <property name="receives-default">True</property>
+                                            <property name="image">image16</property>
+                                          </object>
+                                          <packing>
+                                            <property name="expand">False</property>
+                                            <property name="fill">True</property>
+                                            <property name="position">0</property>
+                                          </packing>
+                                        </child>
+                                        <child>
+                                          <object class="GtkLabel">
+                                            <property name="visible">True</property>
+                                            <property name="can-focus">False</property>
+                                            <property name="label" translatable="yes">Image thumbnail view</property>
+                                          </object>
+                                          <packing>
+                                            <property name="expand">False</property>
+                                            <property name="fill">True</property>
+                                            <property name="position">1</property>
+                                          </packing>
+                                        </child>
+                                      </object>
+                                      <packing>
+                                        <property name="left-attach">1</property>
                                         <property name="top-attach">6</property>
                                       </packing>
                                     </child>
@@ -5455,8 +5518,8 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                         </child>
                                       </object>
                                       <packing>
-                                        <property name="left-attach">1</property>
-                                        <property name="top-attach">6</property>
+                                        <property name="left-attach">0</property>
+                                        <property name="top-attach">7</property>
                                       </packing>
                                     </child>
                                     <child>
@@ -5492,7 +5555,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                         </child>
                                       </object>
                                       <packing>
-                                        <property name="left-attach">0</property>
+                                        <property name="left-attach">1</property>
                                         <property name="top-attach">7</property>
                                       </packing>
                                     </child>
@@ -6488,6 +6551,51 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                     <property name="position">1</property>
                                   </packing>
                                 </child>
+                                <child>
+                                  <object class="GtkAlignment" id="paste_target_alignment">
+                                    <property name="visible">True</property>
+                                    <property name="can-focus">False</property>
+                                    <property name="left-padding">40</property>
+                                    <child>
+                                      <object class="GtkBox" id="paste_target_hbox">
+                                        <property name="visible">True</property>
+                                        <property name="can-focus">False</property>
+                                        <property name="spacing">12</property>
+                                        <child>
+                                          <object class="GtkLabel" id="paste_target_label">
+                                            <property name="visible">True</property>
+                                            <property name="can-focus">False</property>
+                                            <property name="label" translatable="yes">_Where pasted and new items go:</property>
+                                            <property name="use-underline">True</property>
+                                            <property name="mnemonic-widget">paste_target_combobox</property>
+                                            <property name="xalign">0</property>
+                                          </object>
+                                          <packing>
+                                            <property name="expand">False</property>
+                                            <property name="fill">False</property>
+                                            <property name="position">0</property>
+                                          </packing>
+                                        </child>
+                                        <child>
+                                          <object class="GtkComboBoxText" id="paste_target_combobox">
+                                            <property name="visible">True</property>
+                                            <property name="can-focus">False</property>
+                                          </object>
+                                          <packing>
+                                            <property name="expand">False</property>
+                                            <property name="fill">False</property>
+                                            <property name="position">1</property>
+                                          </packing>
+                                        </child>
+                                      </object>
+                                    </child>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">False</property>
+                                    <property name="position">2</property>
+                                  </packing>
+                                </child>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -6505,6 +6613,37 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                     <property name="title" translatable="yes">Advanced</property>
                     <property name="icon-name">preferences-other-symbolic</property>
                     <property name="position">10</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkScrolledWindow" id="keyboard_scrolledwindow">
+                    <property name="visible">True</property>
+                    <property name="can-focus">True</property>
+                    <property name="border-width">6</property>
+                    <child>
+                      <object class="GtkViewport" id="keyboard_viewport">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <child>
+                          <object class="GtkBox" id="keyboard_page_box">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="border-width">6</property>
+                            <property name="orientation">vertical</property>
+                            <property name="spacing">6</property>
+                            <child>
+                              <placeholder/>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="name">keyboard</property>
+                    <property name="title" translatable="yes">Keyboard</property>
+                    <property name="icon-name">input-keyboard-symbolic</property>
+                    <property name="position">11</property>
                   </packing>
                 </child>
               </object>

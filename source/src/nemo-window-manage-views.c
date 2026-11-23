@@ -110,7 +110,7 @@ static void load_new_location                         (NemoWindowSlot         *s
 						       gboolean                    tell_new_content_view);
 static void location_has_really_changed               (NemoWindowSlot         *slot);
 static char *default_view_for_folder                  (NemoFile               *file);
-static gboolean view_is_a_list                        (const char             *id);
+static gboolean view_takes_image_switch               (const char             *id);
 static void update_for_new_location                   (NemoWindowSlot         *slot);
 
 /* set_displayed_location:
@@ -986,9 +986,9 @@ got_file_info_for_view_selection_callback (NemoFile *file,
 
 			/* The switch after loading looks past the window's view, so
 			   when the answer is already known, do that now instead. */
-			if (view_is_a_list (view_id) && nemo_image_folders_wants_icon_view (file, NULL)) {
+			if (view_takes_image_switch (view_id) && nemo_image_folders_wants_icon_view (file, NULL)) {
 				g_free (view_id);
-				view_id = g_strdup (NEMO_ICON_VIEW_IID);
+				view_id = g_strdup (NEMO_IMAGE_VIEW_IID);
 			}
 		} else {
 			view_id = nemo_folder_settings_get (file, NEMO_METADATA_KEY_DEFAULT_VIEW, NULL);
@@ -1916,18 +1916,20 @@ nemo_window_slot_stop_loading (NemoWindowSlot *slot)
         cancel_location_change (slot);
 }
 
+/* Every view but the image view itself, which the switch would only reload. */
 static gboolean
-view_is_a_list (const char *id)
+view_takes_image_switch (const char *id)
 {
 	return g_strcmp0 (id, NEMO_LIST_VIEW_IID) == 0 ||
-	       g_strcmp0 (id, NEMO_COMPACT_VIEW_IID) == 0;
+	       g_strcmp0 (id, NEMO_COMPACT_VIEW_IID) == 0 ||
+	       g_strcmp0 (id, NEMO_ICON_VIEW_IID) == 0;
 }
 
 static char *
 default_view_for_folder (NemoFile *file)
 {
 	if (nemo_image_folders_wants_icon_view (file, NULL)) {
-		return g_strdup (NEMO_ICON_VIEW_IID);
+		return g_strdup (NEMO_IMAGE_VIEW_IID);
 	}
 
 	return nemo_global_preferences_get_default_folder_viewer_preference_as_iid ();
@@ -1975,8 +1977,8 @@ switch_content_view (NemoWindowSlot *slot,
 
         /* Picking the view that is already the default isn't a per-folder choice,
          * so pass it as the default and let it go unstored. For a folder of
-         * images the default is icon view, so going back to list view there
-         * is stored and sticks.
+         * images the default is the image view, so going back to any other view
+         * there is stored and sticks.
          */
         default_id = default_view_for_folder (file);
         nemo_folder_settings_set (file, NEMO_METADATA_KEY_DEFAULT_VIEW, default_id, id);
@@ -2070,7 +2072,8 @@ nemo_window_slot_check_image_view (NemoWindowSlot *slot)
 	}
 
 	if (!nemo_window_slot_content_view_matches_iid (slot, NEMO_LIST_VIEW_IID) &&
-	    !nemo_window_slot_content_view_matches_iid (slot, NEMO_COMPACT_VIEW_IID)) {
+	    !nemo_window_slot_content_view_matches_iid (slot, NEMO_COMPACT_VIEW_IID) &&
+	    !nemo_window_slot_content_view_matches_iid (slot, NEMO_ICON_VIEW_IID)) {
 		nemo_file_unref (file);
 		return;
 	}
@@ -2079,7 +2082,7 @@ nemo_window_slot_check_image_view (NemoWindowSlot *slot)
 		nemo_folder_settings_get (file, NEMO_METADATA_KEY_DEFAULT_VIEW, NULL) : NULL;
 
 	if (nemo_image_folders_wants_icon_view (file, saved_id)) {
-		switch_content_view (slot, NEMO_ICON_VIEW_IID, FALSE, FALSE);
+		switch_content_view (slot, NEMO_IMAGE_VIEW_IID, FALSE, FALSE);
 	}
 
 	g_free (saved_id);

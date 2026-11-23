@@ -262,7 +262,7 @@ field: icon-view.image-folder-min-percent
 field: icon-view.image-folder-switch
 	type: bool
 	default: true
-	desc: "Show a folder that is mostly images in icon view, unless it has a view of its own"
+	desc: "Show a folder that is mostly images in image thumbnail view, unless it has a view of its own"
 
 field: icon-view.labels-beside-icons
 	type: bool
@@ -397,7 +397,7 @@ field: preferences.date-format
 
 field: preferences.default-folder-viewer
 	type: string
-	allowed: [icon-view, compact-view, list-view]
+	allowed: [icon-view, compact-view, list-view, image-view]
 	default: list-view
 	# aliases: [view mode, layout, default view]
 
@@ -505,6 +505,13 @@ field: preferences.rename-selects-whole-name
 	desc: "Renaming selects the whole name, extension included"
 	# aliases: [file extension, f2]
 
+field: preferences.paste-target
+	type: string
+	allowed: [nemo-anywhere, nemo-classic, macos-dolphin]
+	default: nemo-anywhere
+	desc: Where pasted and new items go
+	# aliases: [paste into, new folder, target folder, dolphin, finder]
+
 field: preferences.quick-renames-with-pause-in-between
 	type: bool
 	default: false
@@ -572,6 +579,10 @@ field: preferences.show-image-thumbnails
 	default: local-only
 	desc: When to draw thumbnails
 	# aliases: [previews, preview images]
+
+field: preferences.show-image-view-icon-toolbar
+	type: bool
+	default: true
 
 field: preferences.show-list-view-icon-toolbar
 	type: bool
@@ -726,6 +737,12 @@ field: preferences.window-per-process
 	type: bool
 	default: true
 	desc: Each new window runs as its own process
+
+field: preferences.zoom-resizes-window
+	type: bool
+	default: true
+	desc: Zooming in or out from the keyboard or the View menu resizes the window to match
+	# aliases: [zoom, window size, resize window]
 
 field: preferences.menu-config.background-menu-compress
 	type: bool
