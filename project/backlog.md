@@ -494,7 +494,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Rearrange the order of views, and add a fourth first-class view, Image thumbnail view.
 	- ID: 2026102018234904
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261020-182349
 	- Opened by: t00mietum
@@ -515,7 +515,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: its settings are under [Default and Current](design_docs/20261020-121842_settings.md#default-and-current) and [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs).
 	- Progress log:
 		- 20261123: split in 3. The new order and keys for the 3 views there are now is 2026112311283203, Done. Image thumbnail view on Ctrl+4 is 2026112311283221, Done. Opening a folder of mostly images in it, and its toolbar button, is 2026112311463795, Done.
-	- Test case: none yet.
+		- 20261123: closed from its 3 children, all Done.
+	- Test case: its children's: 2026112311283203: dfpqj, View order and keys test: the View menu and toolbar order, and Ctrl+3, Ctrl+2 and Ctrl+1 each showing their view. dd5df, Settings dialog test, now checks the view dropdown's rows and what each writes.; 2026112311283221: dfpqj, View order and keys test, now also checks Ctrl+4, the menu entry, and that the view shows icons bigger than icon view. dd5df, Settings dialog test, checks the dropdown's fourth row and `image-view`.; 2026112311463795: dfpqj, View order and keys test, now checks the toolbar's fourth button, and opens a folder of pictures: it opens in Image thumbnail view with that button pressed, and icon view there keeps the plain size. dbnfq, Settings widgets test, checks the new checkbox is in the layout.
+	- Closed: 20261123-121437
 
 - Reorder the views as Detailed, Compact and Icon, on Ctrl+1 to Ctrl+3, and call list view Detailed view.
 	- ID: 2026112311283203
