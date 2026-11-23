@@ -132,36 +132,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 1bbffa05
 	- Test case: dfpnp Places drop line test. A Places tree view is drawn in each bundled theme with and without a drop spot, before and after a row and next to the selected row. The line has to be at least 2px, on the right edge of the right row, with at least 3:1 contrast.
 
-- Need ability to enter variables in the path bar. E.g. `$TMP9`.
-	- ID: 2026101613053687
-	- Type: Enhancement
-	- Status: Waiting on UAT
-		- Left at signoff for `$DEVELOPER_DIR`, which has no stand-in off a Mac. It expands wherever it's set.
-	- Priority|Severity: Avg
-	- Opened: 20261016-130536
-	- Opened by: t00mietum
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-		- Can enter common standard cross-platform variables, e.g.:
-			- `$TMP/misc`, `${HOME}/.config`, or `~/.cache` on Windows.
-			- `%USERPROFILE%\Pictures` on mac and Linux
-			- `$DEVELOPER_DIR` on Windows and Linux
-	- Progress log:
-		- 20261123: done. A common variable from the other platform expands where nothing set it, to the local folder or name. That covers HOME and USERPROFILE, TMP, TEMP and TMPDIR, USER and USERNAME, XDG_CONFIG_HOME and APPDATA, XDG_DATA_HOME and LOCALAPPDATA, and XDG_CACHE_HOME. A variable that's set always wins.
-		- A backslash after a variable resolves too, so `%USERPROFILE%\Pictures` opens on Linux and macOS.
-		- `~` on Windows and every variable that's set already worked, since 20260828.
-	- Decisions:
-		- `$DEVELOPER_DIR` gets no stand-in. On a Mac it's the Xcode folder, and Windows and Linux don't have one.
-		- `%NAME%` ignores case, as on Windows. `$NAME` doesn't.
-		- Options for APPDATA off Windows: the config folder or the data folder; went with config. LOCALAPPDATA takes the data folder.
-		- Nothing in the change is Windows-only, so the Windows cross build's run of the test is enough there.
-	- Swept: the location bar, the bookmark editor, and the command line all use the one expansion. The command line doesn't get the backslash retry, which a shell strips unless it's quoted. Shortcut portable paths have their own reader, which maps only `%USERPROFILE%` off Windows, and were left alone.
-	- Verified: da8rh passes, and fails before the change on 16 checks. It passes in the Windows cross build too. Lint is clean, and both analyzers are clean on the 2 changed files.
-	- Branch: nov23-2026101613053687
-	- Commit: 50eafa7b
-	- Test case: da8rh `test-eel-user-input` (`test_stand_ins`, and the Windows path behind a variable).
-
 - Zoom in with Ctrl+ (or Ctrl=), and out with Ctrl-, changes the window size too.
 	- ID: 2026101715030685
 	- Type: Enhancement
@@ -185,43 +155,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: dfpq1 `test-nemo-zoom-resize` for the arithmetic, dfpq4 `test-nemo-zoom-window` for Ctrl+plus and Ctrl+minus in each view, with the setting on and off, dbnfq `test-nemo-prefs-widgets` for the checkbox and its label.
 	- Branch: nov23-2026101715030685
 	- Commit: a548bd4b
-
-- Settings: a Keyboard tab that lists the shortcuts, and changes, turns off, and resets each one.
-	- ID: 2026112312181296
-	- Type: Enhancement
-	- Status: Waiting on UAT
-		- Needs a look at the tab in the app.
-	- Priority|Severity: Avg
-	- Opened: 20261123-121812
-	- Opened by: t00mietum
-	- Parent ID: 2026102018234906
-	- Target version: rc.1
-	- Requirements:
-		- Every shortcut of the window's menus is listed with its key, by name.
-		- A row takes a new key after a click, Enter, or Space. Escape leaves it as it was, and Backspace turns it off.
-		- A row whose key isn't its default can be reset, and so can every row at once.
-		- Changes are saved to the `accels` file.
-	- Done: a Keyboard tab after Advanced lists every menu action with a name, sorted by name, with its key. A click on the key, or Enter or Space on the row, waits for the next key, and every key goes to the row while it waits. Escape leaves it, Backspace turns it off. A revert arrow on a changed row puts its first key back, and Reset all puts back every one. Each window notes the key every action starts with as it adds its actions, since GTK doesn't give that back once a key from `accels` is in place. The changelog and the Settings design doc say so.
-	- Progress log:
-		- 20261123: the tab's page is now a scrolled window, like every other Settings page, so the window's sizing measures it and the page scrolls on a screen too short for it. It was a plain box, which dbnfq refused. The search words for the tab moved to the new page, since search reads them from the tab's own page. Fixed on nov23-2026102018234906-fix.
-	- Decisions:
-		- A key another listed shortcut has is refused, with a note naming that one, rather than shared. 2 actions on one key would leave only one of them working.
-		- A key that types a character needs Ctrl or Alt held, since it would stop typing in the location bar and in a rename. A plain Delete or F2 is fine.
-		- A key turned off shows as "Off".
-		- The key is read by the tab rather than by GTK's own shortcut cell, which takes a grab before it's on screen and can crash later (GNOME/gtk#180).
-		- The text-entry Cut, Copy, and Paste of the location bar aren't listed, since they're the standard editing keys, and the menu's own Cut, Copy, and Paste are.
-		- The Alt+1 to Alt+0 tab keys have no name to list them by, so they aren't listed.
-		- A reset row is written to `accels` with its default key, since GTK doesn't mark an entry unchanged again. It only matters if a later version changes that default.
-		- Placement under Advanced waits for 2026102018234905, per the parent.
-	- Needs hand testing: open Settings, Keyboard, in the app, and judge the list and its wording.
-	- Stand-in: none (20261123). The look and wording of a new tab.
-	- Verified: 20261123, dd5df passes with the new checks. With the first key read from the accel map in place of the action's own, it fails: Rename showed F2 as its default where the file had F6. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
-	- Branch: nov23-2026102018234906
-	- Commit: b9a18c18
-	- Test case: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key and a plain letter refused, Backspace, the revert arrow, and Reset all.
-		- 20261123: dd5df's Ctrl+Page Up wrap from the first tab now ends on `keyboard`, where it was `advanced`, since the new tab is last until 2026102018234905 gives Advanced sub-tabs.
-		- 20261123: dbnfq, Settings widgets test, lists the Keyboard page with the other pages, and dd5df's check that every page fits at the opening size covers it too.
-	- Swept: every place a window adds menu actions with keys: the shell actions and their toggles and radios, the folder view's, and icon view's. The location bar's clipboard actions are left out, as under Decisions. The sidebars' right-click menus give none of their actions a key.
 
 - Under the Windows 10 and Windows 7 themes, the frame around a row a file is about to drop into can barely be seen.
 	- ID: 2026112310420234
@@ -378,6 +311,77 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261021: Split into children: `2026102114400584` (the stage, report only), `...586` vendored, `...587` inherited, `...588` ours, `...589` tests, `...591` (the gate goes live), `...592` (CodeQL and cross-file clang), `...593` (heap soak), and `2026101911105600` (the flag).
 		- 20261021 counts, unique findings by where they are (vendored, inherited, ours, tests, system headers): gcc on the Linux list 2, 12, 0, 7, 1, total 22, with 3 files not analyzed; gcc on the Windows list 3, 21, 6, 7, 3, total 40; clang on the Linux list 3, 34, 15, 17, 0, total 69; clang on the Windows list not run, since `nemo-winbuild` doesn't have clang. That's 120 unique across the 3. The 5 in system headers are GLib macros, and count toward their callers.
 	- Test case: each new stage is its own test, with a planted fault it has to catch.
+
+- Need ability to enter variables in the path bar. E.g. `$TMP9`.
+	- ID: 2026101613053687
+	- Type: Enhancement
+	- Status: Queued
+		- The folder names with no single match on the other platform come out of the stand-in list.
+	- Priority|Severity: Avg
+	- Opened: 20261016-130536
+	- Opened by: t00mietum
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- Can enter common standard cross-platform variables, e.g.:
+			- `$TMP/misc`, `${HOME}/.config`, or `~/.cache` on Windows.
+			- `%USERPROFILE%\Pictures` on mac and Linux
+			- `$DEVELOPER_DIR` on Windows and Linux
+	- Progress log:
+		- 20261123: done. A common variable from the other platform expands where nothing set it, to the local folder or name. That covers HOME and USERPROFILE, TMP, TEMP and TMPDIR, USER and USERNAME, XDG_CONFIG_HOME and APPDATA, XDG_DATA_HOME and LOCALAPPDATA, and XDG_CACHE_HOME. A variable that's set always wins.
+		- A backslash after a variable resolves too, so `%USERPROFILE%\Pictures` opens on Linux and macOS.
+		- `~` on Windows and every variable that's set already worked, since 20260828.
+		- 20261123: XDG_CONFIG_HOME, APPDATA, XDG_DATA_HOME, LOCALAPPDATA and XDG_CACHE_HOME come out of the list. design.md's `%APPDATA%` example goes with them, and da8rh changes to match.
+	- Decisions:
+		- `$DEVELOPER_DIR` gets no stand-in. On a Mac it's the Xcode folder, and Windows and Linux don't have one. Where it isn't set, it stays as typed.
+		- A name that isn't set stays as typed when it isn't standard, or when it has no single obvious match on the other platform. HOME and USERPROFILE, TMP, TEMP and TMPDIR, and USER and USERNAME keep their stand-ins.
+		- The XDG folders and APPDATA and LOCALAPPDATA lose theirs. APPDATA off Windows could be the config folder or the data folder, and LOCALAPPDATA the data folder or the cache. On Windows GLib puts both the XDG config and data folders in LOCALAPPDATA. The other option was keeping XDG_CONFIG_HOME and APPDATA as a pair, as Go's `os.UserConfigDir` does.
+		- `%NAME%` ignores case, as on Windows. `$NAME` doesn't.
+		- Nothing in the change is Windows-only, so the Windows cross build's run of the test is enough there.
+	- Swept: the location bar, the bookmark editor, and the command line all use the one expansion. The command line doesn't get the backslash retry, which a shell strips unless it's quoted. Shortcut portable paths have their own reader, which maps only `%USERPROFILE%` off Windows, and were left alone.
+	- Verified: da8rh passes, and fails before the change on 16 checks. It passes in the Windows cross build too. Lint is clean, and both analyzers are clean on the 2 changed files.
+	- Branch: nov23-2026101613053687
+	- Commit: 50eafa7b
+	- Test case: da8rh `test-eel-user-input` (`test_stand_ins`, and the Windows path behind a variable).
+
+- Settings: a Keyboard tab that lists the shortcuts, and changes, turns off, and resets each one.
+	- ID: 2026112312181296
+	- Type: Enhancement
+	- Status: Queued
+		- A key another shortcut has is taken, and cleared from that one. Then the look at the tab in the app.
+	- Priority|Severity: Avg
+	- Opened: 20261123-121812
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234906
+	- Target version: rc.1
+	- Requirements:
+		- Every shortcut of the window's menus is listed with its key, by name.
+		- A row takes a new key after a click, Enter, or Space. Escape leaves it as it was, and Backspace turns it off.
+		- A row whose key isn't its default can be reset, and so can every row at once.
+		- Changes are saved to the `accels` file.
+		- A key another listed shortcut has is taken, and that shortcut is turned off.
+	- Done: a Keyboard tab after Advanced lists every menu action with a name, sorted by name, with its key. A click on the key, or Enter or Space on the row, waits for the next key, and every key goes to the row while it waits. Escape leaves it, Backspace turns it off. A revert arrow on a changed row puts its first key back, and Reset all puts back every one. Each window notes the key every action starts with as it adds its actions, since GTK doesn't give that back once a key from `accels` is in place. The changelog and the Settings design doc say so.
+	- Progress log:
+		- 20261123: changed my mind on a key another shortcut has. It's taken and cleared from the other one, as GTK does, rather than refused. dd5df's taken-key check changes with it.
+		- 20261123: the tab's page is now a scrolled window, like every other Settings page, so the window's sizing measures it and the page scrolls on a screen too short for it. It was a plain box, which dbnfq refused. The search words for the tab moved to the new page, since search reads them from the tab's own page. Fixed on nov23-2026102018234906-fix.
+	- Decisions:
+		- A key another listed shortcut has is taken, and the other shortcut is turned off. Options were refusing it with a note naming that one, as first built, or taking it and marking both rows, as SilkTerm does. 2 actions on one key would leave only one of them working.
+		- A key that types a character needs Ctrl or Alt held, since it would stop typing in the location bar and in a rename. A plain Delete or F2 is fine.
+		- A key turned off shows as "Off".
+		- The key is read by the tab rather than by GTK's own shortcut cell, which takes a grab before it's on screen and can crash later (GNOME/gtk#180).
+		- The text-entry Cut, Copy, and Paste of the location bar aren't listed, since they're the standard editing keys, and the menu's own Cut, Copy, and Paste are.
+		- The Alt+1 to Alt+0 tab keys have no name to list them by, so they aren't listed.
+		- A reset row is written to `accels` with its default key, since GTK doesn't mark an entry unchanged again. It only matters if a later version changes that default.
+		- Placement under Advanced waits for 2026102018234905, per the parent.
+	- Needs hand testing: open Settings, Keyboard, in the app, and judge the list and its wording.
+	- Stand-in: none (20261123). The look and wording of a new tab.
+	- Verified: 20261123, dd5df passes with the new checks. With the first key read from the accel map in place of the action's own, it fails: Rename showed F2 as its default where the file had F6. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Branch: nov23-2026102018234906
+	- Commit: b9a18c18
+	- Test case: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key and a plain letter refused, Backspace, the revert arrow, and Reset all.
+		- 20261123: dd5df's Ctrl+Page Up wrap from the first tab now ends on `keyboard`, where it was `advanced`, since the new tab is last until 2026102018234905 gives Advanced sub-tabs.
+		- 20261123: dbnfq, Settings widgets test, lists the Keyboard page with the other pages, and dd5df's check that every page fits at the opening size covers it too.
+	- Swept: every place a window adds menu actions with keys: the shell actions and their toggles and radios, the folder view's, and icon view's. The location bar's clipboard actions are left out, as under Decisions. The sidebars' right-click menus give none of their actions a key.
 
 - Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
 	- ID: 2026102114400592
@@ -1846,7 +1850,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261119: the search already lists an entry's aliases as the middle group, and shows a match as the label with the alias after it. What's left is an `aliases:` row per field in the schema file, reading it in when the app is built, and finding each field's control, which the window's bind calls pair with its key.
 		- 20261119: built. The schema has an alias row for 34 settings. The build turns the rows into a table, and each setting's control is found by the key its binding writes. Typing "zebra stripes" lists "Shade every other row (zebra stripes)".
 	- Decisions:
-		- The row is a comment, `# aliases: [a, b]`, since SHCL refuses a schema key it doesn't know, and the installed schema has to stay one `shcl check --schema` takes. A request to SHCL for keys it ignores is drafted.
+		- The row is a comment, `# aliases: [a, b]`, since SHCL refuses a schema key it doesn't know, and the installed schema has to stay one `shcl check --schema` takes. A request to SHCL for `x-` keys it ignores is filed in SHCL's backlog as 2026112315300920.
 		- Aliases are the names other file managers and SilkTerm use for the same thing, such as "dot files", "recycle bin", "address bar" and "dark mode". Only settings with a control in the window have them. They're easy to change.
 		- Every binding that writes a key marks its control with that key, and the 2 theme lists, which write theirs by hand, are marked the same way. A get-only binding, such as one for sensitivity, doesn't mark anything.
 		- A key's aliases go on the first control found for it, so a radio group or a label and field pair lists them once.
@@ -13424,7 +13428,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every place the switch picks or checks a view: the view picked before the load with per-folder settings off, the default for a folder with no view of its own, the check after the load, and the default passed when a hand pick is saved. Every reader of the picture size in the icon view: the default size, the saved key, the held size, and the thumbnails made ahead. Each toolbar view button's key, settings row, binding, show and hide, and the code that presses the button for the view showing. The F2 tests in a folder of pictures, ddwjw, ddzyz and ddzzq, now run in Image thumbnail view, and the shared sort test de55s, and all pass.
 	- Verified: 20261123, dfpqj fails on the code before this change: the folder of pictures stays out of Image thumbnail view, its button isn't pressed, and icon view lays the icons out as tall as Image thumbnail view, 2495 both. It passes after. dbnfq, dcx3q, dd5df, dcx2w, dcraj, dav3s, dd5dh, ddwjw, ddzyz, ddzzq, dfpq4, de55s and dbsx7 pass. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
 	- Test case: dfpqj, View order and keys test, now checks the toolbar's fourth button, and opens a folder of pictures: it opens in Image thumbnail view with that button pressed, and icon view there keeps the plain size. dbnfq, Settings widgets test, checks the new checkbox is in the layout.
-	- Acceptance signoff: Self-closed: dfpqj passes.
+	- Acceptance signoff: Self-closed: dfpqj passes. Signed off the switch from icon view, the folder icon on the button, and dcx3r left commented out.
 	- Branch: nov23-2026112311463795
 	- Commit: d97c0a99
 	- Closed: 20261123-121006
