@@ -6615,6 +6615,24 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                     <property name="position">10</property>
                   </packing>
                 </child>
+                <child>
+                  <object class="GtkBox" id="keyboard_page_box">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="border-width">12</property>
+                    <property name="orientation">vertical</property>
+                    <property name="spacing">6</property>
+                    <child>
+                      <placeholder/>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="name">keyboard</property>
+                    <property name="title" translatable="yes">Keyboard</property>
+                    <property name="icon-name">input-keyboard-symbolic</property>
+                    <property name="position">11</property>
+                  </packing>
+                </child>
               </object>
               <packing>
                 <property name="expand">True</property>

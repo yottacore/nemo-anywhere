@@ -67,6 +67,7 @@
 #include <libnemo-private/nemo-search-engine.h>
 #include <libnemo-private/nemo-signaller.h>
 #include <libnemo-private/nemo-trash-monitor.h>
+#include <libnemo-private/nemo-shortcuts.h>
 #include <string.h>
 
 #define MENU_PATH_EXTENSION_ACTIONS                     "/MenuBar/File/Extension Actions"
@@ -1988,6 +1989,7 @@ nemo_window_initialize_menus (NemoWindow *window)
 	gtk_action_group_add_actions (action_group,
 				      main_entries, G_N_ELEMENTS (main_entries),
 				      window);
+	nemo_shortcuts_note_actions (action_group, main_entries, G_N_ELEMENTS (main_entries));
 
       /* if root then hide menu items that do not work */
     if (nemo_user_is_root () && !nemo_treating_root_as_normal ()) {
@@ -2006,10 +2008,12 @@ nemo_window_initialize_menus (NemoWindow *window)
 	gtk_action_group_add_toggle_actions (action_group,
 					     main_toggle_entries, G_N_ELEMENTS (main_toggle_entries),
 					     window);
+	nemo_shortcuts_note_toggle_actions (action_group, main_toggle_entries, G_N_ELEMENTS (main_toggle_entries));
     gtk_action_group_add_radio_actions (action_group,
                         view_radio_entries, G_N_ELEMENTS (view_radio_entries),
                         0, G_CALLBACK (view_radio_entry_changed_cb),
                         window);
+	nemo_shortcuts_note_radio_actions (action_group, view_radio_entries, G_N_ELEMENTS (view_radio_entries));
 
     gboolean use_entry = nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_SHOW_LOCATION_ENTRY);
     gtk_action_group_add_radio_actions (action_group,
@@ -2017,6 +2021,7 @@ nemo_window_initialize_menus (NemoWindow *window)
                                         use_entry ? TOOLBAR_ENTRY : TOOLBAR_PATHBAR,
                                         G_CALLBACK (toolbar_radio_entry_changed_cb),
                                         window);
+	nemo_shortcuts_note_radio_actions (action_group, toolbar_radio_entries, G_N_ELEMENTS (toolbar_radio_entries));
 
 	action = gtk_action_group_get_action (action_group, NEMO_ACTION_UP);
 	g_object_set (action, "short_label", _("_Up"), NULL);

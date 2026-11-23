@@ -21,6 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Settings has a Keyboard tab that lists the menu shortcuts by name. Click a key, or press Enter or Space on its row, then press the new keys. Backspace turns one off, an arrow puts one back to the key it started with, and Reset all puts back every one. A key another shortcut already has, or a plain letter with no Ctrl or Alt, is refused with a note saying why. Changes are saved to the `accels` file.
+
 - Image thumbnail view, a fourth view on Ctrl+4, shows a folder's pictures at the picture size. It's in the View menu, the toolbar, the keyboard shortcuts window and the default view in Settings, and `image-view` in the settings file. Its toolbar button has a checkbox on the Toolbar tab in Settings.
 
 - A folder that's mostly images opens in Image thumbnail view, rather than in icon view at the picture size. Icon view keeps its own size there.

@@ -49,6 +49,7 @@
 #include "nemo-plugin-manager.h"
 #include "nemo-prefs-current-folder.h"
 #include "nemo-prefs-file-cache.h"
+#include "nemo-prefs-keyboard.h"
 #include "nemo-settings-search.h"
 #include "nemo-template-config-widget.h"
 #include "nemo-actions.h"
@@ -1797,6 +1798,7 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
 				G_N_ELEMENTS (thumbnail_limit_values));
 
 	nemo_prefs_file_cache_setup (builder);
+	nemo_prefs_keyboard_setup (builder);
 
     bind_builder_bool (builder, nemo_media_handling_preferences,
                NEMO_FILE_MANAGEMENT_PROPERTIES_AUTOMOUNT_MEDIA_WIDGET,

@@ -64,6 +64,7 @@ nemo_private_sources = [
   'nemo-link-edit.c',
   'nemo-link-win32.c',
   'nemo-shortcut-win32.c',
+  'nemo-shortcuts.c',
   'nemo-trash-win32.c',
   'nemo-win32-appearance.c',
   'nemo-cache-db.c',

@@ -108,6 +108,7 @@
 #include <libnemo-private/nemo-separator-action.h>
 #include <libnemo-private/nemo-action-manager.h>
 #include <libnemo-private/nemo-mime-application-chooser.h>
+#include <libnemo-private/nemo-shortcuts.h>
 
 #define DEBUG_FLAG NEMO_DEBUG_DIRECTORY_VIEW
 #include <libnemo-private/nemo-debug.h>
@@ -10082,6 +10083,7 @@ real_merge_menus (NemoView *view)
 	gtk_action_group_add_actions (action_group,
 				      directory_view_entries, G_N_ELEMENTS (directory_view_entries),
 				      view);
+	nemo_shortcuts_note_actions (action_group, directory_view_entries, G_N_ELEMENTS (directory_view_entries));
 
 	tooltip = g_strdup_printf (_("Run scripts"));
 	/* Create a script action here specially because its tooltip is dynamic */

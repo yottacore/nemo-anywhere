@@ -636,7 +636,63 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Under Advanced, after Cache.
 		- Keyboard shortcuts, displayed and edited (and resettable) like SilkTerm's.
 	- Design: [Keyboard tab](design_docs/20261020-121842_settings.md#keyboard-tab).
-	- Test case: none yet.
+	- Progress log:
+		- 20261123: split in 2. 2026112312181296 is the tab itself, with keys shown, changed, turned off, and reset. 2026112312181314 is other windows, the keyboard shortcuts window, and views not opened yet.
+	- Decisions:
+		- The tab goes under Advanced with 2026102018234905, which gives Advanced sub-tabs. Until then it's a tab of its own, after Advanced.
+	- Test case: dd5df, in its children.
+
+- Settings: a Keyboard tab that lists the shortcuts, and changes, turns off, and resets each one.
+	- ID: 2026112312181296
+	- Type: Enhancement
+	- Status: Waiting on UAT
+		- Needs a look at the tab in the app.
+	- Priority|Severity: Avg
+	- Opened: 20261123-121812
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234906
+	- Target version: rc.1
+	- Requirements:
+		- Every shortcut of the window's menus is listed with its key, by name.
+		- A row takes a new key after a click, Enter, or Space. Escape leaves it as it was, and Backspace turns it off.
+		- A row whose key isn't its default can be reset, and so can every row at once.
+		- Changes are saved to the `accels` file.
+	- Done: a Keyboard tab after Advanced lists every menu action with a name, sorted by name, with its key. A click on the key, or Enter or Space on the row, waits for the next key, and every key goes to the row while it waits. Escape leaves it, Backspace turns it off. A revert arrow on a changed row puts its first key back, and Reset all puts back every one. Each window notes the key every action starts with as it adds its actions, since GTK doesn't give that back once a key from `accels` is in place. The changelog and the Settings design doc say so.
+	- Decisions:
+		- A key another listed shortcut has is refused, with a note naming that one, rather than shared. 2 actions on one key would leave only one of them working.
+		- A key that types a character needs Ctrl or Alt held, since it would stop typing in the location bar and in a rename. A plain Delete or F2 is fine.
+		- A key turned off shows as "Off".
+		- The key is read by the tab rather than by GTK's own shortcut cell, which takes a grab before it's on screen and can crash later (GNOME/gtk#180).
+		- The text-entry Cut, Copy, and Paste of the location bar aren't listed, since they're the standard editing keys, and the menu's own Cut, Copy, and Paste are.
+		- The Alt+1 to Alt+0 tab keys have no name to list them by, so they aren't listed.
+		- A reset row is written to `accels` with its default key, since GTK doesn't mark an entry unchanged again. It only matters if a later version changes that default.
+		- Placement under Advanced waits for 2026102018234905, per the parent.
+	- Needs hand testing: open Settings, Keyboard, in the app, and judge the list and its wording.
+	- Stand-in: none (20261123). The look and wording of a new tab.
+	- Verified: 20261123, dd5df passes with the new checks. With the first key read from the accel map in place of the action's own, it fails: Rename showed F2 as its default where the file had F6. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Branch: nov23-2026102018234906
+	- Commit: b9a18c18
+	- Test case: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key and a plain letter refused, Backspace, the revert arrow, and Reset all.
+		- 20261123: dd5df's Ctrl+Page Up wrap from the first tab now ends on `keyboard`, where it was `advanced`, since the new tab is last until 2026102018234905 gives Advanced sub-tabs.
+	- Swept: every place a window adds menu actions with keys: the shell actions and their toggles and radios, the folder view's, and icon view's. The location bar's clipboard actions are left out, as under Decisions. The sidebars' right-click menus give none of their actions a key.
+
+- Settings: a shortcut changed on the Keyboard tab takes effect in every open window, and the keyboard shortcuts window shows it.
+	- ID: 2026112312181314
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-121813
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234906
+	- Prereq IDs: 2026112312181296
+	- Target version: rc.1
+	- Requirements:
+		- Other running windows pick up a change to `accels`, since each window is its own process.
+		- The keyboard shortcuts window shows the keys in use, not the defaults.
+		- Shortcuts of a view the window hasn't opened yet, such as Icon view's, are listed too.
+		- One window saving `accels` doesn't undo a change another window made.
+		- Settings search finds the Keyboard tab by words such as keyboard, shortcut, and hotkey.
+	- Note: each window saves its whole shortcut map 30 seconds after a change. So a window that reads `accels` again should take only the entries the file changed since it last read or wrote it, or a change it hasn't saved yet is lost. The search matches settings by their key in the schema, and the tab has none.
 
 - Settings: Blake3 checksum cache options, with persistence across hosts through xattrs.
 	- ID: 2026102018234907

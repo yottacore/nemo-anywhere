@@ -60,6 +60,7 @@
 #include <libnemo-private/nemo-clipboard.h>
 #include <libnemo-private/nemo-desktop-utils.h>
 #include <libnemo-private/nemo-thumbnail-memory.h>
+#include <libnemo-private/nemo-shortcuts.h>
 
 #define DEBUG_FLAG NEMO_DEBUG_ICON_VIEW
 #include <libnemo-private/nemo-debug.h>
@@ -1649,6 +1650,9 @@ nemo_icon_view_merge_menus (NemoView *view)
 					    -1,
 					    G_CALLBACK (action_sort_radio_callback),
 					    icon_view);
+	nemo_shortcuts_note_actions (action_group, icon_view_entries, G_N_ELEMENTS (icon_view_entries));
+	nemo_shortcuts_note_toggle_actions (action_group, icon_view_toggle_entries, G_N_ELEMENTS (icon_view_toggle_entries));
+	nemo_shortcuts_note_radio_actions (action_group, arrange_radio_entries, G_N_ELEMENTS (arrange_radio_entries));
 
 	gtk_ui_manager_insert_action_group (ui_manager, action_group, 0);
 	g_object_unref (action_group); /* owned by ui manager */
