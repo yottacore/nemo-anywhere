@@ -101,6 +101,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261119: split into children 2026111912460963 (the field, label and fuzzy matches, and going to a setting) and 2026111912460983 (aliases, Done).
 		- 20261119: children 2026111912460963 wait on UAT, and the rest are closed
 	- Test case: its children's: 2026111912460963: dfh5x, Settings search matching test: the design doc's 3 examples, the order of the groups and within each, the fuzzy rules, and the markup. dd5df, Settings dialog test, now checks the field is over the pages and outside the scrolling, a search's first match and its path and marks, a fuzzy match, no match, Enter going to the setting, a tab click leaving the search, Ctrl+F, and that the first Escape only empties the field.; 2026111912460983: dfh5x, Settings search matching test: the alias table has a setting's aliases and nothing for a key without a row. dd5df, Settings dialog test: every setting with aliases has a control in the window that the search finds, and gets them on exactly one entry, and an alias typed lists its setting with the alias after the label. The file cache page is stubbed in that test, so its key is left out there.
+	- Stand-in: none (20261123). It closes with its child 2026111912460963, which waits on the look.
 
 - Settings search: a search field over the tabs, with label and fuzzy matches, each shown with its path and marked letters, that goes to the setting picked.
 	- ID: 2026111912460963
@@ -131,6 +132,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 43d3c4fb
 	- Test case: dfh5x, Settings search matching test: the design doc's 3 examples, the order of the groups and within each, the fuzzy rules, and the markup. dd5df, Settings dialog test, now checks the field is over the pages and outside the scrolling, a search's first match and its path and marks, a fuzzy match, no match, Enter going to the setting, a tab click leaving the search, Ctrl+F, and that the first Escape only empties the field.
 	- Verified: dfh5x and dd5df pass, and each fails with part of the fix taken out: dfh5x without the word-start weight, and dd5df without the tab being shown. dbnfq, ddwqt, dd5dh and ddqa7 pass. Format and lint pass, and both analyzers are clean on the 4 C files touched.
+	- Stand-in: none (20261123). Only the look is left, and that turns on taste.
 
 - Changelog: the Nemo Anywhere selection model, for rc.1.
 	- ID: 2026111022095190
@@ -702,8 +704,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: other open windows take a shortcut changed in one window, and a save from one window keeps another's change.
 	- ID: 2026112312455741
 	- Type: Enhancement
-	- Status: Waiting on automated testing
-	- Needs external testing: dfpt0 on native Windows, on b29w, since replacing the file and watching it work differently there.
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261123-124557
 	- Opened by: work on 2026112312181314
@@ -725,6 +727,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261123, dfpt0 fails with the reread turned off and with every line of the file taken, and passes as committed, with dd5df, ddf63, and ddfam. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
 	- Branch: nov23-2026112312181314
 	- Commit: 85445071
+	- Verified: 20261123, dfpt0 passes on native Windows, on b29w, in the quick gate there at 682273f5, with 201 passed and 0 failed.
+	- Acceptance signoff: Self-closed: dfpt0 passed on b29w, with nothing on screen to judge.
+	- Closed: 20261123-133543
 
 - Settings: search finds the Keyboard tab by words such as keyboard, shortcut, and hotkey.
 	- ID: 2026112312455764
