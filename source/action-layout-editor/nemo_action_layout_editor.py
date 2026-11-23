@@ -266,7 +266,7 @@ class Row():
                 try:
                     icon_string = self.keyfile.get_string('Nemo Action', 'Icon-Name')
                 except GLib.Error:
-                    pass
+                    pass  # no icon in the action, so it shows none
 
         return icon_string
 
@@ -322,7 +322,7 @@ class Row():
                 if accel_string is not None:
                     return accel_string
             except KeyError:
-                pass
+                pass  # no accelerator set
 
         return None
 
@@ -661,7 +661,7 @@ class NemoActionsOrganizer(Gtk.Box):
                 if key == 0 and mods == 0:
                     raise ValueError("%s: Invalid accelerator string '%s'" % (uuid, accel_str))
         except KeyError:
-            pass
+            pass  # an accelerator is optional
 
         # Check that the node has a valid children list
         try:

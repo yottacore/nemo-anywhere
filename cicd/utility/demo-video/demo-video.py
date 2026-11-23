@@ -432,7 +432,7 @@ class Rec:
         try:
             self.wm.wait(timeout=5)
         except subprocess.TimeoutExpired:
-            pass
+            pass  # killed above; a leader that won't reap isn't worth holding the run for
         self.wm = None
 
     def wm_survivors(self) -> bool:

@@ -1,0 +1,9 @@
+# CodeQL results in vendored code, which stays as it came, so they can't be
+# suppressed at the line. Ours and inherited code suppress at the line instead,
+# with a "// codeql[<rule>] <why>" comment on the line before. Read by
+# cicd/utility/codeql.py count. Backlog 2026111915091061.
+#
+# One per line: <path>:<line> <rule> <why it's safe>. The rule is CodeQL's id,
+# such as cpp/missing-null-test. A real bug gets its upstream link beside it.
+# An entry no result matches fails the count, so a vendor bump that moves a
+# line gets its results looked at again.

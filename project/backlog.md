@@ -33,6 +33,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- The action strings file for translators still has 4 action names in their old case.
+	- ID: 2026112310211281
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261123-102112
+	- Opened by: 2026112310055896
+	- Related IDs: 2026112310055896
+	- Target OS: All
+	- Target version: rc.1
+	- Incorrect behavior: `source/data/nemo-actions/action_i18n_strings.py` and `nemo.pot` say "Add Desklets", "Change Desktop _Background", "Set as Wallpaper..." and "Display Settings", while the `.nemo_action.in` files say them in sentence case. So a translation made from the pot never matches. No meson file installs these actions, so it may not show anywhere.
+	- Expected behavior: the strings file matches the `.in` files, from `extract_action_strings` run again, or the folder goes if nothing installs it.
+	- Estimated effort: Low
+	- Test case: none yet.
+
 - Settings: search.
 	- ID: 2026101417352263
 	- Type: Enhancement
@@ -520,7 +535,187 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Every CodeQL finding, in both compile lists and the Python, is fixed, or suppressed at the line with a one-line reason, or for vendored code in a list outside the file.
 		- Then a finding left fails the step, as in the per-file stage.
 	- Estimated effort: High
+	- Progress log:
+		- 20261123: Split into children: `2026112310054779` (the vendored list and a scoped run), `...55896` (Python), `...55921` (vendored), `...55945` (missing-null-test in ours and tests, class first), `...61005` (the same in inherited), `...61029` (non-constant-format), `...61055` (other C in ours and tests), `...61079` (other C in inherited), and `...62942` (a finding left then fails the step). The first 2 are Done, and the other 7 are Queued.
 	- Test case: de8ep, and a count case for the finding it then fails on.
+
+- Static analyzers: a list for CodeQL's vendored findings, and a CodeQL run of one lane or some files.
+	- ID: 2026112310054779
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-100547
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- A vendored finding is suppressed in a list outside the file, with a one-line reason, as in analyze-vendored.txt. An entry that matches nothing fails the count.
+		- One lane, or the compile entries under some paths, can be run alone, so a fix can be checked in a few minutes rather than the whole step's 12.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Decisions:
+		- The list is `cicd/utility/codeql-vendored.txt`, in analyze-vendored.txt's form and read by the same parser. It's a file of its own, since analyze.py would call every CodeQL entry stale.
+		- A bad line, a stale entry, or a list it can't read exits 3, which fails the step now, ahead of findings failing it. Such an entry is only ever a mistake.
+		- In our code and inherited code a result is suppressed with `// codeql[<rule>] <why>` on the line before, which the suite's suppression query reads.
+		- `codeql.bash --lane <name>`, which can repeat, and `--match <regex>` make a scoped run. `--match` keeps the C compile entries whose path from the repo root it matches, and fails when none does. The Python lane always takes the whole tree, since that's about 20 s.
+		- A scoped run skips the planted pair and the stale check, keeps its SARIF in `cicd/artifacts/codeql/scoped/` so the last whole run's stays, and fails on any finding left, so it answers whether the files are clean.
+		- The regex reaches replay through `CODEQL_REPLAY_MATCH`, since codeql expands `$` in `--command` itself.
+		- A lane that fails now shows replay's own `[ FAILED` lines, which the tracer prefixes, rather than only a tail.
+	- Branch: nov23-2026111915091061
+	- Test case: dfha3 (`codeql.py --self-test`): a listed vendored result counts as suppressed; a stale entry, a bad line, an entry outside vendored code and a list it can't read exit 3; `--no-stale` lets a stale entry by; `--match` keeps only the entries it matches.
+	- Verified: 20261123, dfha3 passes, and de8ep (`codeql.bash --self-test`) passes in both images. Scoped runs: the Python lane in 24 s, 21 findings left; the Linux lane over 2 archive-core files in 22 s, 5 left; the Windows lane over 1 file in 32 s; a `--match` that matches nothing fails the lane by name. A `codeql[cpp/missing-null-test]` comment above the one finding in `arc-mounts.c` turns it to suppressed, and the scoped run passes. `count` over the 20261119 SARIF, with one real vendored entry listed, moves that one from vendored to suppressed, and with an entry no result matches exits 3. `cicd/cicd.bash --backlog-run-quick format lint` passes.
+	- Swept: every caller of `codeql.py count` and `cmd_count` (codeql.bash, the self-test), every reader of the lanes array in codeql.bash, `lint.bash`'s dfha3 call, `CODEQL_CMD` in config.bash and test-cicd-leakcheck.bash, which stubs the step, and design.md's CodeQL text.
+	- Acceptance signoff: Self-closed: dfha3, de8ep, and the scoped runs above.
+	- Closed: 20261123-101613
+
+- Static analyzers: the CodeQL findings in the Python fixed or suppressed.
+	- ID: 2026112310055896
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-100558
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310054779
+	- Related IDs: 2026112310211281
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- The 39 on 20261119: file-not-closed 18, empty-except 15, use-of-exit-or-quit 3, and one each of catch-base-exception, syntax-error and uninitialized-local-variable.
+	- Estimated effort: Avg
+	- Actual effort: Low
+	- Progress log:
+		- 20261123: 21 were left at the start. 10 of them, the 3 use-of-exit-or-quit, the uninitialized local and 6 empty excepts, were in old copies under `cicd/artifacts/` that git ignores, since the lane read the whole tree.
+	- Decisions:
+		- The Python lane reads only the tracked Python files, by extension or by a python shebang. `codeql.py pyfiles` lists them on the host, since the containers have no git, and the lane copies them into a source root of its own.
+		- Every empty except gets the reason it's empty as a comment, which is what the query asks for, rather than a suppression.
+		- `merge_action_strings` catches `Exception` rather than everything, so Ctrl+C still stops it.
+		- `action_i18n_strings.py` is only read by xgettext, and its names began with a digit or held a dash, so it didn't parse. `extract_action_strings` now prefixes `action_` and turns the rest into underscores, and the file has the new names with its strings and line numbers as they were, so `nemo.pot` still points at the right lines. Its strings are stale against the `.in` files, which is 2026112310211281.
+	- Branch: nov23-2026111915091061
+	- Test case: the Python lane run alone, `codeql.bash --lane python`, has no findings left.
+	- Verified: 20261123, `codeql.bash --lane python` passes with 0 findings over 32 tracked files, and with one of the new comments taken out it fails on that one empty except. dfha3 passes with the shebang check added. `extract_action_strings` over the `.in` files writes names Python parses. `cicd/cicd.bash --backlog-run-quick format lint` passes.
+	- Swept: every except that only passes in the 32 tracked Python files, per the lane's own results.
+	- Acceptance signoff: Self-closed: the Python lane has no findings left.
+	- Closed: 20261123-102300
+
+- Static analyzers: the CodeQL findings in vendored code listed outside the files.
+	- ID: 2026112310055921
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-100559
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310054779
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- About 99 unique on 20261119, 77 of them missing-null-test, most in SHCL and the old SHCL releases. Each goes in the list with a one-line reason, and a real bug goes to its upstream.
+	- Estimated effort: Avg
+	- Test case: dfha3, and both C lanes have no vendored finding left.
+
+- Static analyzers: the CodeQL missing-null-test findings in our code and tests fixed or suppressed.
+	- ID: 2026112310055945
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-100559
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310054779
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- 134 unique on 20261119, 51 ours and 83 tests.
+		- Look for the class first. GLib's inline g_strdup has a return NULL that only a constant NULL reaches, so every g_strdup result reads as maybe NULL. Taking that out of the replay, or teaching the query, may clear most of them in every area.
+		- The query is in no standard suite since it's noisy. Dropping it, or keeping it to some areas, goes against 2026110920250293's decision to add it, so that needs more thought before it's done.
+	- Estimated effort: High
+	- Test case: de8ep still finds the planted NULL, and a scoped run over the files changed has none left.
+
+- Static analyzers: the CodeQL missing-null-test findings in inherited code fixed or suppressed.
+	- ID: 2026112310061005
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-100610
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310055945
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- 307 unique on 20261119, before whatever the class fix in 2026112310055945 clears.
+	- Estimated effort: High
+	- Test case: a scoped run over the files changed has none left.
+
+- Static analyzers: the CodeQL non-constant-format findings fixed or suppressed.
+	- ID: 2026112310061029
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-100610
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310054779
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- 245 unique on 20261119, 237 of them only in the Windows lane, mostly from ngettext and _() strings. The Linux lane knows gettext keeps its format, and the Windows one doesn't seem to know mingw's libintl. Fix that class first, then the rest at the line.
+	- Estimated effort: Avg
+	- Test case: a scoped run of the Windows lane over the files changed has none left.
+
+- Static analyzers: the other CodeQL C findings in our code and tests fixed or suppressed.
+	- ID: 2026112310061055
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-100610
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310054779
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- About 115 unique on 20261119: memory-never-freed 49, world-writable-file-creation 43 (all tests), memory-may-not-be-freed 8, equality-on-floats 5, stack-address-escape 4, inconsistent-null-check 4, and a few single ones.
+	- Estimated effort: High
+	- Test case: a scoped run over the files changed has none left, and a regression test per real bug fixed.
+
+- Static analyzers: the other CodeQL C findings in inherited code fixed or suppressed.
+	- ID: 2026112310061079
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-100610
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310054779
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- About 100 unique on 20261119: memory-never-freed 42, equality-on-floats 20, lossy-function-result-cast 17, stack-address-escape 7, integer-multiplication-cast-to-long 4, double-free 2, inconsistent-null-check 2, and one each of use-after-free, suspicious-add-sizeof, incorrectly-checked-scanf and incomplete-parity-check.
+	- Estimated effort: High
+	- Test case: a scoped run over the files changed has none left, and a regression test per real bug fixed.
+
+- Static analyzers: a CodeQL finding left fails the step.
+	- ID: 2026112310062942
+	- Type: Enhancement
+	- Status: Queued
+	- Needs local test suite run?: the whole CodeQL step, once, with no finding left.
+	- Priority|Severity: Avg
+	- Opened: 20261123-100629
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310055896, 2026112310055921, 2026112310055945, 2026112310061005, 2026112310061029, 2026112310061055, 2026112310061079
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- A CodeQL finding left fails the step, as in the per-file analyzer stage.
+		- The step's help text, design.md's leak check text, and the step's note that findings are report only, brought up to date.
+	- Estimated effort: Avg
+	- Test case: de8ep, and a count case in dfha3 for the finding the step then fails on.
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038

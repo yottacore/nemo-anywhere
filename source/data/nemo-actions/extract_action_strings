@@ -2,6 +2,7 @@
 
 import os
 import glob
+import re
 import sys
 import codecs
 from gi.repository import GLib
@@ -27,7 +28,8 @@ class Main:
                 keyfile = GLib.KeyFile.new()
                 if keyfile.load_from_file(fn, GLib.KeyFileFlags.NONE):
                     if keyfile.has_group(GROUP):
-                        friendly_fn = os.path.split(fn)[1].replace(".", "_")
+                        # A file name can start with a digit or hold a dash, which no Python name can.
+                        friendly_fn = re.sub(r"\W", "_", "action_" + os.path.split(fn)[1])
                         try:
                             name = keyfile.get_string(GROUP, "Name")
                             name_line = '%s_Name = _("%s")\n' % (friendly_fn, name)

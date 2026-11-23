@@ -211,7 +211,7 @@ def main() -> None:
             with open(marker, encoding="utf-8") as f:
                 seen = f.read().strip()
         except OSError:
-            pass
+            pass  # no marker yet, so everything is new
         if ts and seen and ts <= seen:
             print(f"SEEN {name}  (nothing newer than {seen})")
             return
