@@ -26,7 +26,11 @@
 
 #include <libnemo-private/nemo-shortcuts.h>
 
+#include "nemo-settings-search.h"
+
 #define RESET_ICON "edit-undo-symbolic"
+
+static const char *const keyboard_aliases[] = { "keyboard shortcuts", "hotkeys", "key bindings", "keybindings", "accelerators", NULL };
 
 typedef struct {
 	GtkTreeView       *tree;
@@ -369,6 +373,8 @@ nemo_prefs_keyboard_setup (GtkBuilder *builder)
 	if (box == NULL || dialog == NULL) {
 		return;
 	}
+	/* The tab has no settings key to hang aliases on. */
+	g_object_set_data (G_OBJECT (box), NEMO_SETTINGS_SEARCH_ALIASES, (gpointer) keyboard_aliases);
 
 	page = g_new0 (Page, 1);
 	page->store = gtk_list_store_new (NEMO_PREFS_KEYBOARD_N_COLS,

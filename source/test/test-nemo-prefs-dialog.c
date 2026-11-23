@@ -1077,6 +1077,7 @@ test_search_aliases (GtkWidget *dialog)
 {
 	GtkWidget *entry = find_named (dialog, "settings_search_entry");
 	GtkWidget *stack = find_named (dialog, "page_stack");
+	const char *keyboard_words[] = { "keyboard", "shortcut", "hotkey", "key binding", "Keyboard shortcuts" };
 	GPtrArray *entries, *texts;
 	guint i, j;
 
@@ -1129,6 +1130,27 @@ test_search_aliases (GtkWidget *dialog)
 		check (g_str_has_suffix (texts->pdata[0], " (zebra stripes)"));
 	}
 	g_ptr_array_free (texts, TRUE);
+
+	/* 2026112312455764: the Keyboard tab has no settings key, so its words
+	   come from the tab. */
+	for (i = 0; i < G_N_ELEMENTS (keyboard_words); i++) {
+		gboolean found = FALSE;
+
+		gtk_entry_set_text (GTK_ENTRY (entry), keyboard_words[i]);
+		settle ();
+		texts = match_rows (dialog);
+		for (j = 0; j < texts->len; j++) {
+			const char *text = texts->pdata[j];
+
+			found = found || strcmp (text, "Keyboard") == 0 || g_str_has_prefix (text, "Keyboard (");
+		}
+		if (!found) {
+			g_printerr ("\"%s\" doesn't find the Keyboard tab\n", keyboard_words[i]);
+		}
+		check (found);
+		g_ptr_array_free (texts, TRUE);
+	}
+
 	gtk_entry_set_text (GTK_ENTRY (entry), "");
 	settle ();
 }

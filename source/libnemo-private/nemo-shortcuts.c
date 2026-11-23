@@ -24,6 +24,8 @@
 
 #include <string.h>
 
+#include <glib/gstdio.h>
+
 /* path -> NemoShortcut, for the life of the process. */
 static GHashTable *shortcuts = NULL;
 
@@ -324,4 +326,240 @@ nemo_shortcuts_reset_all (void)
 			gtk_accel_map_change_entry (shortcut->path, shortcut->key, shortcut->mods, TRUE);
 		}
 	}
+}
+
+/* The shortcut file as this process last read or wrote it, path -> accel name.
+   Every window saves its whole map, so only what the file changed since then
+   is taken from it, or a change not saved yet would be lost. */
+static char         *file_name = NULL;
+static GHashTable   *file_known = NULL;
+static GFileMonitor *file_monitor = NULL;
+static guint         file_reread_id = 0;
+static gboolean      file_taking = FALSE;
+
+/* One quoted string of GTK's format, escapes and all. */
+static const char *
+read_quoted (const char *p, char **out)
+{
+	const char *start;
+	char *raw;
+
+	while (*p == ' ' || *p == '\t') {
+		p++;
+	}
+	if (*p != '"') {
+		return NULL;
+	}
+	start = ++p;
+	while (*p != '\0' && *p != '"') {
+		if (*p == '\\' && p[1] != '\0') {
+			p++;
+		}
+		p++;
+	}
+	if (*p != '"') {
+		return NULL;
+	}
+	raw = g_strndup (start, p - start);
+	*out = g_strcompress (raw);
+	g_free (raw);
+
+	return p + 1;
+}
+
+/* Only lines GTK wrote as changed. A commented one is still at its default. */
+static GHashTable *
+read_file (const char *filename)
+{
+	GHashTable *found = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
+	char *contents = NULL;
+	char **lines, **line;
+
+	if (!g_file_get_contents (filename, &contents, NULL, NULL)) {
+		return found;
+	}
+
+	lines = g_strsplit (contents, "\n", -1);
+	for (line = lines; *line != NULL; line++) {
+		const char *p = *line;
+		char *path = NULL, *accel = NULL;
+
+		while (*p == ' ' || *p == '\t') {
+			p++;
+		}
+		if (!g_str_has_prefix (p, "(gtk_accel_path")) {
+			continue;
+		}
+		p += strlen ("(gtk_accel_path");
+		p = read_quoted (p, &path);
+		if (p != NULL) {
+			p = read_quoted (p, &accel);
+		}
+		while (p != NULL && (*p == ' ' || *p == '\t')) {
+			p++;
+		}
+		if (p != NULL && *p == ')') {
+			g_hash_table_replace (found, path, accel);
+		} else {
+			g_free (path);
+			g_free (accel);
+		}
+	}
+	g_strfreev (lines);
+	g_free (contents);
+
+	return found;
+}
+
+/* Merged rather than replaced, so a file caught half written takes nothing
+   back. */
+static void
+know (GHashTable *entries)
+{
+	GHashTableIter iter;
+	gpointer path, accel;
+
+	g_hash_table_iter_init (&iter, entries);
+	while (g_hash_table_iter_next (&iter, &path, &accel)) {
+		g_hash_table_replace (file_known, g_strdup (path), g_strdup (accel));
+	}
+}
+
+void
+nemo_shortcuts_file_reread (void)
+{
+	GHashTable *now;
+	GPtrArray *changed;
+	GHashTableIter iter;
+	gpointer path, accel;
+	guint i;
+
+	if (file_name == NULL) {
+		return;
+	}
+
+	now = read_file (file_name);
+	changed = g_ptr_array_new ();
+	g_hash_table_iter_init (&iter, now);
+	while (g_hash_table_iter_next (&iter, &path, &accel)) {
+		if (g_strcmp0 (g_hash_table_lookup (file_known, path), accel) != 0) {
+			g_ptr_array_add (changed, path);
+		}
+	}
+
+	/* What the file changed beats a change here that isn't saved yet, since
+	   it's the newer one. Off first, so a key that moved isn't in the way. */
+	file_taking = TRUE;
+	for (i = 0; i < changed->len; i++) {
+		gtk_accel_map_change_entry (changed->pdata[i], 0, 0, TRUE);
+	}
+	for (i = 0; i < changed->len; i++) {
+		guint key = 0;
+		GdkModifierType mods = 0;
+
+		gtk_accelerator_parse (g_hash_table_lookup (now, changed->pdata[i]), &key, &mods);
+		gtk_accel_map_change_entry (changed->pdata[i], key, mods, TRUE);
+	}
+	file_taking = FALSE;
+
+	know (now);
+	g_ptr_array_free (changed, TRUE);
+	g_hash_table_destroy (now);
+}
+
+static gboolean
+reread_later (G_GNUC_UNUSED gpointer data)
+{
+	file_reread_id = 0;
+	nemo_shortcuts_file_reread ();
+
+	return G_SOURCE_REMOVE;
+}
+
+/* Another window's save is a rename over the file, which comes as several
+   events. */
+static void
+file_changed (G_GNUC_UNUSED GFileMonitor     *monitor,
+	      G_GNUC_UNUSED GFile            *file,
+	      G_GNUC_UNUSED GFile            *other,
+	      GFileMonitorEvent               event,
+	      G_GNUC_UNUSED gpointer          data)
+{
+	if (event == G_FILE_MONITOR_EVENT_DELETED || event == G_FILE_MONITOR_EVENT_ATTRIBUTE_CHANGED ||
+	    event == G_FILE_MONITOR_EVENT_PRE_UNMOUNT || event == G_FILE_MONITOR_EVENT_UNMOUNTED) {
+		return;
+	}
+	if (file_reread_id == 0) {
+		file_reread_id = g_timeout_add (100, reread_later, NULL);
+	}
+}
+
+/* After the file is loaded into the map. */
+void
+nemo_shortcuts_file_watch (const char *filename)
+{
+	GHashTable *now;
+	GFile *file;
+
+	g_free (file_name);
+	file_name = g_strdup (filename);
+	if (file_known == NULL) {
+		file_known = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
+	}
+	now = read_file (file_name);
+	know (now);
+	g_hash_table_destroy (now);
+
+	g_clear_object (&file_monitor);
+	file = g_file_new_for_path (file_name);
+	file_monitor = g_file_monitor_file (file, G_FILE_MONITOR_NONE, NULL, NULL);
+	g_object_unref (file);
+	if (file_monitor != NULL) {
+		g_signal_connect (file_monitor, "changed", G_CALLBACK (file_changed), NULL);
+	}
+}
+
+/* Written whole and renamed into place, so another window never reads half
+   of it. */
+void
+nemo_shortcuts_file_save (void)
+{
+	GHashTable *written;
+	char *tmp;
+	int fd;
+
+	if (file_name == NULL) {
+		return;
+	}
+
+	nemo_shortcuts_file_reread ();
+
+	tmp = g_strconcat (file_name, ".XXXXXX", NULL);
+	fd = g_mkstemp (tmp);
+	if (fd < 0) {
+		g_free (tmp);
+		gtk_accel_map_save (file_name);
+		written = read_file (file_name);
+		know (written);
+		g_hash_table_destroy (written);
+		return;
+	}
+	gtk_accel_map_save_fd (fd);
+	g_close (fd, NULL);
+	written = read_file (tmp);
+
+	if (g_rename (tmp, file_name) != 0) {
+		/* Windows can refuse it while another window reads the file. */
+		g_unlink (tmp);
+		gtk_accel_map_save (file_name);
+	}
+	know (written);
+	g_hash_table_destroy (written);
+	g_free (tmp);
+}
+
+gboolean
+nemo_shortcuts_file_taking (void)
+{
+	return file_taking;
 }

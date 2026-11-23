@@ -25,6 +25,10 @@
 
 #include <gtk/gtk.h>
 
+/* Object data on a page or control with no settings key of its own: a
+   NULL-terminated list of aliases, kept as long as the widget. */
+#define NEMO_SETTINGS_SEARCH_ALIASES "nemo-settings-search-aliases"
+
 /* In the order the groups are listed. */
 typedef enum {
 	NEMO_SETTINGS_MATCH_NONE = 0,

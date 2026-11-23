@@ -586,6 +586,14 @@ add_aliases (GPtrArray *entries)
 		const char *key = g_object_get_data (G_OBJECT (entry->target), NEMO_CONFIG_BOUND_KEY);
 		const char *const *aliases = nemo_settings_search_aliases_for (key);
 
+		if (key == NULL) {
+			aliases = g_object_get_data (G_OBJECT (entry->target), NEMO_SETTINGS_SEARCH_ALIASES);
+			if (aliases != NULL) {
+				g_strfreev (entry->aliases);
+				entry->aliases = g_strdupv ((char **) aliases);
+			}
+			continue;
+		}
 		if (aliases == NULL || g_hash_table_contains (given, key)) {
 			continue;
 		}

@@ -54,6 +54,7 @@
 #include <libnemo-private/nemo-file-operations.h>
 #include <libnemo-private/nemo-program-choosing.h>
 #include <libnemo-private/nemo-search-directory.h>
+#include <libnemo-private/nemo-shortcuts.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-lib-self-check-functions.h>
 #include <libnemo-private/nemo-module.h>
@@ -342,10 +343,7 @@ static gboolean
 save_accel_map (G_GNUC_UNUSED gpointer data)
 {
     if (save_of_accel_map_requested) {
-        char *accel_map_filename = nemo_get_accel_map_file ();
-
-        gtk_accel_map_save (accel_map_filename);
-        g_free (accel_map_filename);
+        nemo_shortcuts_file_save ();
         save_of_accel_map_requested = FALSE;
     }
 
@@ -357,7 +355,7 @@ queue_accel_map_save_callback (G_GNUC_UNUSED GtkAccelMap *object, G_GNUC_UNUSED 
         G_GNUC_UNUSED guint accel_key, G_GNUC_UNUSED GdkModifierType accel_mods,
         G_GNUC_UNUSED gpointer user_data)
 {
-    if (!save_of_accel_map_requested) {
+    if (!save_of_accel_map_requested && !nemo_shortcuts_file_taking ()) {
         save_of_accel_map_requested = TRUE;
         g_timeout_add_seconds (NEMO_ACCEL_MAP_SAVE_DELAY, 
                                save_accel_map, NULL);
@@ -382,6 +380,7 @@ init_gtk_accels (void)
         gtk_accel_map_save (accel_map_filename);
         g_free (legacy);
     }
+    nemo_shortcuts_file_watch (accel_map_filename);
     g_free (accel_map_filename);
 
     g_signal_connect (gtk_accel_map_get (), "changed",

@@ -67,4 +67,12 @@ NemoShortcutResult  nemo_shortcuts_reset               (const NemoShortcut      
 							const NemoShortcut        **taken_by);
 void                nemo_shortcuts_reset_all           (void);
 
+/* The shortcut file. Each window is a process of its own, so a change another
+   one saves is taken, and a save keeps it. */
+void                nemo_shortcuts_file_watch          (const char                 *filename);
+void                nemo_shortcuts_file_reread         (void);
+void                nemo_shortcuts_file_save           (void);
+/* TRUE while a change read from the file goes in, which needs no save. */
+gboolean            nemo_shortcuts_file_taking         (void);
+
 #endif /* NEMO_SHORTCUTS_H */

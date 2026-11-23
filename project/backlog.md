@@ -693,6 +693,74 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- One window saving `accels` doesn't undo a change another window made.
 		- Settings search finds the Keyboard tab by words such as keyboard, shortcut, and hotkey.
 	- Note: each window saves its whole shortcut map 30 seconds after a change. So a window that reads `accels` again should take only the entries the file changed since it last read or wrote it, or a change it hasn't saved yet is lost. The search matches settings by their key in the schema, and the tab has none.
+	- Progress log:
+		- 20261123: split in 3. 2026112312455741 is other windows and saving, 2026112312455764 is Settings search, and 2026112312455787 is the keyboard shortcuts window and views not opened yet.
+
+- Settings: other open windows take a shortcut changed in one window, and a save from one window keeps another's change.
+	- ID: 2026112312455741
+	- Type: Enhancement
+	- Status: Waiting on automated testing
+	- Needs external testing: dfpt0 on native Windows, on b29w, since replacing the file and watching it work differently there.
+	- Priority|Severity: Avg
+	- Opened: 20261123-124557
+	- Opened by: work on 2026112312181314
+	- Parent ID: 2026112312181314
+	- Target version: rc.1
+	- Requirements:
+		- Other running windows pick up a change to `accels`, since each window is its own process.
+		- One window saving `accels` doesn't undo a change another window made.
+	- Note: each window saves its whole shortcut map 30 seconds after a change. So a window that reads `accels` again should take only the entries the file changed since it last read or wrote it, or a change it hasn't saved yet is lost.
+	- Done: each window watches `accels`, and takes from it only the shortcuts the file changed since this window last read or wrote it. A save takes the file's changes first, then replaces the file whole. The Keyboard tab of an open Settings window follows along.
+	- Decisions:
+		- A change from the file beats one made here and not saved yet, since it's the newer one.
+		- What a window knows of the file is added to, never replaced, so a file read half written takes nothing back.
+		- A save writes a new file beside `accels` and renames it into place, so no window reads half of it. Where Windows refuses the rename, it writes the file in place as before.
+		- The file is readable only by its user now, as any new file made that way is.
+		- A shortcut taken from the file doesn't start a save of its own.
+	- Swept: every place `accels` is written. The delayed save and the quit-time save go through the merge. The first start's copy of upstream's file and `--reset` still write it directly, since there's no change of another window's to keep then.
+	- Test case: dfpt0 `test-nemo-shortcuts-file`: a change another window saves is taken, one made here and not saved yet is kept, a save takes the file's changes first and keeps all 3, its own save changes nothing, a file missing lines takes nothing back, and a key turned off elsewhere is turned off here.
+	- Verified: 20261123, dfpt0 fails with the reread turned off and with every line of the file taken, and passes as committed, with dd5df, ddf63, and ddfam. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Branch: nov23-2026112312181314
+	- Commit: 85445071
+
+- Settings: search finds the Keyboard tab by words such as keyboard, shortcut, and hotkey.
+	- ID: 2026112312455764
+	- Type: Enhancement
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-124557
+	- Opened by: work on 2026112312181314
+	- Parent ID: 2026112312181314
+	- Target version: rc.1
+	- Requirements:
+		- Settings search finds the Keyboard tab by words such as keyboard, shortcut, and hotkey.
+	- Note: the search matches settings by their key in the schema, and the tab has none.
+	- Done: the Keyboard tab gives its own search words, since it has no settings key for the schema's aliases. Settings search finds it by keyboard, shortcut, hotkey, and key binding.
+	- Decisions:
+		- A page or control with no settings key can give its own aliases. The schema's aliases still win where there's a key.
+		- The words are English, like the schema's aliases.
+	- Swept: every caller of `nemo_settings_search_aliases_for`, which are the search itself and the dd5df alias check.
+	- Test case: dd5df, Settings dialog test: keyboard, shortcut, hotkey, key binding, and Keyboard shortcuts each list the Keyboard tab.
+	- Verified: 20261123, dd5df fails with the tab's aliases left off, on all but keyboard, and passes as committed, with dfh5x. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Branch: nov23-2026112312181314
+	- Commit: 521e7124
+	- Acceptance signoff: Self-closed: dd5df's new check fails without the change and passes with it.
+	- Closed: 20261123-130250
+
+- Settings: the keyboard shortcuts window shows the keys in use, and the Keyboard tab lists the shortcuts of views not opened yet.
+	- ID: 2026112312455787
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261123-124557
+	- Opened by: work on 2026112312181314
+	- Parent ID: 2026112312181314
+	- Target version: rc.1
+	- Requirements:
+		- The keyboard shortcuts window shows the keys in use, not the defaults.
+		- Shortcuts of a view the window hasn't opened yet, such as Icon view's, are listed too.
+	- Note: the keyboard shortcuts window's keys are fixed in `nemo-shortcuts.ui`, and only Ctrl+I, Properties, and Ctrl+Shift+V are set when it opens. Its rows don't name the action they stand for, so each needs that before it can show the key in use. The Keyboard tab lists only what `nemo_shortcuts_note_*` recorded as each view made its actions.
 
 - Settings: Blake3 checksum cache options, with persistence across hosts through xattrs.
 	- ID: 2026102018234907

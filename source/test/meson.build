@@ -1301,6 +1301,15 @@ test('dbjq9 Column layout test',
   args: []
 )
 
+test('dfpt0 Shortcut file shared between windows test',
+  executable('test-nemo-shortcuts-file',
+    [ 'test-nemo-shortcuts-file.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('dfpq1 Zoom window size test',
   executable('test-nemo-zoom-resize',
     [ 'test-nemo-zoom-resize.c', '../src/nemo-zoom-resize.c' ],
