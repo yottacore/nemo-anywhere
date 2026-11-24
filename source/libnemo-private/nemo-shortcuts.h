@@ -33,7 +33,6 @@ typedef struct {
 
 typedef enum {
 	NEMO_SHORTCUT_SET,
-	NEMO_SHORTCUT_TAKEN,
 	NEMO_SHORTCUT_NEEDS_MODIFIER,
 	NEMO_SHORTCUT_REFUSED,
 } NemoShortcutResult;
@@ -58,13 +57,15 @@ void                nemo_shortcuts_get_current         (const NemoShortcut      
 							GdkModifierType            *mods);
 gboolean            nemo_shortcuts_is_default          (const NemoShortcut         *shortcut);
 
-/* A key another listed shortcut has is refused, and *taken_by says which. */
+/* A key another listed shortcut has is taken, and that one is turned off.
+   *cleared says which, or the first of them where the file gave the key to
+   more than one. */
 NemoShortcutResult  nemo_shortcuts_set                 (const NemoShortcut         *shortcut,
 							guint                       key,
 							GdkModifierType             mods,
-							const NemoShortcut        **taken_by);
+							const NemoShortcut        **cleared);
 NemoShortcutResult  nemo_shortcuts_reset               (const NemoShortcut         *shortcut,
-							const NemoShortcut        **taken_by);
+							const NemoShortcut        **cleared);
 void                nemo_shortcuts_reset_all           (void);
 
 /* The shortcut file. Each window is a process of its own, so a change another

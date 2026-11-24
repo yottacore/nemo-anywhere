@@ -234,16 +234,63 @@ find_holder (const NemoShortcut *shortcut, guint key, GdkModifierType mods)
 	return NULL;
 }
 
+typedef struct {
+	const NemoShortcut *shortcut;
+	guint               key;
+	GdkModifierType     mods;
+} Holder;
+
+/* Every other row with the key goes off first, then this one takes it. If GTK
+   still won't, say for a key an unlisted action of the same window has, the
+   others get theirs back. */
+static NemoShortcutResult
+take_key (const NemoShortcut  *shortcut,
+	  guint                key,
+	  GdkModifierType      mods,
+	  const NemoShortcut **cleared)
+{
+	g_autoptr (GArray) holders = g_array_new (FALSE, FALSE, sizeof (Holder));
+	const NemoShortcut *holder = NULL;
+	guint i;
+
+	if (key != 0) {
+		while ((holder = find_holder (shortcut, key, mods)) != NULL) {
+			Holder had = { holder, 0, 0 };
+
+			nemo_shortcuts_get_current (holder, &had.key, &had.mods);
+			/* The count stops a row the map won't let go of. */
+			if (holders->len >= g_hash_table_size (shortcuts) ||
+			    !gtk_accel_map_change_entry (holder->path, 0, 0, TRUE)) {
+				break;
+			}
+			g_array_append_val (holders, had);
+		}
+	}
+
+	if (holder != NULL || !gtk_accel_map_change_entry (shortcut->path, key, mods, FALSE)) {
+		for (i = 0; i < holders->len; i++) {
+			Holder *had = &g_array_index (holders, Holder, i);
+
+			gtk_accel_map_change_entry (had->shortcut->path, had->key, had->mods, FALSE);
+		}
+		return NEMO_SHORTCUT_REFUSED;
+	}
+
+	if (cleared != NULL && holders->len > 0) {
+		*cleared = g_array_index (holders, Holder, 0).shortcut;
+	}
+
+	return NEMO_SHORTCUT_SET;
+}
+
 NemoShortcutResult
 nemo_shortcuts_set (const NemoShortcut  *shortcut,
 		    guint                key,
 		    GdkModifierType      mods,
-		    const NemoShortcut **taken_by)
+		    const NemoShortcut **cleared)
 {
-	const NemoShortcut *holder;
-
-	if (taken_by != NULL) {
-		*taken_by = NULL;
+	if (cleared != NULL) {
+		*cleared = NULL;
 	}
 	mods &= gtk_accelerator_get_default_mod_mask ();
 
@@ -254,50 +301,20 @@ nemo_shortcuts_set (const NemoShortcut  *shortcut,
 		return NEMO_SHORTCUT_NEEDS_MODIFIER;
 	}
 
-	if (key != 0) {
-		holder = find_holder (shortcut, key, mods);
-		if (holder != NULL) {
-			if (taken_by != NULL) {
-				*taken_by = holder;
-			}
-			return NEMO_SHORTCUT_TAKEN;
-		}
-	}
-
-	if (!gtk_accel_map_change_entry (shortcut->path, key, mods, FALSE)) {
-		return NEMO_SHORTCUT_REFUSED;
-	}
-
-	return NEMO_SHORTCUT_SET;
+	return take_key (shortcut, key, mods, cleared);
 }
 
 NemoShortcutResult
 nemo_shortcuts_reset (const NemoShortcut  *shortcut,
-		      const NemoShortcut **taken_by)
+		      const NemoShortcut **cleared)
 {
-	const NemoShortcut *holder;
-
-	if (taken_by != NULL) {
-		*taken_by = NULL;
+	if (cleared != NULL) {
+		*cleared = NULL;
 	}
 
 	/* A default can be a plain key, such as Delete or F2, so it skips the
 	   modifier rule. */
-	if (shortcut->key != 0) {
-		holder = find_holder (shortcut, shortcut->key, shortcut->mods);
-		if (holder != NULL) {
-			if (taken_by != NULL) {
-				*taken_by = holder;
-			}
-			return NEMO_SHORTCUT_TAKEN;
-		}
-	}
-
-	if (!gtk_accel_map_change_entry (shortcut->path, shortcut->key, shortcut->mods, FALSE)) {
-		return NEMO_SHORTCUT_REFUSED;
-	}
-
-	return NEMO_SHORTCUT_SET;
+	return take_key (shortcut, shortcut->key, shortcut->mods, cleared);
 }
 
 void

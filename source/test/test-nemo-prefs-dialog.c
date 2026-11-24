@@ -1313,7 +1313,8 @@ kb_click_reset (GtkWidget *tree, GtkTreeModel *model, const char *name)
  * and not the submenus. A key from the file shows, with the revert arrow,
  * and the arrow puts back the key the action started with. Enter on a row
  * waits for a key, which takes Ctrl+Page Down and Escape too. A key another
- * action has, or a plain letter, is refused and says why. Backspace turns a
+ * action has is taken, and that one turned off, by a change or a revert
+ * arrow alike. A plain letter is refused and says why. Backspace turns a
  * key off. Reset all puts every one back. */
 static void
 test_keyboard (GtkWidget *dialog)
@@ -1369,14 +1370,41 @@ test_keyboard (GtkWidget *dialog)
 	check (kb_is (model, "Cut", GDK_KEY_k, GDK_CONTROL_MASK, TRUE));
 	check (gtk_widget_get_visible (dialog));
 
-	kb_edit (dialog, tree, model, "Cut", GDK_KEY_h, GDK_CONTROL_MASK);
-	check (kb_is (model, "Cut", GDK_KEY_k, GDK_CONTROL_MASK, TRUE));
-	g_print ("Taken: %s\n", gtk_label_get_text (GTK_LABEL (note)));
-	check (strstr (gtk_label_get_text (GTK_LABEL (note)), "Show Hidden Files") != NULL);
-
 	kb_edit (dialog, tree, model, "Cut", GDK_KEY_q, 0);
 	check (kb_is (model, "Cut", GDK_KEY_k, GDK_CONTROL_MASK, TRUE));
 	check (strstr (gtk_label_get_text (GTK_LABEL (note)), "Ctrl or Alt") != NULL);
+
+	/* 2026112312181296: a taken key moves, from every row that had it. The
+	   file can give one key to 2 rows, as Bare's Ctrl+H stands in for. */
+	gtk_accel_map_change_entry ("<Actions>/TestActions/Bare", GDK_KEY_h, GDK_CONTROL_MASK, TRUE);
+	settle ();
+	kb_edit (dialog, tree, model, "Cut", GDK_KEY_h, GDK_CONTROL_MASK);
+	g_print ("Taken: %s\n", gtk_label_get_text (GTK_LABEL (note)));
+	check (kb_is (model, "Cut", GDK_KEY_h, GDK_CONTROL_MASK, TRUE));
+	check (kb_is (model, "Hidden", 0, 0, TRUE));
+	check (kb_is (model, "Bare", 0, 0, FALSE));
+	check (strstr (gtk_label_get_text (GTK_LABEL (note)), "Show Hidden Files") != NULL ||
+	       strstr (gtk_label_get_text (GTK_LABEL (note)), "Bare") != NULL);
+
+	/* The revert arrow takes it back the same way. */
+	kb_click_reset (tree, model, "Hidden");
+	settle ();
+	g_print ("Taken back: %s\n", gtk_label_get_text (GTK_LABEL (note)));
+	check (kb_is (model, "Hidden", GDK_KEY_h, GDK_CONTROL_MASK, FALSE));
+	check (kb_is (model, "Cut", 0, 0, TRUE));
+	check (strstr (gtk_label_get_text (GTK_LABEL (note)), "Cut") != NULL);
+
+	/* A row GTK won't change leaves the key where it was. */
+	gtk_accel_map_lock_path ("<Actions>/TestActions/Cut");
+	kb_edit (dialog, tree, model, "Cut", GDK_KEY_h, GDK_CONTROL_MASK);
+	gtk_accel_map_unlock_path ("<Actions>/TestActions/Cut");
+	check (kb_is (model, "Hidden", GDK_KEY_h, GDK_CONTROL_MASK, FALSE));
+	check (kb_is (model, "Cut", 0, 0, TRUE));
+	check (strstr (gtk_label_get_text (GTK_LABEL (note)), "couldn't") != NULL);
+
+	kb_click_reset (tree, model, "Cut");
+	check (kb_is (model, "Cut", GDK_KEY_x, GDK_CONTROL_MASK, FALSE));
+	check (*gtk_label_get_text (GTK_LABEL (note)) == '\0');
 
 	kb_edit (dialog, tree, model, "Cut", GDK_KEY_BackSpace, 0);
 	check (kb_is (model, "Cut", 0, 0, TRUE));

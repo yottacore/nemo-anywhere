@@ -371,8 +371,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: a Keyboard tab that lists the shortcuts, and changes, turns off, and resets each one.
 	- ID: 2026112312181296
 	- Type: Enhancement
-	- Status: Queued
-		- A key another shortcut has is taken, and cleared from that one. Then the look at the tab in the app.
+	- Status: Waiting on UAT
+		- Left at signoff for the look of the tab in the app, and the wording of its notes.
 	- Priority|Severity: Avg
 	- Opened: 20261123-121812
 	- Opened by: t00mietum
@@ -384,9 +384,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A row whose key isn't its default can be reset, and so can every row at once.
 		- Changes are saved to the `accels` file.
 		- A key another listed shortcut has is taken, and that shortcut is turned off.
-	- Done: a Keyboard tab after Advanced lists every menu action with a name, sorted by name, with its key. A click on the key, or Enter or Space on the row, waits for the next key, and every key goes to the row while it waits. Escape leaves it, Backspace turns it off. A revert arrow on a changed row puts its first key back, and Reset all puts back every one. Each window notes the key every action starts with as it adds its actions, since GTK doesn't give that back once a key from `accels` is in place. The changelog and the Settings design doc say so.
+	- Done: a Keyboard tab after Advanced lists every menu action with a name, sorted by name, with its key. A click on the key, or Enter or Space on the row, waits for the next key, and every key goes to the row while it waits. Escape leaves it, Backspace turns it off. A revert arrow on a changed row puts its first key back, and Reset all puts back every one. Each window notes the key every action starts with as it adds its actions, since GTK doesn't give that back once a key from `accels` is in place. The changelog and the Settings design doc say so. A key another listed shortcut has moves to the row, from every row that had it, and those turn off, with a note naming the first. A revert arrow takes its key back the same way. Where GTK still won't set the key, the others get theirs back.
 	- Progress log:
 		- 20261123: changed my mind on a key another shortcut has. It's taken and cleared from the other one, as GTK does, rather than refused. dd5df's taken-key check changes with it.
+		- 20261124: a taken key moves, and the other shortcut is turned off, as decided. Fixed on nov24-2026112312181296.
 		- 20261123: the tab's page is now a scrolled window, like every other Settings page, so the window's sizing measures it and the page scrolls on a screen too short for it. It was a plain box, which dbnfq refused. The search words for the tab moved to the new page, since search reads them from the tab's own page. Fixed on nov23-2026102018234906-fix.
 	- Decisions:
 		- A key another listed shortcut has is taken, and the other shortcut is turned off. Options were refusing it with a note naming that one, as first built, or taking it and marking both rows, as SilkTerm does. 2 actions on one key would leave only one of them working.
@@ -400,12 +401,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Needs hand testing: open Settings, Keyboard, in the app, and judge the list and its wording.
 	- Stand-in: none (20261123). The look and wording of a new tab.
 	- Verified: 20261123, dd5df passes with the new checks. With the first key read from the accel map in place of the action's own, it fails: Rename showed F2 as its default where the file had F6. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
-	- Branch: nov23-2026102018234906
-	- Commit: b9a18c18
-	- Test case: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key and a plain letter refused, Backspace, the revert arrow, and Reset all.
+	- Verified: 20261124, dd5df and dfpt0 pass. dd5df's new checks fail before the change, and the check that a row GTK won't change leaves the key where it was fails with the give-back taken out. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Branch: nov23-2026102018234906, nov24-2026112312181296
+	- Commit: b9a18c18, 556efc21
+	- Test case: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key moved with the other row turned off, a plain letter refused, Backspace, the revert arrow, and Reset all.
 		- 20261123: dd5df's Ctrl+Page Up wrap from the first tab now ends on `keyboard`, where it was `advanced`, since the new tab is last until 2026102018234905 gives Advanced sub-tabs.
 		- 20261123: dbnfq, Settings widgets test, lists the Keyboard page with the other pages, and dd5df's check that every page fits at the opening size covers it too.
-	- Swept: every place a window adds menu actions with keys: the shell actions and their toggles and radios, the folder view's, and icon view's. The location bar's clipboard actions are left out, as under Decisions. The sidebars' right-click menus give none of their actions a key.
+		- 20261124: dd5df's taken key check now checks the key moving: Ctrl+H from Show Hidden Files and from a second row the file gave it to, both turned off, then back by Show Hidden Files' revert arrow, which turns Cut off. A locked row leaves Ctrl+H where it was.
+	- Swept: every place a window adds menu actions with keys: the shell actions and their toggles and radios, the folder view's, and icon view's. The location bar's clipboard actions are left out, as under Decisions. The sidebars' right-click menus give none of their actions a key. Both callers that set a key, a change and a revert arrow, go through the same take. Reset all turns every changed row off first, so it takes nothing from another.
 
 - Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
 	- ID: 2026102114400592
