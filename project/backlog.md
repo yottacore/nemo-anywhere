@@ -33,6 +33,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Settings: the Keyboard tab lists the menu's key-only actions by their code names, such as PropertiesAccel, NewTabAccel, and ZoomInAccel.
+	- ID: 2026112415464216
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261124-154642
+	- Opened by: work on 2026112312455787
+	- Target version: rc.1
+	- Origin: 2026112312181296 (b9a18c18). Plausible: read only. Each of these actions has its code name as its label, and the tab lists every action with a label.
+	- Sweep: every action named `*Accel` in the shell and folder view actions, and `RenameSelectAll`.
+
 - Settings: search.
 	- ID: 2026101417352263
 	- Type: Enhancement
@@ -497,7 +508,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: the keyboard shortcuts window shows the keys in use, and the Keyboard tab lists the shortcuts of views not opened yet.
 	- ID: 2026112312455787
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261123-124557
 	- Opened by: work on 2026112312181314
@@ -507,6 +519,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The keyboard shortcuts window shows the keys in use, not the defaults.
 		- Shortcuts of a view the window hasn't opened yet, such as Icon view's, are listed too.
 	- Note: the keyboard shortcuts window's keys are fixed in `nemo-shortcuts.ui`, and only Ctrl+I, Properties, and Ctrl+Shift+V are set when it opens. Its rows don't name the action they stand for, so each needs that before it can show the key in use. The Keyboard tab lists only what `nemo_shortcuts_note_*` recorded as each view made its actions.
+	- Done: each row of the keyboard shortcuts window names the shortcuts it stands for, and shows the key each has now in place of the one it started with. A key that isn't a menu shortcut, such as Return for Open or F5 for Refresh, stays as written. A row whose shortcuts are all off is hidden, and the window follows a change made while it's open. Icon view's actions are noted the first time the list is wanted, so the Keyboard tab lists them before an icon view is opened.
+	- Decisions:
+		- A row with no key in use is hidden rather than left with an empty key, since the window shows only keys.
+		- A shortcut with no key to start with, such as Move to Trash, whose Delete key is a key binding, shows a key it's given beside the binding.
+		- Icon view's actions are noted when the list is first wanted, not at startup, so a window that never opens Settings or the shortcuts window pays nothing for them.
+		- The rows' ids and the shortcuts they stand for are a table in `nemo-shortcuts-window.c`. Switch to tab and Show/hide action menu stand for no menu shortcut, so they stay as written.
+	- Swept: every row of the shortcuts window has an id in the table, except the 2 above. Every action name in the table is one the shell or folder view actions add. Icon view's are the only view's actions with their own group, since the list view adds none and the folder view's are made with every view.
+	- Test case: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.
+	- Verified: 20261124, dfrca passes, and fails with the key text left as written and the list not noting its sources. dd5df, dbnfq, and dfpt0 pass. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Not covered by a test: that the app's own icon view registers its actions this way, and the window's wiring in the app.
+	- Branch: nov24-2026112312455787
+	- Commit: 58f56886
+	- Acceptance signoff: Self-closed: dfrca.
+	- Closed: 20261124-155200
 
 - Settings: Blake3 checksum cache options, with persistence across hosts through xattrs.
 	- ID: 2026102018234907

@@ -1619,6 +1619,23 @@ static const GtkRadioActionEntry arrange_radio_entries[] = {
     NEMO_FILE_SORT_BY_TRASHED_TIME },
 };
 
+/* The Keyboard tab lists these before the window has opened an icon view. */
+static void
+note_shortcuts (void)
+{
+	GtkActionGroup *action_group = gtk_action_group_new ("IconViewActions");
+
+	gtk_action_group_set_translation_domain (action_group, GETTEXT_PACKAGE);
+	gtk_action_group_add_actions (action_group, icon_view_entries, G_N_ELEMENTS (icon_view_entries), NULL);
+	gtk_action_group_add_toggle_actions (action_group, icon_view_toggle_entries, G_N_ELEMENTS (icon_view_toggle_entries), NULL);
+	gtk_action_group_add_radio_actions (action_group, arrange_radio_entries, G_N_ELEMENTS (arrange_radio_entries),
+					    -1, NULL, NULL);
+	nemo_shortcuts_note_actions (action_group, icon_view_entries, G_N_ELEMENTS (icon_view_entries));
+	nemo_shortcuts_note_toggle_actions (action_group, icon_view_toggle_entries, G_N_ELEMENTS (icon_view_toggle_entries));
+	nemo_shortcuts_note_radio_actions (action_group, arrange_radio_entries, G_N_ELEMENTS (arrange_radio_entries));
+	g_object_unref (action_group);
+}
+
 static void
 nemo_icon_view_merge_menus (NemoView *view)
 {
@@ -3202,6 +3219,7 @@ nemo_icon_view_is_compact (NemoIconView *view)
 void
 nemo_icon_view_register (void)
 {
+	nemo_shortcuts_add_source (note_shortcuts);
 	TRANSLATE_VIEW_INFO (nemo_icon_view)
 		nemo_view_factory_register (&nemo_icon_view);
 }

@@ -37,6 +37,7 @@ nemoCommon_sources = [
   'nemo-prefs-current-folder.c',
   'nemo-prefs-file-cache.c',
   'nemo-prefs-keyboard.c',
+  'nemo-shortcuts-window.c',
   'nemo-settings-search.c',
   'nemo-floating-bar.c',
   'nemo-freedesktop-dbus.c',

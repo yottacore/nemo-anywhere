@@ -29,6 +29,10 @@
 /* path -> NemoShortcut, for the life of the process. */
 static GHashTable *shortcuts = NULL;
 
+/* Groups noted only when the list is first wanted, such as a view's that the
+   window may never open. */
+static GSList *sources = NULL;
+
 static char *
 strip_mnemonic (const char *label)
 {
@@ -144,6 +148,25 @@ nemo_shortcuts_note_radio_actions (GtkActionGroup            *group,
 	}
 }
 
+void
+nemo_shortcuts_add_source (NemoShortcutsSource note)
+{
+	if (g_slist_find (sources, (gpointer) note) == NULL) {
+		sources = g_slist_append (sources, (gpointer) note);
+	}
+}
+
+static void
+note_sources (void)
+{
+	while (sources != NULL) {
+		NemoShortcutsSource note = (NemoShortcutsSource) sources->data;
+
+		sources = g_slist_delete_link (sources, sources);
+		note ();
+	}
+}
+
 static gint
 by_label (gconstpointer a, gconstpointer b)
 {
@@ -157,6 +180,7 @@ by_label (gconstpointer a, gconstpointer b)
 GList *
 nemo_shortcuts_list (void)
 {
+	note_sources ();
 	if (shortcuts == NULL) {
 		return NULL;
 	}
@@ -168,6 +192,7 @@ nemo_shortcuts_list (void)
 const NemoShortcut *
 nemo_shortcuts_lookup (const char *path)
 {
+	note_sources ();
 	return shortcuts != NULL ? g_hash_table_lookup (shortcuts, path) : NULL;
 }
 
@@ -323,6 +348,7 @@ nemo_shortcuts_reset_all (void)
 	GHashTableIter iter;
 	gpointer value;
 
+	note_sources ();
 	if (shortcuts == NULL) {
 		return;
 	}
@@ -343,6 +369,89 @@ nemo_shortcuts_reset_all (void)
 			gtk_accel_map_change_entry (shortcut->path, shortcut->key, shortcut->mods, TRUE);
 		}
 	}
+}
+
+static void
+add_key_name (GPtrArray *names, guint key, GdkModifierType mods)
+{
+	guint i;
+
+	for (i = 0; i < names->len; i++) {
+		guint have_key;
+		GdkModifierType have_mods;
+
+		gtk_accelerator_parse (g_ptr_array_index (names, i), &have_key, &have_mods);
+		if (have_key != 0 && same_key (key, mods, have_key, have_mods)) {
+			return;
+		}
+	}
+	g_ptr_array_add (names, gtk_accelerator_name (key, mods));
+}
+
+/* Returns: (transfer full) */
+char *
+nemo_shortcuts_keys_text (const char        *shown,
+			  const char *const *paths)
+{
+	g_auto (GStrv) tokens = g_strsplit (shown != NULL ? shown : "", " ", -1);
+	g_autoptr (GPtrArray) names = g_ptr_array_new_with_free_func (g_free);
+	guint n_paths = paths != NULL ? g_strv_length ((char **) paths) : 0;
+	guint i, j;
+
+	for (i = 0; tokens[i] != NULL; i++) {
+		gboolean stands_for_one = FALSE;
+		guint key = 0;
+		GdkModifierType mods = 0;
+
+		if (*tokens[i] == '\0') {
+			continue;
+		}
+		gtk_accelerator_parse (tokens[i], &key, &mods);
+
+		/* A key no listed shortcut starts with, such as a key binding, or
+		   "0...8", stays as written. */
+		for (j = 0; key != 0 && j < n_paths; j++) {
+			const NemoShortcut *shortcut = nemo_shortcuts_lookup (paths[j]);
+			guint now_key;
+			GdkModifierType now_mods;
+
+			if (shortcut == NULL || shortcut->key == 0 ||
+			    !same_key (key, mods, shortcut->key, shortcut->mods)) {
+				continue;
+			}
+			stands_for_one = TRUE;
+			nemo_shortcuts_get_current (shortcut, &now_key, &now_mods);
+			if (now_key != 0) {
+				add_key_name (names, now_key, now_mods);
+			}
+		}
+
+		if (!stands_for_one) {
+			if (key != 0) {
+				add_key_name (names, key, mods);
+			} else {
+				g_ptr_array_add (names, g_strdup (tokens[i]));
+			}
+		}
+	}
+
+	/* One with no key to start with shows only once it's given one. */
+	for (j = 0; j < n_paths; j++) {
+		const NemoShortcut *shortcut = nemo_shortcuts_lookup (paths[j]);
+		guint now_key;
+		GdkModifierType now_mods;
+
+		if (shortcut == NULL || shortcut->key != 0) {
+			continue;
+		}
+		nemo_shortcuts_get_current (shortcut, &now_key, &now_mods);
+		if (now_key != 0) {
+			add_key_name (names, now_key, now_mods);
+		}
+	}
+
+	g_ptr_array_add (names, NULL);
+	return g_strjoinv (" ", (char **) names->pdata);
 }
 
 /* The shortcut file as this process last read or wrote it, path -> accel name.

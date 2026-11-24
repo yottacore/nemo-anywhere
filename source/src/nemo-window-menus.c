@@ -44,6 +44,7 @@
 #include "nemo-icon-view.h"
 #include "nemo-list-view.h"
 #include "nemo-toolbar.h"
+#include "nemo-shortcuts-window.h"
 
 #include <gtk/gtk.h>
 #include <gio/gio.h>
@@ -487,8 +488,6 @@ action_show_shortcuts_window (G_GNUC_UNUSED GtkAction *action,
 {
     NemoWindow *window;
     static GtkWidget *shortcuts_window;
-    static GObject *invert_shortcut;
-    static GObject *properties_shortcut;
     static GObject *paste_key_shortcut;
     const NemoPasteKey *paste_key;
     gboolean primary_i_inverts;
@@ -500,9 +499,7 @@ action_show_shortcuts_window (G_GNUC_UNUSED GtkAction *action,
         GtkBuilder *builder;
 
         builder = gtk_builder_new_from_resource ("/org/nemo/nemo-shortcuts.ui");
-        shortcuts_window = GTK_WIDGET (gtk_builder_get_object (builder, "keyboard_shortcuts"));
-        invert_shortcut = gtk_builder_get_object (builder, "shortcut_invert_selection");
-        properties_shortcut = gtk_builder_get_object (builder, "shortcut_properties");
+        shortcuts_window = nemo_shortcuts_window_take (builder);
         paste_key_shortcut = gtk_builder_get_object (builder, "shortcut_paste_key");
 
         gtk_window_set_position (GTK_WINDOW (shortcuts_window), GTK_WIN_POS_CENTER);
@@ -522,19 +519,17 @@ action_show_shortcuts_window (G_GNUC_UNUSED GtkAction *action,
 
     /* Ctrl+I follows the selection model, which can change while this is kept. */
     primary_i_inverts = nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE;
-    g_object_set (invert_shortcut, "accelerator",
-                  primary_i_inverts ? "<Primary>I <shift><Primary>I" : "<shift><Primary>I", NULL);
-    g_object_set (properties_shortcut, "accelerator",
-                  primary_i_inverts ? "<alt>Return" : "<Primary>I <alt>Return", NULL);
 
     /* So does Ctrl+Shift+V, by the target setting. */
     paste_key = nemo_paste_target_key (nemo_global_preferences_get_paste_target ());
     if (paste_key != NULL) {
         g_object_set (paste_key_shortcut, "title", _(paste_key->title), NULL);
     }
+    nemo_shortcuts_window_set_unused (shortcuts_window, "shortcut_paste_key", paste_key == NULL);
 
     gtk_widget_show_all (shortcuts_window);
-    gtk_widget_set_visible (GTK_WIDGET (paste_key_shortcut), paste_key != NULL);
+    /* After show_all, which would show a row with no keys. */
+    nemo_shortcuts_window_show_keys (shortcuts_window, primary_i_inverts);
     gtk_window_present (GTK_WINDOW (shortcuts_window));
 }
 

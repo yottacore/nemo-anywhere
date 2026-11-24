@@ -49,6 +49,11 @@ void                nemo_shortcuts_note_radio_actions  (GtkActionGroup          
 							const GtkRadioActionEntry  *entries,
 							guint                       n_entries);
 
+/* For a group the window may not have made yet, such as a view's. It's
+   called once, the first time the list or a shortcut is wanted. */
+typedef void (*NemoShortcutsSource) (void);
+void                nemo_shortcuts_add_source          (NemoShortcutsSource         note);
+
 /* Sorted by label. Free the list only. */
 GList              *nemo_shortcuts_list                (void);
 const NemoShortcut *nemo_shortcuts_lookup              (const char                 *path);
@@ -56,6 +61,13 @@ void                nemo_shortcuts_get_current         (const NemoShortcut      
 							guint                      *key,
 							GdkModifierType            *mods);
 gboolean            nemo_shortcuts_is_default          (const NemoShortcut         *shortcut);
+
+/* A row of the keyboard shortcuts window. Each key in shown, a list in
+   gtk_accelerator_parse form split by spaces, that one of paths starts with
+   gives way to the key that one has now, and goes when it's off. Any other
+   key stays. A path with no key to start with adds the one it has now. */
+char               *nemo_shortcuts_keys_text           (const char                 *shown,
+							const char *const          *paths);
 
 /* A key another listed shortcut has is taken, and that one is turned off.
    *cleared says which, or the first of them where the file gave the key to

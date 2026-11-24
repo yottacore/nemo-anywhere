@@ -1310,6 +1310,16 @@ test('dfpt0 Shortcut file shared between windows test',
   args: []
 )
 
+test('dfrca Keyboard shortcuts window test',
+  executable('test-nemo-shortcuts-window',
+    [ 'test-nemo-shortcuts-window.c', '../src/nemo-shortcuts-window.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_fence ],
+    c_args: [ '-DNEMO_SHORTCUTS_UI="@0@"'.format(meson.project_source_root() / 'gresources' / 'nemo-shortcuts.ui') ],
+  ),
+  args: []
+)
+
 test('dfpq1 Zoom window size test',
   executable('test-nemo-zoom-resize',
     [ 'test-nemo-zoom-resize.c', '../src/nemo-zoom-resize.c' ],
