@@ -336,8 +336,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Need ability to enter variables in the path bar. E.g. `$TMP9`.
 	- ID: 2026101613053687
 	- Type: Enhancement
-	- Status: Queued
-		- The folder names with no single match on the other platform come out of the stand-in list.
+	- Status: Done
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261016-130536
 	- Opened by: t00mietum
@@ -352,7 +352,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261123: done. A common variable from the other platform expands where nothing set it, to the local folder or name. That covers HOME and USERPROFILE, TMP, TEMP and TMPDIR, USER and USERNAME, XDG_CONFIG_HOME and APPDATA, XDG_DATA_HOME and LOCALAPPDATA, and XDG_CACHE_HOME. A variable that's set always wins.
 		- A backslash after a variable resolves too, so `%USERPROFILE%\Pictures` opens on Linux and macOS.
 		- `~` on Windows and every variable that's set already worked, since 20260828.
-		- 20261123: XDG_CONFIG_HOME, APPDATA, XDG_DATA_HOME, LOCALAPPDATA and XDG_CACHE_HOME come out of the list. design.md's `%APPDATA%` example goes with them, and da8rh changes to match.
+		- 20261124: XDG_CONFIG_HOME, APPDATA, XDG_DATA_HOME, LOCALAPPDATA and XDG_CACHE_HOME are out of the list, and stay as typed where nothing set them. design.md's `%APPDATA%` example is now `$USER`, and it says which names aren't on the list.
 	- Decisions:
 		- `$DEVELOPER_DIR` gets no stand-in. On a Mac it's the Xcode folder, and Windows and Linux don't have one. Where it isn't set, it stays as typed.
 		- A name that isn't set stays as typed when it isn't standard, or when it has no single obvious match on the other platform. HOME and USERPROFILE, TMP, TEMP and TMPDIR, and USER and USERNAME keep their stand-ins.
@@ -361,9 +361,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Nothing in the change is Windows-only, so the Windows cross build's run of the test is enough there.
 	- Swept: the location bar, the bookmark editor, and the command line all use the one expansion. The command line doesn't get the backslash retry, which a shell strips unless it's quoted. Shortcut portable paths have their own reader, which maps only `%USERPROFILE%` off Windows, and were left alone.
 	- Verified: da8rh passes, and fails before the change on 16 checks. It passes in the Windows cross build too. Lint is clean, and both analyzers are clean on the 2 changed files.
-	- Branch: nov23-2026101613053687
-	- Commit: 50eafa7b
+	- Verified: 20261124, da8rh passes, and fails on the old list on the 5 names that now stay as typed. The format and lint stages pass, and both analyzers are clean on the 2 changed files.
+	- Branch: nov23-2026101613053687, then nov24-2026101613053687
+	- Commit: 50eafa7b, then 5e6984d2
 	- Test case: da8rh `test-eel-user-input` (`test_stand_ins`, and the Windows path behind a variable).
+	- Acceptance signoff: Self-closed: the list change is pinned by da8rh, with nothing on screen to judge.
+	- Closed: 20261124-152408
 
 - Settings: a Keyboard tab that lists the shortcuts, and changes, turns off, and resets each one.
 	- ID: 2026112312181296

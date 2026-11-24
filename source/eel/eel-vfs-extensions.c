@@ -142,7 +142,9 @@ find_variable (const char  *p,
 }
 
 /* Names one platform sets and another doesn't, so a path typed for one box
- * still goes somewhere sensible on the other. The environment always wins. */
+ * still goes somewhere sensible on the other. The environment always wins.
+ * The XDG folders and APPDATA and LOCALAPPDATA aren't here: APPDATA could be
+ * the config or the data folder, LOCALAPPDATA the data folder or the cache. */
 static const struct {
 	const char   *name;
 	const char *(*fallback) (void);
@@ -154,11 +156,6 @@ static const struct {
 	{ "TMPDIR",          g_get_tmp_dir },
 	{ "USER",            g_get_user_name },
 	{ "USERNAME",        g_get_user_name },
-	{ "XDG_CONFIG_HOME", g_get_user_config_dir },
-	{ "APPDATA",         g_get_user_config_dir },
-	{ "XDG_DATA_HOME",   g_get_user_data_dir },
-	{ "LOCALAPPDATA",    g_get_user_data_dir },
-	{ "XDG_CACHE_HOME",  g_get_user_cache_dir },
 };
 
 /* %NAME% is case-blind as on Windows, so %UserProfile% matches; $home doesn't. */
