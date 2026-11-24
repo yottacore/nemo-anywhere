@@ -267,6 +267,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the 15 archive tests pass in the jailed runner, dd42v with 316 runs.
 	- Verified: 20261022, dd42v passes in the full Linux suite, the sanitizer suite, and the FreeBSD lane.
 
+- Settings search: move the schema's alias rows from comments to SHCL's `meta` key, once SHCL has it.
+	- ID: 2026112415002147
+	- Type: Task
+	- Status: Stalled
+		- Held for: an SHCL build with the `meta` schema key, which is SHCL's 2026112315300920, planned for its v3.0.0.
+	- Priority|Severity: Low
+	- Opened: 20261124-150021
+	- Opened by: t00mietum
+	- Related IDs: 2026111912460983
+	- Requirements:
+		- The request to SHCL for `x-` keys came back as one known schema key, `meta`, on a `field`. It takes any value and any lines under it, and SHCL reads none of it. Any other key SHCL doesn't know is still V090.
+		- Each `# aliases: [a, b]` comment row in `source/data/nemo-anywhere.schema.shcl` becomes an `aliases: [a, b]` line under that field's `meta:`.
+		- `source/src/gen-settings-aliases.py` reads the rows from `meta`, in place of the comment text.
+		- The installed schema still passes `shcl check --schema` with the SHCL the app is built with.
+		- The search lists the same aliases for the same settings as before.
+	- Decisions:
+		- Decided: wait for `meta`, and write no `x-` keys. SHCL decided against a name prefix, so an `x-aliases` row would stay V090.
+		- The comment rows stay until then. They work, and the installed schema passes with them.
+	- Test case: dfh5x and dd5df, which already hold the alias table and the search to the schema's rows.
+	- Estimated effort: Low
+
 - Static analyzers and a heap growth check in the pipeline.
 	- ID: 2026101619020505
 	- Type: Enhancement
@@ -1850,7 +1871,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261119: the search already lists an entry's aliases as the middle group, and shows a match as the label with the alias after it. What's left is an `aliases:` row per field in the schema file, reading it in when the app is built, and finding each field's control, which the window's bind calls pair with its key.
 		- 20261119: built. The schema has an alias row for 34 settings. The build turns the rows into a table, and each setting's control is found by the key its binding writes. Typing "zebra stripes" lists "Shade every other row (zebra stripes)".
 	- Decisions:
-		- The row is a comment, `# aliases: [a, b]`, since SHCL refuses a schema key it doesn't know, and the installed schema has to stay one `shcl check --schema` takes. A request to SHCL for `x-` keys it ignores is filed in SHCL's backlog as 2026112315300920.
+		- The row is a comment, `# aliases: [a, b]`, since SHCL refuses a schema key it doesn't know, and the installed schema has to stay one `shcl check --schema` takes. A request to SHCL for `x-` keys it ignores is filed in SHCL's backlog as 2026112315300920. SHCL settled on one `meta` key in their place, and the move to it is 2026112415002147.
 		- Aliases are the names other file managers and SilkTerm use for the same thing, such as "dot files", "recycle bin", "address bar" and "dark mode". Only settings with a control in the window have them. They're easy to change.
 		- Every binding that writes a key marks its control with that key, and the 2 theme lists, which write theirs by hand, are marked the same way. A get-only binding, such as one for sensitivity, doesn't mark anything.
 		- A key's aliases go on the first control found for it, so a radio group or a label and field pair lists them once.
