@@ -488,7 +488,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: a shortcut changed on the Keyboard tab takes effect in every open window, and the keyboard shortcuts window shows it.
 	- ID: 2026112312181314
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261123-121813
 	- Opened by: t00mietum
@@ -504,6 +504,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Note: each window saves its whole shortcut map 30 seconds after a change. So a window that reads `accels` again should take only the entries the file changed since it last read or wrote it, or a change it hasn't saved yet is lost. The search matches settings by their key in the schema, and the tab has none.
 	- Progress log:
 		- 20261123: split in 3. 2026112312455741 is other windows and saving, 2026112312455764 is Settings search, and 2026112312455787 is the keyboard shortcuts window and views not opened yet.
+	- Test case: its children's: 2026112312455787: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.; 2026112312455741: dfpt0 `test-nemo-shortcuts-file`: a change another window saves is taken, one made here and not saved yet is kept, a save takes the file's changes first and keeps all 3, its own save changes nothing, a file missing lines takes nothing back, and a key turned off elsewhere is turned off here.; 2026112312455764: dd5df, Settings dialog test: keyboard, shortcut, hotkey, key binding, and Keyboard shortcuts each list the Keyboard tab.
+	- Closed: 20261124-155222
 
 - Settings: the keyboard shortcuts window shows the keys in use, and the Keyboard tab lists the shortcuts of views not opened yet.
 	- ID: 2026112312455787
