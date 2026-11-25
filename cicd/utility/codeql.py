@@ -97,15 +97,42 @@ void planted_format (unsigned long n) {
 	printf (g_dpgettext (0, "Count\\004%lu\\n", 6), n); /* quiet */
 	printf (planted_unknown (), n); /* loud format */
 }
+void *g_malloc (unsigned long n);
+void g_free (void *p);
+void g_ptr_array_add (void *array, void *data);
+void g_autoptr_cleanup_generic_gfree (void *p) { g_free (*(void **) p); }
+#define g_autofree __attribute__ ((cleanup (g_autoptr_cleanup_generic_gfree)))
+#define g_new_opt(n) ((int *) ({ unsigned long n_ = (unsigned long) (n); void *p_; p_ = g_malloc (n_ * sizeof (int)); p_; }))
+int planted_autofree (int n) {
+	g_autofree char *p = g_malloc (16); /* quiet */
+	memset (p, n, 16);
+	return p[0];
+}
+int planted_gnew (int n) {
+	int *v = g_new_opt (n); /* quiet */
+	v[0] = n;
+	n = v[0];
+	g_free (v);
+	return n;
+}
+int planted_gnew_leak (int n) {
+	int *v = g_new_opt (n); /* loud leak */
+	v[0] = n;
+	return v[0];
+}
+void planted_taken (void *array) { char *s = g_malloc (8); g_ptr_array_add (array, s); } /* quiet */
 """
 # Lines GLib's idioms make look like a NULL dereference, which
-# codeql-cpp/MissingNullTest.ql is taught to pass, and formats from the
-# translation calls codeql-cpp/NonConstantFormat.ql is taught.
+# codeql-cpp/MissingNullTest.ql is taught to pass, formats from the
+# translation calls codeql-cpp/NonConstantFormat.ql is taught, and GLib's
+# frees codeql-cpp/MemoryNeverFreed.ql is taught.
 PLANTED_QUIET = {i + 1 for i, line in enumerate(PLANTED.splitlines()) if line.endswith("/* quiet */")}
-# And a NULL argument to a function that's NULL only for a NULL argument, and a
-# format from a function it knows nothing about, which they still have to report.
+# And a NULL argument to a function that's NULL only for a NULL argument, a
+# format from a function it knows nothing about, and an optimized g_new never
+# freed, which they still have to report.
 PLANTED_LOUD = {i + 1: rule for i, line in enumerate(PLANTED.splitlines())
-                for mark, rule in (("/* loud */", "cpp/missing-null-test"), ("/* loud format */", "cpp/non-constant-format"))
+                for mark, rule in (("/* loud */", "cpp/missing-null-test"), ("/* loud format */", "cpp/non-constant-format"),
+                                   ("/* loud leak */", "cpp/memory-never-freed"))
                 if mark in line}
 
 Result = tuple[str, int, str, bool]
@@ -248,7 +275,7 @@ def cmd_planted(args: list[str]) -> int:
     if loud:
         print(f"[ CodeQL: planted GLib and gettext idioms reported at line {', '.join(map(str, loud))} ]")
     if hushed:
-        print(f"[ CodeQL: planted NULL argument or unknown format not reported at line {', '.join(map(str, hushed))} ]")
+        print(f"[ CodeQL: planted NULL argument, unknown format or leak not reported at line {', '.join(map(str, hushed))} ]")
     return 1 if missing or loud or hushed else 0
 
 

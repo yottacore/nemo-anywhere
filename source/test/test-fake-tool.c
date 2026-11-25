@@ -55,6 +55,7 @@ static const unsigned char picture[] = {
 static void
 write_file (const char *path, const void *data, size_t size)
 {
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	FILE *out = fopen (path, "wb");
 
 	if (out != NULL) {
@@ -143,6 +144,7 @@ main (int argc, char *argv[])
 
 	if (dir != NULL) {
 		snprintf (report_path, sizeof report_path, "%s\\%s.report", dir, name);
+		// codeql[cpp/world-writable-file-creation] a test's own scratch file
 		if ((report = fopen (report_path, "wb")) != NULL) {
 			fprintf (report, "window=%d\nbytes=%lu\ncwd=%s\nparent=%s\n", GetConsoleWindow () != NULL,
 				 (unsigned long) total, cwd, parent);

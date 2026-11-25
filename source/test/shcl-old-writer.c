@@ -193,6 +193,7 @@ put_reading (FILE *out, shcl_doc *d, const Entry *e)
 		if (r.status != SHCL_GOOD)
 			return 0;
 		fprintf (out, "%.17g", r.value);
+		// codeql[cpp/equality-on-floats] an exact round trip is what's tested
 		ok = r.value == e->real;
 		break;
 	}
@@ -207,6 +208,7 @@ put_reading (FILE *out, shcl_doc *d, const Entry *e)
 /* 1.0.0-beta1 had no writer, so a file then was typed by hand, quoted where
  * bare text wouldn't read back. That release's parser has the last word. */
 static void
+// codeql[cpp/unused-static-function] built once per old release, and each build calls its own
 put_typed (char *buf, size_t cap, size_t *len, const char *s)
 {
 	size_t n = strlen (s);
@@ -232,6 +234,7 @@ put_typed (char *buf, size_t cap, size_t *len, const char *s)
 }
 
 static char *
+// codeql[cpp/unused-static-function] built once per old release, and each build calls its own
 make_text (int bare, size_t room, size_t *len)
 {
 	size_t cap = 16384 + room;
@@ -291,6 +294,7 @@ make_text (int bare, size_t room, size_t *len)
 
 /* The setters the app called then, in nemo-config.c. */
 static char *
+// codeql[cpp/unused-static-function] built once per old release, and each build calls its own
 make_text (int bare, size_t room, size_t *len)
 {
 	shcl_doc *d = shcl_new ();
@@ -341,6 +345,7 @@ make_text (int bare, size_t room, size_t *len)
 
 	canon = shcl_to_canonical (d);
 	*len = canon.n;
+	// codeql[cpp/memory-never-freed] the test program's text, which lives until it exits
 	text = malloc (canon.n + room);
 	if (text != NULL)
 		memcpy (text, canon.p, canon.n);
@@ -367,6 +372,7 @@ main (int argc, char *argv[])
 	hand = strcmp (argv[3], "hand") == 0;
 	bare = strcmp (argv[3], "nobackslash") == 0;
 
+	// codeql[cpp/memory-may-not-be-freed] the test program's text, which lives until it exits
 	text = make_text (bare, 4096, &len);
 	if (text == NULL)
 		return 1;
@@ -394,6 +400,7 @@ main (int argc, char *argv[])
 	}
 #endif
 
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	out = fopen (argv[1], "wb");
 	if (out == NULL || fwrite (text, 1, len, out) != len || fclose (out) != 0) {
 		fprintf (stderr, "%s: cannot write %s\n", argv[0], argv[1]);
@@ -402,6 +409,7 @@ main (int argc, char *argv[])
 
 	/* What this release made of its own file is what the app showed then. */
 	back = shcl_parse (text, len);
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	out = fopen (argv[2], "wb");
 	if (back == NULL || out == NULL) {
 		shcl_free (back);

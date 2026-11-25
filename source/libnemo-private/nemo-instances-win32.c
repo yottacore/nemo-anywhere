@@ -298,6 +298,7 @@ receive_message (HANDLE pipe, const GVariantType *type, gint64 deadline, GError 
 		g_set_error (error, G_IO_ERROR, G_IO_ERROR_MESSAGE_TOO_LARGE, "Too much at once");
 		return NULL;
 	}
+	// codeql[cpp/memory-may-not-be-freed] g_bytes_new_take takes it on the way out
 	data = g_malloc (MAX (length, 1));
 	if (length > 0 && !transfer (pipe, FALSE, data, length, deadline, error)) {
 		g_free (data);

@@ -1343,6 +1343,7 @@ arc_scan_start (ArcScan         *scan,
 	g_return_if_fail (scan->thread == NULL && scan->timer == NULL);
 
 	scan->reported = reported;
+	// codeql[cpp/stack-address-escape] callback data; a caller that passes a stack address waits for the callback
 	scan->reported_data = data;
 	scan->context = g_main_context_ref_thread_default ();
 	scan->sent_at = g_get_monotonic_time ();

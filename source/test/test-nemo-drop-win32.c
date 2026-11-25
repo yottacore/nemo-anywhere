@@ -129,6 +129,7 @@ plain_get_data (IDataObject *iface, FORMATETC *want, STGMEDIUM *out)
 	len = GlobalSize (self->block);
 	memset (out, 0, sizeof (*out));
 	out->tymed = TYMED_HGLOBAL;
+	// codeql[cpp/memory-never-freed] the caller frees it with ReleaseStgMedium
 	out->hGlobal = GlobalAlloc (GMEM_MOVEABLE, len);
 	to = GlobalLock (out->hGlobal);
 	from = GlobalLock (self->block);

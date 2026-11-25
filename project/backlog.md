@@ -470,7 +470,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Then a finding left fails the step, as in the per-file stage.
 	- Estimated effort: High
 	- Progress log:
-		- 20261123: Split into children: `2026112310054779` (the vendored list and a scoped run), `...55896` (Python), `...55921` (vendored), `...55945` (missing-null-test in ours and tests, class first), `...61005` (the same in inherited), `...61029` (non-constant-format), `...61055` (other C in ours and tests), `...61079` (other C in inherited), and `...62942` (a finding left then fails the step). The first 3, `...55945`, `...61005` and `...61029` are Done, and the other 3 are Queued.
+		- 20261123: Split into children: `2026112310054779` (the vendored list and a scoped run), `...55896` (Python), `...55921` (vendored), `...55945` (missing-null-test in ours and tests, class first), `...61005` (the same in inherited), `...61029` (non-constant-format), `...61055` (other C in ours and tests), `...61079` (other C in inherited), and `...62942` (a finding left then fails the step). The first 7 are Done, and `...61079` and `...62942` are Queued.
 	- Test case: de8ep, and a count case for the finding it then fails on.
 
 - Static analyzers: the CodeQL missing-null-test findings in inherited code fixed or suppressed.
@@ -560,7 +560,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: the other CodeQL C findings in our code and tests fixed or suppressed.
 	- ID: 2026112310061055
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261123-100610
 	- Opened by: 2026111915091061
@@ -571,8 +572,72 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- About 115 unique on 20261119: memory-never-freed 49, world-writable-file-creation 43 (all tests), memory-may-not-be-freed 8, equality-on-floats 5, stack-address-escape 4, inconsistent-null-check 4, and a few single ones.
 	- Estimated effort: High
-	- Test case: a scoped run over the files changed has none left, and a regression test per real bug fixed.
+	- Test case: its children's: 2026112511380986: whole runs of both C lanes have none of these rules left in ours or tests. de5kb, dcz6w, ddah8 and dec8v pass.; 2026112511381004: de8ep: a planted g_autofree, an optimized g_new freed by its caller, and a pointer handed to g_ptr_array_add aren't reported, and an optimized g_new never freed is. Whole runs of both C lanes have no memory-never-freed or memory-may-not-be-freed result left in ours or tests.
 	- 20261123: 2 more cpp/world-writable-file-creation in new test probes, `test-nemo-view-keys-probe.c:423` and `test-nemo-zoom-window-probe.c:186`, both `fopen (path, "w")` on a results file. Found by a scoped c-linux run.
+	- Progress log:
+		- 20261125: 114 unique left in whole runs of both C lanes. Split into children: `2026112511380986` (63, the rules outside the leak queries) and `...81004` (51, the leak queries). Both are Done.
+	- Branch: nov25-2026112310061055
+	- Acceptance signoff: Self-closed: both children are.
+	- Closed: 20261125-122910
+
+- Static analyzers: the CodeQL C findings in our code and tests outside the leak queries fixed or suppressed.
+	- ID: 2026112511380986
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261125-113809
+	- Opened by: 2026112310061055
+	- Parent ID: 2026112310061055
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements: 63 unique in whole runs of both C lanes on 20261125: world-writable-file-creation 45 (all tests), equality-on-floats 5, stack-address-escape 4, inconsistent-null-check 4, unused-static-function 3, lossy-function-result-cast 1, toctou-race-condition 1.
+	- Estimated effort: Avg
+	- Actual effort: Low
+	- Decisions:
+		- Fixed where the code could do better: test-fence.c's realpath stand-in gives up on a path with no slash rather than reading past a NULL, and the drag select probe casts its double coordinates to int itself.
+		- Suppressed at the line:
+			- The world-writable files are a test's own scratch files, in its own folder, made under the umask.
+			- The float compares are exact round trips, which is what those tests check.
+			- The stack addresses are callback data, and a caller that passes one waits for the callback.
+			- shcl-old-writer.c is built once per old SHCL release, and each build calls its own make_text, so the other is unused only in a build that doesn't compile it.
+			- The stat then chmod in nemo-lnk.c puts back the mode the rewrite lost. A swap in between needs write access to the folder already.
+			- The thumbnail tests look up a file: URI, which always gets a file. 20261125: asserts there at first raised the share of checked `nemo_file_get_by_uri` calls in the Windows lane to 85%, which turned 2 unchecked calls in inherited nemo-file.c into new results. So they're suppressed instead.
+	- Branch: nov25-2026112310061055
+	- Test case: whole runs of both C lanes have none of these rules left in ours or tests. de5kb, dcz6w, ddah8 and dec8v pass.
+	- Verified: 20261125, `codeql.bash --lane c-linux --lane c-win --match` over the 53 files leaves only memory-never-freed and memory-may-not-be-freed, which are `...81004`'s. de5kb, dcz6w, ddah8 and dec8v pass. gcc's and clang's analyzers are clean on the 4 test files with code changes. `--backlog-run-quick format lint` passes. Whole runs of both C lanes, with `...81004`'s change too, have no result left in ours or tests, and no rule gains one in inherited code.
+	- Swept: every result of these 7 rules in ours and tests in the 20261125 whole runs of both C lanes.
+	- Acceptance signoff: Self-closed: the scoped run and tests above.
+	- Closed: 20261125-114838
+
+- Static analyzers: the CodeQL memory-never-freed and memory-may-not-be-freed findings in our code and tests fixed or suppressed.
+	- ID: 2026112511381004
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261125-113810
+	- Opened by: 2026112310061055
+	- Parent ID: 2026112310061055
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements: 51 unique in whole runs of both C lanes on 20261125, 35 in ours and 16 in tests. Many look like classes the pack's query can't follow: a g_autofree variable, g_new and g_renew in the release build's Windows lane, and an allocation handed to a GLib container. Teach those first, then the rest at the line.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Decisions:
+		- The query runs from our own copy, `cicd/utility/codeql-cpp/MemoryNeverFreed.ql`, in place of the pack's, taught 3 things the points-to library can't see:
+			- A g_autofree variable is freed by its cleanup function.
+			- An optimized build's g_new and g_renew are statement expressions whose value is a local holding the allocation. The statement expression's own value is what has to reach a free.
+			- A pointer handed to a GLib container or call that takes it, such as g_ptr_array_add, g_hash_table_insert, g_task_return_pointer or g_bytes_new_take, is freed with it. That's as lax as the pack already is, which takes any argument to a call through a pointer as freed.
+		- That cleared 37 of the 51, and 30 of the 43 in inherited code in the Windows lane, which `2026112310061079` no longer needs to look at.
+		- memory-may-not-be-freed stays the pack's. With the copy's wider idea of freed, it would check every g_autofree variable's paths, and flag each return.
+		- Suppressed at the line, the other 14: an allocation kept for the life of the process (a g_once cache, a test's fenced roots and the counting thread's path), one g_bytes_new_take or the clipboard takes on the way out, a GPrivate's g_free notify, a test program's text, the crash test's code page, and an STGMEDIUM the caller frees.
+	- Branch: nov25-2026112310061055
+	- Test case: de8ep: a planted g_autofree, an optimized g_new freed by its caller, and a pointer handed to g_ptr_array_add aren't reported, and an optimized g_new never freed is. Whole runs of both C lanes have no memory-never-freed or memory-may-not-be-freed result left in ours or tests.
+	- Verified: 20261125, de8ep passes in both images, and fails with the pack's query at the 3 planted lines it now passes. `--backlog-run-quick format lint` passes. Whole runs of both C lanes (`codeql.bash --lane c-linux` and `--lane c-win`): ours and tests have no result in any rule; memory-never-freed in inherited code goes 43 to 13 in the Windows lane, and no rule gains a result over the 20261125 whole runs. The vendored list has no stale entry against those runs.
+	- Swept: every memory-never-freed and memory-may-not-be-freed result in ours and tests in the 20261125 whole runs of both C lanes, and design.md's CodeQL text.
+	- Acceptance signoff: Self-closed: de8ep and the whole lane runs above.
+	- Closed: 20261125-122910
 
 - Static analyzers: the other CodeQL C findings in inherited code fixed or suppressed.
 	- ID: 2026112310061079

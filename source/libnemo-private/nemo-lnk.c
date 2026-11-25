@@ -1940,6 +1940,7 @@ rewrite_lnk (const char *lnk_path, const char *data, gsize length, GError **erro
 			return FALSE;
 		}
 		/* Past the umask, which the call above is still under. */
+		// codeql[cpp/toctou-race-condition] puts back the mode stat read; a swap needs write access to the folder
 		if (g_chmod (lnk_path, mode) != 0) {
 			g_warning ("couldn't put the permissions back on %s: %s", lnk_path, g_strerror (errno));
 		}

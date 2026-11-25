@@ -5,8 +5,8 @@
 - description: Nemo Anywhere C and C++ queries
 - import: codeql-suites/cpp-security-and-quality.qls
   from: codeql/cpp-queries
-- query: Critical/MemoryNeverFreed.ql
-  from: codeql/cpp-queries
+- query: MemoryNeverFreed.ql
+  from: nemo-anywhere/cpp-queries
 - query: Critical/MemoryMayNotBeFreed.ql
   from: codeql/cpp-queries
 - query: MissingNullTest.ql

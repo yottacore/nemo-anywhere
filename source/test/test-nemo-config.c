@@ -1001,6 +1001,7 @@ test_keys_keep_their_own_values (void)
 			check (nemo_config_get_int64 (g, k->key) == (gint64) (100000 + i));
 			break;
 		case NEMO_CONFIG_FLOAT:
+			// codeql[cpp/equality-on-floats] an exact round trip is what's tested
 			check (nemo_config_get_double (g, k->key) == 100000.0 + i);
 			break;
 		case NEMO_CONFIG_STRING:

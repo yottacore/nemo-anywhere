@@ -7,7 +7,8 @@
 ##	  linux/Dockerfile.dev and win/Dockerfile, run locally, with no hosted
 ##	  service. codeql-c.qls and codeql-python.qls pick the queries, and
 ##	  codeql-cpp/ has our own, such as missing-null-test taught about GLib,
-##	  and non-constant-format taught the translation calls.
+##	  non-constant-format taught the translation calls, and memory-never-freed
+##	  taught GLib's frees.
 ##	- Fails when the C queries miss the planted leak or null dereference in
 ##	  either container, or report the planted GLib and gettext idioms (test de8ep),
 ##	  when codeql is missing from an image, when a lane fails, when the
@@ -177,3 +178,4 @@ fEcho "OK: CodeQL stage"
 ##		- 2026-11-23: codeql-vendored.txt, and a scoped run with --lane and --match.
 ##		- 2026-11-24: missing-null-test from codeql-cpp/, taught about GLib.
 ##		- 2026-11-25: non-constant-format from codeql-cpp/, taught the translation calls.
+##		- 2026-11-25: memory-never-freed from codeql-cpp/, taught g_autofree, an optimized g_new and GLib's takers.

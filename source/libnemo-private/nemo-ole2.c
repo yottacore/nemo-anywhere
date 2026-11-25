@@ -409,6 +409,7 @@ read_mini (NemoOle2 *ole, guint32 start, gsize len)
 	load_mini (ole);
 	links = walk_chain (ole->minifat, ole->n_minifat, start,
 			    (guint32) MIN ((len + (1u << MINI_SHIFT) - 1) >> MINI_SHIFT, ole->n_minifat), &n);
+	// codeql[cpp/memory-may-not-be-freed] g_bytes_new_take takes it on the way out
 	buf = g_malloc (MAX (len, 1));
 
 	for (i = 0; i < n && done < len; i++) {
@@ -454,6 +455,7 @@ nemo_ole2_read (NemoOle2 *ole, const char *name, gsize cap)
 			      (guint32) MIN (((guint64) len + ((guint64) 1 << ole->shift) - 1) >> ole->shift, ole->n_sectors), &n);
 	EEL_ANALYZER_END
 	len = MIN (len, (gsize) n << ole->shift);
+	// codeql[cpp/memory-may-not-be-freed] g_bytes_new_take takes it on the way out
 	buf = g_malloc (MAX (len, 1));
 
 	if (!read_sectors (ole, sectors, n, buf, len, &done)) {

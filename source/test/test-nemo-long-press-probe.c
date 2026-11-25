@@ -715,6 +715,7 @@ probe_start (void)
 	}
 	list_mode = g_strcmp0 (view, "list-view") == 0;
 	compact_mode = g_strcmp0 (view, "compact-view") == 0;
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	out = fopen (path, "w");
 	if (out == NULL) {
 		return;

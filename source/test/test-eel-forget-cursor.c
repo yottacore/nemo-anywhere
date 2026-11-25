@@ -117,6 +117,7 @@ main (int argc, char *argv[])
 	}
 
 	g_print ("scrolled to %.0f before, %.0f after\n", before, gtk_adjustment_get_value (vadjustment));
+	// codeql[cpp/equality-on-floats] an exact round trip is what's tested
 	check (gtk_adjustment_get_value (vadjustment) == before);
 
 	/* An empty list has nothing to put the cursor on, and that is fine. */

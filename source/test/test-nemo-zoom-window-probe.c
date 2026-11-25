@@ -183,6 +183,7 @@ probe_start (void)
 		return;
 	}
 	expect_grow = g_strcmp0 (g_getenv ("NEMO_ZOOMWIN_EXPECT"), "grow") == 0;
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	out = fopen (path, "w");
 	if (out == NULL) {
 		return;

@@ -163,6 +163,7 @@ add_root (const char *dir)
 	for (i = 0; i < n_roots && strcmp (roots[i], use) != 0; i++) {
 	}
 	if (i == n_roots) {
+		// codeql[cpp/memory-never-freed] kept for the life of the process
 		if (n_roots < MAX_ROOTS && (roots[n_roots] = strdup (use)) != NULL) {
 			n_roots++;
 		} else {
@@ -298,6 +299,9 @@ resolve (int dirfd, const char *path, char out[PATH_MAX])
 		full[--len] = '\0';
 	}
 	slash = strrchr (full, '/');
+	if (slash == NULL) {
+		return realpath (full, out) != NULL;
+	}
 	name = slash + 1;
 	if (strcmp (name, ".") == 0 || strcmp (name, "..") == 0 || name[0] == '\0') {
 		return realpath (full, out) != NULL;
@@ -579,6 +583,7 @@ add_root_w (const wchar_t *dir)
 	for (i = 0; i < n_roots && !(wcslen (roots[i]) == len && _wcsnicmp (roots[i], use, len) == 0); i++) {
 	}
 	if (i == n_roots) {
+		// codeql[cpp/memory-never-freed] kept for the life of the process
 		if (n_roots < MAX_ROOTS && (roots[n_roots] = calloc (len + 1, sizeof (wchar_t))) != NULL) {
 			memcpy (roots[n_roots], use, len * sizeof (wchar_t));
 			n_roots++;
@@ -738,6 +743,7 @@ recycled_w (const wchar_t *canon)
 			binned_room = room;
 		}
 	}
+	// codeql[cpp/memory-never-freed] kept for the life of the process
 	if (n_binned < binned_room && (binned[n_binned] = _wcsdup (canon)) != NULL) {
 		n_binned++;
 		ok = 1;

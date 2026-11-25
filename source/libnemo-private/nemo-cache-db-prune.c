@@ -157,6 +157,7 @@ start_pass (gboolean force, NemoCachePruneDone done, gpointer done_data)
 	pass->rules = read_rules ();
 	pass->rules.force = force;
 	pass->done = done;
+	// codeql[cpp/stack-address-escape] callback data; a caller that passes a stack address waits for the callback
 	pass->done_data = done_data;
 
 	running = g_cancellable_new ();

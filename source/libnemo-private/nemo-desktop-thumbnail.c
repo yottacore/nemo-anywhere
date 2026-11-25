@@ -281,6 +281,7 @@ init_thumbnailers_dirs (G_GNUC_UNUSED gpointer data)
   data_dirs = nemo_get_system_data_dirs ();
   length = g_strv_length ((char **) data_dirs);
 
+  // codeql[cpp/memory-never-freed] kept for the life of the process, through g_once
   thumbs_dirs = g_new (gchar *, length + 2);
   thumbs_dirs[0] = g_build_filename (g_get_user_data_dir (), "thumbnailers", NULL);
   for (i = 0; i < length; i++)

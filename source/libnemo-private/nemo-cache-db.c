@@ -384,6 +384,7 @@ busy_wait (void *data, int tries)
 	(void) data;
 
 	if (since == NULL) {
+		// codeql[cpp/memory-never-freed] busy_since's g_free notify frees it when the thread ends
 		since = g_new (gint64, 1);
 		g_private_set (&busy_since, since);
 	}

@@ -342,6 +342,7 @@ probe_start (void)
 	if (!g_file_set_contents (noise_path, "x", 1, NULL)) {
 		return;
 	}
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	out = fopen (path, "w");
 	/* A thumbnailer the program starts loads this too, and would empty the
 	   file again. */

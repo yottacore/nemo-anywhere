@@ -297,6 +297,7 @@ nemo_image_folders_look_ahead_full (NemoDirectory *directory, NemoImageFoldersDo
 	job->images = g_array_new (FALSE, FALSE, sizeof (guint));
 	job->others = g_array_new (FALSE, FALSE, sizeof (guint));
 	job->done = done;
+	// codeql[cpp/stack-address-escape] callback data; a caller that passes a stack address waits for the callback
 	job->user_data = user_data;
 
 	files = nemo_directory_get_file_list (directory);

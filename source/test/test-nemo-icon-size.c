@@ -45,6 +45,7 @@ main (void)
 	/* The slider's scale. A stop is on a whole number, and half way
 	   between 2 of them is half way between their sizes. */
 	for (i = 0; i < n_steps; i++) {
+		// codeql[cpp/equality-on-floats] an exact round trip is what's tested
 		check (nemo_icon_size_position (steps[i]) == (gdouble) i);
 		check (nemo_icon_size_at_position ((gdouble) i) == steps[i]);
 	}

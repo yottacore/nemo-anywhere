@@ -94,6 +94,7 @@ dump (const wchar_t *path, int argc, wchar_t **argv)
 		return 1;
 	}
 	aside[MAX_PATH + 15] = L'\0';
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	out = _wfopen (aside, L"wb");
 	if (out == NULL) {
 		return 1;

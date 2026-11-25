@@ -256,7 +256,9 @@ test_same_size_and_time (const char *dir_uri)
 {
 	g_autofree char *uri_red = g_strdup_printf ("%s/twin-a.%s", dir_uri, twin_ext);
 	g_autofree char *uri_blue = g_strdup_printf ("%s/twin-b.%s", dir_uri, twin_ext);
+	// codeql[cpp/inconsistent-null-check] a file: URI always gets a file
 	NemoFile *red = nemo_file_get_by_uri (uri_red);
+	// codeql[cpp/inconsistent-null-check] a file: URI always gets a file
 	NemoFile *blue = nemo_file_get_by_uri (uri_blue);
 	GList *list;
 

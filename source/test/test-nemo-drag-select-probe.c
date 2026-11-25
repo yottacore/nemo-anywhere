@@ -645,7 +645,7 @@ list_tick (void)
 	switch (step) {
 	case 1:
 		select_items (none);
-		report (gtk_tree_view_is_blank_at_pos (GTK_TREE_VIEW (pane), blank_x (), row_y (2),
+		report (gtk_tree_view_is_blank_at_pos (GTK_TREE_VIEW (pane), (int) blank_x (), (int) row_y (2),
 						       NULL, NULL, NULL, NULL),
 			"the spot pressed in the Size column is blank");
 		press_and_move (bin, 1, 0, blank_x (), row_y (2), blank_x (), row_y (4));
@@ -1428,6 +1428,7 @@ probe_start (void)
 		return;
 	}
 	list_mode = g_strcmp0 (view, "list-view") == 0;
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	out = fopen (path, "w");
 	if (out == NULL) {
 		return;
