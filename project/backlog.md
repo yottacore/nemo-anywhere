@@ -762,7 +762,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Time a copy of many small files with the small-copy checksum on and off.
 	- ID: 2026112416314964
 	- Type: Task
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261124-163149
 	- Opened by:
@@ -771,11 +771,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- Each small copy now takes a blake3 sum and makes 2 file cache writes in the copy job's thread. Time 10k small files with `file-cache.checksum-full-reads` on and off, by user plus system CPU and by wall time. If the cost is real, batch the writes or move them off the copy thread.
 	- Estimated effort: Low
-	- Test case: none, it's a timing; a regression test follows only if the cost is real.
+	- Test case: its children's: 2026112513133832: dd24j, Small file copy test, the batch case, Linux only. One copy kept at once is 1 cache write. 300 copies through a batch take 2 writes rather than 600, and every source and copy is in the cache after.
 	- Progress log:
 		- 20261125: timed. 10k small files, from 0 to 64 KiB, mostly under 4 KiB, through the copy job's small copy steps, 3 rounds in turn, at load 8 on 32 cores. Off: 0.22 s user, 0.52 s sys, 0.75 s wall. On: 2.63 s user, 1.95 s sys, 23.8 s wall. On with `save-checksum`: 2.86 s user, 2.32 s sys, 23.2 s wall. That's about 0.38 ms of CPU and 2.3 ms of wall time more per file. The cost is real, so the fix is child 2026112513133832.
 	- Decisions:
 		- The timing and the fix are split, since the fix needs a batched cache write and its own test.
+	- Closed: 20261125-133409
 
 - A copy of many small files is about 30 times slower with the small-copy checksum on, the default.
 	- ID: 2026112513133832
