@@ -753,6 +753,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 307 unique on 20261119, before whatever the class fix in 2026112310055945 clears.
 	- Estimated effort: High
 	- Test case: a scoped run over the files changed has none left.
+	- 20261125: with the taught query from 2026112310055945, inherited code has 139 unique on the Linux list and 150 on the Windows list, down from 272 and 303. Whole-lane SARIF from it is in `cicd/artifacts/codeql/scoped/`.
 
 - Static analyzers: the CodeQL non-constant-format findings fixed or suppressed.
 	- ID: 2026112310061029
