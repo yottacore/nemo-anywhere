@@ -36,7 +36,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - ddmn7 fails now and then when a second ticks over between the 2 dates it takes for its young run folder.
 	- ID: 2026112513332264
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261125-133322
 	- Opened by: 2026112513133832
@@ -48,6 +48,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Possible cause: `cicd/bsd/test-lane.bash` makes the young folder with one `$(date +%Y%m%d-%H%M%S)` and writes its `run.pid` with another, so a second ticking over between them names a folder that isn't there.
 	- Possible fix: take the date once into a variable and use it for both.
 	- Test case: ddmn7 itself. A run with the date pinned across a second boundary would show it.
+	- Actual cause: the young folder's name and its run.pid path each took their own date, so a second ticking over between them named a folder that wasn't there.
+	- Actual fix: the date is taken once into youngDir, and both the mkdir and the run.pid write use it. Swept: no other script under cicd/ builds a folder name from date twice.
+	- Commit: 73b71111
+	- Verified: 20261125, ddmn7 (bash cicd/bsd/test-lane.bash) passed, and shellcheck is clean. The second-boundary case is fixed by reading only.
+	- Closed: 20261125
 
 - Settings: search.
 	- ID: 2026101417352263
