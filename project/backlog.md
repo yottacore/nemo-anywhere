@@ -677,13 +677,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Then a finding left fails the step, as in the per-file stage.
 	- Estimated effort: High
 	- Progress log:
-		- 20261123: Split into children: `2026112310054779` (the vendored list and a scoped run), `...55896` (Python), `...55921` (vendored), `...55945` (missing-null-test in ours and tests, class first), `...61005` (the same in inherited), `...61029` (non-constant-format), `...61055` (other C in ours and tests), `...61079` (other C in inherited), and `...62942` (a finding left then fails the step). The first 2 are Done, and the other 7 are Queued.
+		- 20261123: Split into children: `2026112310054779` (the vendored list and a scoped run), `...55896` (Python), `...55921` (vendored), `...55945` (missing-null-test in ours and tests, class first), `...61005` (the same in inherited), `...61029` (non-constant-format), `...61055` (other C in ours and tests), `...61079` (other C in inherited), and `...62942` (a finding left then fails the step). The first 3 are Done, and the other 6 are Queued.
 	- Test case: de8ep, and a count case for the finding it then fails on.
 
 - Static analyzers: the CodeQL findings in vendored code listed outside the files.
 	- ID: 2026112310055921
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261123-100559
 	- Opened by: 2026111915091061
@@ -694,7 +695,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- About 99 unique on 20261119, 77 of them missing-null-test, most in SHCL and the old SHCL releases. Each goes in the list with a one-line reason, and a real bug goes to its upstream.
 	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Decisions:
+		- 92 results are listed in `cicd/utility/codeql-vendored.txt`, all in SHCL: 32 in `vendor/shcl/shcl.h` and 60 in the old releases. 6 more in `shcl.h` already have SHCL's own `codeql[...]` comment, so they count as suppressed without a list entry.
+		- None is a real bug, so nothing goes upstream. The missing-null-test ones are a vector that starts NULL and grows before its first write, from an arena that never returns NULL, or a pointer set together with the flag tested beside it. The memory-never-freed ones are handed to the caller, who frees them. The float compares are exact on purpose.
+		- An old release's entry points at the same site in `shcl.h` rather than repeating the reason, as `analyze-vendored.txt` does.
+	- Branch: nov24-2026112310055921
 	- Test case: dfha3, and both C lanes have no vendored finding left.
+	- Verified: 20261124, `codeql.py count` over the 20261124 whole-step SARIF has 0 vendored in both C lanes and no stale entry. Scoped runs of both lanes over `shcl-old-writer.c` and over `nemo-config.c` have 0 vendored left. dfha3 passes, and so does `cicd/cicd.bash --backlog-run-quick format lint`.
+	- Acceptance signoff: Self-closed: dfha3 and the counts above.
+	- Closed: 20261124-170614
 
 - Static analyzers: the CodeQL missing-null-test findings in our code and tests fixed or suppressed.
 	- ID: 2026112310055945

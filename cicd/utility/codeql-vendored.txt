@@ -7,3 +7,104 @@
 # such as cpp/missing-null-test. A real bug gets its upstream link beside it.
 # An entry no result matches fails the count, so a vendor bump that moves a
 # line gets its results looked at again.
+#
+# Most are cpp/missing-null-test on a vector that starts NULL with its count and
+# room at 0. The first push grows it before writing, and arena_alloc and
+# arena_grow never return NULL: they unwind or exit on a failed malloc.
+
+vendor/shcl/shcl.h:2911 cpp/missing-null-test nm is set on the same branch as v, and v is checked just above.
+vendor/shcl/shcl.h:6521 cpp/missing-null-test groups grows before its first write.
+vendor/shcl/shcl.h:6530 cpp/missing-null-test gi stays under ngroups, so groups was grown.
+vendor/shcl/shcl.h:6746 cpp/missing-null-test hmsg is set with hcode, which is checked the line above.
+vendor/shcl/shcl.h:7326 cpp/missing-null-test PPUSH grows stack before its first write.
+vendor/shcl/shcl.h:7328 cpp/missing-null-test sn > 0 here, so stack was grown.
+vendor/shcl/shcl.h:7336 cpp/missing-null-test seen gets an entry only after arr does, so a hit means arr is set.
+vendor/shcl/shcl.h:7342 cpp/missing-null-test arr grows before its first write.
+vendor/shcl/shcl.h:7362 cpp/missing-null-test PPUSH grows stack before its first write.
+vendor/shcl/shcl.h:7367 cpp/missing-null-test arr grows before its first write.
+vendor/shcl/shcl.h:8303 cpp/missing-null-test The copy runs only when n > 0, and moves is set by then.
+vendor/shcl/shcl.h:8306 cpp/missing-null-test moves grows before its first write.
+vendor/shcl/shcl.h:8314 cpp/missing-null-test n > 0 past the return above, so moves was grown.
+vendor/shcl/shcl.h:8550 cpp/missing-null-test arr grows before its first write.
+vendor/shcl/shcl.h:9101 cpp/missing-null-test by_name gets an entry only after named does, so a hit means named is set.
+vendor/shcl/shcl.h:9139 cpp/missing-null-test gi stays under nb, so buckets was grown.
+vendor/shcl/shcl.h:9146 cpp/missing-null-test by_name gets an entry only after named does, so a hit means named is set.
+vendor/shcl/shcl.h:9164 cpp/missing-null-test bni is set only on a by_name hit, so named is set.
+vendor/shcl/shcl.h:11823 cpp/memory-never-freed Returned to the caller of shcl_format_diagnostic, who frees it.
+vendor/shcl/shcl.h:11898 cpp/memory-never-freed Returned to the caller of shcl_format_value or shcl_format_array, who frees it.
+vendor/shcl/shcl.h:13196 cpp/missing-null-test star_pats grows before its first write.
+vendor/shcl/shcl.h:13227 cpp/missing-null-test i stays under nstar, so star_pats was grown.
+vendor/shcl/shcl.h:13266 cpp/missing-null-test set_idx is set when has_mounts is, and chain_legal runs only then.
+vendor/shcl/shcl.h:13525 cpp/memory-never-freed Returned by kept_stack, and both callers free it.
+vendor/shcl/shcl.h:14428 cpp/missing-null-test Reached only with fd >= 0, and a NULL wtmp leaves the loop with fd at -1.
+vendor/shcl/shcl.h:14583 cpp/missing-null-test buf is NULL only with rerr set, which skips this.
+vendor/shcl/shcl.h:14589 cpp/missing-null-test buf is NULL only with rerr set, which returns above.
+vendor/shcl/shcl.h:14986 cpp/memory-never-freed Handed out through *out, for the caller to free.
+vendor/shcl/shcl.h:14999 cpp/memory-never-freed Returned by upgrade_lines, and its caller frees it.
+vendor/shcl/shcl.h:15606 cpp/missing-null-test LIVE_PUSH grows live before its first write.
+vendor/shcl/shcl.h:15618 cpp/missing-null-test li stays under nlive, so live was grown.
+vendor/shcl/shcl.h:15627 cpp/missing-null-test LIVE_PUSH grows live before its first write.
+
+# The old releases are built only into a test, and stay as they were released.
+# Their arena and their parse and validate exit on a failed malloc.
+
+vendor/shcl-old/1.0.0-beta1/shcl.h:1103 cpp/missing-null-test Same as shcl.h's 6530.
+vendor/shcl-old/1.0.0-beta1/shcl.h:1506 cpp/equality-on-floats The shortest print that reads back as the same double needs an exact compare.
+vendor/shcl-old/1.0.0-beta2/shcl.h:1317 cpp/missing-null-test Same as shcl.h's 6530.
+vendor/shcl-old/1.0.0-beta2/shcl.h:1995 cpp/equality-on-floats Same as 1.0.0-beta1's 1506.
+vendor/shcl-old/1.0.0-rc1/shcl.h:1488 cpp/missing-null-test Same as shcl.h's 6530.
+vendor/shcl-old/1.0.0-rc1/shcl.h:1741 cpp/missing-null-test Same as shcl.h's 7326.
+vendor/shcl-old/1.0.0-rc1/shcl.h:1743 cpp/missing-null-test Same as shcl.h's 7328.
+vendor/shcl-old/1.0.0-rc1/shcl.h:1755 cpp/missing-null-test Same as shcl.h's 7342.
+vendor/shcl-old/1.0.0-rc1/shcl.h:2148 cpp/missing-null-test Same as shcl.h's 9139.
+vendor/shcl-old/1.0.0-rc1/shcl.h:2453 cpp/equality-on-floats Same as 1.0.0-beta1's 1506.
+vendor/shcl-old/1.0.0-rc1/shcl.h:2908 cpp/equality-on-floats An allowed float matches exactly, as shcl.h's 12889 says.
+vendor/shcl-old/1.0.0-rc1/shcl.h:3186 cpp/missing-null-test Same as shcl.h's 15606.
+vendor/shcl-old/1.0.0-rc1/shcl.h:3198 cpp/missing-null-test Same as shcl.h's 15618.
+vendor/shcl-old/1.0.0-rc1/shcl.h:3203 cpp/missing-null-test Same as shcl.h's 15627.
+vendor/shcl-old/1.1.0/shcl.h:1757 cpp/missing-null-test Same as shcl.h's 6530.
+vendor/shcl-old/1.1.0/shcl.h:2050 cpp/missing-null-test Same as shcl.h's 7326.
+vendor/shcl-old/1.1.0/shcl.h:2052 cpp/missing-null-test Same as shcl.h's 7328.
+vendor/shcl-old/1.1.0/shcl.h:2061 cpp/missing-null-test Same as shcl.h's 7342.
+vendor/shcl-old/1.1.0/shcl.h:2537 cpp/missing-null-test Same as shcl.h's 9139.
+vendor/shcl-old/1.1.0/shcl.h:2869 cpp/equality-on-floats Same as 1.0.0-beta1's 1506.
+vendor/shcl-old/1.1.0/shcl.h:3422 cpp/equality-on-floats Same as 1.0.0-rc1's 2908.
+vendor/shcl-old/1.1.0/shcl.h:3622 cpp/missing-null-test Same as shcl.h's 13196.
+vendor/shcl-old/1.1.0/shcl.h:3786 cpp/missing-null-test shcl_parse exits on a failed malloc in this release, so sd is never NULL.
+vendor/shcl-old/1.1.0/shcl.h:3788 cpp/missing-null-test shcl_parse_with exits on a failed malloc in this release, so d is never NULL.
+vendor/shcl-old/1.1.0/shcl.h:3792 cpp/missing-null-test Same as 1.1.0's 3788.
+vendor/shcl-old/1.1.0/shcl.h:3793 cpp/missing-null-test shcl_validate exits on a failed malloc in this release, so v is never NULL.
+vendor/shcl-old/1.1.0/shcl.h:4029 cpp/missing-null-test Same as shcl.h's 15606.
+vendor/shcl-old/1.1.0/shcl.h:4041 cpp/missing-null-test Same as shcl.h's 15618.
+vendor/shcl-old/1.1.0/shcl.h:4046 cpp/missing-null-test Same as shcl.h's 15627.
+vendor/shcl-old/1.2.0/shcl.h:1780 cpp/missing-null-test Same as shcl.h's 6530.
+vendor/shcl-old/1.2.0/shcl.h:2073 cpp/missing-null-test Same as shcl.h's 7326.
+vendor/shcl-old/1.2.0/shcl.h:2075 cpp/missing-null-test Same as shcl.h's 7328.
+vendor/shcl-old/1.2.0/shcl.h:2084 cpp/missing-null-test Same as shcl.h's 7342.
+vendor/shcl-old/1.2.0/shcl.h:2584 cpp/missing-null-test Same as shcl.h's 9139.
+vendor/shcl-old/1.2.0/shcl.h:2923 cpp/equality-on-floats Same as 1.0.0-beta1's 1506.
+vendor/shcl-old/1.2.0/shcl.h:3480 cpp/equality-on-floats Same as 1.0.0-rc1's 2908.
+vendor/shcl-old/1.2.0/shcl.h:3680 cpp/missing-null-test Same as shcl.h's 13196.
+vendor/shcl-old/1.2.0/shcl.h:3845 cpp/missing-null-test Same as 1.1.0's 3786.
+vendor/shcl-old/1.2.0/shcl.h:3847 cpp/missing-null-test Same as 1.1.0's 3788.
+vendor/shcl-old/1.2.0/shcl.h:3851 cpp/missing-null-test Same as 1.1.0's 3788.
+vendor/shcl-old/1.2.0/shcl.h:3852 cpp/missing-null-test Same as 1.1.0's 3793.
+vendor/shcl-old/1.2.0/shcl.h:4090 cpp/missing-null-test Same as shcl.h's 15606.
+vendor/shcl-old/1.2.0/shcl.h:4102 cpp/missing-null-test Same as shcl.h's 15618.
+vendor/shcl-old/1.2.0/shcl.h:4107 cpp/missing-null-test Same as shcl.h's 15627.
+vendor/shcl-old/2.0.0/shcl.h:2227 cpp/missing-null-test Same as shcl.h's 6530.
+vendor/shcl-old/2.0.0/shcl.h:2561 cpp/missing-null-test Same as shcl.h's 7326.
+vendor/shcl-old/2.0.0/shcl.h:2563 cpp/missing-null-test Same as shcl.h's 7328.
+vendor/shcl-old/2.0.0/shcl.h:2571 cpp/missing-null-test Same as shcl.h's 7336.
+vendor/shcl-old/2.0.0/shcl.h:2577 cpp/missing-null-test Same as shcl.h's 7342.
+vendor/shcl-old/2.0.0/shcl.h:3127 cpp/missing-null-test Same as shcl.h's 9139.
+vendor/shcl-old/2.0.0/shcl.h:3582 cpp/equality-on-floats Same as 1.0.0-beta1's 1506.
+vendor/shcl-old/2.0.0/shcl.h:4166 cpp/equality-on-floats Same as 1.0.0-rc1's 2908.
+vendor/shcl-old/2.0.0/shcl.h:4380 cpp/missing-null-test Same as shcl.h's 13196.
+vendor/shcl-old/2.0.0/shcl.h:4610 cpp/missing-null-test Same as 1.1.0's 3786.
+vendor/shcl-old/2.0.0/shcl.h:4612 cpp/missing-null-test Same as 1.1.0's 3788.
+vendor/shcl-old/2.0.0/shcl.h:4616 cpp/missing-null-test Same as 1.1.0's 3788.
+vendor/shcl-old/2.0.0/shcl.h:4617 cpp/missing-null-test Same as 1.1.0's 3793.
+vendor/shcl-old/2.0.0/shcl.h:5081 cpp/missing-null-test Same as shcl.h's 15606.
+vendor/shcl-old/2.0.0/shcl.h:5093 cpp/missing-null-test Same as shcl.h's 15618.
+vendor/shcl-old/2.0.0/shcl.h:5098 cpp/missing-null-test Same as shcl.h's 15627.
