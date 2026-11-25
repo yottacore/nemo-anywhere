@@ -33,6 +33,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- ddmn7 fails now and then when a second ticks over between the 2 dates it takes for its young run folder.
+	- ID: 2026112513332264
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261125-133322
+	- Opened by: 2026112513133832
+	- Target OS: Linux
+	- Target version: rc.1
+	- Incorrect behavior: the quick lint gate failed once at ddmn7 with `run.pid: No such file or directory` for a `*_009` folder under the stand-in box's temp root, and passed on the rerun.
+	- Expected behavior: ddmn7 passes every time.
+	- Reproduced: once, 20261125, in the quick gate at load 13. Read only after that.
+	- Possible cause: `cicd/bsd/test-lane.bash` makes the young folder with one `$(date +%Y%m%d-%H%M%S)` and writes its `run.pid` with another, so a second ticking over between them names a folder that isn't there.
+	- Possible fix: take the date once into a variable and use it for both.
+	- Test case: ddmn7 itself. A run with the date pinned across a second boundary would show it.
+
 - Settings: search.
 	- ID: 2026101417352263
 	- Type: Enhancement
@@ -764,7 +780,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - A copy of many small files is about 30 times slower with the small-copy checksum on, the default.
 	- ID: 2026112513133832
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
+	- Closed reason: Done
 	- Priority|Severity: High
 	- Opened: 20261125-131338
 	- Opened by: 2026112416314964
@@ -775,7 +792,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: each small copy keeps its checksum with 2 file cache writes, each its own transaction, in the copy job's thread. 10k small files took 0.75 s of wall time with `file-cache.checksum-full-reads` off and 23.8 s with it on. CPU went from 0.75 s to 4.6 s. About 21 s of the wall time is the cache writes. Most of that is the cache's syncs at its checkpoints, since without them the writes take about 1.8 s.
 	- Expected behavior: the checksum adds little to a copy of many small files, in wall time and in CPU.
 	- Possible fix: queue the copy job's checksums and write them in one transaction per batch, such as every few hundred files and at the end of the job, or hand them to a writer thread. A batch writes each index page once rather than once per file, which cuts the checkpoint syncs too.
-	- Test case: a timing check of the small copy path, 10k files, checksum off against on, by wall time, or a count of cache transactions per copy job.
+	- Reproduced: 20261125, by the parent's timing, and by dd24j's new batch case, which counts 600 cache writes for 300 copies when each name is its own write.
+	- Actual cause: each copy kept its checksum for the source and the copy as 2 transactions of their own, so the cache rewrote its index pages for every file and synced at every checkpoint.
+	- Decisions:
+		- The copy job holds the checksums and writes them in one transaction a batch, rather than handing them to the cache's writer thread. The job writes what's left when it ends, so the cache has them all once the job is done, and the cost stays on the job's thread, where it can be timed.
+		- A batch is 512 names, 256 copies, or whatever is held once the oldest has waited 1 s, so a view of the target finds them during a long job.
+		- Checksums on the files, with `save-checksum` on, are still written as each copy ends. Only the cache waits.
+		- A new file from a template keeps its 2 names in one write.
+		- What's left of the cost is CPU: the checksum itself and the cache's statements. In the test build, which isn't optimized, the checksum alone is 1.1 s of CPU per 10k files. A release build should take less. That wasn't timed.
+	- Actual fix: the copy job keeps a batch of checksums, and the file cache writes a batch in one transaction, with a savepoint for each name, so one that fails doesn't take the rest back out.
+	- Branch: nov25-2026112513133832
+	- Commit: 7cf6fe8b
+	- Test case: dd24j, Small file copy test, the batch case, Linux only. One copy kept at once is 1 cache write. 300 copies through a batch take 2 writes rather than 600, and every source and copy is in the cache after.
+	- Verified: 20261125, dd24j fails with a write for each name, 2 checks, and passes with the fix. dcxzr, dcy2e and ddf62 pass. The quick format and lint gate passed. gcc's and clang's analyzers are clean on the 4 changed .c files.
+		- 10k small files, 3 rounds, at load 10 to 14 on 32 cores, in the same test build as the parent's timing. Off: 0.73 s CPU, 0.74 s wall. On: 2.81 s CPU, 3.79 s wall, down from 4.6 s and 23.8 s. On with `save-checksum`: 3.29 s CPU, 5.91 s wall, down from 5.2 s and 23.2 s. With syncs made no-ops, the on arm's wall time drops by only about 0.4 s now.
+	- Swept: both callers of `nemo_small_copy_keep_checksum`, the copy job and a new file from a template. A move never makes a small copy. The thumbnail queue keeps one checksum per thumbnail it makes, which is slow work anyway, so it was left alone.
+	- Acceptance signoff: Self-closed: its test fails before and passes after, and the timing shows the cache's writes are no longer most of the cost.
+	- Closed: 20261125-133310
 
 - Windows: build MSYS2's gtk3 with the OLE drag abort fix in `t00mietum/nemo-anywhere-deps`, as a pinned release file.
 	- ID: 2026111011404145

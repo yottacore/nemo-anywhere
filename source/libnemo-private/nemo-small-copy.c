@@ -202,8 +202,72 @@ nemo_small_copy (GFile          *src,
 	return NEMO_SMALL_COPY_DONE;
 }
 
-/* Same rule as the thumbnail queue: the cache first, then the slow attribute
-   write, skipped when the file has this checksum already. */
+/* Names kept in one cache write. With a write each, a copy of many small files
+   spent most of its time in the cache's syncs. */
+#define SUMS_BATCH 512
+
+/* Nor held longer than this, so a view of the target finds their thumbnails
+   while a long job is still going. */
+#define SUMS_WAIT_USECS G_USEC_PER_SEC
+
+struct _NemoSmallCopySums {
+	GPtrArray *uris;
+	GArray    *ids;
+	gint64     since;	/* monotonic, when the oldest one came */
+};
+
+/* Returns: (transfer full): free with nemo_small_copy_sums_free */
+NemoSmallCopySums *
+nemo_small_copy_sums_new (void)
+{
+	NemoSmallCopySums *sums = g_new0 (NemoSmallCopySums, 1);
+
+	sums->uris = g_ptr_array_new_with_free_func (g_free);
+	sums->ids = g_array_new (FALSE, FALSE, sizeof (NemoFileId));
+
+	return sums;
+}
+
+void
+nemo_small_copy_sums_flush (NemoSmallCopySums *sums)
+{
+	if (sums == NULL || sums->ids->len == 0) {
+		return;
+	}
+
+	nemo_cache_db_set_digests (nemo_cache_db_get (),
+				   (const char *const *) sums->uris->pdata,
+				   (const NemoFileId *) (gpointer) sums->ids->data,
+				   sums->ids->len);
+	g_ptr_array_set_size (sums->uris, 0);
+	g_array_set_size (sums->ids, 0);
+}
+
+void
+nemo_small_copy_sums_free (NemoSmallCopySums *sums)
+{
+	if (sums == NULL) {
+		return;
+	}
+
+	nemo_small_copy_sums_flush (sums);
+	g_ptr_array_unref (sums->uris);
+	g_array_unref (sums->ids);
+	g_free (sums);
+}
+
+static void
+sums_add (NemoSmallCopySums *sums, GFile *file, const NemoFileId *id)
+{
+	if (sums->ids->len == 0) {
+		sums->since = g_get_monotonic_time ();
+	}
+	g_ptr_array_add (sums->uris, g_file_get_uri (file));
+	g_array_append_vals (sums->ids, id, 1);
+}
+
+/* The thumbnail queue's rule: skipped when the file has this checksum
+   already. */
 static void
 save_on_file (GFile *file, const NemoFileId *id)
 {
@@ -218,13 +282,12 @@ save_on_file (GFile *file, const NemoFileId *id)
 }
 
 void
-nemo_small_copy_keep_checksum (GFile            *src,
-                               GFile            *dest,
-                               const NemoFileId *sum)
+nemo_small_copy_keep_checksum (NemoSmallCopySums *sums,
+                               GFile             *src,
+                               GFile             *dest,
+                               const NemoFileId  *sum)
 {
-	g_autofree char *src_uri = NULL;
-	g_autofree char *dest_uri = NULL;
-	NemoCacheDb *db;
+	NemoSmallCopySums *mine = NULL;
 	NemoFileId made;
 
 	if (sum == NULL || !sum->has_digest) {
@@ -238,19 +301,25 @@ nemo_small_copy_keep_checksum (GFile            *src,
 		made.has_digest = FALSE;
 	}
 
-	db = nemo_cache_db_get ();
-	src_uri = g_file_get_uri (src);
-	dest_uri = g_file_get_uri (dest);
-	nemo_cache_db_set_digest (db, src_uri, sum);
+	if (sums == NULL) {
+		sums = mine = nemo_small_copy_sums_new ();
+	}
+	sums_add (sums, src, sum);
 	if (made.has_digest) {
-		nemo_cache_db_set_digest (db, dest_uri, &made);
+		sums_add (sums, dest, &made);
 	}
 
-	if (!nemo_thumbnail_saves_checksum ()) {
-		return;
+	if (nemo_thumbnail_saves_checksum ()) {
+		save_on_file (src, sum);
+		if (made.has_digest) {
+			save_on_file (dest, &made);
+		}
 	}
-	save_on_file (src, sum);
-	if (made.has_digest) {
-		save_on_file (dest, &made);
+
+	if (mine != NULL) {
+		nemo_small_copy_sums_free (mine);
+	} else if (sums->ids->len >= SUMS_BATCH ||
+		   g_get_monotonic_time () - sums->since >= SUMS_WAIT_USECS) {
+		nemo_small_copy_sums_flush (sums);
 	}
 }

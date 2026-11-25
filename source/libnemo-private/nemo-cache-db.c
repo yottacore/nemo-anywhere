@@ -137,6 +137,9 @@ static gint64 last_largest_batch = 0;
 /* Writes made by prune passes in this process. Read only by the tests. */
 static gint prune_steps = 0;
 
+/* Write transactions committed in this process. Read only by the tests. */
+static gint commits = 0;
+
 /* Writes the window's thread hands off: draw counts and refreshes. They have a
  * lock of their own, never held across a call into sqlite, so the window never
  * waits on another copy's hold on the file. The writer thread writes them out.
@@ -318,8 +321,10 @@ rollback (NemoCacheDb *db)
 static gboolean
 commit (NemoCacheDb *db)
 {
-	if (db_ok (db, sqlite3_exec (db->handle, "COMMIT", NULL, NULL, NULL), "commit"))
+	if (db_ok (db, sqlite3_exec (db->handle, "COMMIT", NULL, NULL, NULL), "commit")) {
+		g_atomic_int_inc (&commits);
 		return TRUE;
+	}
 
 	rollback (db);
 	return FALSE;
@@ -914,10 +919,36 @@ nemo_cache_db_lookup_digest (NemoCacheDb *db,
 	return found;
 }
 
+/* The body of set_digest, inside a transaction the caller opened. FALSE leaves
+ * part of it written, so the caller rolls back. Called with the lock held. */
+static gboolean
+keep_digest (NemoCacheDb *db, const char *uri, const NemoFileId *id)
+{
+	gint64 target, mine;
+
+	target = file_by_digest (db, id);
+	mine   = file_by_uri (db, uri, id);
+
+	if (target != 0 && !file_set_bytes (db, target, id))
+		return FALSE;
+
+	if (mine == 0) {
+		/* Nothing known about this path yet, or what was known is stale. */
+		if (target == 0)
+			target = file_add (db, id);
+		return (target != 0) && link_path (db, uri, target, id->mtime);
+	}
+
+	if (target == 0 || target == mine)
+		return file_learn_digest (db, mine, id);
+
+	return fold_file (db, mine, target)
+		&& link_path (db, uri, target, id->mtime);
+}
+
 gboolean
 nemo_cache_db_set_digest (NemoCacheDb *db, const char *uri, const NemoFileId *id)
 {
-	gint64   target, mine;
 	gboolean done = FALSE;
 
 	g_return_val_if_fail (uri != NULL, FALSE);
@@ -929,39 +960,60 @@ nemo_cache_db_set_digest (NemoCacheDb *db, const char *uri, const NemoFileId *id
 
 	g_mutex_lock (&db->lock);
 
+	if (begin (db)) {
+		if (keep_digest (db, uri, id))
+			done = commit (db);
+		else
+			rollback (db);
+	}
+
+	g_mutex_unlock (&db->lock);
+
+	return done;
+}
+
+guint
+nemo_cache_db_set_digests (NemoCacheDb       *db,
+			   const char *const *uris,
+			   const NemoFileId  *ids,
+			   guint              n)
+{
+	guint i, kept = 0;
+
+	g_return_val_if_fail (n == 0 || (uris != NULL && ids != NULL), 0);
+
+	if (db == NULL || db->broken || n == 0)
+		return 0;
+
+	g_mutex_lock (&db->lock);
+
 	if (!begin (db))
 		goto out;
 
-	target = file_by_digest (db, id);
-	mine   = file_by_uri (db, uri, id);
-
-	if (target != 0 && !file_set_bytes (db, target, id))
-		goto fail;
-
-	if (mine == 0) {
-		/* Nothing known about this path yet, or what was known is stale. */
-		if (target == 0)
-			target = file_add (db, id);
-		done = (target != 0) && link_path (db, uri, target, id->mtime);
-	} else if (target == 0 || target == mine) {
-		done = file_learn_digest (db, mine, id);
-	} else {
-		done = fold_file (db, mine, target)
-			&& link_path (db, uri, target, id->mtime);
+	/* A savepoint each, so one name that can't be kept takes only its own
+	 * half-done rows back out. */
+	for (i = 0; i < n && !db->broken; i++) {
+		if (!ids[i].has_digest)
+			continue;
+		if (!db_ok (db, sqlite3_exec (db->handle, "SAVEPOINT one", NULL, NULL, NULL), "savepoint"))
+			break;
+		if (keep_digest (db, uris[i], &ids[i]))
+			kept++;
+		else
+			sqlite3_exec (db->handle, "ROLLBACK TO one", NULL, NULL, NULL);
+		sqlite3_exec (db->handle, "RELEASE one", NULL, NULL, NULL);
 	}
 
-	if (done) {
-		done = commit (db);
-		goto out;
+	if (db->broken || !commit (db)) {
+		if (db->broken)
+			rollback (db);
+		kept = 0;
 	}
-
-fail:
-	rollback (db);
 
 out:
 	g_mutex_unlock (&db->lock);
 
-	return done;
+	return kept;
 }
 
 /* Fills `record` and, when asked, the image bytes. Called with the lock held. */
@@ -2549,6 +2601,12 @@ gint
 nemo_cache_db_prune_steps (void)
 {
 	return g_atomic_int_get (&prune_steps);
+}
+
+gint
+nemo_cache_db_commits (void)
+{
+	return g_atomic_int_get (&commits);
 }
 
 /* Returns: (transfer full): close with sqlite3_close */

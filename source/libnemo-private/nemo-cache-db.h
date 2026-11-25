@@ -134,6 +134,15 @@ gboolean nemo_cache_db_set_digest (NemoCacheDb      *db,
 				   const char       *uri,
 				   const NemoFileId *id);
 
+/* set_digest for each of n names, in one transaction, which writes each page
+ * once rather than once a name. An id without a digest is skipped, and so is
+ * a name that can't be kept, without taking the rest with it. Returns how many
+ * were kept. */
+guint nemo_cache_db_set_digests (NemoCacheDb       *db,
+				 const char *const *uris,
+				 const NemoFileId  *ids,
+				 guint              n);
+
 /* Looks for a thumbnail of what's at `uri` now.
  *
  * On a hit `record` is filled in and `image` gets the encoded bytes, which the
@@ -264,6 +273,9 @@ gint64 nemo_cache_db_prune_largest_batch (void);
 /* For the tests. How many writes prune passes in this process have made so far.
  * A store that waits through more than one or two of them was kept out. */
 gint nemo_cache_db_prune_steps (void);
+
+/* For the tests. How many write transactions this process has committed. */
+gint nemo_cache_db_commits (void);
 
 /* For the tests. A connection of its own to the store's file, set up the way
  * every copy's is, as another window's would be. Close it with sqlite3_close. */

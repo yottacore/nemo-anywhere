@@ -145,6 +145,8 @@ typedef struct {
 	/* Targets the delete test guard already let be overwritten, so a move
 	   that falls back to a copy doesn't ask again. NULL until one is. */
 	GHashTable *overwrite_allowed;
+	/* Small copies' checksums, for the file cache. Copy jobs only. */
+	NemoSmallCopySums *small_sums;
 } CopyMoveJob;
 
 typedef struct {
@@ -5261,7 +5263,7 @@ copy_move_file (CopyMoveJob *copy_job,
 			                        flags | G_FILE_COPY_ALL_METADATA,
 			                        job->cancellable, NULL);
 			if (small == NEMO_SMALL_COPY_DONE) {
-				nemo_small_copy_keep_checksum (src, dest, &small_sum);
+				nemo_small_copy_keep_checksum (copy_job->small_sums, src, dest, &small_sum);
 			}
 		}
 
@@ -5715,12 +5717,15 @@ copy_job (GIOSchedulerJob *io_job,
 	nemo_progress_info_start (common->progress);
 
 	memset (&transfer_info, 0, sizeof (transfer_info));
+	job->small_sums = nemo_small_copy_sums_new ();
 	copy_files (job,
 		    dest_fs_id,
 		    &source_info, &transfer_info);
 
  aborted:
 
+	/* Here rather than in copy_job_done, which runs on the window's thread. */
+	g_clear_pointer (&job->small_sums, nemo_small_copy_sums_free);
 	g_free (dest_fs_id);
 
 	g_io_scheduler_job_send_to_mainloop_async (io_job,
@@ -7533,7 +7538,7 @@ create_job (GIOSchedulerJob *io_job,
 				if (res) {
 					g_file_copy_attributes (job->src, dest, G_FILE_COPY_NONE,
 								common->cancellable, NULL);
-					nemo_small_copy_keep_checksum (job->src, dest, &small_sum);
+					nemo_small_copy_keep_checksum (NULL, job->src, dest, &small_sum);
 				}
 			}
 
