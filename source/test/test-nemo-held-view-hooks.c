@@ -344,6 +344,7 @@ write_report (G_GNUC_UNUSED void *data)
 	char *part = g_strconcat (out_path, ".part", NULL);
 
 	for (;;) {
+		// codeql[cpp/world-writable-file-creation] a test's own scratch file
 		FILE *f = fopen (part, "w");
 
 		if (f != NULL) {

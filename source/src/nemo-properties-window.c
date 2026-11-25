@@ -1448,7 +1448,7 @@ changed_group_callback (GtkComboBox *combo_box, NemoFile *file)
 	group = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT (combo_box));
 	cur_group = nemo_file_get_group_name (file);
 
-	if (group != NULL && strcmp (group, cur_group) != 0) {
+	if (group != NULL && g_strcmp0 (group, cur_group) != 0) {
 		/* Try to change file group. If this fails, complain to user. */
 		window = NEMO_PROPERTIES_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (combo_box), GTK_TYPE_WINDOW));
 
@@ -1875,7 +1875,8 @@ changed_owner_callback (GtkComboBox *combo_box, NemoFile* file)
 	g_free (owner_text);
 	cur_owner = nemo_file_get_owner_name (file);
 
-	if (strcmp (new_owner, cur_owner) != 0) {
+	/* cur_owner is NULL while the owner isn't known */
+	if (g_strcmp0 (new_owner, cur_owner) != 0) {
 		/* Try to change file owner. If this fails, complain to user. */
 		window = NEMO_PROPERTIES_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (combo_box), GTK_TYPE_WINDOW));
 
@@ -2756,6 +2757,7 @@ rgb_to_hls (gdouble *r,
   s = 0;
   h = 0;
 
+  // codeql[cpp/equality-on-floats] max and min are 2 of the 3 inputs, so the compare is exact
   if (max != min)
     {
       if (l <= 0.5)
@@ -2764,10 +2766,13 @@ rgb_to_hls (gdouble *r,
         s = (max - min) / (2 - max - min);
 
       delta = max -min;
+      // codeql[cpp/equality-on-floats] max is one of the 3, so the compare is exact
       if (red == max)
         h = (green - blue) / delta;
+      // codeql[cpp/equality-on-floats] max is one of the 3, so the compare is exact
       else if (green == max)
         h = 2 + (blue - red) / delta;
+      // codeql[cpp/equality-on-floats] max is one of the 3, so the compare is exact
       else if (blue == max)
         h = 4 + (red - green) / delta;
 
@@ -5562,9 +5567,6 @@ select_image_button_callback (G_GNUC_UNUSED GtkWidget *widget,
 		if (revert_is_sensitive) {
 			break;
 		}
-
-		g_free (image_uri);
-		g_free (icon_name);
 	}
 
 	gtk_dialog_set_response_sensitive (GTK_DIALOG (dialog), NEMO_RESPONSE_REVERT, revert_is_sensitive);

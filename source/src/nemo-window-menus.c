@@ -1379,6 +1379,9 @@ action_new_folder_callback (G_GNUC_UNUSED GtkAction *action,
     NemoWindow *window = user_data;
     NemoView *view = get_current_view (window);
 
+    if (view == NULL) {
+        return;
+    }
     nemo_view_new_folder (view);
 }
 
@@ -1391,6 +1394,9 @@ action_open_terminal_callback(G_GNUC_UNUSED GtkAction *action, gpointer callback
     window = NEMO_WINDOW(callback_data);
 
     view = get_current_view (window);
+    if (view == NULL) {
+        return;
+    }
 
     gchar *path;
     gchar *uri = nemo_view_get_backing_uri (view);
@@ -1412,6 +1418,9 @@ on_file_menu_show (G_GNUC_UNUSED GtkWidget *widget, gpointer user_data)
 
     window = NEMO_WINDOW (user_data);
     view = get_current_view (window);
+    if (view == NULL) {
+        return;
+    }
 
     nemo_view_update_actions_and_extensions (view);
 }

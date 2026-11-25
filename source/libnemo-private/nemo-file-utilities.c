@@ -1851,6 +1851,7 @@ nemo_find_file_insensitive_next (GFile *parent, const gchar *name)
 				compare_key = ascii_collation_key;
 			}
 
+			// codeql[cpp/missing-null-test] utf8_collation_key is set whenever use_utf8 is
 			found = strcmp (child_key, compare_key) == 0;
 			g_free (child_key);
 			if (found) {

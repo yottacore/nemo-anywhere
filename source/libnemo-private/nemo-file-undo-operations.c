@@ -373,15 +373,17 @@ ext_strings_func (NemoFileUndoInfo *info,
 	gint count = nemo_file_undo_info_get_item_count (info);
 	gchar *name = NULL, *source, *destination;
 
-	source = g_file_get_path (self->priv->src_dir);
-	destination = g_file_get_path (self->priv->dest_dir);
+	/* A remote folder has no path. */
+	source = g_file_get_parse_name (self->priv->src_dir);
+	destination = g_file_get_parse_name (self->priv->dest_dir);
 
+	/* NULL when the one item was skipped or failed, which then takes the count form. */
 	if (count <= 1) {
 		name = ext_get_first_target_short_name (self);
 	}
 
 	if (op_type == NEMO_FILE_UNDO_OP_MOVE) {
-		if (count > 1) {
+		if (name == NULL) {
 			*undo_description = g_strdup_printf (ngettext ("Move %d item back to '%s'",
 								       "Move %d items back to '%s'", count),
 							     count, source);
@@ -406,7 +408,7 @@ ext_strings_func (NemoFileUndoInfo *info,
 		*undo_label = g_strdup (_("_Undo restore from Trash"));
 		*redo_label = g_strdup (_("_Redo restore from Trash"));
 
-		if (count > 1) {
+		if (name == NULL) {
 			*undo_description = g_strdup_printf (ngettext ("Move %d item back to trash",
 								       "Move %d items back to trash", count),
 							     count);
@@ -418,7 +420,7 @@ ext_strings_func (NemoFileUndoInfo *info,
 			*redo_description = g_strdup_printf (_("Restore '%s' from trash"), name);
 		}
 	} else if (op_type == NEMO_FILE_UNDO_OP_COPY) {
-		if (count > 1) {
+		if (name == NULL) {
 			*undo_description = g_strdup_printf (ngettext ("Delete %d copied item",
 								       "Delete %d copied items", count),
 							     count);
@@ -440,7 +442,7 @@ ext_strings_func (NemoFileUndoInfo *info,
 			*redo_label = g_strdup (_("_Redo copy"));
 		}
 	} else if (op_type == NEMO_FILE_UNDO_OP_DUPLICATE) {
-		if (count > 1) {
+		if (name == NULL) {
 			*undo_description = g_strdup_printf (ngettext ("Delete %d duplicated item",
 								       "Delete %d duplicated items", count),
 							     count);
@@ -463,13 +465,16 @@ ext_strings_func (NemoFileUndoInfo *info,
 			*redo_label = g_strdup (_("_Redo duplicate"));
 		}
 	} else if (op_type == NEMO_FILE_UNDO_OP_CREATE_LINK) {
-		if (count > 1) {
+		if (name == NULL) {
 			*undo_description = g_strdup_printf (ngettext ("Delete links to %d item",
 								       "Delete links to %d items", count),
 							     count);
 			*redo_description = g_strdup_printf (ngettext ("Create links to %d item",
 								       "Create links to %d items", count),
 							     count);
+
+			*undo_label = g_strdup (_("_Undo create link"));
+			*redo_label = g_strdup (_("_Redo create link"));
 		} else {
 			*undo_description = g_strdup_printf (_("Delete link to '%s'"), name);
 			*redo_description = g_strdup_printf (_("Create link to '%s'"), name);
@@ -1066,7 +1071,7 @@ trash_strings_func (NemoFileUndoInfo *info,
 		keys = g_hash_table_get_keys (self->priv->trashed);
 		file = keys->data;
 		name = g_file_get_basename (file);
-		orig_path = g_file_get_path (file);
+		orig_path = g_file_get_parse_name (file);
 		*undo_description = g_strdup_printf (_("Restore '%s' to '%s'"), name, orig_path);
 
 		g_free (name);
@@ -1370,7 +1375,7 @@ rec_permissions_strings_func (NemoFileUndoInfo *info,
 	NemoFileUndoInfoRecPermissions *self = NEMO_FILE_UNDO_INFO_REC_PERMISSIONS (info);
 	char *name;
 
-	name = g_file_get_path (self->priv->dest_dir);
+	name = g_file_get_parse_name (self->priv->dest_dir);
 
 	*undo_description = g_strdup_printf (_("Restore original permissions of items enclosed in '%s'"), name);
 	*redo_description = g_strdup_printf (_("Set permissions of items enclosed in '%s'"), name);

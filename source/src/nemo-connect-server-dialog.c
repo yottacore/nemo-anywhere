@@ -595,6 +595,7 @@ connect_dialog_connect_to_server (NemoConnectServerDialog *dialog)
 	/* port */
 	port = gtk_spin_button_get_value (GTK_SPIN_BUTTON (dialog->details->port_spinbutton));
 
+	// codeql[cpp/equality-on-floats] the spin button only holds whole numbers
 	if (port != 0 && port != meth->default_port) {
 		port_str = g_strdup_printf ("%d", (int) port);
 	} else {

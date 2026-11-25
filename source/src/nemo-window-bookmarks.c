@@ -225,6 +225,7 @@ bookmark_holder_new (NemoBookmark *bookmark,
 {
 	BookmarkHolder *new_bookmark_holder;
 
+	// codeql[cpp/memory-never-freed] freed by the closure's destroy notify
 	new_bookmark_holder = g_new (BookmarkHolder, 1);
 	new_bookmark_holder->window = window;
 	new_bookmark_holder->bookmark = bookmark;

@@ -260,6 +260,7 @@ probe_start (void)
 		return;
 	}
 	list_view = g_strcmp0 (g_getenv ("NEMO_RESET_VIEW"), "list-view") == 0;
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	out = fopen (path, "w");
 	if (out == NULL) {
 		return;

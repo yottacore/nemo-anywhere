@@ -351,6 +351,7 @@ probe_start (void)
 		return;
 	}
 	remember = g_strcmp0 (g_getenv ("NEMO_SORTSW_REMEMBER"), "true") == 0;
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	out = fopen (path, "w");
 	g_unsetenv ("NEMO_SORTSW_OUT");
 	if (out == NULL) {

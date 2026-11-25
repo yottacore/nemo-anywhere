@@ -169,6 +169,7 @@ archive_job_new (GFile                    *result_file,
 	ArcHost host;
 
 	job->done_callback = done_callback;
+	// codeql[cpp/stack-address-escape] callback data; a caller that passes a stack address waits for the callback
 	job->done_callback_data = done_callback_data;
 
 	job->on.parent_window = parent_window;

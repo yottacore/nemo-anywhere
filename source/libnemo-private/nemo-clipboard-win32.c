@@ -225,6 +225,7 @@ nemo_clipboard_win32_set_text (GtkWidget  *widget,
 		return FALSE;
 	}
 
+	// codeql[cpp/memory-may-not-be-freed] the clipboard owns it once SetClipboardData takes it
 	block = block_from (wide, (wide_len + 1) * sizeof (gunichar2));
 	g_free (wide);
 

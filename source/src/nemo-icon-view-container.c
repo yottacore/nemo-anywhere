@@ -1219,7 +1219,7 @@ snap_position (NemoIconContainer *container,
     total_height = nemo_icon_container_get_canvas_height (container, allocation);
 
     if (nemo_icon_container_is_layout_rtl (container))
-        *x = nemo_icon_container_get_mirror_x_position (container, icon, *x);
+        *x = (int) nemo_icon_container_get_mirror_x_position (container, icon, *x);
 
     if (*x + icon_width / 2 < GET_VIEW_CONSTANT (container, desktop_pad_horizontal) + GET_VIEW_CONSTANT (container, snap_size_x)) {
         *x = GET_VIEW_CONSTANT (container, desktop_pad_horizontal) + GET_VIEW_CONSTANT (container, snap_size_x) - icon_width / 2;
@@ -1240,7 +1240,7 @@ snap_position (NemoIconContainer *container,
     center_x = *x + icon_width / 2;
     *x = SNAP_NEAREST_HORIZONTAL (center_x) - (icon_width / 2);
     if (nemo_icon_container_is_layout_rtl (container)) {
-        *x = nemo_icon_container_get_mirror_x_position (container, icon, *x);
+        *x = (int) nemo_icon_container_get_mirror_x_position (container, icon, *x);
     }
 
 
@@ -1289,6 +1289,7 @@ nemo_icon_view_container_icon_set_position (NemoIconContainer *container,
     int height_above, width_left;
     int min_x, max_x, min_y, max_y;
 
+    // codeql[cpp/equality-on-floats] any move at all is what's tested
     if (icon->x == x && icon->y == y) {
         return;
     }
@@ -1366,6 +1367,7 @@ nemo_icon_view_container_move_icon (NemoIconContainer *container,
         nemo_icon_container_end_renaming_mode (container, TRUE);
     }
 
+    // codeql[cpp/equality-on-floats] any change at all is what's tested
     if (scale != icon->scale) {
         icon->scale = scale;
         nemo_icon_container_update_icon (container, icon);
@@ -1380,6 +1382,7 @@ nemo_icon_view_container_move_icon (NemoIconContainer *container,
             snap_position (container, icon, &x, &y);
         }
 
+        // codeql[cpp/equality-on-floats] any move at all is what's tested
         if (x != icon->x || y != icon->y) {
             nemo_icon_container_icon_set_position (container, icon, x, y);
             emit_signal = update_position;
@@ -1469,7 +1472,7 @@ nemo_icon_view_container_update_icon (NemoIconContainer *container,
         gint scale_factor;
 
         scale_factor = gtk_widget_get_scale_factor (GTK_WIDGET (container));
-        pixbuf = nemo_icon_info_get_pixbuf_at_size (icon_info, icon_size * scale_factor);
+        pixbuf = nemo_icon_info_get_pixbuf_at_size (icon_info, (gsize) icon_size * scale_factor);
     } else {
         pixbuf = nemo_icon_info_get_pixbuf (icon_info);
     }
@@ -1766,45 +1769,48 @@ nemo_icon_view_container_finish_adding_new_icons (NemoIconContainer *container)
          * Thus, we pass FALSE for tight, like lay_down_icons_tblr */
         grid = nemo_placement_grid_new (container, FALSE);
 
-        for (p = container->details->icons; p != NULL; p = p->next) {
-            icon = p->data;
+        /* NULL while the container has no size yet */
+        if (grid != NULL) {
+            for (p = container->details->icons; p != NULL; p = p->next) {
+                icon = p->data;
 
-            if (nemo_icon_container_icon_is_positioned (icon) && !icon->has_lazy_position) {
-                nemo_placement_grid_mark_icon (grid, icon);
+                if (nemo_icon_container_icon_is_positioned (icon) && !icon->has_lazy_position) {
+                    nemo_placement_grid_mark_icon (grid, icon);
+                }
             }
+
+            now = time (NULL);
+
+            for (p = semi_position_icons; p != NULL; p = p->next) {
+                NemoIconPosition position;
+                int x, y;
+
+                icon = p->data;
+                x = icon->x;
+                y = icon->y;
+
+                find_empty_location (container, grid,
+                             icon, x, y, &x, &y);
+
+                nemo_icon_container_icon_set_position (container, icon, x, y);
+
+                position.x = icon->x;
+                position.y = icon->y;
+                position.scale = icon->scale;
+                position.monitor = current_monitor;
+                nemo_placement_grid_mark_icon (grid, icon);
+                g_signal_emit_by_name (container, "icon_position_changed",
+                                       icon->data, &position);
+                g_signal_emit_by_name (container, "store_layout_timestamp",
+                                       icon->data, &now, &dummy);
+
+                /* ensure that next time we run this code, the formerly semi-positioned
+                 * icons are treated as being positioned. */
+                icon->has_lazy_position = FALSE;
+            }
+
+            nemo_placement_grid_free (grid);
         }
-
-        now = time (NULL);
-
-        for (p = semi_position_icons; p != NULL; p = p->next) {
-            NemoIconPosition position;
-            int x, y;
-
-            icon = p->data;
-            x = icon->x;
-            y = icon->y;
-
-            find_empty_location (container, grid,
-                         icon, x, y, &x, &y);
-
-            nemo_icon_container_icon_set_position (container, icon, x, y);
-
-            position.x = icon->x;
-            position.y = icon->y;
-            position.scale = icon->scale;
-            position.monitor = current_monitor;
-            nemo_placement_grid_mark_icon (grid, icon);
-            g_signal_emit_by_name (container, "icon_position_changed",
-                                   icon->data, &position);
-            g_signal_emit_by_name (container, "store_layout_timestamp",
-                                   icon->data, &now, &dummy);
-
-            /* ensure that next time we run this code, the formerly semi-positioned
-             * icons are treated as being positioned. */
-            icon->has_lazy_position = FALSE;
-        }
-
-        nemo_placement_grid_free (grid);
 
         g_list_free (semi_position_icons);
     }
@@ -1878,7 +1884,7 @@ get_text_ellipsis_limit_for_zoom (char **strs,
 
     if (strs != NULL) {
         for (p = strs; *p != NULL; p++) {
-            if (sscanf (*p, str, limit)) {
+            if (sscanf (*p, str, limit) == 1) {
                 success = TRUE;
             }
         }

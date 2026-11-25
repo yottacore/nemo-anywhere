@@ -391,194 +391,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: dfh5x and dd5df, which already hold the alias table and the search to the schema's rows.
 	- Estimated effort: Low
 
-- Static analyzers and a heap growth check in the pipeline.
-	- ID: 2026101619020505
-	- Type: Enhancement
-	- Status: Started
-	- Priority|Severity: High
-	- Opened: 20261016-190205
-	- Opened by: t00mietum
-	- Target OS: Linux
-	- Target version: rc.1
-	- Requirements:
-		- The sanitizer stage stays as it is. ASan, LSan and UBSan already run the whole suite on every full run.
-			- Any report fails the test that made it.
-			- Any leak is fixed. If the fix has to wait, it gets a backlog item, and the test that shows it turns leak detection off with that item's ID beside it.
-			- For a full leak stack, rerun the test with `ASAN_OPTIONS=fast_unwind_on_malloc=0`.
-			- Every test in it runs with `G_SLICE=always-malloc` and `G_DEBUG=gc-friendly`, or GLib hides blocks from the leak check.
-		- Every full run also runs gcc's `-fanalyzer` and the clang static analyzer over all C code in the repo, with no exclusions. That's the code inherited from upstream Nemo, our own, the tests, and the vendored code in `vendor/` and `source/cut-n-paste-code/`.
-			- Windows-only files are checked through the Windows cross build, since the Linux build doesn't compile them. Today that's 61 of the 517 .c files.
-			- A check fails the stage if any tracked .c file is in neither build's compile list, so no file drops out unnoticed.
-			- Vendored SHCL is a single header. It's checked through the file that compiles its implementation. No vendored include folder is marked as a system one, since compilers hide warnings from those.
-			- Vendored code stays as it came. Only the leak, memory and correctness checks run on it, never style lints, since its style isn't ours to fix. A finding there is suppressed in a list outside the file, with a one-line reason, and a real bug goes to its upstream.
-			- Every existing finding is fixed, or suppressed at the line with a one-line reason, before the gate goes live. No baseline file.
-			- They move behind a flag only if a full run shows they're too slow.
-		- A new `--leakcheck` flag on `cicd.bash` adds the slow checks, over the same files:
-			- CodeQL, from a pinned CLI run locally. No hosted service. It covers the Python too.
-				- CodeQL reports only on source inside its database's root. `vendor/` and `source/cut-n-paste-code/` are already in the tree. Linked system libraries such as GLib and GTK aren't, so they aren't checked.
-			- The clang analyzer in cross-file mode, so it follows calls into other .c files.
-			- A heap growth soak test. A headless session opens and closes folders, tabs and thumbnails in a loop under heaptrack. It fails if the heap at round 2N is larger than at round N by more than a set margin. The report is kept with the run's artifacts.
-		- No known-advisory scan. There's no Rust or Go, and the Python has no dependency list. Its only outside package is numpy, in the demo video script.
-		- Every tool is pinned and runs in the containers, never on the host.
-		- Each new gate fails on a planted fault before it's trusted: a leak, a null dereference, and a loop that grows the heap.
-		- Coverity Scan and Infer aren't used. Coverity uploads the build to a third party.
-	- Estimated effort: High
-	- Notes:
-		- About 125 findings were expected from the 2 analyzers on today's tree. Many will be GLib ref-count false positives.
-		- Traps:
-			- `-fanalyzer` does nothing under `-fsyntax-only`. Compile with `-c -o /dev/null`.
-			- With `-Werror`, analyzer findings print as `error: ... [-Werror=analyzer-*]` rather than `warning:`. A parser that only looks for warnings counts 0.
-			- heaptrack and ASan can't share a build. The soak test uses a plain build.
-			- ASan's allocator hides the heap from glibc's own stats, such as `mallinfo2`. A test that reads them should exit as skipped under ASan, not pass.
-		- 20261017: `vendor/shcl-old/` is only built into a test, never into the app, so the vendored code above doesn't take it in. The gaps found in the existing checks on vendored and third-party code are 2026101715252255 to 2026101715252260.
-	- Progress log:
-		- 20261021: Split into children: `2026102114400584` (the stage, report only), `...586` vendored, `...587` inherited, `...588` ours, `...589` tests, `...591` (the gate goes live), `...592` (CodeQL and cross-file clang), `...593` (heap soak), and `2026101911105600` (the flag).
-		- 20261021 counts, unique findings by where they are (vendored, inherited, ours, tests, system headers): gcc on the Linux list 2, 12, 0, 7, 1, total 22, with 3 files not analyzed; gcc on the Windows list 3, 21, 6, 7, 3, total 40; clang on the Linux list 3, 34, 15, 17, 0, total 69; clang on the Windows list not run, since `nemo-winbuild` doesn't have clang. That's 120 unique across the 3. The 5 in system headers are GLib macros, and count toward their callers.
-	- Test case: each new stage is its own test, with a planted fault it has to catch.
-
-- Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
-	- ID: 2026102114400592
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261021-144005
-	- Opened by: t00mietum
-	- Parent ID: 2026101619020505
-	- Prereq IDs: 2026101911105600
-	- Target version: rc.1
-	- Requirements:
-		- The parent's CodeQL and cross-file clang requirements, over the same 2 compile lists.
-		- Each is pinned, in a container, and fails on a planted leak and null dereference first.
-	- Estimated effort: High
-	- Progress log:
-		- 20261110: Split into children: `2026110920250275` (cross-file clang, report only), `...293` (CodeQL, report only), `...1244` (the cross-file findings fixed or suppressed, then they fail the run), and `2026111915091061` (the same for CodeQL's). The first 2 are in, and the other 2 are Queued.
-	- Test case: de8ep (CodeQL) and de8eq (cross-file clang), each with a planted fault.
-
-- Static analyzers: the CodeQL findings fixed or suppressed, then they fail the run.
-	- ID: 2026111915091061
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261119-150910
-	- Opened by: 2026110920250293
-	- Parent ID: 2026102114400592
-	- Prereq IDs: 2026110920250293
-	- Target OS: Linux
-	- Target version: rc.1
-	- Requirements:
-		- Every CodeQL finding, in both compile lists and the Python, is fixed, or suppressed at the line with a one-line reason, or for vendored code in a list outside the file.
-		- Then a finding left fails the step, as in the per-file stage.
-	- Estimated effort: High
-	- Progress log:
-		- 20261123: Split into children: `2026112310054779` (the vendored list and a scoped run), `...55896` (Python), `...55921` (vendored), `...55945` (missing-null-test in ours and tests, class first), `...61005` (the same in inherited), `...61029` (non-constant-format), `...61055` (other C in ours and tests), `...61079` (other C in inherited), and `...62942` (a finding left then fails the step). The first 3 and `...55945` are Done, and the other 5 are Queued.
-	- Test case: de8ep, and a count case for the finding it then fails on.
-
-- Static analyzers: the CodeQL missing-null-test findings in inherited code fixed or suppressed.
-	- ID: 2026112310061005
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261123-100610
-	- Opened by: 2026111915091061
-	- Parent ID: 2026111915091061
-	- Prereq IDs: 2026112310055945
-	- Target OS: Linux
-	- Target version: rc.1
-	- Requirements:
-		- 307 unique on 20261119, before whatever the class fix in 2026112310055945 clears.
-	- Estimated effort: High
-	- Test case: a scoped run over the files changed has none left.
-	- 20261125: with the taught query from 2026112310055945, inherited code has 139 unique on the Linux list and 150 on the Windows list, down from 272 and 303. Whole-lane SARIF from it is in `cicd/artifacts/codeql/scoped/`.
-	- Progress log:
-		- 20261124: Split into children: `2026112418311481` (the classes, taught or fixed at the source), `...0199` (the window's active slot reads) and `...1521` (the rest). The first 2 are Done, and `...1521` is Queued.
-
-- Static analyzers: CodeQL missing-null-test in inherited code, the reads left after the class fixes, fixed or suppressed.
-	- ID: 2026112418311521
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261124-183115
-	- Opened by: 2026112310061005
-	- Parent ID: 2026112310061005
-	- Target OS: Linux
-	- Target version: rc.1
-	- Prereq IDs: 2026112418311481
-	- Requirements: 48 unique on the Linux list, plus the Windows list's own, that aren't the window's active slot. Some can be NULL, such as a file's parent for the root folder, a placement grid for a container with no size, a slot's view before it loads, a date that isn't known, and an undo item's first target name.
-	- Estimated effort: High
-	- Notes:
-		- Most of the rest are a pointer set together with the count or flag tested beside it, as in nemo-view.c's status text, or a queue head read under a test that it isn't empty.
-		- A scoped run misses a NULL that comes from another file, so add the file the value comes from to `--match`, or run the whole lane.
-	- Progress log:
-		- 20261124: 18 suppressed where the pointer is set together with what's tested: nemo-view.c's status text (10), the file queue heads in nemo-directory-async.c (3), the application singleton (3) and a properties window's one file (2). That leaves 30 unique on the Linux list and 32 on the Windows list.
-	- Test case: a whole run of both C lanes has no missing-null-test result left in inherited code, and a regression test per real bug fixed.
-
-- Static analyzers: the CodeQL non-constant-format findings fixed or suppressed.
-	- ID: 2026112310061029
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261123-100610
-	- Opened by: 2026111915091061
-	- Parent ID: 2026111915091061
-	- Prereq IDs: 2026112310054779
-	- Target OS: Linux
-	- Target version: rc.1
-	- Requirements:
-		- 245 unique on 20261119, 237 of them only in the Windows lane, mostly from ngettext and _() strings. The Linux lane knows gettext keeps its format, and the Windows one doesn't seem to know mingw's libintl. Fix that class first, then the rest at the line.
-	- Estimated effort: Avg
-	- Test case: a scoped run of the Windows lane over the files changed has none left.
-
-- Static analyzers: the other CodeQL C findings in our code and tests fixed or suppressed.
-	- ID: 2026112310061055
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261123-100610
-	- Opened by: 2026111915091061
-	- Parent ID: 2026111915091061
-	- Prereq IDs: 2026112310054779
-	- Target OS: Linux
-	- Target version: rc.1
-	- Requirements:
-		- About 115 unique on 20261119: memory-never-freed 49, world-writable-file-creation 43 (all tests), memory-may-not-be-freed 8, equality-on-floats 5, stack-address-escape 4, inconsistent-null-check 4, and a few single ones.
-	- Estimated effort: High
-	- Test case: a scoped run over the files changed has none left, and a regression test per real bug fixed.
-	- 20261123: 2 more cpp/world-writable-file-creation in new test probes, `test-nemo-view-keys-probe.c:423` and `test-nemo-zoom-window-probe.c:186`, both `fopen (path, "w")` on a results file. Found by a scoped c-linux run.
-
-- Static analyzers: the other CodeQL C findings in inherited code fixed or suppressed.
-	- ID: 2026112310061079
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Avg
-	- Opened: 20261123-100610
-	- Opened by: 2026111915091061
-	- Parent ID: 2026111915091061
-	- Prereq IDs: 2026112310054779
-	- Target OS: Linux
-	- Target version: rc.1
-	- Requirements:
-		- About 100 unique on 20261119: memory-never-freed 42, equality-on-floats 20, lossy-function-result-cast 17, stack-address-escape 7, integer-multiplication-cast-to-long 4, double-free 2, inconsistent-null-check 2, and one each of use-after-free, suspicious-add-sizeof, incorrectly-checked-scanf and incomplete-parity-check.
-	- Estimated effort: High
-	- Test case: a scoped run over the files changed has none left, and a regression test per real bug fixed.
-
-- Static analyzers: a CodeQL finding left fails the step.
-	- ID: 2026112310062942
-	- Type: Enhancement
-	- Status: Queued
-	- Needs local test suite run?: the whole CodeQL step, once, with no finding left.
-	- Priority|Severity: Avg
-	- Opened: 20261123-100629
-	- Opened by: 2026111915091061
-	- Parent ID: 2026111915091061
-	- Prereq IDs: 2026112310055896, 2026112310055921, 2026112310055945, 2026112310061005, 2026112310061029, 2026112310061055, 2026112310061079
-	- Target OS: Linux
-	- Target version: rc.1
-	- Requirements:
-		- A CodeQL finding left fails the step, as in the per-file analyzer stage.
-		- The step's help text, design.md's leak check text, and the step's note that findings are report only, brought up to date.
-	- Estimated effort: Avg
-	- Test case: de8ep, and a count case in dfha3 for the finding the step then fails on.
-
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
 	- Type: Bug
@@ -622,20 +434,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: in 2026111011410487. The pinned GTK has to free a drag canceled in the turn it began.
 	- Verified: under wine, GTK 3.24.52, with OLE on, a begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. A cancel 300 ms in frees both, as does OLE off either way. It was the same on Windows 11 on 20261022. With the patch, on Windows 11 on 20261022, a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
 	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, without any pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
-
-- Time a copy of many small files with the small-copy checksum on and off.
-	- ID: 2026112416314964
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261124-163149
-	- Opened by:
-	- Related IDs: 2026112416093974
-	- Target version: rc.1
-	- Requirements:
-		- Each small copy now takes a blake3 sum and makes 2 file cache writes in the copy job's thread. Time 10k small files with `file-cache.checksum-full-reads` on and off, by user plus system CPU and by wall time. If the cost is real, batch the writes or move them off the copy thread.
-	- Estimated effort: Low
-	- Test case: none, it's a timing; a regression test follows only if the cost is real.
 
 - Windows: build MSYS2's gtk3 with the OLE drag abort fix in `t00mietum/nemo-anywhere-deps`, as a pinned release file.
 	- ID: 2026111011404145
@@ -731,23 +529,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Estimated effort: Avg
 	- Test case: the new test. It has to fail on MSYS2's stock gtk3 3.24.52-1 and pass on the pinned one.
 
-- Write a long list in the settings file one `- ` item per line, not in brackets.
-	- ID: 2026110911301888
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261109-113018
-	- Opened by: t00mietum
-	- Related IDs: 2026110911251998
-	- Requirements:
-		- A list that won't fit on one short line, such as `favorites`, is written stacked, one `- ` item per line. Brackets are for short lists.
-		- A list already stacked in the file stays stacked, as it does now.
-	- Possible cause: SHCL 3.0.0-beta1 has no way for a setter to ask for the stacked form. `shcl_set_string_array` keeps a list stacked when the file already had it that way, and writes a new one in brackets. It's a missing capability rather than a wrong answer.
-		- Smallest case: parse `state:\n\tfirst-run-done: true\n`, set `favorites` to 3 strings, and the canonical text has `favorites: ["...", "...", "..."]`. The same set on a file that has `favorites:` with `- ` items under it writes them stacked.
-	- Progress log:
-		- 20261109: the Windows dogfood settings file's favorites were stacked by hand, and the app's saves keep them that way.
-	- Test case: none yet. It needs a setter option in SHCL first.
-
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066
 	- Type: Enhancement
@@ -811,6 +592,39 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddytk, Share folder with a local path lists test. A folder that isn't on this machine but has a path, whose listing refuses that call the way gvfs's does, lists all 3 entries with its link followed, and one file there is looked at once, following links. dbee2, Network win32 test, test_smb_addresses: smb addresses taken as typed, parsed, as a uri and as an argument go to the UNC path, the server's share list or the network, with spaces, escapes, a user, domain and port, an IPv6 address, and upper case where typed. ddzxz, Connect to Server address scheme test: ssh and sftp addresses in any case lose the scheme with SSH chosen, other schemes and plain names are kept, and every alias gvfs's mount files declare is checked where gvfs is installed.
 	- Acceptance signoff: Self-closed: ssh is now a full alias for sftp everywhere, Connect to Server included, and the error seen was there (ddzxz). ddytk pins the smb and sftp listings, and dbee2 the Windows smb addresses, checked natively on vm925w with Connect to Server too. Asking only for server and share on Windows is how Windows connects, as the session.
 	- Closed: 20261025-155000
+
+- A copy of many small files is about 30 times slower with the small-copy checksum on, the default.
+	- ID: 2026112513133832
+	- Type: Bug
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: High
+	- Opened: 20261125-131338
+	- Opened by: 2026112416314964
+	- Parent ID: 2026112416314964
+	- Related IDs: 2026112416093974
+	- Target OS: Linux
+	- Target version: rc.1
+	- Incorrect behavior: each small copy keeps its checksum with 2 file cache writes, each its own transaction, in the copy job's thread. 10k small files took 0.75 s of wall time with `file-cache.checksum-full-reads` off and 23.8 s with it on. CPU went from 0.75 s to 4.6 s. About 21 s of the wall time is the cache writes. Most of that is the cache's syncs at its checkpoints, since without them the writes take about 1.8 s.
+	- Expected behavior: the checksum adds little to a copy of many small files, in wall time and in CPU.
+	- Possible fix: queue the copy job's checksums and write them in one transaction per batch, such as every few hundred files and at the end of the job, or hand them to a writer thread. A batch writes each index page once rather than once per file, which cuts the checkpoint syncs too.
+	- Reproduced: 20261125, by the parent's timing, and by dd24j's new batch case, which counts 600 cache writes for 300 copies when each name is its own write.
+	- Actual cause: each copy kept its checksum for the source and the copy as 2 transactions of their own, so the cache rewrote its index pages for every file and synced at every checkpoint.
+	- Decisions:
+		- The copy job holds the checksums and writes them in one transaction a batch, rather than handing them to the cache's writer thread. The job writes what's left when it ends, so the cache has them all once the job is done, and the cost stays on the job's thread, where it can be timed.
+		- A batch is 512 names, 256 copies, or whatever is held once the oldest has waited 1 s, so a view of the target finds them during a long job.
+		- Checksums on the files, with `save-checksum` on, are still written as each copy ends. Only the cache waits.
+		- A new file from a template keeps its 2 names in one write.
+		- What's left of the cost is CPU: the checksum itself and the cache's statements. In the test build, which isn't optimized, the checksum alone is 1.1 s of CPU per 10k files. A release build should take less. That wasn't timed.
+	- Actual fix: the copy job keeps a batch of checksums, and the file cache writes a batch in one transaction, with a savepoint for each name, so one that fails doesn't take the rest back out.
+	- Branch: nov25-2026112513133832
+	- Commit: 7cf6fe8b
+	- Test case: dd24j, Small file copy test, the batch case, Linux only. One copy kept at once is 1 cache write. 300 copies through a batch take 2 writes rather than 600, and every source and copy is in the cache after.
+	- Verified: 20261125, dd24j fails with a write for each name, 2 checks, and passes with the fix. dcxzr, dcy2e and ddf62 pass. The quick format and lint gate passed. gcc's and clang's analyzers are clean on the 4 changed .c files.
+		- 10k small files, 3 rounds, at load 10 to 14 on 32 cores, in the same test build as the parent's timing. Off: 0.73 s CPU, 0.74 s wall. On: 2.81 s CPU, 3.79 s wall, down from 4.6 s and 23.8 s. On with `save-checksum`: 3.29 s CPU, 5.91 s wall, down from 5.2 s and 23.2 s. With syncs made no-ops, the on arm's wall time drops by only about 0.4 s now.
+	- Swept: both callers of `nemo_small_copy_keep_checksum`, the copy job and a new file from a template. A move never makes a small copy. The thumbnail queue keeps one checksum per thumbnail it makes, which is slow work anyway, so it was left alone.
+	- Acceptance signoff: Self-closed: its test fails before and passes after, and the timing shows the cache's writes are no longer most of the cost.
+	- Closed: 20261125-133310
 
 - Nemo Anywhere selection model: need to be able to initiate a left-drag-to-select from the checkmark column.
 	- ID: 2026110919315994
@@ -1521,6 +1335,52 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass 3 runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. dd8d9 covers it.
 	- Closed: 20261003-112426
+
+- Static analyzers and a heap growth check in the pipeline.
+	- ID: 2026101619020505
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261016-190205
+	- Opened by: t00mietum
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- The sanitizer stage stays as it is. ASan, LSan and UBSan already run the whole suite on every full run.
+			- Any report fails the test that made it.
+			- Any leak is fixed. If the fix has to wait, it gets a backlog item, and the test that shows it turns leak detection off with that item's ID beside it.
+			- For a full leak stack, rerun the test with `ASAN_OPTIONS=fast_unwind_on_malloc=0`.
+			- Every test in it runs with `G_SLICE=always-malloc` and `G_DEBUG=gc-friendly`, or GLib hides blocks from the leak check.
+		- Every full run also runs gcc's `-fanalyzer` and the clang static analyzer over all C code in the repo, with no exclusions. That's the code inherited from upstream Nemo, our own, the tests, and the vendored code in `vendor/` and `source/cut-n-paste-code/`.
+			- Windows-only files are checked through the Windows cross build, since the Linux build doesn't compile them. Today that's 61 of the 517 .c files.
+			- A check fails the stage if any tracked .c file is in neither build's compile list, so no file drops out unnoticed.
+			- Vendored SHCL is a single header. It's checked through the file that compiles its implementation. No vendored include folder is marked as a system one, since compilers hide warnings from those.
+			- Vendored code stays as it came. Only the leak, memory and correctness checks run on it, never style lints, since its style isn't ours to fix. A finding there is suppressed in a list outside the file, with a one-line reason, and a real bug goes to its upstream.
+			- Every existing finding is fixed, or suppressed at the line with a one-line reason, before the gate goes live. No baseline file.
+			- They move behind a flag only if a full run shows they're too slow.
+		- A new `--leakcheck` flag on `cicd.bash` adds the slow checks, over the same files:
+			- CodeQL, from a pinned CLI run locally. No hosted service. It covers the Python too.
+				- CodeQL reports only on source inside its database's root. `vendor/` and `source/cut-n-paste-code/` are already in the tree. Linked system libraries such as GLib and GTK aren't, so they aren't checked.
+			- The clang analyzer in cross-file mode, so it follows calls into other .c files.
+			- A heap growth soak test. A headless session opens and closes folders, tabs and thumbnails in a loop under heaptrack. It fails if the heap at round 2N is larger than at round N by more than a set margin. The report is kept with the run's artifacts.
+		- No known-advisory scan. There's no Rust or Go, and the Python has no dependency list. Its only outside package is numpy, in the demo video script.
+		- Every tool is pinned and runs in the containers, never on the host.
+		- Each new gate fails on a planted fault before it's trusted: a leak, a null dereference, and a loop that grows the heap.
+		- Coverity Scan and Infer aren't used. Coverity uploads the build to a third party.
+	- Estimated effort: High
+	- Notes:
+		- About 125 findings were expected from the 2 analyzers on today's tree. Many will be GLib ref-count false positives.
+		- Traps:
+			- `-fanalyzer` does nothing under `-fsyntax-only`. Compile with `-c -o /dev/null`.
+			- With `-Werror`, analyzer findings print as `error: ... [-Werror=analyzer-*]` rather than `warning:`. A parser that only looks for warnings counts 0.
+			- heaptrack and ASan can't share a build. The soak test uses a plain build.
+			- ASan's allocator hides the heap from glibc's own stats, such as `mallinfo2`. A test that reads them should exit as skipped under ASan, not pass.
+		- 20261017: `vendor/shcl-old/` is only built into a test, never into the app, so the vendored code above doesn't take it in. The gaps found in the existing checks on vendored and third-party code are 2026101715252255 to 2026101715252260.
+	- Progress log:
+		- 20261021: Split into children: `2026102114400584` (the stage, report only), `...586` vendored, `...587` inherited, `...588` ours, `...589` tests, `...591` (the gate goes live), `...592` (CodeQL and cross-file clang), `...593` (heap soak), and `2026101911105600` (the flag).
+		- 20261021 counts, unique findings by where they are (vendored, inherited, ours, tests, system headers): gcc on the Linux list 2, 12, 0, 7, 1, total 22, with 3 files not analyzed; gcc on the Windows list 3, 21, 6, 7, 3, total 40; clang on the Linux list 3, 34, 15, 17, 0, total 69; clang on the Windows list not run, since `nemo-winbuild` doesn't have clang. That's 120 unique across the 3. The 5 in system headers are GLib macros, and count toward their callers.
+	- Test case: its children's: 2026102114400592: its children's: 2026111915091061: its children's: 2026112310061005: its children's: 2026112418311521: dfsfq: undo text with no target name and between remote folders, "Open with" for a file with no extension, and the tooltip of a file not read yet have no "(null)". A whole run of both C lanes has no missing-null-test result left in inherited code.; 2026112418310199: a whole run of both C lanes has none of these left.; 2026112418311481: de8ep: the planted read after a function that's NULL only for a NULL argument isn't reported, and a planted NULL passed to it is.; 2026112310061029: de8ep: a planted format from a translation call isn't reported, and one from a function with no body is. Whole runs of both C lanes have no non-constant-format result left.; 2026112310061055: its children's: 2026112511380986: whole runs of both C lanes have none of these rules left in ours or tests. de5kb, dcz6w, ddah8 and dec8v pass.; 2026112511381004: de8ep: a planted g_autofree, an optimized g_new freed by its caller, and a pointer handed to g_ptr_array_add aren't reported, and an optimized g_new never freed is. Whole runs of both C lanes have no memory-never-freed or memory-may-not-be-freed result left in ours or tests.; 2026112310061079: dfsky: Shift+Return in the icon view with no current event opens the folder. dfskz (C lint): a function that calls `gtk_get_current_event` frees the copy. Whole runs of both C lanes have no result left in inherited code. The ellipsis limit fix has no test, since the limits are private to the icon view container and show only as how many lines a name takes.; 2026112310062942: dfha3: one finding left in a system header, or one in the Python lane, with the rest suppressed, fails the count. de8ep is unchanged.; 2026112310055921: dfha3, and both C lanes have no vendored finding left.; 2026112310055945: de8ep: the planted NULL is still found, and the planted g_strdup, g_return_val_if_fail and g_assert_nonnull reads aren't, in both images. Whole runs of both C lanes have no missing-null-test result left in ours or tests.; 2026112310054779: dfha3 (`codeql.py --self-test`): a listed vendored result counts as suppressed; a stale entry, a bad line, an entry outside vendored code and a list it can't read exit 3; `--no-stale` lets a stale entry by; `--match` keeps only the entries it matches.; 2026112310055896: the Python lane run alone, `codeql.bash --lane python`, has no findings left.; 2026110920251244: its children's: 2026111022135419: de8eq, and de8en for the count it then fails on. dfhbg for the icon bounds crash.; 2026111022134952: de8eq, now with a NULL read the other file suppresses, which has to stay quiet.; 2026110920250293: de8ep (`codeql.bash --self-test`, the planted pair in both images), dfha3 (`codeql.py --self-test`, the count, in lint), desha for when the step runs, and dejma and depf5 for the pins.; 2026110920250275: de8eq (`analyze.bash --ctu`, the planted pair in both containers), and desha for when the step runs.; 2026102114400584: de8es (`analyze.bash --self-test`, the planted faults in both containers) and de8em (`analyze.py --self-test`, run by lint). de54r and dddq3 cover the stage's place in the run.; 2026102114400588: da8rb (the bad escape case: both prefix checks, and the parent). The rest is the gate in 2026102114400591, once live.; 2026102114400589: the gate in 2026102114400591, once live. There's no real bug in the app here, so there's no new test.; 2026102114400591: de8en, `test-analyze-gate.bash` in the lint stage. A planted finding in our code, in a system header, and in gcc's `-Werror` form each fail, and so does a stale entry. A listed finding alone passes. de8em tests `count` itself.; 2026102114400593: de8er (`cicd/utility/heap-soak.bash`, the Heap soak step), with its planted heap growth. de54r checks when the step runs.; 2026101911105600: desha (`cicd/utility/test-cicd-leakcheck.bash`, in the lint stage): each flag, both in either order, with `--quick` and with `-q`, and both in `--help`.; 2026102114400587: the gate in 2026102114400591, once live. A real bug fixed here gets its own test: ddamj, dd5ew and dbcw3.; 2026102114400586: de8em (`analyze.py --self-test`) checks the match, stale entries, bad lines, and that the list itself parses. The gate in 2026102114400591, once live, fails on a vendored finding that isn't listed.
+	- Closed: 20261125-141945
 
 - CICD step output: the FreeBSD and arm64 lanes and the private runner.
 	- ID: 2026102819522603
@@ -5693,6 +5553,274 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: de025 tests it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
 
+- Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
+	- ID: 2026102114400592
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261021-144005
+	- Opened by: t00mietum
+	- Parent ID: 2026101619020505
+	- Prereq IDs: 2026101911105600
+	- Target version: rc.1
+	- Requirements:
+		- The parent's CodeQL and cross-file clang requirements, over the same 2 compile lists.
+		- Each is pinned, in a container, and fails on a planted leak and null dereference first.
+	- Estimated effort: High
+	- Progress log:
+		- 20261110: Split into children: `2026110920250275` (cross-file clang, report only), `...293` (CodeQL, report only), `...1244` (the cross-file findings fixed or suppressed, then they fail the run), and `2026111915091061` (the same for CodeQL's). The first 2 are in, and the other 2 are Queued.
+	- Test case: its children's: 2026111915091061: its children's: 2026112310061005: its children's: 2026112418311521: dfsfq: undo text with no target name and between remote folders, "Open with" for a file with no extension, and the tooltip of a file not read yet have no "(null)". A whole run of both C lanes has no missing-null-test result left in inherited code.; 2026112418310199: a whole run of both C lanes has none of these left.; 2026112418311481: de8ep: the planted read after a function that's NULL only for a NULL argument isn't reported, and a planted NULL passed to it is.; 2026112310061029: de8ep: a planted format from a translation call isn't reported, and one from a function with no body is. Whole runs of both C lanes have no non-constant-format result left.; 2026112310061055: its children's: 2026112511380986: whole runs of both C lanes have none of these rules left in ours or tests. de5kb, dcz6w, ddah8 and dec8v pass.; 2026112511381004: de8ep: a planted g_autofree, an optimized g_new freed by its caller, and a pointer handed to g_ptr_array_add aren't reported, and an optimized g_new never freed is. Whole runs of both C lanes have no memory-never-freed or memory-may-not-be-freed result left in ours or tests.; 2026112310061079: dfsky: Shift+Return in the icon view with no current event opens the folder. dfskz (C lint): a function that calls `gtk_get_current_event` frees the copy. Whole runs of both C lanes have no result left in inherited code. The ellipsis limit fix has no test, since the limits are private to the icon view container and show only as how many lines a name takes.; 2026112310062942: dfha3: one finding left in a system header, or one in the Python lane, with the rest suppressed, fails the count. de8ep is unchanged.; 2026112310055921: dfha3, and both C lanes have no vendored finding left.; 2026112310055945: de8ep: the planted NULL is still found, and the planted g_strdup, g_return_val_if_fail and g_assert_nonnull reads aren't, in both images. Whole runs of both C lanes have no missing-null-test result left in ours or tests.; 2026112310054779: dfha3 (`codeql.py --self-test`): a listed vendored result counts as suppressed; a stale entry, a bad line, an entry outside vendored code and a list it can't read exit 3; `--no-stale` lets a stale entry by; `--match` keeps only the entries it matches.; 2026112310055896: the Python lane run alone, `codeql.bash --lane python`, has no findings left.; 2026110920251244: its children's: 2026111022135419: de8eq, and de8en for the count it then fails on. dfhbg for the icon bounds crash.; 2026111022134952: de8eq, now with a NULL read the other file suppresses, which has to stay quiet.; 2026110920250293: de8ep (`codeql.bash --self-test`, the planted pair in both images), dfha3 (`codeql.py --self-test`, the count, in lint), desha for when the step runs, and dejma and depf5 for the pins.; 2026110920250275: de8eq (`analyze.bash --ctu`, the planted pair in both containers), and desha for when the step runs.
+	- Closed: 20261125-141945
+
+- Static analyzers: the CodeQL findings fixed or suppressed, then they fail the run.
+	- ID: 2026111915091061
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261119-150910
+	- Opened by: 2026110920250293
+	- Parent ID: 2026102114400592
+	- Prereq IDs: 2026110920250293
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- Every CodeQL finding, in both compile lists and the Python, is fixed, or suppressed at the line with a one-line reason, or for vendored code in a list outside the file.
+		- Then a finding left fails the step, as in the per-file stage.
+	- Estimated effort: High
+	- Progress log:
+		- 20261123: Split into children: `2026112310054779` (the vendored list and a scoped run), `...55896` (Python), `...55921` (vendored), `...55945` (missing-null-test in ours and tests, class first), `...61005` (the same in inherited), `...61029` (non-constant-format), `...61055` (other C in ours and tests), `...61079` (other C in inherited), and `...62942` (a finding left then fails the step). The first 8 are Done, and `...62942` is Waiting on automated testing.
+	- Test case: its children's: 2026112310061005: its children's: 2026112418311521: dfsfq: undo text with no target name and between remote folders, "Open with" for a file with no extension, and the tooltip of a file not read yet have no "(null)". A whole run of both C lanes has no missing-null-test result left in inherited code.; 2026112418310199: a whole run of both C lanes has none of these left.; 2026112418311481: de8ep: the planted read after a function that's NULL only for a NULL argument isn't reported, and a planted NULL passed to it is.; 2026112310061029: de8ep: a planted format from a translation call isn't reported, and one from a function with no body is. Whole runs of both C lanes have no non-constant-format result left.; 2026112310061055: its children's: 2026112511380986: whole runs of both C lanes have none of these rules left in ours or tests. de5kb, dcz6w, ddah8 and dec8v pass.; 2026112511381004: de8ep: a planted g_autofree, an optimized g_new freed by its caller, and a pointer handed to g_ptr_array_add aren't reported, and an optimized g_new never freed is. Whole runs of both C lanes have no memory-never-freed or memory-may-not-be-freed result left in ours or tests.; 2026112310061079: dfsky: Shift+Return in the icon view with no current event opens the folder. dfskz (C lint): a function that calls `gtk_get_current_event` frees the copy. Whole runs of both C lanes have no result left in inherited code. The ellipsis limit fix has no test, since the limits are private to the icon view container and show only as how many lines a name takes.; 2026112310062942: dfha3: one finding left in a system header, or one in the Python lane, with the rest suppressed, fails the count. de8ep is unchanged.; 2026112310055921: dfha3, and both C lanes have no vendored finding left.; 2026112310055945: de8ep: the planted NULL is still found, and the planted g_strdup, g_return_val_if_fail and g_assert_nonnull reads aren't, in both images. Whole runs of both C lanes have no missing-null-test result left in ours or tests.; 2026112310054779: dfha3 (`codeql.py --self-test`): a listed vendored result counts as suppressed; a stale entry, a bad line, an entry outside vendored code and a list it can't read exit 3; `--no-stale` lets a stale entry by; `--match` keeps only the entries it matches.; 2026112310055896: the Python lane run alone, `codeql.bash --lane python`, has no findings left.
+	- Closed: 20261125-141945
+
+- Static analyzers: the CodeQL missing-null-test findings in inherited code fixed or suppressed.
+	- ID: 2026112310061005
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-100610
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310055945
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- 307 unique on 20261119, before whatever the class fix in 2026112310055945 clears.
+	- Estimated effort: High
+	- Test case: its children's: 2026112418311521: dfsfq: undo text with no target name and between remote folders, "Open with" for a file with no extension, and the tooltip of a file not read yet have no "(null)". A whole run of both C lanes has no missing-null-test result left in inherited code.; 2026112418310199: a whole run of both C lanes has none of these left.; 2026112418311481: de8ep: the planted read after a function that's NULL only for a NULL argument isn't reported, and a planted NULL passed to it is.
+	- 20261125: with the taught query from 2026112310055945, inherited code has 139 unique on the Linux list and 150 on the Windows list, down from 272 and 303. Whole-lane SARIF from it is in `cicd/artifacts/codeql/scoped/`.
+	- Progress log:
+		- 20261124: Split into children: `2026112418311481` (the classes, taught or fixed at the source), `...0199` (the window's active slot reads) and `...1521` (the rest). All 3 are Done.
+	- Closed: 20261125-110852
+
+- Static analyzers: CodeQL missing-null-test in inherited code, the reads left after the class fixes, fixed or suppressed.
+	- ID: 2026112418311521
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261124-183115
+	- Opened by: 2026112310061005
+	- Parent ID: 2026112310061005
+	- Target OS: Linux
+	- Target version: rc.1
+	- Prereq IDs: 2026112418311481
+	- Requirements: 48 unique on the Linux list, plus the Windows list's own, that aren't the window's active slot. Some can be NULL, such as a file's parent for the root folder, a placement grid for a container with no size, a slot's view before it loads, a date that isn't known, and an undo item's first target name.
+	- Estimated effort: High
+	- Actual effort: Avg
+	- Notes:
+		- Most of the rest are a pointer set together with the count or flag tested beside it, as in nemo-view.c's status text, or a queue head read under a test that it isn't empty.
+		- A scoped run misses a NULL that comes from another file, so add the file the value comes from to `--match`, or run the whole lane.
+	- Progress log:
+		- 20261124: 18 suppressed where the pointer is set together with what's tested: nemo-view.c's status text (10), the file queue heads in nemo-directory-async.c (3), the application singleton (3) and a properties window's one file (2). That leaves 30 unique on the Linux list and 32 on the Windows list.
+	- Decisions:
+		- Fixed where a NULL can get there:
+			- An undo item whose one file was skipped or failed has no first target name, so its text read "Delete '(null)'". It takes the count form now, as "Delete 1 copied item". The count form of Create link had no labels, so it gets the single form's.
+			- The undo text named folders by path, which is NULL for a remote folder. It uses the display name now, which is the same text for a local one. That covers the trash and recursive permissions text too.
+			- "Open with" for a file of unknown type with no extension said "(null) document". It falls back to the type's description.
+			- A tooltip leaves out a date that isn't known, rather than "Accessed: (null)".
+			- An action with a URI scheme or the "desktop" condition, shown for a root in Places or the tree, read its NULL parent. A root now fails the scheme test quietly, as it did through the warning before.
+			- A slow second click on an expanded folder's placeholder row in the list view, the New Folder and Open in Terminal menu items and the File menu before the view loads, the trash origin of a file whose original folder is a root, the placement grid of a container with no size yet, and an unknown owner or group in Properties now return early or compare with g_strcmp0.
+		- Suppressed where the value is set together with what's tested beside it: bookmark metadata, a moved file's new parent folder, the enumerator error, the case-folded key, the default window's files, the query editor's query, a non-folder's parent in Open in Terminal, the trash tooltip's original name, the path bar's button walk and a search helper's mime list.
+	- Branch: nov25-2026112418311521
+	- Test case: dfsfq: undo text with no target name and between remote folders, "Open with" for a file with no extension, and the tooltip of a file not read yet have no "(null)". A whole run of both C lanes has no missing-null-test result left in inherited code.
+	- Verified: 20261125, dfsfq fails on the code before the fix, with "(null)" in the undo, "Open with" and tooltip text, and passes after. de1ba passes. Whole runs of both C lanes (`codeql.bash --lane c-linux --lane c-win`) have no missing-null-test result in any area, and no result in another rule that wasn't there before.
+	- Swept: every get_current_view caller in nemo-window-menus.c, the 2 other nemo_placement_grid_new callers, which test for NULL already, every nemo_list_model_file_for_path caller, the group twin of the owner compare, every path in the undo text, and the 3 tooltip dates.
+	- Acceptance signoff: Self-closed: dfsfq and the whole lane runs above.
+	- Closed: 20261125-110815
+
+- Static analyzers: the CodeQL non-constant-format findings fixed or suppressed.
+	- ID: 2026112310061029
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-100610
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310054779
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- 245 unique on 20261119, 237 of them only in the Windows lane, mostly from ngettext and _() strings. The Linux lane knows gettext keeps its format, and the Windows one doesn't seem to know mingw's libintl. Fix that class first, then the rest at the line.
+	- Estimated effort: Avg
+	- Actual effort: Low
+	- Decisions:
+		- Every one was a translation the query couldn't see through. mingw's libintl.h makes gettext and its kin macros for `libintl_gettext` and the like, and gi18n-lib.h's `_()` is `g_dgettext`, `C_()` and `Q_()` are `g_dpgettext`. The pack's model knows only the glibc names, and takes any other call with no body as a source. That was all 248 in the Windows lane and all 8 in the Linux one, so none needed a fix or a suppression at the line.
+		- The query runs from our own copy, `cicd/utility/codeql-cpp/NonConstantFormat.ql`, with those functions modeled as passing their msgid's format through, as the pack does for gettext. codeql-c.qls drops the pack's copy by its path. A model file can't do it, since the query reads only the QL models.
+		- de8ep now plants a format from `libintl_ngettext` and `g_dpgettext`, which it fails on if reported, and one from a function with no body, which it fails on if not.
+		- de8ep's check that a planted line is still reported never ran, since its marker wasn't at the end of the line. It does now, and the planted NULL argument is reported.
+	- Branch: nov25-2026112310061029
+	- Test case: de8ep: a planted format from a translation call isn't reported, and one from a function with no body is. Whole runs of both C lanes have no non-constant-format result left.
+	- Verified: 20261125, de8ep passes in both images, and fails with the pack's query at the 2 planted translation formats. Whole runs of both C lanes (`codeql.bash --lane c-win --lane c-linux`): non-constant-format 248 to 0 in the Windows lane and 8 to 0 in the Linux one, against the 20261124 whole-step SARIF. Every other rule's count is the same, apart from missing-null-test's earlier fixes. The Python lane has no findings.
+	- Swept: every translation macro in gi18n.h and gi18n-lib.h (`_()`, `Q_()`, `C_()`), the 6 gettext calls mingw's libintl.h redirects, and GLib's `g_dgettext`, `g_dcgettext`, `g_dngettext`, `g_dpgettext` and `g_dpgettext2`.
+	- Acceptance signoff: Self-closed: de8ep and the whole lane runs above.
+	- Closed: 20261125-113453
+
+- Static analyzers: the other CodeQL C findings in our code and tests fixed or suppressed.
+	- ID: 2026112310061055
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-100610
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310054779
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- About 115 unique on 20261119: memory-never-freed 49, world-writable-file-creation 43 (all tests), memory-may-not-be-freed 8, equality-on-floats 5, stack-address-escape 4, inconsistent-null-check 4, and a few single ones.
+	- Estimated effort: High
+	- Test case: its children's: 2026112511380986: whole runs of both C lanes have none of these rules left in ours or tests. de5kb, dcz6w, ddah8 and dec8v pass.; 2026112511381004: de8ep: a planted g_autofree, an optimized g_new freed by its caller, and a pointer handed to g_ptr_array_add aren't reported, and an optimized g_new never freed is. Whole runs of both C lanes have no memory-never-freed or memory-may-not-be-freed result left in ours or tests.
+	- 20261123: 2 more cpp/world-writable-file-creation in new test probes, `test-nemo-view-keys-probe.c:423` and `test-nemo-zoom-window-probe.c:186`, both `fopen (path, "w")` on a results file. Found by a scoped c-linux run.
+	- Progress log:
+		- 20261125: 114 unique left in whole runs of both C lanes. Split into children: `2026112511380986` (63, the rules outside the leak queries) and `...81004` (51, the leak queries). Both are Done.
+	- Branch: nov25-2026112310061055
+	- Acceptance signoff: Self-closed: both children are.
+	- Closed: 20261125-122910
+
+- Static analyzers: the CodeQL C findings in our code and tests outside the leak queries fixed or suppressed.
+	- ID: 2026112511380986
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261125-113809
+	- Opened by: 2026112310061055
+	- Parent ID: 2026112310061055
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements: 63 unique in whole runs of both C lanes on 20261125: world-writable-file-creation 45 (all tests), equality-on-floats 5, stack-address-escape 4, inconsistent-null-check 4, unused-static-function 3, lossy-function-result-cast 1, toctou-race-condition 1.
+	- Estimated effort: Avg
+	- Actual effort: Low
+	- Decisions:
+		- Fixed where the code could do better: test-fence.c's realpath stand-in gives up on a path with no slash rather than reading past a NULL, and the drag select probe casts its double coordinates to int itself.
+		- Suppressed at the line:
+			- The world-writable files are a test's own scratch files, in its own folder, made under the umask.
+			- The float compares are exact round trips, which is what those tests check.
+			- The stack addresses are callback data, and a caller that passes one waits for the callback.
+			- shcl-old-writer.c is built once per old SHCL release, and each build calls its own make_text, so the other is unused only in a build that doesn't compile it.
+			- The stat then chmod in nemo-lnk.c puts back the mode the rewrite lost. A swap in between needs write access to the folder already.
+			- The thumbnail tests look up a file: URI, which always gets a file. 20261125: asserts there at first raised the share of checked `nemo_file_get_by_uri` calls in the Windows lane to 85%, which turned 2 unchecked calls in inherited nemo-file.c into new results. So they're suppressed instead.
+	- Branch: nov25-2026112310061055
+	- Test case: whole runs of both C lanes have none of these rules left in ours or tests. de5kb, dcz6w, ddah8 and dec8v pass.
+	- Verified: 20261125, `codeql.bash --lane c-linux --lane c-win --match` over the 53 files leaves only memory-never-freed and memory-may-not-be-freed, which are `...81004`'s. de5kb, dcz6w, ddah8 and dec8v pass. gcc's and clang's analyzers are clean on the 4 test files with code changes. `--backlog-run-quick format lint` passes. Whole runs of both C lanes, with `...81004`'s change too, have no result left in ours or tests, and no rule gains one in inherited code.
+	- Swept: every result of these 7 rules in ours and tests in the 20261125 whole runs of both C lanes.
+	- Acceptance signoff: Self-closed: the scoped run and tests above.
+	- Closed: 20261125-114838
+
+- Static analyzers: the CodeQL memory-never-freed and memory-may-not-be-freed findings in our code and tests fixed or suppressed.
+	- ID: 2026112511381004
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261125-113810
+	- Opened by: 2026112310061055
+	- Parent ID: 2026112310061055
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements: 51 unique in whole runs of both C lanes on 20261125, 35 in ours and 16 in tests. Many look like classes the pack's query can't follow: a g_autofree variable, g_new and g_renew in the release build's Windows lane, and an allocation handed to a GLib container. Teach those first, then the rest at the line.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Decisions:
+		- The query runs from our own copy, `cicd/utility/codeql-cpp/MemoryNeverFreed.ql`, in place of the pack's, taught 3 things the points-to library can't see:
+			- A g_autofree variable is freed by its cleanup function.
+			- An optimized build's g_new and g_renew are statement expressions whose value is a local holding the allocation. The statement expression's own value is what has to reach a free.
+			- A pointer handed to a GLib container or call that takes it, such as g_ptr_array_add, g_hash_table_insert, g_task_return_pointer or g_bytes_new_take, is freed with it. That's as lax as the pack already is, which takes any argument to a call through a pointer as freed.
+		- That cleared 37 of the 51, and 30 of the 43 in inherited code in the Windows lane, which `2026112310061079` no longer needs to look at.
+		- memory-may-not-be-freed stays the pack's. With the copy's wider idea of freed, it would check every g_autofree variable's paths, and flag each return.
+		- Suppressed at the line, the other 14: an allocation kept for the life of the process (a g_once cache, a test's fenced roots and the counting thread's path), one g_bytes_new_take or the clipboard takes on the way out, a GPrivate's g_free notify, a test program's text, the crash test's code page, and an STGMEDIUM the caller frees.
+	- Branch: nov25-2026112310061055
+	- Test case: de8ep: a planted g_autofree, an optimized g_new freed by its caller, and a pointer handed to g_ptr_array_add aren't reported, and an optimized g_new never freed is. Whole runs of both C lanes have no memory-never-freed or memory-may-not-be-freed result left in ours or tests.
+	- Verified: 20261125, de8ep passes in both images, and fails with the pack's query at the 3 planted lines it now passes. `--backlog-run-quick format lint` passes. Whole runs of both C lanes (`codeql.bash --lane c-linux` and `--lane c-win`): ours and tests have no result in any rule; memory-never-freed in inherited code goes 43 to 13 in the Windows lane, and no rule gains a result over the 20261125 whole runs. The vendored list has no stale entry against those runs.
+	- Swept: every memory-never-freed and memory-may-not-be-freed result in ours and tests in the 20261125 whole runs of both C lanes, and design.md's CodeQL text.
+	- Acceptance signoff: Self-closed: de8ep and the whole lane runs above.
+	- Closed: 20261125-122910
+
+- Static analyzers: the other CodeQL C findings in inherited code fixed or suppressed.
+	- ID: 2026112310061079
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-100610
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310054779
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- About 100 unique on 20261119: memory-never-freed 42, equality-on-floats 20, lossy-function-result-cast 17, stack-address-escape 7, integer-multiplication-cast-to-long 4, double-free 2, inconsistent-null-check 2, and one each of use-after-free, suspicious-add-sizeof, incorrectly-checked-scanf and incomplete-parity-check.
+	- Estimated effort: High
+	- Actual effort: Avg
+	- Decisions:
+		- 20261125: 71 unique were left in both C lanes, after the null-test and leak query work.
+		- Fixed where the code could do better:
+			- The icon view's alternate open, Shift+Return or a middle click, kept a copy of the current event and never freed it. It also read it with no NULL check. Every menu action and every click on a Places row kept a copy too. Each one frees it now, and a C lint check fails on a function that calls `gtk_get_current_event` and never frees what it gets.
+			- The text ellipsis limit setting took an empty entry as a match, which put every zoom step back to 3 lines. The entry has to give a number now.
+			- The custom icon chooser freed 2 strings in its loop that were always NULL there. Those 2 frees are gone, which was the double-free.
+			- The rest read the same as before: the striped row test is right for a negative row too, the terminal command's arguments start at `argvp + 1` rather than `argvp + sizeof (gchar)`, icon sizes are multiplied as gsize, and a double that's a pixel count is cast to int where it's stored.
+		- Suppressed at the line:
+			- Float compares that look for any change at all, or compare a value with one of its own inputs.
+			- Callback data that a caller may give as a stack address, since that caller waits for the callback.
+			- The Windows lane's g_new blocks that are freed in a callback, by a caller, or by g_strfreev, which the query can't follow.
+			- A NULL icon the next call handles, a selection list that can't be empty, and the tree's rename text, which is set again before it's read.
+	- Branch: nov25-2026112310061079
+	- Test case: dfsky: Shift+Return in the icon view with no current event opens the folder. dfskz (C lint): a function that calls `gtk_get_current_event` frees the copy. Whole runs of both C lanes have no result left in inherited code. The ellipsis limit fix has no test, since the limits are private to the icon view container and show only as how many lines a name takes.
+	- Verified: 20261125, dfsky fails on the code before the fix, with the program gone, and passes after. dfskz reports the 2 callbacks on the code before the fix, and found the Places one. dfpq4 passes. gcc's and clang's analyzers are clean on the 13 files with code changes. `--backlog-run-quick format lint` passes. Whole runs of both C lanes (`codeql.bash --lane c-linux --lane c-win`) have no result left in any area.
+	- Swept: every result of these 11 rules in inherited code in the 20261125 whole runs of both C lanes, every `gtk_get_current_event` caller in the app, and the other icon size products passed as gsize.
+	- Acceptance signoff: Self-closed: dfsky, dfskz and the whole lane runs above.
+	- Closed: 20261125-125400
+
+- Static analyzers: a CodeQL finding left fails the step.
+	- ID: 2026112310062942
+	- Type: Enhancement
+	- Status: Done
+	- Needs local test suite run?: No
+	- Priority|Severity: Avg
+	- Opened: 20261123-100629
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310055896, 2026112310055921, 2026112310055945, 2026112310061005, 2026112310061029, 2026112310061055, 2026112310061079
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- A CodeQL finding left fails the step, as in the per-file analyzer stage.
+		- The step's help text, design.md's leak check text, and the step's note that findings are report only, brought up to date.
+	- Estimated effort: Avg
+	- Actual effort: Low
+	- Decisions:
+		- A whole run and a scoped run now share one verdict on the count: a finding left fails either, and so does a count that can't finish.
+		- The count still runs, and the counts and findings are still kept, before the step fails, so a failed run leaves what it found.
+	- Branch: nov25-2026112310062942
+	- Test case: dfha3: one finding left in a system header, or one in the Python lane, with the rest suppressed, fails the count. de8ep is unchanged.
+	- Verified: 20261125, dfha3 passes, and fails on both new cases with system and Python findings left out of the count. With the step containers stubbed, a whole run with one finding left fails the step and a clean one passes, and on the code before the change the one with a finding passed. A scoped run behaves the same as before. shellcheck is clean.
+	- Verified: 20261125, the whole CodeQL step on nov25 at 214e8beb (build-cross, then codeql.bash) passed: de8ep PASS, 0 findings in c-linux, c-win and python, 255 and 242 suppressed, OK CodeQL stage.
+	- Swept: the step's help text, `CODEQL_CMD`'s note in config.bash, design.md's CodeQL text, and cicd.bash, which runs the step as a hard step already.
+	- Commit: 238603cd
+	- Closed: 20261125
+
 - Need ability to enter variables in the path bar. E.g. `$TMP9`.
 	- ID: 2026101613053687
 	- Type: Enhancement
@@ -8216,6 +8344,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: ddf4w Config old formats test.
 	- Acceptance signoff: Self-closed: ddf4w is in the suite and passes on Linux and natively on Windows.
 	- Closed: 20261003-174609
+
+- ddmn7 fails now and then when a second ticks over between the 2 dates it takes for its young run folder.
+	- ID: 2026112513332264
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261125-133322
+	- Opened by: 2026112513133832
+	- Target OS: Linux
+	- Target version: rc.1
+	- Incorrect behavior: the quick lint gate failed once at ddmn7 with `run.pid: No such file or directory` for a `*_009` folder under the stand-in box's temp root, and passed on the rerun.
+	- Expected behavior: ddmn7 passes every time.
+	- Reproduced: once, 20261125, in the quick gate at load 13. Read only after that.
+	- Possible cause: `cicd/bsd/test-lane.bash` makes the young folder with one `$(date +%Y%m%d-%H%M%S)` and writes its `run.pid` with another, so a second ticking over between them names a folder that isn't there.
+	- Possible fix: take the date once into a variable and use it for both.
+	- Test case: ddmn7 itself. A run with the date pinned across a second boundary would show it.
+	- Actual cause: the young folder's name and its run.pid path each took their own date, so a second ticking over between them named a folder that wasn't there.
+	- Actual fix: the date is taken once into youngDir, and both the mkdir and the run.pid write use it. Swept: no other script under cicd/ builds a folder name from date twice.
+	- Commit: 73b71111
+	- Verified: 20261125, ddmn7 (bash cicd/bsd/test-lane.bash) passed, and shellcheck is clean. The second-boundary case is fixed by reading only.
+	- Closed: 20261125
 
 - Nemo Anywhere: a Shift drag from a selected object takes the run to it, rather than the selection as it was.
 	- ID: 2026111913460865
@@ -12037,6 +12186,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: ddymm tests the list, the message, and the line under the box, and dbj6x the extract. `_` in extracted names is what 7-Zip does. `/` keeping its old text is fine for now.
 	- Closed: 20261016-130621
 
+- Time a copy of many small files with the small-copy checksum on and off.
+	- ID: 2026112416314964
+	- Type: Task
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261124-163149
+	- Opened by:
+	- Related IDs: 2026112416093974
+	- Target version: rc.1
+	- Requirements:
+		- Each small copy now takes a blake3 sum and makes 2 file cache writes in the copy job's thread. Time 10k small files with `file-cache.checksum-full-reads` on and off, by user plus system CPU and by wall time. If the cost is real, batch the writes or move them off the copy thread.
+	- Estimated effort: Low
+	- Test case: its children's: 2026112513133832: dd24j, Small file copy test, the batch case, Linux only. One copy kept at once is 1 cache write. 300 copies through a batch take 2 writes rather than 600, and every source and copy is in the cache after.
+	- Progress log:
+		- 20261125: timed. 10k small files, from 0 to 64 KiB, mostly under 4 KiB, through the copy job's small copy steps, 3 rounds in turn, at load 8 on 32 cores. Off: 0.22 s user, 0.52 s sys, 0.75 s wall. On: 2.63 s user, 1.95 s sys, 23.8 s wall. On with `save-checksum`: 2.86 s user, 2.32 s sys, 23.2 s wall. That's about 0.38 ms of CPU and 2.3 ms of wall time more per file. The cost is real, so the fix is child 2026112513133832.
+	- Decisions:
+		- The timing and the fix are split, since the fix needs a batched cache write and its own test.
+	- Closed: 20261125-133409
+
 - The hosted Windows build warns that MSYS2's MINGW64 environment is deprecated.
 	- ID: 2026102809292776
 	- Type: Task
@@ -13898,6 +14066,37 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de7aj itself, in the sanitizer lane.
 	- Acceptance signoff: Self-closed: passed alone right after, and in every sanitizer run log since.
 	- Closed: 20261117-095337
+
+- Write a long list in the settings file one `- ` item per line, not in brackets.
+	- ID: 2026110911301888
+	- Type: Enhancement
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Low
+	- Opened: 20261109-113018
+	- Opened by: t00mietum
+	- Related IDs: 2026110911251998
+	- Target version: rc.1
+	- Requirements:
+		- A list that won't fit on one short line, such as `favorites`, is written stacked, one `- ` item per line. Brackets are for short lists.
+		- A list already stacked in the file stays stacked, as it does now.
+	- Possible cause: SHCL 3.0.0-beta1 has no way for a setter to ask for the stacked form. `shcl_set_string_array` keeps a list stacked when the file already had it that way, and writes a new one in brackets. It's a missing capability rather than a wrong answer.
+		- Smallest case: parse `state:\n\tfirst-run-done: true\n`, set `favorites` to 3 strings, and the canonical text has `favorites: ["...", "...", "..."]`. The same set on a file that has `favorites:` with `- ` items under it writes them stacked.
+	- Progress log:
+		- 20261109: the Windows dogfood settings file's favorites were stacked by hand, and the app's saves keep them that way.
+	- Decisions:
+		- Worked around in the app until SHCL has a setter for it. At each save, a list line over 80 bytes past its indent gets a stacked stand-in, the real items are set over it, and SHCL writes them. The result is kept only when every key reads as before and no other line changed; otherwise the list stays in brackets.
+		- It applies to any long list in the file at a save, not only one changed in the app, since the app writes the whole file.
+		- A long list with a comment after it on the same line stays in brackets, so the comment stays where it was.
+		- A stacked list stays stacked however short it gets, as SHCL already does.
+	- Note: an SHCL patch that adds a call to ask for the stacked form is drafted. Once SHCL takes it, the stand-in goes.
+	- Verified: 20261125, Linux: dav3s fails with the stand-in turned off and passes with it. dc8tz, ddez6, ddf4w, ddqa7, dbfh8, db9wp, dfpt0 and dbsx7 pass. The lint gate passed. clang's analyzer finds nothing in the 2 changed C files, and gcc's nothing in the test file.
+	- Swept: the one save path, `save_now`, writes the file. `known_keys_only` and the dev-format conversion build text that the next save writes, so they get the same layout.
+	- Branch: nov25-2026110911301888
+	- Commit: f728bca6
+	- Test case: dav3s, Config store test: `test_long_list_stacked`, a long favorites list with quotes, a comma, brackets and a leading `-` in items, written stacked and read back, a short list kept in brackets, and a stacked list read from the file staying stacked when set long and then short.
+	- Acceptance signoff: Self-closed: dav3s fails without the change and passes with it.
+	- Closed: 20261125-135028
 
 - Settings: sub-tabs don't list on the left until the parent tab is activated.
 	- ID: 2026101417352262

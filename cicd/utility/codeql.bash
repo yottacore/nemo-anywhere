@@ -6,14 +6,17 @@
 ##	  container of its own. The CLI and query packs are the ones pinned in
 ##	  linux/Dockerfile.dev and win/Dockerfile, run locally, with no hosted
 ##	  service. codeql-c.qls and codeql-python.qls pick the queries, and
-##	  codeql-cpp/ has our own, such as missing-null-test taught about GLib.
+##	  codeql-cpp/ has our own, such as missing-null-test taught about GLib,
+##	  non-constant-format taught the translation calls, and memory-never-freed
+##	  taught GLib's frees.
 ##	- Fails when the C queries miss the planted leak or null dereference in
-##	  either container, or report the planted GLib idioms (test de8ep),
+##	  either container, or report the planted GLib and gettext idioms (test de8ep),
 ##	  when codeql is missing from an image, when a lane fails, when the
 ##	  count can't read a lane's SARIF, or on a bad or stale entry in
-##	  codeql-vendored.txt. Findings are counted per area and
-##	  kept, and are report only for now (backlog 2026111915091061). Vendored
-##	  ones listed in codeql-vendored.txt count as suppressed.
+##	  codeql-vendored.txt, or on any finding left (backlog 2026112310062942).
+##	  Findings are counted per area and kept. Ours and inherited ones are
+##	  suppressed at the line with a codeql[<rule>] comment, and vendored ones
+##	  listed in codeql-vendored.txt count as suppressed.
 ##	- The last run's SARIF and logs are in cicd/artifacts/codeql/last/. Each
 ##	  run also keeps counts_<stamp>.txt and findings_<stamp>.tgz there,
 ##	  GFS-rotated.
@@ -150,20 +153,18 @@ countRc=0
 sarifs=(); for l in "${lanes[@]}"; do sarifs+=("${last}/${l%%|*}.sarif"); done
 if ((scoped)); then
 	python3 "${here}/codeql.py" count --no-stale "${root}" "${sarifs[@]}" || countRc=$?
-	case "${countRc}" in
-		0)  ;;
-		1)  fEcho "FAILED: findings left in the scoped run"; failed=1 ;;
-		*)  fEcho "FAILED: the count exited ${countRc}"; failed=1 ;;
-	esac
+else
+	python3 "${here}/codeql.py" count "${root}" "${sarifs[@]}" | tee "${out}/counts_${stamp}.txt" || countRc="${PIPESTATUS[0]}"
+fi
+case "${countRc}" in
+	0)  ;;
+	1)  fEcho "FAILED: CodeQL findings left, listed above"; failed=1 ;;
+	*)  fEcho "FAILED: the count exited ${countRc}"; failed=1 ;;
+esac
+if ((scoped)); then
 	((failed)) && fDie "CodeQL scoped run"
 	fEcho "OK: CodeQL scoped run"; exit 0
 fi
-python3 "${here}/codeql.py" count "${root}" "${sarifs[@]}" | tee "${out}/counts_${stamp}.txt" || countRc="${PIPESTATUS[0]}"
-case "${countRc}" in
-	0)  ;;
-	1)  fEcho "The CodeQL findings above don't fail the run yet (backlog 2026111915091061)" ;;
-	*)  fEcho "FAILED: the count exited ${countRc}"; failed=1 ;;
-esac
 tar -C "${last}" -czf "${out}/findings_${stamp}.tgz" "${logs[@]}"
 gfs_rotate "${out}" counts txt   >/dev/null 2>&1 || true
 gfs_rotate "${out}" findings tgz >/dev/null 2>&1 || true
@@ -175,3 +176,6 @@ fEcho "OK: CodeQL stage"
 ##		- 2026-11-19: First version, report only.
 ##		- 2026-11-23: codeql-vendored.txt, and a scoped run with --lane and --match.
 ##		- 2026-11-24: missing-null-test from codeql-cpp/, taught about GLib.
+##		- 2026-11-25: non-constant-format from codeql-cpp/, taught the translation calls.
+##		- 2026-11-25: memory-never-freed from codeql-cpp/, taught g_autofree, an optimized g_new and GLib's takers.
+##		- 2026-11-25: A finding left fails the step.

@@ -575,6 +575,7 @@ nemo_centered_placement_grid_clear_grid_for_selection (NemoCenteredPlacementGrid
     for (p = drag_sel_list; p != NULL; p = p->next) {
         item = p->data;
 
+        // codeql[cpp/inconsistent-null-check] NULL is fine, the next call takes it
         icon = nemo_icon_container_get_icon_by_uri (grid->container, item->uri);
 
         nemo_centered_placement_grid_nominal_to_icon_position (grid,

@@ -484,7 +484,9 @@ nemo_mime_application_chooser_apply_labels (NemoMimeApplicationChooser *chooser)
 		/* here we assume all files are of the same content type */
 		if (g_content_type_is_unknown (chooser->details->content_type)) {
 			extension = get_extension_from_file (NEMO_FILE (chooser->details->files->data));
+		}
 
+		if (extension != NULL) {
 			/* the %s here is a file extension */
 			description = g_strdup_printf (_("%s document"), extension);
 		} else {
@@ -502,7 +504,9 @@ nemo_mime_application_chooser_apply_labels (NemoMimeApplicationChooser *chooser)
 
 		if (g_content_type_is_unknown (chooser->details->content_type)) {
 			extension = get_extension (basename);
+		}
 
+		if (extension != NULL) {
 			/* the %s here is a file extension */
 			description = g_strdup_printf (_("%s document"), extension);
 		} else {

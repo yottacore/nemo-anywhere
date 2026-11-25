@@ -3173,6 +3173,7 @@ static void
 eel_editable_label_do_popup (EelEditableLabel *label,
 			     GdkEventButton   *event)
 {
+  // codeql[cpp/memory-never-freed] freed in the clipboard callback
   PopupInfo *info = g_new (PopupInfo, 1);
 
   /* In order to know what entries we should make sensitive, we
@@ -4021,6 +4022,7 @@ eel_editable_label_accessible_paste_text (AtkEditableText *text,
 
   /* Heap, not stack: the reply can arrive after we return when the clipboard
    * is owned by another process. Freed in the receive callback. */
+  // codeql[cpp/memory-never-freed] freed in the receive callback
   paste_struct = g_new (EelEditableLabelAccessiblePaste, 1);
   paste_struct->label = EEL_EDITABLE_LABEL (widget);
   paste_struct->position = position;

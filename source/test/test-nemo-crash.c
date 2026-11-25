@@ -86,6 +86,7 @@ run_generated (const unsigned char *body, gsize body_len,
 	unsigned char *base;
 	void (*entry) (void);
 
+	// codeql[cpp/memory-never-freed] the test crashes in this code on purpose
 	base = VirtualAlloc (NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
 	if (base == NULL) {
 		return;

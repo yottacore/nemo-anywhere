@@ -158,6 +158,7 @@ write_big_psd (const char *path)
 		left -= run;
 	}
 
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	out = fopen (path, "wb");
 	if (out == NULL) {
 		return FALSE;

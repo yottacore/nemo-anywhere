@@ -430,13 +430,14 @@ nemo_icon_container_scroll (NemoIconContainer *container,
 	 * where the resulting value got pinned to the adjustment
 	 * min or max.
 	 */
-	old_h_value = gtk_adjustment_get_value (hadj);
-	old_v_value = gtk_adjustment_get_value (vadj);
+	old_h_value = (int) gtk_adjustment_get_value (hadj);
+	old_v_value = (int) gtk_adjustment_get_value (vadj);
 
 	gtk_adjustment_set_value (hadj, gtk_adjustment_get_value (hadj) + delta_x);
 	gtk_adjustment_set_value (vadj, gtk_adjustment_get_value (vadj) + delta_y);
 
 	/* return TRUE if we did scroll */
+	// codeql[cpp/equality-on-floats] any scroll at all is what's tested
 	return gtk_adjustment_get_value (hadj) != old_h_value || gtk_adjustment_get_value (vadj) != old_v_value;
 }
 
@@ -998,9 +999,11 @@ nemo_icon_container_update_scroll_region (NemoIconContainer *container)
 
 	/* Scroll by 1/4 icon each time you click. */
 	step_increment = container->details->icon_size / 4;
+	// codeql[cpp/equality-on-floats] any change at all is what's tested
 	if (gtk_adjustment_get_step_increment (hadj) != step_increment) {
 		gtk_adjustment_set_step_increment (hadj, step_increment);
 	}
+	// codeql[cpp/equality-on-floats] any change at all is what's tested
 	if (gtk_adjustment_get_step_increment (vadj) != step_increment) {
 		gtk_adjustment_set_step_increment (vadj, step_increment);
 	}
@@ -1369,13 +1372,13 @@ rubberband_update (NemoIconContainer *container)
 	adj_changed = FALSE;
 	gtk_widget_get_allocation (widget, &allocation);
 
-	adj_x = gtk_adjustment_get_value (gtk_scrollable_get_hadjustment (GTK_SCROLLABLE (container)));
+	adj_x = (int) gtk_adjustment_get_value (gtk_scrollable_get_hadjustment (GTK_SCROLLABLE (container)));
 	if (adj_x != band_info->last_adj_x) {
 		band_info->last_adj_x = adj_x;
 		adj_changed = TRUE;
 	}
 
-	adj_y = gtk_adjustment_get_value (gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (container)));
+	adj_y = (int) gtk_adjustment_get_value (gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (container)));
 	if (adj_y != band_info->last_adj_y) {
 		band_info->last_adj_y = adj_y;
 		adj_changed = TRUE;
@@ -8130,7 +8133,7 @@ nemo_icon_container_start_renaming_selected_item (NemoIconContainer *container,
 		/* for one-line editables, the width changes dynamically */
 		width = -1;
 	} else {
-		width = nemo_icon_canvas_item_get_max_text_width (icon->item);
+		width = (int) nemo_icon_canvas_item_get_max_text_width (icon->item);
 	}
 
 	rename_widget_place (container, icon, width, &x, &y);
@@ -9304,7 +9307,9 @@ nemo_icon_container_update_icon (NemoIconContainer *container,
 
     /* A thumbnail is rarely the size of the type icon it replaces. The row
        keeps its baseline only once the icon is laid out again. */
+    // codeql[cpp/equality-on-floats] any change in size is what's tested
     if (after.x1 - after.x0 != before.x1 - before.x0 ||
+        // codeql[cpp/equality-on-floats] any change in size is what's tested
         after.y1 - after.y0 != before.y1 - before.y0) {
         schedule_redo_layout (container);
     }

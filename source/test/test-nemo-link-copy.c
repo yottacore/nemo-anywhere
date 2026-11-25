@@ -371,6 +371,7 @@ check_hardlink (const char *dir)
 	g_clear_error (&error);
 
 	/* Written in place through one name, seen through the other. */
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	fp = g_fopen (second, "ab");
 	check (fp != NULL);
 	if (fp != NULL) {
@@ -422,6 +423,7 @@ check_hardlink_of_symlink (const char *dir)
 	check (nemo_link_create_hard (link, made, &error));
 	g_clear_error (&error);
 	check (kind_of (made) == NEMO_LINK_NONE);
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	fp = g_fopen (made, "ab");
 	check (fp != NULL);
 	if (fp != NULL) {

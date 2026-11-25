@@ -20,8 +20,9 @@
 #            a planted leak and a planted null dereference, built with the
 #            lane's compiler, so the tracer is shown to see it. Fails too on
 #            a report at the planted GLib idioms the NULL query is taught,
-#            or none at a NULL passed to a function that's NULL only for a
-#            NULL argument.
+#            or at a format from a translation call, or none at a NULL passed
+#            to a function that's NULL only for a NULL argument, or at a
+#            format from a function with no body.
 #   count    Counts results per area from the lanes' SARIF, as analyze.py does
 #            for the analyzers. A vendored result listed in codeql-vendored.txt
 #            counts as suppressed. Exits 1 on any result left, 2 on SARIF it
@@ -68,7 +69,8 @@ SUPP_FILE = "cicd/utility/codeql-vendored.txt"
 PACK = os.path.join(HERE, "codeql-cpp")
 MATCH_ENV = "CODEQL_REPLAY_MATCH"
 PLANTED_WANT = {"cpp/memory-never-freed", "cpp/missing-null-test"}
-PLANTED = """#include <stdlib.h>
+PLANTED = """#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 int planted_leak(int n) { char *p = malloc(16); if (!p) return -1; memset(p, n, 16); return p[0]; }
 int planted_null(int n) { int *q = 0; if (n > 1) return 0; return *q; }
@@ -87,13 +89,51 @@ int planted_glib (const char *s) {
 	g_assert_nonnull (c);
 	return n + c[0]; /* quiet */
 }
+char *libintl_ngettext (const char *one, const char *many, unsigned long n);
+const char *g_dpgettext (const char *domain, const char *msgctxtid, unsigned long msgidoffset);
+char *planted_unknown (void);
+void planted_format (unsigned long n) {
+	printf (libintl_ngettext ("%lu file\\n", "%lu files\\n", n), n); /* quiet */
+	printf (g_dpgettext (0, "Count\\004%lu\\n", 6), n); /* quiet */
+	printf (planted_unknown (), n); /* loud format */
+}
+void *g_malloc (unsigned long n);
+void g_free (void *p);
+void g_ptr_array_add (void *array, void *data);
+void g_autoptr_cleanup_generic_gfree (void *p) { g_free (*(void **) p); }
+#define g_autofree __attribute__ ((cleanup (g_autoptr_cleanup_generic_gfree)))
+#define g_new_opt(n) ((int *) ({ unsigned long n_ = (unsigned long) (n); void *p_; p_ = g_malloc (n_ * sizeof (int)); p_; }))
+int planted_autofree (int n) {
+	g_autofree char *p = g_malloc (16); /* quiet */
+	memset (p, n, 16);
+	return p[0];
+}
+int planted_gnew (int n) {
+	int *v = g_new_opt (n); /* quiet */
+	v[0] = n;
+	n = v[0];
+	g_free (v);
+	return n;
+}
+int planted_gnew_leak (int n) {
+	int *v = g_new_opt (n); /* loud leak */
+	v[0] = n;
+	return v[0];
+}
+void planted_taken (void *array) { char *s = g_malloc (8); g_ptr_array_add (array, s); } /* quiet */
 """
 # Lines GLib's idioms make look like a NULL dereference, which
-# codeql-cpp/MissingNullTest.ql is taught to pass.
+# codeql-cpp/MissingNullTest.ql is taught to pass, formats from the
+# translation calls codeql-cpp/NonConstantFormat.ql is taught, and GLib's
+# frees codeql-cpp/MemoryNeverFreed.ql is taught.
 PLANTED_QUIET = {i + 1 for i, line in enumerate(PLANTED.splitlines()) if line.endswith("/* quiet */")}
-# And a NULL argument to a function that's NULL only for a NULL argument, which
-# it still has to report.
-PLANTED_LOUD = {i + 1 for i, line in enumerate(PLANTED.splitlines()) if line.endswith("/* loud */")}
+# And a NULL argument to a function that's NULL only for a NULL argument, a
+# format from a function it knows nothing about, and an optimized g_new never
+# freed, which they still have to report.
+PLANTED_LOUD = {i + 1: rule for i, line in enumerate(PLANTED.splitlines())
+                for mark, rule in (("/* loud */", "cpp/missing-null-test"), ("/* loud format */", "cpp/non-constant-format"),
+                                   ("/* loud leak */", "cpp/memory-never-freed"))
+                if mark in line}
 
 Result = tuple[str, int, str, bool]
 
@@ -230,12 +270,12 @@ def cmd_planted(args: list[str]) -> int:
         print(f"{path}:{line}: {rule}")
     missing = PLANTED_WANT - {rule for path, _, rule, _ in found if path.endswith("planted.c")}
     loud = sorted(line for path, line, rule, _ in found if path.endswith("planted.c") and line in PLANTED_QUIET)
-    hushed = sorted(PLANTED_LOUD - {line for path, line, rule, _ in found if path.endswith("planted.c") and rule == "cpp/missing-null-test"})
+    hushed = sorted(set(PLANTED_LOUD) - {line for path, line, rule, _ in found if path.endswith("planted.c") and PLANTED_LOUD.get(line) == rule})
     print(f"[ CodeQL: planted faults {'missed: ' + ', '.join(sorted(missing)) if missing else 'found'} ]")
     if loud:
-        print(f"[ CodeQL: planted GLib idioms reported at line {', '.join(map(str, loud))} ]")
+        print(f"[ CodeQL: planted GLib and gettext idioms reported at line {', '.join(map(str, loud))} ]")
     if hushed:
-        print(f"[ CodeQL: planted NULL argument not reported at line {', '.join(map(str, hushed))} ]")
+        print(f"[ CodeQL: planted NULL argument, unknown format or leak not reported at line {', '.join(map(str, hushed))} ]")
     return 1 if missing or loud or hushed else 0
 
 
@@ -342,6 +382,13 @@ def self_test() -> int:
         clean = os.path.join(tmp, "clean.sarif")
         with open(clean, "w", encoding="utf-8") as f:
             json.dump({"runs": [{"results": [r for r in sarif["runs"][0]["results"] if r.get("suppressions")]}]}, f)
+        # One finding left, the rest suppressed, fails the step: in a system header, or in the Python lane.
+        one_sys, one_py = os.path.join(tmp, "c-win.sarif"), os.path.join(tmp, "python-one.sarif")
+        with open(one_sys, "w", encoding="utf-8") as f:
+            json.dump({"runs": [{"results": [r for r in sarif["runs"][0]["results"] if r.get("suppressions")]
+                                 + [res("file:///usr/include/glib-2.0/glib/gmessages.h", 5, "cpp/missing-null-test")]}]}, f)
+        with open(one_py, "w", encoding="utf-8") as f:
+            json.dump({"runs": [{"results": [res("file:///src/cicd/utility/x.py", 4, "py/empty-except")]}]}, f)
         cases = (
             ("findings", ["--supp", lists["ok"], tmp, good], 1),
             ("SARIF it can't read", ["--supp", lists["ok"], tmp, good, broken], 2),
@@ -349,6 +396,8 @@ def self_test() -> int:
             ("a stale entry", ["--supp", lists["stale"], tmp, good], 3),
             ("a stale entry under --no-stale", ["--supp", lists["stale"], "--no-stale", tmp, good], 1),
             ("no findings left", ["--supp", lists["empty"], tmp, clean], 0),
+            ("one finding left in a system header", ["--supp", lists["empty"], tmp, clean, one_sys], 1),
+            ("one Python finding left", ["--supp", lists["empty"], tmp, clean, one_py], 1),
             ("a list it can't read", ["--supp", os.path.join(tmp, "none.txt"), tmp, clean], 3),
         )
         for what, argv, want_rc in cases:

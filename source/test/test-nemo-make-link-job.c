@@ -344,6 +344,7 @@ check_made (const char *dir, const char *made, const char *original,
 	case NEMO_MAKE_HARDLINK:
 		/* A second name: written through it, seen through the original. */
 		check (kind_of (path) == NEMO_LINK_NONE);
+		// codeql[cpp/world-writable-file-creation] a test's own scratch file
 		fp = g_fopen (path, "ab");
 		check (fp != NULL);
 		if (fp != NULL) {
@@ -719,6 +720,7 @@ main (int argc, char *argv[])
 	} else if (g_strcmp0 (how, "hardlink") == 0) {
 		/* Not a link at all to look at: a second name for the same file. */
 		check (kind_of (made_file) == NEMO_LINK_NONE);
+		// codeql[cpp/world-writable-file-creation] a test's own scratch file
 		fp = g_fopen (made_file, "ab");
 		check (fp != NULL);
 		if (fp != NULL) {

@@ -144,6 +144,7 @@ eel_check_integer_result (long result, long expected)
 void
 eel_check_double_result (double result, double expected)
 {
+	// codeql[cpp/equality-on-floats] a check of an exact result
 	if (result != expected) {
 		eel_report_check_failure (g_strdup_printf ("%f", result),
 					  g_strdup_printf ("%f", expected));

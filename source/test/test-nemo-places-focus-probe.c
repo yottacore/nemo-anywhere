@@ -581,6 +581,7 @@ probe_start (void)
 	if (path == NULL || place_uri == NULL || first_name == NULL || second_name == NULL) {
 		return;
 	}
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	out = fopen (path, "w");
 	if (out == NULL) {
 		return;

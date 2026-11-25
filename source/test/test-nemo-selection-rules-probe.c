@@ -1892,6 +1892,7 @@ probe_start (void)
 	compact_mode = g_strcmp0 (view, "compact-view") == 0;
 	classic = g_strcmp0 (g_getenv ("NEMO_SEL_MODEL"), "nemo-classic") == 0;
 	anywhere = g_strcmp0 (g_getenv ("NEMO_SEL_MODEL"), "nemo-anywhere") == 0;
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	out = fopen (path, "w");
 	if (out == NULL) {
 		return;

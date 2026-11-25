@@ -329,6 +329,7 @@ probe_start (void)
 		return;
 	}
 	second_rows = (int) g_ascii_strtoll (rows, NULL, 10);
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	out = fopen (path, "w");
 	if (out == NULL) {
 		return;

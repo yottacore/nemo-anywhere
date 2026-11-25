@@ -146,6 +146,7 @@ write_counts (void *data)
 	char *part = g_strconcat (out, ".part", NULL);
 
 	for (;;) {
+		// codeql[cpp/world-writable-file-creation] a test's own scratch file
 		FILE *f = fopen (part, "w");
 
 		if (f != NULL) {
@@ -170,6 +171,7 @@ start_counting (void)
 
 	/* Only the program under test; anything it starts must not write here. */
 	if (out != NULL && *out != '\0') {
+		// codeql[cpp/memory-never-freed] the counting thread's copy, kept for the life of the process
 		out = strdup (out);
 		unsetenv ("NEMO_COUNTS_OUT");
 		unsetenv ("LD_PRELOAD");

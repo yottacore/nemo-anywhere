@@ -306,9 +306,10 @@ xattrs_here (void)
 }
 
 /* One small copy and the caller's attribute step, then the checksum kept the
-   way the copy job keeps it. FALSE if the copy never got a checksum. */
+   way the copy job keeps it, through sums, or at once for NULL. FALSE if the
+   copy never got a checksum. */
 static gboolean
-copy_and_keep (const char *from, const char *to, guint8 *want)
+copy_and_keep_in (NemoSmallCopySums *sums, const char *from, const char *to, guint8 *want)
 {
 	g_autofree char *pf = path_of (from);
 	g_autofree char *pt = path_of (to);
@@ -325,7 +326,7 @@ copy_and_keep (const char *from, const char *to, guint8 *want)
 	sum.has_digest = TRUE;
 	check (nemo_small_copy (src, dest, G_FILE_COPY_NONE, LIMIT, NULL, &copied, &sum, NULL) == NEMO_SMALL_COPY_DONE);
 	g_file_copy_attributes (src, dest, G_FILE_COPY_ALL_METADATA, NULL, NULL);
-	nemo_small_copy_keep_checksum (src, dest, &sum);
+	nemo_small_copy_keep_checksum (sums, src, dest, &sum);
 
 	if (sum.has_digest) {
 		check (sum.bytes == (gint64) len);
@@ -333,6 +334,81 @@ copy_and_keep (const char *from, const char *to, guint8 *want)
 	}
 
 	return sum.has_digest;
+}
+
+static gboolean
+copy_and_keep (const char *from, const char *to, guint8 *want)
+{
+	return copy_and_keep_in (NULL, from, to, want);
+}
+
+static gboolean
+both_cached_as (const char *from, const char *to, const guint8 *want)
+{
+	g_autofree char *pf = path_of (from);
+	g_autofree char *pt = path_of (to);
+	g_autoptr (GFile) src = g_file_new_for_path (pf);
+	g_autoptr (GFile) dest = g_file_new_for_path (pt);
+
+	return cached_as (src, want) && cached_as (dest, want);
+}
+
+#define MANY 300
+
+/* A copy job's checksums go into the cache a batch at a time. Each write is a
+   transaction, and a write each made a copy of many small files about 30 times
+   slower. */
+static void
+check_checksums_batched (void)
+{
+	NemoConfigGroup *group = nemo_config_get_group (NEMO_FILE_CACHE_GROUP);
+	NemoSmallCopySums *sums;
+	guint8 (*wants)[NEMO_CACHE_DIGEST_LEN] = g_malloc0 (sizeof *wants * MANY);
+	guint8 want[NEMO_CACHE_DIGEST_LEN];
+	char from[32], to[32];
+	gint before, writes;
+	int i, missed = 0;
+
+	nemo_config_reset (group, NEMO_FILE_CACHE_CHECKSUM_FULL_READS);
+	nemo_config_reset (group, NEMO_FILE_CACHE_SAVE_CHECKSUM);
+
+	/* One copy kept at once is one write for both names. */
+	write_sized ("one.bin", 700);
+	before = nemo_cache_db_commits ();
+	check (copy_and_keep ("one.bin", "one-copy.bin", want));
+	check (nemo_cache_db_commits () - before == 1);
+	check (both_cached_as ("one.bin", "one-copy.bin", want));
+
+	for (i = 0; i < MANY; i++) {
+		g_snprintf (from, sizeof from, "many-%03d.bin", i);
+		write_sized (from, 100 + (gsize) i * 7);
+	}
+
+	sums = nemo_small_copy_sums_new ();
+	before = nemo_cache_db_commits ();
+	for (i = 0; i < MANY; i++) {
+		g_snprintf (from, sizeof from, "many-%03d.bin", i);
+		g_snprintf (to, sizeof to, "many-%03d-copy.bin", i);
+		check (copy_and_keep_in (sums, from, to, wants[i]));
+	}
+	nemo_small_copy_sums_free (sums);
+	writes = nemo_cache_db_commits () - before;
+
+	/* 600 names make 2 batches. The held-too-long rule can add a few on a
+	   slow box, never one a name. */
+	g_print ("note: %d copies kept in %d cache writes\n", MANY, writes);
+	check (writes >= 2 && writes <= MANY / 10);
+
+	for (i = 0; i < MANY; i++) {
+		g_snprintf (from, sizeof from, "many-%03d.bin", i);
+		g_snprintf (to, sizeof to, "many-%03d-copy.bin", i);
+		if (!both_cached_as (from, to, wants[i])) {
+			missed++;
+		}
+	}
+	check (missed == 0);
+
+	g_free (wants);
 }
 
 /* file-cache.checksum-full-reads keeps the checksum of a small copy's source
@@ -478,6 +554,7 @@ main (int argc, char **argv)
 
 #ifdef __linux__
 	check_checksum_kept ();
+	check_checksums_batched ();
 #endif
 
 	g_free (scratch);

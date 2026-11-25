@@ -1359,6 +1359,7 @@ gtk_click_anchor (NemoListView *view, GtkWidget *widget,
 	g_signal_handler_disconnect (selection, counter);
 
 	if (changes > 0 && gtk_tree_selection_path_is_selected (selection, path)) {
+		// codeql[cpp/inconsistent-null-check] path is selected, so the list isn't empty
 		GList *run = gtk_tree_selection_get_selected_rows (selection, NULL);
 		GtkTreePath *first = run->data;
 
@@ -2071,6 +2072,9 @@ handle_icon_slow_two_click (NemoListView *view, GtkTreePath *path, GdkEventButto
         return FALSE;
 
     file = nemo_list_model_file_for_path (view->details->model, path);
+    /* NULL on an expanded folder's placeholder row */
+    if (file == NULL)
+        return FALSE;
     can_rename = nemo_file_can_rename (file);
     nemo_file_unref (file);
 
@@ -2546,6 +2550,7 @@ row_collapsed_callback (G_GNUC_UNUSED GtkTreeView *treeview, GtkTreeIter *iter, 
 	DEBUG ("Row collapsed callback for uri %s", uri);
 	g_free (uri);
 
+	// codeql[cpp/memory-never-freed] freed in the unload timeout
 	unload_data = g_new (struct UnloadDelayData, 1);
 	unload_data->view = view;
 	unload_data->file = file;
@@ -3528,7 +3533,7 @@ shade_row (NemoListView    *view,
         gtk_tree_view_convert_bin_window_to_tree_coords (view->details->tree_view,
                                                          0, area.y, NULL, &tree_y);
 
-        tint = (tree_y / area.height) % 2 == 1;
+        tint = (tree_y / area.height) % 2 != 0;
 
         view->details->shade_node = iter->user_data;
         view->details->shade_node_pass = view->details->shade_pass;

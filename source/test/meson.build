@@ -501,6 +501,15 @@ if not is_windows
   )
 endif
 
+test('dfsfq Text around a NULL value test',
+  executable('test-nemo-null-labels',
+    [ 'test-nemo-null-labels.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('da8rh User input parse test',
   executable('test-eel-user-input',
     [ 'test-eel-user-input.c' ],
@@ -1962,6 +1971,21 @@ if not is_windows
     ),
     args: [ nemo, zoom_window_probe ],
     timeout: 180
+  )
+
+  # Preloaded too; it sends Shift+Return with no current event.
+  alt_open_probe = shared_module('test-nemo-alt-open-probe',
+    [ 'test-nemo-alt-open-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('dfsky Alternate open with no current event test',
+    executable('test-nemo-alt-open',
+      [ 'test-nemo-alt-open.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, alt_open_probe ],
+    timeout: 120
   )
 
   # Preloaded too; it reads the View menu and toolbar, and presses the view keys.

@@ -178,6 +178,7 @@ check_values (const char *expect_path, const char *label)
 			same = nemo_config_get_int (group, dot + 1) == atoi (f[3]);
 			break;
 		case 'f':
+			// codeql[cpp/equality-on-floats] an exact round trip is what's tested
 			same = nemo_config_get_double (group, dot + 1) == g_ascii_strtod (f[3], NULL);
 			break;
 		}

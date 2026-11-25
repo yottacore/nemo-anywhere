@@ -1669,18 +1669,18 @@ clicked_eject_button (NemoPlacesSidebar *sidebar,
 		      GtkTreePath **path)
 {
 	GdkEvent *event;
+	gboolean hit = FALSE;
 
 	event = gtk_get_current_event ();
 
 	if (event) {
 		GdkEventButton *button_event = (GdkEventButton *) event;
-		if ((event->type == GDK_BUTTON_PRESS || event->type == GDK_BUTTON_RELEASE) &&
-		    over_eject_button (sidebar, button_event->x, button_event->y, path)) {
-			return TRUE;
-		}
+		hit = (event->type == GDK_BUTTON_PRESS || event->type == GDK_BUTTON_RELEASE) &&
+		      over_eject_button (sidebar, button_event->x, button_event->y, path);
+		gdk_event_free (event);
 	}
 
-	return FALSE;
+	return hit;
 }
 
 static void

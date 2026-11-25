@@ -223,6 +223,7 @@ probe_start (void)
 	}
 	rounds = (int) g_ascii_strtoll (count, NULL, 10);
 	plant = bytes != NULL ? (gsize) g_ascii_strtoull (bytes, NULL, 10) : 0;
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	out = fopen (path, "a");
 	if (out == NULL || rounds < 1) {
 		return;

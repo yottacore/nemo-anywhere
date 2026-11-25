@@ -93,6 +93,7 @@ file_has (const char *path, const char *needle)
 static gboolean
 hand_edit (const char *path, const char *text)
 {
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	FILE *f = fopen (path, "w");
 	gboolean written;
 

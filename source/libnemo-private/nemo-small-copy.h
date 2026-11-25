@@ -44,12 +44,28 @@ NemoSmallCopyResult nemo_small_copy (GFile          *src,
                                      NemoFileId     *sum,
                                      GError        **error);
 
+/* Checksums a copy job keeps, held back so the cache takes them a batch at a
+   time rather than in a write of their own each. */
+typedef struct _NemoSmallCopySums NemoSmallCopySums;
+
+NemoSmallCopySums *nemo_small_copy_sums_new (void);
+
+/* Writes what is held into the file cache. */
+void nemo_small_copy_sums_flush (NemoSmallCopySums *sums);
+
+/* Flushes first. */
+void nemo_small_copy_sums_free (NemoSmallCopySums *sums);
+
 /* Keeps sum for the source and the target in the file cache, and onto both
    files with file-cache.save-checksum on too. Called once the caller has set
-   the target's times, since the cache keys a checksum on them. */
-void nemo_small_copy_keep_checksum (GFile            *src,
-                                    GFile            *dest,
-                                    const NemoFileId *sum);
+   the target's times, since the cache keys a checksum on them. The files get
+   theirs now. The cache gets them when sums is next flushed, which it is once
+   enough are held or the oldest has waited a while, or at once for a NULL
+   sums. */
+void nemo_small_copy_keep_checksum (NemoSmallCopySums *sums,
+                                    GFile             *src,
+                                    GFile             *dest,
+                                    const NemoFileId  *sum);
 
 G_END_DECLS
 

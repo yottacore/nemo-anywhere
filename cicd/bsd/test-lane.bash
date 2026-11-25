@@ -191,8 +191,10 @@ fLane(){ (cd "${repo}" && env -u SOURCE_DATE_EPOCH PATH="${shim}:${PATH}" WINDOW
 ## The box's temp root, with run folders left from earlier runs: an old one
 ## whose run is gone, a young one, and an old one no run made.
 boxTemp="${box}/tmp/nemo-anywhere"
-mkdir -p "${boxTemp}/20200101-000000_001" "${boxTemp}/20200101-000000_002" "${boxTemp}/$(date +%Y%m%d-%H%M%S)_009"
-printf '999999999\n' | tee "${boxTemp}/20200101-000000_001/run.pid" > "${boxTemp}/$(date +%Y%m%d-%H%M%S)_009/run.pid"
+## One date for the young folder's name and its run.pid, so a second ticking over can't split them.
+youngDir="${boxTemp}/$(date +%Y%m%d-%H%M%S)_009"
+mkdir -p "${boxTemp}/20200101-000000_001" "${boxTemp}/20200101-000000_002" "${youngDir}"
+printf '999999999\n' | tee "${boxTemp}/20200101-000000_001/run.pid" > "${youngDir}/run.pid"
 ## The run folder the last run named, and none left under the temp root but those above.
 fRunDir(){ sed -n 's/^work folder bsdtest@vmFreeBSD://p' "${scratch}/lane.log" | tail -1; }
 fNoneLeft(){ local left; left="$(find "${boxTemp}" -mindepth 1 -maxdepth 1 ! -name '20200101-000000_002' ! -name '*_009' | sort)"; [[ -z "${left}" ]] || { fFail "$1: left ${left}"; return 1; }; }

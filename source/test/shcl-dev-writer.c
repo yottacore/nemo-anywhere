@@ -272,6 +272,7 @@ static const Variant variants[] = {
 static int
 put (const char *path, const char *text)
 {
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	FILE  *out = fopen (path, "wb");
 	size_t n = strlen (text);
 	int    ok;

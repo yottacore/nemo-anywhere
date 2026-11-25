@@ -145,6 +145,8 @@ typedef struct {
 	/* Targets the delete test guard already let be overwritten, so a move
 	   that falls back to a copy doesn't ask again. NULL until one is. */
 	GHashTable *overwrite_allowed;
+	/* Small copies' checksums, for the file cache. Copy jobs only. */
+	NemoSmallCopySums *small_sums;
 } CopyMoveJob;
 
 typedef struct {
@@ -4571,6 +4573,7 @@ remove_target_recursively (CommonJob *job,
 		g_file_enumerator_close (enumerator, job->cancellable, NULL);
 		g_object_unref (enumerator);
 
+	// codeql[cpp/missing-null-test] a NULL enumerator comes with error set
 	} else if (IS_IO_ERROR (error, NOT_DIRECTORY)) {
 		/* Not a dir, continue */
 		g_error_free (error);
@@ -5260,7 +5263,7 @@ copy_move_file (CopyMoveJob *copy_job,
 			                        flags | G_FILE_COPY_ALL_METADATA,
 			                        job->cancellable, NULL);
 			if (small == NEMO_SMALL_COPY_DONE) {
-				nemo_small_copy_keep_checksum (src, dest, &small_sum);
+				nemo_small_copy_keep_checksum (copy_job->small_sums, src, dest, &small_sum);
 			}
 		}
 
@@ -5714,12 +5717,15 @@ copy_job (GIOSchedulerJob *io_job,
 	nemo_progress_info_start (common->progress);
 
 	memset (&transfer_info, 0, sizeof (transfer_info));
+	job->small_sums = nemo_small_copy_sums_new ();
 	copy_files (job,
 		    dest_fs_id,
 		    &source_info, &transfer_info);
 
  aborted:
 
+	/* Here rather than in copy_job_done, which runs on the window's thread. */
+	g_clear_pointer (&job->small_sums, nemo_small_copy_sums_free);
 	g_free (dest_fs_id);
 
 	g_io_scheduler_job_send_to_mainloop_async (io_job,
@@ -5778,6 +5784,7 @@ nemo_file_operations_copy (GList *files,
 	job = op_job_new (CopyMoveJob, parent_window);
 	job->desktop_location = nemo_get_desktop_location ();
 	job->done_callback = done_callback;
+	// codeql[cpp/stack-address-escape] callback data, and a caller that passes a stack address waits for the callback
 	job->done_callback_data = done_callback_data;
 	job->files = eel_g_object_list_copy (files);
 	job->destination = g_object_ref (target_dir);
@@ -6408,6 +6415,7 @@ nemo_file_operations_move (GList *files,
 	job->is_move = TRUE;
     job->desktop_location = nemo_get_desktop_location ();
 	job->done_callback = done_callback;
+	// codeql[cpp/stack-address-escape] callback data, and a caller that passes a stack address waits for the callback
 	job->done_callback_data = done_callback_data;
 	job->files = eel_g_object_list_copy (files);
 	job->destination = g_object_ref (target_dir);
@@ -6901,6 +6909,7 @@ start_link_job (GList *files,
 
 	job = op_job_new (CopyMoveJob, parent_window);
 	job->done_callback = done_callback;
+	// codeql[cpp/stack-address-escape] callback data, and a caller that passes a stack address waits for the callback
 	job->done_callback_data = done_callback_data;
 	job->want_symlink = symlink;
 	if (options != NULL) {
@@ -6962,6 +6971,7 @@ nemo_file_operations_duplicate (GList *files,
 	job = op_job_new (CopyMoveJob, parent_window);
     job->desktop_location = nemo_get_desktop_location ();
 	job->done_callback = done_callback;
+	// codeql[cpp/stack-address-escape] callback data, and a caller that passes a stack address waits for the callback
 	job->done_callback_data = done_callback_data;
 	job->files = eel_g_object_list_copy (files);
 	job->destination = NULL;
@@ -7355,6 +7365,7 @@ nemo_file_operations_copy_move (const GList *item_uris,
 
 			cb_data = g_new0 (MoveTrashCBData, 1);
 			cb_data->real_callback = done_callback;
+			// codeql[cpp/stack-address-escape] callback data, and a caller that passes a stack address waits for the callback
 			cb_data->real_data = done_callback_data;
 
 			nemo_file_operations_trash_or_delete (locations,
@@ -7527,7 +7538,7 @@ create_job (GIOSchedulerJob *io_job,
 				if (res) {
 					g_file_copy_attributes (job->src, dest, G_FILE_COPY_NONE,
 								common->cancellable, NULL);
-					nemo_small_copy_keep_checksum (job->src, dest, &small_sum);
+					nemo_small_copy_keep_checksum (NULL, job->src, dest, &small_sum);
 				}
 			}
 

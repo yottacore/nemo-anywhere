@@ -1459,8 +1459,8 @@ nemo_directory_notify_files_moved (GList *file_pairs)
 
 			/* Update the file's name and directory. */
 			name = g_file_get_basename (to_location);
-			nemo_file_update_name_and_directory 
-				(file, name, new_directory);
+			// codeql[cpp/missing-null-test] a file's new location is never a root, so it has a parent
+			nemo_file_update_name_and_directory (file, name, new_directory);
 			g_free (name);
 
 			/* Update file attributes */

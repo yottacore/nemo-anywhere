@@ -228,6 +228,7 @@ metadata_changed (NemoBookmark *bookmark)
 
     } else if (has_custom && had_custom) {
         NemoBookmarkMetadata *md = bookmark->details->metadata;
+        // codeql[cpp/missing-null-test] has_custom means data is set
         ret = nemo_bookmark_metadata_compare (data, md);
     }
 

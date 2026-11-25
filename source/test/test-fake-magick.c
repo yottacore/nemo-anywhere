@@ -57,6 +57,7 @@ main (int argc, char *argv[])
 		total += got;
 	}
 
+	// codeql[cpp/world-writable-file-creation] a test's own scratch file
 	if (report_path != NULL && (report = fopen (report_path, "wb")) != NULL) {
 		fprintf (report, "window=%d\nbytes=%lu\n", GetConsoleWindow () != NULL,
 			 (unsigned long) total);

@@ -211,6 +211,63 @@ test_strv (NemoConfigGroup *list_view)
 	g_strfreev (got);
 }
 
+/* A long list is written one "- " item per line, a short one in brackets,
+ * and a list stacked in the file stays stacked once it's short. */
+static void
+test_long_list_stacked (NemoConfigGroup *list_view)
+{
+	NemoConfigGroup *root     = nemo_config_get_group ("");
+	const char      *longer[] = { "/home/someone/Documents/projects", "/home/someone/Pictures/2026 trip",
+	                              "/b, c", "[x]", "- y", "#z", NULL };
+	const char      *edited[] = { "/home/someone/Music", "/srv/share/a much longer folder name", "/q", NULL };
+	const char      *one[]    = { "/a", NULL };
+	const char      *cols[]   = { "name", "size", NULL };
+	char           **got;
+	char            *text, *at;
+
+	nemo_config_set_strv (list_view, "default-visible-columns", cols);
+	nemo_config_set_strv (root, "favorites", longer);
+	nemo_config_flush ();
+
+	text = read_settings ();
+	check (strstr (text, "favorites:\n\t- /home/someone/Documents/projects\n") != NULL);
+	check (strstr (text, "favorites: [") == NULL);
+	check (strstr (text, "default-visible-columns: [name, size]\n") != NULL);
+	got = nemo_config_get_strv (root, "favorites");
+	check (g_strv_equal ((const char *const *) got, longer));
+	g_strfreev (got);
+
+	/* Read back from the file, as the next start would, with one item
+	 * changed so the reload says so. */
+	at = strstr (text, "/home/someone/Documents/projects");
+	check (at != NULL);
+	if (at != NULL)
+		at[strlen ("/home/someone/Documents/project")] = 'Z';
+	rewrite_and_wait (root, "favorites", text);
+	got = nemo_config_get_strv (root, "favorites");
+	check (got[0] != NULL && g_strcmp0 (got[0], "/home/someone/Documents/projectZ") == 0);
+	check (g_strv_length (got) == g_strv_length ((char **) longer));
+	check (g_strcmp0 (got[2], "/b, c") == 0 && g_strcmp0 (got[3], "[x]") == 0);
+	g_strfreev (got);
+	g_free (text);
+
+	nemo_config_set_strv (root, "favorites", edited);
+	nemo_config_flush ();
+	text = read_settings ();
+	check (strstr (text, "favorites:\n\t- /home/someone/Music\n") != NULL);
+	g_free (text);
+
+	nemo_config_set_strv (root, "favorites", one);
+	nemo_config_flush ();
+	text = read_settings ();
+	check (strstr (text, "favorites:\n\t- /a\n") != NULL);
+	g_free (text);
+
+	nemo_config_reset (root, "favorites");
+	nemo_config_reset (list_view, "default-visible-columns");
+	nemo_config_flush ();
+}
+
 /* A value equal to the default is dropped, so a later change to that
  * default still applies for the user, and the file stays small. */
 static void
@@ -1001,6 +1058,7 @@ test_keys_keep_their_own_values (void)
 			check (nemo_config_get_int64 (g, k->key) == (gint64) (100000 + i));
 			break;
 		case NEMO_CONFIG_FLOAT:
+			// codeql[cpp/equality-on-floats] an exact round trip is what's tested
 			check (nemo_config_get_double (g, k->key) == 100000.0 + i);
 			break;
 		case NEMO_CONFIG_STRING:
@@ -1060,6 +1118,7 @@ main (int argc, char *argv[])
 	test_product_defaults ();
 	test_scalars (prefs, window_state);
 	test_strv (list_view);
+	test_long_list_stacked (list_view);
 	test_default_not_stored (prefs);
 	test_changed_signal (prefs);
 	test_bind (prefs);

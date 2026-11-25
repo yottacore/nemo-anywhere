@@ -158,8 +158,8 @@ ANALYZE_CTU_CMD=(env "ANALYZE_TU_TIMEOUT=${ANALYZE_TU_TIMEOUT:-600}" bash cicd/u
 
 ## CodeQL over both compile lists and the Python, after the cross-file run,
 ## by the same rule. About 12 min at 8 jobs. Fails on a missed planted leak or
-## null dereference; its findings are report only for now. Backlog
-## 2026110920250293.
+## null dereference, and on any finding left. Backlog 2026110920250293 and
+## 2026112310062942.
 CODEQL_CMD=(bash cicd/utility/codeql.bash)
 
 ## Stage 3 (after lints): dependency policy for licenses and advisories. NOT READY - unset.

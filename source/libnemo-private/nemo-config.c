@@ -118,6 +118,7 @@ static gboolean reload_locked (gboolean queue_save, GHashTable **before,
                                GHashTable **after);
 static void announce_changes (GHashTable *before, GHashTable *after);
 static void send_outgoing (void);
+static char *stack_long_lists (const char *text, gsize len, gsize *out_len);
 
 /* Key table */
 
@@ -1276,9 +1277,10 @@ static gboolean
 save_now (G_GNUC_UNUSED gpointer data)
 {
 	char       *text = NULL;
+	char       *stacked;
 	char       *dir;
 	char       *on_disk = NULL;
-	gsize       text_len, disk_len = 0;
+	gsize       text_len, stacked_len = 0, disk_len = 0;
 	GError     *error = NULL;
 	GHashTable *before = NULL, *after = NULL;
 	shcl_str    canon;
@@ -1319,7 +1321,12 @@ save_now (G_GNUC_UNUSED gpointer data)
 	canon = shcl_to_canonical (config_doc);
 	/* By length throughout: SHCL is NUL-transparent, so a NUL that came in
 	 * from the file must not truncate the write or the own-write check. */
-	text = apply_catalog (config_doc, canon.p, canon.n, &text_len);
+	stacked = stack_long_lists (canon.p, canon.n, &stacked_len);
+	if (stacked != NULL)
+		text = apply_catalog (config_doc, stacked, stacked_len, &text_len);
+	else
+		text = apply_catalog (config_doc, canon.p, canon.n, &text_len);
+	g_free (stacked);
 
 	/* Every value a write replaced is still in the document's arena, and the
 	 * canonical text is in the read one. Both go here, once the text above
@@ -1467,6 +1474,217 @@ same_value (const PendingValue *a, const PendingValue *b)
 		return FALSE;
 	return !a->present || g_strv_equal ((const char *const *) a->values,
 	                                    (const char *const *) b->values);
+}
+
+/* Past this many bytes, name and all, a list's line is written one "- " item
+ * per line instead (2026110911301888). */
+#define LIST_LINE_MAX 80
+
+typedef struct {
+	const NemoConfigKey *key;
+	gsize                line;     /* 0-based, in the canonical text */
+	gsize                colon;    /* offset of the ": " before the brackets */
+	gsize                indent;   /* bytes */
+	gsize                n;
+} LongList;
+
+static gint
+by_line (gconstpointer a, gconstpointer b)
+{
+	gsize la = ((const LongList *) a)->line, lb = ((const LongList *) b)->line;
+
+	return la < lb ? -1 : la > lb;
+}
+
+static gsize
+list_line_end (const char *text, gsize len, const GArray *starts, gsize i)
+{
+	if (i + 1 < starts->len)
+		return g_array_index (starts, gsize, i + 1) - 1;
+	return len > 0 && text[len - 1] == '\n' ? len - 1 : len;
+}
+
+/* SHCL writes a list it made in brackets however long it is, and keeps one
+ * stacked only when the file had it that way. So each long list in @text gets
+ * a stacked stand-in, the real items are set over it, and SHCL writes them.
+ * Kept only when every key reads as before and no other line moved; else NULL,
+ * as when there's nothing to do. Called with the lock held. */
+static char *
+stack_long_lists (const char *text, gsize len, gsize *out_len)
+{
+	const NemoConfigKey *k;
+	shcl_doc            *before = NULL, *after = NULL;
+	GArray              *starts = g_array_new (FALSE, FALSE, sizeof (gsize));
+	GArray              *longs = g_array_new (FALSE, FALSE, sizeof (LongList));
+	GArray              *is_item = g_array_new (FALSE, FALSE, sizeof (gboolean));
+	GString             *draft = NULL;
+	shcl_str             again;
+	char                *out = NULL;
+	gsize                at, i, j, d;
+	gboolean             wide = FALSE, ok = TRUE;
+
+	for (at = 0; at < len;) {
+		const char *nl = memchr (text + at, '\n', len - at);
+
+		g_array_append_val (starts, at);
+		at = nl != NULL ? (gsize) (nl - text) + 1 : len;
+	}
+	/* Most saves have no long line at all, and skip the parse. */
+	for (i = 0; i < starts->len && !wide; i++)
+		wide = list_line_end (text, len, starts, i) - g_array_index (starts, gsize, i) > LIST_LINE_MAX;
+	if (!wide)
+		goto out;
+
+	before = shcl_parse (text, len);
+	if (before == NULL)
+		goto out;
+
+	for (k = nemo_config_keys; k->key != NULL; k++) {
+		char     *path;
+		gsize     plen, line, s, e;
+		shcl_str  raw;
+		LongList  ll;
+
+		if (k->type != NEMO_CONFIG_STRING_LIST)
+			continue;
+		path = key_path (k);
+		plen = strlen (path);
+		line = shcl_line (before, path, plen);
+		raw  = shcl_raw_text (before, path, plen);
+		if (line == 0 || line > starts->len || raw.n == 0 || raw.p[0] != '[') {
+			g_free (path);
+			continue;
+		}
+		s = g_array_index (starts, gsize, line - 1);
+		e = list_line_end (text, len, starts, line - 1);
+		/* Only a line that's just the name and the brackets, so a comment
+		 * after them stays where it is. */
+		if (e - s < raw.n + 2 || memcmp (text + e - raw.n, raw.p, raw.n) != 0 ||
+		    memcmp (text + e - raw.n - 2, ": ", 2) != 0) {
+			g_free (path);
+			continue;
+		}
+		ll.key    = k;
+		ll.line   = line - 1;
+		ll.colon  = e - raw.n - 2;
+		ll.indent = 0;
+		while (s + ll.indent < e && (text[s + ll.indent] == '\t' || text[s + ll.indent] == ' '))
+			ll.indent++;
+		ll.n = shcl_read_string_array (before, path, plen).n;
+		if (e - s - ll.indent > LIST_LINE_MAX && ll.n > 0)
+			g_array_append_val (longs, ll);
+		g_free (path);
+	}
+	if (longs->len == 0)
+		goto out;
+	/* The key table isn't in file order. */
+	g_array_sort (longs, by_line);
+
+	/* The stand-in: the name alone, then one placeholder item per item. */
+	draft = g_string_sized_new (len + 64);
+	for (i = 0, j = 0; i < starts->len; i++) {
+		gsize    s = g_array_index (starts, gsize, i);
+		gsize    e = list_line_end (text, len, starts, i);
+		gboolean no = FALSE;
+
+		while (j < longs->len && g_array_index (longs, LongList, j).line < i)
+			j++;
+		if (j < longs->len && g_array_index (longs, LongList, j).line == i) {
+			const LongList *ll = &g_array_index (longs, LongList, j);
+			gboolean        yes = TRUE;
+			gsize           n;
+
+			g_string_append_len (draft, text + s, (gssize) (ll->colon - s));
+			g_string_append_c (draft, ':');
+			g_array_append_val (is_item, no);
+			for (n = 0; n < ll->n; n++) {
+				g_string_append_c (draft, '\n');
+				g_string_append_len (draft, text + s, (gssize) ll->indent);
+				g_string_append (draft, "\t- x");
+				g_array_append_val (is_item, yes);
+			}
+		} else {
+			g_string_append_len (draft, text + s, (gssize) (e - s));
+			g_array_append_val (is_item, no);
+		}
+		if (e < len)
+			g_string_append_c (draft, '\n');
+	}
+
+	after = shcl_parse (draft->str, draft->len);
+	if (after == NULL)
+		goto out;
+
+	for (i = 0; i < longs->len && ok; i++) {
+		const LongList *ll   = &g_array_index (longs, LongList, i);
+		PendingValue   *want = read_value_locked (before, ll->key);
+		char           *path = key_path (ll->key);
+		gsize           n    = g_strv_length (want->values);
+		size_t         *lens = g_new0 (size_t, n + 1);
+
+		for (j = 0; j < n; j++)
+			lens[j] = strlen (want->values[j]);
+		ok = shcl_set_string_array (after, path, strlen (path),
+		                            (const char *const *) want->values, lens, n) == SHCL_SET_OK;
+		g_free (lens);
+		g_free (path);
+		pending_value_free (want);
+	}
+
+	for (k = nemo_config_keys; k->key != NULL && ok; k++) {
+		PendingValue *was = read_value_locked (before, k);
+		PendingValue *now = read_value_locked (after, k);
+
+		ok = same_value (was, now);
+		pending_value_free (was);
+		pending_value_free (now);
+	}
+	if (!ok)
+		goto out;
+
+	/* Line for line the stand-in, but for the items SHCL filled in. */
+	again = shcl_to_canonical (after);
+	for (at = 0, d = 0, i = 0; ok && i < is_item->len; i++) {
+		const char *nl_a, *nl_d;
+		gsize       ea, ed;
+
+		if (at > again.n) {
+			ok = FALSE;
+			break;
+		}
+		nl_a = memchr (again.p + at, '\n', again.n - at);
+		nl_d = memchr (draft->str + d, '\n', draft->len - d);
+		ea   = nl_a != NULL ? (gsize) (nl_a - again.p) : again.n;
+		ed   = nl_d != NULL ? (gsize) (nl_d - draft->str) : draft->len;
+		if ((nl_a == NULL) != (nl_d == NULL))
+			ok = FALSE;
+		else if (!g_array_index (is_item, gboolean, i))
+			ok = ea - at == ed - d && memcmp (again.p + at, draft->str + d, ea - at) == 0;
+		at = ea + 1;
+		d  = ed + 1;
+	}
+	if (ok && at < again.n)
+		ok = FALSE;
+	if (ok) {
+		out = g_malloc (again.n + 1);
+		memcpy (out, again.p, again.n);
+		out[again.n] = '\0';
+		*out_len = again.n;
+	} else {
+		g_debug ("nemo-config: long lists left in brackets");
+	}
+
+out:
+	if (before != NULL)
+		shcl_free (before);
+	if (after != NULL)
+		shcl_free (after);
+	if (draft != NULL)
+		g_string_free (draft, TRUE);
+	g_array_free (starts, TRUE);
+	g_array_free (longs, TRUE);
+	g_array_free (is_item, TRUE);
+	return out;
 }
 
 /* A key written twice by hand reads as its default, and SHCL sets neither

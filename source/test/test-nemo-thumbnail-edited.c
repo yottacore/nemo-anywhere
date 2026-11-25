@@ -194,6 +194,7 @@ main (int argc, char **argv)
 	check (nemo_directory_are_all_files_seen (directory));
 
 	file_uri = g_filename_to_uri (path, NULL, NULL);
+	// codeql[cpp/inconsistent-null-check] a file: URI always gets a file
 	file = nemo_file_get_by_uri (file_uri);
 
 	/* The job has to take the size and time from the view, not read them
