@@ -470,7 +470,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: new tab layout, and tidying across the dialog.
 	- ID: 2026102018234905
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on signoff
 	- Priority|Severity: Avg
 	- Opened: 20261020-182349
 	- Opened by: t00mietum
@@ -489,9 +489,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: the Windows tab stays, after Advanced. Advanced's own page has Selection and Cache as sections. Icon size is only on Icon view, and Text size is on Compact and Detailed view. Buttons in Settings go at the left. The doc still has 5 points that need more thought.
 		- 20261020: the Windows tab goes before Advanced. Zoom in Compact and Detailed view changes Text size. Image thumbnail captions can also show image and video metadata. The doc still has 1 point that needs more thought.
 		- 20261020: "Settings text size" renamed "Dialog text size", for every dialog. There's nothing left that needs more thought.
+		- 20261124: children 2026102018234906 2026102018234907 wait on UAT, and the rest are closed
 	- Notes:
 		- The thin line under "Remember per-folder settings" is also 2026101816495205.
-	- Test case: none yet.
+	- Test case: its children's: 2026102018234906: its children's: 2026112312181296: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key moved with the other row turned off, a plain letter refused, Backspace, the revert arrow, and Reset all.; 2026112312181314: its children's: 2026112312455787: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.; 2026112312455741: dfpt0 `test-nemo-shortcuts-file`: a change another window saves is taken, one made here and not saved yet is kept, a save takes the file's changes first and keeps all 3, its own save changes nothing, a file missing lines takes nothing back, and a key turned off elsewhere is turned off here.; 2026112312455764: dd5df, Settings dialog test: keyboard, shortcut, hotkey, key binding, and Keyboard shortcuts each list the Keyboard tab.; 2026102018234907: dd5df, Settings dialog test, checks the section is on Advanced, the default, the graying, and that the thumbnail queue doesn't save onto files while the first box is off, from the box or the settings file. dbnfq, Settings widgets test, checks both labels word for word.
 
 - Settings: a Keyboard tab where shortcuts are shown, edited, and reset, like SilkTerm's.
 	- ID: 2026102018234906
@@ -568,7 +569,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: Blake3 checksum cache options, with persistence across hosts through xattrs.
 	- ID: 2026102018234907
 	- Type: Enhancement
-	- Status: Started
+	- Status: Waiting on UAT
 	- Needs hand testing: the look of the new Cache section on Advanced, and the Windows label, which says alternate data streams.
 	- Priority|Severity: Avg
 	- Opened: 20261020-182349
@@ -586,6 +587,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261020: the xattrs checkbox is today's "Save checksums onto the files", moved and relabeled.
 		- 20261124: the settings are built. Advanced has a Cache heading after Selection, with the Blake3 checksum section and its 2 checkboxes. The first is the new key `file-cache.checksum-full-reads`. The second is `file-cache.save-checksum`, moved from Preview, relabeled, and grayed while the first is off.
 		- 20261124: what the first checkbox turns on for reads other than thumbnails is in 2026112416093974.
+		- 20261125: child 2026112416093974 is Done; the new section's look and the Windows label are left for a person, per the Needs hand testing row.
 	- Decisions:
 		- `file-cache.checksum-full-reads` is on by default. Its tooltip calls it highly recommended, and a `save-checksum` that was on keeps writing.
 		- With it off, nothing is written onto a file, thumbnails included, whatever the grayed box says. Thumbnails still keep their checksum in the cache.
