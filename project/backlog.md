@@ -33,49 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- Time a copy of many small files with the small-copy checksum on and off.
-	- ID: 2026112416314964
-	- Type: Task
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261124-163149
-	- Opened by:
-	- Related IDs: 2026112416093974
-	- Target version: rc.1
-	- Requirements:
-		- Each small copy now takes a blake3 sum and makes 2 file cache writes in the copy job's thread. Time 10k small files with `file-cache.checksum-full-reads` on and off, by user plus system CPU and by wall time. If the cost is real, batch the writes or move them off the copy thread.
-	- Estimated effort: Low
-	- Test case: none, it's a timing; a regression test follows only if the cost is real.
-
-- Settings: the Keyboard tab lists the menu's key-only actions by their code names, such as PropertiesAccel, NewTabAccel, and ZoomInAccel.
-	- ID: 2026112415464216
-	- Type: Bug
-	- Status: Waiting on UAT
-		- Left at signoff for the wording of the new names.
-	- Priority|Severity: Low
-	- Opened: 20261124-154642
-	- Opened by: work on 2026112312455787
-	- Target version: rc.1
-	- Origin: 2026112312181296 (b9a18c18). Plausible: read only. Each of these actions has its code name as its label, and the tab lists every action with a label.
-	- Sweep: every action named `*Accel` in the shell and folder view actions, and `RenameSelectAll`.
-	- Reproduced: 20261124, the accelerator check lists all 8 entries whose label is a code name: PropertiesAccel, OpenAccel and RenameSelectAll in the view's actions, and UpAccel, ZoomInAccel, ZoomInAccel2, NewTabAccel and ZoomOutAccel in the window's.
-	- Actual cause: these actions only give a menu key a second spelling, or a key with no menu entry, so nobody gave them a name. The Keyboard tab lists every action that has a label, and their label was the code name.
-	- Actual fix: each has a name now, marked for translation: "Zoom in, second key", "Zoom in, keypad", "Zoom out, keypad", "Open folders in new tabs, or a new tab", "Open, second key", "Invert selection or properties, by model" and "Rename with the whole name selected". UpAccel is gone. It had no key and no place in the menus, so a key given to it on the tab would have done nothing. The accelerator check now fails on any action table entry whose label isn't marked for translation.
-		- 20261125: the window pane still set UpAccel's sensitivity, which gave a Gtk-CRITICAL at every start and failed dd5ez and dd26k. That lookup and the macro's 2 defines are gone too. The accelerator check now also fails on an action name looked up, by a `NEMO_ACTION_` macro or a quoted name, that nothing makes, and on a macro defined twice.
-	- Decisions:
-		- Name the rows rather than hide them. A hidden row can't be changed, and a key taken by another row wouldn't clear it, so 2 actions would share one key.
-		- Ctrl+I's row has one name for both models, since the tab's list is built once and the model can change while it's open.
-		- UpAccel is removed rather than named, since nothing ever connected a key to it.
-	- Test case: the accelerator check (`cicd/utility/lint-accels.py`, run by the lint step) fails on an action whose label is a plain string. It fails on the 8 entries before the fix and passes after. dd5df, dbnfq and dfrca still pass.
-		- 20261125: the same check fails on the pane's UpAccel lookup and the second define before this fix, and passes after. dd5ez and dd26k pass again.
-	- Swept: every action table under `src/`, `libnemo-private/` and `eel/`, both sides of each `#if`, which is what the check reads. The test file's own `PropertiesAccel` entry in test-nemo-shortcuts-window.c is a stand-in and stays.
-		- 20261125: every `NEMO_ACTION_` macro used in a .c file, and every quoted name passed to `gtk_action_group_get_action`, against the tables, `gtk_*action_new` and `g_object_new` with a "name". UpAccel was the only one. No literal names go to the sidebars' and toolbar's wrappers.
-	- Verified: 20261124, the accelerator check passes, and dd5df, dbnfq and dfrca pass. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
-	- Stand-in: none (20261124). The wording of the names.
-	- Branch: nov24-2026112415464216, nov24-2026112415464216-fix
-	- Commit: 7b27a3d3
-	- 20261125: with `rename-swap-keys` on (2026111707593766), Shift+F2 leaves the extension out, so the name "Rename with the whole name selected" is wrong then. The wording settled here should cover both.
-
 - Settings: search.
 	- ID: 2026101417352263
 	- Type: Enhancement
@@ -95,6 +52,56 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261119: children 2026111912460963 wait on UAT, and the rest are closed
 	- Test case: its children's: 2026111912460963: dfh5x, Settings search matching test: the design doc's 3 examples, the order of the groups and within each, the fuzzy rules, and the markup. dd5df, Settings dialog test, now checks the field is over the pages and outside the scrolling, a search's first match and its path and marks, a fuzzy match, no match, Enter going to the setting, a tab click leaving the search, Ctrl+F, and that the first Escape only empties the field.; 2026111912460983: dfh5x, Settings search matching test: the alias table has a setting's aliases and nothing for a key without a row. dd5df, Settings dialog test: every setting with aliases has a control in the window that the search finds, and gets them on exactly one entry, and an alias typed lists its setting with the alias after the label. The file cache page is stubbed in that test, so its key is left out there.
 	- Stand-in: none (20261123). It closes with its child 2026111912460963, which waits on the look.
+
+- Settings: new tab layout, and tidying across the dialog.
+	- ID: 2026102018234905
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Related IDs: 2026102018234904, 2026102018234906, 2026102018234907, 2026101816495205, 2026101417352262
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- Window title: "Settings - Nemo Anywhere".
+		- More vertical space between main sections, and a narrower right content section.
+		- Numbers with units are right-justified, with the unit inside the text box.
+		- The tabs regrouped under 2 parent tabs, User interface and Advanced.
+		- The Default and Current sub-tabs use the same controls, text, and layout, so they can't get out of sync.
+	- Design: [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs) and [Default and Current](design_docs/20261020-121842_settings.md#default-and-current). The full layout is there.
+	- Progress log:
+		- 20261020: the layout was moved to the settings design doc.
+		- 20261020: the Windows tab stays, after Advanced. Advanced's own page has Selection and Cache as sections. Icon size is only on Icon view, and Text size is on Compact and Detailed view. Buttons in Settings go at the left. The doc still has 5 points that need more thought.
+		- 20261020: the Windows tab goes before Advanced. Zoom in Compact and Detailed view changes Text size. Image thumbnail captions can also show image and video metadata. The doc still has 1 point that needs more thought.
+		- 20261020: "Settings text size" renamed "Dialog text size", for every dialog. There's nothing left that needs more thought.
+		- 20261124: children 2026102018234906 2026102018234907 wait on UAT, and the rest are closed
+	- Notes:
+		- The thin line under "Remember per-folder settings" is also 2026101816495205.
+	- Test case: its children's: 2026102018234906: its children's: 2026112312181296: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key moved with the other row turned off, a plain letter refused, Backspace, the revert arrow, and Reset all.; 2026112312181314: its children's: 2026112312455787: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.; 2026112312455741: dfpt0 `test-nemo-shortcuts-file`: a change another window saves is taken, one made here and not saved yet is kept, a save takes the file's changes first and keeps all 3, its own save changes nothing, a file missing lines takes nothing back, and a key turned off elsewhere is turned off here.; 2026112312455764: dd5df, Settings dialog test: keyboard, shortcut, hotkey, key binding, and Keyboard shortcuts each list the Keyboard tab.; 2026102018234907: dd5df, Settings dialog test, checks the section is on Advanced, the default, the graying, and that the thumbnail queue doesn't save onto files while the first box is off, from the box or the settings file. dbnfq, Settings widgets test, checks both labels word for word.
+	- Stand-in: none (20261124). Waits on its children 2026102018234906 and 2026102018234907, which turn on looks and wording.
+
+- Settings: a Keyboard tab where shortcuts are shown, edited, and reset, like SilkTerm's.
+	- ID: 2026102018234906
+	- Type: Enhancement
+	- Status: Waiting on signoff
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234905
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- Under Advanced, after Cache.
+		- Keyboard shortcuts, displayed and edited (and resettable) like SilkTerm's.
+	- Design: [Keyboard tab](design_docs/20261020-121842_settings.md#keyboard-tab).
+	- Progress log:
+		- 20261123: split in 2. 2026112312181296 is the tab itself, with keys shown, changed, turned off, and reset. 2026112312181314 is other windows, the keyboard shortcuts window, and views not opened yet.
+		- 20261124: children 2026112312181296 wait on UAT, and the rest are closed
+	- Decisions:
+		- The tab goes under Advanced with 2026102018234905, which gives Advanced sub-tabs. Until then it's a tab of its own, after Advanced.
+	- Test case: its children's: 2026112312181296: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key moved with the other row turned off, a plain letter refused, Backspace, the revert arrow, and Reset all.; 2026112312181314: its children's: 2026112312455787: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.; 2026112312455741: dfpt0 `test-nemo-shortcuts-file`: a change another window saves is taken, one made here and not saved yet is kept, a save takes the file's changes first and keeps all 3, its own save changes nothing, a file missing lines takes nothing back, and a key turned off elsewhere is turned off here.; 2026112312455764: dd5df, Settings dialog test: keyboard, shortcut, hotkey, key binding, and Keyboard shortcuts each list the Keyboard tab.
+	- Stand-in: none (20261124). Waits on its child 2026112312181296, which turns on the look and wording of the tab.
 
 - Settings search: a search field over the tabs, with label and fuzzy matches, each shown with its path and marked letters, that goes to the setting picked.
 	- ID: 2026111912460963
@@ -150,32 +157,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: 20261119, the markdown checks and the content scrub pass on changelog.md. markdownlint reports only the duplicate headings that every release section already had.
 	- Stand-in: none (20261119). It turns on how the entries read.
 
-- When moving a bookmark with the mouse, it should give some kind of indication of where it's going to go *between*.
-	- ID: 2026101613053686
-	- Type: Enhancement
-	- Status: Closed
-	- Closed reason: Done
-	- Priority|Severity: Avg
-	- Opened: 20261016-130536
-	- Opened by: t00mietum
-	- Related IDs: 2026112310420234
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-	- Progress log:
-		- 20261123: the spot was already worked out and handed to the toolkit, which drew it as the theme's drop line. That line is 1px, which is easy to miss, as in Fluent, the Windows default, and Adwaita. In Adwaita dark, Windows 10, Windows 10 dark and Windows 7 its color is so close to the background that it can't be seen at all.
-	- Decisions:
-		- The line is drawn in the row's text color, 2px thick, across the whole row, on the top edge of the row below or the bottom edge of the row above. Text color is the one color that reads on every theme, light and dark, and on the selected row. Explorer draws its line in black the same way. Options were the theme's accent color, which is the color that couldn't be seen in 3 themes, or drawing a marker of our own beside the line, as Finder does.
-		- Only Places has this kind of drop. The frame around a row a file drops into has the same faint color in those themes, and is 2026112310420234.
-	- Done: the app's own style sheet draws the line for Places over the theme's.
-	- Swept: Places is the only view that drops between rows. The list view and the tree pane only drop into a row.
-	- Verified: dfpnp fails before the change, with no line or only 1px in all 11 themes it draws, the 9 bundled sheets and Adwaita light and dark, and passes after, at 2px with contrast 3.77 or better. dd2sk, ddg79 and ddhw4 still pass. format and lint pass.
-	- Branch: nov23-2026101613053686
-	- Commit: 1bbffa05
-	- Test case: dfpnp Places drop line test. A Places tree view is drawn in each bundled theme with and without a drop spot, before and after a row and next to the selected row. The line has to be at least 2px, on the right edge of the right row, with at least 3:1 contrast.
-	- Acceptance signoff: Self-closed: dfpnp passed in the nov24 quick run, which measures the line as 2px at 3:1 contrast or better in all 11 themes, Fluent included, before and after a row and next to the selected row.
-	- Closed: 20261124-195400
-
 - Zoom in with Ctrl+ (or Ctrl=), and out with Ctrl-, changes the window size too.
 	- ID: 2026101715030685
 	- Type: Enhancement
@@ -201,34 +182,110 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: a548bd4b
 	- Stand-in: none (20261124). How far the window grows a step turns on feel.
 
-- Under the Windows 10 and Windows 7 themes, the frame around a row a file is about to drop into can barely be seen.
-	- ID: 2026112310420234
-	- Type: Bug
-	- Status: Closed
-	- Closed reason: Done
-	- Priority|Severity: Low
-	- Opened: 20261123-104202
-	- Opened by: 2026101613053686
-	- Related IDs: 2026101613053686
-	- Target OS: All
+- Settings: a Keyboard tab that lists the shortcuts, and changes, turns off, and resets each one.
+	- ID: 2026112312181296
+	- Type: Enhancement
+	- Status: Waiting on UAT
+		- Left at signoff for the look of the tab in the app, and the wording of its notes.
+	- Priority|Severity: Avg
+	- Opened: 20261123-121812
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234906
 	- Target version: rc.1
-	- Steps to reproduce: pick the Windows 10 theme, and drag a file over a place in Places or a folder in the list view.
-	- Incorrect behavior: the row is marked by a 1px frame in a pale blue close to white.
-	- Expected behavior: the row a file would drop into is easy to see in every bundled theme.
-	- Reproduced: 20261123, by dfpp8 on the unfixed sheet. Adwaita dark, Windows 10, Windows 10 dark and Windows 7 had no part of the frame at 3:1 contrast. The rest had only 1px top and bottom, and none marked the row's sides.
-	- Possible cause: the themes' own drop frame color. dfpnp's way of drawing a tree view and checking contrast would cover it.
-	- Actual cause: each theme draws the frame 1px, top and bottom only, in its own drop color, which in some is close to the row's background.
+	- Requirements:
+		- Every shortcut of the window's menus is listed with its key, by name.
+		- A row takes a new key after a click, Enter, or Space. Escape leaves it as it was, and Backspace turns it off.
+		- A row whose key isn't its default can be reset, and so can every row at once.
+		- Changes are saved to the `accels` file.
+		- A key another listed shortcut has is taken, and that shortcut is turned off.
+	- Done: a Keyboard tab after Advanced lists every menu action with a name, sorted by name, with its key. A click on the key, or Enter or Space on the row, waits for the next key, and every key goes to the row while it waits. Escape leaves it, Backspace turns it off. A revert arrow on a changed row puts its first key back, and Reset all puts back every one. Each window notes the key every action starts with as it adds its actions, since GTK doesn't give that back once a key from `accels` is in place. The changelog and the Settings design doc say so. A key another listed shortcut has moves to the row, from every row that had it, and those turn off, with a note naming the first. A revert arrow takes its key back the same way. Where GTK still won't set the key, the others get theirs back.
+	- Progress log:
+		- 20261123: changed my mind on a key another shortcut has. It's taken and cleared from the other one, as GTK does, rather than refused. dd5df's taken-key check changes with it.
+		- 20261124: a taken key moves, and the other shortcut is turned off, as decided. Fixed on nov24-2026112312181296.
+		- 20261123: the tab's page is now a scrolled window, like every other Settings page, so the window's sizing measures it and the page scrolls on a screen too short for it. It was a plain box, which dbnfq refused. The search words for the tab moved to the new page, since search reads them from the tab's own page. Fixed on nov23-2026102018234906-fix.
 	- Decisions:
-		- Drawn the same way as the Places drop line: the row's text color, 2px. It goes on all 4 sides, so it can't be mistaken for the line between 2 rows in Places. Options were the theme's accent color, which is the faint one, or tinting the whole row, as Explorer does, which looks too much like a selection.
-		- One rule for every tree view in the app, since the list view, the tree pane and Places all drop into a row the same way.
-	- Actual fix: the app's own style sheet draws the frame for a drop into a row over the theme's.
-	- Swept: the list view, the tree pane and Places all mark a drop into a row through the toolkit's tree view, which the one rule covers. The icon view marks a drop target its own way and isn't affected.
-	- Verified: dfpp8 fails before the change in all 11 themes, and passes after, with 2px top and bottom and both sides marked at 3:1 contrast or better, into a plain row and into the selected row. dfpnp and dd2sk still pass. format and lint pass, and gcc's and clang's analyzers have no findings in the test.
-	- Branch: nov23-2026112310420234
-	- Commit: 47fb3ac6
-	- Test case: dfpp8 Drop into row frame test. A tree view is drawn in each bundled theme with and without a drop into a row, plain and selected. The frame has to be at least 2px on the row's top and bottom edges and mark both sides, with at least 3:1 contrast.
-	- Acceptance signoff: Self-closed: dfpp8 passed in the nov24 quick run, which measures the frame as 2px on every side at 3:1 contrast or better in all 11 themes, into a plain row and into the selected row. The list view, the tree pane and Places all draw it through the same tree view rule.
-	- Closed: 20261124-195400
+		- A key another listed shortcut has is taken, and the other shortcut is turned off. Options were refusing it with a note naming that one, as first built, or taking it and marking both rows, as SilkTerm does. 2 actions on one key would leave only one of them working.
+		- A key that types a character needs Ctrl or Alt held, since it would stop typing in the location bar and in a rename. A plain Delete or F2 is fine.
+		- A key turned off shows as "Off".
+		- The key is read by the tab rather than by GTK's own shortcut cell, which takes a grab before it's on screen and can crash later (GNOME/gtk#180).
+		- The text-entry Cut, Copy, and Paste of the location bar aren't listed, since they're the standard editing keys, and the menu's own Cut, Copy, and Paste are.
+		- The Alt+1 to Alt+0 tab keys have no name to list them by, so they aren't listed.
+		- A reset row is written to `accels` with its default key, since GTK doesn't mark an entry unchanged again. It only matters if a later version changes that default.
+		- Placement under Advanced waits for 2026102018234905, per the parent.
+	- Needs hand testing: open Settings, Keyboard, in the app, and judge the list and its wording.
+	- Stand-in: none (20261123). The look and wording of a new tab.
+	- Verified: 20261123, dd5df passes with the new checks. With the first key read from the accel map in place of the action's own, it fails: Rename showed F2 as its default where the file had F6. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Verified: 20261124, dd5df and dfpt0 pass. dd5df's new checks fail before the change, and the check that a row GTK won't change leaves the key where it was fails with the give-back taken out. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Branch: nov23-2026102018234906, nov24-2026112312181296
+	- Commit: b9a18c18, 556efc21
+	- Test case: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key moved with the other row turned off, a plain letter refused, Backspace, the revert arrow, and Reset all.
+		- 20261123: dd5df's Ctrl+Page Up wrap from the first tab now ends on `keyboard`, where it was `advanced`, since the new tab is last until 2026102018234905 gives Advanced sub-tabs.
+		- 20261123: dbnfq, Settings widgets test, lists the Keyboard page with the other pages, and dd5df's check that every page fits at the opening size covers it too.
+		- 20261124: dd5df's taken key check now checks the key moving: Ctrl+H from Show Hidden Files and from a second row the file gave it to, both turned off, then back by Show Hidden Files' revert arrow, which turns Cut off. A locked row leaves Ctrl+H where it was.
+	- Swept: every place a window adds menu actions with keys: the shell actions and their toggles and radios, the folder view's, and icon view's. The location bar's clipboard actions are left out, as under Decisions. The sidebars' right-click menus give none of their actions a key. Both callers that set a key, a change and a revert arrow, go through the same take. Reset all turns every changed row off first, so it takes nothing from another.
+
+- Settings: Blake3 checksum cache options, with persistence across hosts through xattrs.
+	- ID: 2026102018234907
+	- Type: Enhancement
+	- Status: Waiting on UAT
+	- Needs hand testing: the look of the new Cache section on Advanced, and the Windows label, which says alternate data streams.
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234905
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- A "Blake3 checksum" section under Advanced, Cache, after "Thumbnail cache".
+		- `[ ] Cache whenever files require a full-read anyway.`
+		- `[ ] Persist across hosts via xattrs.`, disabled while the one above is off.
+	- Design: [Blake3 checksum section](design_docs/20261020-121842_settings.md#blake3-checksum-section). The tooltips are there.
+	- Progress log:
+		- 20261020: the tooltips were moved to the settings design doc.
+		- 20261020: the xattrs checkbox is today's "Save checksums onto the files", moved and relabeled.
+		- 20261124: the settings are built. Advanced has a Cache heading after Selection, with the Blake3 checksum section and its 2 checkboxes. The first is the new key `file-cache.checksum-full-reads`. The second is `file-cache.save-checksum`, moved from Preview, relabeled, and grayed while the first is off.
+		- 20261124: what the first checkbox turns on for reads other than thumbnails is in 2026112416093974.
+		- 20261125: child 2026112416093974 is Done; the new section's look and the Windows label are left for a person, per the Needs hand testing row.
+	- Decisions:
+		- `file-cache.checksum-full-reads` is on by default. Its tooltip calls it highly recommended, and a `save-checksum` that was on keeps writing.
+		- With it off, nothing is written onto a file, thumbnails included, whatever the grayed box says. Thumbnails still keep their checksum in the cache.
+		- Cache gets a heading of its own on Advanced for now. Thumbnail cache stays on Preview until 2026102018234905 moves it there, ahead of this section.
+		- The section is bound in its own file, `nemo-prefs-checksum.c`, so the Settings dialog test runs it as it is.
+	- Swept: every reader of `save-checksum`. The thumbnail queue is the only place that writes a checksum onto a file. The 2 design docs, the schema and the keys table are updated. The thumbnails design doc's line still holds.
+	- Branch: nov24-2026102018234907
+	- Test case: dd5df, Settings dialog test, checks the section is on Advanced, the default, the graying, and that the thumbnail queue doesn't save onto files while the first box is off, from the box or the settings file. dbnfq, Settings widgets test, checks both labels word for word.
+	- Verified: 20261124, dd5df failed with the graying and the off switch taken out, 2 checks, and passes with them. dbnfq, dbsx7, dc8tz, dfh5x and dcy1f pass, and the quick format and lint gate passed.
+	- Commit: e8cb5538
+	- Stand-in: none (20261124). Turns on how the Cache section looks and how the labels read. dbnfq already checks both labels word for word.
+
+- Settings: the Keyboard tab lists the menu's key-only actions by their code names, such as PropertiesAccel, NewTabAccel, and ZoomInAccel.
+	- ID: 2026112415464216
+	- Type: Bug
+	- Status: Waiting on UAT
+		- Left at signoff for the wording of the new names.
+	- Priority|Severity: Low
+	- Opened: 20261124-154642
+	- Opened by: work on 2026112312455787
+	- Target version: rc.1
+	- Origin: 2026112312181296 (b9a18c18). Plausible: read only. Each of these actions has its code name as its label, and the tab lists every action with a label.
+	- Sweep: every action named `*Accel` in the shell and folder view actions, and `RenameSelectAll`.
+	- Reproduced: 20261124, the accelerator check lists all 8 entries whose label is a code name: PropertiesAccel, OpenAccel and RenameSelectAll in the view's actions, and UpAccel, ZoomInAccel, ZoomInAccel2, NewTabAccel and ZoomOutAccel in the window's.
+	- Actual cause: these actions only give a menu key a second spelling, or a key with no menu entry, so nobody gave them a name. The Keyboard tab lists every action that has a label, and their label was the code name.
+	- Actual fix: each has a name now, marked for translation: "Zoom in, second key", "Zoom in, keypad", "Zoom out, keypad", "Open folders in new tabs, or a new tab", "Open, second key", "Invert selection or properties, by model" and "Rename with the whole name selected". UpAccel is gone. It had no key and no place in the menus, so a key given to it on the tab would have done nothing. The accelerator check now fails on any action table entry whose label isn't marked for translation.
+		- 20261125: the window pane still set UpAccel's sensitivity, which gave a Gtk-CRITICAL at every start and failed dd5ez and dd26k. That lookup and the macro's 2 defines are gone too. The accelerator check now also fails on an action name looked up, by a `NEMO_ACTION_` macro or a quoted name, that nothing makes, and on a macro defined twice.
+	- Decisions:
+		- Name the rows rather than hide them. A hidden row can't be changed, and a key taken by another row wouldn't clear it, so 2 actions would share one key.
+		- Ctrl+I's row has one name for both models, since the tab's list is built once and the model can change while it's open.
+		- UpAccel is removed rather than named, since nothing ever connected a key to it.
+	- Test case: the accelerator check (`cicd/utility/lint-accels.py`, run by the lint step) fails on an action whose label is a plain string. It fails on the 8 entries before the fix and passes after. dd5df, dbnfq and dfrca still pass.
+		- 20261125: the same check fails on the pane's UpAccel lookup and the second define before this fix, and passes after. dd5ez and dd26k pass again.
+	- Swept: every action table under `src/`, `libnemo-private/` and `eel/`, both sides of each `#if`, which is what the check reads. The test file's own `PropertiesAccel` entry in test-nemo-shortcuts-window.c is a stand-in and stays.
+		- 20261125: every `NEMO_ACTION_` macro used in a .c file, and every quoted name passed to `gtk_action_group_get_action`, against the tables, `gtk_*action_new` and `g_object_new` with a "name". UpAccel was the only one. No literal names go to the sidebars' and toolbar's wrappers.
+	- Verified: 20261124, the accelerator check passes, and dd5df, dbnfq and dfrca pass. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Stand-in: none (20261124). The wording of the names.
+	- Branch: nov24-2026112415464216, nov24-2026112415464216-fix
+	- Commit: 7b27a3d3
+	- 20261125: with `rename-swap-keys` on (2026111707593766), Shift+F2 leaves the extension out, so the name "Rename with the whole name selected" is wrong then. The wording settled here should cover both.
 
 - Move every Windows lane from MSYS2's MINGW64 to UCRT64.
 	- ID: 2026110920004210
@@ -379,83 +436,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261021 counts, unique findings by where they are (vendored, inherited, ours, tests, system headers): gcc on the Linux list 2, 12, 0, 7, 1, total 22, with 3 files not analyzed; gcc on the Windows list 3, 21, 6, 7, 3, total 40; clang on the Linux list 3, 34, 15, 17, 0, total 69; clang on the Windows list not run, since `nemo-winbuild` doesn't have clang. That's 120 unique across the 3. The 5 in system headers are GLib macros, and count toward their callers.
 	- Test case: each new stage is its own test, with a planted fault it has to catch.
 
-- Need ability to enter variables in the path bar. E.g. `$TMP9`.
-	- ID: 2026101613053687
-	- Type: Enhancement
-	- Status: Done
-	- Closed reason: Done
-	- Priority|Severity: Avg
-	- Opened: 20261016-130536
-	- Opened by: t00mietum
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-		- Can enter common standard cross-platform variables, e.g.:
-			- `$TMP/misc`, `${HOME}/.config`, or `~/.cache` on Windows.
-			- `%USERPROFILE%\Pictures` on mac and Linux
-			- `$DEVELOPER_DIR` on Windows and Linux
-	- Progress log:
-		- 20261123: done. A common variable from the other platform expands where nothing set it, to the local folder or name. That covers HOME and USERPROFILE, TMP, TEMP and TMPDIR, USER and USERNAME, XDG_CONFIG_HOME and APPDATA, XDG_DATA_HOME and LOCALAPPDATA, and XDG_CACHE_HOME. A variable that's set always wins.
-		- A backslash after a variable resolves too, so `%USERPROFILE%\Pictures` opens on Linux and macOS.
-		- `~` on Windows and every variable that's set already worked, since 20260828.
-		- 20261124: XDG_CONFIG_HOME, APPDATA, XDG_DATA_HOME, LOCALAPPDATA and XDG_CACHE_HOME are out of the list, and stay as typed where nothing set them. design.md's `%APPDATA%` example is now `$USER`, and it says which names aren't on the list.
-	- Decisions:
-		- `$DEVELOPER_DIR` gets no stand-in. On a Mac it's the Xcode folder, and Windows and Linux don't have one. Where it isn't set, it stays as typed.
-		- A name that isn't set stays as typed when it isn't standard, or when it has no single obvious match on the other platform. HOME and USERPROFILE, TMP, TEMP and TMPDIR, and USER and USERNAME keep their stand-ins.
-		- The XDG folders and APPDATA and LOCALAPPDATA lose theirs. APPDATA off Windows could be the config folder or the data folder, and LOCALAPPDATA the data folder or the cache. On Windows GLib puts both the XDG config and data folders in LOCALAPPDATA. The other option was keeping XDG_CONFIG_HOME and APPDATA as a pair, as Go's `os.UserConfigDir` does.
-		- `%NAME%` ignores case, as on Windows. `$NAME` doesn't.
-		- Nothing in the change is Windows-only, so the Windows cross build's run of the test is enough there.
-	- Swept: the location bar, the bookmark editor, and the command line all use the one expansion. The command line doesn't get the backslash retry, which a shell strips unless it's quoted. Shortcut portable paths have their own reader, which maps only `%USERPROFILE%` off Windows, and were left alone.
-	- Verified: da8rh passes, and fails before the change on 16 checks. It passes in the Windows cross build too. Lint is clean, and both analyzers are clean on the 2 changed files.
-	- Verified: 20261124, da8rh passes, and fails on the old list on the 5 names that now stay as typed. The format and lint stages pass, and both analyzers are clean on the 2 changed files.
-	- Branch: nov23-2026101613053687, then nov24-2026101613053687
-	- Commit: 50eafa7b, then 5e6984d2
-	- Test case: da8rh `test-eel-user-input` (`test_stand_ins`, and the Windows path behind a variable).
-	- Acceptance signoff: Self-closed: the list change is pinned by da8rh, with nothing on screen to judge.
-	- Closed: 20261124-152408
-
-- Settings: a Keyboard tab that lists the shortcuts, and changes, turns off, and resets each one.
-	- ID: 2026112312181296
-	- Type: Enhancement
-	- Status: Waiting on UAT
-		- Left at signoff for the look of the tab in the app, and the wording of its notes.
-	- Priority|Severity: Avg
-	- Opened: 20261123-121812
-	- Opened by: t00mietum
-	- Parent ID: 2026102018234906
-	- Target version: rc.1
-	- Requirements:
-		- Every shortcut of the window's menus is listed with its key, by name.
-		- A row takes a new key after a click, Enter, or Space. Escape leaves it as it was, and Backspace turns it off.
-		- A row whose key isn't its default can be reset, and so can every row at once.
-		- Changes are saved to the `accels` file.
-		- A key another listed shortcut has is taken, and that shortcut is turned off.
-	- Done: a Keyboard tab after Advanced lists every menu action with a name, sorted by name, with its key. A click on the key, or Enter or Space on the row, waits for the next key, and every key goes to the row while it waits. Escape leaves it, Backspace turns it off. A revert arrow on a changed row puts its first key back, and Reset all puts back every one. Each window notes the key every action starts with as it adds its actions, since GTK doesn't give that back once a key from `accels` is in place. The changelog and the Settings design doc say so. A key another listed shortcut has moves to the row, from every row that had it, and those turn off, with a note naming the first. A revert arrow takes its key back the same way. Where GTK still won't set the key, the others get theirs back.
-	- Progress log:
-		- 20261123: changed my mind on a key another shortcut has. It's taken and cleared from the other one, as GTK does, rather than refused. dd5df's taken-key check changes with it.
-		- 20261124: a taken key moves, and the other shortcut is turned off, as decided. Fixed on nov24-2026112312181296.
-		- 20261123: the tab's page is now a scrolled window, like every other Settings page, so the window's sizing measures it and the page scrolls on a screen too short for it. It was a plain box, which dbnfq refused. The search words for the tab moved to the new page, since search reads them from the tab's own page. Fixed on nov23-2026102018234906-fix.
-	- Decisions:
-		- A key another listed shortcut has is taken, and the other shortcut is turned off. Options were refusing it with a note naming that one, as first built, or taking it and marking both rows, as SilkTerm does. 2 actions on one key would leave only one of them working.
-		- A key that types a character needs Ctrl or Alt held, since it would stop typing in the location bar and in a rename. A plain Delete or F2 is fine.
-		- A key turned off shows as "Off".
-		- The key is read by the tab rather than by GTK's own shortcut cell, which takes a grab before it's on screen and can crash later (GNOME/gtk#180).
-		- The text-entry Cut, Copy, and Paste of the location bar aren't listed, since they're the standard editing keys, and the menu's own Cut, Copy, and Paste are.
-		- The Alt+1 to Alt+0 tab keys have no name to list them by, so they aren't listed.
-		- A reset row is written to `accels` with its default key, since GTK doesn't mark an entry unchanged again. It only matters if a later version changes that default.
-		- Placement under Advanced waits for 2026102018234905, per the parent.
-	- Needs hand testing: open Settings, Keyboard, in the app, and judge the list and its wording.
-	- Stand-in: none (20261123). The look and wording of a new tab.
-	- Verified: 20261123, dd5df passes with the new checks. With the first key read from the accel map in place of the action's own, it fails: Rename showed F2 as its default where the file had F6. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
-	- Verified: 20261124, dd5df and dfpt0 pass. dd5df's new checks fail before the change, and the check that a row GTK won't change leaves the key where it was fails with the give-back taken out. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
-	- Branch: nov23-2026102018234906, nov24-2026112312181296
-	- Commit: b9a18c18, 556efc21
-	- Test case: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key moved with the other row turned off, a plain letter refused, Backspace, the revert arrow, and Reset all.
-		- 20261123: dd5df's Ctrl+Page Up wrap from the first tab now ends on `keyboard`, where it was `advanced`, since the new tab is last until 2026102018234905 gives Advanced sub-tabs.
-		- 20261123: dbnfq, Settings widgets test, lists the Keyboard page with the other pages, and dd5df's check that every page fits at the opening size covers it too.
-		- 20261124: dd5df's taken key check now checks the key moving: Ctrl+H from Show Hidden Files and from a second row the file gave it to, both turned off, then back by Show Hidden Files' revert arrow, which turns Cut off. A locked row leaves Ctrl+H where it was.
-	- Swept: every place a window adds menu actions with keys: the shell actions and their toggles and radios, the folder view's, and icon view's. The location bar's clipboard actions are left out, as under Decisions. The sidebars' right-click menus give none of their actions a key. Both callers that set a key, a change and a revert arrow, go through the same take. Reset all turns every changed row off first, so it takes nothing from another.
-
 - Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
 	- ID: 2026102114400592
 	- Type: Enhancement
@@ -473,202 +453,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261110: Split into children: `2026110920250275` (cross-file clang, report only), `...293` (CodeQL, report only), `...1244` (the cross-file findings fixed or suppressed, then they fail the run), and `2026111915091061` (the same for CodeQL's). The first 2 are in, and the other 2 are Queued.
 	- Test case: de8ep (CodeQL) and de8eq (cross-file clang), each with a planted fault.
-
-- Settings: new tab layout, and tidying across the dialog.
-	- ID: 2026102018234905
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Priority|Severity: Avg
-	- Opened: 20261020-182349
-	- Opened by: t00mietum
-	- Related IDs: 2026102018234904, 2026102018234906, 2026102018234907, 2026101816495205, 2026101417352262
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-		- Window title: "Settings - Nemo Anywhere".
-		- More vertical space between main sections, and a narrower right content section.
-		- Numbers with units are right-justified, with the unit inside the text box.
-		- The tabs regrouped under 2 parent tabs, User interface and Advanced.
-		- The Default and Current sub-tabs use the same controls, text, and layout, so they can't get out of sync.
-	- Design: [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs) and [Default and Current](design_docs/20261020-121842_settings.md#default-and-current). The full layout is there.
-	- Progress log:
-		- 20261020: the layout was moved to the settings design doc.
-		- 20261020: the Windows tab stays, after Advanced. Advanced's own page has Selection and Cache as sections. Icon size is only on Icon view, and Text size is on Compact and Detailed view. Buttons in Settings go at the left. The doc still has 5 points that need more thought.
-		- 20261020: the Windows tab goes before Advanced. Zoom in Compact and Detailed view changes Text size. Image thumbnail captions can also show image and video metadata. The doc still has 1 point that needs more thought.
-		- 20261020: "Settings text size" renamed "Dialog text size", for every dialog. There's nothing left that needs more thought.
-		- 20261124: children 2026102018234906 2026102018234907 wait on UAT, and the rest are closed
-	- Notes:
-		- The thin line under "Remember per-folder settings" is also 2026101816495205.
-	- Test case: its children's: 2026102018234906: its children's: 2026112312181296: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key moved with the other row turned off, a plain letter refused, Backspace, the revert arrow, and Reset all.; 2026112312181314: its children's: 2026112312455787: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.; 2026112312455741: dfpt0 `test-nemo-shortcuts-file`: a change another window saves is taken, one made here and not saved yet is kept, a save takes the file's changes first and keeps all 3, its own save changes nothing, a file missing lines takes nothing back, and a key turned off elsewhere is turned off here.; 2026112312455764: dd5df, Settings dialog test: keyboard, shortcut, hotkey, key binding, and Keyboard shortcuts each list the Keyboard tab.; 2026102018234907: dd5df, Settings dialog test, checks the section is on Advanced, the default, the graying, and that the thumbnail queue doesn't save onto files while the first box is off, from the box or the settings file. dbnfq, Settings widgets test, checks both labels word for word.
-	- Stand-in: none (20261124). Waits on its children 2026102018234906 and 2026102018234907, which turn on looks and wording.
-
-- Settings: a Keyboard tab where shortcuts are shown, edited, and reset, like SilkTerm's.
-	- ID: 2026102018234906
-	- Type: Enhancement
-	- Status: Waiting on signoff
-	- Priority|Severity: Avg
-	- Opened: 20261020-182349
-	- Opened by: t00mietum
-	- Parent ID: 2026102018234905
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-		- Under Advanced, after Cache.
-		- Keyboard shortcuts, displayed and edited (and resettable) like SilkTerm's.
-	- Design: [Keyboard tab](design_docs/20261020-121842_settings.md#keyboard-tab).
-	- Progress log:
-		- 20261123: split in 2. 2026112312181296 is the tab itself, with keys shown, changed, turned off, and reset. 2026112312181314 is other windows, the keyboard shortcuts window, and views not opened yet.
-		- 20261124: children 2026112312181296 wait on UAT, and the rest are closed
-	- Decisions:
-		- The tab goes under Advanced with 2026102018234905, which gives Advanced sub-tabs. Until then it's a tab of its own, after Advanced.
-	- Test case: its children's: 2026112312181296: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key moved with the other row turned off, a plain letter refused, Backspace, the revert arrow, and Reset all.; 2026112312181314: its children's: 2026112312455787: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.; 2026112312455741: dfpt0 `test-nemo-shortcuts-file`: a change another window saves is taken, one made here and not saved yet is kept, a save takes the file's changes first and keeps all 3, its own save changes nothing, a file missing lines takes nothing back, and a key turned off elsewhere is turned off here.; 2026112312455764: dd5df, Settings dialog test: keyboard, shortcut, hotkey, key binding, and Keyboard shortcuts each list the Keyboard tab.
-	- Stand-in: none (20261124). Waits on its child 2026112312181296, which turns on the look and wording of the tab.
-
-- Settings: a shortcut changed on the Keyboard tab takes effect in every open window, and the keyboard shortcuts window shows it.
-	- ID: 2026112312181314
-	- Type: Enhancement
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261123-121813
-	- Opened by: t00mietum
-	- Parent ID: 2026102018234906
-	- Prereq IDs: 2026112312181296
-	- Target version: rc.1
-	- Requirements:
-		- Other running windows pick up a change to `accels`, since each window is its own process.
-		- The keyboard shortcuts window shows the keys in use, not the defaults.
-		- Shortcuts of a view the window hasn't opened yet, such as Icon view's, are listed too.
-		- One window saving `accels` doesn't undo a change another window made.
-		- Settings search finds the Keyboard tab by words such as keyboard, shortcut, and hotkey.
-	- Note: each window saves its whole shortcut map 30 seconds after a change. So a window that reads `accels` again should take only the entries the file changed since it last read or wrote it, or a change it hasn't saved yet is lost. The search matches settings by their key in the schema, and the tab has none.
-	- Progress log:
-		- 20261123: split in 3. 2026112312455741 is other windows and saving, 2026112312455764 is Settings search, and 2026112312455787 is the keyboard shortcuts window and views not opened yet.
-	- Test case: its children's: 2026112312455787: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.; 2026112312455741: dfpt0 `test-nemo-shortcuts-file`: a change another window saves is taken, one made here and not saved yet is kept, a save takes the file's changes first and keeps all 3, its own save changes nothing, a file missing lines takes nothing back, and a key turned off elsewhere is turned off here.; 2026112312455764: dd5df, Settings dialog test: keyboard, shortcut, hotkey, key binding, and Keyboard shortcuts each list the Keyboard tab.
-	- Closed: 20261124-155222
-
-- Settings: the keyboard shortcuts window shows the keys in use, and the Keyboard tab lists the shortcuts of views not opened yet.
-	- ID: 2026112312455787
-	- Type: Enhancement
-	- Status: Closed
-	- Closed reason: Done
-	- Priority|Severity: Avg
-	- Opened: 20261123-124557
-	- Opened by: work on 2026112312181314
-	- Parent ID: 2026112312181314
-	- Target version: rc.1
-	- Requirements:
-		- The keyboard shortcuts window shows the keys in use, not the defaults.
-		- Shortcuts of a view the window hasn't opened yet, such as Icon view's, are listed too.
-	- Note: the keyboard shortcuts window's keys are fixed in `nemo-shortcuts.ui`, and only Ctrl+I, Properties, and Ctrl+Shift+V are set when it opens. Its rows don't name the action they stand for, so each needs that before it can show the key in use. The Keyboard tab lists only what `nemo_shortcuts_note_*` recorded as each view made its actions.
-	- Done: each row of the keyboard shortcuts window names the shortcuts it stands for, and shows the key each has now in place of the one it started with. A key that isn't a menu shortcut, such as Return for Open or F5 for Refresh, stays as written. A row whose shortcuts are all off is hidden, and the window follows a change made while it's open. Icon view's actions are noted the first time the list is wanted, so the Keyboard tab lists them before an icon view is opened.
-	- Decisions:
-		- A row with no key in use is hidden rather than left with an empty key, since the window shows only keys.
-		- A shortcut with no key to start with, such as Move to Trash, whose Delete key is a key binding, shows a key it's given beside the binding.
-		- Icon view's actions are noted when the list is first wanted, not at startup, so a window that never opens Settings or the shortcuts window pays nothing for them.
-		- The rows' ids and the shortcuts they stand for are a table in `nemo-shortcuts-window.c`. Switch to tab and Show/hide action menu stand for no menu shortcut, so they stay as written.
-	- Swept: every row of the shortcuts window has an id in the table, except the 2 above. Every action name in the table is one the shell or folder view actions add. Icon view's are the only view's actions with their own group, since the list view adds none and the folder view's are made with every view.
-	- Test case: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.
-	- Verified: 20261124, dfrca passes, and fails with the key text left as written and the list not noting its sources. dd5df, dbnfq, and dfpt0 pass. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
-	- Not covered by a test: that the app's own icon view registers its actions this way, and the window's wiring in the app.
-	- Branch: nov24-2026112312455787
-	- Commit: 58f56886
-	- Acceptance signoff: Self-closed: dfrca.
-	- Closed: 20261124-155200
-
-- Settings: Blake3 checksum cache options, with persistence across hosts through xattrs.
-	- ID: 2026102018234907
-	- Type: Enhancement
-	- Status: Waiting on UAT
-	- Needs hand testing: the look of the new Cache section on Advanced, and the Windows label, which says alternate data streams.
-	- Priority|Severity: Avg
-	- Opened: 20261020-182349
-	- Opened by: t00mietum
-	- Parent ID: 2026102018234905
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-		- A "Blake3 checksum" section under Advanced, Cache, after "Thumbnail cache".
-		- `[ ] Cache whenever files require a full-read anyway.`
-		- `[ ] Persist across hosts via xattrs.`, disabled while the one above is off.
-	- Design: [Blake3 checksum section](design_docs/20261020-121842_settings.md#blake3-checksum-section). The tooltips are there.
-	- Progress log:
-		- 20261020: the tooltips were moved to the settings design doc.
-		- 20261020: the xattrs checkbox is today's "Save checksums onto the files", moved and relabeled.
-		- 20261124: the settings are built. Advanced has a Cache heading after Selection, with the Blake3 checksum section and its 2 checkboxes. The first is the new key `file-cache.checksum-full-reads`. The second is `file-cache.save-checksum`, moved from Preview, relabeled, and grayed while the first is off.
-		- 20261124: what the first checkbox turns on for reads other than thumbnails is in 2026112416093974.
-		- 20261125: child 2026112416093974 is Done; the new section's look and the Windows label are left for a person, per the Needs hand testing row.
-	- Decisions:
-		- `file-cache.checksum-full-reads` is on by default. Its tooltip calls it highly recommended, and a `save-checksum` that was on keeps writing.
-		- With it off, nothing is written onto a file, thumbnails included, whatever the grayed box says. Thumbnails still keep their checksum in the cache.
-		- Cache gets a heading of its own on Advanced for now. Thumbnail cache stays on Preview until 2026102018234905 moves it there, ahead of this section.
-		- The section is bound in its own file, `nemo-prefs-checksum.c`, so the Settings dialog test runs it as it is.
-	- Swept: every reader of `save-checksum`. The thumbnail queue is the only place that writes a checksum onto a file. The 2 design docs, the schema and the keys table are updated. The thumbnails design doc's line still holds.
-	- Branch: nov24-2026102018234907
-	- Test case: dd5df, Settings dialog test, checks the section is on Advanced, the default, the graying, and that the thumbnail queue doesn't save onto files while the first box is off, from the box or the settings file. dbnfq, Settings widgets test, checks both labels word for word.
-	- Verified: 20261124, dd5df failed with the graying and the off switch taken out, 2 checks, and passes with them. dbnfq, dbsx7, dc8tz, dfh5x and dcy1f pass, and the quick format and lint gate passed.
-	- Commit: e8cb5538
-	- Stand-in: none (20261124). Turns on how the Cache section looks and how the labels read. dbnfq already checks both labels word for word.
-
-- Checksums: keep the checksum of a file that is read in full for something other than a thumbnail, such as a small copy.
-	- ID: 2026112416093974
-	- Type: Enhancement
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261124-160939
-	- Opened by: 2026102018234907
-	- Parent ID: 2026102018234907
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-		- While `file-cache.checksum-full-reads` is on, a file the app reads in full anyway gets its blake3 checksum kept in the file cache, as a thumbnail does today.
-		- With `file-cache.save-checksum` on too, the checksum also goes onto the file, the same way a thumbnail's does.
-	- Notes:
-		- The full reads the app does itself today are the thumbnail queue, which already keeps its checksum, and the small copy on Linux, under `performance.clone-min-kib`. The ordinary copy goes through GIO, which reads in the kernel, so the app never sees those bytes.
-		- A small copy's target gets its times from the caller after the copy, so its checksum can only be kept once those are set.
-	- Decisions:
-		- The source and the copy both keep the checksum. The source is the file read in full, and the copy has the same bytes, so the cache folds the 2 names onto one record.
-		- With `file-cache.save-checksum` on, the checksum goes onto the source too, not only the copy. A drive that can't take it goes without, as with thumbnails.
-		- A source whose size or time changed during the read gets no checksum, the same rule as thumbnails.
-		- Both small copies keep it: the ordinary copy and a new file from a template.
-	- Done: a small copy checksums the bytes it already has in memory. Once the caller has set the copy's times, the checksum is kept for the source and the copy. With `save-checksum` on too, it then goes onto both files, skipped where a file has it already.
-	- Swept: every full read in the app. The thumbnail queue already kept its checksum, and both small copy callers keep it now. The other whole-file reads are launcher and settings files the app parses, and content search, which stops at a match, so they were left alone.
-	- Branch: nov24-2026112416093974
-	- Commit: 4ff8dad3
-	- Test case: dd24j, Small file copy test, the checksum case, Linux only. With the setting off nothing is kept. By default the source and the copy are in the cache and nothing is on the files. With `save-checksum` on, both files have it too.
-	- Verified: 20261124, dd24j fails with the checksum taken out, 8 checks, and passes with it. 3z0xv, dd42s, dc3p6 and ddzwv pass, the quick format and lint gate passed, and gcc's and clang's analyzers are clean on the 3 changed .c files.
-	- Acceptance signoff: Self-closed: its test fails before and passes after, and nothing is left to judge on screen.
-	- Closed: 20261124-162751
-
-- Reenable the option to rename the whole file with F2. But label it "Swap behavior of F2 and Shift+F2".
-	- ID: 2026111707593766
-	- Type: Enhancement
-	- Status: Closed
-	- Closed reason: Done
-	- Priority|Severity: Avg
-	- Opened: 20261117-075937
-	- Opened by: t00mietum
-	- Related IDs: 2026102218380001, 2026102218380002
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-		- Label: "Swap behavior of F2 and Shift+F2".
-	- Notes:
-		- Today the "Include the extension when a rename starts" box is grayed under Nemo Anywhere, per 2026102218380001.
-	- Progress log:
-		- 20261124: under Nemo Anywhere, Settings > Behavior has "Swap behavior of F2 and Shift+F2", off by default. On, F2 selects the whole name and Shift+F2 leaves the extension out. A folder is still selected whole. The design docs and the changelog say so.
-	- Decisions:
-		- The swap is its own setting, `rename-swap-keys`, off by default. Reusing the whole-name setting would have made F2 take the whole name by default under Nemo Anywhere, since that setting defaults to on, and undone 2026102218380002.
-		- Only one of the 2 boxes shows, in the same place: the whole-name box under v1 and Classic, the swap box under Nemo Anywhere. This replaces the grayed box from 2026102218380001, since a grayed box beside the one that counts would only confuse.
-		- The swap covers the 2 keys, and the menu's Rename, which is F2. Two slow clicks and a new file's rename still leave the extension out, since the label names only the keys.
-		- The Keyboard tab still names Shift+F2's row "Rename with the whole name selected", which is wrong with the swap on. The row's name is at signoff in 2026112415464216.
-	- Branch: nov24-2026111707593766
-	- Commit: 2b82de4a
-	- Test case: dd5c8 checks what F2 and Shift+F2 select with the swap on and off under each model, through the same call the view's actions make. dd5df checks that the swap box shows under Nemo Anywhere in the whole-name box's place, with its label, writes its key, and gives way to the whole-name box under v1. dbnfq checks the box is in the dialog.
-		- 20261124: dd5df's rename check, which wanted the whole-name box grayed under Nemo Anywhere, now wants it hidden and the swap box shown.
-	- Swept: every caller of the 2 rename actions, and the other F2 handlers: the tree and Places rename folders and bookmarks whole, so the swap doesn't touch them. The list and icon views get the choice through the view's actions.
-	- Verified: 20261124, dd5c8, dd5df, dbnfq and dbsx7 pass.
-	- Acceptance signoff: Self-closed: dd5c8 and dd5df.
-	- Closed: 20261124-163838
 
 - Static analyzers: the CodeQL findings fixed or suppressed, then they fail the run.
 	- ID: 2026111915091061
@@ -689,64 +473,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261123: Split into children: `2026112310054779` (the vendored list and a scoped run), `...55896` (Python), `...55921` (vendored), `...55945` (missing-null-test in ours and tests, class first), `...61005` (the same in inherited), `...61029` (non-constant-format), `...61055` (other C in ours and tests), `...61079` (other C in inherited), and `...62942` (a finding left then fails the step). The first 3 and `...55945` are Done, and the other 5 are Queued.
 	- Test case: de8ep, and a count case for the finding it then fails on.
 
-- Static analyzers: the CodeQL findings in vendored code listed outside the files.
-	- ID: 2026112310055921
-	- Type: Enhancement
-	- Status: Done
-	- Closed reason: Done
-	- Priority|Severity: Avg
-	- Opened: 20261123-100559
-	- Opened by: 2026111915091061
-	- Parent ID: 2026111915091061
-	- Prereq IDs: 2026112310054779
-	- Target OS: Linux
-	- Target version: rc.1
-	- Requirements:
-		- About 99 unique on 20261119, 77 of them missing-null-test, most in SHCL and the old SHCL releases. Each goes in the list with a one-line reason, and a real bug goes to its upstream.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Decisions:
-		- 92 results are listed in `cicd/utility/codeql-vendored.txt`, all in SHCL: 32 in `vendor/shcl/shcl.h` and 60 in the old releases. 6 more in `shcl.h` already have SHCL's own `codeql[...]` comment, so they count as suppressed without a list entry.
-		- None is a real bug, so nothing goes upstream. The missing-null-test ones are a vector that starts NULL and grows before its first write, from an arena that never returns NULL, or a pointer set together with the flag tested beside it. The memory-never-freed ones are handed to the caller, who frees them. The float compares are exact on purpose.
-		- An old release's entry points at the same site in `shcl.h` rather than repeating the reason, as `analyze-vendored.txt` does.
-	- Branch: nov24-2026112310055921
-	- Test case: dfha3, and both C lanes have no vendored finding left.
-	- Verified: 20261124, `codeql.py count` over the 20261124 whole-step SARIF has 0 vendored in both C lanes and no stale entry. Scoped runs of both lanes over `shcl-old-writer.c` and over `nemo-config.c` have 0 vendored left. dfha3 passes, and so does `cicd/cicd.bash --backlog-run-quick format lint`.
-	- Acceptance signoff: Self-closed: dfha3 and the counts above.
-	- Closed: 20261124-170614
-
-- Static analyzers: the CodeQL missing-null-test findings in our code and tests fixed or suppressed.
-	- ID: 2026112310055945
-	- Type: Enhancement
-	- Status: Done
-	- Closed reason: Done
-	- Priority|Severity: Avg
-	- Opened: 20261123-100559
-	- Opened by: 2026111915091061
-	- Parent ID: 2026111915091061
-	- Prereq IDs: 2026112310054779
-	- Target OS: Linux
-	- Target version: rc.1
-	- Requirements:
-		- 134 unique on 20261119, 51 ours and 83 tests.
-		- Look for the class first. GLib's inline g_strdup has a return NULL that only a constant NULL reaches, so every g_strdup result reads as maybe NULL. Taking that out of the replay, or teaching the query, may clear most of them in every area.
-		- The query is in no standard suite since it's noisy. Dropping it, or keeping it to some areas, goes against 2026110920250293's decision to add it, so that needs more thought before it's done.
-	- Estimated effort: High
-	- Actual effort: High
-	- Decisions:
-		- The class fix teaches the query rather than the replay. `codeql-c.qls` runs a copy of the pack's query, with the same ID, from `cicd/utility/codeql-cpp/` in place of the pack's. It overrides the pack's `CustomOptions`, which is how the pack means it to be tuned.
-		- It's taught 3 GLib idioms. g_strdup is NULL only for a NULL argument, as the pack already says for CVS's Xstrdup. A function whose only NULL returns come from g_return_val_if_fail isn't one that returns NULL, since that NULL is a caller bug. A g_assert_nonnull or `g_assert (p != NULL)` ahead of a read counts as the test, since a failed assert doesn't come back and an optimized build's G_LIKELY hides the test from the query.
-		- Taking the inline out of the replay with `-D__GTK_DOC_IGNORE__` would change other GLib headers too, so that was left alone.
-		- The query stays in, over every area, per 2026110920250293.
-		- The class fix took the missing-null-test results, unique by line, from 112 to 46 in ours and tests on the Linux list. With the asserts taught too, inherited went from 272 to 139 on the Linux list and from 303 to 150 on the Windows list, which 2026112310061005 starts from.
-		- What was left is fixed where a NULL can get there, and suppressed with a reason where the pointer is set together with the flag tested. A test asserts a pointer it can't go on without.
-	- Branch: nov24-2026112310055945
-	- Test case: de8ep: the planted NULL is still found, and the planted g_strdup, g_return_val_if_fail and g_assert_nonnull reads aren't, in both images. Whole runs of both C lanes have no missing-null-test result left in ours or tests.
-	- Verified: 20261124, de8ep passes in both images. The pack's own query reports the 3 planted GLib reads, and ours doesn't. dfha3 passes. Whole runs of both C lanes (`codeql.bash --lane c-linux --lane c-win`) have 0 missing-null-test results in ours and tests, and the count over them with the Python lane's last SARIF has no stale vendored entry.
-	- Swept: every reader of `codeql-c.qls` and `analyze_db` in `codeql.py` (lane and planted), every `nemo_directory_get_by_uri` result in the tests, and design.md's CodeQL text.
-	- Acceptance signoff: Self-closed: de8ep and the whole lane runs above.
-	- Closed: 20261124-180118
-
 - Static analyzers: the CodeQL missing-null-test findings in inherited code fixed or suppressed.
 	- ID: 2026112310061005
 	- Type: Enhancement
@@ -765,56 +491,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- 20261125: with the taught query from 2026112310055945, inherited code has 139 unique on the Linux list and 150 on the Windows list, down from 272 and 303. Whole-lane SARIF from it is in `cicd/artifacts/codeql/scoped/`.
 	- Progress log:
 		- 20261124: Split into children: `2026112418311481` (the classes, taught or fixed at the source), `...0199` (the window's active slot reads) and `...1521` (the rest). The first 2 are Done, and `...1521` is Queued.
-
-- Static analyzers: CodeQL missing-null-test in inherited code, the window's active slot reads, fixed or suppressed.
-	- ID: 2026112418310199
-	- Type: Enhancement
-	- Status: Done
-	- Closed reason: Done
-	- Priority|Severity: Avg
-	- Opened: 20261124-183101
-	- Opened by: 2026112310061005
-	- Parent ID: 2026112310061005
-	- Target OS: Linux
-	- Target version: rc.1
-	- Requirements: 36 unique on the Linux list, where a nemo_window_get_active_slot result is read without a test. That's NULL only for a window with no pane yet, or for a moment while a pane closes.
-	- Estimated effort: Avg
-	- Actual effort: Low
-	- Decisions:
-		- 34 lines, since 2 of the 36 are 2 reads on one line. Each is suppressed with "a window has its first pane before this runs". The active slot is NULL from nemo_window_init until the first pane is made, and between closing the active pane and setting the next one. The menu actions, signal handlers and sidebars that read it only run on a built window, so a guard would hide a bug elsewhere rather than fix one.
-		- The same reads are in the Windows list, and the same comments clear them there.
-	- Branch: nov24-2026112310061005
-	- Test case: a whole run of both C lanes has none of these left.
-	- Verified: 20261124, whole runs of both C lanes (`codeql.bash --lane c-linux --lane c-win`) have no nemo_window_get_active_slot read left, and no result in any other rule or area that wasn't there before, past line moves.
-	- Swept: every nemo_window_get_active_slot read either lane reported.
-	- Acceptance signoff: Self-closed: the whole lane runs above.
-	- Closed: 20261124-191231
-
-- Static analyzers: CodeQL missing-null-test in inherited code, the classes taught or fixed at the source.
-	- ID: 2026112418311481
-	- Type: Enhancement
-	- Status: Done
-	- Closed reason: Done
-	- Priority|Severity: Avg
-	- Opened: 20261124-183114
-	- Opened by: 2026112310061005
-	- Parent ID: 2026112310061005
-	- Target OS: Linux
-	- Target version: rc.1
-	- Requirements: A function that's NULL only for a NULL argument, or only on a path that can't happen, makes its callers' reads look like misses. Teach the query the first, and take the dead path out of the second.
-	- Estimated effort: Avg
-	- Actual effort: Avg
-	- Decisions:
-		- The query takes a function whose only NULL literal returns sit under `if (p == NULL)`, `if (NULL == p)` or `if (!p)` for one parameter as NULL only when that argument may be. It's g_strdup's rule again, found by the look of the function, so eel_str_middle_truncate, nemo_location_get_display_name, nemo_file_get_icon and the like are covered without naming them. A NULL passed to one is still reported.
-		- g_return_if_fail and g_return_val_if_fail of `p != NULL` ahead of a read count as the test, as g_assert does. The Windows lane's release build hides that test in G_LIKELY. A planted copy of the macro isn't reported even by the old query, so the whole Windows lane is what shows it.
-		- nemo_directory_get_internal tested nemo_directory_new's result for NULL, which can't happen, since g_object_new never returns NULL. That test is gone, which clears every nemo_directory_get, nemo_directory_get_by_uri and nemo_directory_get_for_file read. A lookup miss when create is FALSE was never seen by the query, before or after.
-		- Inherited missing-null-test results, unique by line: Linux 139 to 100 from the argument rule, and to 48 with the directory fix and `2026112418310199`; Windows 150 to 50.
-	- Branch: nov24-2026112310061005
-	- Test case: de8ep: the planted read after a function that's NULL only for a NULL argument isn't reported, and a planted NULL passed to it is.
-	- Verified: 20261124, de8ep passes in both images, and fails with the query from before this change, at the planted read. dfha3 passes. Whole runs of both C lanes have no result in any rule or area that wasn't there before, past line moves, and the counts above. gcc's and clang's analyzers find nothing in nemo-directory.c. `cicd/cicd.bash --backlog-run-quick format lint` passes.
-	- Swept: every caller of nemo_directory_get_internal (nemo_directory_get, `_get_existing`, `_get_by_uri`, the parent lookups in nemo-directory.c and nemo-file.c), the planted readers in codeql.py, and design.md's CodeQL text.
-	- Acceptance signoff: Self-closed: de8ep and the whole lane runs above.
-	- Closed: 20261124-191231
 
 - Static analyzers: CodeQL missing-null-test in inherited code, the reads left after the class fixes, fixed or suppressed.
 	- ID: 2026112418311521
@@ -946,6 +622,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: in 2026111011410487. The pinned GTK has to free a drag canceled in the turn it began.
 	- Verified: under wine, GTK 3.24.52, with OLE on, a begin and cancel in one turn keeps the context at 1 ref and its window at 4, every round. A cancel 300 ms in frees both, as does OLE off either way. It was the same on Windows 11 on 20261022. With the patch, on Windows 11 on 20261022, a cancel in the same turn releases the source, and the context and window are freed every round. The timed cancel and GTK's own protocol are unchanged.
 	- Swept: the app's own OLE drag source in `nemo-dnd-win32.c` calls `DoDragDrop` and releases in one call, without any pending state. GDK's drag drop has the same hole before `DoDragDrop`, noted with the patch.
+
+- Time a copy of many small files with the small-copy checksum on and off.
+	- ID: 2026112416314964
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261124-163149
+	- Opened by:
+	- Related IDs: 2026112416093974
+	- Target version: rc.1
+	- Requirements:
+		- Each small copy now takes a blake3 sum and makes 2 file cache writes in the copy job's thread. Time 10k small files with `file-cache.checksum-full-reads` on and off, by user plus system CPU and by wall time. If the cost is real, batch the writes or move them off the copy thread.
+	- Estimated effort: Low
+	- Test case: none, it's a timing; a regression test follows only if the cost is real.
 
 - Windows: build MSYS2's gtk3 with the OLE drag abort fix in `t00mietum/nemo-anywhere-deps`, as a pinned release file.
 	- ID: 2026111011404145
@@ -6002,6 +5692,201 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de025, Folder open time test. It goes into 9 folders of 120 from the list view, and back up after each. Of those, 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
 	- Acceptance signoff: Self-closed: de025 tests it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
+
+- Need ability to enter variables in the path bar. E.g. `$TMP9`.
+	- ID: 2026101613053687
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261016-130536
+	- Opened by: t00mietum
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- Can enter common standard cross-platform variables, e.g.:
+			- `$TMP/misc`, `${HOME}/.config`, or `~/.cache` on Windows.
+			- `%USERPROFILE%\Pictures` on mac and Linux
+			- `$DEVELOPER_DIR` on Windows and Linux
+	- Progress log:
+		- 20261123: done. A common variable from the other platform expands where nothing set it, to the local folder or name. That covers HOME and USERPROFILE, TMP, TEMP and TMPDIR, USER and USERNAME, XDG_CONFIG_HOME and APPDATA, XDG_DATA_HOME and LOCALAPPDATA, and XDG_CACHE_HOME. A variable that's set always wins.
+		- A backslash after a variable resolves too, so `%USERPROFILE%\Pictures` opens on Linux and macOS.
+		- `~` on Windows and every variable that's set already worked, since 20260828.
+		- 20261124: XDG_CONFIG_HOME, APPDATA, XDG_DATA_HOME, LOCALAPPDATA and XDG_CACHE_HOME are out of the list, and stay as typed where nothing set them. design.md's `%APPDATA%` example is now `$USER`, and it says which names aren't on the list.
+	- Decisions:
+		- `$DEVELOPER_DIR` gets no stand-in. On a Mac it's the Xcode folder, and Windows and Linux don't have one. Where it isn't set, it stays as typed.
+		- A name that isn't set stays as typed when it isn't standard, or when it has no single obvious match on the other platform. HOME and USERPROFILE, TMP, TEMP and TMPDIR, and USER and USERNAME keep their stand-ins.
+		- The XDG folders and APPDATA and LOCALAPPDATA lose theirs. APPDATA off Windows could be the config folder or the data folder, and LOCALAPPDATA the data folder or the cache. On Windows GLib puts both the XDG config and data folders in LOCALAPPDATA. The other option was keeping XDG_CONFIG_HOME and APPDATA as a pair, as Go's `os.UserConfigDir` does.
+		- `%NAME%` ignores case, as on Windows. `$NAME` doesn't.
+		- Nothing in the change is Windows-only, so the Windows cross build's run of the test is enough there.
+	- Swept: the location bar, the bookmark editor, and the command line all use the one expansion. The command line doesn't get the backslash retry, which a shell strips unless it's quoted. Shortcut portable paths have their own reader, which maps only `%USERPROFILE%` off Windows, and were left alone.
+	- Verified: da8rh passes, and fails before the change on 16 checks. It passes in the Windows cross build too. Lint is clean, and both analyzers are clean on the 2 changed files.
+	- Verified: 20261124, da8rh passes, and fails on the old list on the 5 names that now stay as typed. The format and lint stages pass, and both analyzers are clean on the 2 changed files.
+	- Branch: nov23-2026101613053687, then nov24-2026101613053687
+	- Commit: 50eafa7b, then 5e6984d2
+	- Test case: da8rh `test-eel-user-input` (`test_stand_ins`, and the Windows path behind a variable).
+	- Acceptance signoff: Self-closed: the list change is pinned by da8rh, with nothing on screen to judge.
+	- Closed: 20261124-152408
+
+- Settings: a shortcut changed on the Keyboard tab takes effect in every open window, and the keyboard shortcuts window shows it.
+	- ID: 2026112312181314
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-121813
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234906
+	- Prereq IDs: 2026112312181296
+	- Target version: rc.1
+	- Requirements:
+		- Other running windows pick up a change to `accels`, since each window is its own process.
+		- The keyboard shortcuts window shows the keys in use, not the defaults.
+		- Shortcuts of a view the window hasn't opened yet, such as Icon view's, are listed too.
+		- One window saving `accels` doesn't undo a change another window made.
+		- Settings search finds the Keyboard tab by words such as keyboard, shortcut, and hotkey.
+	- Note: each window saves its whole shortcut map 30 seconds after a change. So a window that reads `accels` again should take only the entries the file changed since it last read or wrote it, or a change it hasn't saved yet is lost. The search matches settings by their key in the schema, and the tab has none.
+	- Progress log:
+		- 20261123: split in 3. 2026112312455741 is other windows and saving, 2026112312455764 is Settings search, and 2026112312455787 is the keyboard shortcuts window and views not opened yet.
+	- Test case: its children's: 2026112312455787: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.; 2026112312455741: dfpt0 `test-nemo-shortcuts-file`: a change another window saves is taken, one made here and not saved yet is kept, a save takes the file's changes first and keeps all 3, its own save changes nothing, a file missing lines takes nothing back, and a key turned off elsewhere is turned off here.; 2026112312455764: dd5df, Settings dialog test: keyboard, shortcut, hotkey, key binding, and Keyboard shortcuts each list the Keyboard tab.
+	- Closed: 20261124-155222
+
+- Checksums: keep the checksum of a file that is read in full for something other than a thumbnail, such as a small copy.
+	- ID: 2026112416093974
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261124-160939
+	- Opened by: 2026102018234907
+	- Parent ID: 2026102018234907
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- While `file-cache.checksum-full-reads` is on, a file the app reads in full anyway gets its blake3 checksum kept in the file cache, as a thumbnail does today.
+		- With `file-cache.save-checksum` on too, the checksum also goes onto the file, the same way a thumbnail's does.
+	- Notes:
+		- The full reads the app does itself today are the thumbnail queue, which already keeps its checksum, and the small copy on Linux, under `performance.clone-min-kib`. The ordinary copy goes through GIO, which reads in the kernel, so the app never sees those bytes.
+		- A small copy's target gets its times from the caller after the copy, so its checksum can only be kept once those are set.
+	- Decisions:
+		- The source and the copy both keep the checksum. The source is the file read in full, and the copy has the same bytes, so the cache folds the 2 names onto one record.
+		- With `file-cache.save-checksum` on, the checksum goes onto the source too, not only the copy. A drive that can't take it goes without, as with thumbnails.
+		- A source whose size or time changed during the read gets no checksum, the same rule as thumbnails.
+		- Both small copies keep it: the ordinary copy and a new file from a template.
+	- Done: a small copy checksums the bytes it already has in memory. Once the caller has set the copy's times, the checksum is kept for the source and the copy. With `save-checksum` on too, it then goes onto both files, skipped where a file has it already.
+	- Swept: every full read in the app. The thumbnail queue already kept its checksum, and both small copy callers keep it now. The other whole-file reads are launcher and settings files the app parses, and content search, which stops at a match, so they were left alone.
+	- Branch: nov24-2026112416093974
+	- Commit: 4ff8dad3
+	- Test case: dd24j, Small file copy test, the checksum case, Linux only. With the setting off nothing is kept. By default the source and the copy are in the cache and nothing is on the files. With `save-checksum` on, both files have it too.
+	- Verified: 20261124, dd24j fails with the checksum taken out, 8 checks, and passes with it. 3z0xv, dd42s, dc3p6 and ddzwv pass, the quick format and lint gate passed, and gcc's and clang's analyzers are clean on the 3 changed .c files.
+	- Acceptance signoff: Self-closed: its test fails before and passes after, and nothing is left to judge on screen.
+	- Closed: 20261124-162751
+
+- Static analyzers: the CodeQL findings in vendored code listed outside the files.
+	- ID: 2026112310055921
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-100559
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310054779
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- About 99 unique on 20261119, 77 of them missing-null-test, most in SHCL and the old SHCL releases. Each goes in the list with a one-line reason, and a real bug goes to its upstream.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Decisions:
+		- 92 results are listed in `cicd/utility/codeql-vendored.txt`, all in SHCL: 32 in `vendor/shcl/shcl.h` and 60 in the old releases. 6 more in `shcl.h` already have SHCL's own `codeql[...]` comment, so they count as suppressed without a list entry.
+		- None is a real bug, so nothing goes upstream. The missing-null-test ones are a vector that starts NULL and grows before its first write, from an arena that never returns NULL, or a pointer set together with the flag tested beside it. The memory-never-freed ones are handed to the caller, who frees them. The float compares are exact on purpose.
+		- An old release's entry points at the same site in `shcl.h` rather than repeating the reason, as `analyze-vendored.txt` does.
+	- Branch: nov24-2026112310055921
+	- Test case: dfha3, and both C lanes have no vendored finding left.
+	- Verified: 20261124, `codeql.py count` over the 20261124 whole-step SARIF has 0 vendored in both C lanes and no stale entry. Scoped runs of both lanes over `shcl-old-writer.c` and over `nemo-config.c` have 0 vendored left. dfha3 passes, and so does `cicd/cicd.bash --backlog-run-quick format lint`.
+	- Acceptance signoff: Self-closed: dfha3 and the counts above.
+	- Closed: 20261124-170614
+
+- Static analyzers: the CodeQL missing-null-test findings in our code and tests fixed or suppressed.
+	- ID: 2026112310055945
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-100559
+	- Opened by: 2026111915091061
+	- Parent ID: 2026111915091061
+	- Prereq IDs: 2026112310054779
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements:
+		- 134 unique on 20261119, 51 ours and 83 tests.
+		- Look for the class first. GLib's inline g_strdup has a return NULL that only a constant NULL reaches, so every g_strdup result reads as maybe NULL. Taking that out of the replay, or teaching the query, may clear most of them in every area.
+		- The query is in no standard suite since it's noisy. Dropping it, or keeping it to some areas, goes against 2026110920250293's decision to add it, so that needs more thought before it's done.
+	- Estimated effort: High
+	- Actual effort: High
+	- Decisions:
+		- The class fix teaches the query rather than the replay. `codeql-c.qls` runs a copy of the pack's query, with the same ID, from `cicd/utility/codeql-cpp/` in place of the pack's. It overrides the pack's `CustomOptions`, which is how the pack means it to be tuned.
+		- It's taught 3 GLib idioms. g_strdup is NULL only for a NULL argument, as the pack already says for CVS's Xstrdup. A function whose only NULL returns come from g_return_val_if_fail isn't one that returns NULL, since that NULL is a caller bug. A g_assert_nonnull or `g_assert (p != NULL)` ahead of a read counts as the test, since a failed assert doesn't come back and an optimized build's G_LIKELY hides the test from the query.
+		- Taking the inline out of the replay with `-D__GTK_DOC_IGNORE__` would change other GLib headers too, so that was left alone.
+		- The query stays in, over every area, per 2026110920250293.
+		- The class fix took the missing-null-test results, unique by line, from 112 to 46 in ours and tests on the Linux list. With the asserts taught too, inherited went from 272 to 139 on the Linux list and from 303 to 150 on the Windows list, which 2026112310061005 starts from.
+		- What was left is fixed where a NULL can get there, and suppressed with a reason where the pointer is set together with the flag tested. A test asserts a pointer it can't go on without.
+	- Branch: nov24-2026112310055945
+	- Test case: de8ep: the planted NULL is still found, and the planted g_strdup, g_return_val_if_fail and g_assert_nonnull reads aren't, in both images. Whole runs of both C lanes have no missing-null-test result left in ours or tests.
+	- Verified: 20261124, de8ep passes in both images. The pack's own query reports the 3 planted GLib reads, and ours doesn't. dfha3 passes. Whole runs of both C lanes (`codeql.bash --lane c-linux --lane c-win`) have 0 missing-null-test results in ours and tests, and the count over them with the Python lane's last SARIF has no stale vendored entry.
+	- Swept: every reader of `codeql-c.qls` and `analyze_db` in `codeql.py` (lane and planted), every `nemo_directory_get_by_uri` result in the tests, and design.md's CodeQL text.
+	- Acceptance signoff: Self-closed: de8ep and the whole lane runs above.
+	- Closed: 20261124-180118
+
+- Static analyzers: CodeQL missing-null-test in inherited code, the window's active slot reads, fixed or suppressed.
+	- ID: 2026112418310199
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261124-183101
+	- Opened by: 2026112310061005
+	- Parent ID: 2026112310061005
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements: 36 unique on the Linux list, where a nemo_window_get_active_slot result is read without a test. That's NULL only for a window with no pane yet, or for a moment while a pane closes.
+	- Estimated effort: Avg
+	- Actual effort: Low
+	- Decisions:
+		- 34 lines, since 2 of the 36 are 2 reads on one line. Each is suppressed with "a window has its first pane before this runs". The active slot is NULL from nemo_window_init until the first pane is made, and between closing the active pane and setting the next one. The menu actions, signal handlers and sidebars that read it only run on a built window, so a guard would hide a bug elsewhere rather than fix one.
+		- The same reads are in the Windows list, and the same comments clear them there.
+	- Branch: nov24-2026112310061005
+	- Test case: a whole run of both C lanes has none of these left.
+	- Verified: 20261124, whole runs of both C lanes (`codeql.bash --lane c-linux --lane c-win`) have no nemo_window_get_active_slot read left, and no result in any other rule or area that wasn't there before, past line moves.
+	- Swept: every nemo_window_get_active_slot read either lane reported.
+	- Acceptance signoff: Self-closed: the whole lane runs above.
+	- Closed: 20261124-191231
+
+- Static analyzers: CodeQL missing-null-test in inherited code, the classes taught or fixed at the source.
+	- ID: 2026112418311481
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261124-183114
+	- Opened by: 2026112310061005
+	- Parent ID: 2026112310061005
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements: A function that's NULL only for a NULL argument, or only on a path that can't happen, makes its callers' reads look like misses. Teach the query the first, and take the dead path out of the second.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Decisions:
+		- The query takes a function whose only NULL literal returns sit under `if (p == NULL)`, `if (NULL == p)` or `if (!p)` for one parameter as NULL only when that argument may be. It's g_strdup's rule again, found by the look of the function, so eel_str_middle_truncate, nemo_location_get_display_name, nemo_file_get_icon and the like are covered without naming them. A NULL passed to one is still reported.
+		- g_return_if_fail and g_return_val_if_fail of `p != NULL` ahead of a read count as the test, as g_assert does. The Windows lane's release build hides that test in G_LIKELY. A planted copy of the macro isn't reported even by the old query, so the whole Windows lane is what shows it.
+		- nemo_directory_get_internal tested nemo_directory_new's result for NULL, which can't happen, since g_object_new never returns NULL. That test is gone, which clears every nemo_directory_get, nemo_directory_get_by_uri and nemo_directory_get_for_file read. A lookup miss when create is FALSE was never seen by the query, before or after.
+		- Inherited missing-null-test results, unique by line: Linux 139 to 100 from the argument rule, and to 48 with the directory fix and `2026112418310199`; Windows 150 to 50.
+	- Branch: nov24-2026112310061005
+	- Test case: de8ep: the planted read after a function that's NULL only for a NULL argument isn't reported, and a planted NULL passed to it is.
+	- Verified: 20261124, de8ep passes in both images, and fails with the query from before this change, at the planted read. dfha3 passes. Whole runs of both C lanes have no result in any rule or area that wasn't there before, past line moves, and the counts above. gcc's and clang's analyzers find nothing in nemo-directory.c. `cicd/cicd.bash --backlog-run-quick format lint` passes.
+	- Swept: every caller of nemo_directory_get_internal (nemo_directory_get, `_get_existing`, `_get_by_uri`, the parent lookups in nemo-directory.c and nemo-file.c), the planted readers in codeql.py, and design.md's CodeQL text.
+	- Acceptance signoff: Self-closed: de8ep and the whole lane runs above.
+	- Closed: 20261124-191231
 
 - Static analyzers: the cross-file clang findings fixed or suppressed, then they fail the run.
 	- ID: 2026110920251244
@@ -13517,6 +13402,92 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: nothing left behind in 876 runs, or in any native gate since the retry went in.
 	- Closed: 20261117-095337
 
+- When moving a bookmark with the mouse, it should give some kind of indication of where it's going to go *between*.
+	- ID: 2026101613053686
+	- Type: Enhancement
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261016-130536
+	- Opened by: t00mietum
+	- Related IDs: 2026112310420234
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+	- Progress log:
+		- 20261123: the spot was already worked out and handed to the toolkit, which drew it as the theme's drop line. That line is 1px, which is easy to miss, as in Fluent, the Windows default, and Adwaita. In Adwaita dark, Windows 10, Windows 10 dark and Windows 7 its color is so close to the background that it can't be seen at all.
+	- Decisions:
+		- The line is drawn in the row's text color, 2px thick, across the whole row, on the top edge of the row below or the bottom edge of the row above. Text color is the one color that reads on every theme, light and dark, and on the selected row. Explorer draws its line in black the same way. Options were the theme's accent color, which is the color that couldn't be seen in 3 themes, or drawing a marker of our own beside the line, as Finder does.
+		- Only Places has this kind of drop. The frame around a row a file drops into has the same faint color in those themes, and is 2026112310420234.
+	- Done: the app's own style sheet draws the line for Places over the theme's.
+	- Swept: Places is the only view that drops between rows. The list view and the tree pane only drop into a row.
+	- Verified: dfpnp fails before the change, with no line or only 1px in all 11 themes it draws, the 9 bundled sheets and Adwaita light and dark, and passes after, at 2px with contrast 3.77 or better. dd2sk, ddg79 and ddhw4 still pass. format and lint pass.
+	- Branch: nov23-2026101613053686
+	- Commit: 1bbffa05
+	- Test case: dfpnp Places drop line test. A Places tree view is drawn in each bundled theme with and without a drop spot, before and after a row and next to the selected row. The line has to be at least 2px, on the right edge of the right row, with at least 3:1 contrast.
+	- Acceptance signoff: Self-closed: dfpnp passed in the nov24 quick run, which measures the line as 2px at 3:1 contrast or better in all 11 themes, Fluent included, before and after a row and next to the selected row.
+	- Closed: 20261124-195400
+
+- Settings: the keyboard shortcuts window shows the keys in use, and the Keyboard tab lists the shortcuts of views not opened yet.
+	- ID: 2026112312455787
+	- Type: Enhancement
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261123-124557
+	- Opened by: work on 2026112312181314
+	- Parent ID: 2026112312181314
+	- Target version: rc.1
+	- Requirements:
+		- The keyboard shortcuts window shows the keys in use, not the defaults.
+		- Shortcuts of a view the window hasn't opened yet, such as Icon view's, are listed too.
+	- Note: the keyboard shortcuts window's keys are fixed in `nemo-shortcuts.ui`, and only Ctrl+I, Properties, and Ctrl+Shift+V are set when it opens. Its rows don't name the action they stand for, so each needs that before it can show the key in use. The Keyboard tab lists only what `nemo_shortcuts_note_*` recorded as each view made its actions.
+	- Done: each row of the keyboard shortcuts window names the shortcuts it stands for, and shows the key each has now in place of the one it started with. A key that isn't a menu shortcut, such as Return for Open or F5 for Refresh, stays as written. A row whose shortcuts are all off is hidden, and the window follows a change made while it's open. Icon view's actions are noted the first time the list is wanted, so the Keyboard tab lists them before an icon view is opened.
+	- Decisions:
+		- A row with no key in use is hidden rather than left with an empty key, since the window shows only keys.
+		- A shortcut with no key to start with, such as Move to Trash, whose Delete key is a key binding, shows a key it's given beside the binding.
+		- Icon view's actions are noted when the list is first wanted, not at startup, so a window that never opens Settings or the shortcuts window pays nothing for them.
+		- The rows' ids and the shortcuts they stand for are a table in `nemo-shortcuts-window.c`. Switch to tab and Show/hide action menu stand for no menu shortcut, so they stay as written.
+	- Swept: every row of the shortcuts window has an id in the table, except the 2 above. Every action name in the table is one the shell or folder view actions add. Icon view's are the only view's actions with their own group, since the list view adds none and the folder view's are made with every view.
+	- Test case: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.
+	- Verified: 20261124, dfrca passes, and fails with the key text left as written and the list not noting its sources. dd5df, dbnfq, and dfpt0 pass. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Not covered by a test: that the app's own icon view registers its actions this way, and the window's wiring in the app.
+	- Branch: nov24-2026112312455787
+	- Commit: 58f56886
+	- Acceptance signoff: Self-closed: dfrca.
+	- Closed: 20261124-155200
+
+- Reenable the option to rename the whole file with F2. But label it "Swap behavior of F2 and Shift+F2".
+	- ID: 2026111707593766
+	- Type: Enhancement
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261117-075937
+	- Opened by: t00mietum
+	- Related IDs: 2026102218380001, 2026102218380002
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- Label: "Swap behavior of F2 and Shift+F2".
+	- Notes:
+		- Today the "Include the extension when a rename starts" box is grayed under Nemo Anywhere, per 2026102218380001.
+	- Progress log:
+		- 20261124: under Nemo Anywhere, Settings > Behavior has "Swap behavior of F2 and Shift+F2", off by default. On, F2 selects the whole name and Shift+F2 leaves the extension out. A folder is still selected whole. The design docs and the changelog say so.
+	- Decisions:
+		- The swap is its own setting, `rename-swap-keys`, off by default. Reusing the whole-name setting would have made F2 take the whole name by default under Nemo Anywhere, since that setting defaults to on, and undone 2026102218380002.
+		- Only one of the 2 boxes shows, in the same place: the whole-name box under v1 and Classic, the swap box under Nemo Anywhere. This replaces the grayed box from 2026102218380001, since a grayed box beside the one that counts would only confuse.
+		- The swap covers the 2 keys, and the menu's Rename, which is F2. Two slow clicks and a new file's rename still leave the extension out, since the label names only the keys.
+		- The Keyboard tab still names Shift+F2's row "Rename with the whole name selected", which is wrong with the swap on. The row's name is at signoff in 2026112415464216.
+	- Branch: nov24-2026111707593766
+	- Commit: 2b82de4a
+	- Test case: dd5c8 checks what F2 and Shift+F2 select with the swap on and off under each model, through the same call the view's actions make. dd5df checks that the swap box shows under Nemo Anywhere in the whole-name box's place, with its label, writes its key, and gives way to the whole-name box under v1. dbnfq checks the box is in the dialog.
+		- 20261124: dd5df's rename check, which wanted the whole-name box grayed under Nemo Anywhere, now wants it hidden and the swap box shown.
+	- Swept: every caller of the 2 rename actions, and the other F2 handlers: the tree and Places rename folders and bookmarks whole, so the swap doesn't touch them. The list and icon views get the choice through the view's actions.
+	- Verified: 20261124, dd5c8, dd5df, dbnfq and dbsx7 pass.
+	- Acceptance signoff: Self-closed: dd5c8 and dd5df.
+	- Closed: 20261124-163838
+
 - Build the "Where pasted and new items go" setting and its 3 target models.
 	- ID: 2026110709200000
 	- Type: Enhancement
@@ -13737,6 +13708,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 521e7124
 	- Acceptance signoff: Self-closed: dd5df's new check fails without the change and passes with it.
 	- Closed: 20261123-130250
+
+- Under the Windows 10 and Windows 7 themes, the frame around a row a file is about to drop into can barely be seen.
+	- ID: 2026112310420234
+	- Type: Bug
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Low
+	- Opened: 20261123-104202
+	- Opened by: 2026101613053686
+	- Related IDs: 2026101613053686
+	- Target OS: All
+	- Target version: rc.1
+	- Steps to reproduce: pick the Windows 10 theme, and drag a file over a place in Places or a folder in the list view.
+	- Incorrect behavior: the row is marked by a 1px frame in a pale blue close to white.
+	- Expected behavior: the row a file would drop into is easy to see in every bundled theme.
+	- Reproduced: 20261123, by dfpp8 on the unfixed sheet. Adwaita dark, Windows 10, Windows 10 dark and Windows 7 had no part of the frame at 3:1 contrast. The rest had only 1px top and bottom, and none marked the row's sides.
+	- Possible cause: the themes' own drop frame color. dfpnp's way of drawing a tree view and checking contrast would cover it.
+	- Actual cause: each theme draws the frame 1px, top and bottom only, in its own drop color, which in some is close to the row's background.
+	- Decisions:
+		- Drawn the same way as the Places drop line: the row's text color, 2px. It goes on all 4 sides, so it can't be mistaken for the line between 2 rows in Places. Options were the theme's accent color, which is the faint one, or tinting the whole row, as Explorer does, which looks too much like a selection.
+		- One rule for every tree view in the app, since the list view, the tree pane and Places all drop into a row the same way.
+	- Actual fix: the app's own style sheet draws the frame for a drop into a row over the theme's.
+	- Swept: the list view, the tree pane and Places all mark a drop into a row through the toolkit's tree view, which the one rule covers. The icon view marks a drop target its own way and isn't affected.
+	- Verified: dfpp8 fails before the change in all 11 themes, and passes after, with 2px top and bottom and both sides marked at 3:1 contrast or better, into a plain row and into the selected row. dfpnp and dd2sk still pass. format and lint pass, and gcc's and clang's analyzers have no findings in the test.
+	- Branch: nov23-2026112310420234
+	- Commit: 47fb3ac6
+	- Test case: dfpp8 Drop into row frame test. A tree view is drawn in each bundled theme with and without a drop into a row, plain and selected. The frame has to be at least 2px on the row's top and bottom edges and mark both sides, with at least 3:1 contrast.
+	- Acceptance signoff: Self-closed: dfpp8 passed in the nov24 quick run, which measures the frame as 2px on every side at 3:1 contrast or better in all 11 themes, into a plain row and into the selected row. The list view, the tree pane and Places all draw it through the same tree view rule.
+	- Closed: 20261124-195400
 
 - The action strings file for translators still has 4 action names in their old case.
 	- ID: 2026112310211281
