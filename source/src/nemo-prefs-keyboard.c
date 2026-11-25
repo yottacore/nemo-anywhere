@@ -131,14 +131,16 @@ key_cell_data (G_GNUC_UNUSED GtkTreeViewColumn *column,
 }
 
 static void
-say (Page *page, NemoShortcutResult result, guint key, GdkModifierType mods, const NemoShortcut *taken_by)
+say (Page *page, NemoShortcutResult result, guint key, GdkModifierType mods, const NemoShortcut *cleared)
 {
 	g_autofree char *keys = gtk_accelerator_get_label (key, mods);
 	g_autofree char *text = NULL;
 
 	switch (result) {
-	case NEMO_SHORTCUT_TAKEN:
-		text = g_strdup_printf (_("%s is already the shortcut for %s."), keys, taken_by->label);
+	case NEMO_SHORTCUT_SET:
+		if (cleared != NULL) {
+			text = g_strdup_printf (_("%s was the shortcut for %s, which is now off."), keys, cleared->label);
+		}
 		break;
 	case NEMO_SHORTCUT_NEEDS_MODIFIER:
 		text = g_strdup_printf (_("%s types a character, so it needs Ctrl or Alt held too."), keys);
@@ -146,7 +148,6 @@ say (Page *page, NemoShortcutResult result, guint key, GdkModifierType mods, con
 	case NEMO_SHORTCUT_REFUSED:
 		text = g_strdup_printf (_("%s couldn't be set."), keys);
 		break;
-	case NEMO_SHORTCUT_SET:
 	default:
 		break;
 	}
@@ -158,15 +159,15 @@ static void
 reset_row (Page *page, GtkTreePath *path)
 {
 	const NemoShortcut *shortcut = row_shortcut (page, path);
-	const NemoShortcut *taken_by = NULL;
+	const NemoShortcut *cleared = NULL;
 	NemoShortcutResult result;
 
 	if (shortcut == NULL || nemo_shortcuts_is_default (shortcut)) {
 		return;
 	}
 
-	result = nemo_shortcuts_reset (shortcut, &taken_by);
-	say (page, result, shortcut->key, shortcut->mods, taken_by);
+	result = nemo_shortcuts_reset (shortcut, &cleared);
+	say (page, result, shortcut->key, shortcut->mods, cleared);
 }
 
 static void
@@ -206,7 +207,7 @@ dialog_key_press (G_GNUC_UNUSED GtkWidget *dialog, GdkEventKey *event, GtkWidget
 	Page *page = g_object_get_data (G_OBJECT (tree), "keyboard-page");
 	GtkTreePath *path;
 	const NemoShortcut *shortcut;
-	const NemoShortcut *taken_by = NULL;
+	const NemoShortcut *cleared = NULL;
 	NemoShortcutResult result;
 	guint key;
 	GdkModifierType mods;
@@ -239,8 +240,8 @@ dialog_key_press (G_GNUC_UNUSED GtkWidget *dialog, GdkEventKey *event, GtkWidget
 	}
 
 	stop_waiting (page);
-	result = nemo_shortcuts_set (shortcut, key, mods, &taken_by);
-	say (page, result, key, mods, taken_by);
+	result = nemo_shortcuts_set (shortcut, key, mods, &cleared);
+	say (page, result, key, mods, cleared);
 
 	return GDK_EVENT_STOP;
 }

@@ -1092,8 +1092,7 @@ queue_render (NemoFile *file, int size, gboolean ahead, gboolean load_only, gint
     info->size = nemo_thumbnail_size_step (size);
     info->read_anyway = nemo_can_thumbnail_internally (file);
     info->had_thumbnail = file->details->thumbnail_stored_size > 0;
-    info->save_checksum = nemo_config_get_boolean (nemo_config_get_group (NEMO_FILE_CACHE_GROUP),
-                                                   NEMO_FILE_CACHE_SAVE_CHECKSUM);
+    info->save_checksum = nemo_thumbnail_saves_checksum ();
     info->order = order;
     info->ahead = ahead;
     info->load_only = load_only;
@@ -1300,6 +1299,15 @@ nemo_can_thumbnail (NemoFile *file)
     mime_type = nemo_file_get_mime_type (file);
 
     return nemo_desktop_thumbnail_factory_can_make (get_thumbnail_factory (), uri, mime_type);
+}
+
+gboolean
+nemo_thumbnail_saves_checksum (void)
+{
+    NemoConfigGroup *group = nemo_config_get_group (NEMO_FILE_CACHE_GROUP);
+
+    return nemo_config_get_boolean (group, NEMO_FILE_CACHE_CHECKSUM_FULL_READS) &&
+           nemo_config_get_boolean (group, NEMO_FILE_CACHE_SAVE_CHECKSUM);
 }
 
 int

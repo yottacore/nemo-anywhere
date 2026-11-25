@@ -1031,7 +1031,8 @@ test('de7aj Template rename and add errors test',
 test('dd5df Settings dialog test',
   executable('test-nemo-prefs-dialog',
     [ 'test-nemo-prefs-dialog.c', '../src/nemo-file-management-properties.c',
-      '../src/nemo-settings-search.c', '../src/nemo-prefs-keyboard.c', settingsAliases ] + gresources,
+      '../src/nemo-settings-search.c', '../src/nemo-prefs-keyboard.c', '../src/nemo-prefs-checksum.c',
+      settingsAliases ] + gresources,
     include_directories: [ rootInclude, include_directories('../src') ],
     dependencies: [ gtk, nemo_private, test_scratch ],
     c_args: nemo_definitions,
@@ -1306,6 +1307,16 @@ test('dfpt0 Shortcut file shared between windows test',
     [ 'test-nemo-shortcuts-file.c' ],
     include_directories: [ rootInclude, ],
     dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
+test('dfrca Keyboard shortcuts window test',
+  executable('test-nemo-shortcuts-window',
+    [ 'test-nemo-shortcuts-window.c', '../src/nemo-shortcuts-window.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_fence ],
+    c_args: [ '-DNEMO_SHORTCUTS_UI="@0@"'.format(meson.project_source_root() / 'gresources' / 'nemo-shortcuts.ui') ],
   ),
   args: []
 )

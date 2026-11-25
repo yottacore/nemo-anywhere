@@ -144,6 +144,7 @@ nemo_window_add_bookmark_for_current_location (NemoWindow *window)
 	NemoBookmarkList *list;
 
 	slot = nemo_window_get_active_slot (window);
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	bookmark = slot->current_location_bookmark;
 	list = window->details->bookmark_list;
 
@@ -269,6 +270,7 @@ activate_bookmark_in_menu_item (G_GNUC_UNUSED GtkAction *action, gpointer user_d
 
     location = nemo_bookmark_get_location (holder->bookmark);
     slot = nemo_window_get_active_slot (holder->window);
+    // codeql[cpp/missing-null-test] a window has its first pane before this runs
     nemo_window_slot_open_location (slot, location, nemo_event_get_window_open_flags ());
     g_object_unref (location);
 }

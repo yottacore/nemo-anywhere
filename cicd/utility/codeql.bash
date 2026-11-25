@@ -5,11 +5,13 @@
 ##	  /build-win, and the Python queries over the tree, each in a step
 ##	  container of its own. The CLI and query packs are the ones pinned in
 ##	  linux/Dockerfile.dev and win/Dockerfile, run locally, with no hosted
-##	  service. codeql-c.qls and codeql-python.qls pick the queries.
+##	  service. codeql-c.qls and codeql-python.qls pick the queries, and
+##	  codeql-cpp/ has our own, such as missing-null-test taught about GLib.
 ##	- Fails when the C queries miss the planted leak or null dereference in
-##	  either container (test de8ep), when codeql is missing from an image,
-##	  when a lane fails, when the count can't read a lane's SARIF, or on a bad
-##	  or stale entry in codeql-vendored.txt. Findings are counted per area and
+##	  either container, or report the planted GLib idioms (test de8ep),
+##	  when codeql is missing from an image, when a lane fails, when the
+##	  count can't read a lane's SARIF, or on a bad or stale entry in
+##	  codeql-vendored.txt. Findings are counted per area and
 ##	  kept, and are report only for now (backlog 2026111915091061). Vendored
 ##	  ones listed in codeql-vendored.txt count as suppressed.
 ##	- The last run's SARIF and logs are in cicd/artifacts/codeql/last/. Each
@@ -172,3 +174,4 @@ fEcho "OK: CodeQL stage"
 ##	History:
 ##		- 2026-11-19: First version, report only.
 ##		- 2026-11-23: codeql-vendored.txt, and a scoped run with --lane and --match.
+##		- 2026-11-24: missing-null-test from codeql-cpp/, taught about GLib.

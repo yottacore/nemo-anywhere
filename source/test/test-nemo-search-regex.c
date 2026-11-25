@@ -67,6 +67,7 @@ main (int argc, char *argv[])
 
 	/* A directory with a file or 2 to iterate over. */
 	dir = test_scratch_dir ("nemo-search-regex-XXXXXX", NULL);
+	g_assert_nonnull (dir);
 	if (!put (dir, "somefile.txt", "x") || !put (dir, "another.txt", "y")) {
 		return 1;
 	}

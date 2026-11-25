@@ -206,6 +206,7 @@ on_slider_changed_cb (GtkWidget *zoom_slider, gpointer user_data)
     if (!NEMO_IS_WINDOW_SLOT (slot))
         return;
 
+    // codeql[cpp/missing-null-test] a window has its first pane before this runs
     NemoView *view = slot->content_view;
 
     if (!NEMO_IS_VIEW (view))
@@ -429,6 +430,7 @@ nemo_status_bar_sync_zoom_widgets (NemoStatusBar *bar)
     if (!NEMO_IS_WINDOW_SLOT (slot))
         return;
 
+    // codeql[cpp/missing-null-test] a window has its first pane before this runs
     NemoView *view = slot->content_view;
 
     if (!NEMO_IS_VIEW (view))

@@ -118,6 +118,7 @@ Copying a link asks what should be at the far end. A link can stay a link or be 
 - On Linux, Nemo Anywhere already does all copy operations on supported filesystems, with essentially the same thing as `cp --reflink=auto` - so that if it's possible and beneficial (e.g. not for tiny files), copies will be clones. There is no risk and almost never downsides to this being unchangeable hard-coded behavior, only potentially massive benefits. (And the downsides are trivial.)
 	- A file under 64 KiB is read whole and written out plainly, so it is never cloned. That's 16 blocks of 4 KiB. A clone saves less than that below it, while the filesystem keeps track of the shared part for as long as both copies exist.
 	- The limit is `performance.clone-min-kib` in the settings file. A value of 0 always clones, and 1024 is the most.
+	- The whole file is in memory for the copy, so its checksum costs no extra read. With `file-cache.checksum-full-reads` on, the file cache keeps it for the source and the copy, once the copy has its times. See [Checksums on the files](20260930-145641_file_cache.md#checksums-on-the-files) for when it also goes onto them.
 	- An overwrite, a link copied as a link, or anything the plain copy can't start goes the usual way, so conflicts and errors read the same.
 	- Other platforms have nothing to skip, since only Linux clones on copy there.
 

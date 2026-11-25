@@ -247,6 +247,7 @@ check_commands (void)
 
 	argv = nemo_extract_build_command (NEMO_EXTRACT_BACKEND_7Z, "7z",
 					   "/tmp/photos.7z", "/tmp/out", NULL);
+	g_assert_nonnull (argv);
 	check (!has_unexpanded (argv));
 	check (g_strcmp0 (argv[0], "7z") == 0);
 	/* "x" and not "e": the paths stored in the archive are the point. */
@@ -269,6 +270,7 @@ check_commands (void)
 
 	argv = nemo_extract_build_command (NEMO_EXTRACT_BACKEND_RAR, "unrar",
 					   "/tmp/photos.rar", "/tmp/out", NULL);
+	g_assert_nonnull (argv);
 	check (!has_unexpanded (argv));
 	check (g_strcmp0 (argv[1], "x") == 0);
 	check (has_arg (argv, "-y"));

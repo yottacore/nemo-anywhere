@@ -3558,6 +3558,7 @@ nemo_view_display_selection_info (NemoView *view)
 
 	if (folder_count != 0) {
 		if (folder_count == 1 && non_folder_count == 0) {
+			// codeql[cpp/missing-null-test] set from the first selected item, and there's one
 			folder_count_str = g_strdup_printf (_("\"%s\" selected"), first_item_name);
 		} else {
 			folder_count_str = g_strdup_printf (ngettext("%'d folder selected",
@@ -3600,6 +3601,7 @@ nemo_view_display_selection_info (NemoView *view)
 		if (folder_count == 0) {
 			if (non_folder_count == 1) {
 				items_string = g_strdup_printf (_("\"%s\" selected"),
+								// codeql[cpp/missing-null-test] set from the first selected item, and there's one
 								first_item_name);
 			} else {
 				items_string = g_strdup_printf (ngettext("%'d item selected",
@@ -3662,24 +3664,32 @@ nemo_view_display_selection_info (NemoView *view)
 
 		if (free_space_str != NULL) {
 			status_string = g_strdup_printf ("%s, %s",
+							 // codeql[cpp/missing-null-test] set above whenever non_folder_count isn't 0
 							 non_folder_str,
+							 // codeql[cpp/missing-null-test] set above whenever free_space_str is
 							 obj_selected_free_space_str);
 		}
 	} else if (non_folder_count == 0) {
 		view_status_string = g_strdup_printf ("%s%s",
+						      // codeql[cpp/missing-null-test] set above whenever folder_count isn't 0
 						      folder_count_str,
+						      // codeql[cpp/missing-null-test] set above whenever folder_count isn't 0
 						      folder_item_count_str);
 
 		if (free_space_str != NULL) {
 			status_string = g_strdup_printf ("%s%s, %s",
 							 folder_count_str,
 							 folder_item_count_str,
+							 // codeql[cpp/missing-null-test] set above whenever free_space_str is
 							 obj_selected_free_space_str);
 		}
 	} else {
 		view_status_string = g_strdup_printf ("%s%s, %s",
+						      // codeql[cpp/missing-null-test] set above whenever folder_count isn't 0
 						      folder_count_str,
+						      // codeql[cpp/missing-null-test] set above whenever folder_count isn't 0
 						      folder_item_count_str,
+						      // codeql[cpp/missing-null-test] set above whenever non_folder_count isn't 0
 						      non_folder_str);
 
 		if (obj_selected_free_space_str != NULL) {
@@ -8706,14 +8716,14 @@ static void
 action_rename_callback (G_GNUC_UNUSED GtkAction *action,
 			gpointer callback_data)
 {
-	real_action_rename (NEMO_VIEW (callback_data), FALSE);
+	real_action_rename (NEMO_VIEW (callback_data), nemo_rename_key_takes_whole (FALSE));
 }
 
 static void
 action_rename_select_all_callback (G_GNUC_UNUSED GtkAction *action,
 				   gpointer callback_data)
 {
-	real_action_rename (NEMO_VIEW (callback_data), TRUE);
+	real_action_rename (NEMO_VIEW (callback_data), nemo_rename_key_takes_whole (TRUE));
 }
 
 static void
@@ -9597,7 +9607,7 @@ static const GtkActionEntry directory_view_entries[] = {
 				 G_CALLBACK (action_properties_callback) },
   /* Properties under Nemo Anywhere v1 and Nemo Classic, else Invert selection */
   /* name, stock id */         { "PropertiesAccel", NULL,
-  /* label, accelerator */       "PropertiesAccel", "<Primary>I",
+  /* label, accelerator */       N_("Invert selection or properties, by model"), "<Primary>I",
   /* tooltip */                  NULL,
 				 G_CALLBACK (model_primary_i) },
   /* name, stock id */         { NEMO_ACTION_ADVANCED_PROPERTIES, "document-properties-symbolic",
@@ -9619,7 +9629,7 @@ static const GtkActionEntry directory_view_entries[] = {
   /* tooltip */                  N_("Open the selected item in this window"),
                  G_CALLBACK (action_open_callback) },
   /* name, stock id */         { "OpenAccel", NULL,
-  /* label, accelerator */       "OpenAccel", "<alt>Down",
+  /* label, accelerator */       N_("Open, second key"), "<alt>Down",
   /* tooltip */                  NULL,
 				 G_CALLBACK (action_open_callback) },
   /* name, stock id */         { "OpenAlternate", NULL,
@@ -9769,7 +9779,7 @@ static const GtkActionEntry directory_view_entries[] = {
   /* tooltip */                  N_("Rename selected item"),
 				 G_CALLBACK (action_rename_callback) },
   /* name, stock id */         { "RenameSelectAll", NULL,
-  /* label, accelerator */       "RenameSelectAll", "<shift>F2",
+  /* label, accelerator */       N_("Rename with the whole name selected"), "<shift>F2",
   /* tooltip */                  NULL,
 				 G_CALLBACK (action_rename_select_all_callback) },
   /* name, stock id */         { "Trash", NULL,

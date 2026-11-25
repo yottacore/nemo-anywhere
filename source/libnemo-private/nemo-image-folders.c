@@ -131,6 +131,9 @@ nemo_image_folders_wants_icon_view (NemoFile *folder, const char *saved_view)
 	}
 
 	directory = nemo_directory_get_for_file (folder);
+	if (directory == NULL) {
+		return FALSE;
+	}
 	if (NEMO_IS_SEARCH_DIRECTORY (directory)) {
 		wanted = FALSE;
 	} else if (nemo_directory_are_all_files_seen (directory)) {

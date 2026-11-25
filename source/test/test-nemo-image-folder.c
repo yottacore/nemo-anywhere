@@ -102,6 +102,7 @@ mostly_images (const char *base, const char *name,
 
 	uri = g_filename_to_uri (dir, NULL, NULL);
 	directory = nemo_directory_get_by_uri (uri);
+	g_assert_nonnull (directory);
 
 	nemo_directory_file_monitor_add (directory, &client, TRUE,
 					 NEMO_FILE_ATTRIBUTE_INFO, NULL, NULL);
@@ -152,6 +153,7 @@ look_ahead_at (const char *base, const char *name)
 	dir = g_build_filename (base, name, NULL);
 	uri = g_filename_to_uri (dir, NULL, NULL);
 	directory = nemo_directory_get_by_uri (uri);
+	g_assert_nonnull (directory);
 
 	nemo_directory_file_monitor_add (directory, &client, TRUE,
 					 NEMO_FILE_ATTRIBUTE_INFO, NULL, NULL);
@@ -184,6 +186,7 @@ wants_icon_view (const char *base, const char *name, const char *saved_view)
 	dir = g_build_filename (base, name, NULL);
 	uri = g_filename_to_uri (dir, NULL, NULL);
 	directory = nemo_directory_get_by_uri (uri);
+	g_assert_nonnull (directory);
 	folder = nemo_file_get_by_uri (uri);
 
 	nemo_directory_file_monitor_add (directory, &client, TRUE,
@@ -267,6 +270,7 @@ test_wants_icon_view (const char *base)
 	nemo_query_set_file_pattern (query, "shot");
 	search_uri = nemo_search_directory_generate_new_uri ();
 	search = nemo_directory_get_by_uri (search_uri);
+	g_assert_nonnull (search);
 	check (NEMO_IS_SEARCH_DIRECTORY (search));
 	nemo_search_directory_set_query (NEMO_SEARCH_DIRECTORY (search), query);
 	g_signal_connect_swapped (search, "done-loading", G_CALLBACK (set_true), &searched);

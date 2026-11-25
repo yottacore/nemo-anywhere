@@ -21,7 +21,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Settings has a Keyboard tab that lists the menu shortcuts by name. Click a key, or press Enter or Space on its row, then press the new keys. Backspace turns one off, an arrow puts one back to the key it started with, and Reset all puts back every one. A key another shortcut already has, or a plain letter with no Ctrl or Alt, is refused with a note saying why. Changes are saved to the `accels` file, and other open windows pick them up. Settings search finds the tab by words such as shortcut and hotkey.
+- Settings has a Blake3 checksum section on the Advanced tab, under Cache. "Save checksums onto the files" moved there from Preview, as "Persist across hosts via xattrs.", and is grayed while the new "Cache whenever files require a full-read anyway." box is off. The new box is on by default, and while it's off no checksum is written onto a file. It's `checksum-full-reads` in the settings file.
+
+- A small file copied on Linux keeps its checksum in the file cache, for the source and the copy, while "Cache whenever files require a full-read anyway." is on. With "Persist across hosts via xattrs." on too, the checksum goes onto both files, as a thumbnail's does.
+
+- Settings has a Keyboard tab that lists the menu shortcuts by name. Click a key, or press Enter or Space on its row, then press the new keys. Backspace turns one off, an arrow puts one back to the key it started with, and Reset all puts back every one. A key another shortcut already has moves to the new one, and the other is turned off. A plain letter with no Ctrl or Alt is refused with a note saying why. Changes are saved to the `accels` file, and other open windows pick them up. Icon view's shortcuts are listed before an icon view has been opened. The keyboard shortcuts window shows the keys in use, and a shortcut turned off leaves it. Settings search finds the tab by words such as shortcut and hotkey.
 
 - Image thumbnail view, a fourth view on Ctrl+4, shows a folder's pictures at the picture size. It's in the View menu, the toolbar, the keyboard shortcuts window and the default view in Settings, and `image-view` in the settings file. Its toolbar button has a checkbox on the Toolbar tab in Settings.
 
@@ -87,7 +91,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Under Nemo Anywhere, the Edit menu has Select none, which clears the selection. The status bar reads "Ready to act on N items selected" while something is selected.
 
-- Under Nemo Anywhere, F2 starts a rename with the name picked and the extension left out, and Shift+F2 picks the whole name. A folder's whole name is picked either way. The Behavior checkbox for the extension counts only under the other 2 models, and is grayed under this one.
+- Under Nemo Anywhere, F2 starts a rename with the name picked and the extension left out, and Shift+F2 picks the whole name. A folder's whole name is picked either way. The Behavior checkbox for the extension counts only under the other 2 models. Under this one, "Swap behavior of F2 and Shift+F2" takes its place, so F2 picks the whole name and Shift+F2 leaves the extension out.
 
 - Under Nemo Anywhere, the folder tree has a focus of its own. Ctrl+Up and Ctrl+Down move it without opening anything, Ctrl+Space opens the focused folder, and Escape puts the focus back. With the tree focused, Ctrl+C, Ctrl+X, Ctrl+V, Delete, and Shift+Delete act on the tree's selected folder rather than on what's selected in the main view, and F2 renames it in place. The tree's right-click menu has Rename too.
 

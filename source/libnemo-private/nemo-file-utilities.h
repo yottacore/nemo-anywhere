@@ -285,6 +285,12 @@ void     nemo_rename_region (const char *name,
    force. Under Nemo Anywhere it doesn't: F2 and Shift+F2 are fixed. */
 gboolean nemo_rename_setting_applies (void);
 
+/* The whole argument nemo_rename_region gets from F2 (shifted FALSE) or
+   Shift+F2. Shift+F2 asks for the whole name, unless rename-swap-keys trades
+   the 2 keys, which it does under Nemo Anywhere only. A folder is whole
+   either way, and other ways to start a rename aren't affected. */
+gboolean nemo_rename_key_takes_whole (gboolean shifted);
+
 /* Browsing inside an archive needs the gvfs archive backend. Asked once at
    startup, so the menu item is either there for the whole run or never. */
 void     nemo_archive_mount_init (void);

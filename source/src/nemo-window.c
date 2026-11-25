@@ -2021,6 +2021,7 @@ nemo_window_sync_bookmark_action (NemoWindow *window)
     GtkAction *action;
     gchar *uri;
     slot = nemo_window_get_active_slot (window);
+    // codeql[cpp/missing-null-test] a window has its first pane before this runs
     location = nemo_window_slot_get_location (slot);
 
     if (!location) {
@@ -2456,6 +2457,7 @@ nemo_window_reload (NemoWindow *window)
 {
 	NemoWindowSlot *active_slot;
 	active_slot = nemo_window_get_active_slot (window);
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	nemo_window_slot_queue_reload (active_slot, TRUE);
 }
 

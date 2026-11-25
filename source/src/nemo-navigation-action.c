@@ -96,6 +96,7 @@ fill_menu (NemoWindow *window,
 
 	slot = nemo_window_get_active_slot (window);
 	
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	list = back ? slot->back_list : slot->forward_list;
 	index = 0;
 	while (list != NULL) {

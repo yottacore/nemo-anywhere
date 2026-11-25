@@ -332,6 +332,7 @@ path_bar_button_pressed_callback (GtkWidget *widget,
 
 	if (event->button == GDK_BUTTON_SECONDARY) {
 		slot = nemo_window_get_active_slot (pane->window);
+		// codeql[cpp/missing-null-test] a window has its first pane before this runs
 		view = slot->content_view;
 		if (view != NULL) {
 			button_location = nemo_path_bar_get_path_for_button (
@@ -390,6 +391,7 @@ path_bar_button_released_callback (GtkWidget *widget,
 
 		if (flags != 0) {
 			slot = nemo_window_get_active_slot (pane->window);
+			// codeql[cpp/missing-null-test] a window has its first pane before this runs
 			nemo_window_slot_open_location (slot, button_location, flags);
 			g_object_unref (button_location);
 			return TRUE;
@@ -404,6 +406,7 @@ path_bar_button_released_callback (GtkWidget *widget,
         NemoView *view;
 
         slot = nemo_window_get_active_slot (pane->window);
+        // codeql[cpp/missing-null-test] a window has its first pane before this runs
         view = slot->content_view;
         
         if (view != NULL) {
@@ -1203,9 +1206,6 @@ nemo_window_pane_sync_up_actions (NemoWindowPane *pane)
     action = gtk_action_group_get_action (action_group,
                                           NEMO_ACTION_UP);
     gtk_action_set_sensitive (action, allowed);
-    action = gtk_action_group_get_action (action_group,
-                          NEMO_ACTION_UP_ACCEL);
-    gtk_action_set_sensitive (action, allowed);
 }
 
 /* Returns: (transfer none): owned by @pane */
@@ -1273,6 +1273,7 @@ nemo_window_pane_sync_location_widgets (NemoWindowPane *pane)
 
 		nemo_navigation_state_set_boolean (nav_state,
 						       NEMO_ACTION_BACK,
+						       // codeql[cpp/missing-null-test] a window has its first pane before this runs
 						       active_slot->back_list != NULL);
 		nemo_navigation_state_set_boolean (nav_state,
 						       NEMO_ACTION_FORWARD,

@@ -333,7 +333,7 @@ check_other_spelling (const char *dir)
 		g_free (probe);
 		g_free (other);
 	}
-	if (second_name == NULL) {
+	if (first == NULL || second_name == NULL) {
 		g_printerr ("note: every spelling is its own name here, so a rename to another spelling is not checked\n");
 		g_free (one);
 		g_free (two);

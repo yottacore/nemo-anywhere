@@ -72,6 +72,7 @@ check_messages (void)
 	GError *error = NULL;
 
 	check (good == NULL);
+	g_assert_nonnull (bad);
 	check (names_char (bad, BAD_CHAR));
 	check (strstr (bad, BAD_NAME) != NULL);
 

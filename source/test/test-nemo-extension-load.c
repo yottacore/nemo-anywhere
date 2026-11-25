@@ -78,6 +78,7 @@ main (int argc, char *argv[])
 		return 1;
 	}
 
+	g_assert_nonnull (items);
 	first = item_name (items->data);
 	second = item_name (items->next->data);
 	if (g_strcmp0 (first, "TestExt::item") != 0 || g_strcmp0 (second, "TestExt::sep") != 0) {

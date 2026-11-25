@@ -156,6 +156,7 @@ main (int argc, char *argv[])
 	home = test_scratch_config_home ("nemo-menus-home-XXXXXX");
 	tmp = test_scratch_dir ("nemo-menus-XXXXXX", NULL);
 	probe_dir = test_scratch_dir ("nemo-menus-probe-XXXXXX", NULL);
+	g_assert_nonnull (probe_dir);
 	folder = g_build_filename (tmp, "folder", NULL);
 	check (g_mkdir (folder, 0755) == 0);
 

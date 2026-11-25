@@ -33,8 +33,6 @@
 #define NEMO_ACTION_BACK "Back"
 #define NEMO_ACTION_COMPUTER "Computer"
 #define NEMO_ACTION_UP "Up"
-#define NEMO_ACTION_UP_ACCEL "UpAccel"
-#define NEMO_ACTION_UP_ACCEL "UpAccel"
 #define NEMO_ACTION_FORWARD "Forward"
 #define NEMO_ACTION_SHOW_HIDE_SIDEBAR "Show Hide Sidebar"
 

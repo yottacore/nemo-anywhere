@@ -514,6 +514,7 @@ nemo_window_slot_open_location_full (NemoWindowSlot *slot,
 		return;
 	} else {
 		app = nemo_application_get_singleton ();
+        // codeql[cpp/missing-null-test] set when the application starts, before any window
         target_window = nemo_application_create_window (app, gtk_window_get_screen (GTK_WINDOW (window)));
 	}
 
@@ -1283,6 +1284,7 @@ nemo_window_report_location_change (NemoWindow *window)
 
 	location = NULL;
 
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	if (slot->pending_location != NULL) {
 		location = slot->pending_location;
 	}
@@ -2115,6 +2117,7 @@ nemo_window_back_or_forward (NemoWindow *window,
 	GFile *old_location;
 
 	slot = nemo_window_get_active_slot (window);
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	list = back ? slot->back_list : slot->forward_list;
 
         len = (guint) g_list_length (list);

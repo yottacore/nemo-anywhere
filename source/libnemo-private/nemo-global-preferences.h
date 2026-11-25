@@ -48,6 +48,7 @@ G_BEGIN_DECLS
 #define NEMO_FILE_CACHE_MEMORY_GIB			"memory-gib"
 #define NEMO_FILE_CACHE_MAX_AGE_DAYS			"max-age-days"
 #define NEMO_FILE_CACHE_DROP_MISSING			"drop-missing"
+#define NEMO_FILE_CACHE_CHECKSUM_FULL_READS		"checksum-full-reads"
 #define NEMO_FILE_CACHE_SAVE_CHECKSUM			"save-checksum"
 #define NEMO_FILE_CACHE_PRUNE_MIN_HOURS			"prune-min-hours"
 #define NEMO_FILE_CACHE_PRUNE_MAX_HOURS			"prune-max-hours"
@@ -112,6 +113,10 @@ typedef enum
 /* What a rename starts out with selected: the whole name, or just the part
  * before the extension */
 #define NEMO_PREFERENCES_RENAME_SELECTS_WHOLE_NAME "rename-selects-whole-name"
+
+/* Under Nemo Anywhere, F2 takes the whole name and Shift+F2 leaves the
+ * extension out, rather than the other way round */
+#define NEMO_PREFERENCES_RENAME_SWAP_KEYS "rename-swap-keys"
 
 /* Quick renames with two single clicks and pause in-between*/
 #define NEMO_PREFERENCES_CLICK_TO_RENAME "quick-renames-with-pause-in-between"

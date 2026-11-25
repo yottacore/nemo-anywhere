@@ -331,6 +331,7 @@ check_listing (void)
 	g_clear_object (&info);
 
 	directory = nemo_directory_get_by_uri (uri);
+	g_assert_nonnull (directory);
 	nemo_directory_file_monitor_add (directory, &client, TRUE,
 					 NEMO_FILE_ATTRIBUTE_INFO, NULL, NULL);
 	loaded = FALSE;

@@ -310,7 +310,6 @@ void
 nemo_prefs_file_cache_setup (GtkBuilder *builder)
 {
 	NemoConfigGroup *group = nemo_config_get_group (NEMO_FILE_CACHE_GROUP);
-	GtkWidget *checksum;
 	Page *page;
 
 	nemo_config_bind (group, NEMO_FILE_CACHE_MAX_SIZE_GIB,
@@ -326,20 +325,6 @@ nemo_prefs_file_cache_setup (GtkBuilder *builder)
 	nemo_config_bind (group, NEMO_FILE_CACHE_DROP_MISSING,
 			  gtk_builder_get_object (builder, "file_cache_drop_missing_checkbutton"),
 			  "active", NEMO_CONFIG_BIND_DEFAULT);
-
-	checksum = GTK_WIDGET (gtk_builder_get_object (builder, "file_cache_save_checksum_checkbutton"));
-	nemo_config_bind (group, NEMO_FILE_CACHE_SAVE_CHECKSUM, G_OBJECT (checksum),
-			  "active", NEMO_CONFIG_BIND_DEFAULT);
-#ifdef G_OS_WIN32
-	gtk_widget_set_tooltip_text (checksum,
-		_("Fairly cheap to do, and the file's modified time stays as it was. Writing one does count as a change to "
-		  "the file, which can wake a backup tool, though most ignore it. Only local NTFS and ReFS drives "
-		  "keep them."));
-#else
-	gtk_widget_set_tooltip_text (checksum,
-		_("Fairly cheap to do, and the file's modified time stays as it was. Writing one moves its change time "
-		  "(ctime), which can wake a backup tool, though most ignore it."));
-#endif
 
 	page = g_new0 (Page, 1);
 	page->usage = GTK_LABEL (gtk_builder_get_object (builder, "file_cache_usage_label"));

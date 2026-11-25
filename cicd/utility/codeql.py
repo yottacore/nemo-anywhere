@@ -18,7 +18,10 @@
 #            when nothing matches.
 #   planted  Inside a build container. Fails unless the C queries report both
 #            a planted leak and a planted null dereference, built with the
-#            lane's compiler, so the tracer is shown to see it.
+#            lane's compiler, so the tracer is shown to see it. Fails too on
+#            a report at the planted GLib idioms the NULL query is taught,
+#            or none at a NULL passed to a function that's NULL only for a
+#            NULL argument.
 #   count    Counts results per area from the lanes' SARIF, as analyze.py does
 #            for the analyzers. A vendored result listed in codeql-vendored.txt
 #            counts as suppressed. Exits 1 on any result left, 2 on SARIF it
@@ -61,13 +64,36 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SUITES = {"c": os.path.join(HERE, "codeql-c.qls"), "python": os.path.join(HERE, "codeql-python.qls")}
 LANGS = {"c": "cpp", "python": "python"}
 SUPP_FILE = "cicd/utility/codeql-vendored.txt"
+# Our own queries, such as missing-null-test taught about GLib.
+PACK = os.path.join(HERE, "codeql-cpp")
 MATCH_ENV = "CODEQL_REPLAY_MATCH"
 PLANTED_WANT = {"cpp/memory-never-freed", "cpp/missing-null-test"}
 PLANTED = """#include <stdlib.h>
 #include <string.h>
 int planted_leak(int n) { char *p = malloc(16); if (!p) return -1; memset(p, n, 16); return p[0]; }
 int planted_null(int n) { int *q = 0; if (n > 1) return 0; return *q; }
+void g_assertion_message (const char *what);
+static inline char *g_strdup_inline (const char *s) { if (!s) return 0; return strdup (s); }
+#define g_return_val_if_fail(e, v) do { if (!(e)) return (v); } while (0)
+#define g_assert_nonnull(e) do { if (({ int b_; if ((e) != 0) b_ = 1; else b_ = 0; b_; })) ; else g_assertion_message (#e); } while (0)
+char *planted_get (const char *s) { g_return_val_if_fail (s != 0, 0); return strdup (s); }
+char *planted_trunc (const char *s) { if (s == 0) return 0; return strdup (s); }
+int planted_trunc_null (void) { char *t = planted_trunc (0); return t[0]; /* loud */ }
+int planted_glib (const char *s) {
+	char *a = g_strdup_inline (s), *b = planted_get (s), *c = 0;
+	char *d = planted_trunc (s);
+	int n = a[0] + b[0] + d[0]; /* quiet */
+	if (n > 1) c = a;
+	g_assert_nonnull (c);
+	return n + c[0]; /* quiet */
+}
 """
+# Lines GLib's idioms make look like a NULL dereference, which
+# codeql-cpp/MissingNullTest.ql is taught to pass.
+PLANTED_QUIET = {i + 1 for i, line in enumerate(PLANTED.splitlines()) if line.endswith("/* quiet */")}
+# And a NULL argument to a function that's NULL only for a NULL argument, which
+# it still has to report.
+PLANTED_LOUD = {i + 1 for i, line in enumerate(PLANTED.splitlines()) if line.endswith("/* loud */")}
 
 Result = tuple[str, int, str, bool]
 
@@ -88,7 +114,7 @@ def make_db(lang: str, dbdir: str, src: str, jobs: str, ram: str, command: str |
 
 def analyze_db(lang: str, dbdir: str, out: str, jobs: str, ram: str) -> None:
     codeql(["codeql", "database", "analyze", dbdir, SUITES[lang], "--format=sarif-latest", f"--output={out}",
-            f"--threads={jobs}", f"--ram={ram}"])
+            f"--threads={jobs}", f"--ram={ram}", f"--additional-packs={PACK}"])
 
 
 def cmd_lane(args: list[str]) -> int:
@@ -203,8 +229,14 @@ def cmd_planted(args: list[str]) -> int:
     for path, line, rule, _ in found:
         print(f"{path}:{line}: {rule}")
     missing = PLANTED_WANT - {rule for path, _, rule, _ in found if path.endswith("planted.c")}
+    loud = sorted(line for path, line, rule, _ in found if path.endswith("planted.c") and line in PLANTED_QUIET)
+    hushed = sorted(PLANTED_LOUD - {line for path, line, rule, _ in found if path.endswith("planted.c") and rule == "cpp/missing-null-test"})
     print(f"[ CodeQL: planted faults {'missed: ' + ', '.join(sorted(missing)) if missing else 'found'} ]")
-    return 1 if missing else 0
+    if loud:
+        print(f"[ CodeQL: planted GLib idioms reported at line {', '.join(map(str, loud))} ]")
+    if hushed:
+        print(f"[ CodeQL: planted NULL argument not reported at line {', '.join(map(str, hushed))} ]")
+    return 1 if missing or loud or hushed else 0
 
 
 # Counts per lane, results left per lane and rule, and the list's entries no

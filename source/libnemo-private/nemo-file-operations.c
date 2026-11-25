@@ -5058,8 +5058,9 @@ copy_move_file (CopyMoveJob *copy_job,
 	char *link_base_dir = NULL;
 	gboolean followed;
 	gboolean asked_overwrite = FALSE;
-	NemoSmallCopyResult small;
+	NemoSmallCopyResult small = NEMO_SMALL_COPY_NOT_TRIED;
 	goffset small_size = 0;
+	NemoFileId small_sum = { 0 };
 
 	job = (CommonJob *)copy_job;
 
@@ -5236,7 +5237,7 @@ copy_move_file (CopyMoveJob *copy_job,
 				   &error);
 	} else {
 		small = nemo_small_copy (src, dest, flags, nemo_small_copy_limit (),
-					 job->cancellable, &small_size, &error);
+					 job->cancellable, &small_size, &small_sum, &error);
 		if (small == NEMO_SMALL_COPY_NOT_TRIED) {
 			res = g_file_copy (src, dest,
 					   flags,
@@ -5258,6 +5259,9 @@ copy_move_file (CopyMoveJob *copy_job,
 			g_file_copy_attributes (src, dest,
 			                        flags | G_FILE_COPY_ALL_METADATA,
 			                        job->cancellable, NULL);
+			if (small == NEMO_SMALL_COPY_DONE) {
+				nemo_small_copy_keep_checksum (src, dest, &small_sum);
+			}
 		}
 
 		transfer_info->num_files ++;
@@ -7430,6 +7434,7 @@ create_job (GIOSchedulerJob *io_job,
 	GFileOutputStream *out;
 	NemoSmallCopyResult small;
 	goffset small_size;
+	NemoFileId small_sum = { 0 };
 	gboolean handled_invalid_filename;
 	int max_length, offset;
 
@@ -7509,7 +7514,7 @@ create_job (GIOSchedulerJob *io_job,
 			   asking. */
 			small = nemo_small_copy (job->src, dest, G_FILE_COPY_NONE,
 						 nemo_small_copy_limit (),
-						 common->cancellable, &small_size, &error);
+						 common->cancellable, &small_size, &small_sum, &error);
 			if (small == NEMO_SMALL_COPY_NOT_TRIED) {
 				res = g_file_copy (job->src,
 						   dest,
@@ -7522,6 +7527,7 @@ create_job (GIOSchedulerJob *io_job,
 				if (res) {
 					g_file_copy_attributes (job->src, dest, G_FILE_COPY_NONE,
 								common->cancellable, NULL);
+					nemo_small_copy_keep_checksum (job->src, dest, &small_sum);
 				}
 			}
 

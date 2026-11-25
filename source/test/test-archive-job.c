@@ -1536,6 +1536,7 @@ main (int argc, char *argv[])
 	nemo_global_preferences_init ();
 
 	tmp = test_scratch_dir ("nemo-archive-test-XXXXXX", NULL);
+	g_assert_nonnull (tmp);
 	source_dir = g_build_filename (tmp, "items", NULL);
 	sub_dir = g_build_filename (source_dir, "sub", NULL);
 	one_dir = g_build_filename (tmp, "one", NULL);

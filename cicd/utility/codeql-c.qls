@@ -9,8 +9,8 @@
   from: codeql/cpp-queries
 - query: Critical/MemoryMayNotBeFreed.ql
   from: codeql/cpp-queries
-- query: Critical/MissingNullTest.ql
-  from: codeql/cpp-queries
+- query: MissingNullTest.ql
+  from: nemo-anywhere/cpp-queries
 - query: AlertSuppression.ql
   from: codeql/cpp-queries
 - exclude:

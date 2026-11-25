@@ -44,9 +44,11 @@
 #include <libnemo-private/nemo-column-chooser.h>
 #include <libnemo-private/nemo-column-utilities.h>
 #include <libnemo-private/nemo-desktop-utils.h>
+#include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-shortcuts.h>
 #include <libnemo-private/nemo-tab-list.h>
+#include <libnemo-private/nemo-thumbnails.h>
 
 #include "nemo-file-management-properties.h"
 #include "nemo-settings-aliases.h"
@@ -763,6 +765,50 @@ test_selection_model (GtkWidget *dialog)
 	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE);
 }
 
+/* The Blake3 checksum section is on Advanced. Caching on full reads is on by
+   default, and while it's off the box for saving onto files is grayed, and the
+   thumbnail queue doesn't save onto files whatever that box says. */
+static void
+test_checksum_section (GtkWidget *dialog)
+{
+	NemoConfigGroup *group = nemo_config_get_group (NEMO_FILE_CACHE_GROUP);
+	GtkWidget *full_reads = find_named (dialog, "file_cache_checksum_full_reads_checkbutton");
+	GtkWidget *save = find_named (dialog, "file_cache_save_checksum_checkbutton");
+	GtkWidget *page = find_named (dialog, "advanced_scrolledwindow");
+
+	check (full_reads != NULL && save != NULL && page != NULL);
+	if (full_reads == NULL || save == NULL || page == NULL) {
+		return;
+	}
+	check (gtk_widget_is_ancestor (full_reads, page));
+	check (gtk_widget_is_ancestor (save, page));
+
+	check (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (full_reads)));
+	check (!gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (save)));
+	check (gtk_widget_get_sensitive (save));
+	check (!nemo_thumbnail_saves_checksum ());
+
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (save), TRUE);
+	check (nemo_config_get_boolean (group, NEMO_FILE_CACHE_SAVE_CHECKSUM));
+	check (nemo_thumbnail_saves_checksum ());
+
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (full_reads), FALSE);
+	check (!nemo_config_get_boolean (group, NEMO_FILE_CACHE_CHECKSUM_FULL_READS));
+	check (!gtk_widget_get_sensitive (save));
+	check (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (save)));
+	check (!nemo_thumbnail_saves_checksum ());
+
+	/* From the settings file too, as a hand edit or another window would. */
+	nemo_config_reset (group, NEMO_FILE_CACHE_CHECKSUM_FULL_READS);
+	check (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (full_reads)));
+	check (gtk_widget_get_sensitive (save));
+	check (nemo_thumbnail_saves_checksum ());
+
+	nemo_config_reset (group, NEMO_FILE_CACHE_SAVE_CHECKSUM);
+	check (!gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (save)));
+	check (!nemo_thumbnail_saves_checksum ());
+}
+
 /* The default view lists the views in the View menu's order, and each row
    writes its own view. */
 static void
@@ -869,32 +915,42 @@ test_paste_target (GtkWidget *dialog)
 	check (nemo_global_preferences_get_paste_target () == NEMO_PASTE_TARGET_ANYWHERE);
 }
 
-/* The whole-name rename box is grayed under Nemo Anywhere, where F2 and
-   Shift+F2 are fixed, with a tooltip saying so, and comes back with the model. */
+/* Under Nemo Anywhere the whole-name rename box gives way to "Swap behavior
+   of F2 and Shift+F2" in the same place, and comes back with the model. The
+   swap box writes its own key. */
 static void
-test_rename_selects_grayed (GtkWidget *dialog)
+test_rename_boxes_by_model (GtkWidget *dialog)
 {
 	GtkWidget *check_button = find_named (dialog, "rename_selects_whole_name_checkbutton");
-	char *tip;
+	GtkWidget *swap = find_named (dialog, "rename_swap_keys_checkbutton");
 
-	check (check_button != NULL);
-	if (check_button == NULL) {
+	check (check_button != NULL && swap != NULL);
+	if (check_button == NULL || swap == NULL) {
 		return;
 	}
+	check (g_strcmp0 (gtk_button_get_label (GTK_BUTTON (swap)), "Swap behavior of F2 and Shift+F2") == 0);
+	check (gtk_widget_get_parent (swap) == gtk_widget_get_parent (check_button));
+
 	/* Nemo Anywhere is the default. */
-	check (!gtk_widget_get_sensitive (check_button));
-	tip = gtk_widget_get_tooltip_text (check_button);
-	check (tip != NULL && strstr (tip, "Shift+F2") != NULL);
-	g_free (tip);
+	check (!gtk_widget_get_visible (check_button));
+	check (gtk_widget_get_visible (swap));
+	check (gtk_widget_get_sensitive (swap));
+	check (!gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (swap)));
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (swap), TRUE);
+	check (nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_RENAME_SWAP_KEYS));
+	check (nemo_rename_key_takes_whole (FALSE));
 
 	nemo_config_set_string (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, "nemo-anywhere-v1");
+	check (gtk_widget_get_visible (check_button));
 	check (gtk_widget_get_sensitive (check_button));
-	tip = gtk_widget_get_tooltip_text (check_button);
-	check (tip != NULL && strstr (tip, "Shift+F2") == NULL);
-	g_free (tip);
+	check (!gtk_widget_get_visible (swap));
 
 	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
-	check (!gtk_widget_get_sensitive (check_button));
+	check (!gtk_widget_get_visible (check_button));
+	check (gtk_widget_get_visible (swap));
+
+	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_RENAME_SWAP_KEYS);
+	check (!gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (swap)));
 }
 
 /* The rows of the search's match list, as plain text. */
@@ -1313,7 +1369,8 @@ kb_click_reset (GtkWidget *tree, GtkTreeModel *model, const char *name)
  * and not the submenus. A key from the file shows, with the revert arrow,
  * and the arrow puts back the key the action started with. Enter on a row
  * waits for a key, which takes Ctrl+Page Down and Escape too. A key another
- * action has, or a plain letter, is refused and says why. Backspace turns a
+ * action has is taken, and that one turned off, by a change or a revert
+ * arrow alike. A plain letter is refused and says why. Backspace turns a
  * key off. Reset all puts every one back. */
 static void
 test_keyboard (GtkWidget *dialog)
@@ -1369,14 +1426,41 @@ test_keyboard (GtkWidget *dialog)
 	check (kb_is (model, "Cut", GDK_KEY_k, GDK_CONTROL_MASK, TRUE));
 	check (gtk_widget_get_visible (dialog));
 
-	kb_edit (dialog, tree, model, "Cut", GDK_KEY_h, GDK_CONTROL_MASK);
-	check (kb_is (model, "Cut", GDK_KEY_k, GDK_CONTROL_MASK, TRUE));
-	g_print ("Taken: %s\n", gtk_label_get_text (GTK_LABEL (note)));
-	check (strstr (gtk_label_get_text (GTK_LABEL (note)), "Show Hidden Files") != NULL);
-
 	kb_edit (dialog, tree, model, "Cut", GDK_KEY_q, 0);
 	check (kb_is (model, "Cut", GDK_KEY_k, GDK_CONTROL_MASK, TRUE));
 	check (strstr (gtk_label_get_text (GTK_LABEL (note)), "Ctrl or Alt") != NULL);
+
+	/* 2026112312181296: a taken key moves, from every row that had it. The
+	   file can give one key to 2 rows, as Bare's Ctrl+H stands in for. */
+	gtk_accel_map_change_entry ("<Actions>/TestActions/Bare", GDK_KEY_h, GDK_CONTROL_MASK, TRUE);
+	settle ();
+	kb_edit (dialog, tree, model, "Cut", GDK_KEY_h, GDK_CONTROL_MASK);
+	g_print ("Taken: %s\n", gtk_label_get_text (GTK_LABEL (note)));
+	check (kb_is (model, "Cut", GDK_KEY_h, GDK_CONTROL_MASK, TRUE));
+	check (kb_is (model, "Hidden", 0, 0, TRUE));
+	check (kb_is (model, "Bare", 0, 0, FALSE));
+	check (strstr (gtk_label_get_text (GTK_LABEL (note)), "Show Hidden Files") != NULL ||
+	       strstr (gtk_label_get_text (GTK_LABEL (note)), "Bare") != NULL);
+
+	/* The revert arrow takes it back the same way. */
+	kb_click_reset (tree, model, "Hidden");
+	settle ();
+	g_print ("Taken back: %s\n", gtk_label_get_text (GTK_LABEL (note)));
+	check (kb_is (model, "Hidden", GDK_KEY_h, GDK_CONTROL_MASK, FALSE));
+	check (kb_is (model, "Cut", 0, 0, TRUE));
+	check (strstr (gtk_label_get_text (GTK_LABEL (note)), "Cut") != NULL);
+
+	/* A row GTK won't change leaves the key where it was. */
+	gtk_accel_map_lock_path ("<Actions>/TestActions/Cut");
+	kb_edit (dialog, tree, model, "Cut", GDK_KEY_h, GDK_CONTROL_MASK);
+	gtk_accel_map_unlock_path ("<Actions>/TestActions/Cut");
+	check (kb_is (model, "Hidden", GDK_KEY_h, GDK_CONTROL_MASK, FALSE));
+	check (kb_is (model, "Cut", 0, 0, TRUE));
+	check (strstr (gtk_label_get_text (GTK_LABEL (note)), "couldn't") != NULL);
+
+	kb_click_reset (tree, model, "Cut");
+	check (kb_is (model, "Cut", GDK_KEY_x, GDK_CONTROL_MASK, FALSE));
+	check (*gtk_label_get_text (GTK_LABEL (note)) == '\0');
 
 	kb_edit (dialog, tree, model, "Cut", GDK_KEY_BackSpace, 0);
 	check (kb_is (model, "Cut", 0, 0, TRUE));
@@ -1495,7 +1579,8 @@ main (int argc, char *argv[])
 		test_default_view (dialog);
 		test_selection_model (dialog);
 		test_paste_target (dialog);
-		test_rename_selects_grayed (dialog);
+		test_rename_boxes_by_model (dialog);
+		test_checksum_section (dialog);
 		test_search (dialog);
 		test_search_aliases (dialog);
 		test_keyboard (dialog);

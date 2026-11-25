@@ -357,9 +357,6 @@ nemo_directory_get_internal (GFile *location, gboolean create)
 	} else if (create) {
 		/* Create a new directory object instead. */
 		directory = nemo_directory_new (location);
-		if (directory == NULL) {
-			return NULL;
-		}
 
 		/* Put it in the hash table. */
 		g_hash_table_insert (directories,

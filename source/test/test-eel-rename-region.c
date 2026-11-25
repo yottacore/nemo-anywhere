@@ -26,7 +26,8 @@
  * whole name instead, extension and all (rename-selects-whole-name), and so
  * does a folder whatever the setting says; nemo_rename_region makes that
  * choice for both views. Under the Nemo Anywhere model the setting is out of
- * it: F2 leaves the extension out and Shift+F2 takes the whole name. */
+ * it: F2 leaves the extension out and Shift+F2 takes the whole name, unless
+ * rename-swap-keys trades the 2 keys. */
 
 #include <config.h>
 
@@ -118,6 +119,50 @@ check_model (void)
 	check (region_is ("photo.jpg", FALSE, 0, 5));
 }
 
+/* What F2 (FALSE) and Shift+F2 (TRUE) select, through the same 2 calls the
+   view's actions make. */
+static gboolean
+keys_select (gboolean shifted, int want_end)
+{
+	return region_is ("photo.jpg", nemo_rename_key_takes_whole (shifted), 0, want_end);
+}
+
+/* rename-swap-keys trades F2 and Shift+F2 under Nemo Anywhere only. v1 and
+   Classic keep Shift+F2 whole and F2 on the whole-name setting. */
+static void
+check_swap (void)
+{
+	nemo_config_set_string (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, "nemo-anywhere");
+	nemo_config_set_boolean (nemo_preferences, NEMO_PREFERENCES_RENAME_SELECTS_WHOLE_NAME, TRUE);
+
+	/* Off by default. */
+	check (!nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_RENAME_SWAP_KEYS));
+	check (keys_select (FALSE, 5));
+	check (keys_select (TRUE, -1));
+
+	nemo_config_set_boolean (nemo_preferences, NEMO_PREFERENCES_RENAME_SWAP_KEYS, TRUE);
+	check (keys_select (FALSE, -1));
+	check (keys_select (TRUE, 5));
+	check (region_is ("archive.tar.gz", nemo_rename_key_takes_whole (TRUE), 0, 7));
+	/* The whole-name setting still counts for nothing here. */
+	nemo_config_set_boolean (nemo_preferences, NEMO_PREFERENCES_RENAME_SELECTS_WHOLE_NAME, FALSE);
+	check (keys_select (FALSE, -1));
+	check (keys_select (TRUE, 5));
+
+	nemo_config_set_string (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, "nemo-anywhere-v1");
+	check (keys_select (FALSE, 5));
+	check (keys_select (TRUE, -1));
+	nemo_config_set_string (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, "nemo-classic");
+	nemo_config_set_boolean (nemo_preferences, NEMO_PREFERENCES_RENAME_SELECTS_WHOLE_NAME, TRUE);
+	check (keys_select (FALSE, -1));
+	check (keys_select (TRUE, -1));
+
+	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_RENAME_SWAP_KEYS);
+	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
+	check (keys_select (FALSE, 5));
+	check (keys_select (TRUE, -1));
+}
+
 int
 main (void)
 {
@@ -150,6 +195,7 @@ main (void)
 
 	check_setting ();
 	check_model ();
+	check_swap ();
 	g_free (tmp);
 
 	if (failures == 0) {

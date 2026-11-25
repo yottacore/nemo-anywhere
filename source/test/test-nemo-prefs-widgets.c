@@ -39,6 +39,7 @@ static const char * const widget_ids[] = {
 	"zoom_resizes_window_checkbutton",
 	"list_view_row_shading_checkbutton",
 	"rename_selects_whole_name_checkbutton",
+	"rename_swap_keys_checkbutton",
 	"always_show_tabs_checkbutton",
 	"image_folder_switch_checkbutton",
 	"show_image_view_icon_toolbar_togglebutton",
@@ -57,10 +58,12 @@ static const char * const widget_ids[] = {
 	"file_cache_memory_spinbutton",
 	"file_cache_age_spinbutton",
 	"file_cache_drop_missing_checkbutton",
-	"file_cache_save_checksum_checkbutton",
 	"file_cache_usage_label",
 	"file_cache_cleanup_button",
 	"file_cache_empty_button",
+	/* The Blake3 checksum section on Advanced, in nemo-prefs-checksum.c. */
+	"file_cache_checksum_full_reads_checkbutton",
+	"file_cache_save_checksum_checkbutton",
 	/* The delete test guard's own switch, grayed when the build forces it. */
 	"testguard_all_deletes_checkbutton",
 	/* The selection model, on Advanced. */
@@ -94,8 +97,9 @@ static const char * const page_ids[] = {
 	NULL
 };
 
-/* Wording given word for word: the guard's switch, the zoom switch, and the
-   terminal field's tip on both its label and the entry. */
+/* Wording given word for word: the guard's switch, the zoom switch, the
+   terminal field's tip on both its label and the entry, and the 2 checksum
+   boxes. The second one's label is changed in code on Windows. */
 static const struct {
 	const char *id;
 	const char *property;
@@ -108,6 +112,8 @@ static const struct {
 	  "such action even if the action isn't triggered by a user. Every pre-release has "
 	  "this enabled by default - by strict release rules, rather than actual need." },
 	{ "zoom_resizes_window_checkbutton", "label", "On contents zoom, change _window size too" },
+	{ "file_cache_checksum_full_reads_checkbutton", "label", "Cache whenever files require a full-read _anyway." },
+	{ "file_cache_save_checksum_checkbutton", "label", "_Persist across hosts via xattrs." },
 	{ "command_label_1", "tooltip-text", "If empty, uses your default terminal." },
 	{ "terminal_exec_entry", "tooltip-text", "If empty, uses your default terminal." },
 };

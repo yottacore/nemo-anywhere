@@ -32,9 +32,6 @@ test_stand_ins (const char *tmpdir)
 	   variables they read are gone. */
 	const char *home = g_get_home_dir ();
 	const char *tmp = g_get_tmp_dir ();
-	const char *config = g_get_user_config_dir ();
-	const char *data = g_get_user_data_dir ();
-	const char *cache = g_get_user_cache_dir ();
 	const char *user = g_get_user_name ();
 	const char *names[] = {
 		"HOME", "USERPROFILE", "TMP", "TEMP", "TMPDIR", "USER", "USERNAME",
@@ -65,19 +62,12 @@ test_stand_ins (const char *tmpdir)
 	check_expansion ("$TMPDIR/misc", expected);
 	g_free (expected);
 
-	expected = g_strconcat (config, "/x", NULL);
-	check_expansion ("%APPDATA%/x", expected);
-	check_expansion ("$XDG_CONFIG_HOME/x", expected);
-	g_free (expected);
-
-	expected = g_strconcat (data, "/x", NULL);
-	check_expansion ("%LOCALAPPDATA%/x", expected);
-	check_expansion ("$XDG_DATA_HOME/x", expected);
-	g_free (expected);
-
-	expected = g_strconcat (cache, "/x", NULL);
-	check_expansion ("$XDG_CACHE_HOME/x", expected);
-	g_free (expected);
+	/* No single match on the other platform, so these stay as typed. */
+	check_expansion ("%APPDATA%/x", NULL);
+	check_expansion ("$XDG_CONFIG_HOME/x", NULL);
+	check_expansion ("%LOCALAPPDATA%/x", NULL);
+	check_expansion ("$XDG_DATA_HOME/x", NULL);
+	check_expansion ("$XDG_CACHE_HOME/x", NULL);
 
 	expected = g_strconcat ("/home/", user, NULL);
 	check_expansion ("/home/$USER", expected);

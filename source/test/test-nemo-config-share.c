@@ -452,8 +452,13 @@ file_value (const char *path, const char *key)
 
 	if (g_file_get_contents (path, &text, &len, NULL)) {
 		shcl_doc *doc = shcl_parse (text, len);
-		shcl_read_str_arr read = shcl_read_string_array (doc, key, strlen (key));
+		shcl_read_str_arr read;
 
+		if (doc == NULL) {
+			g_free (text);
+			return NULL;
+		}
+		read = shcl_read_string_array (doc, key, strlen (key));
 		if (read.status == SHCL_GOOD || read.status == SHCL_EMPTY) {
 			GPtrArray *items = g_ptr_array_new_with_free_func (g_free);
 

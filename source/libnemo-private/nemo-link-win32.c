@@ -251,6 +251,7 @@ junction_target (const char *target_path)
 	native = to_native_separators (target_path);
 
 	/* A trailing separator makes the mount point resolve oddly. */
+	// codeql[cpp/missing-null-test] NULL only for a NULL path, ruled out above
 	len = strlen (native);
 	while (len > 3 && native[len - 1] == '\\') {
 		native[--len] = '\0';
