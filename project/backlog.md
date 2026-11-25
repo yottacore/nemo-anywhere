@@ -482,7 +482,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: a Keyboard tab where shortcuts are shown, edited, and reset, like SilkTerm's.
 	- ID: 2026102018234906
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on signoff
 	- Priority|Severity: Avg
 	- Opened: 20261020-182349
 	- Opened by: t00mietum
@@ -495,9 +495,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Design: [Keyboard tab](design_docs/20261020-121842_settings.md#keyboard-tab).
 	- Progress log:
 		- 20261123: split in 2. 2026112312181296 is the tab itself, with keys shown, changed, turned off, and reset. 2026112312181314 is other windows, the keyboard shortcuts window, and views not opened yet.
+		- 20261124: children 2026112312181296 wait on UAT, and the rest are closed
 	- Decisions:
 		- The tab goes under Advanced with 2026102018234905, which gives Advanced sub-tabs. Until then it's a tab of its own, after Advanced.
-	- Test case: dd5df, in its children.
+	- Test case: its children's: 2026112312181296: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key moved with the other row turned off, a plain letter refused, Backspace, the revert arrow, and Reset all.; 2026112312181314: its children's: 2026112312455787: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.; 2026112312455741: dfpt0 `test-nemo-shortcuts-file`: a change another window saves is taken, one made here and not saved yet is kept, a save takes the file's changes first and keeps all 3, its own save changes nothing, a file missing lines takes nothing back, and a key turned off elsewhere is turned off here.; 2026112312455764: dd5df, Settings dialog test: keyboard, shortcut, hotkey, key binding, and Keyboard shortcuts each list the Keyboard tab.
 
 - Settings: a shortcut changed on the Keyboard tab takes effect in every open window, and the keyboard shortcuts window shows it.
 	- ID: 2026112312181314
