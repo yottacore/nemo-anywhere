@@ -6,9 +6,10 @@
 ##	  container of its own. The CLI and query packs are the ones pinned in
 ##	  linux/Dockerfile.dev and win/Dockerfile, run locally, with no hosted
 ##	  service. codeql-c.qls and codeql-python.qls pick the queries, and
-##	  codeql-cpp/ has our own, such as missing-null-test taught about GLib.
+##	  codeql-cpp/ has our own, such as missing-null-test taught about GLib,
+##	  and non-constant-format taught the translation calls.
 ##	- Fails when the C queries miss the planted leak or null dereference in
-##	  either container, or report the planted GLib idioms (test de8ep),
+##	  either container, or report the planted GLib and gettext idioms (test de8ep),
 ##	  when codeql is missing from an image, when a lane fails, when the
 ##	  count can't read a lane's SARIF, or on a bad or stale entry in
 ##	  codeql-vendored.txt. Findings are counted per area and
@@ -175,3 +176,4 @@ fEcho "OK: CodeQL stage"
 ##		- 2026-11-19: First version, report only.
 ##		- 2026-11-23: codeql-vendored.txt, and a scoped run with --lane and --match.
 ##		- 2026-11-24: missing-null-test from codeql-cpp/, taught about GLib.
+##		- 2026-11-25: non-constant-format from codeql-cpp/, taught the translation calls.

@@ -11,6 +11,8 @@
   from: codeql/cpp-queries
 - query: MissingNullTest.ql
   from: nemo-anywhere/cpp-queries
+- query: NonConstantFormat.ql
+  from: nemo-anywhere/cpp-queries
 - query: AlertSuppression.ql
   from: codeql/cpp-queries
 - exclude:
@@ -22,3 +24,6 @@
     tags contain:
       - correctness
       - security
+# Ours in codeql-cpp/ runs in its place, taught the translation calls.
+- exclude:
+    query path: Likely Bugs/Format/NonConstantFormat.ql

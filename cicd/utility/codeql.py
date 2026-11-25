@@ -20,8 +20,9 @@
 #            a planted leak and a planted null dereference, built with the
 #            lane's compiler, so the tracer is shown to see it. Fails too on
 #            a report at the planted GLib idioms the NULL query is taught,
-#            or none at a NULL passed to a function that's NULL only for a
-#            NULL argument.
+#            or at a format from a translation call, or none at a NULL passed
+#            to a function that's NULL only for a NULL argument, or at a
+#            format from a function with no body.
 #   count    Counts results per area from the lanes' SARIF, as analyze.py does
 #            for the analyzers. A vendored result listed in codeql-vendored.txt
 #            counts as suppressed. Exits 1 on any result left, 2 on SARIF it
@@ -68,7 +69,8 @@ SUPP_FILE = "cicd/utility/codeql-vendored.txt"
 PACK = os.path.join(HERE, "codeql-cpp")
 MATCH_ENV = "CODEQL_REPLAY_MATCH"
 PLANTED_WANT = {"cpp/memory-never-freed", "cpp/missing-null-test"}
-PLANTED = """#include <stdlib.h>
+PLANTED = """#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 int planted_leak(int n) { char *p = malloc(16); if (!p) return -1; memset(p, n, 16); return p[0]; }
 int planted_null(int n) { int *q = 0; if (n > 1) return 0; return *q; }
@@ -87,13 +89,24 @@ int planted_glib (const char *s) {
 	g_assert_nonnull (c);
 	return n + c[0]; /* quiet */
 }
+char *libintl_ngettext (const char *one, const char *many, unsigned long n);
+const char *g_dpgettext (const char *domain, const char *msgctxtid, unsigned long msgidoffset);
+char *planted_unknown (void);
+void planted_format (unsigned long n) {
+	printf (libintl_ngettext ("%lu file\\n", "%lu files\\n", n), n); /* quiet */
+	printf (g_dpgettext (0, "Count\\004%lu\\n", 6), n); /* quiet */
+	printf (planted_unknown (), n); /* loud format */
+}
 """
 # Lines GLib's idioms make look like a NULL dereference, which
-# codeql-cpp/MissingNullTest.ql is taught to pass.
+# codeql-cpp/MissingNullTest.ql is taught to pass, and formats from the
+# translation calls codeql-cpp/NonConstantFormat.ql is taught.
 PLANTED_QUIET = {i + 1 for i, line in enumerate(PLANTED.splitlines()) if line.endswith("/* quiet */")}
-# And a NULL argument to a function that's NULL only for a NULL argument, which
-# it still has to report.
-PLANTED_LOUD = {i + 1 for i, line in enumerate(PLANTED.splitlines()) if line.endswith("/* loud */")}
+# And a NULL argument to a function that's NULL only for a NULL argument, and a
+# format from a function it knows nothing about, which they still have to report.
+PLANTED_LOUD = {i + 1: rule for i, line in enumerate(PLANTED.splitlines())
+                for mark, rule in (("/* loud */", "cpp/missing-null-test"), ("/* loud format */", "cpp/non-constant-format"))
+                if mark in line}
 
 Result = tuple[str, int, str, bool]
 
@@ -230,12 +243,12 @@ def cmd_planted(args: list[str]) -> int:
         print(f"{path}:{line}: {rule}")
     missing = PLANTED_WANT - {rule for path, _, rule, _ in found if path.endswith("planted.c")}
     loud = sorted(line for path, line, rule, _ in found if path.endswith("planted.c") and line in PLANTED_QUIET)
-    hushed = sorted(PLANTED_LOUD - {line for path, line, rule, _ in found if path.endswith("planted.c") and rule == "cpp/missing-null-test"})
+    hushed = sorted(set(PLANTED_LOUD) - {line for path, line, rule, _ in found if path.endswith("planted.c") and PLANTED_LOUD.get(line) == rule})
     print(f"[ CodeQL: planted faults {'missed: ' + ', '.join(sorted(missing)) if missing else 'found'} ]")
     if loud:
-        print(f"[ CodeQL: planted GLib idioms reported at line {', '.join(map(str, loud))} ]")
+        print(f"[ CodeQL: planted GLib and gettext idioms reported at line {', '.join(map(str, loud))} ]")
     if hushed:
-        print(f"[ CodeQL: planted NULL argument not reported at line {', '.join(map(str, hushed))} ]")
+        print(f"[ CodeQL: planted NULL argument or unknown format not reported at line {', '.join(map(str, hushed))} ]")
     return 1 if missing or loud or hushed else 0
 
 

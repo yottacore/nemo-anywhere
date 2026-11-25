@@ -470,7 +470,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Then a finding left fails the step, as in the per-file stage.
 	- Estimated effort: High
 	- Progress log:
-		- 20261123: Split into children: `2026112310054779` (the vendored list and a scoped run), `...55896` (Python), `...55921` (vendored), `...55945` (missing-null-test in ours and tests, class first), `...61005` (the same in inherited), `...61029` (non-constant-format), `...61055` (other C in ours and tests), `...61079` (other C in inherited), and `...62942` (a finding left then fails the step). The first 3 and `...55945` are Done, and the other 5 are Queued.
+		- 20261123: Split into children: `2026112310054779` (the vendored list and a scoped run), `...55896` (Python), `...55921` (vendored), `...55945` (missing-null-test in ours and tests, class first), `...61005` (the same in inherited), `...61029` (non-constant-format), `...61055` (other C in ours and tests), `...61079` (other C in inherited), and `...62942` (a finding left then fails the step). The first 3, `...55945`, `...61005` and `...61029` are Done, and the other 3 are Queued.
 	- Test case: de8ep, and a count case for the finding it then fails on.
 
 - Static analyzers: the CodeQL missing-null-test findings in inherited code fixed or suppressed.
@@ -532,7 +532,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: the CodeQL non-constant-format findings fixed or suppressed.
 	- ID: 2026112310061029
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261123-100610
 	- Opened by: 2026111915091061
@@ -543,7 +544,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- 245 unique on 20261119, 237 of them only in the Windows lane, mostly from ngettext and _() strings. The Linux lane knows gettext keeps its format, and the Windows one doesn't seem to know mingw's libintl. Fix that class first, then the rest at the line.
 	- Estimated effort: Avg
-	- Test case: a scoped run of the Windows lane over the files changed has none left.
+	- Actual effort: Low
+	- Decisions:
+		- Every one was a translation the query couldn't see through. mingw's libintl.h makes gettext and its kin macros for `libintl_gettext` and the like, and gi18n-lib.h's `_()` is `g_dgettext`, `C_()` and `Q_()` are `g_dpgettext`. The pack's model knows only the glibc names, and takes any other call with no body as a source. That was all 248 in the Windows lane and all 8 in the Linux one, so none needed a fix or a suppression at the line.
+		- The query runs from our own copy, `cicd/utility/codeql-cpp/NonConstantFormat.ql`, with those functions modeled as passing their msgid's format through, as the pack does for gettext. codeql-c.qls drops the pack's copy by its path. A model file can't do it, since the query reads only the QL models.
+		- de8ep now plants a format from `libintl_ngettext` and `g_dpgettext`, which it fails on if reported, and one from a function with no body, which it fails on if not.
+		- de8ep's check that a planted line is still reported never ran, since its marker wasn't at the end of the line. It does now, and the planted NULL argument is reported.
+	- Branch: nov25-2026112310061029
+	- Test case: de8ep: a planted format from a translation call isn't reported, and one from a function with no body is. Whole runs of both C lanes have no non-constant-format result left.
+	- Verified: 20261125, de8ep passes in both images, and fails with the pack's query at the 2 planted translation formats. Whole runs of both C lanes (`codeql.bash --lane c-win --lane c-linux`): non-constant-format 248 to 0 in the Windows lane and 8 to 0 in the Linux one, against the 20261124 whole-step SARIF. Every other rule's count is the same, apart from missing-null-test's earlier fixes. The Python lane has no findings.
+	- Swept: every translation macro in gi18n.h and gi18n-lib.h (`_()`, `Q_()`, `C_()`), the 6 gettext calls mingw's libintl.h redirects, and GLib's `g_dgettext`, `g_dcgettext`, `g_dngettext`, `g_dpgettext` and `g_dpgettext2`.
+	- Acceptance signoff: Self-closed: de8ep and the whole lane runs above.
+	- Closed: 20261125-113453
 
 - Static analyzers: the other CodeQL C findings in our code and tests fixed or suppressed.
 	- ID: 2026112310061055
