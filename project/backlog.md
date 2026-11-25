@@ -36,13 +36,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: the Keyboard tab lists the menu's key-only actions by their code names, such as PropertiesAccel, NewTabAccel, and ZoomInAccel.
 	- ID: 2026112415464216
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on UAT
+		- Left at signoff for the wording of the new names.
 	- Priority|Severity: Low
 	- Opened: 20261124-154642
 	- Opened by: work on 2026112312455787
 	- Target version: rc.1
 	- Origin: 2026112312181296 (b9a18c18). Plausible: read only. Each of these actions has its code name as its label, and the tab lists every action with a label.
 	- Sweep: every action named `*Accel` in the shell and folder view actions, and `RenameSelectAll`.
+	- Reproduced: 20261124, the accelerator check lists all 8 entries whose label is a code name: PropertiesAccel, OpenAccel and RenameSelectAll in the view's actions, and UpAccel, ZoomInAccel, ZoomInAccel2, NewTabAccel and ZoomOutAccel in the window's.
+	- Actual cause: these actions only give a menu key a second spelling, or a key with no menu entry, so nobody gave them a name. The Keyboard tab lists every action that has a label, and their label was the code name.
+	- Actual fix: each has a name now, marked for translation: "Zoom in, second key", "Zoom in, keypad", "Zoom out, keypad", "Open folders in new tabs, or a new tab", "Open, second key", "Invert selection or properties, by model" and "Rename with the whole name selected". UpAccel is gone. It had no key and no place in the menus, so a key given to it on the tab would have done nothing. The accelerator check now fails on any action table entry whose label isn't marked for translation.
+	- Decisions:
+		- Name the rows rather than hide them. A hidden row can't be changed, and a key taken by another row wouldn't clear it, so 2 actions would share one key.
+		- Ctrl+I's row has one name for both models, since the tab's list is built once and the model can change while it's open.
+		- UpAccel is removed rather than named, since nothing ever connected a key to it.
+	- Test case: the accelerator check (`cicd/utility/lint-accels.py`, run by the lint step) fails on an action whose label is a plain string. It fails on the 8 entries before the fix and passes after. dd5df, dbnfq and dfrca still pass.
+	- Swept: every action table under `src/`, `libnemo-private/` and `eel/`, both sides of each `#if`, which is what the check reads. The test file's own `PropertiesAccel` entry in test-nemo-shortcuts-window.c is a stand-in and stays.
+	- Verified: 20261124, the accelerator check passes, and dd5df, dbnfq and dfrca pass. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Stand-in: none (20261124). The wording of the names.
+	- Branch: nov24-2026112415464216
+	- Commit: 7b27a3d3
 
 - Settings: search.
 	- ID: 2026101417352263

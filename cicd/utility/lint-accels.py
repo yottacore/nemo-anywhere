@@ -14,6 +14,9 @@
 # the app, Cmd+M minimizes, and Cmd+F1 is the system's. Those are the only
 # Control spellings allowed, in the tables and in the shortcuts window.
 #
+# Every action has a name a person can read, marked for translation, since
+# Settings' Keyboard tab lists them by it.
+#
 # Both sides of every #if are read, so a key claimed on one platform only
 # still counts.
 #
@@ -160,8 +163,8 @@ def split_fields(body: str) -> list[str]:
     return fields
 
 
-def entries(text: str) -> Iterator[tuple[int, str, str]]:
-    """(line, action name, accelerator) for each table entry that sets a key."""
+def table_rows(text: str) -> Iterator[tuple[int, list[str]]]:
+    """(line, fields) for each entry of each action table."""
     for table in TABLE.finditer(text):
         i = table.end()
         depth = 1
@@ -181,12 +184,25 @@ def entries(text: str) -> Iterator[tuple[int, str, str]]:
             elif c == "}":
                 depth -= 1
                 if depth == 1 and start is not None:
-                    fields = split_fields(text[start:i])
-                    accel = re.fullmatch(r'"(.*)"', fields[3]) if len(fields) > 3 else None
-                    if accel and accel.group(1):
-                        name = fields[0].strip('"')
-                        yield text.count("\n", 0, start) + 1, name, accel.group(1)
+                    yield text.count("\n", 0, start) + 1, split_fields(text[start:i])
             i += 1
+
+
+def entries(text: str) -> Iterator[tuple[int, str, str]]:
+    """(line, action name, accelerator) for each table entry that sets a key."""
+    for line, fields in table_rows(text):
+        accel = re.fullmatch(r'"(.*)"', fields[3]) if len(fields) > 3 else None
+        if accel and accel.group(1):
+            yield line, fields[0].strip('"'), accel.group(1)
+
+
+def bare_labels(text: str) -> Iterator[tuple[int, str, str]]:
+    """(line, action name, label) for each entry whose label isn't marked for
+    translation. Settings' Keyboard tab lists actions by label, so a code
+    name such as "ZoomInAccel" would show there as is."""
+    for line, fields in table_rows(text):
+        if len(fields) > 2 and re.fullmatch(r'"(.+)"', fields[2]):
+            yield line, fields[0].strip('"'), fields[2]
 
 
 def canonical(accel: str, keep_control: bool) -> str:
@@ -214,6 +230,7 @@ def check(root: Path) -> list[tuple[Path | str, int, str]]:
     # Per configuration: key -> [(file, line, action name)], across every file,
     # since the view's table and the window's are merged into one window.
     claimed = ({}, {})
+    labeled = set()
 
     for path in sorted(p for d in CODE_DIRS for p in (root / d).rglob("*.c")):
         rel = path.relative_to(root.parent)
@@ -229,6 +246,10 @@ def check(root: Path) -> list[tuple[Path | str, int, str]]:
                 key = canonical(accel, keep_control=False)
                 owners.setdefault(name, set()).add(key)
                 claimed[config].setdefault(key, []).append((rel, line, name))
+            for line, name, label in bare_labels(variant):
+                if (rel, line) not in labeled:
+                    labeled.add((rel, line))
+                    problems.append((rel, line, f"{name} is labeled {label}; give it a name to list it by, in N_()"))
 
     # One name in 2 tables is one action: the clipboard group stands in for
     # the view's while a text field has the focus.
@@ -278,7 +299,7 @@ def main() -> int:
     if problems:
         print(f"[ FAILED: accelerators: {len(problems)} problem(s) ]")
         return 1
-    print("[ OK: accelerators: one action per key, Control only where macOS needs it ]")
+    print("[ OK: accelerators: one action per key, Control only where macOS needs it, every action named ]")
     return 0
 
 
