@@ -17,6 +17,11 @@
 # Every action has a name a person can read, marked for translation, since
 # Settings' Keyboard tab lists them by it.
 #
+# Every action name looked up, by a NEMO_ACTION_ macro or by a quoted name
+# passed to gtk_action_group_get_action, belongs to an action something
+# makes. A lookup of a name nothing makes gets NULL, and GTK only says so at
+# run time. UpAccel was removed with its lookup left behind.
+#
 # Both sides of every #if are read, so a key claimed on one platform only
 # still counts.
 #
@@ -205,6 +210,50 @@ def bare_labels(text: str) -> Iterator[tuple[int, str, str]]:
             yield line, fields[0].strip('"'), fields[2]
 
 
+ACTION_MACRO = re.compile(r"^\s*#\s*define\s+(NEMO_ACTION_\w+)\s+\"([^\"]*)\"", re.M)
+# Ways an action gets made outside the tables.
+MADE = (re.compile(r"\bgtk_(?:toggle_|radio_)?action_new\s*\(\s*([^,()]+?)\s*,"),
+        re.compile(r"\bg_object_new\s*\([^;]*?\"name\"\s*,\s*([^,()]+?)\s*,"))
+LOOKUP = re.compile(r"\bgtk_action_group_get_action\s*\([^,]+,\s*(\"[^\"]*\")\s*\)")
+
+
+def orphan_lookups(root: Path) -> list[tuple[Path | str, int, str]]:
+    """Action names used that no table entry or *_action_new makes."""
+    problems: list[tuple[Path | str, int, str]] = []
+    macros: dict[str, str] = {}
+    code = {}
+    for path in sorted(p for d in CODE_DIRS for p in (root / d).rglob("*") if p.suffix in (".c", ".h")):
+        rel = path.relative_to(root.parent)
+        text = strip_comments(path.read_text(encoding="utf-8", errors="replace"))
+        for match in ACTION_MACRO.finditer(text):
+            # Only the same value twice; 2 values can be the 2 sides of an #if.
+            if macros.get(match.group(1)) == match.group(2):
+                problems.append((rel, text.count("\n", 0, match.start()) + 1, f"{match.group(1)} is defined again"))
+            macros[match.group(1)] = match.group(2)
+        if path.suffix == ".c":
+            code[rel] = text
+
+    def value(token: str) -> str | None:
+        quoted = re.fullmatch(r'"([^"]*)"', token.strip())
+        return quoted.group(1) if quoted else macros.get(token.strip())
+
+    made = set()
+    for text in code.values():
+        for variant in configurations(text):
+            for _, fields in table_rows(variant):
+                made.add(value(fields[0]))
+        for pattern in MADE:
+            made.update(value(match.group(1)) for match in pattern.finditer(text))
+
+    for rel, text in code.items():
+        uses = [(m.start(), m.group(0), macros[m.group(0)]) for m in re.finditer(r"\bNEMO_ACTION_\w+\b", text) if m.group(0) in macros]
+        uses += [(m.start(1), m.group(1), m.group(1).strip('"')) for m in LOOKUP.finditer(text)]
+        for start, token, name in uses:
+            if name not in made:
+                problems.append((rel, text.count("\n", 0, start) + 1, f"{token} names action {name}, which nothing makes"))
+    return problems
+
+
 def canonical(accel: str, keep_control: bool) -> str:
     mods = set()
     for mod in re.findall(r"<(\w+)>", accel):
@@ -263,6 +312,8 @@ def check(root: Path) -> list[tuple[Path | str, int, str]]:
                 where = ", ".join(f"{name} ({r}:{n})" for r, n, name in claims)
                 problems.append((rel, line, f"{key} is claimed by {len(names)} actions: {where}"))
 
+    problems += orphan_lookups(root)
+
     for name, (key, ui) in OWNED.items():
         if key not in owners.get(name, set()):
             problems.append(("action tables", 0, f"{name} must own {key}"))
@@ -299,7 +350,7 @@ def main() -> int:
     if problems:
         print(f"[ FAILED: accelerators: {len(problems)} problem(s) ]")
         return 1
-    print("[ OK: accelerators: one action per key, Control only where macOS needs it, every action named ]")
+    print("[ OK: accelerators: one action per key, Control only where macOS needs it, every action named and made ]")
     return 0
 
 

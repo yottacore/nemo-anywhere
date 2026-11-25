@@ -1206,9 +1206,6 @@ nemo_window_pane_sync_up_actions (NemoWindowPane *pane)
     action = gtk_action_group_get_action (action_group,
                                           NEMO_ACTION_UP);
     gtk_action_set_sensitive (action, allowed);
-    action = gtk_action_group_get_action (action_group,
-                          NEMO_ACTION_UP_ACCEL);
-    gtk_action_set_sensitive (action, allowed);
 }
 
 /* Returns: (transfer none): owned by @pane */
