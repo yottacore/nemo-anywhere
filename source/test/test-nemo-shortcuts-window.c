@@ -243,6 +243,9 @@ main (int argc, char **argv)
 	nemo_shortcuts_window_show_keys (window, FALSE);
 	check (row_is (builder, "shortcut_paste_key", "<Primary><shift>V"));
 
+	/* GTK 3 drops a popover's window registration when a toplevel is destroyed
+	   still realized, which the sanitizer lane counts as our leak. */
+	gtk_widget_unrealize (window);
 	gtk_widget_destroy (window);
 	g_object_unref (builder);
 	g_object_unref (shell);
