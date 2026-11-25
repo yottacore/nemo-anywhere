@@ -1933,6 +1933,7 @@ nemo_file_operation_new (NemoFile *file,
 	op = g_new0 (NemoFileOperation, 1);
 	op->file = nemo_file_ref (file);
 	op->callback = callback;
+	// codeql[cpp/stack-address-escape] callback data, and a caller that passes a stack address waits for the callback
 	op->callback_data = callback_data;
 	op->cancellable = g_cancellable_new ();
 

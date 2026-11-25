@@ -2757,6 +2757,7 @@ rgb_to_hls (gdouble *r,
   s = 0;
   h = 0;
 
+  // codeql[cpp/equality-on-floats] max and min are 2 of the 3 inputs, so the compare is exact
   if (max != min)
     {
       if (l <= 0.5)
@@ -2765,10 +2766,13 @@ rgb_to_hls (gdouble *r,
         s = (max - min) / (2 - max - min);
 
       delta = max -min;
+      // codeql[cpp/equality-on-floats] max is one of the 3, so the compare is exact
       if (red == max)
         h = (green - blue) / delta;
+      // codeql[cpp/equality-on-floats] max is one of the 3, so the compare is exact
       else if (green == max)
         h = 2 + (blue - red) / delta;
+      // codeql[cpp/equality-on-floats] max is one of the 3, so the compare is exact
       else if (blue == max)
         h = 4 + (red - green) / delta;
 
@@ -5563,9 +5567,6 @@ select_image_button_callback (G_GNUC_UNUSED GtkWidget *widget,
 		if (revert_is_sensitive) {
 			break;
 		}
-
-		g_free (image_uri);
-		g_free (icon_name);
 	}
 
 	gtk_dialog_set_response_sensitive (GTK_DIALOG (dialog), NEMO_RESPONSE_REVERT, revert_is_sensitive);

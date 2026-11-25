@@ -3455,6 +3455,7 @@ file_info_start (NemoDirectory *directory,
 		file->details->get_info_error = NULL;
 	}
 
+	// codeql[cpp/memory-never-freed] freed with the state when the call ends
 	state = g_new (GetInfoState, 1);
 	state->directory = directory;
 	state->cancellable = g_cancellable_new ();

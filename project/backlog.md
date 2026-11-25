@@ -470,7 +470,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Then a finding left fails the step, as in the per-file stage.
 	- Estimated effort: High
 	- Progress log:
-		- 20261123: Split into children: `2026112310054779` (the vendored list and a scoped run), `...55896` (Python), `...55921` (vendored), `...55945` (missing-null-test in ours and tests, class first), `...61005` (the same in inherited), `...61029` (non-constant-format), `...61055` (other C in ours and tests), `...61079` (other C in inherited), and `...62942` (a finding left then fails the step). The first 7 are Done, and `...61079` and `...62942` are Queued.
+		- 20261123: Split into children: `2026112310054779` (the vendored list and a scoped run), `...55896` (Python), `...55921` (vendored), `...55945` (missing-null-test in ours and tests, class first), `...61005` (the same in inherited), `...61029` (non-constant-format), `...61055` (other C in ours and tests), `...61079` (other C in inherited), and `...62942` (a finding left then fails the step). The first 8 are Done, and `...62942` is Queued.
 	- Test case: de8ep, and a count case for the finding it then fails on.
 
 - Static analyzers: the CodeQL missing-null-test findings in inherited code fixed or suppressed.
@@ -642,7 +642,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: the other CodeQL C findings in inherited code fixed or suppressed.
 	- ID: 2026112310061079
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261123-100610
 	- Opened by: 2026111915091061
@@ -653,7 +654,25 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- About 100 unique on 20261119: memory-never-freed 42, equality-on-floats 20, lossy-function-result-cast 17, stack-address-escape 7, integer-multiplication-cast-to-long 4, double-free 2, inconsistent-null-check 2, and one each of use-after-free, suspicious-add-sizeof, incorrectly-checked-scanf and incomplete-parity-check.
 	- Estimated effort: High
-	- Test case: a scoped run over the files changed has none left, and a regression test per real bug fixed.
+	- Actual effort: Avg
+	- Decisions:
+		- 20261125: 71 unique were left in both C lanes, after the null-test and leak query work.
+		- Fixed where the code could do better:
+			- The icon view's alternate open, Shift+Return or a middle click, kept a copy of the current event and never freed it. It also read it with no NULL check. Every menu action and every click on a Places row kept a copy too. Each one frees it now, and a C lint check fails on a function that calls `gtk_get_current_event` and never frees what it gets.
+			- The text ellipsis limit setting took an empty entry as a match, which put every zoom step back to 3 lines. The entry has to give a number now.
+			- The custom icon chooser freed 2 strings in its loop that were always NULL there. Those 2 frees are gone, which was the double-free.
+			- The rest read the same as before: the striped row test is right for a negative row too, the terminal command's arguments start at `argvp + 1` rather than `argvp + sizeof (gchar)`, icon sizes are multiplied as gsize, and a double that's a pixel count is cast to int where it's stored.
+		- Suppressed at the line:
+			- Float compares that look for any change at all, or compare a value with one of its own inputs.
+			- Callback data that a caller may give as a stack address, since that caller waits for the callback.
+			- The Windows lane's g_new blocks that are freed in a callback, by a caller, or by g_strfreev, which the query can't follow.
+			- A NULL icon the next call handles, a selection list that can't be empty, and the tree's rename text, which is set again before it's read.
+	- Branch: nov25-2026112310061079
+	- Test case: dfsky: Shift+Return in the icon view with no current event opens the folder. dfskz (C lint): a function that calls `gtk_get_current_event` frees the copy. Whole runs of both C lanes have no result left in inherited code. The ellipsis limit fix has no test, since the limits are private to the icon view container and show only as how many lines a name takes.
+	- Verified: 20261125, dfsky fails on the code before the fix, with the program gone, and passes after. dfskz reports the 2 callbacks on the code before the fix, and found the Places one. dfpq4 passes. gcc's and clang's analyzers are clean on the 13 files with code changes. `--backlog-run-quick format lint` passes. Whole runs of both C lanes (`codeql.bash --lane c-linux --lane c-win`) have no result left in any area.
+	- Swept: every result of these 11 rules in inherited code in the 20261125 whole runs of both C lanes, every `gtk_get_current_event` caller in the app, and the other icon size products passed as gsize.
+	- Acceptance signoff: Self-closed: dfsky, dfskz and the whole lane runs above.
+	- Closed: 20261125-125400
 
 - Static analyzers: a CodeQL finding left fails the step.
 	- ID: 2026112310062942

@@ -1585,7 +1585,7 @@ nemo_action_activate (NemoAction *action,
             nemo_launch_application_from_command_array (gdk_screen_get_default (),
                                                         argvp[0],
                                                         TRUE,
-                                                        (const char * const *)(argvp + sizeof (gchar)));
+                                                        (const char * const *)(argvp + 1));
             g_strfreev (argvp);
         } else {
             DEBUG ("Couldn't parse arguments terminal launch.  Possibly turn off Quotes and remove any from your Exec line: %s\n",

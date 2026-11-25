@@ -191,6 +191,7 @@ nemo_job_queue_add_new_job (NemoJobQueue         *self,
 
     Job *new_job = g_new0 (Job, 1);
     new_job->job_func = job_func;
+    // codeql[cpp/stack-address-escape] callback data, and a caller that passes a stack address waits for the callback
     new_job->user_data = user_data;
     new_job->cancellable = cancellable;
     new_job->info = info;

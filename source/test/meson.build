@@ -1973,6 +1973,21 @@ if not is_windows
     timeout: 180
   )
 
+  # Preloaded too; it sends Shift+Return with no current event.
+  alt_open_probe = shared_module('test-nemo-alt-open-probe',
+    [ 'test-nemo-alt-open-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('dfsky Alternate open with no current event test',
+    executable('test-nemo-alt-open',
+      [ 'test-nemo-alt-open.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, alt_open_probe ],
+    timeout: 120
+  )
+
   # Preloaded too; it reads the View menu and toolbar, and presses the view keys.
   view_keys_probe = shared_module('test-nemo-view-keys-probe',
     [ 'test-nemo-view-keys-probe.c' ],

@@ -1627,6 +1627,7 @@ update_for_new_location (NemoWindowSlot *slot)
 			slot->find_mount_cancellable = NULL;
 		}
 
+		// codeql[cpp/memory-never-freed] freed in the mount lookup callback
 		data = g_new (FindMountData, 1);
 		data->slot = slot;
 		data->cancellable = g_cancellable_new ();

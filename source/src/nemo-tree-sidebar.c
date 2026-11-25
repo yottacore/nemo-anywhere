@@ -1191,6 +1191,7 @@ paste_into_clipboard_received_callback (G_GNUC_UNUSED GtkClipboard     *clipboar
 static void
 paste_into (FMTreeView *view, NemoFile *folder)
 {
+	// codeql[cpp/memory-never-freed] freed in the clipboard callback
 	PasteRequest *request = g_new (PasteRequest, 1);
 
 	request->view = g_object_ref (view);
@@ -1587,6 +1588,7 @@ rename_editing_started (G_GNUC_UNUSED GtkCellRenderer *cell,
 	view->details->rename_from = NULL;
 	if (file != NULL && GTK_IS_ENTRY (editable)) {
 		view->details->rename_from = nemo_file_get_rename_name (file);
+		// codeql[cpp/use-after-free] rename_from was set again just above
 		gtk_entry_set_text (GTK_ENTRY (editable), view->details->rename_from);
 	}
 	nemo_file_unref (file);

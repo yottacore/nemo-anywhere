@@ -283,6 +283,7 @@ nemo_get_clipboard_callback (G_GNUC_UNUSED GtkClipboard     *clipboard,
 	target = gtk_selection_data_get_target (selection_data);
 
         if (gtk_targets_include_uri (&target, 1)) {
+		// codeql[cpp/memory-never-freed] g_strfreev below frees it
 		uris = g_malloc ((g_list_length (clipboard_info->files) + 1) * sizeof (char *));
 		i = 0;
 

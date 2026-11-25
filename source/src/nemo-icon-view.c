@@ -1887,10 +1887,12 @@ icon_container_activate_alternate_callback (NemoIconContainer *container,
 
 	if (nemo_config_get_boolean (nemo_preferences,
 				    NEMO_PREFERENCES_ALWAYS_USE_BROWSER)) {
-		if (event->type == GDK_BUTTON_PRESS ||
-		    event->type == GDK_BUTTON_RELEASE ||
-		    event->type == GDK_2BUTTON_PRESS ||
-		    event->type == GDK_3BUTTON_PRESS) {
+		if (event == NULL) {
+			/* emitted outside an event: plain open */
+		} else if (event->type == GDK_BUTTON_PRESS ||
+			   event->type == GDK_BUTTON_RELEASE ||
+			   event->type == GDK_2BUTTON_PRESS ||
+			   event->type == GDK_3BUTTON_PRESS) {
 			button_event = (GdkEventButton *) event;
 			open_in_window = ((button_event->state & GDK_SHIFT_MASK) != 0);
 			open_in_tab = !open_in_window;
@@ -1901,6 +1903,9 @@ icon_container_activate_alternate_callback (NemoIconContainer *container,
 		}
 	} else {
 		close_behind = TRUE;
+	}
+	if (event != NULL) {
+		gdk_event_free (event);
 	}
 
 	if (open_in_tab) {

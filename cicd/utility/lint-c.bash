@@ -1569,6 +1569,31 @@ fCheckLnkCase(){
 }
 fRun fCheckLnkCase
 
+## gtk_get_current_event returns a copy, or NULL. Two callers leaked the copy
+## on every open or menu action, one without a NULL check too. So a function
+## that calls it frees it in the same body.
+## Test ID: dfskz
+fCheckCurrentEventFreed(){
+	local bad
+
+	bad="$(awk '
+		FNR == 1 { fn = "" }
+		/^[a-zA-Z_][a-zA-Z0-9_]* *\(/ { fn = $1; sub(/\(.*/, "", fn); ev = 0; freed = 0 }
+		/gtk_get_current_event *\(/ { ev = 1 }
+		/gdk_event_free *\(|g_autoptr *\( *GdkEvent *\)/ { freed = 1 }
+		/^}/ {
+			if (fn != "" && ev && !freed) print FILENAME ": " fn
+			fn = ""
+		}
+	' source/libnemo-private/*.c source/src/*.c source/eel/*.c)"
+	if [[ -n "${bad}" ]]; then
+		fEcho "FAIL: gtk_get_current_event's copy isn't freed (gdk_event_free)"
+		printf '%s\n' "${bad}"
+		exit 2
+	fi
+}
+fRun fCheckCurrentEventFreed
+
 ## The archive core links nothing of the app, so it could leave for a project
 ## of its own, and it never deletes, walks a folder, starts a program, or reads
 ## a command line by itself. It asks its host through arc-host.h, which is how the

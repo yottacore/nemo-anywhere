@@ -109,6 +109,7 @@ eel_str_escape_shell_characters (const char *string)
         return g_strdup (string);
     }
 
+    // codeql[cpp/memory-never-freed] the caller frees it
     escaped = g_new (char, strlen (string) + escape_characters + 1);
     for (p = string, q = escaped; *p != '\0'; p++, q++) {
         switch (*p) {
@@ -161,6 +162,7 @@ eel_str_escape_double_quoted_content (const char *string)
         return g_strdup (string);
     }
 
+    // codeql[cpp/memory-never-freed] the caller frees it
     escaped = g_new (char, strlen (string) + double_quotes_and_backslashes + 1);
     for (p = string, q = escaped; *p != '\0'; p++, q++) {
         if ((*p == '\"') || (*p == '\\')) {

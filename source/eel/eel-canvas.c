@@ -1235,6 +1235,7 @@ eel_canvas_group_set_property (GObject *gobject, guint param_id,
 	case GROUP_PROP_X:
 		old = group->xpos;
 		group->xpos = g_value_get_double (value);
+		// codeql[cpp/equality-on-floats] any change at all is what's tested
 		if (old != group->xpos)
 			moved = TRUE;
 		break;
@@ -1242,6 +1243,7 @@ eel_canvas_group_set_property (GObject *gobject, guint param_id,
 	case GROUP_PROP_Y:
 		old = group->ypos;
 		group->ypos = g_value_get_double (value);
+		// codeql[cpp/equality-on-floats] any change at all is what's tested
 		if (old != group->ypos)
 			moved = TRUE;
 		break;
@@ -1933,9 +1935,9 @@ eel_canvas_accessible_on_screen (GtkWidget *widget)
 		gtk_widget_get_allocation (viewport, &viewport_allocation);
 
 		adjustment = gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (viewport));
-		visible_rect.y = gtk_adjustment_get_value (adjustment);
+		visible_rect.y = (int) gtk_adjustment_get_value (adjustment);
 		adjustment = gtk_scrollable_get_hadjustment (GTK_SCROLLABLE (viewport));
-		visible_rect.x = gtk_adjustment_get_value (adjustment);
+		visible_rect.x = (int) gtk_adjustment_get_value (adjustment);
 		visible_rect.width = viewport_allocation.width;
 		visible_rect.height = viewport_allocation.height;
 
@@ -2591,8 +2593,8 @@ eel_canvas_size_allocate (GtkWidget *widget, GtkAllocation *allocation)
 	gtk_adjustment_set_page_increment (vadjustment, allocation->height / 2);
 
 	scroll_to (canvas,
-		   gtk_adjustment_get_value (hadjustment),
-		   gtk_adjustment_get_value (vadjustment));
+		   (int) gtk_adjustment_get_value (hadjustment),
+		   (int) gtk_adjustment_get_value (vadjustment));
 
 	g_signal_emit_by_name (hadjustment, "changed");
 	g_signal_emit_by_name (vadjustment, "changed");
@@ -3278,7 +3280,9 @@ eel_canvas_set_scroll_region (EelCanvas *canvas, double x1, double y1, double x2
 
 	g_return_if_fail (EEL_IS_CANVAS (canvas));
 
+	// codeql[cpp/equality-on-floats] any change at all is what's tested
 	if ((canvas->scroll_x1 == x1) && (canvas->scroll_y1 == y1) &&
+	    // codeql[cpp/equality-on-floats] any change at all is what's tested
 	    (canvas->scroll_x2 == x2) && (canvas->scroll_y2 == y2)) {
 		return;
 	}
@@ -3350,8 +3354,8 @@ eel_canvas_set_center_scroll_region (EelCanvas *canvas,
 	canvas->center_scroll_region = center_scroll_region != 0;
 
 	scroll_to (canvas,
-		   gtk_adjustment_get_value (gtk_scrollable_get_hadjustment (GTK_SCROLLABLE (&canvas->layout))),
-		   gtk_adjustment_get_value (gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (&canvas->layout))));
+		   (int) gtk_adjustment_get_value (gtk_scrollable_get_hadjustment (GTK_SCROLLABLE (&canvas->layout))),
+		   (int) gtk_adjustment_get_value (gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (&canvas->layout))));
 }
 
 
@@ -3478,10 +3482,10 @@ eel_canvas_get_scroll_offsets (EelCanvas *canvas, int *cx, int *cy)
 	g_return_if_fail (EEL_IS_CANVAS (canvas));
 
 	if (cx)
-		*cx = gtk_adjustment_get_value (gtk_scrollable_get_hadjustment (GTK_SCROLLABLE (canvas)));
+		*cx = (int) gtk_adjustment_get_value (gtk_scrollable_get_hadjustment (GTK_SCROLLABLE (canvas)));
 
 	if (cy)
-		*cy = gtk_adjustment_get_value (gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (canvas)));
+		*cy = (int) gtk_adjustment_get_value (gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (canvas)));
 }
 
 /**

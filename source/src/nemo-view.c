@@ -2171,6 +2171,7 @@ rename_file (NemoView *view, NemoFile *new_file)
 	if (NEMO_IS_LIST_VIEW (view)) {
 		nemo_view_select_file (view, new_file);
 
+		// codeql[cpp/memory-never-freed] freed by the timeout's destroy notify
 		data = g_new (RenameData, 1);
 		data->view = g_object_ref (view);
 		data->new_file = nemo_file_ref (new_file);
@@ -6453,6 +6454,7 @@ get_file_names_as_parameter_array (GList *selection,
 		return NULL;
 	}
 
+	// codeql[cpp/memory-never-freed] the caller frees it
 	parameters = g_new (char *, g_list_length (selection) + 1);
 
 	model_location = nemo_directory_get_location (model);
@@ -8246,6 +8248,7 @@ paste_into (NemoView *view,
 	g_assert (NEMO_IS_VIEW (view));
 	g_assert (NEMO_IS_FILE (target));
 
+	// codeql[cpp/memory-never-freed] freed in the clipboard callback
 	data = g_new (PasteIntoData, 1);
 
 	data->view = g_object_ref (view);
@@ -10055,7 +10058,10 @@ pre_activate (NemoView *view,
 	activated_from_popup = FALSE;
 
 	event = gtk_get_current_event ();
-	proxy = gtk_get_event_widget (event);
+	proxy = event != NULL ? gtk_get_event_widget (event) : NULL;
+	if (event != NULL) {
+		gdk_event_free (event);
+	}
 
 	if (proxy != NULL) {
 		GtkWidget *toplevel;

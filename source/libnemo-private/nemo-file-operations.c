@@ -5779,6 +5779,7 @@ nemo_file_operations_copy (GList *files,
 	job = op_job_new (CopyMoveJob, parent_window);
 	job->desktop_location = nemo_get_desktop_location ();
 	job->done_callback = done_callback;
+	// codeql[cpp/stack-address-escape] callback data, and a caller that passes a stack address waits for the callback
 	job->done_callback_data = done_callback_data;
 	job->files = eel_g_object_list_copy (files);
 	job->destination = g_object_ref (target_dir);
@@ -6409,6 +6410,7 @@ nemo_file_operations_move (GList *files,
 	job->is_move = TRUE;
     job->desktop_location = nemo_get_desktop_location ();
 	job->done_callback = done_callback;
+	// codeql[cpp/stack-address-escape] callback data, and a caller that passes a stack address waits for the callback
 	job->done_callback_data = done_callback_data;
 	job->files = eel_g_object_list_copy (files);
 	job->destination = g_object_ref (target_dir);
@@ -6902,6 +6904,7 @@ start_link_job (GList *files,
 
 	job = op_job_new (CopyMoveJob, parent_window);
 	job->done_callback = done_callback;
+	// codeql[cpp/stack-address-escape] callback data, and a caller that passes a stack address waits for the callback
 	job->done_callback_data = done_callback_data;
 	job->want_symlink = symlink;
 	if (options != NULL) {
@@ -6963,6 +6966,7 @@ nemo_file_operations_duplicate (GList *files,
 	job = op_job_new (CopyMoveJob, parent_window);
     job->desktop_location = nemo_get_desktop_location ();
 	job->done_callback = done_callback;
+	// codeql[cpp/stack-address-escape] callback data, and a caller that passes a stack address waits for the callback
 	job->done_callback_data = done_callback_data;
 	job->files = eel_g_object_list_copy (files);
 	job->destination = NULL;
@@ -7356,6 +7360,7 @@ nemo_file_operations_copy_move (const GList *item_uris,
 
 			cb_data = g_new0 (MoveTrashCBData, 1);
 			cb_data->real_callback = done_callback;
+			// codeql[cpp/stack-address-escape] callback data, and a caller that passes a stack address waits for the callback
 			cb_data->real_data = done_callback_data;
 
 			nemo_file_operations_trash_or_delete (locations,

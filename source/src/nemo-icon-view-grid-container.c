@@ -475,7 +475,7 @@ snap_position (NemoIconContainer         *container,
     GdkRectangle grid_rect;
 
     if (nemo_icon_container_is_layout_rtl (container)) {
-        x_in = nemo_icon_container_get_mirror_x_position (container, icon, x_in);
+        x_in = (int) nemo_icon_container_get_mirror_x_position (container, icon, x_in);
     }
 
     nemo_centered_placement_grid_get_current_position_rect (grid,
@@ -500,7 +500,7 @@ snap_position (NemoIconContainer         *container,
     *y_out = y_new;
 
     if (nemo_icon_container_is_layout_rtl (container)) {
-        *x_out = nemo_icon_container_get_mirror_x_position (container, icon, *x_out);
+        *x_out = (int) nemo_icon_container_get_mirror_x_position (container, icon, *x_out);
     }
 }
 
@@ -693,6 +693,7 @@ nemo_icon_view_grid_container_icon_set_position (NemoIconContainer *container,
     int height_above, width_left;
     int min_x, max_x, min_y, max_y;
 
+    // codeql[cpp/equality-on-floats] any move at all is what's tested
     if (icon->x == x && icon->y == y) {
         return;
     }
@@ -774,6 +775,7 @@ nemo_icon_view_grid_container_move_icon (NemoIconContainer *container,
     }
 
     if (!details->auto_layout) {
+        // codeql[cpp/equality-on-floats] any move at all is what's tested
         if (x != icon->x || y != icon->y) {
             nemo_icon_container_icon_set_position (container, icon, x, y);
             emit_signal = update_position;
@@ -836,7 +838,7 @@ nemo_icon_view_grid_container_update_icon (NemoIconContainer *container,
 
     scale_factor = gtk_widget_get_scale_factor (GTK_WIDGET (container));
     pixbuf = nemo_icon_info_get_desktop_pixbuf_at_size (icon_info,
-                                                        icon_size * scale_factor,
+                                                        (gsize) icon_size * scale_factor,
                                                         GET_VIEW_CONSTANT (container, max_text_width_standard));
 
     nemo_icon_info_unref (icon_info);
