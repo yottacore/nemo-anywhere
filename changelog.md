@@ -91,7 +91,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Under Nemo Anywhere, the Edit menu has Select none, which clears the selection. The status bar reads "Ready to act on N items selected" while something is selected.
 
-- Under Nemo Anywhere, F2 starts a rename with the name picked and the extension left out, and Shift+F2 picks the whole name. A folder's whole name is picked either way. The Behavior checkbox for the extension counts only under the other 2 models, and is grayed under this one.
+- Under Nemo Anywhere, F2 starts a rename with the name picked and the extension left out, and Shift+F2 picks the whole name. A folder's whole name is picked either way. The Behavior checkbox for the extension counts only under the other 2 models. Under this one, "Swap behavior of F2 and Shift+F2" takes its place, so F2 picks the whole name and Shift+F2 leaves the extension out.
 
 - Under Nemo Anywhere, the folder tree has a focus of its own. Ctrl+Up and Ctrl+Down move it without opening anything, Ctrl+Space opens the focused folder, and Escape puts the focus back. With the tree focused, Ctrl+C, Ctrl+X, Ctrl+V, Delete, and Shift+Delete act on the tree's selected folder rather than on what's selected in the main view, and F2 renames it in place. The tree's right-click menu has Rename too.
 

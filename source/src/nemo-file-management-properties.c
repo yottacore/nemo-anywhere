@@ -80,6 +80,7 @@
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_REVERSE_SORT_WIDGET "reverse_sort_checkbox"
 #define NEMO_FILE_MANAGEMENT_QUICK_RENAMES_WITH_PAUSE_IN_BETWEEN "quick_renames_with_pause_in_between"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_RENAME_SELECTS_WHOLE_NAME_WIDGET "rename_selects_whole_name_checkbutton"
+#define NEMO_FILE_MANAGEMENT_PROPERTIES_RENAME_SWAP_KEYS_WIDGET "rename_swap_keys_checkbutton"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_FAVORITES_FIRST_WIDGET "sort_favorites_first_checkbutton"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_FOLDERS_FIRST_WIDGET "sort_folders_first_checkbutton"
 #define NEMO_FILE_MANAGEMENT_PROPERTIES_COMPACT_LAYOUT_WIDGET "compact_layout_checkbutton"
@@ -1221,8 +1222,9 @@ connect_quick_renames (GtkBuilder *builder)
 		g_signal_connect_swapped (w, "toggled", G_CALLBACK (setup_quick_renames), builder);
 }
 
-/* Grayed under Nemo Anywhere, where F2 and Shift+F2 are fixed. The group's
-   own cached reader runs first, so the model read here is the new one. */
+/* The whole-name box counts under v1 and Classic, and the swap box under Nemo
+   Anywhere, so only one shows, in the same place. The group's own cached
+   reader runs first, so the model read here is the new one. */
 static void
 rename_selects_model_changed (G_GNUC_UNUSED NemoConfigGroup *settings,
 			      G_GNUC_UNUSED const gchar     *key,
@@ -1230,10 +1232,8 @@ rename_selects_model_changed (G_GNUC_UNUSED NemoConfigGroup *settings,
 {
 	gboolean applies = nemo_rename_setting_applies ();
 
-	gtk_widget_set_sensitive (check, applies);
-	gtk_widget_set_tooltip_text (check, applies ?
-		_("When off, only the part of the name before the extension is selected") :
-		_("Under Nemo Anywhere, F2 selects the name without its extension and Shift+F2 the whole name"));
+	gtk_widget_set_visible (check, applies);
+	gtk_widget_set_visible (g_object_get_data (G_OBJECT (check), "swap-keys-box"), !applies);
 }
 
 static void
@@ -1241,6 +1241,9 @@ connect_rename_selects (GtkBuilder *builder)
 {
 	GtkWidget *check = GTK_WIDGET (W (NEMO_FILE_MANAGEMENT_PROPERTIES_RENAME_SELECTS_WHOLE_NAME_WIDGET));
 
+	/* Both live in the same box, so the swap box lasts as long as this one. */
+	g_object_set_data (G_OBJECT (check), "swap-keys-box",
+			   W (NEMO_FILE_MANAGEMENT_PROPERTIES_RENAME_SWAP_KEYS_WIDGET));
 	g_signal_connect_object (nemo_preferences,
 				 "changed::" NEMO_PREFERENCES_SELECTION_MODEL,
 				 G_CALLBACK (rename_selects_model_changed), check, 0);
@@ -1658,6 +1661,9 @@ nemo_file_management_properties_dialog_setup (GtkBuilder  *builder,
 	bind_builder_bool (builder, nemo_preferences,
 			   NEMO_FILE_MANAGEMENT_PROPERTIES_RENAME_SELECTS_WHOLE_NAME_WIDGET,
 			   NEMO_PREFERENCES_RENAME_SELECTS_WHOLE_NAME);
+	bind_builder_bool (builder, nemo_preferences,
+			   NEMO_FILE_MANAGEMENT_PROPERTIES_RENAME_SWAP_KEYS_WIDGET,
+			   NEMO_PREFERENCES_RENAME_SWAP_KEYS);
 	connect_rename_selects (builder);
 	bind_builder_bool_inverted (builder, nemo_preferences,
 				    NEMO_FILE_MANAGEMENT_PROPERTIES_ALWAYS_USE_BROWSER_WIDGET,

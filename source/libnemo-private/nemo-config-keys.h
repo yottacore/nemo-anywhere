@@ -255,6 +255,7 @@ static const NemoConfigKey nemo_config_keys[] = {
 	{ "preferences", "never-queue-file-ops", NEMO_CONFIG_BOOL, "false", NULL, NULL, "Start every file operation at once rather than queueing them", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "remember-folder-settings", NEMO_CONFIG_BOOL, "false", NULL, NULL, "Each folder keeps its own view, zoom, sort, and columns", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "rename-selects-whole-name", NEMO_CONFIG_BOOL, "true", NULL, NULL, "Renaming selects the whole name, extension included", NEMO_CONFIG_KEY_NONE },
+	{ "preferences", "rename-swap-keys", NEMO_CONFIG_BOOL, "false", NULL, NULL, "Under Nemo Anywhere, F2 selects the whole name and Shift+F2 leaves the extension out", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "paste-target", NEMO_CONFIG_ENUM, "nemo-anywhere", NULL, enum_PasteTarget, "Where pasted and new items go", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "quick-renames-with-pause-in-between", NEMO_CONFIG_BOOL, "false", NULL, NULL, "Two slow clicks on a name start a rename", NEMO_CONFIG_KEY_NONE },
 	{ "preferences", "selection-model", NEMO_CONFIG_ENUM, "nemo-anywhere", NULL, enum_SelectionModel, "How clicks and keys select and focus files and folders", NEMO_CONFIG_KEY_NONE },

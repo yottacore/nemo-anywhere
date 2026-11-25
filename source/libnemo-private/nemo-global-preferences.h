@@ -114,6 +114,10 @@ typedef enum
  * before the extension */
 #define NEMO_PREFERENCES_RENAME_SELECTS_WHOLE_NAME "rename-selects-whole-name"
 
+/* Under Nemo Anywhere, F2 takes the whole name and Shift+F2 leaves the
+ * extension out, rather than the other way round */
+#define NEMO_PREFERENCES_RENAME_SWAP_KEYS "rename-swap-keys"
+
 /* Quick renames with two single clicks and pause in-between*/
 #define NEMO_PREFERENCES_CLICK_TO_RENAME "quick-renames-with-pause-in-between"
 

@@ -2921,7 +2921,8 @@ nemo_rename_region (const char *name,
     }
 
     /* Under Nemo Anywhere F2 keeps the extension and Shift+F2 takes it all, as
-       upstream does, so the whole-name setting only counts for the other models. */
+       upstream does, so the whole-name setting only counts for the other models.
+       rename-swap-keys trades the 2 keys before this, in the view's actions. */
     if (!nemo_rename_setting_applies () ||
         !nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_RENAME_SELECTS_WHOLE_NAME)) {
         eel_filename_get_rename_region (name, start_offset, end_offset);
@@ -2932,6 +2933,15 @@ gboolean
 nemo_rename_setting_applies (void)
 {
     return nemo_global_preferences_get_selection_model () != NEMO_SELECTION_MODEL_ANYWHERE;
+}
+
+gboolean
+nemo_rename_key_takes_whole (gboolean shifted)
+{
+    gboolean swapped = !nemo_rename_setting_applies () &&
+                       nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_RENAME_SWAP_KEYS);
+
+    return shifted != swapped;
 }
 
 /* Rewrites in place - both separators are one ASCII byte, so nothing moves.

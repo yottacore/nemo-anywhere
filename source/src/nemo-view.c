@@ -8706,14 +8706,14 @@ static void
 action_rename_callback (G_GNUC_UNUSED GtkAction *action,
 			gpointer callback_data)
 {
-	real_action_rename (NEMO_VIEW (callback_data), FALSE);
+	real_action_rename (NEMO_VIEW (callback_data), nemo_rename_key_takes_whole (FALSE));
 }
 
 static void
 action_rename_select_all_callback (G_GNUC_UNUSED GtkAction *action,
 				   gpointer callback_data)
 {
-	real_action_rename (NEMO_VIEW (callback_data), TRUE);
+	real_action_rename (NEMO_VIEW (callback_data), nemo_rename_key_takes_whole (TRUE));
 }
 
 static void

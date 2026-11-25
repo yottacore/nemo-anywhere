@@ -512,6 +512,12 @@ field: preferences.rename-selects-whole-name
 	desc: "Renaming selects the whole name, extension included"
 	# aliases: [file extension, f2]
 
+field: preferences.rename-swap-keys
+	type: bool
+	default: false
+	desc: "Under Nemo Anywhere, F2 selects the whole name and Shift+F2 leaves the extension out"
+	# aliases: [file extension, f2, shift+f2, whole name]
+
 field: preferences.paste-target
 	type: string
 	allowed: [nemo-anywhere, nemo-classic, macos-dolphin]

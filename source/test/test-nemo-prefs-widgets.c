@@ -39,6 +39,7 @@ static const char * const widget_ids[] = {
 	"zoom_resizes_window_checkbutton",
 	"list_view_row_shading_checkbutton",
 	"rename_selects_whole_name_checkbutton",
+	"rename_swap_keys_checkbutton",
 	"always_show_tabs_checkbutton",
 	"image_folder_switch_checkbutton",
 	"show_image_view_icon_toolbar_togglebutton",

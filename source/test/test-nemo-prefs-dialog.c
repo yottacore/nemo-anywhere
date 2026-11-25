@@ -44,6 +44,7 @@
 #include <libnemo-private/nemo-column-chooser.h>
 #include <libnemo-private/nemo-column-utilities.h>
 #include <libnemo-private/nemo-desktop-utils.h>
+#include <libnemo-private/nemo-file-utilities.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-shortcuts.h>
 #include <libnemo-private/nemo-tab-list.h>
@@ -914,32 +915,42 @@ test_paste_target (GtkWidget *dialog)
 	check (nemo_global_preferences_get_paste_target () == NEMO_PASTE_TARGET_ANYWHERE);
 }
 
-/* The whole-name rename box is grayed under Nemo Anywhere, where F2 and
-   Shift+F2 are fixed, with a tooltip saying so, and comes back with the model. */
+/* Under Nemo Anywhere the whole-name rename box gives way to "Swap behavior
+   of F2 and Shift+F2" in the same place, and comes back with the model. The
+   swap box writes its own key. */
 static void
-test_rename_selects_grayed (GtkWidget *dialog)
+test_rename_boxes_by_model (GtkWidget *dialog)
 {
 	GtkWidget *check_button = find_named (dialog, "rename_selects_whole_name_checkbutton");
-	char *tip;
+	GtkWidget *swap = find_named (dialog, "rename_swap_keys_checkbutton");
 
-	check (check_button != NULL);
-	if (check_button == NULL) {
+	check (check_button != NULL && swap != NULL);
+	if (check_button == NULL || swap == NULL) {
 		return;
 	}
+	check (g_strcmp0 (gtk_button_get_label (GTK_BUTTON (swap)), "Swap behavior of F2 and Shift+F2") == 0);
+	check (gtk_widget_get_parent (swap) == gtk_widget_get_parent (check_button));
+
 	/* Nemo Anywhere is the default. */
-	check (!gtk_widget_get_sensitive (check_button));
-	tip = gtk_widget_get_tooltip_text (check_button);
-	check (tip != NULL && strstr (tip, "Shift+F2") != NULL);
-	g_free (tip);
+	check (!gtk_widget_get_visible (check_button));
+	check (gtk_widget_get_visible (swap));
+	check (gtk_widget_get_sensitive (swap));
+	check (!gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (swap)));
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (swap), TRUE);
+	check (nemo_config_get_boolean (nemo_preferences, NEMO_PREFERENCES_RENAME_SWAP_KEYS));
+	check (nemo_rename_key_takes_whole (FALSE));
 
 	nemo_config_set_string (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL, "nemo-anywhere-v1");
+	check (gtk_widget_get_visible (check_button));
 	check (gtk_widget_get_sensitive (check_button));
-	tip = gtk_widget_get_tooltip_text (check_button);
-	check (tip != NULL && strstr (tip, "Shift+F2") == NULL);
-	g_free (tip);
+	check (!gtk_widget_get_visible (swap));
 
 	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
-	check (!gtk_widget_get_sensitive (check_button));
+	check (!gtk_widget_get_visible (check_button));
+	check (gtk_widget_get_visible (swap));
+
+	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_RENAME_SWAP_KEYS);
+	check (!gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (swap)));
 }
 
 /* The rows of the search's match list, as plain text. */
@@ -1568,7 +1579,7 @@ main (int argc, char *argv[])
 		test_default_view (dialog);
 		test_selection_model (dialog);
 		test_paste_target (dialog);
-		test_rename_selects_grayed (dialog);
+		test_rename_boxes_by_model (dialog);
 		test_checksum_section (dialog);
 		test_search (dialog);
 		test_search_aliases (dialog);

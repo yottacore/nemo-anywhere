@@ -632,7 +632,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Reenable the option to rename the whole file with F2. But label it "Swap behavior of F2 and Shift+F2".
 	- ID: 2026111707593766
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261117-075937
 	- Opened by: t00mietum
@@ -643,7 +644,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Label: "Swap behavior of F2 and Shift+F2".
 	- Notes:
 		- Today the "Include the extension when a rename starts" box is grayed under Nemo Anywhere, per 2026102218380001.
-	- Test case: none yet.
+	- Progress log:
+		- 20261124: under Nemo Anywhere, Settings > Behavior has "Swap behavior of F2 and Shift+F2", off by default. On, F2 selects the whole name and Shift+F2 leaves the extension out. A folder is still selected whole. The design docs and the changelog say so.
+	- Decisions:
+		- The swap is its own setting, `rename-swap-keys`, off by default. Reusing the whole-name setting would have made F2 take the whole name by default under Nemo Anywhere, since that setting defaults to on, and undone 2026102218380002.
+		- Only one of the 2 boxes shows, in the same place: the whole-name box under v1 and Classic, the swap box under Nemo Anywhere. This replaces the grayed box from 2026102218380001, since a grayed box beside the one that counts would only confuse.
+		- The swap covers the 2 keys, and the menu's Rename, which is F2. Two slow clicks and a new file's rename still leave the extension out, since the label names only the keys.
+		- The Keyboard tab still names Shift+F2's row "Rename with the whole name selected", which is wrong with the swap on. The row's name is at signoff in 2026112415464216.
+	- Branch: nov24-2026111707593766
+	- Commit: 2b82de4a
+	- Test case: dd5c8 checks what F2 and Shift+F2 select with the swap on and off under each model, through the same call the view's actions make. dd5df checks that the swap box shows under Nemo Anywhere in the whole-name box's place, with its label, writes its key, and gives way to the whole-name box under v1. dbnfq checks the box is in the dialog.
+		- 20261124: dd5df's rename check, which wanted the whole-name box grayed under Nemo Anywhere, now wants it hidden and the swap box shown.
+	- Swept: every caller of the 2 rename actions, and the other F2 handlers: the tree and Places rename folders and bookmarks whole, so the swap doesn't touch them. The list and icon views get the choice through the view's actions.
+	- Verified: 20261124, dd5c8, dd5df, dbnfq and dbsx7 pass.
+	- Acceptance signoff: Self-closed: dd5c8 and dd5df.
+	- Closed: 20261124-163838
 
 - Static analyzers: the CodeQL findings fixed or suppressed, then they fail the run.
 	- ID: 2026111915091061
