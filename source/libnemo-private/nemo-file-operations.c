@@ -4571,6 +4571,7 @@ remove_target_recursively (CommonJob *job,
 		g_file_enumerator_close (enumerator, job->cancellable, NULL);
 		g_object_unref (enumerator);
 
+	// codeql[cpp/missing-null-test] a NULL enumerator comes with error set
 	} else if (IS_IO_ERROR (error, NOT_DIRECTORY)) {
 		/* Not a dir, continue */
 		g_error_free (error);

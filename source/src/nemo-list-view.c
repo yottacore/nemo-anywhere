@@ -2071,6 +2071,9 @@ handle_icon_slow_two_click (NemoListView *view, GtkTreePath *path, GdkEventButto
         return FALSE;
 
     file = nemo_list_model_file_for_path (view->details->model, path);
+    /* NULL on an expanded folder's placeholder row */
+    if (file == NULL)
+        return FALSE;
     can_rename = nemo_file_can_rename (file);
     nemo_file_unref (file);
 

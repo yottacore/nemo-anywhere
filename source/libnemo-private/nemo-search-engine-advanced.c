@@ -235,6 +235,7 @@ process_search_helper_file (const gchar *path)
         GList *existing;
         const gchar *mime_type;
 
+        // codeql[cpp/missing-null-test] n_types isn't 0, so the list is set
         mime_type = mime_types[i];
 
         helper = g_new0 (SearchHelper, 1);

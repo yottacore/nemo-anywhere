@@ -1766,45 +1766,48 @@ nemo_icon_view_container_finish_adding_new_icons (NemoIconContainer *container)
          * Thus, we pass FALSE for tight, like lay_down_icons_tblr */
         grid = nemo_placement_grid_new (container, FALSE);
 
-        for (p = container->details->icons; p != NULL; p = p->next) {
-            icon = p->data;
+        /* NULL while the container has no size yet */
+        if (grid != NULL) {
+            for (p = container->details->icons; p != NULL; p = p->next) {
+                icon = p->data;
 
-            if (nemo_icon_container_icon_is_positioned (icon) && !icon->has_lazy_position) {
-                nemo_placement_grid_mark_icon (grid, icon);
+                if (nemo_icon_container_icon_is_positioned (icon) && !icon->has_lazy_position) {
+                    nemo_placement_grid_mark_icon (grid, icon);
+                }
             }
+
+            now = time (NULL);
+
+            for (p = semi_position_icons; p != NULL; p = p->next) {
+                NemoIconPosition position;
+                int x, y;
+
+                icon = p->data;
+                x = icon->x;
+                y = icon->y;
+
+                find_empty_location (container, grid,
+                             icon, x, y, &x, &y);
+
+                nemo_icon_container_icon_set_position (container, icon, x, y);
+
+                position.x = icon->x;
+                position.y = icon->y;
+                position.scale = icon->scale;
+                position.monitor = current_monitor;
+                nemo_placement_grid_mark_icon (grid, icon);
+                g_signal_emit_by_name (container, "icon_position_changed",
+                                       icon->data, &position);
+                g_signal_emit_by_name (container, "store_layout_timestamp",
+                                       icon->data, &now, &dummy);
+
+                /* ensure that next time we run this code, the formerly semi-positioned
+                 * icons are treated as being positioned. */
+                icon->has_lazy_position = FALSE;
+            }
+
+            nemo_placement_grid_free (grid);
         }
-
-        now = time (NULL);
-
-        for (p = semi_position_icons; p != NULL; p = p->next) {
-            NemoIconPosition position;
-            int x, y;
-
-            icon = p->data;
-            x = icon->x;
-            y = icon->y;
-
-            find_empty_location (container, grid,
-                         icon, x, y, &x, &y);
-
-            nemo_icon_container_icon_set_position (container, icon, x, y);
-
-            position.x = icon->x;
-            position.y = icon->y;
-            position.scale = icon->scale;
-            position.monitor = current_monitor;
-            nemo_placement_grid_mark_icon (grid, icon);
-            g_signal_emit_by_name (container, "icon_position_changed",
-                                   icon->data, &position);
-            g_signal_emit_by_name (container, "store_layout_timestamp",
-                                   icon->data, &now, &dummy);
-
-            /* ensure that next time we run this code, the formerly semi-positioned
-             * icons are treated as being positioned. */
-            icon->has_lazy_position = FALSE;
-        }
-
-        nemo_placement_grid_free (grid);
 
         g_list_free (semi_position_icons);
     }

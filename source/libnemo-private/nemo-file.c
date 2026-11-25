@@ -6063,7 +6063,12 @@ nemo_file_get_trash_original_file_parent_as_string (NemoFile *file)
 
 	if (file->details->trash_orig_path != NULL) {
 		orig_file = nemo_file_get_trash_original_file (file);
+		// codeql[cpp/missing-null-test] set whenever trash_orig_path is
 		parent = nemo_file_get_parent (orig_file);
+		if (parent == NULL) {
+			nemo_file_unref (orig_file);
+			return NULL;
+		}
 		location = nemo_file_get_location (parent);
 
 		filename = g_file_get_parse_name (location);
@@ -9339,26 +9344,32 @@ nemo_file_construct_tooltip (NemoFile *file, NemoFileTooltipFlags flags, gpointe
 
     if (flags & NEMO_FILE_TOOLTIP_FLAGS_ACCESS_DATE) {
         date = nemo_file_get_date_as_string (file, NEMO_DATE_TYPE_ACCESSED, TRUE);
-        tmp = g_strdup_printf (_("Accessed: %s"), date);
-        g_free (date);
-        string = add_line (string, tmp, TRUE);
-        g_free (tmp);
+        if (date != NULL) {
+            tmp = g_strdup_printf (_("Accessed: %s"), date);
+            g_free (date);
+            string = add_line (string, tmp, TRUE);
+            g_free (tmp);
+        }
     }
 
     if (flags & NEMO_FILE_TOOLTIP_FLAGS_MOD_DATE) {
         date = nemo_file_get_date_as_string (file, NEMO_DATE_TYPE_MODIFIED, TRUE);
-        tmp = g_strdup_printf (_("Modified: %s"), date);
-        g_free (date);
-        string = add_line (string, tmp, TRUE);
-        g_free (tmp);
+        if (date != NULL) {
+            tmp = g_strdup_printf (_("Modified: %s"), date);
+            g_free (date);
+            string = add_line (string, tmp, TRUE);
+            g_free (tmp);
+        }
     }
 
     if (flags & NEMO_FILE_TOOLTIP_FLAGS_CREATED_DATE) {
         date = nemo_file_get_date_as_string (file, NEMO_DATE_TYPE_CREATED, TRUE);
-        tmp = g_strdup_printf (_("Created: %s"), date);
-        g_free (date);
-        string = add_line (string, tmp, TRUE);
-        g_free (tmp);
+        if (date != NULL) {
+            tmp = g_strdup_printf (_("Created: %s"), date);
+            g_free (date);
+            string = add_line (string, tmp, TRUE);
+            g_free (tmp);
+        }
     }
 
     if (flags & NEMO_FILE_TOOLTIP_FLAGS_PATH) {

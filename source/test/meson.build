@@ -501,6 +501,15 @@ if not is_windows
   )
 endif
 
+test('dfsfq Text around a NULL value test',
+  executable('test-nemo-null-labels',
+    [ 'test-nemo-null-labels.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('da8rh User input parse test',
   executable('test-eel-user-input',
     [ 'test-eel-user-input.c' ],

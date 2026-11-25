@@ -1219,6 +1219,7 @@ nemo_path_bar_scroll_down (NemoPathBar *path_bar)
      * from the end, removing buttons until we get all the space we
      * need */
     while ((space_available < space_needed) && (up_button != down_button)) {
+        // codeql[cpp/missing-null-test] up_button is after down_button, so walking back reaches it first
         gtk_widget_get_allocation (BUTTON_DATA (up_button->data)->button, &up_button_allocation);
         space_available += up_button_allocation.width;
         up_button = up_button->prev;

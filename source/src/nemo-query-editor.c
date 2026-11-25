@@ -181,6 +181,7 @@ check_entry_text (NemoQueryEditor *editor)
     g_assert (editor != NULL);
     query = nemo_query_editor_get_query (editor);
 
+    // codeql[cpp/missing-null-test] NULL only before the editor's entries are made
     if (!nemo_search_engine_check_filename_pattern (query, &error) && error != NULL) {
         gtk_widget_set_tooltip_text (editor->priv->file_entry, error->message);
         gtk_style_context_add_class (gtk_widget_get_style_context (editor->priv->file_entry), "error");

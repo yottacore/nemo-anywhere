@@ -1976,7 +1976,8 @@ get_visibility (NemoAction *action,
     if (!priv->gsettings_satisfied)
         return FALSE;
 
-    if ((priv->uri_scheme != NULL) && !nemo_file_has_uri_scheme (parent, priv->uri_scheme)) {
+    /* parent is NULL for a root, such as the file system in Places. */
+    if ((priv->uri_scheme != NULL) && (parent == NULL || !nemo_file_has_uri_scheme (parent, priv->uri_scheme))) {
         return FALSE;
     }
 
@@ -2111,7 +2112,7 @@ get_visibility (NemoAction *action,
         for (j = 0; j < condition_count; j++) {
             condition = conditions[j];
             if (g_strcmp0 (condition, "desktop") == 0) {
-                gchar *name = nemo_file_get_display_name (parent);
+                gchar *name = parent != NULL ? nemo_file_get_display_name (parent) : NULL;
                 if (g_strcmp0 (name, "x-nemo-desktop") != 0 && !(parent == NULL && priv->show_in_blank_desktop))
                     condition_type_show = FALSE;
                 g_free (name);

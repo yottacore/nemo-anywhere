@@ -490,12 +490,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: a scoped run over the files changed has none left.
 	- 20261125: with the taught query from 2026112310055945, inherited code has 139 unique on the Linux list and 150 on the Windows list, down from 272 and 303. Whole-lane SARIF from it is in `cicd/artifacts/codeql/scoped/`.
 	- Progress log:
-		- 20261124: Split into children: `2026112418311481` (the classes, taught or fixed at the source), `...0199` (the window's active slot reads) and `...1521` (the rest). The first 2 are Done, and `...1521` is Queued.
+		- 20261124: Split into children: `2026112418311481` (the classes, taught or fixed at the source), `...0199` (the window's active slot reads) and `...1521` (the rest). All 3 are Done.
 
 - Static analyzers: CodeQL missing-null-test in inherited code, the reads left after the class fixes, fixed or suppressed.
 	- ID: 2026112418311521
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261124-183115
 	- Opened by: 2026112310061005
@@ -505,12 +506,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Prereq IDs: 2026112418311481
 	- Requirements: 48 unique on the Linux list, plus the Windows list's own, that aren't the window's active slot. Some can be NULL, such as a file's parent for the root folder, a placement grid for a container with no size, a slot's view before it loads, a date that isn't known, and an undo item's first target name.
 	- Estimated effort: High
+	- Actual effort: Avg
 	- Notes:
 		- Most of the rest are a pointer set together with the count or flag tested beside it, as in nemo-view.c's status text, or a queue head read under a test that it isn't empty.
 		- A scoped run misses a NULL that comes from another file, so add the file the value comes from to `--match`, or run the whole lane.
 	- Progress log:
 		- 20261124: 18 suppressed where the pointer is set together with what's tested: nemo-view.c's status text (10), the file queue heads in nemo-directory-async.c (3), the application singleton (3) and a properties window's one file (2). That leaves 30 unique on the Linux list and 32 on the Windows list.
-	- Test case: a whole run of both C lanes has no missing-null-test result left in inherited code, and a regression test per real bug fixed.
+	- Decisions:
+		- Fixed where a NULL can get there:
+			- An undo item whose one file was skipped or failed has no first target name, so its text read "Delete '(null)'". It takes the count form now, as "Delete 1 copied item". The count form of Create link had no labels, so it gets the single form's.
+			- The undo text named folders by path, which is NULL for a remote folder. It uses the display name now, which is the same text for a local one. That covers the trash and recursive permissions text too.
+			- "Open with" for a file of unknown type with no extension said "(null) document". It falls back to the type's description.
+			- A tooltip leaves out a date that isn't known, rather than "Accessed: (null)".
+			- An action with a URI scheme or the "desktop" condition, shown for a root in Places or the tree, read its NULL parent. A root now fails the scheme test quietly, as it did through the warning before.
+			- A slow second click on an expanded folder's placeholder row in the list view, the New Folder and Open in Terminal menu items and the File menu before the view loads, the trash origin of a file whose original folder is a root, the placement grid of a container with no size yet, and an unknown owner or group in Properties now return early or compare with g_strcmp0.
+		- Suppressed where the value is set together with what's tested beside it: bookmark metadata, a moved file's new parent folder, the enumerator error, the case-folded key, the default window's files, the query editor's query, a non-folder's parent in Open in Terminal, the trash tooltip's original name, the path bar's button walk and a search helper's mime list.
+	- Branch: nov25-2026112418311521
+	- Test case: dfsfq: undo text with no target name and between remote folders, "Open with" for a file with no extension, and the tooltip of a file not read yet have no "(null)". A whole run of both C lanes has no missing-null-test result left in inherited code.
+	- Verified: 20261125, dfsfq fails on the code before the fix, with "(null)" in the undo, "Open with" and tooltip text, and passes after. de1ba passes. Whole runs of both C lanes (`codeql.bash --lane c-linux --lane c-win`) have no missing-null-test result in any area, and no result in another rule that wasn't there before.
+	- Swept: every get_current_view caller in nemo-window-menus.c, the 2 other nemo_placement_grid_new callers, which test for NULL already, every nemo_list_model_file_for_path caller, the group twin of the owner compare, every path in the undo text, and the 3 tooltip dates.
+	- Acceptance signoff: Self-closed: dfsfq and the whole lane runs above.
+	- Closed: 20261125-110815
 
 - Static analyzers: the CodeQL non-constant-format findings fixed or suppressed.
 	- ID: 2026112310061029

@@ -1448,7 +1448,7 @@ changed_group_callback (GtkComboBox *combo_box, NemoFile *file)
 	group = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT (combo_box));
 	cur_group = nemo_file_get_group_name (file);
 
-	if (group != NULL && strcmp (group, cur_group) != 0) {
+	if (group != NULL && g_strcmp0 (group, cur_group) != 0) {
 		/* Try to change file group. If this fails, complain to user. */
 		window = NEMO_PROPERTIES_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (combo_box), GTK_TYPE_WINDOW));
 
@@ -1875,7 +1875,8 @@ changed_owner_callback (GtkComboBox *combo_box, NemoFile* file)
 	g_free (owner_text);
 	cur_owner = nemo_file_get_owner_name (file);
 
-	if (strcmp (new_owner, cur_owner) != 0) {
+	/* cur_owner is NULL while the owner isn't known */
+	if (g_strcmp0 (new_owner, cur_owner) != 0) {
 		/* Try to change file owner. If this fails, complain to user. */
 		window = NEMO_PROPERTIES_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (combo_box), GTK_TYPE_WINDOW));
 

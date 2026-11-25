@@ -1119,6 +1119,7 @@ nemo_main_application_local_command_line (GApplication *application,
 
 	for (idx = 0; idx < len; idx++) {
 		EEL_ANALYZER_SKIP ("null-dereference") // files has len of them, from the array or the default above
+		// codeql[cpp/missing-null-test] the same
 		g_object_unref (files[idx]);
 		EEL_ANALYZER_END
 	}

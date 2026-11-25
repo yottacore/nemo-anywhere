@@ -8538,6 +8538,7 @@ action_open_in_terminal_callback(G_GNUC_UNUSED GtkAction *action,
             path = nemo_file_get_path (NEMO_FILE (selection->data));
         } else {
             NemoFile *location = nemo_file_get_parent (NEMO_FILE (selection->data));
+            // codeql[cpp/missing-null-test] only a folder can be a root
             path = nemo_file_get_path (location);
             nemo_file_unref (location);
         }
@@ -10487,6 +10488,7 @@ update_restore_from_trash_action (GtkAction *action,
 		if (is_self) {
 			g_assert (g_list_length (files) == 1);
 			g_assert (original_location != NULL);
+			// codeql[cpp/missing-null-test] set whenever original_location is
 			tooltip = g_strdup_printf (_("Move the open folder out of the trash to \"%s\""), original_name);
 		} else if (files_are_all_directories (files)) {
 			if (original_name != NULL) {
