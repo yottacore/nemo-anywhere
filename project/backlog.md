@@ -71,6 +71,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Stand-in: none (20261124). The wording of the names.
 	- Branch: nov24-2026112415464216
 	- Commit: 7b27a3d3
+	- 20261125: with `rename-swap-keys` on (2026111707593766), Shift+F2 leaves the extension out, so the name "Rename with the whole name selected" is wrong then. The wording settled here should cover both.
 
 - Settings: search.
 	- ID: 2026101417352263
