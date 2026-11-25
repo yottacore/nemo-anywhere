@@ -913,11 +913,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Write a long list in the settings file one `- ` item per line, not in brackets.
 	- ID: 2026110911301888
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Low
 	- Opened: 20261109-113018
 	- Opened by: t00mietum
 	- Related IDs: 2026110911251998
+	- Target version: rc.1
 	- Requirements:
 		- A list that won't fit on one short line, such as `favorites`, is written stacked, one `- ` item per line. Brackets are for short lists.
 		- A list already stacked in the file stays stacked, as it does now.
@@ -925,7 +927,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Smallest case: parse `state:\n\tfirst-run-done: true\n`, set `favorites` to 3 strings, and the canonical text has `favorites: ["...", "...", "..."]`. The same set on a file that has `favorites:` with `- ` items under it writes them stacked.
 	- Progress log:
 		- 20261109: the Windows dogfood settings file's favorites were stacked by hand, and the app's saves keep them that way.
-	- Test case: none yet. It needs a setter option in SHCL first.
+	- Decisions:
+		- Worked around in the app until SHCL has a setter for it. At each save, a list line over 80 bytes past its indent gets a stacked stand-in, the real items are set over it, and SHCL writes them. The result is kept only when every key reads as before and no other line changed; otherwise the list stays in brackets.
+		- It applies to any long list in the file at a save, not only one changed in the app, since the app writes the whole file.
+		- A long list with a comment after it on the same line stays in brackets, so the comment stays where it was.
+		- A stacked list stays stacked however short it gets, as SHCL already does.
+	- Note: an SHCL patch that adds a call to ask for the stacked form is drafted. Once SHCL takes it, the stand-in goes.
+	- Verified: 20261125, Linux: dav3s fails with the stand-in turned off and passes with it. dc8tz, ddez6, ddf4w, ddqa7, dbfh8, db9wp, dfpt0 and dbsx7 pass. The lint gate passed. clang's analyzer finds nothing in the 2 changed C files, and gcc's nothing in the test file.
+	- Swept: the one save path, `save_now`, writes the file. `known_keys_only` and the dev-format conversion build text that the next save writes, so they get the same layout.
+	- Branch: nov25-2026110911301888
+	- Commit: f728bca6
+	- Test case: dav3s, Config store test: `test_long_list_stacked`, a long favorites list with quotes, a comma, brackets and a leading `-` in items, written stacked and read back, a short list kept in brackets, and a stacked list read from the file staying stacked when set long and then short.
+	- Acceptance signoff: Self-closed: dav3s fails without the change and passes with it.
+	- Closed: 20261125-135028
 
 - On Windows, a file that isn't on disk yet, such as a mail attachment, can't be dropped onto the window.
 	- ID: 2026101416534066
