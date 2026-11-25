@@ -586,7 +586,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Checksums: keep the checksum of a file that is read in full for something other than a thumbnail, such as a small copy.
 	- ID: 2026112416093974
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261124-160939
 	- Opened by: 2026102018234907
@@ -599,7 +599,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Notes:
 		- The full reads the app does itself today are the thumbnail queue, which already keeps its checksum, and the small copy on Linux, under `performance.clone-min-kib`. The ordinary copy goes through GIO, which reads in the kernel, so the app never sees those bytes.
 		- A small copy's target gets its times from the caller after the copy, so its checksum can only be kept once those are set.
-	- Test case: none yet.
+	- Decisions:
+		- The source and the copy both keep the checksum. The source is the file read in full, and the copy has the same bytes, so the cache folds the 2 names onto one record.
+		- With `file-cache.save-checksum` on, the checksum goes onto the source too, not only the copy. A drive that can't take it goes without, as with thumbnails.
+		- A source whose size or time changed during the read gets no checksum, the same rule as thumbnails.
+		- Both small copies keep it: the ordinary copy and a new file from a template.
+	- Done: a small copy checksums the bytes it already has in memory. Once the caller has set the copy's times, the checksum is kept for the source and the copy. With `save-checksum` on too, it then goes onto both files, skipped where a file has it already.
+	- Swept: every full read in the app. The thumbnail queue already kept its checksum, and both small copy callers keep it now. The other whole-file reads are launcher and settings files the app parses, and content search, which stops at a match, so they were left alone.
+	- Branch: nov24-2026112416093974
+	- Commit: 4ff8dad3
+	- Test case: dd24j, Small file copy test, the checksum case, Linux only. With the setting off nothing is kept. By default the source and the copy are in the cache and nothing is on the files. With `save-checksum` on, both files have it too.
+	- Verified: 20261124, dd24j fails with the checksum taken out, 8 checks, and passes with it. 3z0xv, dd42s, dc3p6 and ddzwv pass, the quick format and lint gate passed, and gcc's and clang's analyzers are clean on the 3 changed .c files.
+	- Acceptance signoff: Self-closed: its test fails before and passes after, and nothing is left to judge on screen.
+	- Closed: 20261124-162751
 
 - Reenable the option to rename the whole file with F2. But label it "Swap behavior of F2 and Shift+F2".
 	- ID: 2026111707593766

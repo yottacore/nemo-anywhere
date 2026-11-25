@@ -11,7 +11,10 @@
 #include <glib/gstdio.h>
 #include <gtk/gtk.h>
 
+#include <libnemo-private/nemo-cache-db.h>
 #include <libnemo-private/nemo-config.h>
+#include <libnemo-private/nemo-file-digest.h>
+#include <libnemo-private/nemo-file-xattr.h>
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-small-copy.h>
 
@@ -96,7 +99,7 @@ copy (const char *from, const char *to, GFileCopyFlags flags, goffset limit, gof
 	NemoSmallCopyResult result;
 
 	*copied = -1;
-	result = nemo_small_copy (src, dest, flags, limit, NULL, copied, &error);
+	result = nemo_small_copy (src, dest, flags, limit, NULL, copied, NULL, &error);
 	check (result == NEMO_SMALL_COPY_FAILED || error == NULL);
 	g_clear_error (&error);
 
@@ -239,6 +242,169 @@ check_not_cloned (void)
 }
 #endif
 
+#ifdef __linux__
+/* Size and time the way the cache keys them. */
+static void
+file_id (GFile *file, NemoFileId *id)
+{
+	GFileInfo *info = g_file_query_info (file,
+					     G_FILE_ATTRIBUTE_STANDARD_SIZE ","
+					     G_FILE_ATTRIBUTE_TIME_MODIFIED ","
+					     G_FILE_ATTRIBUTE_TIME_MODIFIED_USEC,
+					     G_FILE_QUERY_INFO_NONE, NULL, NULL);
+
+	memset (id, 0, sizeof *id);
+	check (info != NULL);
+	if (info == NULL) {
+		return;
+	}
+	id->bytes = g_file_info_get_size (info);
+	id->mtime = (gint64) g_file_info_get_attribute_uint64 (info, G_FILE_ATTRIBUTE_TIME_MODIFIED) * G_USEC_PER_SEC
+		    + g_file_info_get_attribute_uint32 (info, G_FILE_ATTRIBUTE_TIME_MODIFIED_USEC);
+	g_object_unref (info);
+}
+
+static gboolean
+cached_as (GFile *file, const guint8 *want)
+{
+	g_autofree char *uri = g_file_get_uri (file);
+	guint8 got[NEMO_CACHE_DIGEST_LEN];
+	NemoFileId id;
+
+	file_id (file, &id);
+
+	return nemo_cache_db_lookup_digest (nemo_cache_db_get (), uri, id.bytes, id.mtime, got) &&
+	       memcmp (got, want, sizeof got) == 0;
+}
+
+static gboolean
+on_file_as (GFile *file, const guint8 *want)
+{
+	guint8 got[NEMO_CACHE_DIGEST_LEN];
+	NemoFileId id;
+
+	file_id (file, &id);
+
+	return nemo_file_digest_read_attr (file, id.bytes, id.mtime, got) &&
+	       memcmp (got, want, sizeof got) == 0;
+}
+
+static gboolean
+xattrs_here (void)
+{
+	g_autofree char *path = path_of ("xattr-probe");
+	g_autoptr (GFile) file = g_file_new_for_path (path);
+	g_autofree char *back = NULL;
+
+	check (g_file_set_contents (path, "x", 1, NULL));
+	if (!nemo_file_xattr_set (file, "blake3.probe", "1")) {
+		return FALSE;
+	}
+	back = nemo_file_xattr_get (file, "blake3.probe");
+
+	return back != NULL && g_str_equal (back, "1");
+}
+
+/* One small copy and the caller's attribute step, then the checksum kept the
+   way the copy job keeps it. FALSE if the copy never got a checksum. */
+static gboolean
+copy_and_keep (const char *from, const char *to, guint8 *want)
+{
+	g_autofree char *pf = path_of (from);
+	g_autofree char *pt = path_of (to);
+	g_autoptr (GFile) src = g_file_new_for_path (pf);
+	g_autoptr (GFile) dest = g_file_new_for_path (pt);
+	g_autofree char *body = NULL;
+	gsize len = 0;
+	goffset copied;
+	NemoFileId sum;
+
+	check (g_file_get_contents (pf, &body, &len, NULL));
+	nemo_file_digest_bytes (body, len, want);
+
+	sum.has_digest = TRUE;
+	check (nemo_small_copy (src, dest, G_FILE_COPY_NONE, LIMIT, NULL, &copied, &sum, NULL) == NEMO_SMALL_COPY_DONE);
+	g_file_copy_attributes (src, dest, G_FILE_COPY_ALL_METADATA, NULL, NULL);
+	nemo_small_copy_keep_checksum (src, dest, &sum);
+
+	if (sum.has_digest) {
+		check (sum.bytes == (gint64) len);
+		check (memcmp (sum.digest, want, NEMO_CACHE_DIGEST_LEN) == 0);
+	}
+
+	return sum.has_digest;
+}
+
+/* file-cache.checksum-full-reads keeps the checksum of a small copy's source
+   and target, and save-checksum puts it onto both as a thumbnail's is. Only
+   Linux makes small copies. */
+static void
+check_checksum_kept (void)
+{
+	NemoConfigGroup *group = nemo_config_get_group (NEMO_FILE_CACHE_GROUP);
+	gboolean xattrs = xattrs_here ();
+	guint8 want[NEMO_CACHE_DIGEST_LEN];
+	g_autofree char *pf = NULL, *pt = NULL;
+	g_autoptr (GFile) src = NULL;
+	g_autoptr (GFile) dest = NULL;
+
+	check (nemo_cache_db_get () != NULL);
+	if (!xattrs) {
+		g_print ("note: no extended attributes here; skipped the on-file checks\n");
+	}
+
+	write_sized ("sum-off.bin", 3000);
+	write_sized ("sum-cache.bin", 2000);
+	write_sized ("sum-save.bin", 5000);
+
+	nemo_config_set_boolean (group, NEMO_FILE_CACHE_CHECKSUM_FULL_READS, FALSE);
+	nemo_config_set_boolean (group, NEMO_FILE_CACHE_SAVE_CHECKSUM, TRUE);
+	check (!copy_and_keep ("sum-off.bin", "sum-off-copy.bin", want));
+	pf = path_of ("sum-off.bin");
+	pt = path_of ("sum-off-copy.bin");
+	src = g_file_new_for_path (pf);
+	dest = g_file_new_for_path (pt);
+	check (!cached_as (src, want));
+	check (!cached_as (dest, want));
+	check (!on_file_as (src, want));
+	g_clear_object (&src);
+	g_clear_object (&dest);
+	g_clear_pointer (&pf, g_free);
+	g_clear_pointer (&pt, g_free);
+
+	/* The default, with nothing written onto the files. */
+	nemo_config_reset (group, NEMO_FILE_CACHE_CHECKSUM_FULL_READS);
+	nemo_config_reset (group, NEMO_FILE_CACHE_SAVE_CHECKSUM);
+	check (copy_and_keep ("sum-cache.bin", "sum-cache-copy.bin", want));
+	pf = path_of ("sum-cache.bin");
+	pt = path_of ("sum-cache-copy.bin");
+	src = g_file_new_for_path (pf);
+	dest = g_file_new_for_path (pt);
+	check (cached_as (src, want));
+	check (cached_as (dest, want));
+	check (!on_file_as (src, want));
+	check (!on_file_as (dest, want));
+	g_clear_object (&src);
+	g_clear_object (&dest);
+	g_clear_pointer (&pf, g_free);
+	g_clear_pointer (&pt, g_free);
+
+	nemo_config_set_boolean (group, NEMO_FILE_CACHE_SAVE_CHECKSUM, TRUE);
+	check (copy_and_keep ("sum-save.bin", "sum-save-copy.bin", want));
+	pf = path_of ("sum-save.bin");
+	pt = path_of ("sum-save-copy.bin");
+	src = g_file_new_for_path (pf);
+	dest = g_file_new_for_path (pt);
+	check (cached_as (src, want));
+	check (cached_as (dest, want));
+	if (xattrs) {
+		check (on_file_as (src, want));
+		check (on_file_as (dest, want));
+	}
+	nemo_config_reset (group, NEMO_FILE_CACHE_SAVE_CHECKSUM);
+}
+#endif
+
 int
 main (int argc, char **argv)
 {
@@ -308,6 +474,10 @@ main (int argc, char **argv)
 
 #ifdef __linux__
 	check_not_cloned ();
+#endif
+
+#ifdef __linux__
+	check_checksum_kept ();
 #endif
 
 	g_free (scratch);
