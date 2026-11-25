@@ -2924,6 +2924,7 @@ create_pie_widget (NemoPropertiesWindow *window)
 
 	file = get_original_file (window);
 
+	// codeql[cpp/missing-null-test] a properties window has at least one file
 	uri = nemo_file_get_activation_uri (file);
 
 	grid = GTK_GRID (gtk_grid_new ());
@@ -3027,6 +3028,7 @@ create_volume_usage_widget (NemoPropertiesWindow *window)
 
 	file = get_original_file (window);
 
+	// codeql[cpp/missing-null-test] a properties window has at least one file
 	uri = nemo_file_get_activation_uri (file);
 
 	location = g_file_new_for_uri (uri);

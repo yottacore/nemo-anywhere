@@ -214,6 +214,7 @@ drag_data_received_callback (GtkWidget *widget,
 
 		for (i = 1; names[i] != NULL; ++i) {
 			location = g_file_new_for_uri (names[i]);
+			// codeql[cpp/missing-null-test] set when the application starts, before any window
 			nemo_application_open_in_new_window (application, screen, location, NULL);
 			g_object_unref (location);
 		}
@@ -276,6 +277,7 @@ button_pressed_callback (GtkWidget             *widget,
 
 	window = nemo_location_bar_get_window (gtk_widget_get_parent (widget));
 	slot = nemo_window_get_active_slot (window);
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	view = slot->content_view;
 	entry = NEMO_LOCATION_ENTRY (gtk_bin_get_child (GTK_BIN (widget)));
 

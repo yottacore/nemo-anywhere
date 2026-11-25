@@ -754,6 +754,78 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Estimated effort: High
 	- Test case: a scoped run over the files changed has none left.
 	- 20261125: with the taught query from 2026112310055945, inherited code has 139 unique on the Linux list and 150 on the Windows list, down from 272 and 303. Whole-lane SARIF from it is in `cicd/artifacts/codeql/scoped/`.
+	- Progress log:
+		- 20261124: Split into children: `2026112418311481` (the classes, taught or fixed at the source), `...0199` (the window's active slot reads) and `...1521` (the rest). The first 2 are Done, and `...1521` is Queued.
+
+- Static analyzers: CodeQL missing-null-test in inherited code, the window's active slot reads, fixed or suppressed.
+	- ID: 2026112418310199
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261124-183101
+	- Opened by: 2026112310061005
+	- Parent ID: 2026112310061005
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements: 36 unique on the Linux list, where a nemo_window_get_active_slot result is read without a test. That's NULL only for a window with no pane yet, or for a moment while a pane closes.
+	- Estimated effort: Avg
+	- Actual effort: Low
+	- Decisions:
+		- 34 lines, since 2 of the 36 are 2 reads on one line. Each is suppressed with "a window has its first pane before this runs". The active slot is NULL from nemo_window_init until the first pane is made, and between closing the active pane and setting the next one. The menu actions, signal handlers and sidebars that read it only run on a built window, so a guard would hide a bug elsewhere rather than fix one.
+		- The same reads are in the Windows list, and the same comments clear them there.
+	- Branch: nov24-2026112310061005
+	- Test case: a whole run of both C lanes has none of these left.
+	- Verified: 20261124, whole runs of both C lanes (`codeql.bash --lane c-linux --lane c-win`) have no nemo_window_get_active_slot read left, and no result in any other rule or area that wasn't there before, past line moves.
+	- Swept: every nemo_window_get_active_slot read either lane reported.
+	- Acceptance signoff: Self-closed: the whole lane runs above.
+	- Closed: 20261124-191231
+
+- Static analyzers: CodeQL missing-null-test in inherited code, the classes taught or fixed at the source.
+	- ID: 2026112418311481
+	- Type: Enhancement
+	- Status: Done
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261124-183114
+	- Opened by: 2026112310061005
+	- Parent ID: 2026112310061005
+	- Target OS: Linux
+	- Target version: rc.1
+	- Requirements: A function that's NULL only for a NULL argument, or only on a path that can't happen, makes its callers' reads look like misses. Teach the query the first, and take the dead path out of the second.
+	- Estimated effort: Avg
+	- Actual effort: Avg
+	- Decisions:
+		- The query takes a function whose only NULL literal returns sit under `if (p == NULL)`, `if (NULL == p)` or `if (!p)` for one parameter as NULL only when that argument may be. It's g_strdup's rule again, found by the look of the function, so eel_str_middle_truncate, nemo_location_get_display_name, nemo_file_get_icon and the like are covered without naming them. A NULL passed to one is still reported.
+		- g_return_if_fail and g_return_val_if_fail of `p != NULL` ahead of a read count as the test, as g_assert does. The Windows lane's release build hides that test in G_LIKELY. A planted copy of the macro isn't reported even by the old query, so the whole Windows lane is what shows it.
+		- nemo_directory_get_internal tested nemo_directory_new's result for NULL, which can't happen, since g_object_new never returns NULL. That test is gone, which clears every nemo_directory_get, nemo_directory_get_by_uri and nemo_directory_get_for_file read. A lookup miss when create is FALSE was never seen by the query, before or after.
+		- Inherited missing-null-test results, unique by line: Linux 139 to 100 from the argument rule, and to 48 with the directory fix and `2026112418310199`; Windows 150 to 50.
+	- Branch: nov24-2026112310061005
+	- Test case: de8ep: the planted read after a function that's NULL only for a NULL argument isn't reported, and a planted NULL passed to it is.
+	- Verified: 20261124, de8ep passes in both images, and fails with the query from before this change, at the planted read. dfha3 passes. Whole runs of both C lanes have no result in any rule or area that wasn't there before, past line moves, and the counts above. gcc's and clang's analyzers find nothing in nemo-directory.c. `cicd/cicd.bash --backlog-run-quick format lint` passes.
+	- Swept: every caller of nemo_directory_get_internal (nemo_directory_get, `_get_existing`, `_get_by_uri`, the parent lookups in nemo-directory.c and nemo-file.c), the planted readers in codeql.py, and design.md's CodeQL text.
+	- Acceptance signoff: Self-closed: de8ep and the whole lane runs above.
+	- Closed: 20261124-191231
+
+- Static analyzers: CodeQL missing-null-test in inherited code, the reads left after the class fixes, fixed or suppressed.
+	- ID: 2026112418311521
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261124-183115
+	- Opened by: 2026112310061005
+	- Parent ID: 2026112310061005
+	- Target OS: Linux
+	- Target version: rc.1
+	- Prereq IDs: 2026112418311481
+	- Requirements: 48 unique on the Linux list, plus the Windows list's own, that aren't the window's active slot. Some can be NULL, such as a file's parent for the root folder, a placement grid for a container with no size, a slot's view before it loads, a date that isn't known, and an undo item's first target name.
+	- Estimated effort: High
+	- Notes:
+		- Most of the rest are a pointer set together with the count or flag tested beside it, as in nemo-view.c's status text, or a queue head read under a test that it isn't empty.
+		- A scoped run misses a NULL that comes from another file, so add the file the value comes from to `--match`, or run the whole lane.
+	- Progress log:
+		- 20261124: 18 suppressed where the pointer is set together with what's tested: nemo-view.c's status text (10), the file queue heads in nemo-directory-async.c (3), the application singleton (3) and a properties window's one file (2). That leaves 30 unique on the Linux list and 32 on the Windows list.
+	- Test case: a whole run of both C lanes has no missing-null-test result left in inherited code, and a regression test per real bug fixed.
 
 - Static analyzers: the CodeQL non-constant-format findings fixed or suppressed.
 	- ID: 2026112310061029

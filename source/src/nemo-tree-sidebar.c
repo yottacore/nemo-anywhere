@@ -457,6 +457,7 @@ got_activation_uri_callback (NemoFile *file, gpointer callback_data)
 
 			location = g_file_new_for_uri (uri);
 			nemo_window_slot_open_location
+				// codeql[cpp/missing-null-test] a window has its first pane before this runs
 				(slot, location, 
 				 view->details->activation_flags);
 			g_object_unref (location);
@@ -484,6 +485,7 @@ got_activation_uri_callback (NemoFile *file, gpointer callback_data)
 
 			location = g_file_new_for_uri (uri);
 			nemo_window_slot_open_location
+				// codeql[cpp/missing-null-test] a window has its first pane before this runs
 				(slot, location,
 				 view->details->activation_flags | tree_rules_open_flags ());
 			g_object_unref (location);
@@ -2532,6 +2534,7 @@ create_tree (FMTreeView *view)
               view);
 
 	slot = nemo_window_get_active_slot (view->details->window);
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	location = nemo_window_slot_get_current_uri (slot);
 	schedule_select_and_show_location (view, location);
 	g_free (location);
@@ -2804,6 +2807,7 @@ fm_tree_view_set_parent_window (FMTreeView *view,
 
 	g_signal_connect_object (window, "loading_uri",
 				 G_CALLBACK (loading_uri_callback), view, 0);
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	location = nemo_window_slot_get_current_uri (slot);
 	loading_uri_callback (window, location, view);
 	g_free (location);

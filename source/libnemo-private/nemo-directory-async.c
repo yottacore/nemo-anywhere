@@ -4692,6 +4692,7 @@ start_or_stop_io (NemoDirectory *directory)
 		file = nemo_file_queue_head (directory->details->high_priority_queue);
 
 		/* Start getting attributes if possible */
+		// codeql[cpp/missing-null-test] the loop test says the queue isn't empty
 		file_info_start (directory, file, &doing_io);
 		NOTE_IO ("file info");
 		link_info_start (directory, file, &doing_io);
@@ -4710,6 +4711,7 @@ start_or_stop_io (NemoDirectory *directory)
 		file = nemo_file_queue_head (directory->details->low_priority_queue);
 
 		/* Start getting attributes if possible */
+		// codeql[cpp/missing-null-test] the loop test says the queue isn't empty
 		mount_start (directory, file, &doing_io);
 		NOTE_IO ("mount");
 		directory_count_start (directory, file, &doing_io);
@@ -4741,6 +4743,7 @@ start_or_stop_io (NemoDirectory *directory)
 		file = nemo_file_queue_head (directory->details->extension_queue);
 
 		/* Start getting attributes if possible */
+		// codeql[cpp/missing-null-test] the loop test says the queue isn't empty
 		extension_info_start (directory, file, &doing_io);
 		NOTE_IO ("extension info");
 		if (doing_io) {

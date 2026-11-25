@@ -101,6 +101,7 @@ action_close_window_slot_callback (G_GNUC_UNUSED GtkAction *action,
 	window = NEMO_WINDOW (user_data);
 	slot = nemo_window_get_active_slot (window);
 
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	nemo_window_pane_close_slot (slot->pane, slot);
 }
 
@@ -126,6 +127,7 @@ action_stop_callback (G_GNUC_UNUSED GtkAction *action,
 	window = NEMO_WINDOW (user_data);
 	slot = nemo_window_get_active_slot (window);
 
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	nemo_window_slot_stop_loading (slot);
 }
 
@@ -152,6 +154,7 @@ action_home_callback (G_GNUC_UNUSED GtkAction *action,
 
     slot = nemo_window_get_active_slot (window);
 
+    // codeql[cpp/missing-null-test] a window has its first pane before this runs
     nemo_window_slot_go_home (slot, nemo_event_get_window_open_flags ());
 }
 
@@ -167,6 +170,7 @@ action_go_to_computer_callback (G_GNUC_UNUSED GtkAction *action,
 	slot = nemo_window_get_active_slot (window);
 
 	computer = g_file_new_for_uri (COMPUTER_URI);
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	nemo_window_slot_open_location (slot, computer,
 					    nemo_event_get_window_open_flags ());
 	g_object_unref (computer);
@@ -184,6 +188,7 @@ action_go_to_network_callback (G_GNUC_UNUSED GtkAction *action,
 	slot = nemo_window_get_active_slot (window);
 
 	network = g_file_new_for_uri (NETWORK_URI);
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	nemo_window_slot_open_location (slot, network,
 					    nemo_event_get_window_open_flags ());
 	g_object_unref (network);
@@ -205,6 +210,7 @@ action_go_to_templates_callback (G_GNUC_UNUSED GtkAction *action,
 	path = nemo_get_templates_directory ();
 	location = g_file_new_for_path (path);
 	g_free (path);
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	nemo_window_slot_open_location (slot, location,
 					    nemo_event_get_window_open_flags ());
 	g_object_unref (location);
@@ -222,6 +228,7 @@ action_go_to_trash_callback (G_GNUC_UNUSED GtkAction *action,
 	slot = nemo_window_get_active_slot (window);
 
 	trash = g_file_new_for_uri ("trash:///");
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	nemo_window_slot_open_location (slot, trash,
 					    nemo_event_get_window_open_flags ());
 	g_object_unref (trash);
@@ -234,6 +241,7 @@ action_reload_callback (G_GNUC_UNUSED GtkAction *action,
 	NemoWindowSlot *slot;
 
 	slot = nemo_window_get_active_slot (NEMO_WINDOW (user_data));
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	nemo_window_slot_queue_reload (slot, TRUE);
 }
 
@@ -244,6 +252,7 @@ get_current_view (NemoWindow *window)
 	NemoView *view;
 
 	slot = nemo_window_get_active_slot (window);
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	view = nemo_window_slot_get_current_view (slot);
 
 	return view;
@@ -434,6 +443,7 @@ action_up_callback (G_GNUC_UNUSED GtkAction *action,
 	NemoWindowSlot *slot;
 
 	slot = nemo_window_get_active_slot (window);
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	nemo_window_slot_go_up (slot, nemo_event_get_window_open_flags ());
 }
 
@@ -895,6 +905,7 @@ action_new_window_callback (G_GNUC_UNUSED GtkAction *action,
 
         application = nemo_application_get_singleton ();
 
+        // codeql[cpp/missing-null-test] set when the application starts, before any window
         nemo_application_open_in_new_window (application,
                                              gtk_window_get_screen (GTK_WINDOW (current_window)),
                                              loc, NULL);
@@ -940,6 +951,7 @@ action_new_tab_accel_callback (G_GNUC_UNUSED GtkAction *action,
 	}
 
 	if (folders) {
+		// codeql[cpp/missing-null-test] a window has its first pane before this runs
 		nemo_view_activate_files (slot->content_view, selection,
 					  NEMO_WINDOW_OPEN_FLAG_NEW_TAB, FALSE);
 	} else {
@@ -1026,6 +1038,7 @@ action_show_thumbnails_callback (GtkAction * action,
     pane = nemo_window_get_active_pane(window);
 
     value = gtk_toggle_action_get_active (GTK_TOGGLE_ACTION (action));
+    // codeql[cpp/missing-null-test] a window has its first pane before this runs
     nemo_window_slot_set_show_thumbnails(slot, value);
 
     toolbar_set_show_thumbnails_button (value, pane);
@@ -2115,6 +2128,7 @@ get_extension_menus (NemoWindow *window)
 		provider = NEMO_MENU_PROVIDER (l->data);
 		file_items = nemo_menu_provider_get_background_items (provider,
 									  GTK_WIDGET (window),
+									  // codeql[cpp/missing-null-test] a window has its first pane before this runs
 									  slot->viewed_file);
 		items = g_list_concat (items, file_items);
 	}

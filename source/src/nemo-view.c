@@ -3558,6 +3558,7 @@ nemo_view_display_selection_info (NemoView *view)
 
 	if (folder_count != 0) {
 		if (folder_count == 1 && non_folder_count == 0) {
+			// codeql[cpp/missing-null-test] set from the first selected item, and there's one
 			folder_count_str = g_strdup_printf (_("\"%s\" selected"), first_item_name);
 		} else {
 			folder_count_str = g_strdup_printf (ngettext("%'d folder selected",
@@ -3600,6 +3601,7 @@ nemo_view_display_selection_info (NemoView *view)
 		if (folder_count == 0) {
 			if (non_folder_count == 1) {
 				items_string = g_strdup_printf (_("\"%s\" selected"),
+								// codeql[cpp/missing-null-test] set from the first selected item, and there's one
 								first_item_name);
 			} else {
 				items_string = g_strdup_printf (ngettext("%'d item selected",
@@ -3662,24 +3664,32 @@ nemo_view_display_selection_info (NemoView *view)
 
 		if (free_space_str != NULL) {
 			status_string = g_strdup_printf ("%s, %s",
+							 // codeql[cpp/missing-null-test] set above whenever non_folder_count isn't 0
 							 non_folder_str,
+							 // codeql[cpp/missing-null-test] set above whenever free_space_str is
 							 obj_selected_free_space_str);
 		}
 	} else if (non_folder_count == 0) {
 		view_status_string = g_strdup_printf ("%s%s",
+						      // codeql[cpp/missing-null-test] set above whenever folder_count isn't 0
 						      folder_count_str,
+						      // codeql[cpp/missing-null-test] set above whenever folder_count isn't 0
 						      folder_item_count_str);
 
 		if (free_space_str != NULL) {
 			status_string = g_strdup_printf ("%s%s, %s",
 							 folder_count_str,
 							 folder_item_count_str,
+							 // codeql[cpp/missing-null-test] set above whenever free_space_str is
 							 obj_selected_free_space_str);
 		}
 	} else {
 		view_status_string = g_strdup_printf ("%s%s, %s",
+						      // codeql[cpp/missing-null-test] set above whenever folder_count isn't 0
 						      folder_count_str,
+						      // codeql[cpp/missing-null-test] set above whenever folder_count isn't 0
 						      folder_item_count_str,
+						      // codeql[cpp/missing-null-test] set above whenever non_folder_count isn't 0
 						      non_folder_str);
 
 		if (obj_selected_free_space_str != NULL) {

@@ -893,6 +893,7 @@ update_places (NemoPlacesSidebar *sidebar)
 	sidebar->bookmarks_header_added = FALSE;
 
 	slot = nemo_window_get_active_slot (sidebar->window);
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	location = nemo_window_slot_get_current_uri (slot);
 
 	network_mounts = network_volumes = NULL;
@@ -2766,6 +2767,7 @@ open_selected_bookmark (NemoPlacesSidebar *sidebar,
 		/* Navigate to the clicked location */
 		if ((flags & NEMO_WINDOW_OPEN_FLAG_NEW_WINDOW) == 0) {
 			slot = nemo_window_get_active_slot (sidebar->window);
+			// codeql[cpp/missing-null-test] a window has its first pane before this runs
 			current = nemo_window_slot_get_location (slot);
 			same_folder = current != NULL && g_file_equal (current, location);
 			g_clear_object (&current);
@@ -4845,6 +4847,7 @@ nemo_places_sidebar_set_parent_window (NemoPlacesSidebar *sidebar,
 	slot = nemo_window_get_active_slot (window);
 
 	sidebar->bookmarks = nemo_bookmark_list_get_default ();
+	// codeql[cpp/missing-null-test] a window has its first pane before this runs
 	sidebar->uri = nemo_window_slot_get_current_uri (slot);
 
     breakpoint = nemo_config_get_int (nemo_window_state, NEMO_PREFERENCES_SIDEBAR_BOOKMARK_BREAKPOINT);
