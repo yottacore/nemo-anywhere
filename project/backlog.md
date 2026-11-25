@@ -476,7 +476,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: the CodeQL missing-null-test findings in inherited code fixed or suppressed.
 	- ID: 2026112310061005
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261123-100610
 	- Opened by: 2026111915091061
@@ -487,10 +487,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Requirements:
 		- 307 unique on 20261119, before whatever the class fix in 2026112310055945 clears.
 	- Estimated effort: High
-	- Test case: a scoped run over the files changed has none left.
+	- Test case: its children's: 2026112418311521: dfsfq: undo text with no target name and between remote folders, "Open with" for a file with no extension, and the tooltip of a file not read yet have no "(null)". A whole run of both C lanes has no missing-null-test result left in inherited code.; 2026112418310199: a whole run of both C lanes has none of these left.; 2026112418311481: de8ep: the planted read after a function that's NULL only for a NULL argument isn't reported, and a planted NULL passed to it is.
 	- 20261125: with the taught query from 2026112310055945, inherited code has 139 unique on the Linux list and 150 on the Windows list, down from 272 and 303. Whole-lane SARIF from it is in `cicd/artifacts/codeql/scoped/`.
 	- Progress log:
 		- 20261124: Split into children: `2026112418311481` (the classes, taught or fixed at the source), `...0199` (the window's active slot reads) and `...1521` (the rest). All 3 are Done.
+	- Closed: 20261125-110852
 
 - Static analyzers: CodeQL missing-null-test in inherited code, the reads left after the class fixes, fixed or suppressed.
 	- ID: 2026112418311521
