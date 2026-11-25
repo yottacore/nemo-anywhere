@@ -153,9 +153,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - When moving a bookmark with the mouse, it should give some kind of indication of where it's going to go *between*.
 	- ID: 2026101613053686
 	- Type: Enhancement
-	- Status: Waiting on UAT
-		- Needs a look at the new line while dragging a bookmark in Places.
-	- Needs hand testing: drag a bookmark up and down in Places, on Windows with the default theme and on Linux. A line in the text color shows between the 2 rows it would go between, and moves as the pointer does. Check it over the selected place too.
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261016-130536
 	- Opened by: t00mietum
@@ -174,6 +173,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: nov23-2026101613053686
 	- Commit: 1bbffa05
 	- Test case: dfpnp Places drop line test. A Places tree view is drawn in each bundled theme with and without a drop spot, before and after a row and next to the selected row. The line has to be at least 2px, on the right edge of the right row, with at least 3:1 contrast.
+	- Acceptance signoff: Self-closed: dfpnp passed in the nov24 quick run, which measures the line as 2px at 3:1 contrast or better in all 11 themes, Fluent included, before and after a row and next to the selected row.
+	- Closed: 20261124-195400
 
 - Zoom in with Ctrl+ (or Ctrl=), and out with Ctrl-, changes the window size too.
 	- ID: 2026101715030685
@@ -198,13 +199,13 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: dfpq1 `test-nemo-zoom-resize` for the arithmetic, dfpq4 `test-nemo-zoom-window` for Ctrl+plus and Ctrl+minus in each view, with the setting on and off, dbnfq `test-nemo-prefs-widgets` for the checkbox and its label.
 	- Branch: nov23-2026101715030685
 	- Commit: a548bd4b
+	- Stand-in: none (20261124). How far the window grows a step turns on feel.
 
 - Under the Windows 10 and Windows 7 themes, the frame around a row a file is about to drop into can barely be seen.
 	- ID: 2026112310420234
 	- Type: Bug
-	- Status: Waiting on UAT
-		- Needs a look at the new frame while dragging a file over a folder.
-	- Needs hand testing: drag a file over a folder in the list view, the tree pane and Places, with the Windows 10 theme and one dark theme. The row gets a 2px frame in the text color on all 4 sides. Check it over the selected row too.
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Low
 	- Opened: 20261123-104202
 	- Opened by: 2026101613053686
@@ -226,6 +227,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: nov23-2026112310420234
 	- Commit: 47fb3ac6
 	- Test case: dfpp8 Drop into row frame test. A tree view is drawn in each bundled theme with and without a drop into a row, plain and selected. The frame has to be at least 2px on the row's top and bottom edges and mark both sides, with at least 3:1 contrast.
+	- Acceptance signoff: Self-closed: dfpp8 passed in the nov24 quick run, which measures the frame as 2px on every side at 3:1 contrast or better in all 11 themes, into a plain row and into the selected row. The list view, the tree pane and Places all draw it through the same tree view rule.
+	- Closed: 20261124-195400
 
 - Move every Windows lane from MSYS2's MINGW64 to UCRT64.
 	- ID: 2026110920004210
@@ -497,6 +500,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Notes:
 		- The thin line under "Remember per-folder settings" is also 2026101816495205.
 	- Test case: its children's: 2026102018234906: its children's: 2026112312181296: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key moved with the other row turned off, a plain letter refused, Backspace, the revert arrow, and Reset all.; 2026112312181314: its children's: 2026112312455787: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.; 2026112312455741: dfpt0 `test-nemo-shortcuts-file`: a change another window saves is taken, one made here and not saved yet is kept, a save takes the file's changes first and keeps all 3, its own save changes nothing, a file missing lines takes nothing back, and a key turned off elsewhere is turned off here.; 2026112312455764: dd5df, Settings dialog test: keyboard, shortcut, hotkey, key binding, and Keyboard shortcuts each list the Keyboard tab.; 2026102018234907: dd5df, Settings dialog test, checks the section is on Advanced, the default, the graying, and that the thumbnail queue doesn't save onto files while the first box is off, from the box or the settings file. dbnfq, Settings widgets test, checks both labels word for word.
+	- Stand-in: none (20261124). Waits on its children 2026102018234906 and 2026102018234907, which turn on looks and wording.
 
 - Settings: a Keyboard tab where shortcuts are shown, edited, and reset, like SilkTerm's.
 	- ID: 2026102018234906
@@ -518,6 +522,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions:
 		- The tab goes under Advanced with 2026102018234905, which gives Advanced sub-tabs. Until then it's a tab of its own, after Advanced.
 	- Test case: its children's: 2026112312181296: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key moved with the other row turned off, a plain letter refused, Backspace, the revert arrow, and Reset all.; 2026112312181314: its children's: 2026112312455787: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.; 2026112312455741: dfpt0 `test-nemo-shortcuts-file`: a change another window saves is taken, one made here and not saved yet is kept, a save takes the file's changes first and keeps all 3, its own save changes nothing, a file missing lines takes nothing back, and a key turned off elsewhere is turned off here.; 2026112312455764: dd5df, Settings dialog test: keyboard, shortcut, hotkey, key binding, and Keyboard shortcuts each list the Keyboard tab.
+	- Stand-in: none (20261124). Waits on its child 2026112312181296, which turns on the look and wording of the tab.
 
 - Settings: a shortcut changed on the Keyboard tab takes effect in every open window, and the keyboard shortcuts window shows it.
 	- ID: 2026112312181314
@@ -602,6 +607,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: dd5df, Settings dialog test, checks the section is on Advanced, the default, the graying, and that the thumbnail queue doesn't save onto files while the first box is off, from the box or the settings file. dbnfq, Settings widgets test, checks both labels word for word.
 	- Verified: 20261124, dd5df failed with the graying and the off switch taken out, 2 checks, and passes with them. dbnfq, dbsx7, dc8tz, dfh5x and dcy1f pass, and the quick format and lint gate passed.
 	- Commit: e8cb5538
+	- Stand-in: none (20261124). Turns on how the Cache section looks and how the labels read. dbnfq already checks both labels word for word.
 
 - Checksums: keep the checksum of a file that is read in full for something other than a thumbnail, such as a small copy.
 	- ID: 2026112416093974
