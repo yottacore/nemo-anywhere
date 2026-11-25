@@ -118,6 +118,7 @@ main (int argc, char **argv)
 
 	uri = g_filename_to_uri (tmp, NULL, NULL);
 	directory = nemo_directory_get_by_uri (uri);
+	g_assert_nonnull (directory);
 
 	g_signal_connect (directory, "files-added", G_CALLBACK (files_added), NULL);
 	g_signal_connect (directory, "done-loading", G_CALLBACK (done_loading), NULL);

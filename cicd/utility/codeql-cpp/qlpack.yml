@@ -1,0 +1,5 @@
+name: nemo-anywhere/cpp-queries
+version: 0.0.0
+library: false
+dependencies:
+  codeql/cpp-all: "*"

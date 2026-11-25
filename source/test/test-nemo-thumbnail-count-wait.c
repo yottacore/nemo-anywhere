@@ -187,6 +187,7 @@ main (int argc, char **argv)
 
 	uri = g_filename_to_uri (dir, NULL, NULL);
 	directory = nemo_directory_get_by_uri (uri);
+	g_assert_nonnull (directory);
 	nemo_directory_file_monitor_add (directory, &client, TRUE, NEMO_FILE_ATTRIBUTE_INFO, NULL, NULL);
 	for (i = 0; i < 5000 && !nemo_directory_are_all_files_seen (directory); i++) {
 		g_main_context_iteration (NULL, FALSE);

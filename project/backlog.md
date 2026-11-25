@@ -677,7 +677,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Then a finding left fails the step, as in the per-file stage.
 	- Estimated effort: High
 	- Progress log:
-		- 20261123: Split into children: `2026112310054779` (the vendored list and a scoped run), `...55896` (Python), `...55921` (vendored), `...55945` (missing-null-test in ours and tests, class first), `...61005` (the same in inherited), `...61029` (non-constant-format), `...61055` (other C in ours and tests), `...61079` (other C in inherited), and `...62942` (a finding left then fails the step). The first 3 are Done, and the other 6 are Queued.
+		- 20261123: Split into children: `2026112310054779` (the vendored list and a scoped run), `...55896` (Python), `...55921` (vendored), `...55945` (missing-null-test in ours and tests, class first), `...61005` (the same in inherited), `...61029` (non-constant-format), `...61055` (other C in ours and tests), `...61079` (other C in inherited), and `...62942` (a finding left then fails the step). The first 3 and `...55945` are Done, and the other 5 are Queued.
 	- Test case: de8ep, and a count case for the finding it then fails on.
 
 - Static analyzers: the CodeQL findings in vendored code listed outside the files.
@@ -709,7 +709,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: the CodeQL missing-null-test findings in our code and tests fixed or suppressed.
 	- ID: 2026112310055945
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Done
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261123-100559
 	- Opened by: 2026111915091061
@@ -722,7 +723,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Look for the class first. GLib's inline g_strdup has a return NULL that only a constant NULL reaches, so every g_strdup result reads as maybe NULL. Taking that out of the replay, or teaching the query, may clear most of them in every area.
 		- The query is in no standard suite since it's noisy. Dropping it, or keeping it to some areas, goes against 2026110920250293's decision to add it, so that needs more thought before it's done.
 	- Estimated effort: High
-	- Test case: de8ep still finds the planted NULL, and a scoped run over the files changed has none left.
+	- Actual effort: High
+	- Decisions:
+		- The class fix teaches the query rather than the replay. `codeql-c.qls` runs a copy of the pack's query, with the same ID, from `cicd/utility/codeql-cpp/` in place of the pack's. It overrides the pack's `CustomOptions`, which is how the pack means it to be tuned.
+		- It's taught 3 GLib idioms. g_strdup is NULL only for a NULL argument, as the pack already says for CVS's Xstrdup. A function whose only NULL returns come from g_return_val_if_fail isn't one that returns NULL, since that NULL is a caller bug. A g_assert_nonnull or `g_assert (p != NULL)` ahead of a read counts as the test, since a failed assert doesn't come back and an optimized build's G_LIKELY hides the test from the query.
+		- Taking the inline out of the replay with `-D__GTK_DOC_IGNORE__` would change other GLib headers too, so that was left alone.
+		- The query stays in, over every area, per 2026110920250293.
+		- The class fix took the missing-null-test results, unique by line, from 112 to 46 in ours and tests on the Linux list. With the asserts taught too, inherited went from 272 to 139 on the Linux list and from 303 to 150 on the Windows list, which 2026112310061005 starts from.
+		- What was left is fixed where a NULL can get there, and suppressed with a reason where the pointer is set together with the flag tested. A test asserts a pointer it can't go on without.
+	- Branch: nov24-2026112310055945
+	- Test case: de8ep: the planted NULL is still found, and the planted g_strdup, g_return_val_if_fail and g_assert_nonnull reads aren't, in both images. Whole runs of both C lanes have no missing-null-test result left in ours or tests.
+	- Verified: 20261124, de8ep passes in both images. The pack's own query reports the 3 planted GLib reads, and ours doesn't. dfha3 passes. Whole runs of both C lanes (`codeql.bash --lane c-linux --lane c-win`) have 0 missing-null-test results in ours and tests, and the count over them with the Python lane's last SARIF has no stale vendored entry.
+	- Swept: every reader of `codeql-c.qls` and `analyze_db` in `codeql.py` (lane and planted), every `nemo_directory_get_by_uri` result in the tests, and design.md's CodeQL text.
+	- Acceptance signoff: Self-closed: de8ep and the whole lane runs above.
+	- Closed: 20261124-180118
 
 - Static analyzers: the CodeQL missing-null-test findings in inherited code fixed or suppressed.
 	- ID: 2026112310061005

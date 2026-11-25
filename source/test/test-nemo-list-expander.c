@@ -112,6 +112,7 @@ main (int argc, char *argv[])
 
 	uri = g_filename_to_uri (tmp, NULL, NULL);
 	directory = nemo_directory_get_by_uri (uri);
+	g_assert_nonnull (directory);
 	g_free (uri);
 
 	nemo_directory_file_monitor_add (directory, &client, TRUE,

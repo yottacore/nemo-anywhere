@@ -429,11 +429,13 @@ load (Reader *r, int size)
 				goto out;
 			}
 			if (compression == 1) {
+				// codeql[cpp/missing-null-test] counts and packed are set when compression is 1
 				guint32 n = counts[(gsize) c * height + y];
 
 				if (!get (r, packed, n)) {
 					goto out;
 				}
+				// codeql[cpp/missing-null-test] the same
 				unpack_row (packed, n, line, row_bytes);
 			} else if (!get (r, line, row_bytes)) {
 				goto out;

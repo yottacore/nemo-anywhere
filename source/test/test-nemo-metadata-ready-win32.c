@@ -106,6 +106,7 @@ main (int argc, char **argv)
 	/* List it the way a view does, and wait for the listing to finish. */
 	uri = g_filename_to_uri (tmp, NULL, NULL);
 	directory = nemo_directory_get_by_uri (uri);
+	g_assert_nonnull (directory);
 	nemo_directory_file_monitor_add (directory, &client, TRUE,
 					 NEMO_FILE_ATTRIBUTES_FOR_ICON |
 					 NEMO_FILE_ATTRIBUTE_DIRECTORY_ITEM_COUNT |

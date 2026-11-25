@@ -175,7 +175,10 @@ static char *
 icon_name (NemoFile *file, NemoFileIconFlags flags)
 {
 	NemoIconInfo *info = nemo_file_get_icon (file, 64, 64, 1, flags);
-	char *name = g_strdup (nemo_icon_info_get_used_name (info));
+	char *name;
+
+	g_assert_nonnull (info);
+	name = g_strdup (nemo_icon_info_get_used_name (info));
 
 	nemo_icon_info_unref (info);
 	return name;
@@ -396,6 +399,7 @@ main (int argc, char **argv)
 
 	uri = g_filename_to_uri (dir, NULL, NULL);
 	directory = nemo_directory_get_by_uri (uri);
+	g_assert_nonnull (directory);
 	nemo_directory_file_monitor_add (directory, &client, TRUE,
 					 NEMO_FILE_ATTRIBUTES_FOR_ICON, NULL, NULL);
 

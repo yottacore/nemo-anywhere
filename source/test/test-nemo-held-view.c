@@ -371,8 +371,14 @@ static gboolean
 reads_back (const char *text, const char *key, const char *value)
 {
 	shcl_doc *doc = shcl_parse (text, strlen (text));
-	shcl_read_str read = shcl_read_string (doc, key, strlen (key));
-	gboolean same = shcl_diag_count (doc) == 0 && read.status == SHCL_GOOD &&
+	shcl_read_str read;
+	gboolean same;
+
+	if (doc == NULL) {
+		return FALSE;
+	}
+	read = shcl_read_string (doc, key, strlen (key));
+	same = shcl_diag_count (doc) == 0 && read.status == SHCL_GOOD &&
 			read.value.n == strlen (value) &&
 			memcmp (read.value.p, value, read.value.n) == 0;
 

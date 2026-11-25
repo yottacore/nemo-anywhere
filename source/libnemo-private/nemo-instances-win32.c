@@ -191,7 +191,9 @@ know_who_we_are (GError **error)
 	}
 	CloseHandle (token);
 
+	// codeql[cpp/missing-null-test] ok above means user and text are set
 	user_sid = g_memdup2 (user->User.Sid, GetLengthSid (user->User.Sid));
+	// codeql[cpp/missing-null-test] the same
 	user_sid_text = g_memdup2 (text, (wcslen (text) + 1) * sizeof (wchar_t));
 	sid = to_utf8 (text);
 	pipe_prefix = g_strdup_printf ("\\\\.\\pipe\\NemoAnywhere.%s.%08lx%08lx.", sid,

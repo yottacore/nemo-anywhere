@@ -1035,9 +1035,11 @@ visit (ArcScan   *scan,
 
 	switch (link ? entry_of (info, g_file_peek_path (child), &target) : ARC_ENTRY_PLAIN) {
 	case ARC_ENTRY_SYMLINK:
+		// codeql[cpp/missing-null-test] entry_of sets target for a link
 		follow_link (scan, frame, ARC_FOLLOW_SYMLINKS, name, info, target);
 		break;
 	case ARC_ENTRY_JUNCTION:
+		// codeql[cpp/missing-null-test] and for a junction
 		follow_link (scan, frame, ARC_FOLLOW_JUNCTIONS, name, info, target);
 		break;
 	case ARC_ENTRY_MOUNT_POINT:

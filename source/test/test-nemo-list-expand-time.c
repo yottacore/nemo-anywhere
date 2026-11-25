@@ -287,6 +287,7 @@ main (int argc, char *argv[])
 	}
 
 	root = test_scratch_dir ("nemo-expand-time-XXXXXX", NULL);
+	g_assert_nonnull (root);
 	top = g_build_filename (root, "top", NULL);
 	for (i = 0; i < FOLDERS; i++) {
 		make_folder (top, "folder", i);

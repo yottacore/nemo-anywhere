@@ -129,6 +129,7 @@ index_open (IndexConnection *conn)
 		hr = IDBInitialize_QueryInterface (conn->source, &iid_idbcreatesession, (void **) &sessions);
 	}
 	if (SUCCEEDED (hr)) {
+		// codeql[cpp/missing-null-test] set when QueryInterface succeeds
 		hr = IDBCreateSession_CreateSession (sessions, NULL, &iid_idbcreatecommand,
 						     (IUnknown **) &conn->commands);
 		IDBCreateSession_Release (sessions);
@@ -651,6 +652,7 @@ nemo_search_engine_win32_start (NemoSearchEngine *engine)
 	search->engine = g_object_ref (self);
 	search->cancellable = g_cancellable_new ();
 	search->folder = folder;
+	// codeql[cpp/missing-null-test] the drive path test above returns on a NULL folder
 	search->folder_len = strlen (folder);
 	search->sql = nemo_search_win32_build_sql (folder, nemo_query_get_recurse (query),
 						  file_pattern, nemo_query_get_use_file_regex (query),

@@ -123,6 +123,7 @@ main (int argc, char **argv)
 
 	dir_uri = g_filename_to_uri (dir, NULL, NULL);
 	directory = nemo_directory_get_by_uri (dir_uri);
+	g_assert_nonnull (directory);
 	nemo_directory_file_monitor_add (directory, &client, TRUE,
 					 NEMO_FILE_ATTRIBUTES_FOR_ICON, NULL, NULL);
 	for (i = 0; i < 5000 && !nemo_directory_are_all_files_seen (directory); i++) {

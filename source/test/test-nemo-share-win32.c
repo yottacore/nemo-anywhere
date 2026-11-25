@@ -351,6 +351,7 @@ run_dangling (void)
 
 	uri = g_filename_to_uri (dir, NULL, NULL);
 	directory = nemo_directory_get_by_uri (uri);
+	g_assert_nonnull (directory);
 
 	started = g_get_monotonic_time ();
 	nemo_directory_file_monitor_add (directory, &client, TRUE,

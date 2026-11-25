@@ -723,7 +723,7 @@ nemo_lnk_portable_path (const char *target_path)
 		name = "USERPROFILE";
 	}
 #endif
-	if (name == NULL) {
+	if (name == NULL || rest == NULL) {
 		return NULL;
 	}
 

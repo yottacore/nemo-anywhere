@@ -122,6 +122,7 @@ main (int argc, char *argv[])
 
 	search_uri = nemo_search_directory_generate_new_uri ();
 	directory = nemo_directory_get_by_uri (search_uri);
+	g_assert_nonnull (directory);
 	check (NEMO_IS_SEARCH_DIRECTORY (directory));
 	if (!NEMO_IS_SEARCH_DIRECTORY (directory)) {
 		return EXIT_FAILURE;
@@ -168,6 +169,7 @@ main (int argc, char *argv[])
 	check (g_strcmp0 (folder_uri, uri) == 0);
 	g_free (folder_uri);
 	directory = nemo_directory_get_by_uri (search_uri);
+	g_assert_nonnull (directory);
 	query = nemo_search_directory_get_query (NEMO_SEARCH_DIRECTORY (directory));
 	check (query != NULL);
 	if (query != NULL) {
@@ -193,6 +195,7 @@ main (int argc, char *argv[])
 	g_free (search_uri);
 	search_uri = nemo_search_directory_generate_new_uri ();
 	directory = nemo_directory_get_by_uri (search_uri);
+	g_assert_nonnull (directory);
 	query = nemo_query_new ();
 	nemo_query_set_file_pattern (query, "needle");
 	nemo_search_directory_set_query (NEMO_SEARCH_DIRECTORY (directory), query);

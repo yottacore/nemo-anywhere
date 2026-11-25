@@ -298,6 +298,8 @@ make_text (int bare, size_t room, size_t *len)
 	char     *text;
 	size_t    i;
 
+	if (d == NULL)
+		return NULL;
 	for (i = 0; i < N_ENTRIES; i++) {
 		const Entry *e = &entries[i];
 		size_t       plen = strlen (e->path);

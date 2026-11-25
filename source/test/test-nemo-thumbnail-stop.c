@@ -203,6 +203,7 @@ watch_folder (const char *path, gpointer client)
 	NemoDirectory *directory = nemo_directory_get_by_uri (uri);
 	int i;
 
+	g_assert_nonnull (directory);
 	nemo_directory_file_monitor_add (directory, client, TRUE,
 					 NEMO_FILE_ATTRIBUTES_FOR_ICON, NULL, NULL);
 
