@@ -756,6 +756,26 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Each small copy now takes a blake3 sum and makes 2 file cache writes in the copy job's thread. Time 10k small files with `file-cache.checksum-full-reads` on and off, by user plus system CPU and by wall time. If the cost is real, batch the writes or move them off the copy thread.
 	- Estimated effort: Low
 	- Test case: none, it's a timing; a regression test follows only if the cost is real.
+	- Progress log:
+		- 20261125: timed. 10k small files, from 0 to 64 KiB, mostly under 4 KiB, through the copy job's small copy steps, 3 rounds in turn, at load 8 on 32 cores. Off: 0.22 s user, 0.52 s sys, 0.75 s wall. On: 2.63 s user, 1.95 s sys, 23.8 s wall. On with `save-checksum`: 2.86 s user, 2.32 s sys, 23.2 s wall. That's about 0.38 ms of CPU and 2.3 ms of wall time more per file. The cost is real, so the fix is child 2026112513133832.
+	- Decisions:
+		- The timing and the fix are split, since the fix needs a batched cache write and its own test.
+
+- A copy of many small files is about 30 times slower with the small-copy checksum on, the default.
+	- ID: 2026112513133832
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261125-131338
+	- Opened by: 2026112416314964
+	- Parent ID: 2026112416314964
+	- Related IDs: 2026112416093974
+	- Target OS: Linux
+	- Target version: rc.1
+	- Incorrect behavior: each small copy keeps its checksum with 2 file cache writes, each its own transaction, in the copy job's thread. 10k small files took 0.75 s of wall time with `file-cache.checksum-full-reads` off and 23.8 s with it on. CPU went from 0.75 s to 4.6 s. About 21 s of the wall time is the cache writes. Most of that is the cache's syncs at its checkpoints, since without them the writes take about 1.8 s.
+	- Expected behavior: the checksum adds little to a copy of many small files, in wall time and in CPU.
+	- Possible fix: queue the copy job's checksums and write them in one transaction per batch, such as every few hundred files and at the end of the job, or hand them to a writer thread. A batch writes each index page once rather than once per file, which cuts the checkpoint syncs too.
+	- Test case: a timing check of the small copy path, 10k files, checksum off against on, by wall time, or a count of cache transactions per copy job.
 
 - Windows: build MSYS2's gtk3 with the OLE drag abort fix in `t00mietum/nemo-anywhere-deps`, as a pinned release file.
 	- ID: 2026111011404145
