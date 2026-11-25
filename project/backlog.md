@@ -470,7 +470,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Then a finding left fails the step, as in the per-file stage.
 	- Estimated effort: High
 	- Progress log:
-		- 20261123: Split into children: `2026112310054779` (the vendored list and a scoped run), `...55896` (Python), `...55921` (vendored), `...55945` (missing-null-test in ours and tests, class first), `...61005` (the same in inherited), `...61029` (non-constant-format), `...61055` (other C in ours and tests), `...61079` (other C in inherited), and `...62942` (a finding left then fails the step). The first 8 are Done, and `...62942` is Queued.
+		- 20261123: Split into children: `2026112310054779` (the vendored list and a scoped run), `...55896` (Python), `...55921` (vendored), `...55945` (missing-null-test in ours and tests, class first), `...61005` (the same in inherited), `...61029` (non-constant-format), `...61055` (other C in ours and tests), `...61079` (other C in inherited), and `...62942` (a finding left then fails the step). The first 8 are Done, and `...62942` is Waiting on automated testing.
 	- Test case: de8ep, and a count case for the finding it then fails on.
 
 - Static analyzers: the CodeQL missing-null-test findings in inherited code fixed or suppressed.
@@ -677,8 +677,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Static analyzers: a CodeQL finding left fails the step.
 	- ID: 2026112310062942
 	- Type: Enhancement
-	- Status: Queued
-	- Needs local test suite run?: the whole CodeQL step, once, with no finding left.
+	- Status: Waiting on automated testing
+	- Needs local test suite run?: the whole CodeQL step (`bash cicd/utility/codeql.bash`, after `cicd/win/build-cross.bash`), once, with no finding left.
 	- Priority|Severity: Avg
 	- Opened: 20261123-100629
 	- Opened by: 2026111915091061
@@ -690,7 +690,14 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A CodeQL finding left fails the step, as in the per-file analyzer stage.
 		- The step's help text, design.md's leak check text, and the step's note that findings are report only, brought up to date.
 	- Estimated effort: Avg
-	- Test case: de8ep, and a count case in dfha3 for the finding the step then fails on.
+	- Actual effort: Low
+	- Decisions:
+		- A whole run and a scoped run now share one verdict on the count: a finding left fails either, and so does a count that can't finish.
+		- The count still runs, and the counts and findings are still kept, before the step fails, so a failed run leaves what it found.
+	- Branch: nov25-2026112310062942
+	- Test case: dfha3: one finding left in a system header, or one in the Python lane, with the rest suppressed, fails the count. de8ep is unchanged.
+	- Verified: 20261125, dfha3 passes, and fails on both new cases with system and Python findings left out of the count. With the step containers stubbed, a whole run with one finding left fails the step and a clean one passes, and on the code before the change the one with a finding passed. A scoped run behaves the same as before. shellcheck is clean.
+	- Swept: the step's help text, `CODEQL_CMD`'s note in config.bash, design.md's CodeQL text, and cicd.bash, which runs the step as a hard step already.
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038

@@ -382,6 +382,13 @@ def self_test() -> int:
         clean = os.path.join(tmp, "clean.sarif")
         with open(clean, "w", encoding="utf-8") as f:
             json.dump({"runs": [{"results": [r for r in sarif["runs"][0]["results"] if r.get("suppressions")]}]}, f)
+        # One finding left, the rest suppressed, fails the step: in a system header, or in the Python lane.
+        one_sys, one_py = os.path.join(tmp, "c-win.sarif"), os.path.join(tmp, "python-one.sarif")
+        with open(one_sys, "w", encoding="utf-8") as f:
+            json.dump({"runs": [{"results": [r for r in sarif["runs"][0]["results"] if r.get("suppressions")]
+                                 + [res("file:///usr/include/glib-2.0/glib/gmessages.h", 5, "cpp/missing-null-test")]}]}, f)
+        with open(one_py, "w", encoding="utf-8") as f:
+            json.dump({"runs": [{"results": [res("file:///src/cicd/utility/x.py", 4, "py/empty-except")]}]}, f)
         cases = (
             ("findings", ["--supp", lists["ok"], tmp, good], 1),
             ("SARIF it can't read", ["--supp", lists["ok"], tmp, good, broken], 2),
@@ -389,6 +396,8 @@ def self_test() -> int:
             ("a stale entry", ["--supp", lists["stale"], tmp, good], 3),
             ("a stale entry under --no-stale", ["--supp", lists["stale"], "--no-stale", tmp, good], 1),
             ("no findings left", ["--supp", lists["empty"], tmp, clean], 0),
+            ("one finding left in a system header", ["--supp", lists["empty"], tmp, clean, one_sys], 1),
+            ("one Python finding left", ["--supp", lists["empty"], tmp, clean, one_py], 1),
             ("a list it can't read", ["--supp", os.path.join(tmp, "none.txt"), tmp, clean], 3),
         )
         for what, argv, want_rc in cases:
