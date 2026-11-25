@@ -48,6 +48,7 @@ G_BEGIN_DECLS
 #define NEMO_FILE_CACHE_MEMORY_GIB			"memory-gib"
 #define NEMO_FILE_CACHE_MAX_AGE_DAYS			"max-age-days"
 #define NEMO_FILE_CACHE_DROP_MISSING			"drop-missing"
+#define NEMO_FILE_CACHE_CHECKSUM_FULL_READS		"checksum-full-reads"
 #define NEMO_FILE_CACHE_SAVE_CHECKSUM			"save-checksum"
 #define NEMO_FILE_CACHE_PRUNE_MIN_HOURS			"prune-min-hours"
 #define NEMO_FILE_CACHE_PRUNE_MAX_HOURS			"prune-max-hours"

@@ -61,6 +61,10 @@ void       nemo_thumbnail_render_ahead          (GList *files, int size);
 void       nemo_thumbnail_load_near_view        (GList *files, int size);
 int        nemo_thumbnail_size_step             (int size);
 
+/* Whether a checksum goes onto the file too. Settings grays out that box while
+ * caching checksums on full reads is off, so off there means off here too. */
+gboolean   nemo_thumbnail_saves_checksum        (void);
+
 /* The store first, and the freedesktop cache only if the store has nothing.
  * Decodes no larger than `max_size`. Blocks on the disk, so it belongs on a
  * worker thread. */

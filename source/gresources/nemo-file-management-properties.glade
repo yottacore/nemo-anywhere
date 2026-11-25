@@ -4533,22 +4533,6 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                         </packing>
                                       </child>
                                       <child>
-                                        <object class="GtkCheckButton" id="file_cache_save_checksum_checkbutton">
-                                          <property name="label" translatable="yes">Save _checksums onto the files</property>
-                                          <property name="visible">True</property>
-                                          <property name="can-focus">True</property>
-                                          <property name="receives-default">False</property>
-                                          <property name="use-underline">True</property>
-                                          <property name="xalign">0</property>
-                                          <property name="draw-indicator">True</property>
-                                        </object>
-                                        <packing>
-                                          <property name="expand">False</property>
-                                          <property name="fill">False</property>
-                                          <property name="position">4</property>
-                                        </packing>
-                                      </child>
-                                      <child>
                                         <object class="GtkBox" id="hbox_file_cache_usage">
                                           <property name="visible">True</property>
                                           <property name="can-focus">False</property>
@@ -4599,7 +4583,7 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                         <packing>
                                           <property name="expand">False</property>
                                           <property name="fill">True</property>
-                                          <property name="position">5</property>
+                                          <property name="position">4</property>
                                         </packing>
                                       </child>
                                       </object>
@@ -6601,6 +6585,120 @@ along with .  If not, see <http://www.gnu.org/licenses/>.
                                 <property name="expand">False</property>
                                 <property name="fill">False</property>
                                 <property name="position">0</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkBox" id="cache_box">
+                                <property name="visible">True</property>
+                                <property name="can-focus">False</property>
+                                <property name="border-width">6</property>
+                                <property name="orientation">vertical</property>
+                                <property name="spacing">6</property>
+                                <child>
+                                  <object class="GtkLabel" id="cache_heading">
+                                    <property name="visible">True</property>
+                                    <property name="can-focus">False</property>
+                                    <property name="label" translatable="yes">&lt;b&gt;Cache&lt;/b&gt;</property>
+                                    <property name="use-markup">True</property>
+                                    <property name="xalign">0</property>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">False</property>
+                                    <property name="position">0</property>
+                                  </packing>
+                                </child>
+                                <child>
+                                  <object class="GtkAlignment" id="blake3_alignment">
+                                    <property name="visible">True</property>
+                                    <property name="can-focus">False</property>
+                                    <property name="left-padding">20</property>
+                                    <child>
+                                      <object class="GtkBox" id="blake3_vbox">
+                                        <property name="visible">True</property>
+                                        <property name="can-focus">False</property>
+                                        <property name="orientation">vertical</property>
+                                        <property name="spacing">6</property>
+                                        <child>
+                                          <object class="GtkLabel" id="blake3_heading">
+                                            <property name="visible">True</property>
+                                            <property name="can-focus">False</property>
+                                            <property name="label" translatable="yes">&lt;b&gt;Blake3 checksum&lt;/b&gt;</property>
+                                            <property name="use-markup">True</property>
+                                            <property name="xalign">0</property>
+                                          </object>
+                                          <packing>
+                                            <property name="expand">False</property>
+                                            <property name="fill">False</property>
+                                            <property name="position">0</property>
+                                          </packing>
+                                        </child>
+                                        <child>
+                                          <object class="GtkAlignment" id="blake3_rows_alignment">
+                                            <property name="visible">True</property>
+                                            <property name="can-focus">False</property>
+                                            <property name="left-padding">20</property>
+                                            <child>
+                                              <object class="GtkBox" id="blake3_rows_vbox">
+                                                <property name="visible">True</property>
+                                                <property name="can-focus">False</property>
+                                                <property name="orientation">vertical</property>
+                                                <property name="spacing">6</property>
+                                                <child>
+                                                  <object class="GtkCheckButton" id="file_cache_checksum_full_reads_checkbutton">
+                                                    <property name="label" translatable="yes">Cache whenever files require a full-read _anyway.</property>
+                                                    <property name="visible">True</property>
+                                                    <property name="can-focus">True</property>
+                                                    <property name="receives-default">False</property>
+                                                    <property name="use-underline">True</property>
+                                                    <property name="xalign">0</property>
+                                                    <property name="draw-indicator">True</property>
+                                                  </object>
+                                                  <packing>
+                                                    <property name="expand">False</property>
+                                                    <property name="fill">False</property>
+                                                    <property name="position">0</property>
+                                                  </packing>
+                                                </child>
+                                                <child>
+                                                  <object class="GtkCheckButton" id="file_cache_save_checksum_checkbutton">
+                                                    <property name="label" translatable="yes">_Persist across hosts via xattrs.</property>
+                                                    <property name="visible">True</property>
+                                                    <property name="can-focus">True</property>
+                                                    <property name="receives-default">False</property>
+                                                    <property name="use-underline">True</property>
+                                                    <property name="xalign">0</property>
+                                                    <property name="draw-indicator">True</property>
+                                                  </object>
+                                                  <packing>
+                                                    <property name="expand">False</property>
+                                                    <property name="fill">False</property>
+                                                    <property name="position">1</property>
+                                                  </packing>
+                                                </child>
+                                              </object>
+                                            </child>
+                                          </object>
+                                          <packing>
+                                            <property name="expand">False</property>
+                                            <property name="fill">False</property>
+                                            <property name="position">1</property>
+                                          </packing>
+                                        </child>
+                                      </object>
+                                    </child>
+                                  </object>
+                                  <packing>
+                                    <property name="expand">False</property>
+                                    <property name="fill">False</property>
+                                    <property name="position">1</property>
+                                  </packing>
+                                </child>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">False</property>
+                                <property name="position">1</property>
                               </packing>
                             </child>
                           </object>

@@ -34,6 +34,7 @@ nemoCommon_sources = [
   'nemo-error-reporting.c',
   'nemo-extension-config-widget.c',
   'nemo-file-management-properties.c',
+  'nemo-prefs-checksum.c',
   'nemo-prefs-current-folder.c',
   'nemo-prefs-file-cache.c',
   'nemo-prefs-keyboard.c',

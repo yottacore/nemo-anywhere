@@ -47,6 +47,7 @@
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-shortcuts.h>
 #include <libnemo-private/nemo-tab-list.h>
+#include <libnemo-private/nemo-thumbnails.h>
 
 #include "nemo-file-management-properties.h"
 #include "nemo-settings-aliases.h"
@@ -761,6 +762,50 @@ test_selection_model (GtkWidget *dialog)
 	check (gtk_combo_box_get_active (GTK_COMBO_BOX (combo)) == 2);
 	nemo_config_reset (nemo_preferences, NEMO_PREFERENCES_SELECTION_MODEL);
 	check (nemo_global_preferences_get_selection_model () == NEMO_SELECTION_MODEL_ANYWHERE);
+}
+
+/* The Blake3 checksum section is on Advanced. Caching on full reads is on by
+   default, and while it's off the box for saving onto files is grayed, and the
+   thumbnail queue doesn't save onto files whatever that box says. */
+static void
+test_checksum_section (GtkWidget *dialog)
+{
+	NemoConfigGroup *group = nemo_config_get_group (NEMO_FILE_CACHE_GROUP);
+	GtkWidget *full_reads = find_named (dialog, "file_cache_checksum_full_reads_checkbutton");
+	GtkWidget *save = find_named (dialog, "file_cache_save_checksum_checkbutton");
+	GtkWidget *page = find_named (dialog, "advanced_scrolledwindow");
+
+	check (full_reads != NULL && save != NULL && page != NULL);
+	if (full_reads == NULL || save == NULL || page == NULL) {
+		return;
+	}
+	check (gtk_widget_is_ancestor (full_reads, page));
+	check (gtk_widget_is_ancestor (save, page));
+
+	check (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (full_reads)));
+	check (!gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (save)));
+	check (gtk_widget_get_sensitive (save));
+	check (!nemo_thumbnail_saves_checksum ());
+
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (save), TRUE);
+	check (nemo_config_get_boolean (group, NEMO_FILE_CACHE_SAVE_CHECKSUM));
+	check (nemo_thumbnail_saves_checksum ());
+
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (full_reads), FALSE);
+	check (!nemo_config_get_boolean (group, NEMO_FILE_CACHE_CHECKSUM_FULL_READS));
+	check (!gtk_widget_get_sensitive (save));
+	check (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (save)));
+	check (!nemo_thumbnail_saves_checksum ());
+
+	/* From the settings file too, as a hand edit or another window would. */
+	nemo_config_reset (group, NEMO_FILE_CACHE_CHECKSUM_FULL_READS);
+	check (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (full_reads)));
+	check (gtk_widget_get_sensitive (save));
+	check (nemo_thumbnail_saves_checksum ());
+
+	nemo_config_reset (group, NEMO_FILE_CACHE_SAVE_CHECKSUM);
+	check (!gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (save)));
+	check (!nemo_thumbnail_saves_checksum ());
 }
 
 /* The default view lists the views in the View menu's order, and each row
@@ -1524,6 +1569,7 @@ main (int argc, char *argv[])
 		test_selection_model (dialog);
 		test_paste_target (dialog);
 		test_rename_selects_grayed (dialog);
+		test_checksum_section (dialog);
 		test_search (dialog);
 		test_search_aliases (dialog);
 		test_keyboard (dialog);

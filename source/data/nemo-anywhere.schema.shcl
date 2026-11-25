@@ -161,10 +161,17 @@ field: file-cache.drop-missing
 	default: true
 	desc: "Forget a local file that is gone from a folder that is still there. A folder that is missing entirely is left alone, since it may be on a drive that isn't plugged in"
 
+field: file-cache.checksum-full-reads
+	type: bool
+	default: true
+	desc: "Keep the checksum of a file in the file cache whenever the whole file is read anyway. Thumbnails always keep theirs. Off also stops save-checksum"
+	# aliases: [blake3, hash, checksum]
+
 field: file-cache.save-checksum
 	type: bool
 	default: false
 	desc: "Write each checksum onto the file it belongs to, as the extended attributes user.blake3.b64u, .bytes and .mtime. On Windows these are alternate data streams, which only local NTFS and ReFS drives keep"
+	# aliases: [blake3, hash, xattr, extended attributes, alternate data streams]
 
 field: file-cache.prune-min-hours
 	type: int

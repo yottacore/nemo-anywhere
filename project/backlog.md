@@ -554,7 +554,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: Blake3 checksum cache options, with persistence across hosts through xattrs.
 	- ID: 2026102018234907
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Started
+	- Needs hand testing: the look of the new Cache section on Advanced, and the Windows label, which says alternate data streams.
 	- Priority|Severity: Avg
 	- Opened: 20261020-182349
 	- Opened by: t00mietum
@@ -569,6 +570,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Progress log:
 		- 20261020: the tooltips were moved to the settings design doc.
 		- 20261020: the xattrs checkbox is today's "Save checksums onto the files", moved and relabeled.
+		- 20261124: the settings are built. Advanced has a Cache heading after Selection, with the Blake3 checksum section and its 2 checkboxes. The first is the new key `file-cache.checksum-full-reads`. The second is `file-cache.save-checksum`, moved from Preview, relabeled, and grayed while the first is off.
+		- 20261124: what the first checkbox turns on for reads other than thumbnails is in 2026112416093974.
+	- Decisions:
+		- `file-cache.checksum-full-reads` is on by default. Its tooltip calls it highly recommended, and a `save-checksum` that was on keeps writing.
+		- With it off, nothing is written onto a file, thumbnails included, whatever the grayed box says. Thumbnails still keep their checksum in the cache.
+		- Cache gets a heading of its own on Advanced for now. Thumbnail cache stays on Preview until 2026102018234905 moves it there, ahead of this section.
+		- The section is bound in its own file, `nemo-prefs-checksum.c`, so the Settings dialog test runs it as it is.
+	- Swept: every reader of `save-checksum`. The thumbnail queue is the only place that writes a checksum onto a file. The 2 design docs, the schema and the keys table are updated. The thumbnails design doc's line still holds.
+	- Branch: nov24-2026102018234907
+	- Test case: dd5df, Settings dialog test, checks the section is on Advanced, the default, the graying, and that the thumbnail queue doesn't save onto files while the first box is off, from the box or the settings file. dbnfq, Settings widgets test, checks both labels word for word.
+	- Verified: 20261124, dd5df failed with the graying and the off switch taken out, 2 checks, and passes with them. dbnfq, dbsx7, dc8tz, dfh5x and dcy1f pass, and the quick format and lint gate passed.
+	- Commit: e8cb5538
+
+- Checksums: keep the checksum of a file that is read in full for something other than a thumbnail, such as a small copy.
+	- ID: 2026112416093974
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261124-160939
+	- Opened by: 2026102018234907
+	- Parent ID: 2026102018234907
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- While `file-cache.checksum-full-reads` is on, a file the app reads in full anyway gets its blake3 checksum kept in the file cache, as a thumbnail does today.
+		- With `file-cache.save-checksum` on too, the checksum also goes onto the file, the same way a thumbnail's does.
+	- Notes:
+		- The full reads the app does itself today are the thumbnail queue, which already keeps its checksum, and the small copy on Linux, under `performance.clone-min-kib`. The ordinary copy goes through GIO, which reads in the kernel, so the app never sees those bytes.
+		- A small copy's target gets its times from the caller after the copy, so its checksum can only be kept once those are set.
 	- Test case: none yet.
 
 - Reenable the option to rename the whole file with F2. But label it "Swap behavior of F2 and Shift+F2".
