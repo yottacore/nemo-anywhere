@@ -33,6 +33,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- Time a copy of many small files with the small-copy checksum on and off.
+	- ID: 2026112416314964
+	- Type: Task
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261124-163149
+	- Opened by:
+	- Related IDs: 2026112416093974
+	- Target version: rc.1
+	- Requirements:
+		- Each small copy now takes a blake3 sum and makes 2 file cache writes in the copy job's thread. Time 10k small files with `file-cache.checksum-full-reads` on and off, by user plus system CPU and by wall time. If the cost is real, batch the writes or move them off the copy thread.
+	- Estimated effort: Low
+	- Test case: none, it's a timing; a regression test follows only if the cost is real.
+
 - Settings: the Keyboard tab lists the menu's key-only actions by their code names, such as PropertiesAccel, NewTabAccel, and ZoomInAccel.
 	- ID: 2026112415464216
 	- Type: Bug
