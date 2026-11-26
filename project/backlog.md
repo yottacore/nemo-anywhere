@@ -36,7 +36,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: search.
 	- ID: 2026101417352263
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Priority|Severity: High
 	- Opened: 20261014-173522
 	- Opened by: t00mietum
@@ -56,7 +56,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: new tab layout, and tidying across the dialog.
 	- ID: 2026102018234905
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261020-182349
 	- Opened by: t00mietum
@@ -84,7 +84,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: a Keyboard tab where shortcuts are shown, edited, and reset, like SilkTerm's.
 	- ID: 2026102018234906
 	- Type: Enhancement
-	- Status: Waiting on signoff
+	- Status: Done
 	- Priority|Severity: Avg
 	- Opened: 20261020-182349
 	- Opened by: t00mietum
@@ -106,7 +106,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings search: a search field over the tabs, with label and fuzzy matches, each shown with its path and marked letters, that goes to the setting picked.
 	- ID: 2026111912460963
 	- Type: Enhancement
-	- Status: Waiting on UAT
+	- Status: Done
 		- For the look of the field, the match list, and the marks. The behavior is pinned by dfh5x and dd5df.
 	- Priority|Severity: High
 	- Opened: 20261119-124609
@@ -137,7 +137,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Changelog: the Nemo Anywhere selection model, for rc.1.
 	- ID: 2026111022095190
 	- Type: Task
-	- Status: Waiting on UAT
+	- Status: Done
 		- For the wording of the new changelog entries.
 	- Priority|Severity: Avg
 	- Opened: 20261110-220951
@@ -160,7 +160,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Zoom in with Ctrl+ (or Ctrl=), and out with Ctrl-, changes the window size too.
 	- ID: 2026101715030685
 	- Type: Enhancement
-	- Status: Waiting on UAT
+	- Status: Done
 		- Left at signoff for how far the window grows a step in each view, which is a matter of feel.
 	- Priority|Severity: Avg
 	- Opened: 20261017-150306
@@ -390,6 +390,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The comment rows stay until then. They work, and the installed schema passes with them.
 	- Test case: dfh5x and dd5df, which already hold the alias table and the search to the schema's rows.
 	- Estimated effort: Low
+
+- When a file-selection drag from the checkmark column crosses into other columns, don't turn it into a regular drag. Keep it a file-selection drag.
+	- ID: 2026112610132091
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261126-101321
+	- Opened by: t00mietum
+	- Related IDs: 2026110919315994
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+	- Steps to reproduce: start a file-selection drag in the checkmark column, then move across into other columns.
+	- Incorrect behavior: it turns into a regular drag.
+	- Expected behavior: it stays a file-selection drag.
+	- Reproduced: No.
+	- Test case: none yet.
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
@@ -14253,6 +14270,41 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: arc-extract.c counts it as failed and says nothing.
 	- Expected behavior: a fallback folder name, or an error that names the archive.
 	- Reproduced: No.
+	- Test case: none yet.
+
+- Add keyboard shortcut names and key names to Find.
+	- ID: 2026112610132104
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261126-101321
+	- Opened by: t00mietum
+	- Test case: none yet.
+
+- Different and more subtle color for mouse highlight row.
+	- ID: 2026112610132118
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261126-101321
+	- Opened by: t00mietum
+	- Test case: none yet.
+
+- Settings: "Advanced" tab should always be the last.
+	- ID: 2026112610132131
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261126-101321
+	- Opened by: t00mietum
+	- Related IDs: 2026102018234906, 2026102018234905
+	- Test case: none yet.
+
+- Compression: Option to reveal the password.
+	- ID: 2026112610132144
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261126-101321
+	- Opened by: t00mietum
+	- Requirements:
+		- Always off on new dialog.
 	- Test case: none yet.
 
 - The column chooser leaks the names of the hidden columns each time it is read.
