@@ -7,6 +7,7 @@
 
 #include <config.h>
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <glib.h>
@@ -680,6 +681,25 @@ check_waiting_writer (NemoCacheDb *db)
 
 /* A damaged page deep in the file doesn't stop it opening, so the pass is what
  * finds it. It leaves a marker, and the next open starts over. */
+/* A size past gint64 in the settings file was cast to it as is, which is
+ * undefined. On x86 it came out negative and became the 1 MiB floor. */
+static void
+check_size_limit (void)
+{
+	const gint64 gib = (gint64) 1024 * 1024 * 1024;
+
+	check (nemo_cache_db_prune_size_limit (0) == 0);
+	check (nemo_cache_db_prune_size_limit (-3) == 0);
+	check (nemo_cache_db_prune_size_limit (NAN) == 0);
+	check (nemo_cache_db_prune_size_limit (2) == 2 * gib);
+	check (nemo_cache_db_prune_size_limit (1e-9) == 1024 * 1024);
+	check (nemo_cache_db_prune_size_limit (8589934591.0) == G_MAXINT64 - gib + 1);
+	check (nemo_cache_db_prune_size_limit (8589934592.0) == G_MAXINT64);
+	check (nemo_cache_db_prune_size_limit (1e10) == G_MAXINT64);
+	check (nemo_cache_db_prune_size_limit (1e300) == G_MAXINT64);
+	check (nemo_cache_db_prune_size_limit (INFINITY) == G_MAXINT64);
+}
+
 static void
 check_damage (void)
 {
@@ -760,6 +780,7 @@ main (int argc, char *argv[])
 	check_batch_bytes (db);
 	check_waiting_writer (db);
 	check_damage ();
+	check_size_limit ();
 
 	nemo_cache_db_close ();
 	g_free (scratch);

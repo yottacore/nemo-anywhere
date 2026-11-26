@@ -1,7 +1,7 @@
 /* Exercises the favorites list and its favorites:/// vfs: how stored entries are
  * read and written back, listing an entry that has gone away, the prefix and
  * relative-path checks, what a favorite with an unreachable target does, a
- * concurrent read while the list is rebuilt, and the root's own metadata. Runs against a throwaway
+ * concurrent read while the list is rebuilt, and the root's own metadata, read back from its change handler. Runs against a throwaway
  * XDG_CONFIG_HOME. */
 
 #include <config.h>
@@ -438,6 +438,81 @@ test_root_metadata (void)
 	g_object_unref (root);
 }
 
+static gint reentry_done;
+static int  reentry_calls;
+static char *reentry_seen;
+
+/* A deadlock never returns, so this ends the run instead. */
+static gpointer
+reentry_watchdog (G_GNUC_UNUSED gpointer data)
+{
+	int i;
+
+	for (i = 0; i < 200 && !g_atomic_int_get (&reentry_done); i++)
+		g_usleep (100 * 1000);
+
+	if (!g_atomic_int_get (&reentry_done)) {
+		g_printerr ("FAIL: a metadata handler reading the root back hung\n");
+		_Exit (EXIT_FAILURE);
+	}
+
+	return NULL;
+}
+
+static void
+reentry_changed (G_GNUC_UNUSED NemoConfigGroup *group, G_GNUC_UNUSED const char *key,
+                 G_GNUC_UNUSED gpointer data)
+{
+	GFile *root = g_file_new_for_uri ("favorites:///");
+	GFileInfo *info = g_file_query_info (root, "metadata::*", G_FILE_QUERY_INFO_NONE, NULL, NULL);
+
+	reentry_calls++;
+	g_clear_pointer (&reentry_seen, g_free);
+	if (info != NULL) {
+		const char *value = g_file_info_get_attribute_string (info, "metadata::nemo-test-reentry");
+
+		reentry_seen = g_strdup (value);
+		g_object_unref (info);
+	}
+	g_object_unref (root);
+}
+
+/* The change goes out on the main thread before the set returns, and this
+ * handler reads the metadata back, as the view does. With the vfs's lock held
+ * across the set that hung. */
+static void
+test_metadata_reentry (void)
+{
+	GFile *root = g_file_new_for_uri ("favorites:///");
+	GThread *watchdog;
+	GError *error = NULL;
+	gulong id;
+
+	g_atomic_int_set (&reentry_done, 0);
+	watchdog = g_thread_new ("fav-reentry", reentry_watchdog, NULL);
+	id = g_signal_connect (root_group, "changed::favorites-root-metadata",
+	                       G_CALLBACK (reentry_changed), NULL);
+
+	check (g_file_set_attribute_string (root, "metadata::nemo-test-reentry", "x",
+	                                    G_FILE_QUERY_INFO_NONE, NULL, &error));
+	g_clear_error (&error);
+	check (reentry_calls == 1);
+	check (g_strcmp0 (reentry_seen, "x") == 0);
+
+	check (g_file_set_attribute_string (root, "metadata::nemo-test-reentry", "",
+	                                    G_FILE_QUERY_INFO_NONE, NULL, &error));
+	g_clear_error (&error);
+	check (reentry_calls == 2);
+	check (reentry_seen == NULL);
+
+	g_atomic_int_set (&reentry_done, 1);
+	g_thread_join (watchdog);
+	g_signal_handler_disconnect (root_group, id);
+	nemo_config_reset (root_group, "favorites-root-metadata");
+	g_clear_pointer (&reentry_seen, g_free);
+	g_object_unref (root);
+}
+
 /* No arguments runs the lot, which is how meson calls it. Naming one or more
  * runs only those, for when an earlier one is expected to take the process
  * down with it. */
@@ -498,6 +573,8 @@ main (int argc, char *argv[])
 		test_concurrent_reload (favorites);
 	if (want ("root-metadata", argc, argv))
 		test_root_metadata ();
+	if (want ("metadata-reentry", argc, argv))
+		test_metadata_reentry ();
 
 	nemo_config_shutdown ();
 	g_free (tmp);

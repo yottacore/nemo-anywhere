@@ -110,6 +110,25 @@ pass_done (GObject *source, GAsyncResult *res, gpointer user_data)
 		pass->done (pass->result, pass->removed, pass->done_data);
 }
 
+gint64
+nemo_cache_db_prune_size_limit (gdouble gib)
+{
+	const gdouble per_gib = 1024.0 * 1024 * 1024;
+
+	/* False for NaN too. */
+	if (!(gib > 0))
+		return 0;
+
+	/* Casting a double past gint64's range is undefined, so a limit that big
+	 * is no limit. 2^63 bytes is exactly 2^33 GiB, and anything under it
+	 * converts. */
+	if (gib >= (gdouble) G_MAXINT64 / per_gib)
+		return G_MAXINT64;
+
+	/* Anything under a megabyte is a typo, not a limit. */
+	return MAX ((gint64) (gib * per_gib), 1024 * 1024);
+}
+
 static NemoCachePruneRules
 read_rules (void)
 {
@@ -120,8 +139,7 @@ read_rules (void)
 	gint                low = nemo_config_get_int (group, NEMO_FILE_CACHE_PRUNE_MIN_HOURS);
 	gint                high = nemo_config_get_int (group, NEMO_FILE_CACHE_PRUNE_MAX_HOURS);
 
-	/* Anything under a megabyte is a typo, not a limit. */
-	rules.max_bytes = gib > 0 ? MAX ((gint64) (gib * 1024 * 1024 * 1024), 1024 * 1024) : 0;
+	rules.max_bytes = nemo_cache_db_prune_size_limit (gib);
 	rules.max_age_secs = days > 0 ? (gint64) days * 24 * 60 * 60 : 0;
 	rules.drop_missing = nemo_config_get_boolean (group, NEMO_FILE_CACHE_DROP_MISSING);
 

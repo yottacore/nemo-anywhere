@@ -14252,7 +14252,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The favorites metadata calls hold a lock across a settings signal.
 	- ID: 2026112309242603
 	- Type: Bug
-	- Status: Queued
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261123-092426
 	- Opened by: t00mietum
@@ -14260,13 +14261,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce: set or remove a `favorites:///` attribute while a handler on the favorites metadata key reads the metadata back.
 	- Incorrect behavior: `remove_root_metadata` and its siblings in nemo-favorite-vfs-file.c call `nemo_config_set_strv` inside `G_LOCK (settings)`. The change signal goes out right away, so a handler that takes the same lock hangs the app.
 	- Expected behavior: the lock is let go before the settings change.
-	- Reproduced: No.
-	- Test case: none yet.
+	- Reproduced: 20261126, by the new test, with a handler on the main thread that reads the root's metadata back. Setting a value hung.
+	- Target version: rc.1
+	- Actual cause: both writers held the lock from the read through the set, and the change goes out to handlers on the main thread before the set returns. The read path takes the same lock, which isn't recursive.
+	- Actual fix: the settings lock now covers only the read. A second lock, recursive and not taken by readers, keeps 2 writers from losing one's change.
+	- Decisions: the writers stay serialized, rather than just dropping the lock before the set, since a set from a worker thread and one from the main thread could otherwise each write back a list without the other's row.
+	- Swept: the 3 places in nemo-favorite-vfs-file.c that take the lock: the read in query_info, which never sets, and the 2 writers, both fixed. nemo-favorites.c already lets go of its list lock before its set.
+	- Test case: db9wp `test-nemo-favorites metadata-reentry`. It hung before the fix, and passes after.
+	- Branch: nov26-2026112309242603
+	- Commit: c96680fe
+	- Acceptance signoff: Self-closed: db9wp failed before the fix and passes after.
+	- Closed: 20261126-110534
 
 - A huge file cache size in settings is undefined behavior.
 	- ID: 2026112309242604
 	- Type: Bug
-	- Status: Queued
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Low
 	- Opened: 20261123-092426
 	- Opened by: t00mietum
@@ -14274,8 +14285,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce: set the file cache size limit to something like 1e10 GiB in the settings file.
 	- Incorrect behavior: `read_rules` in nemo-cache-db-prune.c casts the size in bytes from a double to `gint64`, which is undefined past its range.
 	- Expected behavior: the value is clamped, to a limit still to pick, or refused when settings load.
-	- Reproduced: No.
-	- Test case: none yet.
+	- Reproduced: 20261126, by the new test. On x86, 1e10 GiB and infinity came out as the 1 MiB floor, so the whole cache would be pruned.
+	- Target version: rc.1
+	- Actual fix: the GiB to bytes step is its own function. A size of 2^33 GiB or more, infinity included, is the largest gint64, so no limit in practice. NaN is no limit, as before.
+	- Decisions: clamped rather than refused at load, since a size that big can only mean no limit, and the dialog already caps it at 1024.
+	- Swept: the only other float setting, the thumbnail memory budget in nemo-thumbnail-memory.c, already caps at 1024 GiB before its cast.
+	- Test case: dcy2e `test-nemo-cache-prune`, check_size_limit. It failed 4 checks before the fix, and passes after.
+	- Branch: nov26-2026112309242603
+	- Commit: c96680fe
+	- Acceptance signoff: Self-closed: dcy2e failed before the fix and passes after.
+	- Closed: 20261126-110534
 
 - On Windows, each start of the instance service adds its interfaces again.
 	- ID: 2026112309242605
