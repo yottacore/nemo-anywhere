@@ -62,6 +62,9 @@ struct _ArcExtract {
 	   uses, so a renamed folder takes its children with it. */
 	GFile              *current_base;
 	GHashTable         *dir_map;		/* char * -> GFile * or SKIPPED */
+	/* Files that went in under another name than their own, by their
+	   path in the archive, for a hard link to find. */
+	GHashTable         *file_map;		/* char * -> GFile * */
 	char               *current_name;	/* the archive being read */
 
 	/* An answer the user asked to have applied to every conflict. */
@@ -444,16 +447,44 @@ target_for_entry (ExtractJob  *job,
 	return target;
 }
 
+/* Only a renamed file is kept, so a big archive costs nothing here. A renamed
+   folder is dir_map's. */
+static void
+note_placed (ExtractJob *job,
+	     const char *rel_path,
+	     GFile      *target)
+{
+	const char *slash = strrchr (rel_path, '/');
+	char *name = g_file_get_basename (target);
+
+	if (g_strcmp0 (name, slash != NULL ? slash + 1 : rel_path) != 0) {
+		g_hash_table_insert (job->file_map, g_strdup (rel_path), g_object_ref (target));
+	} else {
+		/* The same path again later in the archive, under its own name. */
+		g_hash_table_remove (job->file_map, rel_path);
+	}
+	g_free (name);
+}
+
 /* Where an entry already unpacked went. Not through resolve_target, which
-   would ask about it as if it were in the way. A file renamed on the way in
-   isn't found. */
+   would ask about it as if it were in the way. One that wasn't written, such
+   as a skipped one, is looked for under its own name. */
 static GFile *
 placed_file (ExtractJob *job,
 	     const char *rel_path)
 {
-	const char *slash = strrchr (rel_path, '/');
-	char *rel_dir = slash != NULL ? g_strndup (rel_path, (gsize) (slash - rel_path)) : g_strdup ("");
-	GFile *dir = dir_for_rel (job, rel_dir);
+	GFile *placed = g_hash_table_lookup (job->file_map, rel_path);
+	const char *slash;
+	char *rel_dir;
+	GFile *dir;
+
+	if (placed != NULL) {
+		return g_object_ref (placed);
+	}
+
+	slash = strrchr (rel_path, '/');
+	rel_dir = slash != NULL ? g_strndup (rel_path, (gsize) (slash - rel_path)) : g_strdup ("");
+	dir = dir_for_rel (job, rel_dir);
 
 	g_free (rel_dir);
 	return dir != NULL ? g_file_get_child (dir, slash != NULL ? slash + 1 : rel_path) : NULL;
@@ -822,6 +853,7 @@ extract_with_libarchive (ExtractJob *job,
 			if (target != NULL) {
 				if (g_file_make_symbolic_link (target, link_target, job->cancellable, NULL)) {
 					note_created (job, target);
+					note_placed (job, rel, target);
 					job->placed++;
 				}
 				g_object_unref (target);
@@ -859,6 +891,7 @@ extract_with_libarchive (ExtractJob *job,
 				if (g_file_copy (source, target, G_FILE_COPY_OVERWRITE | G_FILE_COPY_ALL_METADATA,
 						 job->cancellable, NULL, NULL, NULL)) {
 					note_created (job, target);
+					note_placed (job, rel, target);
 					job->placed++;
 				}
 				g_object_unref (source);
@@ -874,6 +907,7 @@ extract_with_libarchive (ExtractJob *job,
 		} else {
 			apply_entry_metadata (job, target, mtime, archive_entry_perm (entry));
 			note_created (job, target);
+			note_placed (job, rel, target);
 			job->placed++;
 		}
 
@@ -1218,6 +1252,7 @@ extract_one (ExtractJob *job,
 	ExtractResult result;
 
 	g_hash_table_remove_all (job->dir_map);
+	g_hash_table_remove_all (job->file_map);
 	job->archive_failed = FALSE;
 	job->wrote_anything = FALSE;
 	job->maybe_encrypted = FALSE;
@@ -1236,12 +1271,8 @@ extract_one (ExtractJob *job,
 	}
 
 	if (job->layout == ARC_EXTRACT_TO_SUBFOLDER) {
-		char *folder = arc_extract_folder_name (job->current_name);
+		char *folder = arc_extract_any_folder_name (job->current_name);
 		GFile *made;
-
-		if (folder == NULL) {
-			return FALSE;
-		}
 
 		job->current_base = job->destination_dir;
 		made = dir_for_rel (job, folder);
@@ -1372,6 +1403,7 @@ arc_extract_new (const ArcHost     *host,
 	job->destination_dir = g_object_ref (destination_dir);
 	job->layout = layout;
 	job->dir_map = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, dir_map_value_free);
+	job->file_map = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
 	job->handled = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
 	return job;
@@ -1388,6 +1420,7 @@ arc_extract_free (ArcExtract *job)
 	g_clear_object (&job->destination_dir);
 	g_clear_object (&job->cancellable);
 	g_clear_pointer (&job->dir_map, g_hash_table_destroy);
+	g_clear_pointer (&job->file_map, g_hash_table_destroy);
 	g_clear_pointer (&job->handled, g_hash_table_destroy);
 	g_free (job->long_link);
 	g_free (job->current_name);

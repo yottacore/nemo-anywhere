@@ -131,6 +131,12 @@ arc_extract_first_volume (GFile *archive)
 	return first;
 }
 
+static gboolean
+usable_folder_name (const char *name)
+{
+	return name[0] != '\0' && strcmp (name, ".") != 0 && strcmp (name, "..") != 0;
+}
+
 /* Returns: (transfer full): free with g_free */
 char *
 arc_extract_folder_name (const char *archive_name)
@@ -151,31 +157,13 @@ arc_extract_folder_name (const char *archive_name)
 
 	base = g_strndup (archive_name, len - strlen (extension));
 
-	if (base[0] == '\0') {
+	/* "..zip" would unpack into the folder above. */
+	if (!usable_folder_name (base)) {
 		g_free (base);
 		return NULL;
 	}
 
 	return base;
-}
-
-/* Returns: (transfer full): free with g_free */
-char *
-arc_extract_unique_name (const char *name,
-			 guint       attempt)
-{
-	const char *dot;
-
-	g_return_val_if_fail (name != NULL, NULL);
-
-	/* A leading dot is the start of a hidden name, not an extension. */
-	dot = name[0] != '\0' ? strrchr (name + 1, '.') : NULL;
-
-	if (dot == NULL) {
-		return g_strdup_printf ("%s (%u)", name, attempt);
-	}
-
-	return g_strdup_printf ("%.*s (%u)%s", (int) (dot - name), name, attempt, dot);
 }
 
 #ifdef G_OS_WIN32
@@ -206,7 +194,89 @@ is_device_name (const char *name)
 	       (len == 5 && (guchar) name[3] == 0xc2 &&
 		((guchar) name[4] == 0xb9 || (guchar) name[4] == 0xb2 || (guchar) name[4] == 0xb3));
 }
+
+/* What Windows won't take in a name becomes "_", as 7-Zip does, so both
+   backends agree. Left as it is, ":" writes into a hidden stream of a file
+   named by what comes before it, a trailing dot or space is dropped, and
+   "NUL" writes nowhere. Takes name and returns it or its replacement. */
+static char *
+fix_windows_name (char *name)
+{
+	for (char *c = name; *c != '\0'; c++) {
+		if ((guchar) *c < 0x20 || strchr (":*?\"<>|", *c) != NULL) {
+			*c = '_';
+		}
+	}
+	for (gsize len = strlen (name); len > 0 && (name[len - 1] == '.' || name[len - 1] == ' '); len--) {
+		name[len - 1] = '_';
+	}
+	if (is_device_name (name)) {
+		char *prefixed = g_strconcat ("_", name, NULL);
+
+		g_free (name);
+		return prefixed;
+	}
+	return name;
+}
 #endif
+
+/* A folder name gets the fixes an entry name does, so "CON.zip" unpacks into
+   "_CON" on Windows. */
+static char *
+platform_folder_name (char *name)
+{
+#ifdef G_OS_WIN32
+	return fix_windows_name (name);
+#else
+	return name;
+#endif
+}
+
+/* Returns: (transfer full): free with g_free */
+char *
+arc_extract_any_folder_name (const char *archive_name)
+{
+	char *folder;
+	const char *dot;
+
+	g_return_val_if_fail (archive_name != NULL, NULL);
+
+	folder = arc_extract_folder_name (archive_name);
+	if (folder != NULL) {
+		return platform_folder_name (folder);
+	}
+
+	dot = archive_name[0] != '\0' ? strrchr (archive_name + 1, '.') : NULL;
+	if (dot != NULL) {
+		folder = g_strndup (archive_name, (gsize) (dot - archive_name));
+		if (usable_folder_name (folder)) {
+			return platform_folder_name (folder);
+		}
+		g_free (folder);
+	}
+
+	/* Never the archive's own name, which is a file in the way. */
+	return platform_folder_name (g_strdup_printf ("%s (1)", archive_name));
+}
+
+/* Returns: (transfer full): free with g_free */
+char *
+arc_extract_unique_name (const char *name,
+			 guint       attempt)
+{
+	const char *dot;
+
+	g_return_val_if_fail (name != NULL, NULL);
+
+	/* A leading dot is the start of a hidden name, not an extension. */
+	dot = name[0] != '\0' ? strrchr (name + 1, '.') : NULL;
+
+	if (dot == NULL) {
+		return g_strdup_printf ("%s (%u)", name, attempt);
+	}
+
+	return g_strdup_printf ("%.*s (%u)%s", (int) (dot - name), name, attempt, dot);
+}
 
 /* Returns: (transfer full): free with g_free */
 char *
@@ -248,25 +318,8 @@ arc_extract_sanitize_path (const char *entry_path)
 		}
 
 #ifdef G_OS_WIN32
-		/* What Windows won't take in a name becomes "_", as 7-Zip does, so
-		   both backends agree. Left as it is, ":" writes into a hidden stream
-		   of a file named by what comes before it, a trailing dot or space is
-		   dropped, and "NUL" writes nowhere. */
-		for (char *c = parts[i]; *c != '\0'; c++) {
-			if ((guchar) *c < 0x20 || strchr (":*?\"<>|", *c) != NULL) {
-				*c = '_';
-			}
-		}
-		for (char *c = parts[i] + len; c > parts[i] && (c[-1] == '.' || c[-1] == ' '); c--) {
-			c[-1] = '_';
-		}
-		if (is_device_name (parts[i])) {
-			char *prefixed = g_strconcat ("_", parts[i], NULL);
-
-			g_free (parts[i]);
-			parts[i] = prefixed;
-			part = prefixed;
-		}
+		parts[i] = fix_windows_name (parts[i]);
+		part = parts[i];
 #endif
 
 		g_ptr_array_add (kept, (gpointer) part);

@@ -52,6 +52,9 @@ gboolean nemo_cache_db_prune_running (void);
  * to let go of its claim. For quitting. */
 void nemo_cache_db_prune_stop (void);
 
+/* The size rule in bytes for the setting in GiB, 0 for no limit. */
+gint64 nemo_cache_db_prune_size_limit (gdouble gib);
+
 G_END_DECLS
 
 #endif /* NEMO_CACHE_DB_PRUNE_H */

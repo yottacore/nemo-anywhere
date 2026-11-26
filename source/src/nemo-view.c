@@ -1973,6 +1973,15 @@ model_primary_i (GtkAction *action, gpointer callback_data)
 	view_select_rules ()->primary_i (action, callback_data);
 }
 
+/* A dialog that isn't modal can outlive its tab, and its answer goes to the
+   view. So it goes when the view does. */
+static void
+dialog_close_with_view (GtkWidget *dialog, NemoView *view)
+{
+	g_signal_connect_object (view, "destroy", G_CALLBACK (gtk_widget_destroy),
+				 dialog, G_CONNECT_SWAPPED);
+}
+
 static void
 pattern_select_response_cb (GtkWidget *dialog, int response, gpointer user_data)
 {
@@ -2078,6 +2087,7 @@ select_pattern (NemoView *view)
 	g_signal_connect (dialog, "response",
 			  G_CALLBACK (pattern_select_response_cb),
 			  view);
+	dialog_close_with_view (dialog, view);
 	gtk_widget_show_all (dialog);
 }
 
@@ -8093,6 +8103,7 @@ action_browse_for_move_to_folder_callback (G_GNUC_UNUSED GtkAction *action, gpoi
 
     g_signal_connect (dialog, "response",
                       G_CALLBACK (browse_move_to_response_cb), view);
+    dialog_close_with_view (dialog, view);
 
     gtk_widget_show (dialog);
 }
@@ -8116,6 +8127,7 @@ action_browse_for_copy_to_folder_callback (G_GNUC_UNUSED GtkAction *action, gpoi
 
     g_signal_connect (dialog, "response",
                       G_CALLBACK (browse_copy_to_response_cb), view);
+    dialog_close_with_view (dialog, view);
 
     gtk_widget_show (dialog);
 }

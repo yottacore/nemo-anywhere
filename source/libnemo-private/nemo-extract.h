@@ -50,6 +50,7 @@ typedef ArcBackend NemoExtractBackend;
 
 #define nemo_extract_is_archive_name      arc_extract_is_archive_name
 #define nemo_extract_folder_name          arc_extract_folder_name
+#define nemo_extract_any_folder_name      arc_extract_any_folder_name
 #define nemo_extract_unique_name          arc_extract_unique_name
 #define nemo_extract_sanitize_path        arc_extract_sanitize_path
 #define nemo_extract_backend_present      arc_extract_backend_present

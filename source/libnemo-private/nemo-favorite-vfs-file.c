@@ -22,6 +22,12 @@
 static NemoConfigGroup *settings = NULL;
 G_LOCK_DEFINE_STATIC (settings);
 
+/* Keeps 2 writers of the root's metadata from losing one's change. Held across
+ * the set, which the settings lock can't be: the change goes out right away,
+ * and a handler reading the rows back would hang on it. Recursive, since that
+ * handler may write too. Readers don't take it. */
+static GRecMutex root_metadata_write_lock;
+
 typedef struct
 {
     gchar *uri; // favorites://foo
@@ -761,15 +767,19 @@ remove_root_metadata (const gchar *attr_name)
 {
     GPtrArray *new_array;
     gchar **old_metadata, **new_metadata;
+    NemoConfigGroup *group;
     gint i;
 
-    G_LOCK (settings);
+    g_rec_mutex_lock (&root_metadata_write_lock);
 
-    old_metadata = nemo_config_get_strv (settings, FAVORITE_DCONF_METADATA_KEY);
+    G_LOCK (settings);
+    group = settings;
+    old_metadata = nemo_config_get_strv (group, FAVORITE_DCONF_METADATA_KEY);
+    G_UNLOCK (settings);
 
     if (old_metadata == NULL)
     {
-        G_UNLOCK (settings);
+        g_rec_mutex_unlock (&root_metadata_write_lock);
         return;
     }
 
@@ -798,10 +808,10 @@ remove_root_metadata (const gchar *attr_name)
 
     new_metadata = (gchar **) g_ptr_array_free (new_array, FALSE);
 
-    nemo_config_set_strv (settings, FAVORITE_DCONF_METADATA_KEY, (const gchar * const *) new_metadata);
+    nemo_config_set_strv (group, FAVORITE_DCONF_METADATA_KEY, (const gchar * const *) new_metadata);
     g_strfreev (new_metadata);
 
-    G_UNLOCK (settings);
+    g_rec_mutex_unlock (&root_metadata_write_lock);
 }
 
 static void
@@ -814,14 +824,18 @@ set_or_update_root_metadata (const gchar        *attr_name,
     gint i;
     gchar *entry;
     gboolean exists;
+    NemoConfigGroup *group;
+
+    g_rec_mutex_lock (&root_metadata_write_lock);
 
     G_LOCK (settings);
-
-    old_metadata = nemo_config_get_strv (settings, FAVORITE_DCONF_METADATA_KEY);
+    group = settings;
+    old_metadata = nemo_config_get_strv (group, FAVORITE_DCONF_METADATA_KEY);
+    G_UNLOCK (settings);
 
     if (old_metadata == NULL)
     {
-        G_UNLOCK (settings);
+        g_rec_mutex_unlock (&root_metadata_write_lock);
         return;
     }
 
@@ -842,7 +856,7 @@ set_or_update_root_metadata (const gchar        *attr_name,
         default:
             g_warn_if_reached ();
             g_strfreev (old_metadata);
-            G_UNLOCK (settings);
+            g_rec_mutex_unlock (&root_metadata_write_lock);
             return;
     }
 
@@ -885,10 +899,10 @@ set_or_update_root_metadata (const gchar        *attr_name,
 
     new_metadata = (gchar **) g_ptr_array_free (new_array, FALSE);
 
-    nemo_config_set_strv (settings, FAVORITE_DCONF_METADATA_KEY, (const gchar * const *) new_metadata);
+    nemo_config_set_strv (group, FAVORITE_DCONF_METADATA_KEY, (const gchar * const *) new_metadata);
     g_strfreev (new_metadata);
 
-    G_UNLOCK (settings);
+    g_rec_mutex_unlock (&root_metadata_write_lock);
 }
 
 static gboolean

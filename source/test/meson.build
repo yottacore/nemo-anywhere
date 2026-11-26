@@ -166,6 +166,17 @@ test('ddez6 Config format upgrade test',
   timeout: 60
 )
 
+# The first load is the one that matters, so each case is a process of its own.
+configUnreadableTest = executable('test-nemo-config-unreadable',
+  [ 'test-nemo-config-unreadable.c' ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private, test_scratch ],
+)
+test('dftyk Unreadable settings file not saved over test', configUnreadableTest,
+  args: [ 'mode' ])
+test('dftym Oversized settings file not saved over test', configUnreadableTest,
+  args: [ 'oversized' ])
+
 # One writer per SHCL release from before format 3, each built against that
 # release's header alone, so the old files come from the old code. 1.0.0 is
 # the rc1 header byte for byte.
@@ -442,14 +453,28 @@ test('db9ys Thumbnail factory test',
   timeout: 180        # the hung-helper case waits out the thumbnailer timeout
 )
 
-test('da8qa Metadata store test',
-  executable('test-nemo-metadata-store',
-    [ 'test-nemo-metadata-store.c' ],
-    include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private, test_scratch ],
-  ),
-  args: []
+metadataStoreTest = executable('test-nemo-metadata-store',
+  [ 'test-nemo-metadata-store.c' ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private, test_scratch ],
 )
+test('da8qa Metadata store test', metadataStoreTest, args: [])
+test('dftxa Damaged metadata kept when it cannot be moved aside test', metadataStoreTest,
+  args: [ 'aside-fails' ])
+
+# The bookmark list is in src/, not a library, so it's compiled straight in.
+bookmarkMetadataTest = executable('test-nemo-bookmark-metadata',
+  [ 'test-nemo-bookmark-metadata.c' ],
+  include_directories: [ rootInclude, include_directories('../src') ],
+  dependencies: [ gtk, nemo_private, test_scratch ],
+  c_args: nemo_definitions,
+)
+test('dftxy Damaged bookmark metadata set aside test', bookmarkMetadataTest,
+  args: [ 'aside' ])
+test('dftxz Damaged bookmark metadata kept when it cannot be moved aside test',
+  bookmarkMetadataTest, args: [ 'aside-fails' ])
+test('dfty7 Unreadable bookmarks file not saved over test', bookmarkMetadataTest,
+  args: [ 'unreadable' ])
 
 # Needs the slug define: the point of the test is the path the app builds.
 test('dbfh8 Config root test',
@@ -1985,6 +2010,21 @@ if not is_windows
       dependencies: [ glib, gio, test_scratch ],
     ),
     args: [ nemo, alt_open_probe ],
+    timeout: 120
+  )
+
+  # Preloaded too; it closes a tab while one of its dialogs is up.
+  dialog_tab_close_probe = shared_module('test-nemo-dialog-tab-close-probe',
+    [ 'test-nemo-dialog-tab-close-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('dftx0 Dialogs close with their tab test',
+    executable('test-nemo-dialog-tab-close',
+      [ 'test-nemo-dialog-tab-close.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, dialog_tab_close_probe ],
     timeout: 120
   )
 

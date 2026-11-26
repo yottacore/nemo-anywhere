@@ -23,6 +23,7 @@
 #include <config.h>
 #include "nemo-metadata-store.h"
 
+#include <errno.h>
 #include <string.h>
 #include <glib/gstdio.h>
 #include <json-glib/json-glib.h>
@@ -38,6 +39,8 @@ static GHashTable *store = NULL;
 static GMutex store_mutex;
 static guint save_timeout_id = 0;
 static gboolean dirty = FALSE;
+/* A damaged store file that couldn't be moved aside. */
+static gboolean save_blocked = FALSE;
 
 typedef struct {
 	char  *value;   /* string entry */
@@ -134,9 +137,17 @@ ensure_loaded (void)
 			/* Every folder's view, zoom, sort, and layout is in here. Say so,
 			 * and keep the damaged file: the next set() would otherwise write
 			 * an empty store straight over the only copy. */
-			g_warning ("nemo-metadata: can't read %s: %s - keeping it as %s",
-			           path, error->message, aside);
-			g_rename (path, aside);
+			if (g_rename (path, aside) == 0) {
+				g_warning ("nemo-metadata: can't read %s: %s - keeping it as %s",
+				           path, error->message, aside);
+			} else {
+				int rename_errno = errno;
+
+				/* Still the only copy, so nothing gets saved over it this run. */
+				save_blocked = TRUE;
+				g_warning ("nemo-metadata: can't read %s: %s - can't move it to %s either (%s), so metadata won't be saved until restart",
+				           path, error->message, aside, g_strerror (rename_errno));
+			}
 			g_free (aside);
 		}
 		g_clear_error (&error);
@@ -212,7 +223,7 @@ save_now (void)
 	char *path, *data;
 	gsize length;
 
-	if (!dirty || store == NULL) {
+	if (!dirty || store == NULL || save_blocked) {
 		return;
 	}
 

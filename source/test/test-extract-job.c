@@ -1,8 +1,8 @@
 /* Unpacking for real: a zip is written with libarchive, handed to the job, and
  * the folder it unpacks into is inspected. Covers the 2 layouts, the paths an
  * archive can name, and the guard that keeps a hostile one from writing outside
- * the folder that was picked. Collisions aren't covered here - every answer to
- * one comes from a dialog, and there is nobody to click it.
+ * the folder that was picked. Collisions are covered only where a hard link
+ * follows a file that took Keep both.
  *
  * Also a 7z split 3 ways, where the later volumes are what is selected: it
  * unpacks once, from the first volume. Needs a 7z command to write it.
@@ -11,7 +11,9 @@
  * must not read those names as patterns, with the 7-Zip line as installed and
  * as edited.
  *
- * Also a tar hard link, copied from the file it names without a question. */
+ * Also a tar hard link, copied from the file it names without a question.
+ *
+ * Also archives whose names leave no folder name, under the own-folder layout. */
 
 #include "test.h"
 
@@ -20,6 +22,7 @@
 #include <libnemo-private/nemo-global-preferences.h>
 #include <libnemo-private/nemo-dir-enum.h>
 #include <libnemo-private/nemo-extract.h>
+#include <libnemo-private/nemo-file-conflict-dialog.h>
 
 #include <archive.h>
 #include <archive_entry.h>
@@ -428,8 +431,28 @@ check_split_volumes (const char *tmp,
 	g_free (seven);
 }
 
+/* Answers every conflict with Keep both. */
+static gboolean
+keep_both (gpointer data)
+{
+	guint *asked = data;
+	GList *windows, *l;
+
+	windows = gtk_window_list_toplevels ();
+	for (l = windows; l != NULL; l = l->next) {
+		if (GTK_IS_DIALOG (l->data) && gtk_widget_get_mapped (l->data)) {
+			(*asked)++;
+			gtk_dialog_response (GTK_DIALOG (l->data), CONFLICT_RESPONSE_AUTO_RENAME);
+		}
+	}
+	g_list_free (windows);
+
+	return G_SOURCE_CONTINUE;
+}
+
 /* A tar's hard link names a file it already unpacked, which gets copied. That
-   file is no conflict, so nothing is asked. */
+   file is no conflict, so nothing is asked. When the file went in under
+   another name, the link is copied from that one. */
 static void
 check_hard_links (const char *tmp,
 		  GtkWidget  *window)
@@ -437,6 +460,8 @@ check_hard_links (const char *tmp,
 	char *archive = g_build_filename (tmp, "linked.tar", NULL);
 	char *dest = g_build_filename (tmp, "linked", NULL);
 	char *copy = g_build_filename (dest, "b.txt", NULL);
+	char *taken = g_build_filename (tmp, "linked-taken", NULL);
+	char *path;
 	struct archive *a = archive_write_new ();
 	struct archive_entry *entry;
 	guint asked = 0, refuse_id;
@@ -452,6 +477,16 @@ check_hard_links (const char *tmp,
 	archive_entry_set_size (entry, 0);
 	check (archive_write_header (a, entry) == ARCHIVE_OK);
 	archive_entry_free (entry);
+	add_dir_entry (a, "d/");
+	add_file_entry (a, "d/c.txt", "deeper");
+	entry = archive_entry_new ();
+	archive_entry_set_pathname (entry, "d/e.txt");
+	archive_entry_set_hardlink (entry, "d/c.txt");
+	archive_entry_set_filetype (entry, AE_IFREG);
+	archive_entry_set_perm (entry, 0644);
+	archive_entry_set_size (entry, 0);
+	check (archive_write_header (a, entry) == ARCHIVE_OK);
+	archive_entry_free (entry);
 	check (archive_write_close (a) == ARCHIVE_OK);
 	archive_write_free (a);
 
@@ -461,10 +496,95 @@ check_hard_links (const char *tmp,
 	g_source_remove (refuse_id);
 	check (asked == 0);
 	check_contents (copy, "data");
+	path = g_build_filename (dest, "d", "e.txt", NULL);
+	check_contents (path, "deeper");
+	g_free (path);
 
+	/* The folder merges without a question, and each file is asked about. */
+	path = g_build_filename (taken, "d", NULL);
+	g_mkdir_with_parents (path, 0700);
+	g_free (path);
+	path = g_build_filename (taken, "a.txt", NULL);
+	check (g_file_set_contents (path, "already here", -1, NULL));
+	g_free (path);
+	path = g_build_filename (taken, "d", "c.txt", NULL);
+	check (g_file_set_contents (path, "also here", -1, NULL));
+	g_free (path);
+	refuse_id = g_timeout_add (100, keep_both, &asked);
+	run_job (archive, taken, NEMO_EXTRACT_HERE, window);
+	g_source_remove (refuse_id);
+	check (asked == 2);
+	{
+		static const char * const expect[][3] = {
+			{ "a.txt", NULL, "already here" },
+			{ "a (1).txt", NULL, "data" },
+			{ "b.txt", NULL, "data" },
+			{ "d", "c.txt", "also here" },
+			{ "d", "c (1).txt", "deeper" },
+			{ "d", "e.txt", "deeper" },
+		};
+
+		for (guint i = 0; i < G_N_ELEMENTS (expect); i++) {
+			path = g_build_filename (taken, expect[i][0], expect[i][1], NULL);
+			check_contents (path, expect[i][2]);
+			g_free (path);
+		}
+	}
+	check (count_entries (taken) == 4);
+	path = g_build_filename (taken, "d", NULL);
+	check (count_entries (path) == 3);
+	g_free (path);
+
+	g_free (taken);
 	g_free (copy);
 	g_free (dest);
 	g_free (archive);
+}
+
+/* Names that leave nothing once the archive suffix is off, each unpacked
+   beside itself into a folder of its own. */
+static void
+check_folder_fallback (const char *tmp,
+		       GtkWidget  *window)
+{
+	static const struct {
+		const char *archive;
+		const char *folder;
+	} cases[] = {
+		{ "bundle", "bundle (1)" },
+		{ "...zip", "...zip (1)" },
+	};
+	char *work = g_build_filename (tmp, "unnamed", NULL);
+	char *above = g_build_filename (tmp, "photos", NULL);
+	guint asked = 0, refuse_id;
+
+	g_mkdir_with_parents (work, 0700);
+
+	for (guint i = 0; i < G_N_ELEMENTS (cases); i++) {
+		char *archive = g_build_filename (work, cases[i].archive, NULL);
+		char *one = g_build_filename (work, cases[i].folder, "photos", "one.txt", NULL);
+		GList *archives;
+
+		write_test_zip (archive);
+		archives = g_list_prepend (NULL, g_file_new_for_path (archive));
+		refuse_id = g_timeout_add (100, refuse_dialogs, &asked);
+		check (start_and_wait (archives, work, NEMO_EXTRACT_TO_SUBFOLDER, window));
+		g_source_remove (refuse_id);
+		check_contents (one, "first");
+		check (g_file_test (archive, G_FILE_TEST_IS_REGULAR));
+
+		g_list_free_full (archives, g_object_unref);
+		g_free (one);
+		g_free (archive);
+	}
+
+	check (asked == 0);
+	/* Only the archives and their folders: nothing went in above. */
+	check (count_entries (work) == 2 * G_N_ELEMENTS (cases));
+	check (!g_file_test (above, G_FILE_TEST_EXISTS));
+
+	g_free (above);
+	g_free (work);
 }
 
 #ifndef G_OS_WIN32
@@ -739,6 +859,7 @@ main (int argc, char *argv[])
 	check_subfolder_layout (tmp, archive_path, window);
 	check_split_volumes (tmp, window);
 	check_hard_links (tmp, window);
+	check_folder_fallback (tmp, window);
 #ifndef G_OS_WIN32
 	check_pattern_names (tmp, window);
 #endif

@@ -88,6 +88,7 @@ static GThread    *config_thread;      /* whoever called init - the UI thread */
 static gboolean    hands_off;          /* the file is read but never saved over */
 static gboolean    rewrite_due;        /* converted from an older format, not saved yet */
 static gboolean    still_old;          /* on disk as converted at startup, not saved over */
+static gboolean    start_unread;       /* there at startup but not read yet, so not saved over */
 static guint       load_count;         /* bumped each time load_locked replaces the doc */
 
 /* Sharing with the other copies. A change is stamped, so 2 copies that set
@@ -726,9 +727,24 @@ dev_value_on_line (GPtrArray *values, gsize line)
 	return FALSE;
 }
 
+/* Startup couldn't read a file that's there, so the doc doesn't have what
+ * it holds and a save would write defaults over it. Saves wait for a load
+ * that reads it. */
+static void
+hold_unread_locked (void)
+{
+	hands_off = TRUE;
+	start_unread = TRUE;
+	rewrite_due = FALSE;
+	/* Nothing on disk is ours, so the next save or event reads it again. */
+	g_clear_pointer (&last_written, g_free);
+	last_written_len = 0;
+}
+
 /* @at_start: a file with no format line is read as 2.x only at startup. One
  * that turns up while running is a hand edit in progress, by today's rules,
- * unless it is still the 2.x file startup read and couldn't save over. */
+ * unless it is still the 2.x file startup read and couldn't save over, or the
+ * one startup couldn't read. */
 static void
 load_locked (gboolean at_start)
 {
@@ -737,14 +753,20 @@ load_locked (gboolean at_start)
 	GError   *error = NULL;
 	shcl_doc *fresh;
 
+	if (start_unread)
+		at_start = TRUE;
+
 	/* Refuse an implausibly large file. Keep the in-memory doc so a pending
 	 * save can't then overwrite the real file with defaults. */
 	{
 		GStatBuf st;
 		if (g_stat (config_path, &st) == 0 && st.st_size > CONFIG_MAX_BYTES) {
 			g_warning ("nemo-config: %s is %" G_GOFFSET_FORMAT
-			           " bytes (cap %d); refusing to load",
-			           config_path, (goffset) st.st_size, CONFIG_MAX_BYTES);
+			           " bytes (cap %d); refusing to load%s",
+			           config_path, (goffset) st.st_size, CONFIG_MAX_BYTES,
+			           at_start ? " or save over it" : "");
+			if (at_start)
+				hold_unread_locked ();
 			if (config_doc == NULL)
 				config_doc = new_empty_doc ();
 			return;
@@ -832,12 +854,18 @@ load_locked (gboolean at_start)
 			g_warning ("nemo-config: out of memory reading %s", config_path);
 			g_free (text);
 			rewrite_due = FALSE;
+			/* hands_off was cleared above for a doc that isn't loaded */
+			if (at_start)
+				hold_unread_locked ();
+			else if (was_hands_off)
+				hands_off = TRUE;
 			if (config_doc == NULL)
 				config_doc = new_empty_doc ();
 			return;
 		}
 		shcl_free (config_doc);
 		config_doc = fresh;
+		start_unread = FALSE;
 		load_count++;
 
 		/* A broken line is skipped, not fatal - say which, once, so a
@@ -877,9 +905,16 @@ load_locked (gboolean at_start)
 		gboolean gone = g_error_matches (error, G_FILE_ERROR, G_FILE_ERROR_NOENT);
 
 		if (!gone)
-			g_warning ("nemo-config: can't read %s: %s",
-			           config_path, error->message);
+			g_warning ("nemo-config: can't read %s: %s%s",
+			           config_path, error->message,
+			           at_start ? "; settings changed here won't be saved "
+			                      "until it can be read" : "");
 		g_clear_error (&error);
+
+		/* At startup there's nothing to keep, so that empty doc would be
+		 * saved over the file. */
+		if (!gone && at_start)
+			hold_unread_locked ();
 
 		/* A transient failure (AV/sync/editor lock, the delete half of a
 		 * non-atomic external save) must not swap defaults into memory: a
@@ -892,6 +927,7 @@ load_locked (gboolean at_start)
 			hands_off = FALSE;
 			rewrite_due = FALSE;
 			still_old = FALSE;
+			start_unread = FALSE;
 			g_clear_pointer (&last_written, g_free);
 			last_written_len = 0;
 		}
