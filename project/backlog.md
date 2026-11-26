@@ -36,7 +36,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - A settings file that exists but can't be read at start is written over by the first settings save.
 	- ID: 2026112611221034
 	- Type: Bug
-	- Status: Queued
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261126-112210
 	- Opened by: 2026112611162254
@@ -46,8 +47,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce: a settings file the app can't read when it starts, such as one with no read permission, then change any setting.
 	- Incorrect behavior: the load in nemo-config.c warns and starts from an empty document when there was none before, and nothing keeps the next save from writing it over the file. A failed reload later keeps what it has, so only the first load is open. Read only, not tried.
 	- Expected behavior: the settings file is never written over when it couldn't be read.
-	- Reproduced: No. Read only.
-	- Test case: none yet.
+	- Reproduced: 20261126, by the new tests. A file with no read permission at start was written over by the first change, and so was one over the size cap.
+	- Actual cause: the first load has no document to keep, so a read that fails, a file over the size cap, or a parse out of memory left an empty one that the next save wrote out. Later loads keep the document they have, which is why only the first was open.
+	- Actual fix: when the file is there at start but can't be read, nothing is saved over it until a load reads it. The warning says so. The next save, or a change to the file, reads it again, and the changes made meanwhile go over what it holds.
+	- Decisions:
+		- The block lifts on the first load that reads the file, as for bookmarks in 2026112611162254. Nothing is moved aside, since the file isn't damaged.
+		- That first load counts as the startup one, so a file with no format line is still read as 2.x and converted with a backup, rather than read by today's rules as a hand edit would be.
+		- A file over the size cap at start is held the same way. While running, an oversized file still keeps the settings in memory, which a save then writes, as before.
+	- Swept: every way the load gives up in `load_locked`: the read, the size cap and the parse running out of memory. A parse out of memory while running also kept a newer-format file open to saves, since the load had already cleared the flag that holds it. It keeps that flag now. A restart reads the file as startup does, so it's held the same way.
+	- Test case: dftyk `test-nemo-config-unreadable mode` and dftym `test-nemo-config-unreadable oversized`. Both failed before the fix and pass after. dftyk skips on Windows and as root off Linux, where a file's mode can't stop a read.
+	- Verified: 20261126, dftyk (as root in the build container, with the read failing by mode) and dftym pass, and fail without the fix. dav3s, ddez6, ddf4w, dc8tz, ddqa7 and dbfh8 still pass. Format and lint pass. clang finds nothing in the 2 changed C files, and gcc nothing in the test, leaving out nemo-config.c as it always does.
+	- Branch: nov26-2026112611221034
+	- Commit: 356053c6
+	- Acceptance signoff: Self-closed: the fix does what the item asked, and dftyk and dftym pin it.
+	- Closed: 20261126-113920
 
 - A bookmarks file that exists but cannot be read is written over by the next bookmark change.
 	- ID: 2026112611162254

@@ -166,6 +166,17 @@ test('ddez6 Config format upgrade test',
   timeout: 60
 )
 
+# The first load is the one that matters, so each case is a process of its own.
+configUnreadableTest = executable('test-nemo-config-unreadable',
+  [ 'test-nemo-config-unreadable.c' ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private, test_scratch ],
+)
+test('dftyk Unreadable settings file not saved over test', configUnreadableTest,
+  args: [ 'mode' ])
+test('dftym Oversized settings file not saved over test', configUnreadableTest,
+  args: [ 'oversized' ])
+
 # One writer per SHCL release from before format 3, each built against that
 # release's header alone, so the old files come from the old code. 1.0.0 is
 # the rc1 header byte for byte.
