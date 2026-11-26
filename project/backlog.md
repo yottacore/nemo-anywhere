@@ -33,276 +33,34 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- On b29w, the Windows lane marks the Desktop tests step PASS when wintest's session is locked and nothing ran.
-	- ID: 2026112612344381
+- When a file-selection drag from the checkmark column crosses into other columns, don't turn it into a regular drag. Keep it a file-selection drag.
+	- ID: 2026112610132091
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for answers
+		- Waits on the question in questions.md about which system and build it was seen on.
 	- Priority|Severity: High
-	- Opened: 20261126-123443
-	- Opened by:
-	- Target OS: Windows
-	- Target version: rc.1
-	- Steps to reproduce: run `cicd/win/lane.bash b29w` with `NEMO_WIN_DESKTOP_LIST` naming a test, while wintest's desktop session on b29w is locked.
-	- Incorrect behavior: the lane warns, skips the tests, and still reports the Desktop tests step as PASS.
-	- Expected behavior: tests that never ran show as SKIP, or fail the step, never as PASS.
-	- Reproduced: Yes, 20261126, in the nov26 test batch.
-
-- On Windows, an archive named for a device, such as CON.zip, gets a folder name Windows won't take under the own-folder layout.
-	- ID: 2026112612043611
-	- Type: Bug
-	- Status: Closed
-	- Closed reason: Done
-	- Priority|Severity: Low
-	- Opened: 20261126-120436
-	- Opened by: 2026112309242607
-	- Related IDs: 2026112309242607
-	- Target OS: Windows
-	- Target version: rc.1
-	- Steps to reproduce: on Windows, extract `CON.zip`, or `a..zip`, with the layout set to put each archive in its own folder.
-	- Incorrect behavior: the folder name is `CON`, or `a.`, which Windows refuses or cuts. Entry paths get `_` for these, but the folder name doesn't.
-	- Expected behavior: the folder is named the way an entry would be, such as `_CON`.
-	- Reproduced: 20261126, under wine, by the new rows in dbj6w. `CON.zip` gave `CON`, `a..zip` gave `a.`, and `lpt2 .bin` kept its trailing space.
-	- Actual cause: `arc_extract_any_folder_name` didn't apply the Windows fixes that `arc_extract_sanitize_path` gives entry paths.
-	- Actual fix: the entry path fix is now one function, and the own-folder name goes through it too on Windows, whichever of its 3 forms it takes. Linux and the BSDs keep the name as it is.
-	- Decisions: the fix goes on the folder name the job uses, not on `arc_extract_folder_name`, which only it and dbj6w call, so that one stays a plain suffix strip.
-	- Swept: arc-extract.c is the only caller of the folder name. Entry paths, hard link targets and long link names already go through the sanitize call. The extract conflict's new name is checked by the app before it's used.
-	- Verified: 20261126, dbj6w fails under wine with the fix taken out, for all 6 new Windows rows, and passes with it. dbj6w and dbj6x pass on Linux and under wine. The lint gate passes, and gcc's and clang's analyzers find nothing in the 2 changed .c files, on the Linux build.
-	- Verified: 20261126, dbj6w passes natively on b29w, 3 runs of 3, on a native debug build of b2254dab.
-	- Branch: nov26
-	- Commit: 0efdbf38
-	- Test case: dbj6w, Extract naming test: `CON.zip`, `nul.tar.gz`, `Com1.7z.001`, `a..zip`, `aux.bin` and `lpt2 .bin` get the Windows fixes there and stay as they are elsewhere.
-	- Acceptance signoff: Self-closed: dbj6w passes natively on b29w, on Linux and under wine.
-	- Closed: 20261126-123348
-
-- A settings file that exists but can't be read at start is written over by the first settings save.
-	- ID: 2026112611221034
-	- Type: Bug
-	- Status: Closed
-	- Closed reason: Done
-	- Priority|Severity: Avg
-	- Opened: 20261126-112210
-	- Opened by: 2026112611162254
-	- Related IDs: 2026112611162254
-	- Target OS: All
-	- Target version: rc.1
-	- Steps to reproduce: a settings file the app can't read when it starts, such as one with no read permission, then change any setting.
-	- Incorrect behavior: the load in nemo-config.c warns and starts from an empty document when there was none before, and nothing keeps the next save from writing it over the file. A failed reload later keeps what it has, so only the first load is open. Read only, not tried.
-	- Expected behavior: the settings file is never written over when it couldn't be read.
-	- Reproduced: 20261126, by the new tests. A file with no read permission at start was written over by the first change, and so was one over the size cap.
-	- Actual cause: the first load has no document to keep, so a read that fails, a file over the size cap, or a parse out of memory left an empty one that the next save wrote out. Later loads keep the document they have, which is why only the first was open.
-	- Actual fix: when the file is there at start but can't be read, nothing is saved over it until a load reads it. The warning says so. The next save, or a change to the file, reads it again, and the changes made meanwhile go over what it holds.
-	- Decisions:
-		- The block lifts on the first load that reads the file, as for bookmarks in 2026112611162254. Nothing is moved aside, since the file isn't damaged.
-		- That first load counts as the startup one, so a file with no format line is still read as 2.x and converted with a backup, rather than read by today's rules as a hand edit would be.
-		- A file over the size cap at start is held the same way. While running, an oversized file still keeps the settings in memory, which a save then writes, as before.
-	- Swept: every way the load gives up in `load_locked`: the read, the size cap and the parse running out of memory. A parse out of memory while running also kept a newer-format file open to saves, since the load had already cleared the flag that holds it. It keeps that flag now. A restart reads the file as startup does, so it's held the same way.
-	- Test case: dftyk `test-nemo-config-unreadable mode` and dftym `test-nemo-config-unreadable oversized`. Both failed before the fix and pass after. dftyk skips on Windows and as root off Linux, where a file's mode can't stop a read.
-	- Verified: 20261126, dftyk (as root in the build container, with the read failing by mode) and dftym pass, and fail without the fix. dav3s, ddez6, ddf4w, dc8tz, ddqa7 and dbfh8 still pass. Format and lint pass. clang finds nothing in the 2 changed C files, and gcc nothing in the test, leaving out nemo-config.c as it always does.
-	- Branch: nov26
-	- Commit: dc082094
-	- Acceptance signoff: Self-closed: the fix does what the item asked, and dftyk and dftym pin it.
-	- Closed: 20261126-113920
-
-- A bookmarks file that exists but cannot be read is written over by the next bookmark change.
-	- ID: 2026112611162254
-	- Type: Bug
-	- Status: Closed
-	- Closed reason: Done
-	- Priority|Severity: Low
-	- Opened: 20261126-111622
-	- Opened by: 2026112610550134
-	- Related IDs: 2026112610550134, 2026112611221034
-	- Target OS: All
-	- Target version: rc.1
-	- Steps to reproduce: a `bookmarks` file the app can't read, such as one with no read permission, then add a bookmark.
-	- Incorrect behavior: the load in nemo-bookmark-list.c only warns and leaves the list empty, and the next save writes that list over the file.
-	- Expected behavior: the bookmarks file is never written over when it couldn't be read.
-	- Reproduced: 20261126, by the new test. With no read permission the bookmarks file itself held, since the save couldn't open it either, but `bookmark-metadata` was written over from the empty list. With a read that fails on a file the save can still write, both files were written over.
-	- Actual cause: a failed load kept the list it had, empty at start, and the save always writes both files from scratch from that list.
-	- Actual fix: when the bookmarks file is there but can't be read, nothing is saved, neither the bookmarks nor their metadata, until a later load reads it. The warning says so. A legacy `.gtk-bookmarks` that can't be read doesn't block it, since the save never writes that file.
-	- Decisions: the block lifts on the next load that reads the file, such as one after the file changes, rather than lasting until restart as for a damaged metadata file. The file isn't damaged, so once it reads, the list matches it again. Bookmarks changed while blocked hold for the run until that load replaces them. Nothing is moved aside, since the file is shared with other GTK programs and its contents are fine.
-	- Swept: the other files the app reads and then writes in whole compare or rebuild generated text, except settings, where a first load that can't read the file has the same hole. That's 2026112611221034. The metadata store and `bookmark-metadata` are 2026112309242602 and 2026112610550134.
-	- Test case: dfty7 `test-nemo-bookmark-metadata unreadable`. Failed before the fix and passes after.
-	- Verified: 20261126, dfty7 passes with the read failed in the test, as root, and with the file at mode 0 as an ordinary user. It fails without the fix. dftxy and dftxz still pass.
-	- Branch: nov26
-	- Commit: cc2e8560
-	- Acceptance signoff: Self-closed: the fix does what the item asked, and dfty7 pins it.
-	- Closed: 20261126-112214
-
-- A damaged `bookmark-metadata` file is written over by the next bookmark save.
-	- ID: 2026112610550134
-	- Type: Bug
-	- Status: Closed
-	- Closed reason: Done
-	- Priority|Severity: Low
-	- Opened: 20261126-105501
-	- Opened by:
-	- Related IDs: 2026112309242602
-	- Target OS: All
-	- Steps to reproduce: a `bookmark-metadata` file that doesn't parse as a key file, then any bookmark change.
-	- Incorrect behavior: the loader in nemo-bookmark-list.c only warns, and the next save writes the bookmarks' emblems from scratch over the only copy.
-	- Expected behavior: the damaged file is kept, the way `metadata.json` is set aside as `.bad`.
-	- Reproduced: 20261126, by the new tests. With a damaged file, and with a folder named `bookmark-metadata.bad` in the way, the next bookmark save wrote over the damaged file.
-	- Test case: dftxy `test-nemo-bookmark-metadata aside` and dftxz `test-nemo-bookmark-metadata aside-fails`. Both failed before the fix and pass after.
-	- Target version: rc.1
-	- Actual cause: the loader warned and went on, and the save always writes the file from scratch from the bookmarks it has.
-	- Actual fix: the loader moves a file it can't read to `bookmark-metadata.bad`, as the metadata store does. When that move fails, bookmark metadata isn't saved for the rest of the run, so the damaged file stays as it was. The bookmarks file itself still saves. The warning says which of the 2 happened.
-	- Decisions: matches 2026112309242602, so a damaged file is never written over, and the block lasts until restart. While it holds, a reload of the bookmarks doesn't warn again.
-	- Swept: the only other key files the app writes are link files, which are saved only after they load. Every `g_rename` in source/ checks its result.
-	- Branch: nov26
-	- Commit: 4810a788
-	- Acceptance signoff: Self-closed: the fix does what the item asked, and dftxy and dftxz pin it.
-	- Closed: 20261126-111614
-	- Verified: 20261126, dftxy and dftxz pass, and fail with the fix taken out. The lint and format gates pass, and gcc's and clang's analyzers find nothing in the 2 files.
-
-- Settings: search.
-	- ID: 2026101417352263
-	- Type: Enhancement
-	- Status: Done
-	- Priority|Severity: High
-	- Opened: 20261014-173522
+	- Opened: 20261126-101321
 	- Opened by: t00mietum
+	- Related IDs: 2026110919315994
 	- Target version: rc.1
 	- Requirements:
 		- Before the next cut.
-		- Like SilkTerm's.
-		- Search bar in an unscrollable top area.
-	- Design: [Search](design_docs/20261020-121842_settings.md#search). Match order, aliases, fuzzy matching, and how a match is shown are there.
+	- Steps to reproduce: start a file-selection drag in the checkmark column, then move across into other columns.
+	- Incorrect behavior: it turns into a regular drag.
+	- Expected behavior: it stays a file-selection drag.
+	- Reproduced: No. 20261126, on Linux under the default model, in dec8v's new checks. A plain drag from the checkmark column out into Size, from a row not selected and from a selected one, and one straight across a row, each banded and dragged no files. That held with real pointer input as well as with GTK's own events.
+	- Possible cause:
+		- Read only: once a press in that column arms a band, every move goes to the band until the release, wherever the pointer is. GTK's own row drag isn't set up in the list view, so nothing else can start a file drag there.
+		- Not tried: Windows, since dec8v isn't built there. A Linux copy from before 20261110, where a plain drag from the checkmark column of a selected row still dragged files. A press just right of the thin checkmark column, which lands in Name and drags files by design.
 	- Progress log:
-		- 20261117: raised to High.
-		- 20261119: split into children 2026111912460963 (the field, label and fuzzy matches, and going to a setting) and 2026111912460983 (aliases, Done).
-		- 20261119: children 2026111912460963 wait on UAT, and the rest are closed
-	- Test case: its children's: 2026111912460963: dfh5x, Settings search matching test: the design doc's 3 examples, the order of the groups and within each, the fuzzy rules, and the markup. dd5df, Settings dialog test, now checks the field is over the pages and outside the scrolling, a search's first match and its path and marks, a fuzzy match, no match, Enter going to the setting, a tab click leaving the search, Ctrl+F, and that the first Escape only empties the field.; 2026111912460983: dfh5x, Settings search matching test: the alias table has a setting's aliases and nothing for a key without a row. dd5df, Settings dialog test: every setting with aliases has a control in the window that the search finds, and gets them on exactly one entry, and an alias typed lists its setting with the alias after the label. The file cache page is stubbed in that test, so its key is left out there.
-	- Stand-in: none (20261123). It closes with its child 2026111912460963, which waits on the look.
-
-- Settings: new tab layout, and tidying across the dialog.
-	- ID: 2026102018234905
-	- Type: Enhancement
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261020-182349
-	- Opened by: t00mietum
-	- Related IDs: 2026102018234904, 2026102018234906, 2026102018234907, 2026101816495205, 2026101417352262
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-		- Window title: "Settings - Nemo Anywhere".
-		- More vertical space between main sections, and a narrower right content section.
-		- Numbers with units are right-justified, with the unit inside the text box.
-		- The tabs regrouped under 2 parent tabs, User interface and Advanced.
-		- The Default and Current sub-tabs use the same controls, text, and layout, so they can't get out of sync.
-	- Design: [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs) and [Default and Current](design_docs/20261020-121842_settings.md#default-and-current). The full layout is there.
-	- Progress log:
-		- 20261020: the layout was moved to the settings design doc.
-		- 20261020: the Windows tab stays, after Advanced. Advanced's own page has Selection and Cache as sections. Icon size is only on Icon view, and Text size is on Compact and Detailed view. Buttons in Settings go at the left. The doc still has 5 points that need more thought.
-		- 20261020: the Windows tab goes before Advanced. Zoom in Compact and Detailed view changes Text size. Image thumbnail captions can also show image and video metadata. The doc still has 1 point that needs more thought.
-		- 20261020: "Settings text size" renamed "Dialog text size", for every dialog. There's nothing left that needs more thought.
-		- 20261124: children 2026102018234906 2026102018234907 wait on UAT, and the rest are closed
-	- Notes:
-		- The thin line under "Remember per-folder settings" is also 2026101816495205.
-	- Test case: its children's: 2026102018234906: its children's: 2026112312181296: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key moved with the other row turned off, a plain letter refused, Backspace, the revert arrow, and Reset all.; 2026112312181314: its children's: 2026112312455787: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.; 2026112312455741: dfpt0 `test-nemo-shortcuts-file`: a change another window saves is taken, one made here and not saved yet is kept, a save takes the file's changes first and keeps all 3, its own save changes nothing, a file missing lines takes nothing back, and a key turned off elsewhere is turned off here.; 2026112312455764: dd5df, Settings dialog test: keyboard, shortcut, hotkey, key binding, and Keyboard shortcuts each list the Keyboard tab.; 2026102018234907: dd5df, Settings dialog test, checks the section is on Advanced, the default, the graying, and that the thumbnail queue doesn't save onto files while the first box is off, from the box or the settings file. dbnfq, Settings widgets test, checks both labels word for word.
-	- Stand-in: none (20261124). Waits on its children 2026102018234906 and 2026102018234907, which turn on looks and wording.
-
-- Settings: a Keyboard tab where shortcuts are shown, edited, and reset, like SilkTerm's.
-	- ID: 2026102018234906
-	- Type: Enhancement
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261020-182349
-	- Opened by: t00mietum
-	- Parent ID: 2026102018234905
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-		- Under Advanced, after Cache.
-		- Keyboard shortcuts, displayed and edited (and resettable) like SilkTerm's.
-	- Design: [Keyboard tab](design_docs/20261020-121842_settings.md#keyboard-tab).
-	- Progress log:
-		- 20261123: split in 2. 2026112312181296 is the tab itself, with keys shown, changed, turned off, and reset. 2026112312181314 is other windows, the keyboard shortcuts window, and views not opened yet.
-		- 20261124: children 2026112312181296 wait on UAT, and the rest are closed
+		- 20261126: not reproduced on Linux. Added the checks below, so the case stays pinned whatever the answer turns out to be.
 	- Decisions:
-		- The tab goes under Advanced with 2026102018234905, which gives Advanced sub-tabs. Until then it's a tab of its own, after Advanced.
-	- Test case: its children's: 2026112312181296: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key moved with the other row turned off, a plain letter refused, Backspace, the revert arrow, and Reset all.; 2026112312181314: its children's: 2026112312455787: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.; 2026112312455741: dfpt0 `test-nemo-shortcuts-file`: a change another window saves is taken, one made here and not saved yet is kept, a save takes the file's changes first and keeps all 3, its own save changes nothing, a file missing lines takes nothing back, and a key turned off elsewhere is turned off here.; 2026112312455764: dd5df, Settings dialog test: keyboard, shortcut, hotkey, key binding, and Keyboard shortcuts each list the Keyboard tab.
-	- Stand-in: none (20261124). Waits on its child 2026112312181296, which turns on the look and wording of the tab.
-
-- Settings search: a search field over the tabs, with label and fuzzy matches, each shown with its path and marked letters, that goes to the setting picked.
-	- ID: 2026111912460963
-	- Type: Enhancement
-	- Status: Done
-		- For the look of the field, the match list, and the marks. The behavior is pinned by dfh5x and dd5df.
-	- Priority|Severity: High
-	- Opened: 20261119-124609
-	- Opened by: t00mietum
-	- Parent ID: 2026101417352263
-	- Target version: rc.1
-	- Requirements: the parent's, without aliases.
-	- Progress log:
-		- 20261119: built. The field is across the top of Settings, outside the scrolling. With text in it, a list of matches takes the page's place, labels as typed first and fuzzy ones after, each with its path and the matched letters marked. A pick shows the setting's tab, scrolls it into view, gives it the focus, and shades it for a moment. The Settings design doc's "Search" says how it works.
-		- 20261119: Left at signoff for the look of the field, the match list, and the marks, in light and dark themes.
-	- Decisions:
-		- The field goes across the whole top of the window, over the tab list too, as the design doc says. SilkTerm put its box over the rows only.
-		- What's searched is read from the window itself each time the text changes: the tab and sub-tab titles, the section headings, and every label that isn't a wrapped description. So a setting added to the layout is found with no list to keep up. A label's setting is its button, or the control the label names, or the label itself.
-		- A section heading is a level of the path, as in SilkTerm, since tab names alone give paths like "Views > Default > Icon size" 3 times over. A heading that only repeats its tab is left out.
-		- Fuzzy matching needs 3 letters, as in SilkTerm, and drops a match spread over more than 4 characters per letter, since 3 letters can be picked out of almost any sentence. Spaces typed don't count. A word's first letter counts for more, as in fzf, which is what makes the design doc's `Andies` example mark `dies`.
-		- Within a group: the whole label, then the label's start, then a word's start, then the middle of a word, then the layout's order. Fuzzy ones go by score.
-		- Enter, Escape, Up and Down, and Ctrl+F follow SilkTerm's choices. Picking a tab in the list leaves the search. The window opens with the focus in the field, since it's the first control.
-		- The matched letters are bold, larger and in the theme's selection color. The picked match gets a gray shade rather than the selection color, so the marks on it stay readable.
-		- The matcher already takes aliases on each entry and lists them as the middle group, so 2026111912460983 only has to supply them.
-	- Needs hand testing: the look of the field, the match list, and the marks, in a light and a dark theme.
-	- Swept: every page of the window is walked from the one stack, sub-tab stacks included, so no tab is left out. The window's size now counts the search bar, beside the close bar. Escape is handled by the field while it has the focus, and by the window's own handler otherwise, as before.
-	- Branch: nov19-2026101417352263
-	- Commit: 43d3c4fb
-	- Test case: dfh5x, Settings search matching test: the design doc's 3 examples, the order of the groups and within each, the fuzzy rules, and the markup. dd5df, Settings dialog test, now checks the field is over the pages and outside the scrolling, a search's first match and its path and marks, a fuzzy match, no match, Enter going to the setting, a tab click leaving the search, Ctrl+F, and that the first Escape only empties the field.
-	- Verified: dfh5x and dd5df pass, and each fails with part of the fix taken out: dfh5x without the word-start weight, and dd5df without the tab being shown. dbnfq, ddwqt, dd5dh and ddqa7 pass. Format and lint pass, and both analyzers are clean on the 4 C files touched.
-	- Stand-in: none (20261123). Only the look is left, and that turns on taste.
-
-- Changelog: the Nemo Anywhere selection model, for rc.1.
-	- ID: 2026111022095190
-	- Type: Task
-	- Status: Done
-		- For the wording of the new changelog entries.
-	- Priority|Severity: Avg
-	- Opened: 20261110-220951
-	- Opened by:
-	- Related IDs: 2026102019174440, 2026102407515575, 2026111707591589, 2026111913460865, 2026102018234903, 2026111912460963, 2026111912460983
-	- Target version: rc.1
-	- Progress log:
-		- The selection model work has no changelog entry yet: the model as the default, its checkmarks, focus and keys, Select none, Ctrl+I inverting and Properties on Alt+Enter, and the status bar line.
-		- Test case: the docs checks.
-		- 20261119: the changelog's vNEXT section has 7 selection model entries under Added, and one for Settings search with its aliases. Ctrl+I inverting, with Properties on Alt+Enter, is under Changed.
-	- Decisions:
-		- The affirmative switch is left out, since it's off and has no setting.
-		- Ctrl+I goes under Changed, since it changes a key that beta2 users already had.
-		- The F2 pair is in, since the Behavior checkbox's changelog entry reads as if it always counts, and it's grayed under the default.
-		- Ctrl+Shift+V is left out, since it's a paste key rather than part of the selection model.
-	- Test case: the docs checks, since it's a changelog edit.
-	- Verified: 20261119, the markdown checks and the content scrub pass on changelog.md. markdownlint reports only the duplicate headings that every release section already had.
-	- Stand-in: none (20261119). It turns on how the entries read.
-
-- Zoom in with Ctrl+ (or Ctrl=), and out with Ctrl-, changes the window size too.
-	- ID: 2026101715030685
-	- Type: Enhancement
-	- Status: Done
-		- Left at signoff for how far the window grows a step in each view, which is a matter of feel.
-	- Priority|Severity: Avg
-	- Opened: 20261017-150306
-	- Opened by: t00mietum
-	- Requirements:
-		- Cmd in place of Ctrl on macOS.
-		- Change the size of the window too, to remain approximately proportional.
-			- This should be an option, enabled by default: "On contents zoom, change window size too".
-	- Target version: rc.1
-	- Done: Zoom In, Zoom Out and Normal size, from the keyboard or the View menu, resize the window by about as much as the contents grew. Only the contents area scales, and the toolbars, side panes and status bar keep their size. The setting is `preferences.zoom-resizes-window`, a checkbox on the Views page, on by default.
-	- Done: Cmd on macOS comes from the shortcuts already using the Primary key, which is Cmd there. Unverified on a Mac, like the rest of that remap.
-	- Decisions:
-		- The icon view scales by the icon size. The compact view scales only its height, since the names beside its icons don't grow. A list scales by its text, a fifth a step, which sets the column widths and most of the row height.
-		- The window stays inside the monitor's work area, and moves back onto it when it grows past an edge. The size it would have had is kept, so zooming back out the same number of steps returns it to where it started. A size changed by hand starts over from there.
-		- A maximized, tiled or full-screen window keeps its size.
-		- The slider and Ctrl+scroll leave the window alone, since it would move under the pointer. Normal size counts as a keyboard zoom.
-	- Test case: dfpq1 `test-nemo-zoom-resize` for the arithmetic, dfpq4 `test-nemo-zoom-window` for Ctrl+plus and Ctrl+minus in each view, with the setting on and off, dbnfq `test-nemo-prefs-widgets` for the checkbox and its label.
-	- Branch: nov23-2026101715030685
-	- Commit: a548bd4b
-	- Stand-in: none (20261124). How far the window grows a step turns on feel.
+		- The new checks move the real pointer, since a band that GTK's event path keeps could still break under real input. Without that input on the display they fail rather than pass.
+	- Branch: nov26
+	- Test case: dec8v, Drag select test, Nemo Anywhere: from the checkmark column, a plain drag out into Size from a row not selected and from a selected one, and one straight across a row.
+		- 20261126: dec8v's list view count under Nemo Anywhere went from 66 to 72.
+	- Verified: 20261126, dec8v passes, and its new checks fail with the checkmark column's band turned off. ddy5f and de8ec pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
+	- Commit: 000f2aad
 
 - Settings: a Keyboard tab that lists the shortcuts, and changes, turns off, and resets each one.
 	- ID: 2026112312181296
@@ -513,34 +271,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: dfh5x and dd5df, which already hold the alias table and the search to the schema's rows.
 	- Estimated effort: Low
 
-- When a file-selection drag from the checkmark column crosses into other columns, don't turn it into a regular drag. Keep it a file-selection drag.
-	- ID: 2026112610132091
+- On b29w, the Windows lane marks the Desktop tests step PASS when wintest's session is locked and nothing ran.
+	- ID: 2026112612344381
 	- Type: Bug
-	- Status: Waiting for answers
-		- Waits on the question in questions.md about which system and build it was seen on.
+	- Status: Queued
 	- Priority|Severity: High
-	- Opened: 20261126-101321
-	- Opened by: t00mietum
-	- Related IDs: 2026110919315994
+	- Opened: 20261126-123443
+	- Opened by:
+	- Target OS: Windows
 	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-	- Steps to reproduce: start a file-selection drag in the checkmark column, then move across into other columns.
-	- Incorrect behavior: it turns into a regular drag.
-	- Expected behavior: it stays a file-selection drag.
-	- Reproduced: No. 20261126, on Linux under the default model, in dec8v's new checks. A plain drag from the checkmark column out into Size, from a row not selected and from a selected one, and one straight across a row, each banded and dragged no files. That held with real pointer input as well as with GTK's own events.
-	- Possible cause:
-		- Read only: once a press in that column arms a band, every move goes to the band until the release, wherever the pointer is. GTK's own row drag isn't set up in the list view, so nothing else can start a file drag there.
-		- Not tried: Windows, since dec8v isn't built there. A Linux copy from before 20261110, where a plain drag from the checkmark column of a selected row still dragged files. A press just right of the thin checkmark column, which lands in Name and drags files by design.
-	- Progress log:
-		- 20261126: not reproduced on Linux. Added the checks below, so the case stays pinned whatever the answer turns out to be.
-	- Decisions:
-		- The new checks move the real pointer, since a band that GTK's event path keeps could still break under real input. Without that input on the display they fail rather than pass.
-	- Branch: nov26
-	- Test case: dec8v, Drag select test, Nemo Anywhere: from the checkmark column, a plain drag out into Size from a row not selected and from a selected one, and one straight across a row.
-		- 20261126: dec8v's list view count under Nemo Anywhere went from 66 to 72.
-	- Verified: 20261126, dec8v passes, and its new checks fail with the checkmark column's band turned off. ddy5f and de8ec pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
-	- Commit: 000f2aad
+	- Steps to reproduce: run `cicd/win/lane.bash b29w` with `NEMO_WIN_DESKTOP_LIST` naming a test, while wintest's desktop session on b29w is locked.
+	- Incorrect behavior: the lane warns, skips the tests, and still reports the Desktop tests step as PASS.
+	- Expected behavior: tests that never ran show as SKIP, or fail the step, never as PASS.
+	- Reproduced: Yes, 20261126, in the nov26 test batch.
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
@@ -1486,6 +1229,57 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Verified: the new test, and the order, hold, jobs and memory thumbnail tests, pass 3 runs in a row on Linux. Lint is clean.
 	- Acceptance signoff: Self-closed: a race between zoom and rendering, which can't be checked reliably by hand. dd8d9 covers it.
 	- Closed: 20261003-112426
+
+- Settings: search.
+	- ID: 2026101417352263
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: High
+	- Opened: 20261014-173522
+	- Opened by: t00mietum
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- Like SilkTerm's.
+		- Search bar in an unscrollable top area.
+	- Design: [Search](design_docs/20261020-121842_settings.md#search). Match order, aliases, fuzzy matching, and how a match is shown are there.
+	- Progress log:
+		- 20261117: raised to High.
+		- 20261119: split into children 2026111912460963 (the field, label and fuzzy matches, and going to a setting) and 2026111912460983 (aliases, Done).
+		- 20261119: children 2026111912460963 wait on UAT, and the rest are closed
+	- Test case: its children's: 2026111912460963: dfh5x, Settings search matching test: the design doc's 3 examples, the order of the groups and within each, the fuzzy rules, and the markup. dd5df, Settings dialog test, now checks the field is over the pages and outside the scrolling, a search's first match and its path and marks, a fuzzy match, no match, Enter going to the setting, a tab click leaving the search, Ctrl+F, and that the first Escape only empties the field.; 2026111912460983: dfh5x, Settings search matching test: the alias table has a setting's aliases and nothing for a key without a row. dd5df, Settings dialog test: every setting with aliases has a control in the window that the search finds, and gets them on exactly one entry, and an alias typed lists its setting with the alias after the label. The file cache page is stubbed in that test, so its key is left out there.
+	- Stand-in: none (20261123). It closes with its child 2026111912460963, which waits on the look.
+
+- Settings search: a search field over the tabs, with label and fuzzy matches, each shown with its path and marked letters, that goes to the setting picked.
+	- ID: 2026111912460963
+	- Type: Enhancement
+	- Status: Done
+		- For the look of the field, the match list, and the marks. The behavior is pinned by dfh5x and dd5df.
+	- Priority|Severity: High
+	- Opened: 20261119-124609
+	- Opened by: t00mietum
+	- Parent ID: 2026101417352263
+	- Target version: rc.1
+	- Requirements: the parent's, without aliases.
+	- Progress log:
+		- 20261119: built. The field is across the top of Settings, outside the scrolling. With text in it, a list of matches takes the page's place, labels as typed first and fuzzy ones after, each with its path and the matched letters marked. A pick shows the setting's tab, scrolls it into view, gives it the focus, and shades it for a moment. The Settings design doc's "Search" says how it works.
+		- 20261119: Left at signoff for the look of the field, the match list, and the marks, in light and dark themes.
+	- Decisions:
+		- The field goes across the whole top of the window, over the tab list too, as the design doc says. SilkTerm put its box over the rows only.
+		- What's searched is read from the window itself each time the text changes: the tab and sub-tab titles, the section headings, and every label that isn't a wrapped description. So a setting added to the layout is found with no list to keep up. A label's setting is its button, or the control the label names, or the label itself.
+		- A section heading is a level of the path, as in SilkTerm, since tab names alone give paths like "Views > Default > Icon size" 3 times over. A heading that only repeats its tab is left out.
+		- Fuzzy matching needs 3 letters, as in SilkTerm, and drops a match spread over more than 4 characters per letter, since 3 letters can be picked out of almost any sentence. Spaces typed don't count. A word's first letter counts for more, as in fzf, which is what makes the design doc's `Andies` example mark `dies`.
+		- Within a group: the whole label, then the label's start, then a word's start, then the middle of a word, then the layout's order. Fuzzy ones go by score.
+		- Enter, Escape, Up and Down, and Ctrl+F follow SilkTerm's choices. Picking a tab in the list leaves the search. The window opens with the focus in the field, since it's the first control.
+		- The matched letters are bold, larger and in the theme's selection color. The picked match gets a gray shade rather than the selection color, so the marks on it stay readable.
+		- The matcher already takes aliases on each entry and lists them as the middle group, so 2026111912460983 only has to supply them.
+	- Needs hand testing: the look of the field, the match list, and the marks, in a light and a dark theme.
+	- Swept: every page of the window is walked from the one stack, sub-tab stacks included, so no tab is left out. The window's size now counts the search bar, beside the close bar. Escape is handled by the field while it has the focus, and by the window's own handler otherwise, as before.
+	- Branch: nov19-2026101417352263
+	- Commit: 43d3c4fb
+	- Test case: dfh5x, Settings search matching test: the design doc's 3 examples, the order of the groups and within each, the fuzzy rules, and the markup. dd5df, Settings dialog test, now checks the field is over the pages and outside the scrolling, a search's first match and its path and marks, a fuzzy match, no match, Enter going to the setting, a tab click leaving the search, Ctrl+F, and that the first Escape only empties the field.
+	- Verified: dfh5x and dd5df pass, and each fails with part of the fix taken out: dfh5x without the word-start weight, and dd5df without the tab being shown. dbnfq, ddwqt, dd5dh and ddqa7 pass. Format and lint pass, and both analyzers are clean on the 4 C files touched.
+	- Stand-in: none (20261123). Only the look is left, and that turns on taste.
 
 - Static analyzers and a heap growth check in the pipeline.
 	- ID: 2026101619020505
@@ -5703,6 +5497,104 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de025, Folder open time test. It goes into 9 folders of 120 from the list view, and back up after each. Of those, 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
 	- Acceptance signoff: Self-closed: de025 tests it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
+
+- Settings: new tab layout, and tidying across the dialog.
+	- ID: 2026102018234905
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Related IDs: 2026102018234904, 2026102018234906, 2026102018234907, 2026101816495205, 2026101417352262
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- Window title: "Settings - Nemo Anywhere".
+		- More vertical space between main sections, and a narrower right content section.
+		- Numbers with units are right-justified, with the unit inside the text box.
+		- The tabs regrouped under 2 parent tabs, User interface and Advanced.
+		- The Default and Current sub-tabs use the same controls, text, and layout, so they can't get out of sync.
+	- Design: [Planned tabs](design_docs/20261020-121842_settings.md#planned-tabs) and [Default and Current](design_docs/20261020-121842_settings.md#default-and-current). The full layout is there.
+	- Progress log:
+		- 20261020: the layout was moved to the settings design doc.
+		- 20261020: the Windows tab stays, after Advanced. Advanced's own page has Selection and Cache as sections. Icon size is only on Icon view, and Text size is on Compact and Detailed view. Buttons in Settings go at the left. The doc still has 5 points that need more thought.
+		- 20261020: the Windows tab goes before Advanced. Zoom in Compact and Detailed view changes Text size. Image thumbnail captions can also show image and video metadata. The doc still has 1 point that needs more thought.
+		- 20261020: "Settings text size" renamed "Dialog text size", for every dialog. There's nothing left that needs more thought.
+		- 20261124: children 2026102018234906 2026102018234907 wait on UAT, and the rest are closed
+	- Notes:
+		- The thin line under "Remember per-folder settings" is also 2026101816495205.
+	- Test case: its children's: 2026102018234906: its children's: 2026112312181296: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key moved with the other row turned off, a plain letter refused, Backspace, the revert arrow, and Reset all.; 2026112312181314: its children's: 2026112312455787: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.; 2026112312455741: dfpt0 `test-nemo-shortcuts-file`: a change another window saves is taken, one made here and not saved yet is kept, a save takes the file's changes first and keeps all 3, its own save changes nothing, a file missing lines takes nothing back, and a key turned off elsewhere is turned off here.; 2026112312455764: dd5df, Settings dialog test: keyboard, shortcut, hotkey, key binding, and Keyboard shortcuts each list the Keyboard tab.; 2026102018234907: dd5df, Settings dialog test, checks the section is on Advanced, the default, the graying, and that the thumbnail queue doesn't save onto files while the first box is off, from the box or the settings file. dbnfq, Settings widgets test, checks both labels word for word.
+	- Stand-in: none (20261124). Waits on its children 2026102018234906 and 2026102018234907, which turn on looks and wording.
+
+- Settings: a Keyboard tab where shortcuts are shown, edited, and reset, like SilkTerm's.
+	- ID: 2026102018234906
+	- Type: Enhancement
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234905
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- Under Advanced, after Cache.
+		- Keyboard shortcuts, displayed and edited (and resettable) like SilkTerm's.
+	- Design: [Keyboard tab](design_docs/20261020-121842_settings.md#keyboard-tab).
+	- Progress log:
+		- 20261123: split in 2. 2026112312181296 is the tab itself, with keys shown, changed, turned off, and reset. 2026112312181314 is other windows, the keyboard shortcuts window, and views not opened yet.
+		- 20261124: children 2026112312181296 wait on UAT, and the rest are closed
+	- Decisions:
+		- The tab goes under Advanced with 2026102018234905, which gives Advanced sub-tabs. Until then it's a tab of its own, after Advanced.
+	- Test case: its children's: 2026112312181296: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key moved with the other row turned off, a plain letter refused, Backspace, the revert arrow, and Reset all.; 2026112312181314: its children's: 2026112312455787: dfrca, Keyboard shortcuts window test: a group noted only when the list is first wanted, once; a row's key following a change, turned off, a key binding kept beside it, a key given to one with none, and 2 shortcuts on one row; and the window from the app's own file, with every row id there, a change while it's open, a row hidden when off, Ctrl+I by the model, and a row left out.; 2026112312455741: dfpt0 `test-nemo-shortcuts-file`: a change another window saves is taken, one made here and not saved yet is kept, a save takes the file's changes first and keeps all 3, its own save changes nothing, a file missing lines takes nothing back, and a key turned off elsewhere is turned off here.; 2026112312455764: dd5df, Settings dialog test: keyboard, shortcut, hotkey, key binding, and Keyboard shortcuts each list the Keyboard tab.
+	- Stand-in: none (20261124). Waits on its child 2026112312181296, which turns on the look and wording of the tab.
+
+- Changelog: the Nemo Anywhere selection model, for rc.1.
+	- ID: 2026111022095190
+	- Type: Task
+	- Status: Done
+		- For the wording of the new changelog entries.
+	- Priority|Severity: Avg
+	- Opened: 20261110-220951
+	- Opened by:
+	- Related IDs: 2026102019174440, 2026102407515575, 2026111707591589, 2026111913460865, 2026102018234903, 2026111912460963, 2026111912460983
+	- Target version: rc.1
+	- Progress log:
+		- The selection model work has no changelog entry yet: the model as the default, its checkmarks, focus and keys, Select none, Ctrl+I inverting and Properties on Alt+Enter, and the status bar line.
+		- Test case: the docs checks.
+		- 20261119: the changelog's vNEXT section has 7 selection model entries under Added, and one for Settings search with its aliases. Ctrl+I inverting, with Properties on Alt+Enter, is under Changed.
+	- Decisions:
+		- The affirmative switch is left out, since it's off and has no setting.
+		- Ctrl+I goes under Changed, since it changes a key that beta2 users already had.
+		- The F2 pair is in, since the Behavior checkbox's changelog entry reads as if it always counts, and it's grayed under the default.
+		- Ctrl+Shift+V is left out, since it's a paste key rather than part of the selection model.
+	- Test case: the docs checks, since it's a changelog edit.
+	- Verified: 20261119, the markdown checks and the content scrub pass on changelog.md. markdownlint reports only the duplicate headings that every release section already had.
+	- Stand-in: none (20261119). It turns on how the entries read.
+
+- Zoom in with Ctrl+ (or Ctrl=), and out with Ctrl-, changes the window size too.
+	- ID: 2026101715030685
+	- Type: Enhancement
+	- Status: Done
+		- Left at signoff for how far the window grows a step in each view, which is a matter of feel.
+	- Priority|Severity: Avg
+	- Opened: 20261017-150306
+	- Opened by: t00mietum
+	- Requirements:
+		- Cmd in place of Ctrl on macOS.
+		- Change the size of the window too, to remain approximately proportional.
+			- This should be an option, enabled by default: "On contents zoom, change window size too".
+	- Target version: rc.1
+	- Done: Zoom In, Zoom Out and Normal size, from the keyboard or the View menu, resize the window by about as much as the contents grew. Only the contents area scales, and the toolbars, side panes and status bar keep their size. The setting is `preferences.zoom-resizes-window`, a checkbox on the Views page, on by default.
+	- Done: Cmd on macOS comes from the shortcuts already using the Primary key, which is Cmd there. Unverified on a Mac, like the rest of that remap.
+	- Decisions:
+		- The icon view scales by the icon size. The compact view scales only its height, since the names beside its icons don't grow. A list scales by its text, a fifth a step, which sets the column widths and most of the row height.
+		- The window stays inside the monitor's work area, and moves back onto it when it grows past an edge. The size it would have had is kept, so zooming back out the same number of steps returns it to where it started. A size changed by hand starts over from there.
+		- A maximized, tiled or full-screen window keeps its size.
+		- The slider and Ctrl+scroll leave the window alone, since it would move under the pointer. Normal size counts as a keyboard zoom.
+	- Test case: dfpq1 `test-nemo-zoom-resize` for the arithmetic, dfpq4 `test-nemo-zoom-window` for Ctrl+plus and Ctrl+minus in each view, with the setting on and off, dbnfq `test-nemo-prefs-widgets` for the checkbox and its label.
+	- Branch: nov23-2026101715030685
+	- Commit: a548bd4b
+	- Stand-in: none (20261124). How far the window grows a step turns on feel.
 
 - Static analyzers: CodeQL and the clang analyzer in cross-file mode under `--leakcheck`.
 	- ID: 2026102114400592
@@ -13696,6 +13588,35 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: all 45 items under it are Done.
 	- Closed: 20261006-165500
 
+- A settings file that exists but can't be read at start is written over by the first settings save.
+	- ID: 2026112611221034
+	- Type: Bug
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Avg
+	- Opened: 20261126-112210
+	- Opened by: 2026112611162254
+	- Related IDs: 2026112611162254
+	- Target OS: All
+	- Target version: rc.1
+	- Steps to reproduce: a settings file the app can't read when it starts, such as one with no read permission, then change any setting.
+	- Incorrect behavior: the load in nemo-config.c warns and starts from an empty document when there was none before, and nothing keeps the next save from writing it over the file. A failed reload later keeps what it has, so only the first load is open. Read only, not tried.
+	- Expected behavior: the settings file is never written over when it couldn't be read.
+	- Reproduced: 20261126, by the new tests. A file with no read permission at start was written over by the first change, and so was one over the size cap.
+	- Actual cause: the first load has no document to keep, so a read that fails, a file over the size cap, or a parse out of memory left an empty one that the next save wrote out. Later loads keep the document they have, which is why only the first was open.
+	- Actual fix: when the file is there at start but can't be read, nothing is saved over it until a load reads it. The warning says so. The next save, or a change to the file, reads it again, and the changes made meanwhile go over what it holds.
+	- Decisions:
+		- The block lifts on the first load that reads the file, as for bookmarks in 2026112611162254. Nothing is moved aside, since the file isn't damaged.
+		- That first load counts as the startup one, so a file with no format line is still read as 2.x and converted with a backup, rather than read by today's rules as a hand edit would be.
+		- A file over the size cap at start is held the same way. While running, an oversized file still keeps the settings in memory, which a save then writes, as before.
+	- Swept: every way the load gives up in `load_locked`: the read, the size cap and the parse running out of memory. A parse out of memory while running also kept a newer-format file open to saves, since the load had already cleared the flag that holds it. It keeps that flag now. A restart reads the file as startup does, so it's held the same way.
+	- Test case: dftyk `test-nemo-config-unreadable mode` and dftym `test-nemo-config-unreadable oversized`. Both failed before the fix and pass after. dftyk skips on Windows and as root off Linux, where a file's mode can't stop a read.
+	- Verified: 20261126, dftyk (as root in the build container, with the read failing by mode) and dftym pass, and fail without the fix. dav3s, ddez6, ddf4w, dc8tz, ddqa7 and dbfh8 still pass. Format and lint pass. clang finds nothing in the 2 changed C files, and gcc nothing in the test, leaving out nemo-config.c as it always does.
+	- Branch: nov26
+	- Commit: dc082094
+	- Acceptance signoff: Self-closed: the fix does what the item asked, and dftyk and dftym pin it.
+	- Closed: 20261126-113920
+
 - The native gate on b29w sometimes fails on test-nemo-office's leftover folder.
 	- ID: 2026103116203164
 	- Type: Bug
@@ -14028,6 +13949,85 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: dd5df's new check fails without the change and passes with it.
 	- Closed: 20261123-130250
 
+- On Windows, an archive named for a device, such as CON.zip, gets a folder name Windows won't take under the own-folder layout.
+	- ID: 2026112612043611
+	- Type: Bug
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Low
+	- Opened: 20261126-120436
+	- Opened by: 2026112309242607
+	- Related IDs: 2026112309242607
+	- Target OS: Windows
+	- Target version: rc.1
+	- Steps to reproduce: on Windows, extract `CON.zip`, or `a..zip`, with the layout set to put each archive in its own folder.
+	- Incorrect behavior: the folder name is `CON`, or `a.`, which Windows refuses or cuts. Entry paths get `_` for these, but the folder name doesn't.
+	- Expected behavior: the folder is named the way an entry would be, such as `_CON`.
+	- Reproduced: 20261126, under wine, by the new rows in dbj6w. `CON.zip` gave `CON`, `a..zip` gave `a.`, and `lpt2 .bin` kept its trailing space.
+	- Actual cause: `arc_extract_any_folder_name` didn't apply the Windows fixes that `arc_extract_sanitize_path` gives entry paths.
+	- Actual fix: the entry path fix is now one function, and the own-folder name goes through it too on Windows, whichever of its 3 forms it takes. Linux and the BSDs keep the name as it is.
+	- Decisions: the fix goes on the folder name the job uses, not on `arc_extract_folder_name`, which only it and dbj6w call, so that one stays a plain suffix strip.
+	- Swept: arc-extract.c is the only caller of the folder name. Entry paths, hard link targets and long link names already go through the sanitize call. The extract conflict's new name is checked by the app before it's used.
+	- Verified: 20261126, dbj6w fails under wine with the fix taken out, for all 6 new Windows rows, and passes with it. dbj6w and dbj6x pass on Linux and under wine. The lint gate passes, and gcc's and clang's analyzers find nothing in the 2 changed .c files, on the Linux build.
+	- Verified: 20261126, dbj6w passes natively on b29w, 3 runs of 3, on a native debug build of b2254dab.
+	- Branch: nov26
+	- Commit: 0efdbf38
+	- Test case: dbj6w, Extract naming test: `CON.zip`, `nul.tar.gz`, `Com1.7z.001`, `a..zip`, `aux.bin` and `lpt2 .bin` get the Windows fixes there and stay as they are elsewhere.
+	- Acceptance signoff: Self-closed: dbj6w passes natively on b29w, on Linux and under wine.
+	- Closed: 20261126-123348
+
+- A bookmarks file that exists but cannot be read is written over by the next bookmark change.
+	- ID: 2026112611162254
+	- Type: Bug
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Low
+	- Opened: 20261126-111622
+	- Opened by: 2026112610550134
+	- Related IDs: 2026112610550134, 2026112611221034
+	- Target OS: All
+	- Target version: rc.1
+	- Steps to reproduce: a `bookmarks` file the app can't read, such as one with no read permission, then add a bookmark.
+	- Incorrect behavior: the load in nemo-bookmark-list.c only warns and leaves the list empty, and the next save writes that list over the file.
+	- Expected behavior: the bookmarks file is never written over when it couldn't be read.
+	- Reproduced: 20261126, by the new test. With no read permission the bookmarks file itself held, since the save couldn't open it either, but `bookmark-metadata` was written over from the empty list. With a read that fails on a file the save can still write, both files were written over.
+	- Actual cause: a failed load kept the list it had, empty at start, and the save always writes both files from scratch from that list.
+	- Actual fix: when the bookmarks file is there but can't be read, nothing is saved, neither the bookmarks nor their metadata, until a later load reads it. The warning says so. A legacy `.gtk-bookmarks` that can't be read doesn't block it, since the save never writes that file.
+	- Decisions: the block lifts on the next load that reads the file, such as one after the file changes, rather than lasting until restart as for a damaged metadata file. The file isn't damaged, so once it reads, the list matches it again. Bookmarks changed while blocked hold for the run until that load replaces them. Nothing is moved aside, since the file is shared with other GTK programs and its contents are fine.
+	- Swept: the other files the app reads and then writes in whole compare or rebuild generated text, except settings, where a first load that can't read the file has the same hole. That's 2026112611221034. The metadata store and `bookmark-metadata` are 2026112309242602 and 2026112610550134.
+	- Test case: dfty7 `test-nemo-bookmark-metadata unreadable`. Failed before the fix and passes after.
+	- Verified: 20261126, dfty7 passes with the read failed in the test, as root, and with the file at mode 0 as an ordinary user. It fails without the fix. dftxy and dftxz still pass.
+	- Branch: nov26
+	- Commit: cc2e8560
+	- Acceptance signoff: Self-closed: the fix does what the item asked, and dfty7 pins it.
+	- Closed: 20261126-112214
+
+- A damaged `bookmark-metadata` file is written over by the next bookmark save.
+	- ID: 2026112610550134
+	- Type: Bug
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: Low
+	- Opened: 20261126-105501
+	- Opened by:
+	- Related IDs: 2026112309242602
+	- Target OS: All
+	- Steps to reproduce: a `bookmark-metadata` file that doesn't parse as a key file, then any bookmark change.
+	- Incorrect behavior: the loader in nemo-bookmark-list.c only warns, and the next save writes the bookmarks' emblems from scratch over the only copy.
+	- Expected behavior: the damaged file is kept, the way `metadata.json` is set aside as `.bad`.
+	- Reproduced: 20261126, by the new tests. With a damaged file, and with a folder named `bookmark-metadata.bad` in the way, the next bookmark save wrote over the damaged file.
+	- Test case: dftxy `test-nemo-bookmark-metadata aside` and dftxz `test-nemo-bookmark-metadata aside-fails`. Both failed before the fix and pass after.
+	- Target version: rc.1
+	- Actual cause: the loader warned and went on, and the save always writes the file from scratch from the bookmarks it has.
+	- Actual fix: the loader moves a file it can't read to `bookmark-metadata.bad`, as the metadata store does. When that move fails, bookmark metadata isn't saved for the rest of the run, so the damaged file stays as it was. The bookmarks file itself still saves. The warning says which of the 2 happened.
+	- Decisions: matches 2026112309242602, so a damaged file is never written over, and the block lasts until restart. While it holds, a reload of the bookmarks doesn't warn again.
+	- Swept: the only other key files the app writes are link files, which are saved only after they load. Every `g_rename` in source/ checks its result.
+	- Branch: nov26
+	- Commit: 4810a788
+	- Acceptance signoff: Self-closed: the fix does what the item asked, and dftxy and dftxz pin it.
+	- Closed: 20261126-111614
+	- Verified: 20261126, dftxy and dftxz pass, and fail with the fix taken out. The lint and format gates pass, and gcc's and clang's analyzers find nothing in the 2 files.
+
 - Under the Windows 10 and Windows 7 themes, the frame around a row a file is about to drop into can barely be seen.
 	- ID: 2026112310420234
 	- Type: Bug
@@ -14303,6 +14303,113 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - **Stop here (in new format) for a next release**.
 
+- On Windows, each start of the instance service adds its interfaces again.
+	- ID: 2026112309242605
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261123-092426
+	- Opened by: t00mietum
+	- Target OS: Windows
+	- Steps to reproduce: a start of the instance service that fails, then a retry, or a start after `nemo_instances_stop`.
+	- Incorrect behavior: `nemo_instances_start` in nemo-instances.c calls `nemo_instances_serve` for both interfaces before it knows the start worked, so they're registered twice.
+	- Expected behavior: each interface is registered once.
+	- Reproduced: No.
+	- Test case: none yet.
+
+- Add keyboard shortcut names and key names to Find.
+	- ID: 2026112610132104
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261126-101321
+	- Opened by: t00mietum
+	- Test case: none yet.
+
+- Different and more subtle color for mouse highlight row.
+	- ID: 2026112610132118
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261126-101321
+	- Opened by: t00mietum
+	- Test case: none yet.
+
+- Settings: "Advanced" tab should always be the last.
+	- ID: 2026112610132131
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261126-101321
+	- Opened by: t00mietum
+	- Related IDs: 2026102018234906, 2026102018234905
+	- Test case: none yet.
+
+- Compression: Option to reveal the password.
+	- ID: 2026112610132144
+	- Type: Enhancement
+	- Status: Queued
+	- Opened: 20261126-101321
+	- Opened by: t00mietum
+	- Requirements:
+		- Always off on new dialog.
+	- Test case: none yet.
+
+- The column chooser leaks the names of the hidden columns each time it is read.
+	- ID: 2026110718100651
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Avg
+	- Opened: 20261107-181006
+	- Opened by: t00mietum
+	- Closed: 20261107-182700
+	- Related IDs: 2026110520234231
+	- Target version: rc.1
+	- Steps to reproduce: a full run at cb54b955. The sanitizer suite runs dd5df.
+	- Incorrect behavior: dd5df passes its own checks, then the leak check reports 197 bytes in 16 blocks, and the Sanitizer suite step stops the run.
+	- Expected behavior: nothing leaks.
+	- Actual cause: `get_column_names` in nemo-column-chooser.c copies every row's name out of the model and, when asked for the shown ones only, keeps those and drops the rest without freeing them. The bug was inherited from upstream. The list view's column menu reads the chooser the same way on every change, so the program leaked a few bytes per edit too. The settings dialog test is the first to read a chooser under the sanitizer.
+	- Fix: the dropped names are freed.
+	- Verified: 20261107. dd5df passes under the sanitizer with whole stacks, where it reported 16 blocks from this function before. The plain suite passes, 241 OK.
+	- Branch: chooserleak
+	- Test case: dd5df under ddgt8.
+	- Acceptance signoff: Self-closed: a pipeline failure with nothing on screen, and dd5df tests it.
+
+- The day-to-day build image has no SVG pixbuf loader.
+	- ID: 2026110718100652
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261107-181006
+	- Opened by: t00mietum
+	- Target version: rc.1
+	- Closed: 20261107-182700
+	- Steps to reproduce: run dd5df in the image and read its stderr.
+	- Incorrect behavior: GTK warns "Could not load a pixbuf from /org/gtk/libgtk/theme/Adwaita/assets/bullet-symbolic.svg" when the dialog draws a checked radio button, and any icon a theme has only as SVG is skipped.
+	- Expected behavior: SVG assets and icons draw as they do on a desktop.
+	- Actual cause: Dockerfile.dev gets librsvg2-2 through GTK but not librsvg2-common, which has the gdk-pixbuf loader.
+	- Fix: librsvg2-common is installed. The image's hash tag moves with it.
+	- Verified: 20261107. The rebuilt image has the loader, dd5df's stderr is clean in the sanitizer suite, and the plain suite passes, 241 OK. The whole sanitizer suite passes in it too, so the loader reports no leak of its own.
+	- Branch: chooserleak
+	- Test case: dd5df's stderr in the plain and sanitizer suites. There's no new test.
+	- Acceptance signoff: Self-closed: a container recipe gap with nothing on screen.
+
+- The tests that skip off Linux and FreeBSD warn on the mac build about unused helpers and arguments.
+	- ID: 2026110808460051
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261108-084600
+	- Opened by: t00mietum
+	- Closed: 20261108-085000
+	- Target OS: macOS
+	- Target version: rc.1
+	- Steps to reproduce: a full run's private runner step, or a clang syntax check of the tests with `__linux__` undefined.
+	- Incorrect behavior: 75 warning lines over 22 tests, for unused parameter `argc` and `argv`, and unused helper functions and tables, in every test whose main skips with 77 off Linux and FreeBSD.
+	- Expected behavior: no warnings at any stage.
+	- Actual cause: the skip sits inside main, so the helpers above it and main's own arguments are compiled and never used there.
+	- Fix: the helpers sit under the same guard, and the skip branch marks `argc` and `argv` used. test-nemo-connecting, test-nemo-list-expand-time, test-nemo-open-time and test-nemo-rename-photo already did this and were left alone.
+	- Verified: 20261108. The clang check with `__linux__` undefined gives 0 warning lines over the 201 test sources, from 75 before. The plain suite passes, 241 OK.
+	- Test case: none new. The private runner's mac build and lint-report pick up a new one.
+	- Acceptance signoff: Self-closed: compiler warnings with nothing on screen.
+
 - The Move to and Copy to choosers can act on a view that is already gone.
 	- ID: 2026112309242601
 	- Type: Bug
@@ -14404,20 +14511,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: dcy2e failed before the fix and passes after.
 	- Closed: 20261126-110534
 
-- On Windows, each start of the instance service adds its interfaces again.
-	- ID: 2026112309242605
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261123-092426
-	- Opened by: t00mietum
-	- Target OS: Windows
-	- Steps to reproduce: a start of the instance service that fails, then a retry, or a start after `nemo_instances_stop`.
-	- Incorrect behavior: `nemo_instances_start` in nemo-instances.c calls `nemo_instances_serve` for both interfaces before it knows the start worked, so they're registered twice.
-	- Expected behavior: each interface is registered once.
-	- Reproduced: No.
-	- Test case: none yet.
-
 - A hard link in an archive is skipped without a word when its source was renamed.
 	- ID: 2026112309242606
 	- Type: Bug
@@ -14474,99 +14567,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: dbj6w, Extract naming test: `..zip` and `...zip` have no folder name, and the fallback names. dbj6x, Extract job test: `bundle` and `...zip` unpack into their own folders, beside themselves, and nothing goes in above.
 	- Acceptance signoff: Self-closed: dbj6x and dbj6w cover it.
 	- Closed: 20261126-115732
-
-- Add keyboard shortcut names and key names to Find.
-	- ID: 2026112610132104
-	- Type: Enhancement
-	- Status: Queued
-	- Opened: 20261126-101321
-	- Opened by: t00mietum
-	- Test case: none yet.
-
-- Different and more subtle color for mouse highlight row.
-	- ID: 2026112610132118
-	- Type: Enhancement
-	- Status: Queued
-	- Opened: 20261126-101321
-	- Opened by: t00mietum
-	- Test case: none yet.
-
-- Settings: "Advanced" tab should always be the last.
-	- ID: 2026112610132131
-	- Type: Enhancement
-	- Status: Queued
-	- Opened: 20261126-101321
-	- Opened by: t00mietum
-	- Related IDs: 2026102018234906, 2026102018234905
-	- Test case: none yet.
-
-- Compression: Option to reveal the password.
-	- ID: 2026112610132144
-	- Type: Enhancement
-	- Status: Queued
-	- Opened: 20261126-101321
-	- Opened by: t00mietum
-	- Requirements:
-		- Always off on new dialog.
-	- Test case: none yet.
-
-- The column chooser leaks the names of the hidden columns each time it is read.
-	- ID: 2026110718100651
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Avg
-	- Opened: 20261107-181006
-	- Opened by: t00mietum
-	- Closed: 20261107-182700
-	- Related IDs: 2026110520234231
-	- Target version: rc.1
-	- Steps to reproduce: a full run at cb54b955. The sanitizer suite runs dd5df.
-	- Incorrect behavior: dd5df passes its own checks, then the leak check reports 197 bytes in 16 blocks, and the Sanitizer suite step stops the run.
-	- Expected behavior: nothing leaks.
-	- Actual cause: `get_column_names` in nemo-column-chooser.c copies every row's name out of the model and, when asked for the shown ones only, keeps those and drops the rest without freeing them. The bug was inherited from upstream. The list view's column menu reads the chooser the same way on every change, so the program leaked a few bytes per edit too. The settings dialog test is the first to read a chooser under the sanitizer.
-	- Fix: the dropped names are freed.
-	- Verified: 20261107. dd5df passes under the sanitizer with whole stacks, where it reported 16 blocks from this function before. The plain suite passes, 241 OK.
-	- Branch: chooserleak
-	- Test case: dd5df under ddgt8.
-	- Acceptance signoff: Self-closed: a pipeline failure with nothing on screen, and dd5df tests it.
-
-- The day-to-day build image has no SVG pixbuf loader.
-	- ID: 2026110718100652
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20261107-181006
-	- Opened by: t00mietum
-	- Target version: rc.1
-	- Closed: 20261107-182700
-	- Steps to reproduce: run dd5df in the image and read its stderr.
-	- Incorrect behavior: GTK warns "Could not load a pixbuf from /org/gtk/libgtk/theme/Adwaita/assets/bullet-symbolic.svg" when the dialog draws a checked radio button, and any icon a theme has only as SVG is skipped.
-	- Expected behavior: SVG assets and icons draw as they do on a desktop.
-	- Actual cause: Dockerfile.dev gets librsvg2-2 through GTK but not librsvg2-common, which has the gdk-pixbuf loader.
-	- Fix: librsvg2-common is installed. The image's hash tag moves with it.
-	- Verified: 20261107. The rebuilt image has the loader, dd5df's stderr is clean in the sanitizer suite, and the plain suite passes, 241 OK. The whole sanitizer suite passes in it too, so the loader reports no leak of its own.
-	- Branch: chooserleak
-	- Test case: dd5df's stderr in the plain and sanitizer suites. There's no new test.
-	- Acceptance signoff: Self-closed: a container recipe gap with nothing on screen.
-
-- The tests that skip off Linux and FreeBSD warn on the mac build about unused helpers and arguments.
-	- ID: 2026110808460051
-	- Type: Bug
-	- Status: Done
-	- Priority|Severity: Low
-	- Opened: 20261108-084600
-	- Opened by: t00mietum
-	- Closed: 20261108-085000
-	- Target OS: macOS
-	- Target version: rc.1
-	- Steps to reproduce: a full run's private runner step, or a clang syntax check of the tests with `__linux__` undefined.
-	- Incorrect behavior: 75 warning lines over 22 tests, for unused parameter `argc` and `argv`, and unused helper functions and tables, in every test whose main skips with 77 off Linux and FreeBSD.
-	- Expected behavior: no warnings at any stage.
-	- Actual cause: the skip sits inside main, so the helpers above it and main's own arguments are compiled and never used there.
-	- Fix: the helpers sit under the same guard, and the skip branch marks `argc` and `argv` used. test-nemo-connecting, test-nemo-list-expand-time, test-nemo-open-time and test-nemo-rename-photo already did this and were left alone.
-	- Verified: 20261108. The clang check with `__linux__` undefined gives 0 warning lines over the 201 test sources, from 75 before. The plain suite passes, 241 OK.
-	- Test case: none new. The private runner's mac build and lint-report pick up a new one.
-	- Acceptance signoff: Self-closed: compiler warnings with nothing on screen.
 
 - The affirmative half of the "Nemo Anywhere" selection model.
 	- ID: 2026102019174514
