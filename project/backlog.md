@@ -14097,6 +14097,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: dav3s, Config store test: `test_long_list_stacked`, a long favorites list with quotes, a comma, brackets and a leading `-` in items, written stacked and read back, a short list kept in brackets, and a stacked list read from the file staying stacked when set long and then short.
 	- Acceptance signoff: Self-closed: dav3s fails without the change and passes with it.
 	- Closed: 20261125-135028
+	- Upstream: SHCL 2026112517314397 (20261125), a setter for the stacked form. Once it's in, `stack_long_lists` can go.
 
 - Settings: sub-tabs don't list on the left until the parent tab is activated.
 	- ID: 2026101417352262
