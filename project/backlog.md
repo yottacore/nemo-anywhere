@@ -14183,17 +14183,30 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The Move to and Copy to choosers can act on a view that is already gone.
 	- ID: 2026112309242601
 	- Type: Bug
-	- Status: Queued
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Avg
 	- Opened: 20261123-092426
 	- Opened by: t00mietum
 	- Target OS: All
+	- Target version: rc.1
 	- Steps to reproduce: open Move to or Copy to from a file's menu, close the tab or window behind the chooser, then pick a folder.
 	- Incorrect behavior: `browse_move_to_response_cb` and `browse_copy_to_response_cb` in nemo-view.c get the view as a plain pointer and use it after it may have been freed.
 	- Expected behavior: the chooser closes with its view, or the answer is dropped when the view is gone.
-	- Reproduced: No.
+	- Reproduced: 20261126, on Linux. With a tab closed under it, each chooser stayed up, still holding the view.
 	- Possible cause: the extract-to chooser had the same fault and no longer needs the view. These 2 do, so they need a weak ref, or the chooser destroyed with the view.
-	- Test case: none yet.
+	- Actual cause: the choosers aren't modal, and nothing tied them to the view they answer to. Select items matching had the same fault; it closed with the window, not with its tab.
+	- Actual fix: each of the 3 dialogs closes when its view is destroyed, through one helper in nemo-view.c.
+	- Decisions:
+		- The dialog closes with the view, rather than staying up and dropping the answer, since a pick that does nothing would surprise more than a dialog that goes with its tab.
+		- The answer still needs the view, unlike extract to, since the move or copy selects what it made there and records the undo.
+		- A view is also replaced when the view type changes, Ctrl+1 to Ctrl+4, so an open dialog closes then too.
+	- Swept: every "response" handler under `source/src` and `source/libnemo-private`. Of those given a view or slot, only these 3 were left. Extract to, Open with, and Connect to server don't hold the view.
+	- Verified: 20261126, dftx0 fails on the code before the fix, 3 of its 4 checks, and passes after. dfsky still passes. gcc's and clang's analyzers are clean on the 3 changed .c files.
+	- Branch: nov26-2026112309242601
+	- Test case: dftx0, Dialogs close with their tab test: Move to, Copy to and Select items matching each close with their tab, and Move to stays up when another tab closes. Linux and FreeBSD only.
+	- Acceptance signoff: Self-closed: dftx0 failed before the fix and passes after.
+	- Closed: 20261126-104415
 
 - The metadata store can lose a damaged `metadata.json` when setting it aside fails.
 	- ID: 2026112309242602

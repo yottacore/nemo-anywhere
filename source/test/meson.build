@@ -1988,6 +1988,21 @@ if not is_windows
     timeout: 120
   )
 
+  # Preloaded too; it closes a tab while one of its dialogs is up.
+  dialog_tab_close_probe = shared_module('test-nemo-dialog-tab-close-probe',
+    [ 'test-nemo-dialog-tab-close-probe.c' ],
+    dependencies: [ gtk ],
+  )
+  test('dftx0 Dialogs close with their tab test',
+    executable('test-nemo-dialog-tab-close',
+      [ 'test-nemo-dialog-tab-close.c' ],
+      include_directories: [ rootInclude, ],
+      dependencies: [ glib, gio, test_scratch ],
+    ),
+    args: [ nemo, dialog_tab_close_probe ],
+    timeout: 120
+  )
+
   # Preloaded too; it reads the View menu and toolbar, and presses the view keys.
   view_keys_probe = shared_module('test-nemo-view-keys-probe',
     [ 'test-nemo-view-keys-probe.c' ],
