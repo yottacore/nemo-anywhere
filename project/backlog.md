@@ -33,10 +33,27 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- A bookmarks file that exists but cannot be read is written over by the next bookmark change.
+	- ID: 2026112611162254
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261126-111622
+	- Opened by: 2026112610550134
+	- Related IDs: 2026112610550134
+	- Target OS: All
+	- Target version: rc.1
+	- Steps to reproduce: a `bookmarks` file the app can't read, such as one with no read permission, then add a bookmark.
+	- Incorrect behavior: the load in nemo-bookmark-list.c only warns and leaves the list empty, and the next save writes that list over the file. Read only, not tried.
+	- Expected behavior: the bookmarks file is never written over when it couldn't be read.
+	- Reproduced: No. Read only.
+	- Test case: none yet.
+
 - A damaged `bookmark-metadata` file is written over by the next bookmark save.
 	- ID: 2026112610550134
 	- Type: Bug
-	- Status: Queued
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Low
 	- Opened: 20261126-105501
 	- Opened by:
@@ -45,9 +62,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce: a `bookmark-metadata` file that doesn't parse as a key file, then any bookmark change.
 	- Incorrect behavior: the loader in nemo-bookmark-list.c only warns, and the next save writes the bookmarks' emblems from scratch over the only copy.
 	- Expected behavior: the damaged file is kept, the way `metadata.json` is set aside as `.bad`.
-	- Reproduced: No. Read only.
-	- Test case: none yet.
+	- Reproduced: 20261126, by the new tests. With a damaged file, and with a folder named `bookmark-metadata.bad` in the way, the next bookmark save wrote over the damaged file.
+	- Test case: dftxy `test-nemo-bookmark-metadata aside` and dftxz `test-nemo-bookmark-metadata aside-fails`. Both failed before the fix and pass after.
 	- Target version: rc.1
+	- Actual cause: the loader warned and went on, and the save always writes the file from scratch from the bookmarks it has.
+	- Actual fix: the loader moves a file it can't read to `bookmark-metadata.bad`, as the metadata store does. When that move fails, bookmark metadata isn't saved for the rest of the run, so the damaged file stays as it was. The bookmarks file itself still saves. The warning says which of the 2 happened.
+	- Decisions: matches 2026112309242602, so a damaged file is never written over, and the block lasts until restart. While it holds, a reload of the bookmarks doesn't warn again.
+	- Swept: the only other key files the app writes are link files, which are saved only after they load. Every `g_rename` in source/ checks its result.
+	- Branch: nov26-2026112610550134
+	- Commit: b4bcaede
+	- Acceptance signoff: Self-closed: the fix does what the item asked, and dftxy and dftxz pin it.
+	- Closed: 20261126-111614
+	- Verified: 20261126, dftxy and dftxz pass, and fail with the fix taken out. The lint and format gates pass, and gcc's and clang's analyzers find nothing in the 2 files.
 
 - Settings: search.
 	- ID: 2026101417352263

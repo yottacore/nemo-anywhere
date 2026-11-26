@@ -451,6 +451,18 @@ test('da8qa Metadata store test', metadataStoreTest, args: [])
 test('dftxa Damaged metadata kept when it cannot be moved aside test', metadataStoreTest,
   args: [ 'aside-fails' ])
 
+# The bookmark list is in src/, not a library, so it's compiled straight in.
+bookmarkMetadataTest = executable('test-nemo-bookmark-metadata',
+  [ 'test-nemo-bookmark-metadata.c' ],
+  include_directories: [ rootInclude, include_directories('../src') ],
+  dependencies: [ gtk, nemo_private, test_scratch ],
+  c_args: nemo_definitions,
+)
+test('dftxy Damaged bookmark metadata set aside test', bookmarkMetadataTest,
+  args: [ 'aside' ])
+test('dftxz Damaged bookmark metadata kept when it cannot be moved aside test',
+  bookmarkMetadataTest, args: [ 'aside-fails' ])
+
 # Needs the slug define: the point of the test is the path the app builds.
 test('dbfh8 Config root test',
   executable('test-nemo-config-root',
