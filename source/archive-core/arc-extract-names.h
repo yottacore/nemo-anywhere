@@ -36,7 +36,8 @@ char    *arc_extract_folder_name     (const char *archive_name);
 
 /* The same, but never NULL. A name with no archive suffix loses its last
    extension, and one with none left over gets " (1)" on the end, so the folder
-   can't be the archive itself. */
+   can't be the archive itself. On Windows it gets the fixes an entry name
+   does, so "CON.zip" unpacks into "_CON". */
 char    *arc_extract_any_folder_name (const char *archive_name);
 
 /* "notes.txt" at attempt 1 -> "notes (1).txt". The extension is kept so a

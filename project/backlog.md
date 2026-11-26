@@ -36,7 +36,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, an archive named for a device, such as CON.zip, gets a folder name Windows won't take under the own-folder layout.
 	- ID: 2026112612043611
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs external testing: dbj6w natively on Windows, on b29w. It passes under wine.
 	- Priority|Severity: Low
 	- Opened: 20261126-120436
 	- Opened by: 2026112309242607
@@ -46,9 +47,15 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce: on Windows, extract `CON.zip`, or `a..zip`, with the layout set to put each archive in its own folder.
 	- Incorrect behavior: the folder name is `CON`, or `a.`, which Windows refuses or cuts. Entry paths get `_` for these, but the folder name doesn't.
 	- Expected behavior: the folder is named the way an entry would be, such as `_CON`.
-	- Reproduced: No. Read only.
-	- Possible cause: `arc_extract_any_folder_name` doesn't apply the Windows fixes that `arc_extract_sanitize_path` gives entry paths.
-	- Test case: none yet.
+	- Reproduced: 20261126, under wine, by the new rows in dbj6w. `CON.zip` gave `CON`, `a..zip` gave `a.`, and `lpt2 .bin` kept its trailing space.
+	- Actual cause: `arc_extract_any_folder_name` didn't apply the Windows fixes that `arc_extract_sanitize_path` gives entry paths.
+	- Actual fix: the entry path fix is now one function, and the own-folder name goes through it too on Windows, whichever of its 3 forms it takes. Linux and the BSDs keep the name as it is.
+	- Decisions: the fix goes on the folder name the job uses, not on `arc_extract_folder_name`, which only it and dbj6w call, so that one stays a plain suffix strip.
+	- Swept: arc-extract.c is the only caller of the folder name. Entry paths, hard link targets and long link names already go through the sanitize call. The extract conflict's new name is checked by the app before it's used.
+	- Verified: 20261126, dbj6w fails under wine with the fix taken out, for all 6 new Windows rows, and passes with it. dbj6w and dbj6x pass on Linux and under wine. The lint gate passes, and gcc's and clang's analyzers find nothing in the 2 changed .c files, on the Linux build.
+	- Branch: nov26-2026112612043611
+	- Commit: 3f513c76
+	- Test case: dbj6w, Extract naming test: `CON.zip`, `nul.tar.gz`, `Com1.7z.001`, `a..zip`, `aux.bin` and `lpt2 .bin` get the Windows fixes there and stay as they are elsewhere.
 
 - A settings file that exists but can't be read at start is written over by the first settings save.
 	- ID: 2026112611221034

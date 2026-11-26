@@ -123,6 +123,24 @@ check_any_folder_names (void)
 		{ "..zip", "..zip (1)" },
 		{ "...", "... (1)" },
 		{ ".hidden", ".hidden (1)" },
+		/* A name Windows won't take is fixed there the way an entry's is. */
+#ifdef G_OS_WIN32
+		{ "CON.zip", "_CON" },
+		{ "nul.tar.gz", "_nul" },
+		{ "Com1.7z.001", "_Com1" },
+		{ "a..zip", "a_" },
+		{ "aux.bin", "_aux" },
+		{ "lpt2 .bin", "lpt2_" },
+		{ "console.zip", "console" },
+#else
+		{ "CON.zip", "CON" },
+		{ "nul.tar.gz", "nul" },
+		{ "Com1.7z.001", "Com1" },
+		{ "a..zip", "a." },
+		{ "aux.bin", "aux" },
+		{ "lpt2 .bin", "lpt2 " },
+		{ "console.zip", "console" },
+#endif
 	};
 
 	for (guint i = 0; i < G_N_ELEMENTS (cases); i++) {
