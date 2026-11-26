@@ -75,8 +75,47 @@ test_damaged_file_set_aside (void)
 	g_free (dir);
 }
 
+/* When the damaged file can't be moved aside, it's still the only copy, so
+ * nothing may be saved over it. A folder already named .bad makes the move
+ * fail on every platform. Run in a process of its own, since the store loads
+ * once. The warning it logs is expected. */
+static void
+test_damaged_file_aside_fails (void)
+{
+	const char *damaged = "{ \"file:///tmp/kept\": { \"nemo-icon-view-zoom\": ";
+	char *dir, *store_file, *aside, *blocker, *contents = NULL, *value;
+
+	dir = nemo_get_user_directory ();
+	store_file = g_build_filename (dir, "metadata.json", NULL);
+	aside = g_strconcat (store_file, ".bad", NULL);
+	blocker = g_build_filename (aside, "in-the-way", NULL);
+	check (g_mkdir_with_parents (aside, 0700) == 0);
+	check (g_file_set_contents (blocker, "x", -1, NULL));
+	check (g_file_set_contents (store_file, damaged, -1, NULL));
+
+	nemo_metadata_store_set_string ("file:///tmp/new", "new-key", "n");
+	nemo_metadata_store_flush ();
+
+	check (g_file_get_contents (store_file, &contents, NULL, NULL));
+	check (g_strcmp0 (contents, damaged) == 0);
+	g_free (contents);
+
+	/* The change still holds for this run. */
+	value = info_string ("file:///tmp/new", "new-key");
+	check (g_strcmp0 (value, "n") == 0);
+	g_free (value);
+
+	g_remove (blocker);
+	g_rmdir (aside);
+	g_remove (store_file);
+	g_free (blocker);
+	g_free (aside);
+	g_free (store_file);
+	g_free (dir);
+}
+
 int
-main (void)
+main (int argc, char **argv)
 {
 	g_autofree char *tmpdir = NULL;
 	char *value;
@@ -87,6 +126,14 @@ main (void)
 
 	tmpdir = test_scratch_config_home ("nemo-metastore-test-XXXXXX");
 	g_assert (tmpdir != NULL);
+
+	if (argc > 1 && strcmp (argv[1], "aside-fails") == 0) {
+		test_damaged_file_aside_fails ();
+		if (failures == 0) {
+			g_print ("metadata-store aside-fails: all checks passed\n");
+		}
+		return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+	}
 
 	test_damaged_file_set_aside ();
 

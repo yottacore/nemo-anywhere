@@ -442,14 +442,14 @@ test('db9ys Thumbnail factory test',
   timeout: 180        # the hung-helper case waits out the thumbnailer timeout
 )
 
-test('da8qa Metadata store test',
-  executable('test-nemo-metadata-store',
-    [ 'test-nemo-metadata-store.c' ],
-    include_directories: [ rootInclude, ],
-    dependencies: [ gtk, nemo_private, test_scratch ],
-  ),
-  args: []
+metadataStoreTest = executable('test-nemo-metadata-store',
+  [ 'test-nemo-metadata-store.c' ],
+  include_directories: [ rootInclude, ],
+  dependencies: [ gtk, nemo_private, test_scratch ],
 )
+test('da8qa Metadata store test', metadataStoreTest, args: [])
+test('dftxa Damaged metadata kept when it cannot be moved aside test', metadataStoreTest,
+  args: [ 'aside-fails' ])
 
 # Needs the slug define: the point of the test is the path the app builds.
 test('dbfh8 Config root test',

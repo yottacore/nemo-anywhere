@@ -33,6 +33,22 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- A damaged `bookmark-metadata` file is written over by the next bookmark save.
+	- ID: 2026112610550134
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261126-105501
+	- Opened by:
+	- Related IDs: 2026112309242602
+	- Target OS: All
+	- Steps to reproduce: a `bookmark-metadata` file that doesn't parse as a key file, then any bookmark change.
+	- Incorrect behavior: the loader in nemo-bookmark-list.c only warns, and the next save writes the bookmarks' emblems from scratch over the only copy.
+	- Expected behavior: the damaged file is kept, the way `metadata.json` is set aside as `.bad`.
+	- Reproduced: No. Read only.
+	- Test case: none yet.
+	- Target version: rc.1
+
 - Settings: search.
 	- ID: 2026101417352263
 	- Type: Enhancement
@@ -14211,7 +14227,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - The metadata store can lose a damaged `metadata.json` when setting it aside fails.
 	- ID: 2026112309242602
 	- Type: Bug
-	- Status: Queued
+	- Status: Closed
 	- Priority|Severity: Avg
 	- Opened: 20261123-092426
 	- Opened by: t00mietum
@@ -14219,9 +14235,19 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce: a `metadata.json` that doesn't parse, in a folder where the rename to `metadata.json.bad` fails.
 	- Incorrect behavior: the `g_rename` in nemo-metadata-store.c isn't checked, so the next save writes an empty store over the only copy of every folder's view, zoom, sort and layout.
 	- Expected behavior: the damaged file is never written over.
-	- Reproduced: No.
+	- Reproduced: 20261126, by the new test with a folder already named `metadata.json.bad` in the way. The next save wrote over the damaged file.
 	- Possible cause: needs a choice of what to do when the rename fails, such as copying it aside, or refusing to save until restart.
-	- Test case: none yet.
+	- Test case: dftxa `test-nemo-metadata-store aside-fails`. Failed before the fix, passes after. da8qa still passes.
+	- Closed reason: Done
+	- Target version: rc.1
+	- Actual cause: the rename's result was dropped, so a failed move left the damaged file in place and the empty store was saved over it.
+	- Decisions: when the move fails, the store stops saving until restart and says so in the warning. Changes still hold in memory for the run. A copy aside was left out, since whatever stops the move, such as a locked file or the folder in the way, usually stops the copy too, and that would leave the same hole.
+	- Actual fix: the rename is checked. On failure the store won't save for the rest of the run, so the damaged file stays as it was. The warning now says which of the 2 happened.
+	- Swept: every other `g_rename` in source/ checks its result. The same class of bug in `bookmark-metadata`, which has no set-aside at all, is 2026112610550134.
+	- Branch: nov26-2026112309242602
+	- Acceptance signoff: Self-closed: the fix does what the item asked, and dftxa pins it.
+	- Closed: 20261126-105600
+	- Commit: 8e55b5f2
 
 - The favorites metadata calls hold a lock across a settings signal.
 	- ID: 2026112309242603
