@@ -33,6 +33,20 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- On b29w, the Windows lane marks the Desktop tests step PASS when wintest's session is locked and nothing ran.
+	- ID: 2026112612344381
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261126-123443
+	- Opened by:
+	- Target OS: Windows
+	- Target version: rc.1
+	- Steps to reproduce: run `cicd/win/lane.bash b29w` with `NEMO_WIN_DESKTOP_LIST` naming a test, while wintest's desktop session on b29w is locked.
+	- Incorrect behavior: the lane warns, skips the tests, and still reports the Desktop tests step as PASS.
+	- Expected behavior: tests that never ran show as SKIP, or fail the step, never as PASS.
+	- Reproduced: Yes, 20261126, in the nov26 test batch.
+
 - On Windows, an archive named for a device, such as CON.zip, gets a folder name Windows won't take under the own-folder layout.
 	- ID: 2026112612043611
 	- Type: Bug
