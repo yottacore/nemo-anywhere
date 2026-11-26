@@ -23,18 +23,23 @@
 
 /* Preloaded into the real program by test-nemo-drag-select. Once the window
  * shows $NEMO_DRAG_FOLDER, it presses and drags in the folder view named by
- * $NEMO_DRAG_VIEW, through GTK's own event path, and checks what each did to
+ * $NEMO_DRAG_VIEW, through GTK's own event path, or through XTest for the
+ * few that need real input, and checks what each did to
  * the selection, whether a file drag began, and when a menu opened. In the
  * list view it also right-clicks a Places row, and in the others a row of the
  * tree pane. Each list view check under Nemo Anywhere, and each icon view
  * check, also looks at the checkmarks. One "ok" or "FAIL" line per check goes to $NEMO_DRAG_OUT, and
  * "done" at the end. Every file drag is canceled, so nothing moves. */
 
+#include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <gtk/gtk.h>
+#ifdef GDK_WINDOWING_X11
+#include <gdk/gdkx.h>
+#endif
 #include <eel/eel-canvas.h>
 
 #define BUTTON_MASK(b) (GDK_BUTTON1_MASK << ((b) - 1))
@@ -56,6 +61,11 @@ static int             bands;
 static GdkDragContext *drag_context;
 static guint           held;
 static guint32         stamp;
+#ifdef GDK_WINDOWING_X11
+/* XTest, looked up at run time so the probe builds without its headers. */
+static int           (*fake_motion) (Display *, int, int, int, unsigned long);
+static int           (*fake_button) (Display *, unsigned int, Bool, unsigned long);
+#endif
 static gboolean        finished;
 
 static void
@@ -232,6 +242,64 @@ release (GdkWindow *window_for, guint button, guint modifiers, double x, double 
 		gtk_drag_cancel (drag_context);
 		g_clear_object (&drag_context);
 	}
+}
+
+/* The same drag through the X server, a step per tick, for what only real
+   input shows: GDK's own grab and crossing events (#2026112610132091).
+   FALSE until it's done, and TRUE at once without XTest, with no drag made. */
+static gboolean
+x_drag (guint button, double x0, double y0, double x1, double y1)
+{
+#ifdef GDK_WINDOWING_X11
+	static gboolean tried;
+	GdkDisplay *display = gdk_window_get_display (bin);
+	Display *xdisplay;
+	int origin_x, origin_y, part = drag_part++;
+	void *lib;
+
+	if (!tried) {
+		tried = TRUE;
+		lib = GDK_IS_X11_DISPLAY (display) ? dlopen ("libXtst.so.6", RTLD_NOW) : NULL;
+		if (lib != NULL) {
+			*(void **) &fake_motion = dlsym (lib, "XTestFakeMotionEvent");
+			*(void **) &fake_button = dlsym (lib, "XTestFakeButtonEvent");
+		}
+	}
+	if (fake_motion == NULL || fake_button == NULL) {
+		drag_part = 0;
+		return TRUE;
+	}
+
+	xdisplay = GDK_DISPLAY_XDISPLAY (display);
+	gdk_window_get_origin (bin, &origin_x, &origin_y);
+	if (part == 0) {
+		drags = 0;
+		bands = 0;
+		close_menu ();
+		fake_motion (xdisplay, -1, origin_x + (int) x0, origin_y + (int) y0, CurrentTime);
+	} else if (part == 1) {
+		fake_button (xdisplay, button, True, CurrentTime);
+		held |= BUTTON_MASK (button);
+	} else if (part <= 9) {
+		fake_motion (xdisplay, -1, origin_x + (int) (x0 + (x1 - x0) * (part - 1) / 8),
+			     origin_y + (int) (y0 + (y1 - y0) * (part - 1) / 8), CurrentTime);
+	} else if (part == 10) {
+		fake_button (xdisplay, button, False, CurrentTime);
+		held &= ~BUTTON_MASK (button);
+	} else {
+		if (drag_context != NULL) {
+			gtk_drag_cancel (drag_context);
+			g_clear_object (&drag_context);
+		}
+		drag_part = 0;
+		return TRUE;
+	}
+	gdk_display_flush (display);
+	return FALSE;
+#else
+	(void) button; (void) x0; (void) y0; (void) x1; (void) y1;
+	return TRUE;
+#endif
 }
 
 static void
@@ -1061,6 +1129,39 @@ list_tick (void)
 		release (bin, 1, GDK_CONTROL_MASK | GDK_SHIFT_MASK, checks_x (), row_y (5));
 		report (drags == 0, "Ctrl+Shift and a drag from the checkmark column of a selected row drags no files");
 		check_selection ("1,2,3,4,5", "and bands, adding to the selection");
+		break;
+	/* A band from the checkmark column stays one out in the other columns
+	   (#2026112610132091). */
+	case 42:
+		if (drag_part == 0) {
+			select_items (none);
+		}
+		if (!x_drag (1, checks_x (), row_y (1), blank_x (), row_y (3))) {
+			return FALSE;
+		}
+		report (drags == 0, "a plain drag from the checkmark column out into Size drags no files");
+		check_selection ("1,2,3", "and bands from the row pressed");
+		break;
+	case 43:
+		if (drag_part == 0) {
+			select_items (second_to_fourth);
+		}
+		if (!x_drag (1, checks_x (), row_y (2), blank_x (), row_y (5))) {
+			return FALSE;
+		}
+		report (drags == 0, "a plain drag from the checkmark column of a selected row out into Size drags no files");
+		check_selection ("2,3,4,5", "and bands, in place of the selection");
+		break;
+	case 44:
+		/* Straight across, so the band never leaves the row. */
+		if (drag_part == 0) {
+			select_items (none);
+		}
+		if (!x_drag (1, checks_x (), row_y (4), blank_x (), row_y (4))) {
+			return FALSE;
+		}
+		report (drags == 0, "a plain drag from the checkmark column straight across the row drags no files");
+		check_selection ("4", "and bands that row");
 		finish ();
 		return TRUE;
 	}

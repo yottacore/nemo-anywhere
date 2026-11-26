@@ -394,7 +394,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - When a file-selection drag from the checkmark column crosses into other columns, don't turn it into a regular drag. Keep it a file-selection drag.
 	- ID: 2026112610132091
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting for answers
+		- Waits on the question in questions.md about which system and build it was seen on.
 	- Priority|Severity: High
 	- Opened: 20261126-101321
 	- Opened by: t00mietum
@@ -405,8 +406,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce: start a file-selection drag in the checkmark column, then move across into other columns.
 	- Incorrect behavior: it turns into a regular drag.
 	- Expected behavior: it stays a file-selection drag.
-	- Reproduced: No.
-	- Test case: none yet.
+	- Reproduced: No. 20261126, on Linux under the default model, in dec8v's new checks. A plain drag from the checkmark column out into Size, from a row not selected and from a selected one, and one straight across a row, each banded and dragged no files. That held with real pointer input as well as with GTK's own events.
+	- Possible cause:
+		- Read only: once a press in that column arms a band, every move goes to the band until the release, wherever the pointer is. GTK's own row drag isn't set up in the list view, so nothing else can start a file drag there.
+		- Not tried: Windows, since dec8v isn't built there. A Linux copy from before 20261110, where a plain drag from the checkmark column of a selected row still dragged files. A press just right of the thin checkmark column, which lands in Name and drags files by design.
+	- Progress log:
+		- 20261126: not reproduced on Linux. Added the checks below, so the case stays pinned whatever the answer turns out to be.
+	- Decisions:
+		- The new checks move the real pointer, since a band that GTK's event path keeps could still break under real input. Without that input on the display they fail rather than pass.
+	- Branch: nov26-2026112610132091
+	- Test case: dec8v, Drag select test, Nemo Anywhere: from the checkmark column, a plain drag out into Size from a row not selected and from a selected one, and one straight across a row.
+		- 20261126: dec8v's list view count under Nemo Anywhere went from 66 to 72.
+	- Verified: 20261126, dec8v passes, and its new checks fail with the checkmark column's band turned off. ddy5f and de8ec pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
