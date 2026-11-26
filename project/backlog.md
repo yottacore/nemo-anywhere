@@ -33,21 +33,47 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- A settings file that exists but can't be read at start is written over by the first settings save.
+	- ID: 2026112611221034
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Avg
+	- Opened: 20261126-112210
+	- Opened by: 2026112611162254
+	- Related IDs: 2026112611162254
+	- Target OS: All
+	- Target version: rc.1
+	- Steps to reproduce: a settings file the app can't read when it starts, such as one with no read permission, then change any setting.
+	- Incorrect behavior: the load in nemo-config.c warns and starts from an empty document when there was none before, and nothing keeps the next save from writing it over the file. A failed reload later keeps what it has, so only the first load is open. Read only, not tried.
+	- Expected behavior: the settings file is never written over when it couldn't be read.
+	- Reproduced: No. Read only.
+	- Test case: none yet.
+
 - A bookmarks file that exists but cannot be read is written over by the next bookmark change.
 	- ID: 2026112611162254
 	- Type: Bug
-	- Status: Queued
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Low
 	- Opened: 20261126-111622
 	- Opened by: 2026112610550134
-	- Related IDs: 2026112610550134
+	- Related IDs: 2026112610550134, 2026112611221034
 	- Target OS: All
 	- Target version: rc.1
 	- Steps to reproduce: a `bookmarks` file the app can't read, such as one with no read permission, then add a bookmark.
-	- Incorrect behavior: the load in nemo-bookmark-list.c only warns and leaves the list empty, and the next save writes that list over the file. Read only, not tried.
+	- Incorrect behavior: the load in nemo-bookmark-list.c only warns and leaves the list empty, and the next save writes that list over the file.
 	- Expected behavior: the bookmarks file is never written over when it couldn't be read.
-	- Reproduced: No. Read only.
-	- Test case: none yet.
+	- Reproduced: 20261126, by the new test. With no read permission the bookmarks file itself held, since the save couldn't open it either, but `bookmark-metadata` was written over from the empty list. With a read that fails on a file the save can still write, both files were written over.
+	- Actual cause: a failed load kept the list it had, empty at start, and the save always writes both files from scratch from that list.
+	- Actual fix: when the bookmarks file is there but can't be read, nothing is saved, neither the bookmarks nor their metadata, until a later load reads it. The warning says so. A legacy `.gtk-bookmarks` that can't be read doesn't block it, since the save never writes that file.
+	- Decisions: the block lifts on the next load that reads the file, such as one after the file changes, rather than lasting until restart as for a damaged metadata file. The file isn't damaged, so once it reads, the list matches it again. Bookmarks changed while blocked hold for the run until that load replaces them. Nothing is moved aside, since the file is shared with other GTK programs and its contents are fine.
+	- Swept: the other files the app reads and then writes in whole compare or rebuild generated text, except settings, where a first load that can't read the file has the same hole. That's 2026112611221034. The metadata store and `bookmark-metadata` are 2026112309242602 and 2026112610550134.
+	- Test case: dfty7 `test-nemo-bookmark-metadata unreadable`. Failed before the fix and passes after.
+	- Verified: 20261126, dfty7 passes with the read failed in the test, as root, and with the file at mode 0 as an ordinary user. It fails without the fix. dftxy and dftxz still pass.
+	- Branch: nov26-2026112611162254
+	- Commit: e03f8a10
+	- Acceptance signoff: Self-closed: the fix does what the item asked, and dfty7 pins it.
+	- Closed: 20261126-112214
 
 - A damaged `bookmark-metadata` file is written over by the next bookmark save.
 	- ID: 2026112610550134

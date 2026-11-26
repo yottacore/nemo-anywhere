@@ -61,6 +61,10 @@ static NemoBookmarkList *singleton = NULL;
 /* A damaged bookmark-metadata file that couldn't be moved aside. Set by the
    load thread and read by the save thread. */
 static gint metadata_save_blocked = 0;
+/* The bookmarks file is there but the last load couldn't read it, so the
+   list in memory isn't what's on disk. Set and cleared by the load thread,
+   read by the save thread. */
+static gint bookmarks_save_blocked = 0;
 
 /* forward declarations */
 
@@ -820,7 +824,12 @@ load_files_finish (NemoBookmarkList *bookmarks,
     GList *new_list = g_task_propagate_pointer (G_TASK (res), &error);
 
     if (error != NULL && !g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND)) {
-        g_warning ("Couldn't load bookmarks: %s\n", error->message);
+        if (g_atomic_int_get (&bookmarks_save_blocked)) {
+            g_warning ("Couldn't load bookmarks: %s - bookmarks won't be saved until the file can be read",
+                       error->message);
+        } else {
+            g_warning ("Couldn't load bookmarks: %s", error->message);
+        }
         g_error_free (error);
         return;
     }
@@ -870,6 +879,7 @@ load_files_thread (GTask        *task,
                               NULL,
                               NULL,
                               &error)) {
+        g_atomic_int_set (&bookmarks_save_blocked, 0);
 
         GList *metadata = load_bookmark_metadata_file (list);
 
@@ -916,6 +926,16 @@ load_files_thread (GTask        *task,
 
         g_task_return_pointer (task, new_list, NULL);
     } else {
+        /* The save writes the whole file from the list, which is empty or
+           stale now. A legacy file isn't saved to, so it needs no guard. */
+        if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND)) {
+            GFile *target = nemo_bookmark_list_get_file ();
+
+            if (g_file_equal (file, target)) {
+                g_atomic_int_set (&bookmarks_save_blocked, 1);
+            }
+            g_object_unref (target);
+        }
         g_task_return_error (task, error);
     }
 
@@ -1039,6 +1059,13 @@ save_files_thread (GTask        *task,
     if (bookmarks->monitor != NULL) {
         g_file_monitor_cancel (bookmarks->monitor);
         bookmarks->monitor = NULL;
+    }
+
+    /* Bookmark metadata is skipped too, since it's written from the same
+       list. The monitor is re-armed when this finishes either way. */
+    if (g_atomic_int_get (&bookmarks_save_blocked)) {
+        g_task_return_boolean (task, TRUE);
+        return;
     }
 
     file = nemo_bookmark_list_get_file ();

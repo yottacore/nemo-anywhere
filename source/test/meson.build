@@ -462,6 +462,8 @@ test('dftxy Damaged bookmark metadata set aside test', bookmarkMetadataTest,
   args: [ 'aside' ])
 test('dftxz Damaged bookmark metadata kept when it cannot be moved aside test',
   bookmarkMetadataTest, args: [ 'aside-fails' ])
+test('dfty7 Unreadable bookmarks file not saved over test', bookmarkMetadataTest,
+  args: [ 'unreadable' ])
 
 # Needs the slug define: the point of the test is the path the app builds.
 test('dbfh8 Config root test',
