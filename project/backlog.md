@@ -53,8 +53,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions: the fix goes on the folder name the job uses, not on `arc_extract_folder_name`, which only it and dbj6w call, so that one stays a plain suffix strip.
 	- Swept: arc-extract.c is the only caller of the folder name. Entry paths, hard link targets and long link names already go through the sanitize call. The extract conflict's new name is checked by the app before it's used.
 	- Verified: 20261126, dbj6w fails under wine with the fix taken out, for all 6 new Windows rows, and passes with it. dbj6w and dbj6x pass on Linux and under wine. The lint gate passes, and gcc's and clang's analyzers find nothing in the 2 changed .c files, on the Linux build.
-	- Branch: nov26-2026112612043611
-	- Commit: 3f513c76
+	- Branch: nov26
+	- Commit: 0efdbf38
 	- Test case: dbj6w, Extract naming test: `CON.zip`, `nul.tar.gz`, `Com1.7z.001`, `a..zip`, `aux.bin` and `lpt2 .bin` get the Windows fixes there and stay as they are elsewhere.
 
 - A settings file that exists but can't be read at start is written over by the first settings save.
@@ -81,8 +81,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: every way the load gives up in `load_locked`: the read, the size cap and the parse running out of memory. A parse out of memory while running also kept a newer-format file open to saves, since the load had already cleared the flag that holds it. It keeps that flag now. A restart reads the file as startup does, so it's held the same way.
 	- Test case: dftyk `test-nemo-config-unreadable mode` and dftym `test-nemo-config-unreadable oversized`. Both failed before the fix and pass after. dftyk skips on Windows and as root off Linux, where a file's mode can't stop a read.
 	- Verified: 20261126, dftyk (as root in the build container, with the read failing by mode) and dftym pass, and fail without the fix. dav3s, ddez6, ddf4w, dc8tz, ddqa7 and dbfh8 still pass. Format and lint pass. clang finds nothing in the 2 changed C files, and gcc nothing in the test, leaving out nemo-config.c as it always does.
-	- Branch: nov26-2026112611221034
-	- Commit: 356053c6
+	- Branch: nov26
+	- Commit: dc082094
 	- Acceptance signoff: Self-closed: the fix does what the item asked, and dftyk and dftym pin it.
 	- Closed: 20261126-113920
 
@@ -107,8 +107,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Swept: the other files the app reads and then writes in whole compare or rebuild generated text, except settings, where a first load that can't read the file has the same hole. That's 2026112611221034. The metadata store and `bookmark-metadata` are 2026112309242602 and 2026112610550134.
 	- Test case: dfty7 `test-nemo-bookmark-metadata unreadable`. Failed before the fix and passes after.
 	- Verified: 20261126, dfty7 passes with the read failed in the test, as root, and with the file at mode 0 as an ordinary user. It fails without the fix. dftxy and dftxz still pass.
-	- Branch: nov26-2026112611162254
-	- Commit: e03f8a10
+	- Branch: nov26
+	- Commit: cc2e8560
 	- Acceptance signoff: Self-closed: the fix does what the item asked, and dfty7 pins it.
 	- Closed: 20261126-112214
 
@@ -132,8 +132,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual fix: the loader moves a file it can't read to `bookmark-metadata.bad`, as the metadata store does. When that move fails, bookmark metadata isn't saved for the rest of the run, so the damaged file stays as it was. The bookmarks file itself still saves. The warning says which of the 2 happened.
 	- Decisions: matches 2026112309242602, so a damaged file is never written over, and the block lasts until restart. While it holds, a reload of the bookmarks doesn't warn again.
 	- Swept: the only other key files the app writes are link files, which are saved only after they load. Every `g_rename` in source/ checks its result.
-	- Branch: nov26-2026112610550134
-	- Commit: b4bcaede
+	- Branch: nov26
+	- Commit: 4810a788
 	- Acceptance signoff: Self-closed: the fix does what the item asked, and dftxy and dftxz pin it.
 	- Closed: 20261126-111614
 	- Verified: 20261126, dftxy and dftxz pass, and fail with the fix taken out. The lint and format gates pass, and gcc's and clang's analyzers find nothing in the 2 files.
@@ -519,10 +519,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261126: not reproduced on Linux. Added the checks below, so the case stays pinned whatever the answer turns out to be.
 	- Decisions:
 		- The new checks move the real pointer, since a band that GTK's event path keeps could still break under real input. Without that input on the display they fail rather than pass.
-	- Branch: nov26-2026112610132091
+	- Branch: nov26
 	- Test case: dec8v, Drag select test, Nemo Anywhere: from the checkmark column, a plain drag out into Size from a row not selected and from a selected one, and one straight across a row.
 		- 20261126: dec8v's list view count under Nemo Anywhere went from 66 to 72.
 	- Verified: 20261126, dec8v passes, and its new checks fail with the checkmark column's band turned off. ddy5f and de8ec pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
+	- Commit: 000f2aad
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
@@ -14308,10 +14309,11 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- A view is also replaced when the view type changes, Ctrl+1 to Ctrl+4, so an open dialog closes then too.
 	- Swept: every "response" handler under `source/src` and `source/libnemo-private`. Of those given a view or slot, only these 3 were left. Extract to, Open with, and Connect to server don't hold the view.
 	- Verified: 20261126, dftx0 fails on the code before the fix, 3 of its 4 checks, and passes after. dfsky still passes. gcc's and clang's analyzers are clean on the 3 changed .c files.
-	- Branch: nov26-2026112309242601
+	- Branch: nov26
 	- Test case: dftx0, Dialogs close with their tab test: Move to, Copy to and Select items matching each close with their tab, and Move to stays up when another tab closes. Linux and FreeBSD only.
 	- Acceptance signoff: Self-closed: dftx0 failed before the fix and passes after.
 	- Closed: 20261126-104415
+	- Commit: dbed3cb2
 
 - The metadata store can lose a damaged `metadata.json` when setting it aside fails.
 	- ID: 2026112309242602
@@ -14333,10 +14335,10 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions: when the move fails, the store stops saving until restart and says so in the warning. Changes still hold in memory for the run. A copy aside was left out, since whatever stops the move, such as a locked file or the folder in the way, usually stops the copy too, and that would leave the same hole.
 	- Actual fix: the rename is checked. On failure the store won't save for the rest of the run, so the damaged file stays as it was. The warning now says which of the 2 happened.
 	- Swept: every other `g_rename` in source/ checks its result. The same class of bug in `bookmark-metadata`, which has no set-aside at all, is 2026112610550134.
-	- Branch: nov26-2026112309242602
+	- Branch: nov26
 	- Acceptance signoff: Self-closed: the fix does what the item asked, and dftxa pins it.
 	- Closed: 20261126-105600
-	- Commit: 8e55b5f2
+	- Commit: 6bc083d3
 
 - The favorites metadata calls hold a lock across a settings signal.
 	- ID: 2026112309242603
@@ -14357,8 +14359,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions: the writers stay serialized, rather than just dropping the lock before the set, since a set from a worker thread and one from the main thread could otherwise each write back a list without the other's row.
 	- Swept: the 3 places in nemo-favorite-vfs-file.c that take the lock: the read in query_info, which never sets, and the 2 writers, both fixed. nemo-favorites.c already lets go of its list lock before its set.
 	- Test case: db9wp `test-nemo-favorites metadata-reentry`. It hung before the fix, and passes after.
-	- Branch: nov26-2026112309242603
-	- Commit: c96680fe
+	- Branch: nov26
+	- Commit: 318d889e
 	- Acceptance signoff: Self-closed: db9wp failed before the fix and passes after.
 	- Closed: 20261126-110534
 
@@ -14380,8 +14382,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions: clamped rather than refused at load, since a size that big can only mean no limit, and the dialog already caps it at 1024.
 	- Swept: the only other float setting, the thumbnail memory budget in nemo-thumbnail-memory.c, already caps at 1024 GiB before its cast.
 	- Test case: dcy2e `test-nemo-cache-prune`, check_size_limit. It failed 4 checks before the fix, and passes after.
-	- Branch: nov26-2026112309242603
-	- Commit: c96680fe
+	- Branch: nov26
+	- Commit: 318d889e
 	- Acceptance signoff: Self-closed: dcy2e failed before the fix and passes after.
 	- Closed: 20261126-110534
 
@@ -14422,8 +14424,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual fix: each file that goes in under another name is noted by its path in the archive, and a hard link to it is copied from there.
 	- Swept: Keep both and a typed name go through the same place. The command backends write a link themselves in their staging folder, and each name is moved in on its own. Symlinks keep the target text the archive gives, as tar and 7-Zip do, so one to a renamed file still names the old one.
 	- Verified: 20261126, dbj6x fails on the tree before the fix, with both links holding the old file's contents, and passes after. dbj6w, ddx67, ddn29, and dbhae pass. Format and lint pass, and gcc's and clang's analyzers find nothing in the changed files.
-	- Branch: nov26-2026112309242606
-	- Commit: 68096951
+	- Branch: nov26
+	- Commit: 86af1771
 	- Test case: dbj6x, Extract job test: a tar wiht a file and a hard link to it, at the top and in a folder, unpacked where both files are taken, with Keep both. Each link must have the archive's contents.
 	- Acceptance signoff: Self-closed: dbj6x covers it.
 	- Closed: 20261126-115732
@@ -14450,8 +14452,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Actual fix: the own-folder layout always gets a folder name, and `.` and `..` are never used as one.
 	- Swept: the folder name is worked out in one place, and arc-extract.c is its only caller. Entry paths already drop `.` and `..`.
 	- Verified: 20261126, dbj6x fails on the tree before the fix, for both names, with `...zip` writing beside the destination folder, and passes after. dbj6w checks the names themselves.
-	- Branch: nov26-2026112309242606
-	- Commit: 68096951
+	- Branch: nov26
+	- Commit: 86af1771
 	- Test case: dbj6w, Extract naming test: `..zip` and `...zip` have no folder name, and the fallback names. dbj6x, Extract job test: `bundle` and `...zip` unpack into their own folders, beside themselves, and nothing goes in above.
 	- Acceptance signoff: Self-closed: dbj6x and dbj6w cover it.
 	- Closed: 20261126-115732
