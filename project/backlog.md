@@ -33,6 +33,23 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
+- On Windows, an archive named for a device, such as CON.zip, gets a folder name Windows won't take under the own-folder layout.
+	- ID: 2026112612043611
+	- Type: Bug
+	- Status: Queued
+	- Priority|Severity: Low
+	- Opened: 20261126-120436
+	- Opened by: 2026112309242607
+	- Related IDs: 2026112309242607
+	- Target OS: Windows
+	- Target version: rc.1
+	- Steps to reproduce: on Windows, extract `CON.zip`, or `a..zip`, with the layout set to put each archive in its own folder.
+	- Incorrect behavior: the folder name is `CON`, or `a.`, which Windows refuses or cuts. Entry paths get `_` for these, but the folder name doesn't.
+	- Expected behavior: the folder is named the way an entry would be, such as `_CON`.
+	- Reproduced: No. Read only.
+	- Possible cause: `arc_extract_any_folder_name` doesn't apply the Windows fixes that `arc_extract_sanitize_path` gives entry paths.
+	- Test case: none yet.
+
 - A settings file that exists but can't be read at start is written over by the first settings save.
 	- ID: 2026112611221034
 	- Type: Bug
@@ -14378,33 +14395,59 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - A hard link in an archive is skipped without a word when its source was renamed.
 	- ID: 2026112309242606
 	- Type: Bug
-	- Status: Queued
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Low
 	- Opened: 20261123-092426
 	- Opened by: t00mietum
 	- Target OS: All
 	- Related IDs: 2026112309242607
+	- Target version: rc.1
 	- Steps to reproduce: extract a tar holding a file and a hard link to it into a folder that already has a file of the same name, and answer "Keep both".
 	- Incorrect behavior: the file goes in under a new name, and the hard link looks for the old one, so it isn't written and nothing says why.
 	- Expected behavior: the hard link points at the name the file was given.
-	- Reproduced: No.
+	- Reproduced: 20261126 on Linux, with the new rows in dbj6x. The link wasn't left out. It was copied from the file that was already there, so it had that file's contents rather than the archive's. The same went for a file in a folder that merged.
 	- Possible cause: `placed_file` in arc-extract.c knows only the archive's names. It needs a map from those to the names used.
-	- Test case: none yet, beside `check_hard_links` in test-extract-job.c.
+	- Actual cause: as above. The link's source was looked up by its name in the archive, which found whatever had that name on disk.
+	- Decisions:
+		- Only a file that went in under another name is kept in the map, so that way a big archive costs nothing extra. A renamed folder was already followed.
+		- A source that was skipped is still looked for under its own name, so the link copies the file kept there. Skip is mostly picked when the same archive goes in again, and then that file is the same one.
+	- Actual fix: each file that goes in under another name is noted by its path in the archive, and a hard link to it is copied from there.
+	- Swept: Keep both and a typed name go through the same place. The command backends write a link themselves in their staging folder, and each name is moved in on its own. Symlinks keep the target text the archive gives, as tar and 7-Zip do, so one to a renamed file still names the old one.
+	- Verified: 20261126, dbj6x fails on the tree before the fix, with both links holding the old file's contents, and passes after. dbj6w, ddx67, ddn29, and dbhae pass. Format and lint pass, and gcc's and clang's analyzers find nothing in the changed files.
+	- Branch: nov26-2026112309242606
+	- Commit: 68096951
+	- Test case: dbj6x, Extract job test: a tar wiht a file and a hard link to it, at the top and in a folder, unpacked where both files are taken, with Keep both. Each link must have the archive's contents.
+	- Acceptance signoff: Self-closed: dbj6x covers it.
+	- Closed: 20261126-115732
 
 - An archive with no usable folder name fails without a message under the own-folder layout.
 	- ID: 2026112309242607
 	- Type: Bug
-	- Status: Queued
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Low
 	- Opened: 20261123-092426
 	- Opened by: t00mietum
 	- Target OS: All
 	- Related IDs: 2026112309242606
+	- Target version: rc.1
 	- Steps to reproduce: extract an archive whose name gives no folder name, with the layout set to put each archive in its own folder.
 	- Incorrect behavior: arc-extract.c counts it as failed and says nothing.
 	- Expected behavior: a fallback folder name, or an error that names the archive.
-	- Reproduced: No.
-	- Test case: none yet.
+	- Reproduced: 20261126 on Linux, with the new rows in dbj6x. A zip named `bundle` failed with no message. A zip named `...zip` was worse: its folder name came out as `..`, so it unpacked into the folder above the one picked.
+	- Actual cause: the folder name is the archive's name with its archive suffix taken off. With no such suffix it was NULL, and the job gave up without a message. With only dots left, `.` or `..` went through as a name.
+	- Decisions:
+		- A fallback name rather than an error, since the archive can still be unpacked. A name without an archive suffix loses its last extension, as `backup.bin` -> `backup`. When nothing usable is left, the folder is the archive's whole name with ` (1)` on the end, so it's never the archive itself.
+		- The menu only offers names with an archive suffix, so a name without one comes only from a call outside the menu. `..zip` and `...zip` do get the menu.
+	- Actual fix: the own-folder layout always gets a folder name, and `.` and `..` are never used as one.
+	- Swept: the folder name is worked out in one place, and arc-extract.c is its only caller. Entry paths already drop `.` and `..`.
+	- Verified: 20261126, dbj6x fails on the tree before the fix, for both names, with `...zip` writing beside the destination folder, and passes after. dbj6w checks the names themselves.
+	- Branch: nov26-2026112309242606
+	- Commit: 68096951
+	- Test case: dbj6w, Extract naming test: `..zip` and `...zip` have no folder name, and the fallback names. dbj6x, Extract job test: `bundle` and `...zip` unpack into their own folders, beside themselves, and nothing goes in above.
+	- Acceptance signoff: Self-closed: dbj6x and dbj6w cover it.
+	- Closed: 20261126-115732
 
 - Add keyboard shortcut names and key names to Find.
 	- ID: 2026112610132104

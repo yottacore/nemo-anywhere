@@ -34,6 +34,11 @@ gboolean arc_extract_is_archive_name (const char *name);
    its archive suffix taken off. Returns NULL when nothing is left. */
 char    *arc_extract_folder_name     (const char *archive_name);
 
+/* The same, but never NULL. A name with no archive suffix loses its last
+   extension, and one with none left over gets " (1)" on the end, so the folder
+   can't be the archive itself. */
+char    *arc_extract_any_folder_name (const char *archive_name);
+
 /* "notes.txt" at attempt 1 -> "notes (1).txt". The extension is kept so a
    renamed file still opens with the same program. */
 char    *arc_extract_unique_name     (const char *name,

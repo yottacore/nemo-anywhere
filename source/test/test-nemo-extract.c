@@ -100,6 +100,41 @@ check_folder_names (void)
 	text = nemo_extract_folder_name ("photos.tar.gz.002");
 	check (g_strcmp0 (text, "photos") == 0);
 	g_free (text);
+
+	/* "." and ".." would unpack into the folder picked, or the one above. */
+	check (nemo_extract_folder_name ("..zip") == NULL);
+	check (nemo_extract_folder_name ("...zip") == NULL);
+	check (nemo_extract_folder_name ("...7z.001") == NULL);
+}
+
+static void
+check_any_folder_names (void)
+{
+	static const struct {
+		const char *archive;
+		const char *folder;
+	} cases[] = {
+		{ "photos.zip", "photos" },
+		{ "photos.tar.gz.002", "photos" },
+		{ "photos.bin", "photos" },
+		{ "photos.zip.bak", "photos.zip" },
+		{ "photos", "photos (1)" },
+		{ ".zip", ".zip (1)" },
+		{ "..zip", "..zip (1)" },
+		{ "...", "... (1)" },
+		{ ".hidden", ".hidden (1)" },
+	};
+
+	for (guint i = 0; i < G_N_ELEMENTS (cases); i++) {
+		char *text = nemo_extract_any_folder_name (cases[i].archive);
+
+		if (g_strcmp0 (text, cases[i].folder) != 0) {
+			g_printerr ("FAIL: \"%s\" unpacks into \"%s\", not \"%s\"\n",
+				    cases[i].archive, text != NULL ? text : "(null)", cases[i].folder);
+			failures++;
+		}
+		g_free (text);
+	}
 }
 
 static void
@@ -298,6 +333,7 @@ main (void)
 {
 	check_recognition ();
 	check_folder_names ();
+	check_any_folder_names ();
 	check_unique_names ();
 	check_sanitize ();
 	check_commands ();

@@ -131,6 +131,12 @@ arc_extract_first_volume (GFile *archive)
 	return first;
 }
 
+static gboolean
+usable_folder_name (const char *name)
+{
+	return name[0] != '\0' && strcmp (name, ".") != 0 && strcmp (name, "..") != 0;
+}
+
 /* Returns: (transfer full): free with g_free */
 char *
 arc_extract_folder_name (const char *archive_name)
@@ -151,12 +157,40 @@ arc_extract_folder_name (const char *archive_name)
 
 	base = g_strndup (archive_name, len - strlen (extension));
 
-	if (base[0] == '\0') {
+	/* "..zip" would unpack into the folder above. */
+	if (!usable_folder_name (base)) {
 		g_free (base);
 		return NULL;
 	}
 
 	return base;
+}
+
+/* Returns: (transfer full): free with g_free */
+char *
+arc_extract_any_folder_name (const char *archive_name)
+{
+	char *folder;
+	const char *dot;
+
+	g_return_val_if_fail (archive_name != NULL, NULL);
+
+	folder = arc_extract_folder_name (archive_name);
+	if (folder != NULL) {
+		return folder;
+	}
+
+	dot = archive_name[0] != '\0' ? strrchr (archive_name + 1, '.') : NULL;
+	if (dot != NULL) {
+		folder = g_strndup (archive_name, (gsize) (dot - archive_name));
+		if (usable_folder_name (folder)) {
+			return folder;
+		}
+		g_free (folder);
+	}
+
+	/* Never the archive's own name, which is a file in the way. */
+	return g_strdup_printf ("%s (1)", archive_name);
 }
 
 /* Returns: (transfer full): free with g_free */
