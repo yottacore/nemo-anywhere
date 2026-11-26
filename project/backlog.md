@@ -36,8 +36,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, an archive named for a device, such as CON.zip, gets a folder name Windows won't take under the own-folder layout.
 	- ID: 2026112612043611
 	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs external testing: dbj6w natively on Windows, on b29w. It passes under wine.
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: Low
 	- Opened: 20261126-120436
 	- Opened by: 2026112309242607
@@ -53,9 +53,12 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Decisions: the fix goes on the folder name the job uses, not on `arc_extract_folder_name`, which only it and dbj6w call, so that one stays a plain suffix strip.
 	- Swept: arc-extract.c is the only caller of the folder name. Entry paths, hard link targets and long link names already go through the sanitize call. The extract conflict's new name is checked by the app before it's used.
 	- Verified: 20261126, dbj6w fails under wine with the fix taken out, for all 6 new Windows rows, and passes with it. dbj6w and dbj6x pass on Linux and under wine. The lint gate passes, and gcc's and clang's analyzers find nothing in the 2 changed .c files, on the Linux build.
+	- Verified: 20261126, dbj6w passes natively on b29w, 3 runs of 3, on a native debug build of b2254dab.
 	- Branch: nov26
 	- Commit: 0efdbf38
 	- Test case: dbj6w, Extract naming test: `CON.zip`, `nul.tar.gz`, `Com1.7z.001`, `a..zip`, `aux.bin` and `lpt2 .bin` get the Windows fixes there and stay as they are elsewhere.
+	- Acceptance signoff: Self-closed: dbj6w passes natively on b29w, on Linux and under wine.
+	- Closed: 20261126-123348
 
 - A settings file that exists but can't be read at start is written over by the first settings save.
 	- ID: 2026112611221034
