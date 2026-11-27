@@ -68,7 +68,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: a Keyboard tab that lists the shortcuts, and changes, turns off, and resets each one.
 	- ID: 2026112312181296
 	- Type: Enhancement
-	- Status: Waiting on UAT
+	- Status: Done
 		- Left at signoff for the look of the tab in the app, and the wording of its notes.
 	- Priority|Severity: Avg
 	- Opened: 20261123-121812
@@ -110,7 +110,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Settings: Blake3 checksum cache options, with persistence across hosts through xattrs.
 	- ID: 2026102018234907
 	- Type: Enhancement
-	- Status: Waiting on UAT
+	- Status: Done
 	- Needs hand testing: the look of the new Cache section on Advanced, and the Windows label, which says alternate data streams.
 	- Priority|Severity: Avg
 	- Opened: 20261020-182349
