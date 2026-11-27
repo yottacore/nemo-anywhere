@@ -250,6 +250,15 @@ test('dd5ev Job queue test',
   args: []
 )
 
+test('dfw9n Instance interfaces served once test',
+  executable('test-nemo-instances-serve',
+    [ 'test-nemo-instances-serve.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 # The bus half of the link between copies. Windows has no bus; its pipes are
 # ddqdq's.
 if not is_windows

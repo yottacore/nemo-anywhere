@@ -14348,7 +14348,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On Windows, each start of the instance service adds its interfaces again.
 	- ID: 2026112309242605
 	- Type: Bug
-	- Status: Queued
+	- Status: Done
 	- Priority|Severity: Low
 	- Opened: 20261123-092426
 	- Opened by: t00mietum
@@ -14356,8 +14356,17 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Steps to reproduce: a start of the instance service that fails, then a retry, or a start after `nemo_instances_stop`.
 	- Incorrect behavior: `nemo_instances_start` in nemo-instances.c calls `nemo_instances_serve` for both interfaces before it knows the start worked, so they're registered twice.
 	- Expected behavior: each interface is registered once.
-	- Reproduced: No.
-	- Test case: none yet.
+	- Reproduced: 20261127 under wine, by dfw9n: a second serve of one interface, and a start, stop and start of the service, each left a second copy of the interface in the list.
+	- Test case: dfw9n, Instance interfaces served once test, every platform.
+	- Target version: rc.1
+	- Actual cause: `nemo_instances_serve` always added a new entry, and the Windows start serves the settings and actions interfaces on every call. The pipe answered from the first entry, so a restart kept the old handler and its data in front.
+	- Actual fix: serving an interface that's already served replaces its handler and data, so each one is listed once and the newest handler answers.
+	- Decisions: replace rather than skip a repeat, so a later start's application is the one the actions reach. Target rc.1, since the fix is in before the cut.
+	- Swept: every `nemo_instances_serve` caller: the Windows start's 2 and the tab move interface in nemo-tab-move.c, served once before start. Linux registers from the same list at start, so the change holds there too.
+	- Verified: dfw9n fails under wine with the old serve and passes with the fix, and passes on Linux. ddmt8, ddqa7, dc7gr and dd26k pass on Linux. gcc's and clang's analyzers find nothing in the 2 changed files. The format and lint gate passes. ddqdq, which starts and stops the service in its own process, wasn't run, since it needs a window on Windows.
+	- Branch: nov27-2026112309242605
+	- Acceptance signoff: Self-closed: reproduced, test fails before and passes after.
+	- Closed: 20261127-104439
 
 - Add keyboard shortcut names and key names to Find.
 	- ID: 2026112610132104

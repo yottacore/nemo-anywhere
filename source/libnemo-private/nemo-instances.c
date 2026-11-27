@@ -272,6 +272,7 @@ nemo_instances_serve (const char          *interface_xml,
 	GError *error = NULL;
 	GDBusNodeInfo *node;
 	Served *one;
+	guint i;
 
 	g_return_if_fail (!instances_up);
 
@@ -282,11 +283,28 @@ nemo_instances_serve (const char          *interface_xml,
 	if (served == NULL) {
 		served = g_ptr_array_new_with_free_func (served_free);
 	}
+	/* Served again, as on every start on Windows: the newest handler takes the old one's place rather than sitting behind it. */
+	for (i = 0; i < served->len; i++) {
+		one = g_ptr_array_index (served, i);
+		if (strcmp (one->node->interfaces[0]->name, node->interfaces[0]->name) == 0) {
+			g_dbus_node_info_unref (one->node);
+			one->node = node;
+			one->handler = handler;
+			one->user_data = user_data;
+			return;
+		}
+	}
 	one = g_new0 (Served, 1);
 	one->node = node;
 	one->handler = handler;
 	one->user_data = user_data;
 	g_ptr_array_add (served, one);
+}
+
+guint
+nemo_instances_served_count_for_test (void)
+{
+	return served != NULL ? served->len : 0;
 }
 
 /* Returns: (transfer full): the reply, or NULL with error set */

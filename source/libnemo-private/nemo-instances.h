@@ -40,10 +40,14 @@ typedef GVariant *(*NemoInstanceHandler) (const char *method_name,
 
 /* What the other copies may call here. interface_xml is introspection data
    for one interface, and arguments are checked against it before the handler
-   sees them. Before nemo_instances_start. */
+   sees them. Before nemo_instances_start. Serving an interface again replaces
+   its handler. */
 void      nemo_instances_serve  (const char          *interface_xml,
                                  NemoInstanceHandler  handler,
                                  gpointer             user_data);
+
+/* How many interfaces are served, each counted once. */
+guint     nemo_instances_served_count_for_test (void);
 
 /* Starts serving, shares settings changes, and takes this copy's place in the
    list. The application's actions can be activated from the other copies,
