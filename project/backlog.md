@@ -66,7 +66,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- ID: 2026112709525243
 	- Type: Enhancement
 	- Status: Waiting on automated testing
-	- Needs external testing: dfw8x in the native Windows gate on vm925w, with `NEMO_TEST_EXTERNAL_DIR` set to a folder on its USB disk, so the drive type and bus checks run on a real external drive. Under wine only the fixed disk branch ran.
+	- Needs external testing: dfw8x natively on vm925w (USB through its passthrough) or b29w, with a USB drive plugged in and `NEMO_TEST_EXTERNAL_DIR` set on the box to a folder on it, so the drive type and bus checks run on a real external drive. Under wine only the fixed disk branch ran. On 20261127 neither box had a USB drive plugged in.
 	- Needs hand testing: the look of the external drives row and its warning icon, and the tooltip's wording.
 	- Stand-in: none (20261127). Turns on how the row and icon look and how the tooltip reads. dd5df and dbnfq already check the row, its graying, the icon and the tooltip text.
 	- Priority|Severity: High
