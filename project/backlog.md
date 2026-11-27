@@ -288,6 +288,21 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Expected behavior: tests that never ran show as SKIP, or fail the step, never as PASS.
 	- Reproduced: Yes, 20261126, in the nov26 test batch.
 
+- Option to write xattrs for files on external devices with filesystems that support it.
+	- ID: 2026112709525243
+	- Type: Enhancement
+	- Status: Queued
+	- Priority|Severity: High
+	- Opened: 20261127-095252
+	- Opened by: t00mietum
+	- Related IDs: 2026102018234907
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- Off by default.
+		- With a warning icon that this is not a good idea, and that they'll still go in the local file cache if/when read normally.
+	- Test case: none yet.
+
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
 	- Type: Bug
