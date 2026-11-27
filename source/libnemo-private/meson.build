@@ -71,6 +71,7 @@ nemo_private_sources = [
   'nemo-cache-db-prune.c',
   'nemo-file-digest.c',
   'nemo-file-xattr.c',
+  'nemo-external-drive.c',
   'nemo-image-folders.c',
   'nemo-instances.c',
   'nemo-office.c',

@@ -31,6 +31,7 @@
 #include "nemo-global-preferences.h"
 #include "nemo-file-utilities.h"
 #include "nemo-file-digest.h"
+#include "nemo-external-drive.h"
 #include "nemo-thumbnail-memory.h"
 #include <math.h>
 #include <eel/eel-graphic-effects.h>
@@ -543,14 +544,9 @@ stat_unchanged (const char *uri, const NemoFileId *id)
            now.bytes == id->bytes && now.mtime == id->mtime;
 }
 
-/* Checksums the file when making the thumbnail reads all of it anyway, which
- * costs a second pass over bytes still in the page cache. One worked out
- * on an earlier visit is read back instead: a folder queued ahead asks about
- * every file in it, and on a second visit most are stored already.
- *
- * A file edited since its size and time were read gets no checksum. Stored
- * with the old size, the new contents' checksum would claim a record no copy
- * of them could ever match. */
+/* Checksums the file when making the thumbnail reads all of it anyway, which costs a second pass over bytes still in the page cache. One worked out on an earlier visit is read back instead: a folder queued ahead asks about every file in it, and on a second visit most are stored already. */
+/* The cache needs the checksum to tell same-size-and-time twins apart, so it's taken whatever the drive or the xattrs settings say. Only the write onto the file asks about those, in save_digest_on_file. */
+/* A file edited since its size and time were read gets no checksum. Stored with the old size, the new contents' checksum would claim a record no copy of them could ever match. */
 static void
 learn_digest (NemoCacheDb *db, NemoThumbnailInfo *info)
 {
@@ -572,9 +568,7 @@ learn_digest (NemoCacheDb *db, NemoThumbnailInfo *info)
                           stat_unchanged (info->image_uri, &info->id);
 }
 
-/* Last, once the store has it and the draw is on its way: an attribute write is
- * slow. A file that already has this checksum is left alone, so a folder shown
- * again costs a read rather than a write. */
+/* Last, once the store has it and the draw is on its way: an attribute write is slow. A file that already has this checksum is left alone, so a folder shown again costs a read rather than a write. */
 static void
 save_digest_on_file (NemoThumbnailInfo *info)
 {
@@ -586,7 +580,7 @@ save_digest_on_file (NemoThumbnailInfo *info)
         return;
 
     file = g_file_new_for_uri (info->image_uri);
-    if (g_file_peek_path (file) == NULL)
+    if (g_file_peek_path (file) == NULL || !nemo_thumbnail_saves_checksum_on (file))
         return;
 
     if (nemo_file_digest_read_attr (file, info->id.bytes, info->id.mtime, there) &&
@@ -1308,6 +1302,20 @@ nemo_thumbnail_saves_checksum (void)
 
     return nemo_config_get_boolean (group, NEMO_FILE_CACHE_CHECKSUM_FULL_READS) &&
            nemo_config_get_boolean (group, NEMO_FILE_CACHE_SAVE_CHECKSUM);
+}
+
+/* The one check before a checksum is written onto a file. A drive that plugs in often goes to other machines and tools, so it takes one only with its own setting on. */
+gboolean
+nemo_thumbnail_saves_checksum_on (GFile *file)
+{
+    NemoConfigGroup *group = nemo_config_get_group (NEMO_FILE_CACHE_GROUP);
+
+    if (!nemo_thumbnail_saves_checksum ()) {
+        return FALSE;
+    }
+
+    return nemo_config_get_boolean (group, NEMO_FILE_CACHE_SAVE_CHECKSUM_EXTERNAL) ||
+           !nemo_file_is_on_external_drive (file);
 }
 
 int

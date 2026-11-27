@@ -64,6 +64,9 @@ static const char * const widget_ids[] = {
 	/* The Blake3 checksum section on Advanced, in nemo-prefs-checksum.c. */
 	"file_cache_checksum_full_reads_checkbutton",
 	"file_cache_save_checksum_checkbutton",
+	"file_cache_save_checksum_external_checkbutton",
+	"file_cache_save_checksum_external_box",
+	"file_cache_save_checksum_external_warning",
 	/* The delete test guard's own switch, grayed when the build forces it. */
 	"testguard_all_deletes_checkbutton",
 	/* The selection model, on Advanced. */
@@ -114,6 +117,8 @@ static const struct {
 	{ "zoom_resizes_window_checkbutton", "label", "On contents zoom, change _window size too" },
 	{ "file_cache_checksum_full_reads_checkbutton", "label", "Cache whenever files require a full-read _anyway." },
 	{ "file_cache_save_checksum_checkbutton", "label", "_Persist across hosts via xattrs." },
+	{ "file_cache_save_checksum_external_checkbutton", "label", "Also on _external drives." },
+	{ "file_cache_save_checksum_external_warning", "icon-name", "dialog-warning-symbolic" },
 	{ "command_label_1", "tooltip-text", "If empty, uses your default terminal." },
 	{ "terminal_exec_entry", "tooltip-text", "If empty, uses your default terminal." },
 };

@@ -13,6 +13,7 @@
 
 #include <libnemo-private/nemo-cache-db.h>
 #include <libnemo-private/nemo-config.h>
+#include <libnemo-private/nemo-external-drive.h>
 #include <libnemo-private/nemo-file-digest.h>
 #include <libnemo-private/nemo-file-xattr.h>
 #include <libnemo-private/nemo-global-preferences.h>
@@ -30,6 +31,7 @@
 #include <sys/ioctl.h>
 #include <linux/fs.h>
 #include <linux/fiemap.h>
+#include <sys/sysmacros.h>
 #endif
 
 #define LIMIT (64 * 1024)
@@ -479,6 +481,65 @@ check_checksum_kept (void)
 	}
 	nemo_config_reset (group, NEMO_FILE_CACHE_SAVE_CHECKSUM);
 }
+
+/* On an external drive the checksum still goes in the cache, and onto the files only with save-checksum-external on too. The scratch folder's device is made to read as a USB disk. */
+static void
+check_checksum_external (void)
+{
+	NemoConfigGroup *group = nemo_config_get_group (NEMO_FILE_CACHE_GROUP);
+	gboolean xattrs = xattrs_here ();
+	guint8 want[NEMO_CACHE_DIGEST_LEN];
+	g_autofree char *sysfs = path_of ("sys");
+	g_autofree char *block = g_build_filename (sysfs, "dev", "block", NULL);
+	g_autofree char *usb = g_build_filename (sysfs, "devices", "pci0000:00/0000:00:14.0/usb2/2-1/2-1:1.0/host6/target6:0:0/6:0:0:0/block/sdb", NULL);
+	g_autofree char *link = NULL;
+	g_autofree char *pf = NULL, *pt = NULL;
+	g_autoptr (GFile) src = NULL;
+	g_autoptr (GFile) dest = NULL;
+	GStatBuf st;
+
+	check (g_stat (scratch, &st) == 0);
+	check (g_mkdir_with_parents (block, 0700) == 0);
+	check (g_mkdir_with_parents (usb, 0700) == 0);
+	link = g_strdup_printf ("%s/%u:%u", block, major (st.st_dev), minor (st.st_dev));
+	check (symlink (usb, link) == 0);
+	nemo_external_drive_set_sysfs_for_test (sysfs);
+
+	write_sized ("ext-off.bin", 4000);
+	write_sized ("ext-on.bin", 4500);
+	nemo_config_set_boolean (group, NEMO_FILE_CACHE_SAVE_CHECKSUM, TRUE);
+
+	check (copy_and_keep ("ext-off.bin", "ext-off-copy.bin", want));
+	pf = path_of ("ext-off.bin");
+	pt = path_of ("ext-off-copy.bin");
+	src = g_file_new_for_path (pf);
+	dest = g_file_new_for_path (pt);
+	check (cached_as (src, want));
+	check (cached_as (dest, want));
+	check (!on_file_as (src, want));
+	check (!on_file_as (dest, want));
+	g_clear_object (&src);
+	g_clear_object (&dest);
+	g_clear_pointer (&pf, g_free);
+	g_clear_pointer (&pt, g_free);
+
+	nemo_config_set_boolean (group, NEMO_FILE_CACHE_SAVE_CHECKSUM_EXTERNAL, TRUE);
+	check (copy_and_keep ("ext-on.bin", "ext-on-copy.bin", want));
+	pf = path_of ("ext-on.bin");
+	pt = path_of ("ext-on-copy.bin");
+	src = g_file_new_for_path (pf);
+	dest = g_file_new_for_path (pt);
+	check (cached_as (src, want));
+	check (cached_as (dest, want));
+	if (xattrs) {
+		check (on_file_as (src, want));
+		check (on_file_as (dest, want));
+	}
+
+	nemo_config_reset (group, NEMO_FILE_CACHE_SAVE_CHECKSUM_EXTERNAL);
+	nemo_config_reset (group, NEMO_FILE_CACHE_SAVE_CHECKSUM);
+	nemo_external_drive_set_sysfs_for_test (NULL);
+}
 #endif
 
 int
@@ -554,6 +615,7 @@ main (int argc, char **argv)
 
 #ifdef __linux__
 	check_checksum_kept ();
+	check_checksum_external ();
 	check_checksums_batched ();
 #endif
 

@@ -33,114 +33,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 ## Issues
 
-- When a file-selection drag from the checkmark column crosses into other columns, don't turn it into a regular drag. Keep it a file-selection drag.
-	- ID: 2026112610132091
-	- Type: Bug
-	- Status: Closed
-	- Priority|Severity: High
-	- Opened: 20261126-101321
-	- Opened by: t00mietum
-	- Related IDs: 2026110919315994
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-	- Steps to reproduce: start a file-selection drag in the checkmark column, then move across into other columns.
-	- Incorrect behavior: it turns into a regular drag.
-	- Expected behavior: it stays a file-selection drag.
-	- Reproduced: No. 20261126, on Linux under the default model, in dec8v's new checks. A plain drag from the checkmark column out into Size, from a row not selected and from a selected one, and one straight across a row, each banded and dragged no files. That held with real pointer input as well as with GTK's own events.
-	- Possible cause:
-		- Read only: once a press in that column arms a band, every move goes to the band until the release, wherever the pointer is. GTK's own row drag isn't set up in the list view, so nothing else can start a file drag there.
-		- Not tried: Windows, since dec8v isn't built there. A Linux copy from before 20261110, where a plain drag from the checkmark column of a selected row still dragged files. A press just right of the thin checkmark column, which lands in Name and drags files by design.
-	- Progress log:
-		- 20261126: not reproduced on Linux. Added the checks below, so the case stays pinned whatever the answer turns out to be.
-		- 20261127: seen on b23 on an older build, and not on the current one. Fits the pre-20261110 behavior.
-	- Decisions:
-		- The new checks move the real pointer, since a band that GTK's event path keeps could still break under real input. Without that input on the display they fail rather than pass.
-	- Branch: nov26
-	- Test case: dec8v, Drag select test, Nemo Anywhere: from the checkmark column, a plain drag out into Size from a row not selected and from a selected one, and one straight across a row.
-		- 20261126: dec8v's list view count under Nemo Anywhere went from 66 to 72.
-	- Verified: 20261126, dec8v passes, and its new checks fail with the checkmark column's band turned off. ddy5f and de8ec pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
-	- Commit: 000f2aad
-	- Closed reason: Done
-	- Closed: 20261127-094629
-	- Acceptance signoff: Self-closed: seen on b23 on an older build, before 20261110's checkmark drag rule, and not seen on the current build; dec8v pins it.
-
-- Settings: a Keyboard tab that lists the shortcuts, and changes, turns off, and resets each one.
-	- ID: 2026112312181296
-	- Type: Enhancement
-	- Status: Done
-		- Left at signoff for the look of the tab in the app, and the wording of its notes.
-	- Priority|Severity: Avg
-	- Opened: 20261123-121812
-	- Opened by: t00mietum
-	- Parent ID: 2026102018234906
-	- Target version: rc.1
-	- Requirements:
-		- Every shortcut of the window's menus is listed with its key, by name.
-		- A row takes a new key after a click, Enter, or Space. Escape leaves it as it was, and Backspace turns it off.
-		- A row whose key isn't its default can be reset, and so can every row at once.
-		- Changes are saved to the `accels` file.
-		- A key another listed shortcut has is taken, and that shortcut is turned off.
-	- Done: a Keyboard tab after Advanced lists every menu action with a name, sorted by name, with its key. A click on the key, or Enter or Space on the row, waits for the next key, and every key goes to the row while it waits. Escape leaves it, Backspace turns it off. A revert arrow on a changed row puts its first key back, and Reset all puts back every one. Each window notes the key every action starts with as it adds its actions, since GTK doesn't give that back once a key from `accels` is in place. The changelog and the Settings design doc say so. A key another listed shortcut has moves to the row, from every row that had it, and those turn off, with a note naming the first. A revert arrow takes its key back the same way. Where GTK still won't set the key, the others get theirs back.
-	- Progress log:
-		- 20261123: changed my mind on a key another shortcut has. It's taken and cleared from the other one, as GTK does, rather than refused. dd5df's taken-key check changes with it.
-		- 20261124: a taken key moves, and the other shortcut is turned off, as decided. Fixed on nov24-2026112312181296.
-		- 20261123: the tab's page is now a scrolled window, like every other Settings page, so the window's sizing measures it and the page scrolls on a screen too short for it. It was a plain box, which dbnfq refused. The search words for the tab moved to the new page, since search reads them from the tab's own page. Fixed on nov23-2026102018234906-fix.
-	- Decisions:
-		- A key another listed shortcut has is taken, and the other shortcut is turned off. Options were refusing it with a note naming that one, as first built, or taking it and marking both rows, as SilkTerm does. 2 actions on one key would leave only one of them working.
-		- A key that types a character needs Ctrl or Alt held, since it would stop typing in the location bar and in a rename. A plain Delete or F2 is fine.
-		- A key turned off shows as "Off".
-		- The key is read by the tab rather than by GTK's own shortcut cell, which takes a grab before it's on screen and can crash later (GNOME/gtk#180).
-		- The text-entry Cut, Copy, and Paste of the location bar aren't listed, since they're the standard editing keys, and the menu's own Cut, Copy, and Paste are.
-		- The Alt+1 to Alt+0 tab keys have no name to list them by, so they aren't listed.
-		- A reset row is written to `accels` with its default key, since GTK doesn't mark an entry unchanged again. It only matters if a later version changes that default.
-		- Placement under Advanced waits for 2026102018234905, per the parent.
-	- Needs hand testing: open Settings, Keyboard, in the app, and judge the list and its wording.
-	- Stand-in: none (20261123). The look and wording of a new tab.
-	- Verified: 20261123, dd5df passes with the new checks. With the first key read from the accel map in place of the action's own, it fails: Rename showed F2 as its default where the file had F6. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
-	- Verified: 20261124, dd5df and dfpt0 pass. dd5df's new checks fail before the change, and the check that a row GTK won't change leaves the key where it was fails with the give-back taken out. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
-	- Branch: nov23-2026102018234906, nov24-2026112312181296
-	- Commit: b9a18c18, 556efc21
-	- Test case: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key moved with the other row turned off, a plain letter refused, Backspace, the revert arrow, and Reset all.
-		- 20261123: dd5df's Ctrl+Page Up wrap from the first tab now ends on `keyboard`, where it was `advanced`, since the new tab is last until 2026102018234905 gives Advanced sub-tabs.
-		- 20261123: dbnfq, Settings widgets test, lists the Keyboard page with the other pages, and dd5df's check that every page fits at the opening size covers it too.
-		- 20261124: dd5df's taken key check now checks the key moving: Ctrl+H from Show Hidden Files and from a second row the file gave it to, both turned off, then back by Show Hidden Files' revert arrow, which turns Cut off. A locked row leaves Ctrl+H where it was.
-	- Swept: every place a window adds menu actions with keys: the shell actions and their toggles and radios, the folder view's, and icon view's. The location bar's clipboard actions are left out, as under Decisions. The sidebars' right-click menus give none of their actions a key. Both callers that set a key, a change and a revert arrow, go through the same take. Reset all turns every changed row off first, so it takes nothing from another.
-
-- Settings: Blake3 checksum cache options, with persistence across hosts through xattrs.
-	- ID: 2026102018234907
-	- Type: Enhancement
-	- Status: Done
-	- Needs hand testing: the look of the new Cache section on Advanced, and the Windows label, which says alternate data streams.
-	- Priority|Severity: Avg
-	- Opened: 20261020-182349
-	- Opened by: t00mietum
-	- Parent ID: 2026102018234905
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-		- A "Blake3 checksum" section under Advanced, Cache, after "Thumbnail cache".
-		- `[ ] Cache whenever files require a full-read anyway.`
-		- `[ ] Persist across hosts via xattrs.`, disabled while the one above is off.
-	- Design: [Blake3 checksum section](design_docs/20261020-121842_settings.md#blake3-checksum-section). The tooltips are there.
-	- Progress log:
-		- 20261020: the tooltips were moved to the settings design doc.
-		- 20261020: the xattrs checkbox is today's "Save checksums onto the files", moved and relabeled.
-		- 20261124: the settings are built. Advanced has a Cache heading after Selection, with the Blake3 checksum section and its 2 checkboxes. The first is the new key `file-cache.checksum-full-reads`. The second is `file-cache.save-checksum`, moved from Preview, relabeled, and grayed while the first is off.
-		- 20261124: what the first checkbox turns on for reads other than thumbnails is in 2026112416093974.
-		- 20261125: child 2026112416093974 is Done; the new section's look and the Windows label are left for a person, per the Needs hand testing row.
-	- Decisions:
-		- `file-cache.checksum-full-reads` is on by default. Its tooltip calls it highly recommended, and a `save-checksum` that was on keeps writing.
-		- With it off, nothing is written onto a file, thumbnails included, whatever the grayed box says. Thumbnails still keep their checksum in the cache.
-		- Cache gets a heading of its own on Advanced for now. Thumbnail cache stays on Preview until 2026102018234905 moves it there, ahead of this section.
-		- The section is bound in its own file, `nemo-prefs-checksum.c`, so the Settings dialog test runs it as it is.
-	- Swept: every reader of `save-checksum`. The thumbnail queue is the only place that writes a checksum onto a file. The 2 design docs, the schema and the keys table are updated. The thumbnails design doc's line still holds.
-	- Branch: nov24-2026102018234907
-	- Test case: dd5df, Settings dialog test, checks the section is on Advanced, the default, the graying, and that the thumbnail queue doesn't save onto files while the first box is off, from the box or the settings file. dbnfq, Settings widgets test, checks both labels word for word.
-	- Verified: 20261124, dd5df failed with the graying and the off switch taken out, 2 checks, and passes with them. dbnfq, dbsx7, dc8tz, dfh5x and dcy1f pass, and the quick format and lint gate passed.
-	- Commit: e8cb5538
-	- Stand-in: none (20261124). Turns on how the Cache section looks and how the labels read. dbnfq already checks both labels word for word.
-
 - Settings: the Keyboard tab lists the menu's key-only actions by their code names, such as PropertiesAccel, NewTabAccel, and ZoomInAccel.
 	- ID: 2026112415464216
 	- Type: Bug
@@ -169,6 +61,37 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: nov24-2026112415464216, nov24-2026112415464216-fix
 	- Commit: 7b27a3d3
 	- 20261125: with `rename-swap-keys` on (2026111707593766), Shift+F2 leaves the extension out, so the name "Rename with the whole name selected" is wrong then. The wording settled here should cover both.
+
+- Option to write xattrs for files on external devices with filesystems that support it.
+	- ID: 2026112709525243
+	- Type: Enhancement
+	- Status: Waiting on automated testing
+	- Needs external testing: dfw8x in the native Windows gate on vm925w, with `NEMO_TEST_EXTERNAL_DIR` set to a folder on its USB disk, so the drive type and bus checks run on a real external drive. Under wine only the fixed disk branch ran.
+	- Needs hand testing: the look of the external drives row and its warning icon, and the tooltip's wording.
+	- Stand-in: none (20261127). Turns on how the row and icon look and how the tooltip reads. dd5df and dbnfq already check the row, its graying, the icon and the tooltip text.
+	- Priority|Severity: High
+	- Opened: 20261127-095252
+	- Opened by: t00mietum
+	- Related IDs: 2026102018234907
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- Off by default.
+		- With a warning icon that this is not a good idea, and that they'll still go in the local file cache if/when read normally.
+	- Progress log:
+		- 20261127: built. Advanced, Blake3 checksum, has `[ ] Also on external drives.` under the xattrs box, with a warning icon after it.
+		- 20261127: fixed. The thumbnail queue asked the new check before taking a checksum at all, rather than before writing it onto the file. With `save-checksum` off, the default, the cache lost the checksum that tells same-size-and-time twins apart, and a twin got the other's thumbnail. The check is now only on the write onto the file.
+	- Decisions:
+		- A new key, `file-cache.save-checksum-external`, off by default. With it off, `save-checksum` no longer writes onto a file on an external drive, which it did before. The checksum still goes in the file cache.
+		- The row is indented under the xattrs box, and grayed unless both boxes above it are on. The icon is `dialog-warning-symbolic`. It and the checkbox share one tooltip, which says it's not recommended, and that checksums of those files still go in the local file cache when they're read normally.
+		- External is read from the block device on Linux, through sysfs, the way udisks does it: USB, FireWire, a memory stick, the removable flag, or an SD card. An encrypted or RAID volume goes by the disks under it. The volume monitor wasn't used, since checksums are written on worker threads. Windows asks the drive type, then the bus of a fixed drive. macOS and the BSDs go by the automount folders `/Volumes/`, `/media/` and `/run/media/`.
+		- Not caught: a file system with no block device of its own, such as btrfs or ZFS, even on a USB disk, and a Thunderbolt disk. Both read as internal and keep today's behavior.
+	- Swept: both places that write a checksum onto a file, the thumbnail queue's write onto the file and the small copy, go through the new `nemo_thumbnail_saves_checksum_on`. Both still keep the checksum in the cache on any drive. `nemo_file_digest_write_attr` has no other caller. The schema, the keys table and both design docs are updated.
+	- Branch: nov27-2026112709525243, then nov27-2026112709525243-fix
+	- Commit: a9ad74f3, then 68db4d01
+	- Test case: dfw8x, External drive test, checks sysfs layouts for SATA, USB, a card reader, an SD card against an eMMC, FireWire, and an encrypted volume over SATA and over USB, plus the setting. dd24j, Small file copy test, new case: on a USB disk the checksums are cached, and go onto the files only with the new setting on. dd5df, Settings dialog test, checks the row's default, graying and tooltip. dbnfq, Settings widgets test, checks the label and icon. dcz6w, Thumbnail order test, checks that same-size-and-time twins get their own thumbnails.
+	- Verified: 20261127, dfw8x, dd24j and dd5df fail 6 checks with the external check and the graying taken out, and pass with them. dcy08, dfh5x, dbsx7 and dbnfq pass. Under wine dfw8x and dd24j pass, on the fixed disk branch only. The Windows cross build, gcc's and clang's analyzers on the changed files, and `--backlog-run-quick format lint` pass.
+	- Verified: 20261127, after the fix. dcz6w failed 3 of 3 in the gate's quick run before it, and passes 3 of 3 after. dd24j, dfw8x, dd5df and ddah8 pass. gcc's and clang's analyzers are clean on `nemo-thumbnails.c`, and `--backlog-run-quick format lint` passes.
 
 - Move every Windows lane from MSYS2's MINGW64 to UCRT64.
 	- ID: 2026110920004210
@@ -273,35 +196,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- The comment rows stay until then. They work, and the installed schema passes with them.
 	- Test case: dfh5x and dd5df, which already hold the alias table and the search to the schema's rows.
 	- Estimated effort: Low
-
-- On b29w, the Windows lane marks the Desktop tests step PASS when wintest's session is locked and nothing ran.
-	- ID: 2026112612344381
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261126-123443
-	- Opened by:
-	- Target OS: Windows
-	- Target version: rc.1
-	- Steps to reproduce: run `cicd/win/lane.bash b29w` with `NEMO_WIN_DESKTOP_LIST` naming a test, while wintest's desktop session on b29w is locked.
-	- Incorrect behavior: the lane warns, skips the tests, and still reports the Desktop tests step as PASS.
-	- Expected behavior: tests that never ran show as SKIP, or fail the step, never as PASS.
-	- Reproduced: Yes, 20261126, in the nov26 test batch.
-
-- Option to write xattrs for files on external devices with filesystems that support it.
-	- ID: 2026112709525243
-	- Type: Enhancement
-	- Status: Queued
-	- Priority|Severity: High
-	- Opened: 20261127-095252
-	- Opened by: t00mietum
-	- Related IDs: 2026102018234907
-	- Target version: rc.1
-	- Requirements:
-		- Before the next cut.
-		- Off by default.
-		- With a warning icon that this is not a good idea, and that they'll still go in the local file cache if/when read normally.
-	- Test case: none yet.
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038
@@ -5515,6 +5409,82 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: de025, Folder open time test. It goes into 9 folders of 120 from the list view, and back up after each. Of those, 4 are varied files with pictures and a sub-folder, 3 are text only, and 2 more are listed a second per batch, one with pictures and one without. The quickest of each fast kind must show all rows in under 180 ms, and each slow one its first row. Each folder's item count, and each sub-folder's, must show right. The old wait can't come in under 200.
 	- Acceptance signoff: Self-closed: de025 tests it. The rows show 200 ms sooner, and item counts filling in a moment after them is what other file managers do too.
 	- Closed: 20261016-130621
+
+- Settings: a Keyboard tab that lists the shortcuts, and changes, turns off, and resets each one.
+	- ID: 2026112312181296
+	- Type: Enhancement
+	- Status: Done
+		- Left at signoff for the look of the tab in the app, and the wording of its notes.
+	- Priority|Severity: Avg
+	- Opened: 20261123-121812
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234906
+	- Target version: rc.1
+	- Requirements:
+		- Every shortcut of the window's menus is listed with its key, by name.
+		- A row takes a new key after a click, Enter, or Space. Escape leaves it as it was, and Backspace turns it off.
+		- A row whose key isn't its default can be reset, and so can every row at once.
+		- Changes are saved to the `accels` file.
+		- A key another listed shortcut has is taken, and that shortcut is turned off.
+	- Done: a Keyboard tab after Advanced lists every menu action with a name, sorted by name, with its key. A click on the key, or Enter or Space on the row, waits for the next key, and every key goes to the row while it waits. Escape leaves it, Backspace turns it off. A revert arrow on a changed row puts its first key back, and Reset all puts back every one. Each window notes the key every action starts with as it adds its actions, since GTK doesn't give that back once a key from `accels` is in place. The changelog and the Settings design doc say so. A key another listed shortcut has moves to the row, from every row that had it, and those turn off, with a note naming the first. A revert arrow takes its key back the same way. Where GTK still won't set the key, the others get theirs back.
+	- Progress log:
+		- 20261123: changed my mind on a key another shortcut has. It's taken and cleared from the other one, as GTK does, rather than refused. dd5df's taken-key check changes with it.
+		- 20261124: a taken key moves, and the other shortcut is turned off, as decided. Fixed on nov24-2026112312181296.
+		- 20261123: the tab's page is now a scrolled window, like every other Settings page, so the window's sizing measures it and the page scrolls on a screen too short for it. It was a plain box, which dbnfq refused. The search words for the tab moved to the new page, since search reads them from the tab's own page. Fixed on nov23-2026102018234906-fix.
+	- Decisions:
+		- A key another listed shortcut has is taken, and the other shortcut is turned off. Options were refusing it with a note naming that one, as first built, or taking it and marking both rows, as SilkTerm does. 2 actions on one key would leave only one of them working.
+		- A key that types a character needs Ctrl or Alt held, since it would stop typing in the location bar and in a rename. A plain Delete or F2 is fine.
+		- A key turned off shows as "Off".
+		- The key is read by the tab rather than by GTK's own shortcut cell, which takes a grab before it's on screen and can crash later (GNOME/gtk#180).
+		- The text-entry Cut, Copy, and Paste of the location bar aren't listed, since they're the standard editing keys, and the menu's own Cut, Copy, and Paste are.
+		- The Alt+1 to Alt+0 tab keys have no name to list them by, so they aren't listed.
+		- A reset row is written to `accels` with its default key, since GTK doesn't mark an entry unchanged again. It only matters if a later version changes that default.
+		- Placement under Advanced waits for 2026102018234905, per the parent.
+	- Needs hand testing: open Settings, Keyboard, in the app, and judge the list and its wording.
+	- Stand-in: none (20261123). The look and wording of a new tab.
+	- Verified: 20261123, dd5df passes with the new checks. With the first key read from the accel map in place of the action's own, it fails: Rename showed F2 as its default where the file had F6. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Verified: 20261124, dd5df and dfpt0 pass. dd5df's new checks fail before the change, and the check that a row GTK won't change leaves the key where it was fails with the give-back taken out. The format and lint gate passes, and neither analyzer reports anything on the changed .c files.
+	- Branch: nov23-2026102018234906, nov24-2026112312181296
+	- Commit: b9a18c18, 556efc21
+	- Test case: dd5df, Settings dialog test, now checks the Keyboard tab: the rows and their order, a key from the file with its revert arrow, a change by Enter and the keys, Ctrl+Page Down and Escape taken by a waiting row, a taken key moved with the other row turned off, a plain letter refused, Backspace, the revert arrow, and Reset all.
+		- 20261123: dd5df's Ctrl+Page Up wrap from the first tab now ends on `keyboard`, where it was `advanced`, since the new tab is last until 2026102018234905 gives Advanced sub-tabs.
+		- 20261123: dbnfq, Settings widgets test, lists the Keyboard page with the other pages, and dd5df's check that every page fits at the opening size covers it too.
+		- 20261124: dd5df's taken key check now checks the key moving: Ctrl+H from Show Hidden Files and from a second row the file gave it to, both turned off, then back by Show Hidden Files' revert arrow, which turns Cut off. A locked row leaves Ctrl+H where it was.
+	- Swept: every place a window adds menu actions with keys: the shell actions and their toggles and radios, the folder view's, and icon view's. The location bar's clipboard actions are left out, as under Decisions. The sidebars' right-click menus give none of their actions a key. Both callers that set a key, a change and a revert arrow, go through the same take. Reset all turns every changed row off first, so it takes nothing from another.
+
+- Settings: Blake3 checksum cache options, with persistence across hosts through xattrs.
+	- ID: 2026102018234907
+	- Type: Enhancement
+	- Status: Done
+	- Needs hand testing: the look of the new Cache section on Advanced, and the Windows label, which says alternate data streams.
+	- Priority|Severity: Avg
+	- Opened: 20261020-182349
+	- Opened by: t00mietum
+	- Parent ID: 2026102018234905
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+		- A "Blake3 checksum" section under Advanced, Cache, after "Thumbnail cache".
+		- `[ ] Cache whenever files require a full-read anyway.`
+		- `[ ] Persist across hosts via xattrs.`, disabled while the one above is off.
+	- Design: [Blake3 checksum section](design_docs/20261020-121842_settings.md#blake3-checksum-section). The tooltips are there.
+	- Progress log:
+		- 20261020: the tooltips were moved to the settings design doc.
+		- 20261020: the xattrs checkbox is today's "Save checksums onto the files", moved and relabeled.
+		- 20261124: the settings are built. Advanced has a Cache heading after Selection, with the Blake3 checksum section and its 2 checkboxes. The first is the new key `file-cache.checksum-full-reads`. The second is `file-cache.save-checksum`, moved from Preview, relabeled, and grayed while the first is off.
+		- 20261124: what the first checkbox turns on for reads other than thumbnails is in 2026112416093974.
+		- 20261125: child 2026112416093974 is Done; the new section's look and the Windows label are left for a person, per the Needs hand testing row.
+	- Decisions:
+		- `file-cache.checksum-full-reads` is on by default. Its tooltip calls it highly recommended, and a `save-checksum` that was on keeps writing.
+		- With it off, nothing is written onto a file, thumbnails included, whatever the grayed box says. Thumbnails still keep their checksum in the cache.
+		- Cache gets a heading of its own on Advanced for now. Thumbnail cache stays on Preview until 2026102018234905 moves it there, ahead of this section.
+		- The section is bound in its own file, `nemo-prefs-checksum.c`, so the Settings dialog test runs it as it is.
+	- Swept: every reader of `save-checksum`. The thumbnail queue is the only place that writes a checksum onto a file. The 2 design docs, the schema and the keys table are updated. The thumbnails design doc's line still holds.
+	- Branch: nov24-2026102018234907
+	- Test case: dd5df, Settings dialog test, checks the section is on Advanced, the default, the graying, and that the thumbnail queue doesn't save onto files while the first box is off, from the box or the settings file. dbnfq, Settings widgets test, checks both labels word for word.
+	- Verified: 20261124, dd5df failed with the graying and the off switch taken out, 2 checks, and passes with them. dbnfq, dbsx7, dc8tz, dfh5x and dcy1f pass, and the quick format and lint gate passed.
+	- Commit: e8cb5538
+	- Stand-in: none (20261124). Turns on how the Cache section looks and how the labels read. dbnfq already checks both labels word for word.
 
 - Settings: new tab layout, and tidying across the dialog.
 	- ID: 2026102018234905
@@ -13606,6 +13576,66 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Acceptance signoff: Self-closed: all 45 items under it are Done.
 	- Closed: 20261006-165500
 
+- When a file-selection drag from the checkmark column crosses into other columns, don't turn it into a regular drag. Keep it a file-selection drag.
+	- ID: 2026112610132091
+	- Type: Bug
+	- Status: Closed
+	- Priority|Severity: High
+	- Opened: 20261126-101321
+	- Opened by: t00mietum
+	- Related IDs: 2026110919315994
+	- Target version: rc.1
+	- Requirements:
+		- Before the next cut.
+	- Steps to reproduce: start a file-selection drag in the checkmark column, then move across into other columns.
+	- Incorrect behavior: it turns into a regular drag.
+	- Expected behavior: it stays a file-selection drag.
+	- Reproduced: No. 20261126, on Linux under the default model, in dec8v's new checks. A plain drag from the checkmark column out into Size, from a row not selected and from a selected one, and one straight across a row, each banded and dragged no files. That held with real pointer input as well as with GTK's own events.
+	- Possible cause:
+		- Read only: once a press in that column arms a band, every move goes to the band until the release, wherever the pointer is. GTK's own row drag isn't set up in the list view, so nothing else can start a file drag there.
+		- Not tried: Windows, since dec8v isn't built there. A Linux copy from before 20261110, where a plain drag from the checkmark column of a selected row still dragged files. A press just right of the thin checkmark column, which lands in Name and drags files by design.
+	- Progress log:
+		- 20261126: not reproduced on Linux. Added the checks below, so the case stays pinned whatever the answer turns out to be.
+		- 20261127: seen on b23 on an older build, and not on the current one. Fits the pre-20261110 behavior.
+	- Decisions:
+		- The new checks move the real pointer, since a band that GTK's event path keeps could still break under real input. Without that input on the display they fail rather than pass.
+	- Branch: nov26
+	- Test case: dec8v, Drag select test, Nemo Anywhere: from the checkmark column, a plain drag out into Size from a row not selected and from a selected one, and one straight across a row.
+		- 20261126: dec8v's list view count under Nemo Anywhere went from 66 to 72.
+	- Verified: 20261126, dec8v passes, and its new checks fail with the checkmark column's band turned off. ddy5f and de8ec pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
+	- Commit: 000f2aad
+	- Closed reason: Done
+	- Closed: 20261127-094629
+	- Acceptance signoff: Self-closed: seen on b23 on an older build, before 20261110's checkmark drag rule, and not seen on the current build; dec8v pins it.
+
+- On b29w, the Windows lane marks the Desktop tests step PASS when wintest's session is locked and nothing ran.
+	- ID: 2026112612344381
+	- Type: Bug
+	- Status: Closed
+	- Closed reason: Done
+	- Priority|Severity: High
+	- Opened: 20261126-123443
+	- Opened by:
+	- Target OS: Windows
+	- Target version: rc.1
+	- Steps to reproduce: run `cicd/win/lane.bash b29w` with `NEMO_WIN_DESKTOP_LIST` naming a test, while wintest's desktop session on b29w is locked.
+	- Incorrect behavior: the lane warns, skips the tests, and still reports the Desktop tests step as PASS.
+	- Expected behavior: tests that never ran show as SKIP, or fail the step, never as PASS.
+	- Reproduced: Yes, 20261126, in the nov26 test batch.
+	- Actual cause: the lane's desktop step returns early on a locked or missing session and leaves its step open. The exit trap then closes any open step as PASS when the lane exits 0.
+	- Actual fix: the lane closes the Desktop tests step as SKIP before it returns in both cases. The change is in `lane.bash`, with `test-lane.bash`, the `echo.bash` usage line and design.md's native gate bullet.
+	- Decisions:
+		- SKIP rather than a failure. A locked session is the box's state, not the app's, per 2026110216323705, and the lane's exit code stays 0.
+		- The same holds when the tests came from `NEMO_WIN_DESKTOP_LIST` after a `-NoTests` build, though then no test ran on the lane at all. The step line says so, and cicd.bash's handling of the lane's exit codes is left as it is.
+	- Swept: the `nosession` branch, which left its step open the same way and is fixed too. The other early return, "the gate skipped no tests", has nothing to run and stays a PASS. The FreeBSD and arm64 lanes have no step that returns early with nothing run.
+	- Branch: nov27-2026112612344381
+	- Commit: 5700951a
+	- Test case: depg0, with SKIP checks for the locked and no-session cases, and a new case for tests named in `NEMO_WIN_DESKTOP_LIST` in a locked session.
+	- Verified: 20261127, depg0 fails 6 checks against the old `lane.bash`, "no SKIP line for the named tests in a locked session" among them, and passes after. `--backlog-run-quick format lint` passes.
+	- Verified: 20261127, `cicd/win/lane.bash` on b29w at the round's head, with `NEMO_WIN_DESKTOP_LIST` naming one test and the item's gate args. wintest's session was disconnected, which reads as locked. The gate passed, the log shows the locked warning and `SKIP Desktop tests`, with no `PASS Desktop tests`, and the lane exited 0.
+	- Acceptance signoff: Self-closed: the item's own lane run on b29w showed SKIP for the step.
+	- Closed: 20261127-111938
+
 - A settings file that exists but can't be read at start is written over by the first settings save.
 	- ID: 2026112611221034
 	- Type: Bug
@@ -14321,20 +14351,6 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 
 - **Stop here (in new format) for a next release**.
 
-- On Windows, each start of the instance service adds its interfaces again.
-	- ID: 2026112309242605
-	- Type: Bug
-	- Status: Queued
-	- Priority|Severity: Low
-	- Opened: 20261123-092426
-	- Opened by: t00mietum
-	- Target OS: Windows
-	- Steps to reproduce: a start of the instance service that fails, then a retry, or a start after `nemo_instances_stop`.
-	- Incorrect behavior: `nemo_instances_start` in nemo-instances.c calls `nemo_instances_serve` for both interfaces before it knows the start worked, so they're registered twice.
-	- Expected behavior: each interface is registered once.
-	- Reproduced: No.
-	- Test case: none yet.
-
 - Add keyboard shortcut names and key names to Find.
 	- ID: 2026112610132104
 	- Type: Enhancement
@@ -14389,6 +14405,29 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Branch: chooserleak
 	- Test case: dd5df under ddgt8.
 	- Acceptance signoff: Self-closed: a pipeline failure with nothing on screen, and dd5df tests it.
+
+- On Windows, each start of the instance service adds its interfaces again.
+	- ID: 2026112309242605
+	- Type: Bug
+	- Status: Done
+	- Priority|Severity: Low
+	- Opened: 20261123-092426
+	- Opened by: t00mietum
+	- Target OS: Windows
+	- Steps to reproduce: a start of the instance service that fails, then a retry, or a start after `nemo_instances_stop`.
+	- Incorrect behavior: `nemo_instances_start` in nemo-instances.c calls `nemo_instances_serve` for both interfaces before it knows the start worked, so they're registered twice.
+	- Expected behavior: each interface is registered once.
+	- Reproduced: 20261127 under wine, by dfw9n: a second serve of one interface, and a start, stop and start of the service, each left a second copy of the interface in the list.
+	- Test case: dfw9n, Instance interfaces served once test, every platform.
+	- Target version: rc.1
+	- Actual cause: `nemo_instances_serve` always added a new entry, and the Windows start serves the settings and actions interfaces on every call. The pipe answered from the first entry, so a restart kept the old handler and its data in front.
+	- Actual fix: serving an interface that's already served replaces its handler and data, so each one is listed once and the newest handler answers.
+	- Decisions: replace rather than skip a repeat, so a later start's application is the one the actions reach. Target rc.1, since the fix is in before the cut.
+	- Swept: every `nemo_instances_serve` caller: the Windows start's 2 and the tab move interface in nemo-tab-move.c, served once before start. Linux registers from the same list at start, so the change holds there too.
+	- Verified: dfw9n fails under wine with the old serve and passes with the fix, and passes on Linux. ddmt8, ddqa7, dc7gr and dd26k pass on Linux. gcc's and clang's analyzers find nothing in the 2 changed files. The format and lint gate passes. ddqdq, which starts and stops the service in its own process, wasn't run, since it needs a window on Windows.
+	- Branch: nov27-2026112309242605
+	- Acceptance signoff: Self-closed: reproduced, test fails before and passes after.
+	- Closed: 20261127-104439
 
 - The day-to-day build image has no SVG pixbuf loader.
 	- ID: 2026110718100652

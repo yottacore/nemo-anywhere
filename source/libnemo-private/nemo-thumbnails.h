@@ -64,6 +64,7 @@ int        nemo_thumbnail_size_step             (int size);
 /* Whether a checksum goes onto the file too. Settings grays out that box while
  * caching checksums on full reads is off, so off there means off here too. */
 gboolean   nemo_thumbnail_saves_checksum        (void);
+gboolean   nemo_thumbnail_saves_checksum_on     (GFile *file);
 
 /* The store first, and the freedesktop cache only if the store has nothing.
  * Decodes no larger than `max_size`. Blocks on the disk, so it belongs on a
