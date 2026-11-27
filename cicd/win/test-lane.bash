@@ -21,7 +21,7 @@
 ##	  - After a passing gate, the meson tests its Tests step skipped, and only
 ##	    those, go to the box and run as wintest in its desktop session. Their
 ##	    exit code is the lane's. With no wintest session there, or a locked
-##	    one, it's a warning and the gate's pass stands. A failing gate runs
+##	    one, it's a warning, the Desktop tests step is a SKIP, and the gate's pass stands. A failing gate runs
 ##	    none. NEMO_WIN_DESKTOP_ELSEWHERE=1 leaves them for the next box, and
 ##	    a passing gate then exits 75, having written them to the file
 ##	    NEMO_WIN_DESKTOP_LIST names. Given that file without
@@ -242,7 +242,9 @@ fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 FAKE_NOSESSION=1 -- b29w
 if ((laneRc == 0)); then
 	grep -q 'WARNING: wintest has no session on b29w' "${scratch}/out.log" || fFail "no warning for wintest with no session"
 	! grep -q 'if exist .*desktop.rc' "${log}" || fFail "desktop.rc was waited for with no session"
-	fEcho "OK: with no wintest session, a warning and the gate's pass"
+	grep -q 'Windows 4 of 4; SKIP Desktop tests ]' "${scratch}/out.log" || fFail "no SKIP line for the desktop tests with no session"
+	! grep -q 'PASS Desktop tests' "${scratch}/out.log" || fFail "the desktop tests were called passed with no session"
+	fEcho "OK: with no wintest session, a warning, a SKIP, and the gate's pass"
 else
 	fFail "no wintest session gave exit ${laneRc}, not 0: $(tail -3 "${scratch}/out.log")"
 fi
@@ -251,9 +253,23 @@ fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 FAKE_LOCKED=1 -- b29w
 if ((laneRc == 0)); then
 	grep -q "WARNING: wintest's session on b29w is locked" "${scratch}/out.log" || fFail "no warning for a locked wintest session"
 	! grep -q 'if exist .*desktop.rc' "${log}" || fFail "desktop.rc was waited for in a locked session"
-	fEcho "OK: with wintest's session locked, a warning and the gate's pass"
+	grep -q 'Windows 4 of 4; SKIP Desktop tests ]' "${scratch}/out.log" || fFail "no SKIP line for the desktop tests in a locked session"
+	! grep -q 'PASS Desktop tests' "${scratch}/out.log" || fFail "the desktop tests were called passed in a locked session"
+	fEcho "OK: with wintest's session locked, a warning, a SKIP, and the gate's pass"
 else
 	fFail "a locked wintest session gave exit ${laneRc}, not 0: $(tail -3 "${scratch}/out.log")"
+fi
+
+## A -NoTests build given a list, in a locked session, ran no test at all.
+printf 'ddzzq one handed on\n' > "${scratch}/locked-list.txt"
+fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 FAKE_LOCKED=1 NEMO_WIN_DESKTOP_LIST="${scratch}/locked-list.txt" NEMO_WIN_GATE_ARGS="-BacklogRunQuick -Yes -NoSync -NoFmt -NoTests" -- b29w
+if ((laneRc == 0)); then
+	grep -q "WARNING: wintest's session on b29w is locked" "${scratch}/out.log" || fFail "no warning for the named tests in a locked session"
+	grep -q 'Windows 4 of 4; SKIP Desktop tests ]' "${scratch}/out.log" || fFail "no SKIP line for the named tests in a locked session"
+	! grep -q 'PASS Desktop tests' "${scratch}/out.log" || fFail "the named tests were called passed in a locked session"
+	fEcho "OK: tests named in NEMO_WIN_DESKTOP_LIST, in a locked session, are a SKIP"
+else
+	fFail "named tests in a locked session gave exit ${laneRc}, not 0: $(tail -3 "${scratch}/out.log")"
 fi
 
 fLane "${scratch}/x_vm-state.bash" FAKE_RC=0 FAKE_DRC=0 NEMO_WIN_DESKTOP_ELSEWHERE=1 -- b29w

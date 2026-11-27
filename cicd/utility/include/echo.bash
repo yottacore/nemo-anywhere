@@ -13,7 +13,7 @@
 ##	  of that run, so its steps say "<label> N of M", not "Step N of M":
 ##	  fLaneStep_Plan <label> <step>... -> the plan, so M is known at step 1
 ##	  fLaneStep <step>        -> closes the step before as PASS, opens this one
-##	  fLaneStep_Close <word>  -> closes the open step, as PASS or FAIL
+##	  fLaneStep_Close <word>  -> closes the open step, as PASS, FAIL or SKIP
 ##	  fLaneStep_OnExit <rc>   -> for the EXIT trap: an open step closes as FAIL,
 ##	                             or as PASS when <rc> is 0
 ##	- Syntax: source this file; it defines functions only.

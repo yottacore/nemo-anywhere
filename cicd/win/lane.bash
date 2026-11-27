@@ -26,6 +26,7 @@
 ##	  session on the same box, through a schtasks /it task. A test user with
 ##	  no session there, or a locked one, is a warning, and the gate's pass
 ##	  stands, since no window gets the focus in a locked session.
+##	- In both cases the Desktop tests step is a SKIP, the named list's tests included, since none of them ran.
 ##	- NEMO_WIN_DESKTOP_ELSEWHERE=1 leaves those tests for the next box: after
 ##	  a passing gate that skipped any, the lane exits 75 without running
 ##	  them, and cicd.bash sends the gate to vm925w, whose wintest session
@@ -208,10 +209,12 @@ fDesktop(){
 	out="$(fBoxPs -Desktop -TestUser "${testUser}")"
 	if [[ "${out}" == *nosession* ]]; then
 		fEcho "WARNING: ${testUser} has no session on ${box}, so its windowed tests did not run"
+		fLaneStep_Close SKIP
 		return 0
 	fi
 	if [[ "${out}" == *locked* ]]; then
 		fEcho "WARNING: ${testUser}'s session on ${box} is locked, so its windowed tests did not run"
+		fLaneStep_Close SKIP
 		return 0
 	fi
 	task="$(sed -n 's/^task=\([A-Za-z0-9_-]*\)$/\1/p' <<< "${out}" | head -n 1)"
@@ -301,6 +304,7 @@ fMain "${@}"
 
 
 ##	History:
+##		- 2026-11-27: The Desktop tests step is a SKIP, not a PASS, when the test user's session is locked or missing.
 ##		- 2026-11-10: A failed gate's meson test logs are kept here before its
 ##		  folder goes.
 ##		- 2026-11-06: The gate runs cicd-win.ps1 -BacklogRunQuick, -Gate's new name.

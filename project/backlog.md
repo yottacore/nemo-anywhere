@@ -277,7 +277,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On b29w, the Windows lane marks the Desktop tests step PASS when wintest's session is locked and nothing ran.
 	- ID: 2026112612344381
 	- Type: Bug
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs external testing: `cicd/win/lane.bash b29w` with `NEMO_WIN_DESKTOP_LIST` naming a test and `NEMO_WIN_GATE_ARGS='-BacklogRunQuick -Yes -NoSync -NoFmt -NoTests'`, with wintest's session on b29w locked. The log shows the locked warning and `SKIP Desktop tests`, with no `PASS Desktop tests`.
 	- Priority|Severity: High
 	- Opened: 20261126-123443
 	- Opened by:
@@ -287,6 +288,16 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Incorrect behavior: the lane warns, skips the tests, and still reports the Desktop tests step as PASS.
 	- Expected behavior: tests that never ran show as SKIP, or fail the step, never as PASS.
 	- Reproduced: Yes, 20261126, in the nov26 test batch.
+	- Actual cause: the lane's desktop step returns early on a locked or missing session and leaves its step open. The exit trap then closes any open step as PASS when the lane exits 0.
+	- Actual fix: the lane closes the Desktop tests step as SKIP before it returns in both cases. The change is in `lane.bash`, with `test-lane.bash`, the `echo.bash` usage line and design.md's native gate bullet.
+	- Decisions:
+		- SKIP rather than a failure. A locked session is the box's state, not the app's, per 2026110216323705, and the lane's exit code stays 0.
+		- The same holds when the tests came from `NEMO_WIN_DESKTOP_LIST` after a `-NoTests` build, though then no test ran on the lane at all. The step line says so, and cicd.bash's handling of the lane's exit codes is left as it is.
+	- Swept: the `nosession` branch, which left its step open the same way and is fixed too. The other early return, "the gate skipped no tests", has nothing to run and stays a PASS. The FreeBSD and arm64 lanes have no step that returns early with nothing run.
+	- Branch: nov27-2026112612344381
+	- Commit: 5700951a
+	- Test case: depg0, with SKIP checks for the locked and no-session cases, and a new case for tests named in `NEMO_WIN_DESKTOP_LIST` in a locked session.
+	- Verified: 20261127, depg0 fails 6 checks against the old `lane.bash`, "no SKIP line for the named tests in a locked session" among them, and passes after. `--backlog-run-quick format lint` passes.
 
 - Option to write xattrs for files on external devices with filesystems that support it.
 	- ID: 2026112709525243
