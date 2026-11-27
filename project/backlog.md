@@ -302,7 +302,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Option to write xattrs for files on external devices with filesystems that support it.
 	- ID: 2026112709525243
 	- Type: Enhancement
-	- Status: Queued
+	- Status: Waiting on automated testing
+	- Needs external testing: dfw8x in the native Windows gate on vm925w, with `NEMO_TEST_EXTERNAL_DIR` set to a folder on its USB disk, so the drive type and bus checks run on a real external drive. Under wine only the fixed disk branch ran.
+	- Needs hand testing: the look of the external drives row and its warning icon, and the tooltip's wording.
 	- Priority|Severity: High
 	- Opened: 20261127-095252
 	- Opened by: t00mietum
@@ -312,7 +314,18 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Before the next cut.
 		- Off by default.
 		- With a warning icon that this is not a good idea, and that they'll still go in the local file cache if/when read normally.
-	- Test case: none yet.
+	- Progress log:
+		- 20261127: built. Advanced, Blake3 checksum, has `[ ] Also on external drives.` under the xattrs box, with a warning icon after it.
+	- Decisions:
+		- A new key, `file-cache.save-checksum-external`, off by default. With it off, `save-checksum` no longer writes onto a file on an external drive, which it did before. The checksum still goes in the file cache.
+		- The row is indented under the xattrs box, and grayed unless both boxes above it are on. The icon is `dialog-warning-symbolic`. It and the checkbox share one tooltip, which says it's not recommended, and that checksums of those files still go in the local file cache when they're read normally.
+		- External is read from the block device on Linux, through sysfs, the way udisks does it: USB, FireWire, a memory stick, the removable flag, or an SD card. An encrypted or RAID volume goes by the disks under it. The volume monitor wasn't used, since checksums are written on worker threads. Windows asks the drive type, then the bus of a fixed drive. macOS and the BSDs go by the automount folders `/Volumes/`, `/media/` and `/run/media/`.
+		- Not caught: a file system with no block device of its own, such as btrfs or ZFS, even on a USB disk, and a Thunderbolt disk. Both read as internal and keep today's behavior.
+	- Swept: both places that write a checksum onto a file, the thumbnail queue and the small copy, go through the new `nemo_thumbnail_saves_checksum_on`. `nemo_file_digest_write_attr` has no other caller. The schema, the keys table and both design docs are updated.
+	- Branch: nov27-2026112709525243
+	- Commit: a9ad74f3
+	- Test case: dfw8x, External drive test, checks sysfs layouts for SATA, USB, a card reader, an SD card against an eMMC, FireWire, and an encrypted volume over SATA and over USB, plus the setting. dd24j, Small file copy test, new case: on a USB disk the checksums are cached, and go onto the files only with the new setting on. dd5df, Settings dialog test, checks the row's default, graying and tooltip. dbnfq, Settings widgets test, checks the label and icon.
+	- Verified: 20261127, dfw8x, dd24j and dd5df fail 6 checks with the external check and the graying taken out, and pass with them. dcy08, dfh5x, dbsx7 and dbnfq pass. Under wine dfw8x and dd24j pass, on the fixed disk branch only. The Windows cross build, gcc's and clang's analyzers on the changed files, and `--backlog-run-quick format lint` pass.
 
 - With OLE drag on, a GTK drag on Windows may keep its whole drag window.
 	- ID: 2026102112223038

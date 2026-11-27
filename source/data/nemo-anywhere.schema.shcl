@@ -173,6 +173,12 @@ field: file-cache.save-checksum
 	desc: "Write each checksum onto the file it belongs to, as the extended attributes user.blake3.b64u, .bytes and .mtime. On Windows these are alternate data streams, which only local NTFS and ReFS drives keep"
 	# aliases: [blake3, hash, xattr, extended attributes, alternate data streams]
 
+field: file-cache.save-checksum-external
+	type: bool
+	default: false
+	desc: "Write checksums onto files on external drives too, such as USB sticks and disks and SD cards, while save-checksum is on. Off leaves those files as they are, and their checksums still go in the file cache"
+	# aliases: [blake3, hash, xattr, extended attributes, alternate data streams, usb, removable]
+
 field: file-cache.prune-min-hours
 	type: int
 	default: 4

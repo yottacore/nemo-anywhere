@@ -57,7 +57,8 @@ void nemo_small_copy_sums_flush (NemoSmallCopySums *sums);
 void nemo_small_copy_sums_free (NemoSmallCopySums *sums);
 
 /* Keeps sum for the source and the target in the file cache, and onto both
-   files with file-cache.save-checksum on too. Called once the caller has set
+   files with file-cache.save-checksum on too, except a file on an external
+   drive while file-cache.save-checksum-external is off. Called once the caller has set
    the target's times, since the cache keys a checksum on them. The files get
    theirs now. The cache gets them when sums is next flushed, which it is once
    enough are held or the oldest has waited a while, or at once for a NULL

@@ -396,6 +396,15 @@ test('de5gz blake3 routines test',
   args: []
 )
 
+test('dfw8x External drive test',
+  executable('test-nemo-external-drive',
+    [ 'test-nemo-external-drive.c' ],
+    include_directories: [ rootInclude, ],
+    dependencies: [ gtk, nemo_private, test_scratch ],
+  ),
+  args: []
+)
+
 test('dcy08 File checksum attribute test',
   executable('test-nemo-file-xattr',
     [ 'test-nemo-file-xattr.c' ],

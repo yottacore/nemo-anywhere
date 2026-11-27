@@ -309,11 +309,11 @@ nemo_small_copy_keep_checksum (NemoSmallCopySums *sums,
 		sums_add (sums, dest, &made);
 	}
 
-	if (nemo_thumbnail_saves_checksum ()) {
+	if (nemo_thumbnail_saves_checksum_on (src)) {
 		save_on_file (src, sum);
-		if (made.has_digest) {
-			save_on_file (dest, &made);
-		}
+	}
+	if (made.has_digest && nemo_thumbnail_saves_checksum_on (dest)) {
+		save_on_file (dest, &made);
 	}
 
 	if (mine != NULL) {

@@ -31,6 +31,7 @@
 #include "nemo-global-preferences.h"
 #include "nemo-file-utilities.h"
 #include "nemo-file-digest.h"
+#include "nemo-external-drive.h"
 #include "nemo-thumbnail-memory.h"
 #include <math.h>
 #include <eel/eel-graphic-effects.h>
@@ -565,7 +566,7 @@ learn_digest (NemoCacheDb *db, NemoThumbnailInfo *info)
     }
 
     file = g_file_new_for_uri (info->image_uri);
-    if (g_file_peek_path (file) == NULL)
+    if (g_file_peek_path (file) == NULL || !nemo_thumbnail_saves_checksum_on (file))
         return;
 
     info->id.has_digest = nemo_file_digest_file (file, info->id.digest, info->stop, NULL) &&
@@ -1308,6 +1309,20 @@ nemo_thumbnail_saves_checksum (void)
 
     return nemo_config_get_boolean (group, NEMO_FILE_CACHE_CHECKSUM_FULL_READS) &&
            nemo_config_get_boolean (group, NEMO_FILE_CACHE_SAVE_CHECKSUM);
+}
+
+/* The one check before a checksum is written onto a file. A drive that plugs in often goes to other machines and tools, so it takes one only with its own setting on. */
+gboolean
+nemo_thumbnail_saves_checksum_on (GFile *file)
+{
+    NemoConfigGroup *group = nemo_config_get_group (NEMO_FILE_CACHE_GROUP);
+
+    if (!nemo_thumbnail_saves_checksum ()) {
+        return FALSE;
+    }
+
+    return nemo_config_get_boolean (group, NEMO_FILE_CACHE_SAVE_CHECKSUM_EXTERNAL) ||
+           !nemo_file_is_on_external_drive (file);
 }
 
 int

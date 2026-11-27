@@ -767,7 +767,9 @@ test_selection_model (GtkWidget *dialog)
 
 /* The Blake3 checksum section is on Advanced. Caching on full reads is on by
    default, and while it's off the box for saving onto files is grayed, and the
-   thumbnail queue doesn't save onto files whatever that box says. */
+   thumbnail queue doesn't save onto files whatever that box says. The external
+   drives row under it is off by default, grayed unless both boxes above are
+   on, and its warning icon says why it's off. */
 static void
 test_checksum_section (GtkWidget *dialog)
 {
@@ -775,13 +777,30 @@ test_checksum_section (GtkWidget *dialog)
 	GtkWidget *full_reads = find_named (dialog, "file_cache_checksum_full_reads_checkbutton");
 	GtkWidget *save = find_named (dialog, "file_cache_save_checksum_checkbutton");
 	GtkWidget *page = find_named (dialog, "advanced_scrolledwindow");
+	GtkWidget *external = find_named (dialog, "file_cache_save_checksum_external_checkbutton");
+	GtkWidget *row = find_named (dialog, "file_cache_save_checksum_external_box");
+	GtkWidget *warning = find_named (dialog, "file_cache_save_checksum_external_warning");
+	g_autofree char *tip = NULL;
 
 	check (full_reads != NULL && save != NULL && page != NULL);
-	if (full_reads == NULL || save == NULL || page == NULL) {
+	check (external != NULL && row != NULL && warning != NULL);
+	if (full_reads == NULL || save == NULL || page == NULL || external == NULL || row == NULL || warning == NULL) {
 		return;
 	}
 	check (gtk_widget_is_ancestor (full_reads, page));
 	check (gtk_widget_is_ancestor (save, page));
+	check (gtk_widget_is_ancestor (external, row));
+	check (gtk_widget_is_ancestor (warning, row));
+
+	check (!gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (external)));
+	check (!gtk_widget_get_sensitive (row));
+	tip = gtk_widget_get_tooltip_text (warning);
+	check (tip != NULL && g_str_has_prefix (tip, "Not recommended.") &&
+	       strstr (tip, "still go in the local file cache") != NULL);
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (external), TRUE);
+	check (nemo_config_get_boolean (group, NEMO_FILE_CACHE_SAVE_CHECKSUM_EXTERNAL));
+	nemo_config_reset (group, NEMO_FILE_CACHE_SAVE_CHECKSUM_EXTERNAL);
+	check (!gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (external)));
 
 	check (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (full_reads)));
 	check (!gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (save)));
@@ -791,10 +810,12 @@ test_checksum_section (GtkWidget *dialog)
 	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (save), TRUE);
 	check (nemo_config_get_boolean (group, NEMO_FILE_CACHE_SAVE_CHECKSUM));
 	check (nemo_thumbnail_saves_checksum ());
+	check (gtk_widget_get_sensitive (row));
 
 	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (full_reads), FALSE);
 	check (!nemo_config_get_boolean (group, NEMO_FILE_CACHE_CHECKSUM_FULL_READS));
 	check (!gtk_widget_get_sensitive (save));
+	check (!gtk_widget_get_sensitive (row));
 	check (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (save)));
 	check (!nemo_thumbnail_saves_checksum ());
 
@@ -803,10 +824,12 @@ test_checksum_section (GtkWidget *dialog)
 	check (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (full_reads)));
 	check (gtk_widget_get_sensitive (save));
 	check (nemo_thumbnail_saves_checksum ());
+	check (gtk_widget_get_sensitive (row));
 
 	nemo_config_reset (group, NEMO_FILE_CACHE_SAVE_CHECKSUM);
 	check (!gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (save)));
 	check (!nemo_thumbnail_saves_checksum ());
+	check (!gtk_widget_get_sensitive (row));
 }
 
 /* The default view lists the views in the View menu's order, and each row
