@@ -36,8 +36,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - When a file-selection drag from the checkmark column crosses into other columns, don't turn it into a regular drag. Keep it a file-selection drag.
 	- ID: 2026112610132091
 	- Type: Bug
-	- Status: Waiting for answers
-		- Waits on the question in questions.md about which system and build it was seen on.
+	- Status: Closed
 	- Priority|Severity: High
 	- Opened: 20261126-101321
 	- Opened by: t00mietum
@@ -54,6 +53,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- Not tried: Windows, since dec8v isn't built there. A Linux copy from before 20261110, where a plain drag from the checkmark column of a selected row still dragged files. A press just right of the thin checkmark column, which lands in Name and drags files by design.
 	- Progress log:
 		- 20261126: not reproduced on Linux. Added the checks below, so the case stays pinned whatever the answer turns out to be.
+		- 20261127: seen on b23 on an older build, and not on the current one. Fits the pre-20261110 behavior.
 	- Decisions:
 		- The new checks move the real pointer, since a band that GTK's event path keeps could still break under real input. Without that input on the display they fail rather than pass.
 	- Branch: nov26
@@ -61,6 +61,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 		- 20261126: dec8v's list view count under Nemo Anywhere went from 66 to 72.
 	- Verified: 20261126, dec8v passes, and its new checks fail with the checkmark column's band turned off. ddy5f and de8ec pass. The format and lint gate passes, and neither analyzer reports anything on the changed files.
 	- Commit: 000f2aad
+	- Closed reason: Done
+	- Closed: 20261127-094629
+	- Acceptance signoff: Self-closed: seen on b23 on an older build, before 20261110's checkmark drag rule, and not seen on the current build; dec8v pins it.
 
 - Settings: a Keyboard tab that lists the shortcuts, and changes, turns off, and resets each one.
 	- ID: 2026112312181296
