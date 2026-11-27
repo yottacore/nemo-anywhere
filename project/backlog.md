@@ -277,8 +277,8 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - On b29w, the Windows lane marks the Desktop tests step PASS when wintest's session is locked and nothing ran.
 	- ID: 2026112612344381
 	- Type: Bug
-	- Status: Waiting on automated testing
-	- Needs external testing: `cicd/win/lane.bash b29w` with `NEMO_WIN_DESKTOP_LIST` naming a test and `NEMO_WIN_GATE_ARGS='-BacklogRunQuick -Yes -NoSync -NoFmt -NoTests'`, with wintest's session on b29w locked. The log shows the locked warning and `SKIP Desktop tests`, with no `PASS Desktop tests`.
+	- Status: Closed
+	- Closed reason: Done
 	- Priority|Severity: High
 	- Opened: 20261126-123443
 	- Opened by:
@@ -298,6 +298,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Commit: 5700951a
 	- Test case: depg0, with SKIP checks for the locked and no-session cases, and a new case for tests named in `NEMO_WIN_DESKTOP_LIST` in a locked session.
 	- Verified: 20261127, depg0 fails 6 checks against the old `lane.bash`, "no SKIP line for the named tests in a locked session" among them, and passes after. `--backlog-run-quick format lint` passes.
+	- Verified: 20261127, `cicd/win/lane.bash` on b29w at the round's head, with `NEMO_WIN_DESKTOP_LIST` naming one test and the item's gate args. wintest's session was disconnected, which reads as locked. The gate passed, the log shows the locked warning and `SKIP Desktop tests`, with no `PASS Desktop tests`, and the lane exited 0.
+	- Acceptance signoff: Self-closed: the item's own lane run on b29w showed SKIP for the step.
+	- Closed: 20261127-111938
 
 - Option to write xattrs for files on external devices with filesystems that support it.
 	- ID: 2026112709525243
@@ -305,6 +308,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Status: Waiting on automated testing
 	- Needs external testing: dfw8x in the native Windows gate on vm925w, with `NEMO_TEST_EXTERNAL_DIR` set to a folder on its USB disk, so the drive type and bus checks run on a real external drive. Under wine only the fixed disk branch ran.
 	- Needs hand testing: the look of the external drives row and its warning icon, and the tooltip's wording.
+	- Stand-in: none (20261127). Turns on how the row and icon look and how the tooltip reads. dd5df and dbnfq already check the row, its graying, the icon and the tooltip text.
 	- Priority|Severity: High
 	- Opened: 20261127-095252
 	- Opened by: t00mietum
