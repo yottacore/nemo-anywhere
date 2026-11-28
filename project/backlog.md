@@ -65,8 +65,9 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 - Option to write xattrs for files on external devices with filesystems that support it.
 	- ID: 2026112709525243
 	- Type: Enhancement
-	- Status: Waiting on automated testing
-	- Needs external testing: dfw8x natively on vm925w (USB through its passthrough) or b29w, with a USB drive plugged in and `NEMO_TEST_EXTERNAL_DIR` set on the box to a folder on it, so the drive type and bus checks run on a real external drive. Under wine only the fixed disk branch ran. On 20261127 neither box had a USB drive plugged in.
+	- Status: Waiting on UAT
+		- For the look of the external drives row and its warning icon, and the tooltip's wording. The behavior is verified.
+	- Needs external testing: No
 	- Needs hand testing: the look of the external drives row and its warning icon, and the tooltip's wording.
 	- Stand-in: none (20261127). Turns on how the row and icon look and how the tooltip reads. dd5df and dbnfq already check the row, its graying, the icon and the tooltip text.
 	- Priority|Severity: High
@@ -92,6 +93,7 @@ This is a product backlog just for pre-v1.0.0 release. After that, bugs, feature
 	- Test case: dfw8x, External drive test, checks sysfs layouts for SATA, USB, a card reader, an SD card against an eMMC, FireWire, and an encrypted volume over SATA and over USB, plus the setting. dd24j, Small file copy test, new case: on a USB disk the checksums are cached, and go onto the files only with the new setting on. dd5df, Settings dialog test, checks the row's default, graying and tooltip. dbnfq, Settings widgets test, checks the label and icon. dcz6w, Thumbnail order test, checks that same-size-and-time twins get their own thumbnails.
 	- Verified: 20261127, dfw8x, dd24j and dd5df fail 6 checks with the external check and the graying taken out, and pass with them. dcy08, dfh5x, dbsx7 and dbnfq pass. Under wine dfw8x and dd24j pass, on the fixed disk branch only. The Windows cross build, gcc's and clang's analyzers on the changed files, and `--backlog-run-quick format lint` pass.
 	- Verified: 20261127, after the fix. dcz6w failed 3 of 3 in the gate's quick run before it, and passes 3 of 3 after. dd24j, dfw8x, dd5df and ddah8 pass. gcc's and clang's analyzers are clean on `nemo-thumbnails.c`, and `--backlog-run-quick format lint` passes.
+	- Verified: 20261127, dfw8x natively on b29w at dev `4e2c8fb6`. With `NEMO_TEST_EXTERNAL_DIR` on a folder on a SanDisk USB drive, D:, BusType USB and DriveType Removable (2), it passes, so that drive reads as external. With it on a folder on C:, BusType NVMe and DriveType Fixed (3), the one check that it reads as external fails and every other check passes, so the internal drive reads as not external. The bus check for a fixed USB disk didn't run, since this drive reports as removable.
 
 - Move every Windows lane from MSYS2's MINGW64 to UCRT64.
 	- ID: 2026110920004210
